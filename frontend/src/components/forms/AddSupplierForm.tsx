@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
+import { ApiService, CreateSupplierRequest, ApiError } from "@/services/api"
 
 interface AddSupplierFormProps {
   open: boolean
@@ -50,8 +51,25 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const supplierData: CreateSupplierRequest = {
+        name: formData.name,
+        contact_person: formData.contactPerson || undefined,
+        phone: formData.phone || undefined,
+        email: formData.email || undefined,
+        website: undefined, // Not in current form
+        address: formData.address || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        zip_code: formData.zipCode || undefined,
+        country: formData.country || undefined,
+        category: formData.category || undefined,
+        tax_id: formData.taxId || undefined,
+        payment_terms: formData.paymentTerms || undefined,
+        notes: formData.notes || undefined,
+        status: 'active'
+      }
+
+      await ApiService.createSupplier(supplierData)
       
       toast.success("Supplier added successfully!", {
         description: `${formData.name} has been added to your supplier directory.`
@@ -77,9 +95,15 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
       onSupplierAdded?.()
       onOpenChange(false)
     } catch (error) {
-      toast.error("Failed to add supplier", {
-        description: "Please try again later."
-      })
+      if (error instanceof ApiError) {
+        toast.error("Failed to add supplier", {
+          description: error.message
+        })
+      } else {
+        toast.error("Failed to add supplier", {
+          description: "Please try again later."
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }
