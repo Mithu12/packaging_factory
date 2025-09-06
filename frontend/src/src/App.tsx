@@ -28,10 +28,6 @@ import EditPurchaseOrder from "./pages/EditPurchaseOrder";
 import ReceiveGoods from "./pages/ReceiveGoods";
 import InventoryDetails from "./pages/InventoryDetails";
 import EditInventory from "./pages/EditInventory";
-import ViewInvoice from "./pages/ViewInvoice";
-import PaymentHistory from "./pages/PaymentHistory";
-import SendReminder from "./pages/SendReminder";
-import GenerateStatement from "./pages/GenerateStatement";
 
 const queryClient = new QueryClient();
 
@@ -63,10 +59,6 @@ const App = () => (
           <Route path="/inventory/:id/edit" element={<DashboardLayout><EditInventory /></DashboardLayout>} />
           <Route path="/inventory/:id/adjust" element={<DashboardLayout><AdjustStock /></DashboardLayout>} />
           <Route path="/payments" element={<DashboardLayout><Payments /></DashboardLayout>} />
-          <Route path="/view-invoice/:invoiceId" element={<DashboardLayout><ViewInvoice /></DashboardLayout>} />
-          <Route path="/payment-history/:supplierId?" element={<DashboardLayout><PaymentHistory /></DashboardLayout>} />
-          <Route path="/send-reminder/:invoiceId" element={<DashboardLayout><SendReminder /></DashboardLayout>} />
-          <Route path="/generate-statement/:supplierId?" element={<DashboardLayout><GenerateStatement /></DashboardLayout>} />
           <Route path="/reports" element={<DashboardLayout><Reports /></DashboardLayout>} />
           <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
