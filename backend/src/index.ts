@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 
 // Import routes
-import supplierRoutes from './routes/suppliers';
+import supplierRoutes from './routes/suppliers.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables

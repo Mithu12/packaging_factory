@@ -108,7 +108,7 @@ src/
 ├── middleware/
 │   └── errorHandler.ts   # Error handling middleware
 ├── routes/
-│   └── suppliers.ts      # Supplier API routes
+│   └── suppliers.routes.ts      # Supplier API routes
 ├── services/
 │   └── supplierService.ts # Supplier business logic
 ├── types/
