@@ -1,19 +1,27 @@
 import pool from './connection';
+import {MyLogger} from '@/utils/new-logger';
 
 const seedData = async () => {
+  let action = 'Seed Database Data'
   const client = await pool.connect();
   
   try {
+    MyLogger.info(action)
+    
     // Check if data already exists
+    MyLogger.info('Check Existing Data')
     const result = await client.query('SELECT COUNT(*) FROM suppliers');
     const count = parseInt(result.rows[0].count);
     
     if (count > 0) {
+      MyLogger.warn(action, { message: 'Data already exists, skipping seed', existingCount: count })
       console.log('📊 Data already exists, skipping seed');
       return;
     }
+    MyLogger.success('Check Existing Data', { existingCount: count })
 
     // Insert sample suppliers
+    MyLogger.info('Insert Sample Suppliers')
     const suppliers = [
       {
         supplier_code: 'SUP-001',
@@ -133,8 +141,10 @@ const seedData = async () => {
         supplier.last_order_date, supplier.notes
       ]);
     }
+    MyLogger.success('Insert Sample Suppliers', { suppliersCount: suppliers.length })
 
     // Insert sample performance data
+    MyLogger.info('Insert Sample Performance Data')
     const performanceData = [
       {
         supplier_id: 1,
@@ -180,9 +190,15 @@ const seedData = async () => {
         perf.on_time_delivery_rate, perf.notes
       ]);
     }
+    MyLogger.success('Insert Sample Performance Data', { performanceRecordsCount: performanceData.length })
 
+    MyLogger.success(action, { 
+      suppliersInserted: suppliers.length, 
+      performanceRecordsInserted: performanceData.length 
+    })
     console.log('✅ Sample data inserted successfully');
   } catch (error) {
+    MyLogger.error(action, error)
     console.error('❌ Error seeding data:', error);
     throw error;
   } finally {
@@ -192,12 +208,16 @@ const seedData = async () => {
 
 // Run seed if this file is executed directly
 if (require.main === module) {
+  let action = 'Database Seeding'
+  MyLogger.info(action)
   seedData()
     .then(() => {
+      MyLogger.success(action)
       console.log('🎉 Seeding completed successfully');
       process.exit(0);
     })
     .catch((error) => {
+      MyLogger.error(action, error)
       console.error('💥 Seeding failed:', error);
       process.exit(1);
     });

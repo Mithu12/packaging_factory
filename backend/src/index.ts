@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 // Import routes
 import supplierRoutes from './routes/suppliers.routes';
 import { errorHandler } from './middleware/errorHandler';
+import {MyLogger} from './utils/new-logger';
 
 // Load environment variables
 dotenv.config();
@@ -41,11 +42,20 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+  let action = 'Health Check'
+  try {
+    MyLogger.info(action, { ip: req.ip, userAgent: req.get('User-Agent') })
+    const healthData = { 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    };
+    MyLogger.success(action, healthData)
+    res.status(200).json(healthData);
+  } catch (error: any) {
+    MyLogger.error(action, error, { ip: req.ip })
+    res.status(500).json({ status: 'ERROR', message: 'Health check failed' });
+  }
 });
 
 // API routes
@@ -53,10 +63,22 @@ app.use('/api/suppliers', supplierRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ 
-    error: 'Route not found',
-    path: req.originalUrl 
-  });
+  let action = '404 Route Not Found'
+  try {
+    MyLogger.warn(action, { 
+      path: req.originalUrl, 
+      method: req.method, 
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    res.status(404).json({ 
+      error: 'Route not found',
+      path: req.originalUrl 
+    });
+  } catch (error: any) {
+    MyLogger.error(action, error, { path: req.originalUrl })
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Error handling middleware
@@ -64,9 +86,22 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  let action = 'Server Startup'
+  try {
+    const serverInfo = {
+      port: PORT,
+      healthCheckUrl: `http://localhost:${PORT}/health`,
+      apiBaseUrl: `http://localhost:${PORT}/api`,
+      environment: process.env.NODE_ENV || 'development'
+    };
+    MyLogger.success(action, serverInfo);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  } catch (error: any) {
+    MyLogger.error(action, error, { port: PORT });
+    console.error('Failed to start server:', error);
+  }
 });
 
 export default app;

@@ -26,8 +26,11 @@ class AddSupplierMediator {
 
     // Create a new supplier
     async createSupplier(data: CreateSupplierRequest): Promise<Supplier> {
+        let action = 'Create Supplier'
         const client = await pool.connect();
         try {
+            MyLogger.info(action, { supplierName: data.name })
+            
             const {
                 name,
                 contact_person,
@@ -72,8 +75,10 @@ class AddSupplierMediator {
             ];
 
             const result = await client.query(query, values);
+            MyLogger.success(action, { supplierId: result.rows[0].id, supplierCode })
             return result.rows[0];
         } catch (error: any) {
+            MyLogger.error(action, error, { supplierName: data.name })
             if (error.code === '23505') { // Unique violation
                 throw createError('Supplier with this information already exists', 409);
             }

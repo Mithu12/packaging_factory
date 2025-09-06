@@ -2,13 +2,17 @@ import {Supplier, UpdateSupplierRequest} from "@/types/supplier";
 import pool from "@/database/connection";
 import {createError} from "@/middleware/errorHandler";
 import GetSupplierInfoMediator from "@/mediators/suppliers/GetSupplierInfo.mediator";
+import {MyLogger} from "@/utils/new-logger";
 
 class UpdateSupplierInfoMediator {
 
     // Toggle supplier status (activate/deactivate)
     async toggleSupplierStatus(id: number): Promise<Supplier> {
+        let action = 'Toggle Supplier Status'
         const client = await pool.connect();
         try {
+            MyLogger.info(action, { supplierId: id })
+            
             const supplier = await GetSupplierInfoMediator.getSupplierById(id);
             const newStatus = supplier.status === 'active' ? 'inactive' : 'active';
 
@@ -17,7 +21,11 @@ class UpdateSupplierInfoMediator {
                 [newStatus, id]
             );
 
+            MyLogger.success(action, { supplierId: id, oldStatus: supplier.status, newStatus })
             return result.rows[0];
+        } catch (error: any) {
+            MyLogger.error(action, error, { supplierId: id })
+            throw error;
         } finally {
             client.release();
         }
@@ -26,8 +34,11 @@ class UpdateSupplierInfoMediator {
 
     // Update supplier
     async updateSupplier(id: number, data: UpdateSupplierRequest): Promise<Supplier> {
+        let action = 'Update Supplier'
         const client = await pool.connect();
         try {
+            MyLogger.info(action, { supplierId: id, updateFields: Object.keys(data) })
+            
             const {
                 name,
                 contact_person,
@@ -106,9 +117,10 @@ class UpdateSupplierInfoMediator {
             }
 
             const result = await client.query(query);
-
+            MyLogger.success(action, { supplierId: id, supplierName: result.rows[0].name })
             return result.rows[0];
         } catch (error: any) {
+            MyLogger.error(action, error, { supplierId: id })
             if (error.code === '23505') { // Unique violation
                 throw createError('Supplier with this information already exists', 409);
             }

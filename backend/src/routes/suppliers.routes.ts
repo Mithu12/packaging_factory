@@ -1,5 +1,4 @@
 import express, {NextFunction, Request, Response} from 'express';
-import {SupplierService} from '@/services/supplierService';
 import {
     createSupplierSchema,
     updateSupplierSchema,
@@ -11,40 +10,58 @@ import AddSupplierMediator from "@/mediators/suppliers/AddSupplier.mediator";
 import UpdateSupplierInfoMediator from "@/mediators/suppliers/UpdateSupplierInfo.mediator";
 import DeleteSupplierMediator from "@/mediators/suppliers/DeleteSupplier.mediator";
 import expressAsyncHandler from "express-async-handler";
+import {MyLogger} from "@/utils/new-logger";
 
 const router = express.Router();
-const supplierService = new SupplierService();
 
 // Validation middleware
 const validateRequest = (schema: any) => {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        const {error, value} = schema.validate(req.body);
-        if (error) {
-            return res.status(400).json({
-                error: {
-                    message: 'Validation error',
-                    details: error.details.map((detail: any) => detail.message)
-                }
-            });
+        let action = 'Validate Request Body'
+        try {
+            MyLogger.info(action, { endpoint: req.path, method: req.method })
+            const {error, value} = schema.validate(req.body);
+            if (error) {
+                MyLogger.warn(action, { endpoint: req.path, method: req.method, validationErrors: error.details })
+                return res.status(400).json({
+                    error: {
+                        message: 'Validation error',
+                        details: error.details.map((detail: any) => detail.message)
+                    }
+                });
+            }
+            req.body = value;
+            MyLogger.success(action, { endpoint: req.path, method: req.method })
+            return next();
+        } catch (err: any) {
+            MyLogger.error(action, err, { endpoint: req.path, method: req.method })
+            throw err;
         }
-        req.body = value;
-        return next();
     };
 };
 
 const validateQuery = (schema: any) => {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        const {error, value} = schema.validate(req.query);
-        if (error) {
-            return res.status(400).json({
-                error: {
-                    message: 'Query validation error',
-                    details: error.details.map((detail: any) => detail.message)
-                }
-            });
+        let action = 'Validate Query Parameters'
+        try {
+            MyLogger.info(action, { endpoint: req.path, method: req.method, query: req.query })
+            const {error, value} = schema.validate(req.query);
+            if (error) {
+                MyLogger.warn(action, { endpoint: req.path, method: req.method, validationErrors: error.details })
+                return res.status(400).json({
+                    error: {
+                        message: 'Query validation error',
+                        details: error.details.map((detail: any) => detail.message)
+                    }
+                });
+            }
+            req.query = value;
+            MyLogger.success(action, { endpoint: req.path, method: req.method })
+            return next();
+        } catch (err: any) {
+            MyLogger.error(action, err, { endpoint: req.path, method: req.method })
+            throw err;
         }
-        req.query = value;
-        return next();
     };
 };
 

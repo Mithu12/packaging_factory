@@ -1,10 +1,15 @@
 import pool from './connection';
+import {MyLogger} from '@/utils/new-logger';
 
 const createTables = async () => {
+  let action = 'Create Database Tables'
   const client = await pool.connect();
   
   try {
+    MyLogger.info(action)
+    
     // Create suppliers table
+    MyLogger.info('Create Suppliers Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS suppliers (
         id SERIAL PRIMARY KEY,
@@ -37,8 +42,10 @@ const createTables = async () => {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    MyLogger.success('Create Suppliers Table')
 
     // Create supplier performance tracking table
+    MyLogger.info('Create Supplier Performance Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS supplier_performance (
         id SERIAL PRIMARY KEY,
@@ -54,8 +61,10 @@ const createTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    MyLogger.success('Create Supplier Performance Table')
 
     // Create indexes for better performance
+    MyLogger.info('Create Database Indexes')
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
     `);
@@ -71,8 +80,10 @@ const createTables = async () => {
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_supplier_performance_supplier_id ON supplier_performance(supplier_id);
     `);
+    MyLogger.success('Create Database Indexes')
 
     // Create function to update updated_at timestamp
+    MyLogger.info('Create Update Timestamp Function')
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -82,8 +93,10 @@ const createTables = async () => {
       END;
       $$ language 'plpgsql';
     `);
+    MyLogger.success('Create Update Timestamp Function')
 
     // Create trigger to automatically update updated_at
+    MyLogger.info('Create Update Timestamp Trigger')
     await client.query(`
       DROP TRIGGER IF EXISTS update_suppliers_updated_at ON suppliers;
       CREATE TRIGGER update_suppliers_updated_at
@@ -91,9 +104,12 @@ const createTables = async () => {
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
     `);
+    MyLogger.success('Create Update Timestamp Trigger')
 
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
+    MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);
     throw error;
   } finally {
@@ -103,12 +119,16 @@ const createTables = async () => {
 
 // Run migrations if this file is executed directly
 if (require.main === module) {
+  let action = 'Database Migration'
+  MyLogger.info(action)
   createTables()
     .then(() => {
+      MyLogger.success(action)
       console.log('🎉 Migration completed successfully');
       process.exit(0);
     })
     .catch((error) => {
+      MyLogger.error(action, error)
       console.error('💥 Migration failed:', error);
       process.exit(1);
     });

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import {MyLogger} from '@/utils/new-logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -11,16 +12,18 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
+  let action = 'Global Error Handler'
   let { statusCode = 500, message } = err;
 
   // Log error for debugging
-  console.error('Error:', {
-    message: err.message,
-    stack: err.stack,
+  MyLogger.error(action, err, {
     url: req.url,
     method: req.method,
     ip: req.ip,
-    userAgent: req.get('User-Agent')
+    userAgent: req.get('User-Agent'),
+    body: req.body,
+    params: req.params,
+    query: req.query
   });
 
   // Handle specific error types
@@ -38,6 +41,13 @@ export const errorHandler = (
     message = 'Referenced record not found';
   }
 
+  MyLogger.warn(action, { 
+    finalStatusCode: statusCode, 
+    finalMessage: message,
+    url: req.url,
+    method: req.method
+  });
+
   res.status(statusCode).json({
     error: {
       message,
@@ -48,8 +58,16 @@ export const errorHandler = (
 };
 
 export const createError = (message: string, statusCode: number = 500): AppError => {
-  const error: AppError = new Error(message);
-  error.statusCode = statusCode;
-  error.isOperational = true;
-  return error;
+  let action = 'Create Error'
+  try {
+    MyLogger.info(action, { message, statusCode })
+    const error: AppError = new Error(message);
+    error.statusCode = statusCode;
+    error.isOperational = true;
+    MyLogger.success(action, { message, statusCode })
+    return error;
+  } catch (err: any) {
+    MyLogger.error(action, err, { message, statusCode })
+    throw err;
+  }
 };
