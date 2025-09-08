@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 
 // Import routes
 import supplierRoutes from './routes/suppliers.routes';
+import categoryRoutes from './routes/categories.routes';
 import { errorHandler } from './middleware/errorHandler';
 import {MyLogger} from './utils/new-logger';
 
@@ -60,6 +61,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

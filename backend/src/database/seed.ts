@@ -192,9 +192,72 @@ const seedData = async () => {
     }
     MyLogger.success('Insert Sample Performance Data', { performanceRecordsCount: performanceData.length })
 
+    // Insert sample categories
+    MyLogger.info('Insert Sample Categories')
+    const categories = [
+      {
+        name: 'Electronics',
+        description: 'Electronic devices and accessories'
+      },
+      {
+        name: 'Clothing',
+        description: 'Apparel and fashion items'
+      },
+      {
+        name: 'Furniture',
+        description: 'Home and office furniture'
+      },
+      {
+        name: 'Books',
+        description: 'Books and educational materials'
+      }
+    ];
+
+    const insertedCategories = [];
+    for (const category of categories) {
+      const result = await client.query(
+        'INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING *',
+        [category.name, category.description]
+      );
+      insertedCategories.push(result.rows[0]);
+    }
+    MyLogger.success('Insert Sample Categories', { categoriesCount: insertedCategories.length })
+
+    // Insert sample subcategories
+    MyLogger.info('Insert Sample Subcategories')
+    const subcategories = [
+      // Electronics subcategories
+      { name: 'Smartphones', description: 'Mobile phones and accessories', category_id: insertedCategories[0].id },
+      { name: 'Laptops', description: 'Portable computers', category_id: insertedCategories[0].id },
+      { name: 'Tablets', description: 'Tablet devices', category_id: insertedCategories[0].id },
+      
+      // Clothing subcategories
+      { name: "Men's Wear", description: 'Men clothing and accessories', category_id: insertedCategories[1].id },
+      { name: "Women's Wear", description: 'Women clothing and accessories', category_id: insertedCategories[1].id },
+      { name: 'Kids Wear', description: 'Children clothing', category_id: insertedCategories[1].id },
+      
+      // Furniture subcategories
+      { name: 'Office Furniture', description: 'Desks, chairs, and office equipment', category_id: insertedCategories[2].id },
+      { name: 'Home Furniture', description: 'Living room, bedroom furniture', category_id: insertedCategories[2].id },
+      
+      // Books subcategories
+      { name: 'Fiction', description: 'Novels and fiction books', category_id: insertedCategories[3].id },
+      { name: 'Non-Fiction', description: 'Educational and reference books', category_id: insertedCategories[3].id }
+    ];
+
+    for (const subcategory of subcategories) {
+      await client.query(
+        'INSERT INTO subcategories (name, description, category_id) VALUES ($1, $2, $3)',
+        [subcategory.name, subcategory.description, subcategory.category_id]
+      );
+    }
+    MyLogger.success('Insert Sample Subcategories', { subcategoriesCount: subcategories.length })
+
     MyLogger.success(action, { 
       suppliersInserted: suppliers.length, 
-      performanceRecordsInserted: performanceData.length 
+      performanceRecordsInserted: performanceData.length,
+      categoriesInserted: insertedCategories.length,
+      subcategoriesInserted: subcategories.length
     })
     console.log('✅ Sample data inserted successfully');
   } catch (error) {

@@ -106,7 +106,72 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Update Timestamp Trigger')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance'] })
+    // Create categories table
+    MyLogger.info('Create Categories Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Categories Table')
+
+    // Create subcategories table
+    MyLogger.info('Create Subcategories Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subcategories (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(name, category_id)
+      )
+    `);
+    MyLogger.success('Create Subcategories Table')
+
+    // Create additional indexes for categories
+    MyLogger.info('Create Category Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_subcategories_category_id ON subcategories(category_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_subcategories_name ON subcategories(name);
+    `);
+    MyLogger.success('Create Category Indexes')
+
+    // Create trigger for categories updated_at
+    MyLogger.info('Create Category Update Timestamp Trigger')
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_categories_updated_at ON categories;
+      CREATE TRIGGER update_categories_updated_at
+        BEFORE UPDATE ON categories
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Category Update Timestamp Trigger')
+
+    // Create trigger for subcategories updated_at
+    MyLogger.info('Create Subcategory Update Timestamp Trigger')
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_subcategories_updated_at ON subcategories;
+      CREATE TRIGGER update_subcategories_updated_at
+        BEFORE UPDATE ON subcategories
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Subcategory Update Timestamp Trigger')
+
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)
