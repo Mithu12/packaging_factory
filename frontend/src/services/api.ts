@@ -127,6 +127,125 @@ export class ApiService {
   static async searchSuppliers(query: string, limit: number = 10) {
     return this.request<Supplier[]>(`/suppliers/search?q=${encodeURIComponent(query)}&limit=${limit}`);
   }
+
+  // Category API methods
+  static async getCategories(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = `/categories${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<{
+      categories: Category[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(endpoint);
+  }
+
+  static async getCategory(id: number) {
+    return this.request<Category>(`/categories/${id}`);
+  }
+
+  static async createCategory(data: CreateCategoryRequest) {
+    return this.request<Category>('/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateCategory(id: number, data: UpdateCategoryRequest) {
+    return this.request<Category>(`/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteCategory(id: number) {
+    return this.request<void>(`/categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async getCategoryStats() {
+    return this.request<CategoryStats>('/categories/stats');
+  }
+
+  static async searchCategories(query: string, limit: number = 10) {
+    return this.request<Category[]>(`/categories/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  // Subcategory API methods
+  static async getSubcategories(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category_id?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = `/categories/subcategories${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<{
+      subcategories: Subcategory[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(endpoint);
+  }
+
+  static async getSubcategory(id: number) {
+    return this.request<Subcategory>(`/categories/subcategories/${id}`);
+  }
+
+  static async createSubcategory(data: CreateSubcategoryRequest) {
+    return this.request<Subcategory>('/categories/subcategories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateSubcategory(id: number, data: UpdateSubcategoryRequest) {
+    return this.request<Subcategory>(`/categories/subcategories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteSubcategory(id: number) {
+    return this.request<void>(`/categories/subcategories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async searchSubcategories(query: string, limit: number = 10) {
+    return this.request<Subcategory[]>(`/categories/subcategories/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
 }
 
 // Types
@@ -197,6 +316,48 @@ export interface SupplierStats {
   inactive_suppliers: number;
   categories_count: number;
   average_rating: number;
+}
+
+// Category Types
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  subcategories?: Subcategory[];
+}
+
+export interface Subcategory {
+  id: number;
+  name: string;
+  description?: string;
+  category_id: number;
+  created_at: string;
+  updated_at: string;
+  category_name?: string;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
+
+export interface CreateSubcategoryRequest {
+  name: string;
+  description?: string;
+  category_id: number;
+}
+
+export interface UpdateSubcategoryRequest extends Partial<CreateSubcategoryRequest> {}
+
+export interface CategoryStats {
+  total_categories: number;
+  total_subcategories: number;
+  categories_with_subcategories: number;
+  average_subcategories_per_category: number;
 }
 
 export { ApiError };
