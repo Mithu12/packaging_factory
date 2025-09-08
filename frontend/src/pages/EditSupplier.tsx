@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +15,8 @@ import {
   ArrowLeft,
   Building2,
   Save,
-  X
+  X,
+  Loader2
 } from "lucide-react"
 import {
   Form,
@@ -24,21 +26,28 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { ApiService, Supplier, ApiError } from "@/services/api"
 
 const supplierSchema = z.object({
   name: z.string().min(2, "Company name must be at least 2 characters"),
-  contactPerson: z.string().min(2, "Contact person name is required"),
+  contact_person: z.string().min(2, "Contact person name is required"),
   phone: z.string().min(10, "Valid phone number is required"),
   email: z.string().email("Valid email is required"),
   address: z.string().min(10, "Complete address is required"),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip_code: z.string().optional(),
+  country: z.string().optional(),
   category: z.string().min(1, "Category is required"),
   status: z.string().min(1, "Status is required"),
-  taxId: z.string().min(3, "Tax ID is required"),
-  paymentTerms: z.string().min(1, "Payment terms are required"),
-  accountName: z.string().min(2, "Account name is required"),
-  accountNumber: z.string().min(8, "Account number is required"),
-  bankName: z.string().min(2, "Bank name is required"),
-  description: z.string().optional()
+  tax_id: z.string().min(3, "Tax ID is required"),
+  payment_terms: z.string().min(1, "Payment terms are required"),
+  bank_name: z.string().min(2, "Bank name is required"),
+  bank_account: z.string().min(8, "Account number is required"),
+  bank_routing: z.string().optional(),
+  swift_code: z.string().optional(),
+  iban: z.string().optional(),
+  notes: z.string().optional()
 })
 
 type SupplierFormData = z.infer<typeof supplierSchema>
@@ -48,50 +57,122 @@ export default function EditSupplier() {
   const navigate = useNavigate()
   const { toast } = useToast()
   
-  // Mock supplier data - in real app, fetch based on ID
-  const supplier = {
-    id: "SUP-001",
-    name: "ABC Electronics Ltd",
-    contactPerson: "John Smith",
-    phone: "+1 (555) 123-4567",
-    email: "john.smith@abcelectronics.com",
-    address: "123 Tech Street, Silicon Valley, CA 94025",
-    category: "Electronics",
-    status: "active",
-    taxId: "TAX-ABC-001",
-    paymentTerms: "Net 30",
-    accountName: "ABC Electronics Ltd",
-    accountNumber: "****-****-****-1234",
-    bankName: "Tech Bank",
-    description: "Leading supplier of high-quality electronic components and devices. Specializes in consumer electronics, industrial equipment, and custom solutions."
-  }
+  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
-      name: supplier.name,
-      contactPerson: supplier.contactPerson,
-      phone: supplier.phone,
-      email: supplier.email,
-      address: supplier.address,
-      category: supplier.category,
-      status: supplier.status,
-      taxId: supplier.taxId,
-      paymentTerms: supplier.paymentTerms,
-      accountName: supplier.accountName,
-      accountNumber: supplier.accountNumber,
-      bankName: supplier.bankName,
-      description: supplier.description
+      name: "",
+      contact_person: "",
+      phone: "",
+      email: "",
+      address: "",
+      city: "",
+      state: "",
+      zip_code: "",
+      country: "",
+      category: "",
+      status: "active",
+      tax_id: "",
+      payment_terms: "",
+      bank_name: "",
+      bank_account: "",
+      bank_routing: "",
+      swift_code: "",
+      iban: "",
+      notes: ""
     }
   })
 
-  const onSubmit = (data: SupplierFormData) => {
-    console.log("Updating supplier:", data)
-    toast({
-      title: "Supplier Updated",
-      description: "Supplier information has been successfully updated.",
-    })
-    navigate(`/suppliers/${id}`)
+  // Fetch supplier data
+  useEffect(() => {
+    const fetchSupplier = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        setError(null)
+        const supplierData = await ApiService.getSupplier(parseInt(id))
+        setSupplier(supplierData)
+        
+        // Update form with fetched data
+        form.reset({
+          name: supplierData.name || "",
+          contact_person: supplierData.contact_person || "",
+          phone: supplierData.phone || "",
+          email: supplierData.email || "",
+          address: supplierData.address || "",
+          city: supplierData.city || "",
+          state: supplierData.state || "",
+          zip_code: supplierData.zip_code || "",
+          country: supplierData.country || "",
+          category: supplierData.category || "",
+          status: (supplierData.status as 'active' | 'inactive') || "active",
+          tax_id: supplierData.tax_id || "",
+          payment_terms: supplierData.payment_terms || "",
+          bank_name: supplierData.bank_name || "",
+          bank_account: supplierData.bank_account || "",
+          bank_routing: supplierData.bank_routing || "",
+          swift_code: supplierData.swift_code || "",
+          iban: supplierData.iban || "",
+          notes: supplierData.notes || ""
+        })
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+          toast({
+            title: "Error",
+            description: err.message,
+            variant: "destructive"
+          })
+        } else {
+          setError("Failed to load supplier data")
+          toast({
+            title: "Error",
+            description: "Failed to load supplier data",
+            variant: "destructive"
+          })
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSupplier()
+  }, [id, form, toast])
+
+  const onSubmit = async (data: SupplierFormData) => {
+    if (!id) return
+    
+    try {
+      setSaving(true)
+      await ApiService.updateSupplier(parseInt(id), data)
+      
+      toast({
+        title: "Supplier Updated",
+        description: "Supplier information has been successfully updated.",
+      })
+      navigate(`/suppliers/${id}`)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update supplier",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const categories = [
@@ -106,13 +187,50 @@ export default function EditSupplier() {
   ]
 
   const paymentTermsOptions = [
-    "Net 15",
-    "Net 30", 
-    "Net 45",
-    "Net 60",
-    "COD",
-    "Prepaid"
+    "net-15",
+    "net-30", 
+    "net-45",
+    "net-60",
+    "cod",
+    "prepaid"
   ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading supplier data...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!supplier) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Supplier not found</p>
+          <Button onClick={() => navigate('/suppliers')} className="mt-4">
+            Back to Suppliers
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -128,7 +246,9 @@ export default function EditSupplier() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Edit Supplier</h1>
-            <p className="text-muted-foreground">Update supplier information and details</p>
+            <p className="text-muted-foreground">
+              Update supplier information and details for {supplier?.name}
+            </p>
           </div>
         </div>
       </div>
@@ -164,7 +284,7 @@ export default function EditSupplier() {
                     
                     <FormField
                       control={form.control}
-                      name="contactPerson"
+                      name="contact_person"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Contact Person</FormLabel>
@@ -214,7 +334,65 @@ export default function EditSupplier() {
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Enter complete address" {...field} />
+                          <Input placeholder="Enter street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter city" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter state" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="zip_code"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ZIP Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter ZIP code" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter country" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -272,12 +450,12 @@ export default function EditSupplier() {
 
                   <FormField
                     control={form.control}
-                    name="description"
+                    name="notes"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Enter supplier description" {...field} />
+                          <Textarea placeholder="Enter supplier notes" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -295,7 +473,7 @@ export default function EditSupplier() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="taxId"
+                      name="tax_id"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Tax ID</FormLabel>
@@ -309,7 +487,7 @@ export default function EditSupplier() {
                     
                     <FormField
                       control={form.control}
-                      name="paymentTerms"
+                      name="payment_terms"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Payment Terms</FormLabel>
@@ -322,7 +500,7 @@ export default function EditSupplier() {
                             <SelectContent>
                               {paymentTermsOptions.map((term) => (
                                 <SelectItem key={term} value={term}>
-                                  {term}
+                                  {term.replace('-', ' ').toUpperCase()}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -335,17 +513,17 @@ export default function EditSupplier() {
 
                   <Separator />
 
-                  <div className="space-y-4">
+                    <div className="space-y-4">
                     <h4 className="font-medium">Bank Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="accountName"
+                        name="bank_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Account Name</FormLabel>
+                            <FormLabel>Bank Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="Enter account name" {...field} />
+                              <Input placeholder="Enter bank name" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -354,7 +532,7 @@ export default function EditSupplier() {
                       
                       <FormField
                         control={form.control}
-                        name="accountNumber"
+                        name="bank_account"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Account Number</FormLabel>
@@ -367,19 +545,49 @@ export default function EditSupplier() {
                       />
                     </div>
                     
-                    <FormField
-                      control={form.control}
-                      name="bankName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter bank name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="bank_routing"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Routing Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter routing number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="swift_code"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>SWIFT Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter SWIFT code" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="iban"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>IBAN</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter IBAN" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -392,15 +600,25 @@ export default function EditSupplier() {
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button type="submit" className="w-full">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
+                  <Button type="submit" className="w-full" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
                     className="w-full"
                     onClick={() => navigate(`/suppliers/${id}`)}
+                    disabled={saving}
                   >
                     <X className="w-4 h-4 mr-2" />
                     Cancel

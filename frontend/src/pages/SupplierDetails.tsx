@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,54 +10,162 @@ import {
   Phone,
   Mail,
   MapPin,
-  Calendar,
-  Star,
-  Package,
-  CreditCard,
   Edit,
-  Eye
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Loader2
 } from "lucide-react"
+import { ApiService, Supplier, ApiError } from "@/services/api"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function SupplierDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { toast } = useToast()
   
-  // Mock supplier data - in real app, fetch based on ID
-  const supplier = {
-    id: "SUP-001",
-    name: "ABC Electronics Ltd",
-    contactPerson: "John Smith",
-    phone: "+1 (555) 123-4567",
-    email: "john.smith@abcelectronics.com",
-    address: "123 Tech Street, Silicon Valley, CA 94025",
-    category: "Electronics",
-    status: "active",
-    rating: 4.8,
-    totalOrders: 145,
-    lastOrder: "2024-01-10",
-    joinedDate: "2022-03-15",
-    taxId: "TAX-ABC-001",
-    paymentTerms: "Net 30",
-    bankDetails: {
-      accountName: "ABC Electronics Ltd",
-      accountNumber: "****-****-****-1234",
-      bankName: "Tech Bank"
-    },
-    description: "Leading supplier of high-quality electronic components and devices. Specializes in consumer electronics, industrial equipment, and custom solutions."
+  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [togglingStatus, setTogglingStatus] = useState(false)
+
+  // Fetch supplier data
+  useEffect(() => {
+    const fetchSupplier = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        setError(null)
+        const supplierData = await ApiService.getSupplier(parseInt(id))
+        setSupplier(supplierData)
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+        } else {
+          setError("Failed to load supplier data")
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSupplier()
+  }, [id])
+
+  const handleToggleStatus = async () => {
+    if (!supplier) return
+    
+    try {
+      setTogglingStatus(true)
+      const updatedSupplier = await ApiService.toggleSupplierStatus(supplier.id)
+      setSupplier(updatedSupplier)
+      
+      toast({
+        title: "Status Updated",
+        description: `Supplier has been ${updatedSupplier.status === 'active' ? 'activated' : 'deactivated'}.`,
+      })
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update supplier status",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setTogglingStatus(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!supplier) return
+    
+    try {
+      await ApiService.deleteSupplier(supplier.id)
+      
+      toast({
+        title: "Supplier Deleted",
+        description: "Supplier has been successfully deleted.",
+      })
+      navigate('/suppliers')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete supplier",
+          variant: "destructive"
+        })
+      }
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading supplier details...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!supplier) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Supplier not found</p>
+          <Button onClick={() => navigate('/suppliers')} className="mt-4">
+            Back to Suppliers
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "active": return "bg-success text-white"
-      case "inactive": return "bg-status-draft text-white"
-      default: return "bg-muted"
+      case "active": return "bg-green-100 text-green-800"
+      case "inactive": return "bg-gray-100 text-gray-800"
+      default: return "bg-gray-100 text-gray-800"
     }
-  }
-
-  const getRatingColor = (rating: number) => {
-    if (rating >= 4.5) return "text-success"
-    if (rating >= 4.0) return "text-warning"
-    return "text-destructive"
   }
 
   return (
@@ -67,197 +176,247 @@ export default function SupplierDetails() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => navigate("/suppliers")}
+            onClick={() => navigate('/suppliers')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Supplier Details</h1>
-            <p className="text-muted-foreground">Complete information about {supplier.name}</p>
+            <h1 className="text-3xl font-bold text-foreground">{supplier.name}</h1>
+            <p className="text-muted-foreground">Supplier Details</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
+        <div className="flex items-center gap-2">
+          <Badge className={getStatusColor(supplier.status)}>
+            {supplier.status}
+          </Badge>
+          <Button
             variant="outline"
-            onClick={() => navigate(`/suppliers/${id}/orders`)}
+            size="sm"
+            onClick={handleToggleStatus}
+            disabled={togglingStatus}
           >
-            <Eye className="w-4 h-4 mr-2" />
-            View Orders
+            {togglingStatus ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : supplier.status === 'active' ? (
+              <ToggleLeft className="w-4 h-4" />
+            ) : (
+              <ToggleRight className="w-4 h-4" />
+            )}
+            {supplier.status === 'active' ? 'Deactivate' : 'Activate'}
           </Button>
-          <Button onClick={() => navigate(`/suppliers/${id}/edit`)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/suppliers/${id}/edit`)}
+          >
             <Edit className="w-4 h-4 mr-2" />
-            Edit Supplier
+            Edit
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the supplier
+                  "{supplier.name}" and remove all associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Info */}
+        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <div className="text-xl">{supplier.name}</div>
-                  <div className="text-sm text-muted-foreground">{supplier.id}</div>
-                </div>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Basic Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-muted-foreground">{supplier.description}</p>
-              
-              <Separator />
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span>{supplier.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <span>{supplier.email}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <span>{supplier.address}</span>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
+                  <p className="text-sm">{supplier.supplier_code}</p>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Contact Person</span>
-                    <div className="font-medium">{supplier.contactPerson}</div>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Category</span>
-                    <div>
-                      <Badge variant="outline">{supplier.category}</Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <div>
-                      <Badge className={getStatusColor(supplier.status)}>
-                        {supplier.status}
-                      </Badge>
-                    </div>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Category</label>
+                  <p className="text-sm">{supplier.category || 'N/A'}</p>
                 </div>
               </div>
+
+              {supplier.contact_person && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Contact Person</label>
+                  <p className="text-sm">{supplier.contact_person}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {supplier.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{supplier.phone}</span>
+                  </div>
+                )}
+                {supplier.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{supplier.email}</span>
+                  </div>
+                )}
+              </div>
+
+              {supplier.address && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm">{supplier.address}</p>
+                    {(supplier.city || supplier.state || supplier.zip_code) && (
+                      <p className="text-sm text-muted-foreground">
+                        {[supplier.city, supplier.state, supplier.zip_code].filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                    {supplier.country && (
+                      <p className="text-sm text-muted-foreground">{supplier.country}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {supplier.notes && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Notes</label>
+                  <p className="text-sm">{supplier.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Financial Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Financial Information
-              </CardTitle>
+              <CardTitle>Financial Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm text-muted-foreground">Tax ID</span>
-                  <div className="font-medium">{supplier.taxId}</div>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Payment Terms</span>
-                  <div className="font-medium">{supplier.paymentTerms}</div>
-                </div>
+                {supplier.tax_id && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Tax ID</label>
+                    <p className="text-sm">{supplier.tax_id}</p>
+                  </div>
+                )}
+                {supplier.payment_terms && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
+                    <p className="text-sm">{supplier.payment_terms.replace('-', ' ').toUpperCase()}</p>
+                  </div>
+                )}
               </div>
-              
-              <Separator />
-              
-              <div>
-                <h4 className="font-medium mb-3">Bank Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {(supplier.bank_name || supplier.bank_account) && (
+                <>
+                  <Separator />
                   <div>
-                    <span className="text-sm text-muted-foreground">Account Name</span>
-                    <div className="font-medium">{supplier.bankDetails.accountName}</div>
+                    <h4 className="font-medium mb-2">Bank Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {supplier.bank_name && (
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                          <p className="text-sm">{supplier.bank_name}</p>
+                        </div>
+                      )}
+                      {supplier.bank_account && (
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                          <p className="text-sm">{supplier.bank_account}</p>
+                        </div>
+                      )}
+                    </div>
+                    {(supplier.bank_routing || supplier.swift_code || supplier.iban) && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        {supplier.bank_routing && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Routing Number</label>
+                            <p className="text-sm">{supplier.bank_routing}</p>
+                          </div>
+                        )}
+                        {supplier.swift_code && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">SWIFT Code</label>
+                            <p className="text-sm">{supplier.swift_code}</p>
+                          </div>
+                        )}
+                        {supplier.iban && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">IBAN</label>
+                            <p className="text-sm">{supplier.iban}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Account Number</span>
-                    <div className="font-medium">{supplier.bankDetails.accountNumber}</div>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Bank Name</span>
-                    <div className="font-medium">{supplier.bankDetails.bankName}</div>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Stats & Quick Info */}
+        {/* Sidebar */}
         <div className="space-y-6">
           {/* Performance Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Performance Overview</CardTitle>
+              <CardTitle>Performance</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Rating</span>
-                <div className="flex items-center gap-2">
-                  <Star className={`w-4 h-4 ${getRatingColor(supplier.rating)}`} fill="currentColor" />
-                  <span className={`font-medium ${getRatingColor(supplier.rating)}`}>
-                    {supplier.rating}
-                  </span>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Rating</label>
+                <p className="text-2xl font-bold">{supplier.rating}/5.0</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Total Orders</label>
+                <p className="text-2xl font-bold">{supplier.total_orders}</p>
+              </div>
+              {supplier.last_order_date && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Last Order</label>
+                  <p className="text-sm">{new Date(supplier.last_order_date).toLocaleDateString()}</p>
                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Orders</span>
-                <span className="font-medium">{supplier.totalOrders}</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Last Order</span>
-                <span className="font-medium">{supplier.lastOrder}</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Joined Date</span>
-                <span className="font-medium">{supplier.joinedDate}</span>
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
+          {/* Metadata */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
+              <CardTitle>Metadata</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate(`/suppliers/${id}/orders`)}
-              >
-                <Package className="w-4 h-4 mr-2" />
-                View All Orders
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate("/purchase-orders/new")}
-              >
-                <Package className="w-4 h-4 mr-2" />
-                Create Purchase Order
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Schedule Meeting
-              </Button>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Created</label>
+                <p className="text-sm">{new Date(supplier.created_at).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                <p className="text-sm">{new Date(supplier.updated_at).toLocaleDateString()}</p>
+              </div>
             </CardContent>
           </Card>
         </div>

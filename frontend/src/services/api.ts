@@ -181,7 +181,7 @@ export interface CreateSupplierRequest {
   bank_routing?: string;
   swift_code?: string;
   iban?: string;
-  status?: 'active' | 'inactive';
+  status?: string; // active, inactive
   notes?: string;
 }
 
