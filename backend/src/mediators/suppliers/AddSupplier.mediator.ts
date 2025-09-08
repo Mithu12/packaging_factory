@@ -11,10 +11,10 @@ class AddSupplierMediator {
         try {
             MyLogger.info(action)
             const result = await pool.query(
-                'SELECT COUNT(*) FROM suppliers WHERE supplier_code LIKE $1',
-                ['SUP-%']
+                `select nextval('supplier_code_suppliers') as code;`,
+                []
             );
-            const count = parseInt(result.rows[0].count) + 1;
+            const count = parseInt(result.rows[0].code);
             let code = `SUP-${count.toString().padStart(3, '0')}`;
             MyLogger.success(action, {code})
             return code
