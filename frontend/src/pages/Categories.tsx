@@ -40,6 +40,27 @@ const Categories = () => {
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Helper function to refresh subcategories data
+  const refreshSubcategories = async () => {
+    const subcategoriesResult = await ApiService.getSubcategories({ limit: 1000 })
+    const subcategories = subcategoriesResult.subcategories
+    
+    // Group subcategories by category_id
+    const subcategoriesByCategory = subcategories.reduce((acc, subcategory) => {
+      if (!acc[subcategory.category_id]) {
+        acc[subcategory.category_id] = []
+      }
+      acc[subcategory.category_id].push(subcategory)
+      return acc
+    }, {} as Record<number, Subcategory[]>)
+    
+    // Update categories with the latest subcategories
+    setCategories(categories.map(category => ({
+      ...category,
+      subcategories: subcategoriesByCategory[category.id] || []
+    })))
+  }
+
   // Category form
   const categoryForm = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
@@ -52,14 +73,37 @@ const Categories = () => {
     defaultValues: { name: "", description: "", category_id: 0 },
   })
 
-  // Fetch categories on component mount
+  // Fetch categories and subcategories on component mount
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchCategoriesAndSubcategories = async () => {
       try {
         setLoading(true)
         setError(null)
-        const result = await ApiService.getCategories({ limit: 100 }) // Get all categories
-        setCategories(result.categories)
+        
+        // Fetch categories
+        const categoriesResult = await ApiService.getCategories({ limit: 100 })
+        const categories = categoriesResult.categories
+        
+        // Fetch all subcategories
+        const subcategoriesResult = await ApiService.getSubcategories({ limit: 1000 })
+        const subcategories = subcategoriesResult.subcategories
+        
+        // Group subcategories by category_id
+        const subcategoriesByCategory = subcategories.reduce((acc, subcategory) => {
+          if (!acc[subcategory.category_id]) {
+            acc[subcategory.category_id] = []
+          }
+          acc[subcategory.category_id].push(subcategory)
+          return acc
+        }, {} as Record<number, Subcategory[]>)
+        
+        // Attach subcategories to their parent categories
+        const categoriesWithSubcategories = categories.map(category => ({
+          ...category,
+          subcategories: subcategoriesByCategory[category.id] || []
+        }))
+        
+        setCategories(categoriesWithSubcategories)
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message)
@@ -81,7 +125,7 @@ const Categories = () => {
       }
     }
 
-    fetchCategories()
+    fetchCategoriesAndSubcategories()
   }, [])
 
   // Category handlers
@@ -190,12 +234,9 @@ const Categories = () => {
         category_id: data.category_id
       })
       
-      // Update the categories state to include the new subcategory
-      setCategories(categories.map(cat => 
-        cat.id === data.category_id 
-          ? { ...cat, subcategories: [...(cat.subcategories || []), newSubcategory] }
-          : cat
-      ))
+      // Refresh subcategories data from the database
+      await refreshSubcategories()
+      
       subcategoryForm.reset()
       setIsAddSubcategoryOpen(false)
       toast({ 
@@ -228,16 +269,9 @@ const Categories = () => {
       setSaving(true)
       const updatedSubcategory = await ApiService.updateSubcategory(editingSubcategory.subcategory.id, data)
       
-      setCategories(categories.map(cat => 
-        cat.id === editingSubcategory.categoryId
-          ? {
-              ...cat,
-              subcategories: (cat.subcategories || []).map(sub =>
-                sub.id === editingSubcategory.subcategory.id ? updatedSubcategory : sub
-              )
-            }
-          : cat
-      ))
+      // Refresh subcategories data from the database
+      await refreshSubcategories()
+      
       subcategoryForm.reset()
       setEditingSubcategory(null)
       toast({ 
@@ -267,11 +301,10 @@ const Categories = () => {
     try {
       setSaving(true)
       await ApiService.deleteSubcategory(subcategoryId)
-      setCategories(categories.map(cat => 
-        cat.id === categoryId
-          ? { ...cat, subcategories: (cat.subcategories || []).filter(sub => sub.id !== subcategoryId) }
-          : cat
-      ))
+      
+      // Refresh subcategories data from the database
+      await refreshSubcategories()
+      
       toast({ 
         title: "Subcategory deleted successfully!",
         description: "Subcategory has been removed."

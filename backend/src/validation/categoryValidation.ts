@@ -36,7 +36,7 @@ export const updateSubcategorySchema = subcategoryBaseSchema.keys({
 
 export const getSubcategoriesQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().optional().allow(''),
   category_id: Joi.number().integer().positive().optional(),
   sortBy: Joi.string().valid('id', 'name', 'category_id', 'created_at', 'updated_at').default('id'),

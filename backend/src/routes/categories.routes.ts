@@ -116,6 +116,53 @@ router.get('/search', expressAsyncHandler(async (req, res, next) => {
     }
 }));
 
+// GET /api/categories/subcategories - Get all subcategories with pagination and filtering
+router.get('/subcategories', validateQuery(getSubcategoriesQuerySchema), expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/subcategories'
+    try {
+        MyLogger.info(action, { query: req.query })
+        const result = await GetCategoryInfoMediator.getSubcategoryList(req.query);
+        MyLogger.success(action, { total: result.total, page: result.page, limit: result.limit })
+        serializeSuccessResponse(res, result, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { query: req.query })
+        throw error;
+    }
+}));
+
+// GET /api/categories/subcategories/search - Search subcategories
+router.get('/subcategories/search', expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/subcategories/search'
+    try {
+        const {q, limit} = req.query;
+        MyLogger.info(action, { query: q, limit })
+        const subcategories = await GetCategoryInfoMediator.searchSubcategories(
+            q as string,
+            limit ? parseInt(limit as string) : 10
+        );
+        MyLogger.success(action, { query: q, resultsCount: subcategories.length })
+        serializeSuccessResponse(res, subcategories, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { query: req.query.q })
+        throw error;
+    }
+}));
+
+// GET /api/categories/subcategories/:id - Get subcategory by ID
+router.get('/subcategories/:id', expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/subcategories/:id'
+    try {
+        const id = parseInt(req.params.id);
+        MyLogger.info(action, { subcategoryId: id })
+        const subcategory = await GetCategoryInfoMediator.getSubcategoryById(id);
+        MyLogger.success(action, { subcategoryId: id, subcategoryName: subcategory.name })
+        serializeSuccessResponse(res, subcategory, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { subcategoryId: req.params.id })
+        throw error;
+    }
+}));
+
 // GET /api/categories/:id - Get category by ID with subcategories
 router.get('/:id', expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/categories/:id'
@@ -189,53 +236,6 @@ router.get('/:categoryId/subcategories', validateQuery(getSubcategoriesQuerySche
         serializeSuccessResponse(res, result, 'SUCCESS')
     } catch (error: any) {
         MyLogger.error(action, error, { categoryId: req.params.categoryId })
-        throw error;
-    }
-}));
-
-// GET /api/subcategories - Get all subcategories with pagination and filtering
-router.get('/subcategories', validateQuery(getSubcategoriesQuerySchema), expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/subcategories'
-    try {
-        MyLogger.info(action, { query: req.query })
-        const result = await GetCategoryInfoMediator.getSubcategoryList(req.query);
-        MyLogger.success(action, { total: result.total, page: result.page, limit: result.limit })
-        serializeSuccessResponse(res, result, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query })
-        throw error;
-    }
-}));
-
-// GET /api/subcategories/search - Search subcategories
-router.get('/subcategories/search', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/subcategories/search'
-    try {
-        const {q, limit} = req.query;
-        MyLogger.info(action, { query: q, limit })
-        const subcategories = await GetCategoryInfoMediator.searchSubcategories(
-            q as string,
-            limit ? parseInt(limit as string) : 10
-        );
-        MyLogger.success(action, { query: q, resultsCount: subcategories.length })
-        serializeSuccessResponse(res, subcategories, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query.q })
-        throw error;
-    }
-}));
-
-// GET /api/subcategories/:id - Get subcategory by ID
-router.get('/subcategories/:id', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/subcategories/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { subcategoryId: id })
-        const subcategory = await GetCategoryInfoMediator.getSubcategoryById(id);
-        MyLogger.success(action, { subcategoryId: id, subcategoryName: subcategory.name })
-        serializeSuccessResponse(res, subcategory, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { subcategoryId: req.params.id })
         throw error;
     }
 }));
