@@ -27,8 +27,28 @@ interface AddProductFormProps {
   onProductAdded?: () => void
 }
 
+interface ProductFormData {
+  name: string
+  sku: string
+  category_id: string
+  subcategory_id: string
+  unit_of_measure: string
+  cost_price: string
+  selling_price: string
+  current_stock: string
+  min_stock_level: string
+  max_stock_level: string
+  supplier_id: string
+  description: string
+  barcode: string
+  weight: string
+  dimensions: string
+  tax_rate: string
+  notes: string
+}
+
 export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProductFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     name: "",
     sku: "",
     category_id: "",
@@ -174,7 +194,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof ProductFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -216,28 +236,34 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select value={formData.category_id} onValueChange={(value) => handleInputChange("category_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Electronics</SelectItem>
-                  <SelectItem value="2">Furniture</SelectItem>
-                  <SelectItem value="3-supplies">Office Supplies</SelectItem>
-                  <SelectItem value="4">Raw Materials</SelectItem>
-                  <SelectItem value="5">Components</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={formData.category_id} onValueChange={handleCategoryChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="subCategory">Sub Category</Label>
-              <Input
-                id="subCategory"
-                value={formData.subcategory_id}
-                onChange={(e) => handleInputChange("subcategory_id", e.target.value)}
-                placeholder="Enter sub category"
-              />
+              <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sub category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subcategories.map((subcategory) => (
+                    <SelectItem key={subcategory.id} value={subcategory.id.toString()}>
+                      {subcategory.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -312,17 +338,18 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
           <div className="space-y-2">
             <Label htmlFor="supplier">Supplier</Label>
-            <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select supplier" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">ABC Electronics Ltd</SelectItem>
-                <SelectItem value="2">Global Raw Materials Inc</SelectItem>
-                <SelectItem value="3">Office Furniture Pro</SelectItem>
-                <SelectItem value="4">Premium Parts Supply</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
           </div>
 
           <div className="space-y-2">

@@ -20,6 +20,14 @@ import {
   Loader2
 } from "lucide-react"
 import { ApiService, ProductWithDetails, StockAdjustmentRequest, ApiError } from "@/services/api"
+
+interface StockAdjustmentFormData {
+  adjustment_type: string
+  quantity: string
+  reason: string
+  reference: string
+  notes: string
+}
 import {
   Table,
   TableBody,
@@ -63,7 +71,7 @@ export default function AdjustStock() {
     fetchProduct()
   }, [id])
 
-  const [adjustmentData, setAdjustmentData] = useState({
+  const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
     adjustment_type: "",
     quantity: "",
     reason: "",
@@ -123,7 +131,7 @@ export default function AdjustStock() {
     ]
   }
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof StockAdjustmentFormData, value: string) => {
     setAdjustmentData(prev => ({ ...prev, [field]: value }))
     
     if (field === "quantity" || field === "adjustment_type") {

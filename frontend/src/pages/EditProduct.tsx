@@ -11,6 +11,28 @@ import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Save, Package, Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 
+interface EditProductFormData {
+  name: string
+  sku: string
+  description: string
+  category_id: string
+  subcategory_id: string
+  unit_of_measure: string
+  cost_price: string
+  selling_price: string
+  current_stock: string
+  min_stock_level: string
+  max_stock_level: string
+  reorder_point: string
+  supplier_id: string
+  status: string
+  barcode: string
+  weight: string
+  dimensions: string
+  tax_rate: string
+  notes: string
+}
+
 export default function EditProduct() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -24,7 +46,7 @@ export default function EditProduct() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<EditProductFormData>({
     name: "",
     sku: "",
     description: "",
@@ -110,7 +132,7 @@ export default function EditProduct() {
     fetchData()
   }, [id])
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof EditProductFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
