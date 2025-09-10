@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,8 +12,10 @@ import {
   MoreHorizontal,
   Package,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from "lucide-react"
+import { ApiService, Product, ProductStats, ApiError } from "@/services/api"
 import {
   Table,
   TableBody,
@@ -33,84 +35,43 @@ export default function Products() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
-  
-  const products = [
-    {
-      id: "PRD-001",
-      sku: "LPT-001",
-      name: "Business Laptop Model X",
-      category: "Electronics",
-      subCategory: "Laptops",
-      unit: "pcs",
-      costPrice: 850,
-      sellingPrice: 1200,
-      currentStock: 45,
-      minStock: 10,
-      supplier: "ABC Electronics Ltd",
-      status: "active"
-    },
-    {
-      id: "PRD-002",
-      sku: "CHR-205",
-      name: "Ergonomic Office Chair",
-      category: "Furniture",
-      subCategory: "Seating",
-      unit: "pcs",
-      costPrice: 150,
-      sellingPrice: 220,
-      currentStock: 8,
-      minStock: 15,
-      supplier: "Office Furniture Pro",
-      status: "active"
-    },
-    {
-      id: "PRD-003",
-      sku: "TNR-301",
-      name: "Laser Printer Toner",
-      category: "Office Supplies",
-      subCategory: "Consumables",
-      unit: "pcs",
-      costPrice: 45,
-      sellingPrice: 75,
-      currentStock: 3,
-      minStock: 12,
-      supplier: "Premium Parts Supply",
-      status: "active"
-    },
-    {
-      id: "PRD-004",
-      sku: "MTL-450",
-      name: "Steel Raw Material Grade A",
-      category: "Raw Materials",
-      subCategory: "Metals",
-      unit: "kg",
-      costPrice: 2.5,
-      sellingPrice: 4.0,
-      currentStock: 2500,
-      minStock: 500,
-      supplier: "Global Raw Materials Inc",
-      status: "active"
-    },
-    {
-      id: "PRD-005",
-      sku: "CBL-102",
-      name: "USB-C Cable Premium",
-      category: "Electronics",
-      subCategory: "Accessories",
-      unit: "pcs",
-      costPrice: 8,
-      sellingPrice: 15,
-      currentStock: 120,
-      minStock: 50,
-      supplier: "ABC Electronics Ltd",
-      status: "discontinued"
+  const [products, setProducts] = useState<Product[]>([])
+  const [stats, setStats] = useState<ProductStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch products and stats on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const [productsResult, statsResult] = await Promise.all([
+          ApiService.getProducts({ limit: 100 }), // Get all products
+          ApiService.getProductStats()
+        ])
+        
+        setProducts(productsResult.products)
+        setStats(statsResult)
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+        } else {
+          setError("Failed to load products")
+        }
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchData()
+  }, [])
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const getStockStatus = (current: number, min: number) => {
@@ -128,12 +89,49 @@ export default function Products() {
     }
   }
 
-  const categories = [
-    { name: "Electronics", count: 145, color: "bg-blue-100 text-blue-800" },
-    { name: "Furniture", count: 89, color: "bg-green-100 text-green-800" },
-    { name: "Office Supplies", count: 234, color: "bg-yellow-100 text-yellow-800" },
-    { name: "Raw Materials", count: 67, color: "bg-purple-100 text-purple-800" }
-  ]
+  // Get unique categories from products
+  const categories = products.reduce((acc, product) => {
+    if (product.category_name) {
+      const existing = acc.find(cat => cat.name === product.category_name)
+      if (existing) {
+        existing.count++
+      } else {
+        acc.push({
+          name: product.category_name,
+          count: 1,
+          color: acc.length % 4 === 0 ? "bg-blue-100 text-blue-800" :
+                 acc.length % 4 === 1 ? "bg-green-100 text-green-800" :
+                 acc.length % 4 === 2 ? "bg-yellow-100 text-yellow-800" :
+                 "bg-purple-100 text-purple-800"
+        })
+      }
+    }
+    return acc
+  }, [] as { name: string; count: number; color: string }[])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading products...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -156,8 +154,8 @@ export default function Products() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Products</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,247</div>
-            <p className="text-xs text-success">+23 this month</p>
+            <div className="text-2xl font-bold">{stats?.total_products || 0}</div>
+            <p className="text-xs text-success">{stats?.active_products || 0} active</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
@@ -165,7 +163,7 @@ export default function Products() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">15</div>
+            <div className="text-2xl font-bold text-warning">{stats?.low_stock_products || 0}</div>
             <p className="text-xs text-muted-foreground">Need reordering</p>
           </CardContent>
         </Card>
@@ -174,7 +172,7 @@ export default function Products() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Categories</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{stats?.categories_count || 0}</div>
             <p className="text-xs text-muted-foreground">Active categories</p>
           </CardContent>
         </Card>
@@ -183,8 +181,8 @@ export default function Products() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$342K</div>
-            <p className="text-xs text-success">+8.2% this month</p>
+            <div className="text-2xl font-bold">${stats?.total_inventory_value ? (stats.total_inventory_value / 1000).toFixed(0) + 'K' : '0'}</div>
+            <p className="text-xs text-success">Inventory value</p>
           </CardContent>
         </Card>
       </div>
@@ -246,7 +244,7 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {filteredProducts.map((product) => {
-                  const stockInfo = getStockStatus(product.currentStock, product.minStock)
+                  const stockInfo = getStockStatus(product.current_stock, product.min_stock_level)
                   const StockIcon = stockInfo.icon
                   
                   return (
@@ -264,8 +262,8 @@ export default function Products() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium text-sm">{product.category}</div>
-                          <div className="text-xs text-muted-foreground">{product.subCategory}</div>
+                          <div className="font-medium text-sm">{product.category_name}</div>
+                          <div className="text-xs text-muted-foreground">{product.subcategory_name}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -273,22 +271,22 @@ export default function Products() {
                           <StockIcon className={`w-4 h-4 ${stockInfo.color}`} />
                           <div>
                             <div className={`font-medium text-sm ${stockInfo.color}`}>
-                              {product.currentStock} {product.unit}
+                              {product.current_stock} {product.unit_of_measure}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Min: {product.minStock} {product.unit}
+                              Min: {product.min_stock_level} {product.unit_of_measure}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium text-sm">${product.sellingPrice}</div>
-                          <div className="text-xs text-muted-foreground">Cost: ${product.costPrice}</div>
+                          <div className="font-medium text-sm">${product.selling_price}</div>
+                          <div className="text-xs text-muted-foreground">Cost: ${product.cost_price}</div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {product.supplier}
+                        {product.supplier_name}
                       </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(product.status)}>
@@ -331,9 +329,19 @@ export default function Products() {
       <AddProductForm 
         open={showAddForm} 
         onOpenChange={setShowAddForm}
-        onProductAdded={() => {
-          // In a real app, this would refresh the products list
-          console.log("Product added, refreshing list...")
+        onProductAdded={async () => {
+          // Refresh the products list
+          try {
+            const [productsResult, statsResult] = await Promise.all([
+              ApiService.getProducts({ limit: 100 }),
+              ApiService.getProductStats()
+            ])
+            
+            setProducts(productsResult.products)
+            setStats(statsResult)
+          } catch (err) {
+            console.error("Failed to refresh products:", err)
+          }
         }}
       />
     </div>

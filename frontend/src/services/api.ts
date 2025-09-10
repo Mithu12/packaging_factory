@@ -246,6 +246,107 @@ export class ApiService {
   static async searchSubcategories(query: string, limit: number = 10) {
     return this.request<Subcategory[]>(`/categories/subcategories/search?q=${encodeURIComponent(query)}&limit=${limit}`);
   }
+
+  // Product API methods
+  static async getProducts(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category_id?: number;
+    subcategory_id?: number;
+    supplier_id?: number;
+    status?: string;
+    low_stock?: boolean;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const searchParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = `/products${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<{
+      products: Product[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(endpoint);
+  }
+
+  static async getProduct(id: number) {
+    return this.request<ProductWithDetails>(`/products/${id}`);
+  }
+
+  static async createProduct(data: CreateProductRequest) {
+    return this.request<Product>('/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateProduct(id: number, data: UpdateProductRequest) {
+    return this.request<Product>(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteProduct(id: number) {
+    return this.request<void>(`/products/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async toggleProductStatus(id: number) {
+    return this.request<Product>(`/products/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
+  static async updateProductStock(id: number, data: StockAdjustmentRequest) {
+    return this.request<Product>(`/products/${id}/stock`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getProductStats() {
+    return this.request<ProductStats>('/products/stats');
+  }
+
+  static async searchProducts(query: string, limit: number = 10) {
+    return this.request<Product[]>(`/products/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  static async getLowStockProducts() {
+    return this.request<Product[]>('/products/low-stock');
+  }
+
+  static async getProductsByCategory(categoryId: number) {
+    return this.request<Product[]>(`/products/category/${categoryId}`);
+  }
+
+  static async getProductsBySupplier(supplierId: number) {
+    return this.request<Product[]>(`/products/supplier/${supplierId}`);
+  }
+
+  static async checkProductReferences(id: number) {
+    return this.request<{
+      hasReferences: boolean;
+      references: {
+        purchase_order_items: number;
+        inventory_transactions: number;
+      };
+    }>(`/products/${id}/references`);
+  }
 }
 
 // Types
@@ -358,6 +459,102 @@ export interface CategoryStats {
   total_subcategories: number;
   categories_with_subcategories: number;
   average_subcategories_per_category: number;
+}
+
+// Product Types
+export interface Product {
+  id: number;
+  product_code: string;
+  sku: string;
+  name: string;
+  description?: string;
+  category_id: number;
+  subcategory_id?: number;
+  unit_of_measure: string;
+  cost_price: number;
+  selling_price: number;
+  current_stock: number;
+  min_stock_level: number;
+  max_stock_level?: number;
+  supplier_id: number;
+  status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
+  barcode?: string;
+  weight?: number;
+  dimensions?: string;
+  tax_rate?: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  category_name?: string;
+  subcategory_name?: string;
+  supplier_name?: string;
+}
+
+export interface ProductWithDetails extends Product {
+  category: {
+    id: number;
+    name: string;
+  };
+  subcategory?: {
+    id: number;
+    name: string;
+  };
+  supplier: {
+    id: number;
+    name: string;
+    supplier_code: string;
+  };
+}
+
+export interface CreateProductRequest {
+  sku: string;
+  name: string;
+  description?: string;
+  category_id: number;
+  subcategory_id?: number;
+  unit_of_measure: string;
+  cost_price: number;
+  selling_price: number;
+  current_stock: number;
+  min_stock_level: number;
+  max_stock_level?: number;
+  supplier_id: number;
+  status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
+  barcode?: string;
+  weight?: number;
+  dimensions?: string;
+  tax_rate?: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
+  notes?: string;
+}
+
+export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+
+export interface ProductStats {
+  total_products: number;
+  active_products: number;
+  inactive_products: number;
+  discontinued_products: number;
+  out_of_stock_products: number;
+  low_stock_products: number;
+  total_inventory_value: number;
+  average_cost_price: number;
+  average_selling_price: number;
+  categories_count: number;
+  suppliers_count: number;
+}
+
+export interface StockAdjustmentRequest {
+  product_id: number;
+  adjustment_type: 'increase' | 'decrease' | 'set';
+  quantity: number;
+  reason: string;
+  reference?: string;
+  notes?: string;
 }
 
 export { ApiError };
