@@ -38,7 +38,9 @@ interface ProductFormData {
   current_stock: string
   min_stock_level: string
   max_stock_level: string
+  reorder_point: string
   supplier_id: string
+  status: string
   description: string
   barcode: string
   weight: string
@@ -59,7 +61,9 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     current_stock: "0",
     min_stock_level: "",
     max_stock_level: "",
+    reorder_point: "",
     supplier_id: "",
+    status: "active",
     description: "",
     barcode: "",
     weight: "",
@@ -142,7 +146,9 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
         max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
+        reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
         supplier_id: parseInt(formData.supplier_id),
+        status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
         barcode: formData.barcode || undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
@@ -168,7 +174,9 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         current_stock: "0",
         min_stock_level: "",
         max_stock_level: "",
+        reorder_point: "",
         supplier_id: "",
+        status: "active",
         description: "",
         barcode: "",
         weight: "",
@@ -313,6 +321,18 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="currentStock">Current Stock *</Label>
+              <Input
+                id="currentStock"
+                type="number"
+                value={formData.current_stock}
+                onChange={(e) => handleInputChange("current_stock", e.target.value)}
+                placeholder="0"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
               <Label htmlFor="minStock">Minimum Stock *</Label>
               <Input
                 id="minStock"
@@ -323,7 +343,9 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 required
               />
             </div>
-            
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="maxStock">Maximum Stock</Label>
               <Input
@@ -334,10 +356,22 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 placeholder="0"
               />
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="reorderPoint">Reorder Point</Label>
+              <Input
+                id="reorderPoint"
+                type="number"
+                value={formData.reorder_point}
+                onChange={(e) => handleInputChange("reorder_point", e.target.value)}
+                placeholder="0"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="supplier">Supplier</Label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplier">Supplier *</Label>
               <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select supplier" />
@@ -350,6 +384,68 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="barcode">Barcode</Label>
+              <Input
+                id="barcode"
+                value={formData.barcode}
+                onChange={(e) => handleInputChange("barcode", e.target.value)}
+                placeholder="Enter barcode"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status || "active"} onValueChange={(value) => handleInputChange("status", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="discontinued">Discontinued</SelectItem>
+                  <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="weight">Weight (kg)</Label>
+              <Input
+                id="weight"
+                type="number"
+                step="0.01"
+                value={formData.weight}
+                onChange={(e) => handleInputChange("weight", e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="dimensions">Dimensions</Label>
+              <Input
+                id="dimensions"
+                value={formData.dimensions}
+                onChange={(e) => handleInputChange("dimensions", e.target.value)}
+                placeholder="e.g., 10x20x30 cm"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="taxRate">Tax Rate (%)</Label>
+              <Input
+                id="taxRate"
+                type="number"
+                step="0.01"
+                value={formData.tax_rate}
+                onChange={(e) => handleInputChange("tax_rate", e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -360,6 +456,17 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
               onChange={(e) => handleInputChange("description", e.target.value)}
               placeholder="Enter product description"
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => handleInputChange("notes", e.target.value)}
+              placeholder="Enter any additional notes"
+              rows={2}
             />
           </div>
 
