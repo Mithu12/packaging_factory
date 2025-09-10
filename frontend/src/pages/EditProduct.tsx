@@ -1,25 +1,42 @@
-import { useState } from "react"
-import { useParams, useNavigate } from "react-router-dom"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Save, Package } from "lucide-react"
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import {
+  ArrowLeft,
+  Save,
+  Package,
+  Upload,
+  X,
+  Image,
+  Camera,
+} from "lucide-react";
 
 export default function EditProduct() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { toast } = useToast()
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   // Mock product data - in real app, fetch by ID
   const [formData, setFormData] = useState({
     name: "Business Laptop Model X",
     sku: "LPT-001",
-    description: "High-performance business laptop with Intel i7 processor, 16GB RAM, and 512GB SSD. Perfect for professional use with excellent build quality and long battery life.",
+    description:
+      "High-performance business laptop with Intel i7 processor, 16GB RAM, and 512GB SSD. Perfect for professional use with excellent build quality and long battery life.",
     category: "Electronics",
     subCategory: "Laptops",
     brand: "TechCorp",
@@ -36,50 +53,96 @@ export default function EditProduct() {
     weight: "2.5",
     length: "35.6",
     width: "25.1",
-    height: "1.8"
-  })
+    height: "1.8",
+    currentImage:
+      "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400",
+  });
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        toast({
+          title: "Image too large",
+          description: "Please select an image smaller than 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a valid image file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+  };
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     // Validation
-    if (!formData.name || !formData.sku || !formData.costPrice || !formData.sellingPrice) {
+    if (
+      !formData.name ||
+      !formData.sku ||
+      !formData.costPrice ||
+      !formData.sellingPrice
+    ) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     // In a real app, send data to API
-    console.log("Updating product:", formData)
-    
+    console.log(
+      "Updating product:",
+      formData,
+      selectedImage ? "with new image" : "no image change"
+    );
+
     toast({
       title: "Product Updated",
-      description: "Product information has been updated successfully."
-    })
-    
-    navigate(`/products/${id}`)
-  }
+      description: "Product information has been updated successfully.",
+    });
+
+    navigate(`/products/${id}`);
+  };
 
   const categories = [
     { value: "Electronics", label: "Electronics" },
     { value: "Furniture", label: "Furniture" },
     { value: "Office Supplies", label: "Office Supplies" },
-    { value: "Raw Materials", label: "Raw Materials" }
-  ]
+    { value: "Raw Materials", label: "Raw Materials" },
+  ];
 
   const subCategories = {
     Electronics: ["Laptops", "Desktops", "Accessories", "Peripherals"],
     Furniture: ["Seating", "Desks", "Storage", "Lighting"],
     "Office Supplies": ["Stationery", "Consumables", "Paper Products"],
-    "Raw Materials": ["Metals", "Plastics", "Chemicals", "Textiles"]
-  }
+    "Raw Materials": ["Metals", "Plastics", "Chemicals", "Textiles"],
+  };
 
   const units = [
     { value: "pcs", label: "Pieces" },
@@ -87,26 +150,32 @@ export default function EditProduct() {
     { value: "ltr", label: "Liters" },
     { value: "box", label: "Box" },
     { value: "pack", label: "Pack" },
-    { value: "roll", label: "Roll" }
-  ]
+    { value: "roll", label: "Roll" },
+  ];
 
   const suppliers = [
     { value: "ABC Electronics Ltd", label: "ABC Electronics Ltd" },
     { value: "TechSupply Co", label: "TechSupply Co" },
     { value: "Office Furniture Pro", label: "Office Furniture Pro" },
-    { value: "Global Raw Materials Inc", label: "Global Raw Materials Inc" }
-  ]
+    { value: "Global Raw Materials Inc", label: "Global Raw Materials Inc" },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/products/${id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit Product</h1>
-          <p className="text-muted-foreground">Update product information and settings</p>
+          <p className="text-muted-foreground">
+            Update product information and settings
+          </p>
         </div>
       </div>
 
@@ -114,6 +183,92 @@ export default function EditProduct() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Information */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Product Image */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Image className="w-5 h-5" />
+                  Product Image
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Current Image */}
+                  <div>
+                    <Label>Current Image</Label>
+                    <div className="mt-2">
+                      <img
+                        src={formData.currentImage}
+                        alt={formData.name}
+                        className="w-full h-48 object-cover rounded-lg border"
+                        onError={(e) => {
+                          e.currentTarget.src =
+                            "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* New Image Upload */}
+                  <div>
+                    <Label>Upload New Image</Label>
+                    <div className="mt-2">
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="New product preview"
+                            className="w-full h-48 object-cover rounded-lg border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={removeImage}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center h-48 flex flex-col justify-center">
+                          <Image className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload new image
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="image-upload"
+                          />
+                          <Label
+                            htmlFor="image-upload"
+                            className="cursor-pointer"
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              asChild
+                            >
+                              <span>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Choose Image
+                              </span>
+                            </Button>
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            JPG, PNG, GIF up to 5MB
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -129,7 +284,9 @@ export default function EditProduct() {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("name", e.target.value)
+                      }
                       placeholder="Enter product name"
                       required
                     />
@@ -149,7 +306,9 @@ export default function EditProduct() {
                     <Input
                       id="brand"
                       value={formData.brand}
-                      onChange={(e) => handleInputChange("brand", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("brand", e.target.value)
+                      }
                       placeholder="Enter brand"
                     />
                   </div>
@@ -158,18 +317,22 @@ export default function EditProduct() {
                     <Input
                       id="barcode"
                       value={formData.barcode}
-                      onChange={(e) => handleInputChange("barcode", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("barcode", e.target.value)
+                      }
                       placeholder="Enter barcode"
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
+                    }
                     placeholder="Enter product description"
                     rows={3}
                   />
@@ -186,13 +349,21 @@ export default function EditProduct() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="category">Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) =>
+                        handleInputChange("category", value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
+                          <SelectItem
+                            key={category.value}
+                            value={category.value}
+                          >
                             {category.label}
                           </SelectItem>
                         ))}
@@ -201,12 +372,19 @@ export default function EditProduct() {
                   </div>
                   <div>
                     <Label htmlFor="subCategory">Sub Category</Label>
-                    <Select value={formData.subCategory} onValueChange={(value) => handleInputChange("subCategory", value)}>
+                    <Select
+                      value={formData.subCategory}
+                      onValueChange={(value) =>
+                        handleInputChange("subCategory", value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select sub category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {subCategories[formData.category as keyof typeof subCategories]?.map((subCat) => (
+                        {subCategories[
+                          formData.category as keyof typeof subCategories
+                        ]?.map((subCat) => (
                           <SelectItem key={subCat} value={subCat}>
                             {subCat}
                           </SelectItem>
@@ -216,7 +394,12 @@ export default function EditProduct() {
                   </div>
                   <div>
                     <Label htmlFor="unit">Unit of Measure</Label>
-                    <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
+                    <Select
+                      value={formData.unit}
+                      onValueChange={(value) =>
+                        handleInputChange("unit", value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
@@ -247,7 +430,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.01"
                       value={formData.costPrice}
-                      onChange={(e) => handleInputChange("costPrice", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("costPrice", e.target.value)
+                      }
                       placeholder="0.00"
                       required
                     />
@@ -259,19 +444,34 @@ export default function EditProduct() {
                       type="number"
                       step="0.01"
                       value={formData.sellingPrice}
-                      onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("sellingPrice", e.target.value)
+                      }
                       placeholder="0.00"
                       required
                     />
                   </div>
                 </div>
-                
+
                 {formData.costPrice && formData.sellingPrice && (
                   <div className="p-3 bg-accent/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Profit Margin</div>
+                    <div className="text-sm text-muted-foreground">
+                      Profit Margin
+                    </div>
                     <div className="text-lg font-medium text-success">
-                      ${(parseFloat(formData.sellingPrice) - parseFloat(formData.costPrice)).toFixed(2)} 
-                      ({(((parseFloat(formData.sellingPrice) - parseFloat(formData.costPrice)) / parseFloat(formData.costPrice)) * 100).toFixed(1)}%)
+                      $
+                      {(
+                        parseFloat(formData.sellingPrice) -
+                        parseFloat(formData.costPrice)
+                      ).toFixed(2)}
+                      (
+                      {(
+                        ((parseFloat(formData.sellingPrice) -
+                          parseFloat(formData.costPrice)) /
+                          parseFloat(formData.costPrice)) *
+                        100
+                      ).toFixed(1)}
+                      %)
                     </div>
                   </div>
                 )}
@@ -292,7 +492,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.01"
                       value={formData.weight}
-                      onChange={(e) => handleInputChange("weight", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("weight", e.target.value)
+                      }
                       placeholder="0.00"
                     />
                   </div>
@@ -303,7 +505,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.length}
-                      onChange={(e) => handleInputChange("length", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("length", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -314,7 +518,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.width}
-                      onChange={(e) => handleInputChange("width", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("width", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -325,7 +531,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.height}
-                      onChange={(e) => handleInputChange("height", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("height", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -348,7 +556,9 @@ export default function EditProduct() {
                     id="minStock"
                     type="number"
                     value={formData.minStock}
-                    onChange={(e) => handleInputChange("minStock", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("minStock", e.target.value)
+                    }
                     placeholder="0"
                   />
                 </div>
@@ -358,7 +568,9 @@ export default function EditProduct() {
                     id="maxStock"
                     type="number"
                     value={formData.maxStock}
-                    onChange={(e) => handleInputChange("maxStock", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("maxStock", e.target.value)
+                    }
                     placeholder="0"
                   />
                 </div>
@@ -368,7 +580,9 @@ export default function EditProduct() {
                     id="reorderPoint"
                     type="number"
                     value={formData.reorderPoint}
-                    onChange={(e) => handleInputChange("reorderPoint", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("reorderPoint", e.target.value)
+                    }
                     placeholder="0"
                   />
                 </div>
@@ -377,7 +591,9 @@ export default function EditProduct() {
                   <Input
                     id="location"
                     value={formData.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("location", e.target.value)
+                    }
                     placeholder="Warehouse - Shelf"
                   />
                 </div>
@@ -392,7 +608,12 @@ export default function EditProduct() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="supplier">Primary Supplier</Label>
-                  <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+                  <Select
+                    value={formData.supplier}
+                    onValueChange={(value) =>
+                      handleInputChange("supplier", value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
@@ -407,7 +628,12 @@ export default function EditProduct() {
                 </div>
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      handleInputChange("status", value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -428,9 +654,9 @@ export default function EditProduct() {
                   <Save className="w-4 h-4 mr-2" />
                   Save Changes
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   className="w-full"
                   onClick={() => navigate(`/products/${id}`)}
                 >
@@ -442,5 +668,5 @@ export default function EditProduct() {
         </div>
       </form>
     </div>
-  )
+  );
 }
