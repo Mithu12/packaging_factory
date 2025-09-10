@@ -66,6 +66,10 @@ const createTables = async () => {
     // Create indexes for better performance
     MyLogger.info('Create Database Indexes')
     await client.query(`
+      create sequence if not exists supplier_code_suppliers;
+    `);
+
+    await client.query(`
       CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
     `);
     
@@ -171,7 +175,85 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Subcategory Update Timestamp Trigger')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories'] })
+    // Create products table
+    MyLogger.info('Create Products Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        product_code VARCHAR(20) NOT NULL UNIQUE,
+        sku VARCHAR(50) NOT NULL UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+        subcategory_id INTEGER REFERENCES subcategories(id) ON DELETE SET NULL,
+        unit_of_measure VARCHAR(20) NOT NULL,
+        cost_price DECIMAL(10,2) NOT NULL CHECK (cost_price >= 0),
+        selling_price DECIMAL(10,2) NOT NULL CHECK (selling_price >= 0),
+        current_stock DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
+        min_stock_level DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (min_stock_level >= 0),
+        max_stock_level DECIMAL(10,2) CHECK (max_stock_level >= 0),
+        supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+        status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'discontinued', 'out_of_stock')),
+        barcode VARCHAR(50) UNIQUE,
+        weight DECIMAL(8,2) CHECK (weight >= 0),
+        dimensions VARCHAR(100),
+        tax_rate DECIMAL(5,2) CHECK (tax_rate >= 0 AND tax_rate <= 100),
+        reorder_point DECIMAL(10,2) CHECK (reorder_point >= 0),
+        reorder_quantity DECIMAL(10,2) CHECK (reorder_quantity >= 0),
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Products Table')
+
+    // Create indexes for products
+    MyLogger.info('Create Product Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_subcategory_id ON products(subcategory_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_supplier_id ON products(supplier_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_stock_status ON products(current_stock, min_stock_level);
+    `);
+    MyLogger.success('Create Product Indexes')
+
+    // Create trigger for products updated_at
+    MyLogger.info('Create Product Update Timestamp Trigger')
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_products_updated_at ON products;
+      CREATE TRIGGER update_products_updated_at
+        BEFORE UPDATE ON products
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Product Update Timestamp Trigger')
+
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)

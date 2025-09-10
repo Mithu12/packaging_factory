@@ -253,11 +253,135 @@ const seedData = async () => {
     }
     MyLogger.success('Insert Sample Subcategories', { subcategoriesCount: subcategories.length })
 
+    // Insert sample products
+    MyLogger.info('Insert Sample Products')
+    const products = [
+      {
+        sku: 'LPT-001',
+        name: 'Business Laptop Model X',
+        description: 'High-performance business laptop with 16GB RAM and 512GB SSD',
+        category_id: 1, // Electronics
+        subcategory_id: 1, // Laptops
+        unit_of_measure: 'pcs',
+        cost_price: 850.00,
+        selling_price: 1200.00,
+        current_stock: 45,
+        min_stock_level: 10,
+        max_stock_level: 100,
+        supplier_id: 1, // ABC Electronics Ltd
+        status: 'active',
+        barcode: '1234567890123',
+        weight: 2.5,
+        dimensions: '35.5 x 24.5 x 2.0 cm',
+        tax_rate: 8.5,
+        reorder_point: 15,
+        reorder_quantity: 25,
+        notes: 'Popular business laptop model'
+      },
+      {
+        sku: 'CHR-205',
+        name: 'Ergonomic Office Chair',
+        description: 'Comfortable ergonomic office chair with lumbar support',
+        category_id: 2, // Furniture
+        subcategory_id: 3, // Seating
+        unit_of_measure: 'pcs',
+        cost_price: 150.00,
+        selling_price: 220.00,
+        current_stock: 8,
+        min_stock_level: 15,
+        max_stock_level: 50,
+        supplier_id: 2, // Office Furniture Pro
+        status: 'active',
+        barcode: '2345678901234',
+        weight: 15.0,
+        dimensions: '65 x 65 x 120 cm',
+        tax_rate: 8.5,
+        reorder_point: 20,
+        reorder_quantity: 30,
+        notes: 'Low stock - needs reordering'
+      },
+      {
+        sku: 'TNR-301',
+        name: 'Laser Printer Toner',
+        description: 'High-yield laser printer toner cartridge',
+        category_id: 3, // Office Supplies
+        subcategory_id: 4, // Consumables
+        unit_of_measure: 'pcs',
+        cost_price: 45.00,
+        selling_price: 75.00,
+        current_stock: 3,
+        min_stock_level: 12,
+        max_stock_level: 100,
+        supplier_id: 3, // Premium Parts Supply
+        status: 'active',
+        barcode: '3456789012345',
+        weight: 0.8,
+        dimensions: '25 x 15 x 8 cm',
+        tax_rate: 8.5,
+        reorder_point: 15,
+        reorder_quantity: 50,
+        notes: 'Critical stock level - urgent reorder needed'
+      },
+      {
+        sku: 'MTL-450',
+        name: 'Steel Raw Material Grade A',
+        description: 'High-quality steel raw material for manufacturing',
+        category_id: 4, // Raw Materials
+        subcategory_id: 5, // Metals
+        unit_of_measure: 'kg',
+        cost_price: 2.50,
+        selling_price: 4.00,
+        current_stock: 2500,
+        min_stock_level: 500,
+        max_stock_level: 5000,
+        supplier_id: 4, // Global Raw Materials Inc
+        status: 'active',
+        barcode: '4567890123456',
+        weight: null, // Sold by weight
+        dimensions: 'Various sizes',
+        tax_rate: 8.5,
+        reorder_point: 750,
+        reorder_quantity: 1000,
+        notes: 'Bulk material - good stock levels'
+      },
+      {
+        sku: 'CBL-102',
+        name: 'USB-C Cable Premium',
+        description: 'High-speed USB-C cable with premium build quality',
+        category_id: 1, // Electronics
+        subcategory_id: 2, // Accessories
+        unit_of_measure: 'pcs',
+        cost_price: 8.00,
+        selling_price: 15.00,
+        current_stock: 120,
+        min_stock_level: 50,
+        max_stock_level: 200,
+        supplier_id: 1, // ABC Electronics Ltd
+        status: 'discontinued',
+        barcode: '5678901234567',
+        weight: 0.1,
+        dimensions: '2m length',
+        tax_rate: 8.5,
+        reorder_point: 60,
+        reorder_quantity: 100,
+        notes: 'Product discontinued - clear remaining stock'
+      }
+    ];
+
+    for (const product of products) {
+      await client.query(
+        'INSERT INTO products (sku, name, description, category_id, subcategory_id, unit_of_measure, cost_price, selling_price, current_stock, min_stock_level, max_stock_level, supplier_id, status, barcode, weight, dimensions, tax_rate, reorder_point, reorder_quantity, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)',
+        [product.sku, product.name, product.description, product.category_id, product.subcategory_id, product.unit_of_measure, product.cost_price, product.selling_price, product.current_stock, product.min_stock_level, product.max_stock_level, product.supplier_id, product.status, product.barcode, product.weight, product.dimensions, product.tax_rate, product.reorder_point, product.reorder_quantity, product.notes]
+      );
+    }
+    MyLogger.success('Insert Sample Products', { productsCount: products.length })
+
     MyLogger.success(action, { 
       suppliersInserted: suppliers.length, 
       performanceRecordsInserted: performanceData.length,
       categoriesInserted: insertedCategories.length,
-      subcategoriesInserted: subcategories.length
+      subcategoriesInserted: subcategories.length,
+      productsInserted: products.length
     })
     console.log('✅ Sample data inserted successfully');
   } catch (error) {
