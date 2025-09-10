@@ -8,27 +8,14 @@ export class AddProductMediator {
         try {
             MyLogger.info(action);
 
-            // Get the latest product code
-            const query = `
-                SELECT product_code 
-                FROM products 
-                WHERE product_code LIKE 'PRD-%' 
-                ORDER BY product_code DESC 
-                LIMIT 1
-            `;
-
+            // Get next value from PostgreSQL sequence
+            const query = 'SELECT nextval(\'product_code_sequence\') as next_number';
             const result = await pool.query(query);
-
-            let nextNumber = 1;
-            if (result.rows.length > 0) {
-                const lastCode = result.rows[0].product_code;
-                const lastNumber = parseInt(lastCode.split('-')[1]);
-                nextNumber = lastNumber + 1;
-            }
+            const nextNumber = result.rows[0].next_number;
 
             const productCode = `PRD-${nextNumber.toString().padStart(3, '0')}`;
 
-            MyLogger.success(action, { generatedCode: productCode });
+            MyLogger.success(action, { generatedCode: productCode, sequenceNumber: nextNumber });
 
             return productCode;
         } catch (error: any) {

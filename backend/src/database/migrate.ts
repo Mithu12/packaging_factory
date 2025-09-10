@@ -68,6 +68,10 @@ const createTables = async () => {
     await client.query(`
       create sequence if not exists supplier_code_suppliers;
     `);
+    
+    await client.query(`
+      create sequence if not exists product_code_sequence;
+    `);
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
