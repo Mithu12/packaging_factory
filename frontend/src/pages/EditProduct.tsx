@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,46 +8,162 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Save, Package } from "lucide-react"
+import { ArrowLeft, Save, Package, Loader2 } from "lucide-react"
+import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 
 export default function EditProduct() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Mock product data - in real app, fetch by ID
+  const [product, setProduct] = useState<ProductWithDetails | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
-    name: "Business Laptop Model X",
-    sku: "LPT-001",
-    description: "High-performance business laptop with Intel i7 processor, 16GB RAM, and 512GB SSD. Perfect for professional use with excellent build quality and long battery life.",
-    category: "Electronics",
-    subCategory: "Laptops",
-    brand: "TechCorp",
-    unit: "pcs",
-    costPrice: "850",
-    sellingPrice: "1200",
-    minStock: "10",
-    maxStock: "100",
-    reorderPoint: "15",
-    supplier: "ABC Electronics Ltd",
+    name: "",
+    sku: "",
+    description: "",
+    category_id: "",
+    subcategory_id: "",
+    unit_of_measure: "",
+    cost_price: "",
+    selling_price: "",
+    current_stock: "",
+    min_stock_level: "",
+    max_stock_level: "",
+    reorder_point: "",
+    supplier_id: "",
     status: "active",
-    barcode: "1234567890123",
-    location: "Warehouse A - Shelf 12",
-    weight: "2.5",
-    length: "35.6",
-    width: "25.1",
-    height: "1.8"
+    barcode: "",
+    weight: "",
+    dimensions: "",
+    tax_rate: "",
+    notes: ""
   })
+
+  // Fetch product data and related data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const [productData, categoriesData, suppliersData] = await Promise.all([
+          ApiService.getProduct(parseInt(id)),
+          ApiService.getCategories({ limit: 100 }),
+          ApiService.getSuppliers({ limit: 100 })
+        ])
+        
+        setProduct(productData)
+        setCategories(categoriesData.categories)
+        setSuppliers(suppliersData.suppliers)
+        
+        // Populate form with product data
+        setFormData({
+          name: productData.name,
+          sku: productData.sku,
+          description: productData.description || "",
+          category_id: productData.category_id.toString(),
+          subcategory_id: productData.subcategory_id?.toString() || "",
+          unit_of_measure: productData.unit_of_measure,
+          cost_price: productData.cost_price.toString(),
+          selling_price: productData.selling_price.toString(),
+          current_stock: productData.current_stock.toString(),
+          min_stock_level: productData.min_stock_level.toString(),
+          max_stock_level: productData.max_stock_level?.toString() || "",
+          reorder_point: productData.reorder_point?.toString() || "",
+          supplier_id: productData.supplier_id.toString(),
+          status: productData.status,
+          barcode: productData.barcode || "",
+          weight: productData.weight?.toString() || "",
+          dimensions: productData.dimensions || "",
+          tax_rate: productData.tax_rate?.toString() || "",
+          notes: productData.notes || ""
+        })
+        
+        // Fetch subcategories for the selected category
+        if (productData.category_id) {
+          const subcategoriesData = await ApiService.getSubcategories({ 
+            category_id: productData.category_id, 
+            limit: 100 
+          })
+          setSubcategories(subcategoriesData.subcategories)
+        }
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+        } else {
+          setError("Failed to load product data")
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [id])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCategoryChange = async (categoryId: string) => {
+    setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
+    
+    if (categoryId) {
+      try {
+        const subcategoriesData = await ApiService.getSubcategories({ 
+          category_id: parseInt(categoryId), 
+          limit: 100 
+        })
+        setSubcategories(subcategoriesData.subcategories)
+      } catch (err) {
+        console.error("Failed to fetch subcategories:", err)
+        setSubcategories([])
+      }
+    } else {
+      setSubcategories([])
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading product data...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !product) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error || "Product not found"}</p>
+          <Button onClick={() => navigate("/products")}>
+            Back to Products
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!id) return
+    
     // Validation
-    if (!formData.name || !formData.sku || !formData.costPrice || !formData.sellingPrice) {
+    if (!formData.name || !formData.sku || !formData.cost_price || !formData.selling_price) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -56,29 +172,56 @@ export default function EditProduct() {
       return
     }
 
-    // In a real app, send data to API
-    console.log("Updating product:", formData)
-    
-    toast({
-      title: "Product Updated",
-      description: "Product information has been updated successfully."
-    })
-    
-    navigate(`/products/${id}`)
-  }
-
-  const categories = [
-    { value: "Electronics", label: "Electronics" },
-    { value: "Furniture", label: "Furniture" },
-    { value: "Office Supplies", label: "Office Supplies" },
-    { value: "Raw Materials", label: "Raw Materials" }
-  ]
-
-  const subCategories = {
-    Electronics: ["Laptops", "Desktops", "Accessories", "Peripherals"],
-    Furniture: ["Seating", "Desks", "Storage", "Lighting"],
-    "Office Supplies": ["Stationery", "Consumables", "Paper Products"],
-    "Raw Materials": ["Metals", "Plastics", "Chemicals", "Textiles"]
+    try {
+      setSaving(true)
+      
+      const updateData = {
+        name: formData.name,
+        sku: formData.sku,
+        description: formData.description || undefined,
+        category_id: parseInt(formData.category_id),
+        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        unit_of_measure: formData.unit_of_measure,
+        cost_price: parseFloat(formData.cost_price),
+        selling_price: parseFloat(formData.selling_price),
+        current_stock: parseFloat(formData.current_stock),
+        min_stock_level: parseFloat(formData.min_stock_level),
+        max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
+        reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
+        supplier_id: parseInt(formData.supplier_id),
+        status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
+        barcode: formData.barcode || undefined,
+        weight: formData.weight ? parseFloat(formData.weight) : undefined,
+        dimensions: formData.dimensions || undefined,
+        tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
+        notes: formData.notes || undefined
+      }
+      
+      await ApiService.updateProduct(parseInt(id), updateData)
+      
+      toast({
+        title: "Product Updated",
+        description: "Product has been successfully updated.",
+      })
+      
+      navigate(`/products/${id}`)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update product",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const units = [
@@ -87,14 +230,11 @@ export default function EditProduct() {
     { value: "ltr", label: "Liters" },
     { value: "box", label: "Box" },
     { value: "pack", label: "Pack" },
-    { value: "roll", label: "Roll" }
-  ]
-
-  const suppliers = [
-    { value: "ABC Electronics Ltd", label: "ABC Electronics Ltd" },
-    { value: "TechSupply Co", label: "TechSupply Co" },
-    { value: "Office Furniture Pro", label: "Office Furniture Pro" },
-    { value: "Global Raw Materials Inc", label: "Global Raw Materials Inc" }
+    { value: "roll", label: "Roll" },
+    { value: "m", label: "Meters" },
+    { value: "cm", label: "Centimeters" },
+    { value: "g", label: "Grams" },
+    { value: "ml", label: "Milliliters" }
   ]
 
   return (
@@ -106,7 +246,7 @@ export default function EditProduct() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit Product</h1>
-          <p className="text-muted-foreground">Update product information and settings</p>
+          <p className="text-muted-foreground">Update {product.name} information and settings</p>
         </div>
       </div>
 
@@ -186,14 +326,14 @@ export default function EditProduct() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="category">Category</Label>
-                    <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                    <Select value={formData.category_id} onValueChange={handleCategoryChange}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
-                            {category.label}
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -201,14 +341,14 @@ export default function EditProduct() {
                   </div>
                   <div>
                     <Label htmlFor="subCategory">Sub Category</Label>
-                    <Select value={formData.subCategory} onValueChange={(value) => handleInputChange("subCategory", value)}>
+                    <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select sub category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {subCategories[formData.category as keyof typeof subCategories]?.map((subCat) => (
-                          <SelectItem key={subCat} value={subCat}>
-                            {subCat}
+                        {subcategories.map((subcategory) => (
+                          <SelectItem key={subcategory.id} value={subcategory.id.toString()}>
+                            {subcategory.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -216,7 +356,7 @@ export default function EditProduct() {
                   </div>
                   <div>
                     <Label htmlFor="unit">Unit of Measure</Label>
-                    <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
+                    <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
@@ -246,8 +386,8 @@ export default function EditProduct() {
                       id="costPrice"
                       type="number"
                       step="0.01"
-                      value={formData.costPrice}
-                      onChange={(e) => handleInputChange("costPrice", e.target.value)}
+                      value={formData.cost_price}
+                      onChange={(e) => handleInputChange("cost_price", e.target.value)}
                       placeholder="0.00"
                       required
                     />
@@ -258,20 +398,20 @@ export default function EditProduct() {
                       id="sellingPrice"
                       type="number"
                       step="0.01"
-                      value={formData.sellingPrice}
-                      onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
+                      value={formData.selling_price}
+                      onChange={(e) => handleInputChange("selling_price", e.target.value)}
                       placeholder="0.00"
                       required
                     />
                   </div>
                 </div>
                 
-                {formData.costPrice && formData.sellingPrice && (
+                {formData.cost_price && formData.selling_price && (
                   <div className="p-3 bg-accent/20 rounded-lg">
                     <div className="text-sm text-muted-foreground">Profit Margin</div>
                     <div className="text-lg font-medium text-success">
-                      ${(parseFloat(formData.sellingPrice) - parseFloat(formData.costPrice)).toFixed(2)} 
-                      ({(((parseFloat(formData.sellingPrice) - parseFloat(formData.costPrice)) / parseFloat(formData.costPrice)) * 100).toFixed(1)}%)
+                      ${(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)} 
+                      ({(((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseFloat(formData.cost_price)) * 100).toFixed(1)}%)
                     </div>
                   </div>
                 )}
@@ -347,8 +487,8 @@ export default function EditProduct() {
                   <Input
                     id="minStock"
                     type="number"
-                    value={formData.minStock}
-                    onChange={(e) => handleInputChange("minStock", e.target.value)}
+                    value={formData.min_stock_level}
+                    onChange={(e) => handleInputChange("min_stock_level", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -357,8 +497,8 @@ export default function EditProduct() {
                   <Input
                     id="maxStock"
                     type="number"
-                    value={formData.maxStock}
-                    onChange={(e) => handleInputChange("maxStock", e.target.value)}
+                    value={formData.max_stock_level}
+                    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -367,8 +507,8 @@ export default function EditProduct() {
                   <Input
                     id="reorderPoint"
                     type="number"
-                    value={formData.reorderPoint}
-                    onChange={(e) => handleInputChange("reorderPoint", e.target.value)}
+                    value={formData.reorder_point}
+                    onChange={(e) => handleInputChange("reorder_point", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -392,14 +532,14 @@ export default function EditProduct() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="supplier">Primary Supplier</Label>
-                  <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+                  <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.value} value={supplier.value}>
-                          {supplier.label}
+                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                          {supplier.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -413,8 +553,9 @@ export default function EditProduct() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                       <SelectItem value="discontinued">Discontinued</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -424,9 +565,18 @@ export default function EditProduct() {
             {/* Action Buttons */}
             <Card>
               <CardContent className="pt-6 space-y-3">
-                <Button type="submit" className="w-full">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                <Button type="submit" className="w-full" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
                 <Button 
                   type="button" 

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,8 +16,10 @@ import {
   TrendingUp, 
   TrendingDown, 
   AlertTriangle,
-  Info
+  Info,
+  Loader2
 } from "lucide-react"
+import { ApiService, ProductWithDetails, StockAdjustmentRequest, ApiError } from "@/services/api"
 import {
   Table,
   TableBody,
@@ -32,29 +34,68 @@ export default function AdjustStock() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Mock product data
-  const product = {
-    id: "PRD-001",
-    sku: "LPT-001",
-    name: "Business Laptop Model X",
-    category: "Electronics",
-    subCategory: "Laptops",
-    unit: "pcs",
-    currentStock: 45,
-    minStock: 10,
-    maxStock: 100,
-    location: "Warehouse A - Shelf 12"
-  }
+  const [product, setProduct] = useState<ProductWithDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch product data
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        setError(null)
+        const productData = await ApiService.getProduct(parseInt(id))
+        setProduct(productData)
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+        } else {
+          setError("Failed to load product details")
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProduct()
+  }, [id])
 
   const [adjustmentData, setAdjustmentData] = useState({
-    adjustmentType: "",
+    adjustment_type: "",
     quantity: "",
     reason: "",
     reference: "",
     notes: ""
   })
 
-  const [calculatedStock, setCalculatedStock] = useState(product.currentStock)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading product data...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !product) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error || "Product not found"}</p>
+          <Button onClick={() => navigate("/products")}>
+            Back to Products
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const [calculatedStock, setCalculatedStock] = useState(product.current_stock)
 
   const recentAdjustments = [
     { date: "2024-03-01", type: "Increase", quantity: +2, reason: "Found extra stock", reference: "ADJ-2024-008", user: "John Doe" },
@@ -85,21 +126,21 @@ export default function AdjustStock() {
   const handleInputChange = (field: string, value: string) => {
     setAdjustmentData(prev => ({ ...prev, [field]: value }))
     
-    if (field === "quantity" || field === "adjustmentType") {
+    if (field === "quantity" || field === "adjustment_type") {
       const qty = parseFloat(value) || 0
-      if (adjustmentData.adjustmentType === "increase" || field === "adjustmentType" && value === "increase") {
-        setCalculatedStock(product.currentStock + qty)
-      } else if (adjustmentData.adjustmentType === "decrease" || field === "adjustmentType" && value === "decrease") {
-        setCalculatedStock(product.currentStock - qty)
+      if (adjustmentData.adjustment_type === "increase" || field === "adjustment_type" && value === "increase") {
+        setCalculatedStock(product.current_stock + qty)
+      } else if (adjustmentData.adjustment_type === "decrease" || field === "adjustment_type" && value === "decrease") {
+        setCalculatedStock(product.current_stock - qty)
       }
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Validation
-    if (!adjustmentData.adjustmentType || !adjustmentData.quantity || !adjustmentData.reason) {
+    if (!adjustmentData.adjustment_type || !adjustmentData.quantity || !adjustmentData.reason) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -118,7 +159,7 @@ export default function AdjustStock() {
       return
     }
 
-    if (adjustmentData.adjustmentType === "decrease" && qty > product.currentStock) {
+    if (adjustmentData.adjustment_type === "decrease" && qty > product.current_stock) {
       toast({
         title: "Insufficient Stock",
         description: "Cannot decrease stock below zero.",
@@ -127,34 +168,52 @@ export default function AdjustStock() {
       return
     }
 
-    // In a real app, send data to API
-    console.log("Stock adjustment:", {
-      productId: id,
-      currentStock: product.currentStock,
-      adjustmentType: adjustmentData.adjustmentType,
-      quantity: adjustmentData.adjustmentType === "increase" ? qty : -qty,
-      newStock: calculatedStock,
-      reason: adjustmentData.reason,
-      reference: adjustmentData.reference,
-      notes: adjustmentData.notes,
-      timestamp: new Date().toISOString()
-    })
-    
-    toast({
-      title: "Stock Adjusted",
-      description: `Stock has been ${adjustmentData.adjustmentType === "increase" ? "increased" : "decreased"} by ${qty} ${product.unit}.`
-    })
-    
-    navigate(`/products/${id}`)
+    try {
+      setSaving(true)
+      
+      const stockAdjustmentData: StockAdjustmentRequest = {
+        product_id: parseInt(id),
+        adjustment_type: adjustmentData.adjustment_type as 'increase' | 'decrease' | 'set',
+        quantity: qty,
+        reason: adjustmentData.reason,
+        reference: adjustmentData.reference || undefined,
+        notes: adjustmentData.notes || undefined
+      }
+      
+      await ApiService.updateProductStock(parseInt(id), stockAdjustmentData)
+      
+      toast({
+        title: "Stock Adjusted",
+        description: `Stock has been ${adjustmentData.adjustment_type === "increase" ? "increased" : "decreased"} by ${qty} ${product.unit_of_measure}.`
+      })
+      
+      navigate(`/products/${id}`)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive"
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to adjust stock",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getStockStatus = (stock: number) => {
-    if (stock <= product.minStock * 0.5) return { status: "Critical", color: "text-destructive" }
-    if (stock <= product.minStock) return { status: "Low", color: "text-warning" }
+    if (stock <= product.min_stock_level * 0.5) return { status: "Critical", color: "text-destructive" }
+    if (stock <= product.min_stock_level) return { status: "Low", color: "text-warning" }
     return { status: "Good", color: "text-success" }
   }
 
-  const currentStatus = getStockStatus(product.currentStock)
+  const currentStatus = getStockStatus(product.current_stock)
   const newStatus = getStockStatus(calculatedStock)
 
   return (
@@ -190,8 +249,8 @@ export default function AdjustStock() {
                     </div>
                     <div>
                       <h3 className="font-medium">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">SKU: {product.sku} • {product.category}</p>
-                      <p className="text-sm text-muted-foreground">Location: {product.location}</p>
+                      <p className="text-sm text-muted-foreground">SKU: {product.sku} • {product.category.name}</p>
+                      <p className="text-sm text-muted-foreground">Unit: {product.unit_of_measure}</p>
                     </div>
                   </div>
                 </div>
@@ -199,7 +258,7 @@ export default function AdjustStock() {
                 {/* Current Stock Info */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-card border rounded-lg">
-                    <div className="text-2xl font-bold">{product.currentStock}</div>
+                    <div className="text-2xl font-bold">{product.current_stock}</div>
                     <div className="text-sm text-muted-foreground">Current Stock</div>
                     <Badge className={`mt-1 ${currentStatus.color}`} variant="outline">
                       {currentStatus.status}
@@ -208,12 +267,12 @@ export default function AdjustStock() {
                   <div className="text-center p-4 bg-accent/10 border rounded-lg">
                     <div className="text-2xl font-bold">{adjustmentData.quantity || "0"}</div>
                     <div className="text-sm text-muted-foreground">
-                      {adjustmentData.adjustmentType === "increase" ? "Increase" : 
-                       adjustmentData.adjustmentType === "decrease" ? "Decrease" : "Adjustment"}
+                      {adjustmentData.adjustment_type === "increase" ? "Increase" : 
+                       adjustmentData.adjustment_type === "decrease" ? "Decrease" : "Adjustment"}
                     </div>
-                    {adjustmentData.adjustmentType && (
+                    {adjustmentData.adjustment_type && (
                       <div className="mt-1">
-                        {adjustmentData.adjustmentType === "increase" ? 
+                        {adjustmentData.adjustment_type === "increase" ? 
                           <TrendingUp className="w-4 h-4 mx-auto text-success" /> :
                           <TrendingDown className="w-4 h-4 mx-auto text-destructive" />
                         }
@@ -229,13 +288,13 @@ export default function AdjustStock() {
                   </div>
                 </div>
 
-                {adjustmentData.adjustmentType === "decrease" && calculatedStock < product.minStock && (
+                {adjustmentData.adjustment_type === "decrease" && calculatedStock < product.min_stock_level && (
                   <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
                     <div>
                       <div className="font-medium text-warning">Low Stock Warning</div>
                       <div className="text-sm text-muted-foreground">
-                        This adjustment will bring stock below the minimum level ({product.minStock} {product.unit}). 
+                        This adjustment will bring stock below the minimum level ({product.min_stock_level} {product.unit_of_measure}). 
                         Consider reordering soon.
                       </div>
                     </div>
@@ -249,7 +308,7 @@ export default function AdjustStock() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="adjustmentType">Adjustment Type *</Label>
-                      <Select value={adjustmentData.adjustmentType} onValueChange={(value) => handleInputChange("adjustmentType", value)}>
+                      <Select value={adjustmentData.adjustment_type} onValueChange={(value) => handleInputChange("adjustment_type", value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select adjustment type" />
                         </SelectTrigger>
@@ -323,9 +382,18 @@ export default function AdjustStock() {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button type="submit" className="flex-1">
-                    <Save className="w-4 h-4 mr-2" />
-                    Apply Adjustment
+                  <Button type="submit" className="flex-1" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Applying...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Apply Adjustment
+                      </>
+                    )}
                   </Button>
                   <Button 
                     type="button" 

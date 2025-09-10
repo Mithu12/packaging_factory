@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,10 @@ import {
   DollarSign,
   Warehouse,
   User,
-  BarChart3
+  BarChart3,
+  Loader2
 } from "lucide-react"
+import { ApiService, ProductWithDetails, ApiError } from "@/services/api"
 import {
   Table,
   TableBody,
@@ -31,32 +33,33 @@ import {
 export default function ProductDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [product, setProduct] = useState<ProductWithDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock product data - in real app, fetch by ID
-  const product = {
-    id: "PRD-001",
-    sku: "LPT-001",
-    name: "Business Laptop Model X",
-    description: "High-performance business laptop with Intel i7 processor, 16GB RAM, and 512GB SSD. Perfect for professional use with excellent build quality and long battery life.",
-    category: "Electronics",
-    subCategory: "Laptops",
-    brand: "TechCorp",
-    unit: "pcs",
-    costPrice: 850,
-    sellingPrice: 1200,
-    currentStock: 45,
-    minStock: 10,
-    maxStock: 100,
-    reorderPoint: 15,
-    supplier: "ABC Electronics Ltd",
-    status: "active",
-    createdDate: "2024-01-15",
-    lastUpdated: "2024-03-10",
-    barcode: "1234567890123",
-    location: "Warehouse A - Shelf 12",
-    weight: "2.5 kg",
-    dimensions: "35.6 x 25.1 x 1.8 cm"
-  }
+  // Fetch product data
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        setError(null)
+        const productData = await ApiService.getProduct(parseInt(id))
+        setProduct(productData)
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message)
+        } else {
+          setError("Failed to load product details")
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProduct()
+  }, [id])
 
   const stockMovements = [
     { date: "2024-03-10", type: "Purchase", quantity: +20, reference: "PO-2024-045", balance: 45 },
@@ -72,17 +75,43 @@ export default function ProductDetails() {
     { date: "2024-01-20", supplier: "TechSupply Co", quantity: 15, unitCost: 860, total: 12900, poNumber: "PO-2024-018" }
   ]
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading product details...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !product) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error || "Product not found"}</p>
+          <Button onClick={() => navigate("/products")}>
+            Back to Products
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   const getStockStatus = () => {
-    const percentage = (product.currentStock / product.maxStock) * 100
-    if (product.currentStock <= product.minStock * 0.5) 
+    const maxStock = product.max_stock_level || product.current_stock * 2 // Fallback if no max stock
+    const percentage = (product.current_stock / maxStock) * 100
+    if (product.current_stock <= product.min_stock_level * 0.5) 
       return { status: "Critical", color: "text-destructive", bgColor: "bg-destructive/10", icon: AlertTriangle }
-    if (product.currentStock <= product.minStock) 
+    if (product.current_stock <= product.min_stock_level) 
       return { status: "Low Stock", color: "text-warning", bgColor: "bg-warning/10", icon: AlertTriangle }
     return { status: "Good", color: "text-success", bgColor: "bg-success/10", icon: CheckCircle }
   }
 
   const stockInfo = getStockStatus()
-  const stockPercentage = (product.currentStock / product.maxStock) * 100
+  const maxStock = product.max_stock_level || product.current_stock * 2
+  const stockPercentage = (product.current_stock / maxStock) * 100
   const StockIcon = stockInfo.icon
 
   return (
@@ -94,7 +123,7 @@ export default function ProductDetails() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
-          <p className="text-muted-foreground">SKU: {product.sku} • {product.category} → {product.subCategory}</p>
+          <p className="text-muted-foreground">SKU: {product.sku} • {product.category.name} → {product.subcategory?.name || 'No subcategory'}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate(`/products/${id}/edit`)}>
@@ -131,27 +160,27 @@ export default function ProductDetails() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="font-medium">{product.category} → {product.subCategory}</p>
+                  <p className="font-medium">{product.category.name} → {product.subcategory?.name || 'No subcategory'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Brand</label>
-                  <p className="font-medium">{product.brand}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Product Code</label>
+                  <p className="font-medium">{product.product_code}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Unit of Measure</label>
-                  <p className="font-medium">{product.unit}</p>
+                  <p className="font-medium">{product.unit_of_measure}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Barcode</label>
-                  <p className="font-medium">{product.barcode}</p>
+                  <p className="font-medium">{product.barcode || 'Not set'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Weight</label>
-                  <p className="font-medium">{product.weight}</p>
+                  <p className="font-medium">{product.weight ? `${product.weight} kg` : 'Not set'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Dimensions</label>
-                  <p className="font-medium">{product.dimensions}</p>
+                  <p className="font-medium">{product.dimensions || 'Not set'}</p>
                 </div>
               </div>
               <Separator />
@@ -230,7 +259,7 @@ export default function ProductDetails() {
                     <TableRow key={index}>
                       <TableCell className="font-medium">{purchase.date}</TableCell>
                       <TableCell>{purchase.supplier}</TableCell>
-                      <TableCell>{purchase.quantity} {product.unit}</TableCell>
+                      <TableCell>{purchase.quantity} {product.unit_of_measure}</TableCell>
                       <TableCell>${purchase.unitCost}</TableCell>
                       <TableCell className="font-medium">${purchase.total.toLocaleString()}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{purchase.poNumber}</TableCell>
@@ -258,26 +287,26 @@ export default function ProductDetails() {
                   <StockIcon className={`w-5 h-5 ${stockInfo.color}`} />
                   <span className={`font-medium ${stockInfo.color}`}>{stockInfo.status}</span>
                 </div>
-                <div className="text-2xl font-bold">{product.currentStock} {product.unit}</div>
+                <div className="text-2xl font-bold">{product.current_stock} {product.unit_of_measure}</div>
                 <Progress value={stockPercentage} className="mt-2" />
               </div>
               
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Minimum Stock</span>
-                  <span className="font-medium">{product.minStock} {product.unit}</span>
+                  <span className="font-medium">{product.min_stock_level} {product.unit_of_measure}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Maximum Stock</span>
-                  <span className="font-medium">{product.maxStock} {product.unit}</span>
+                  <span className="font-medium">{product.max_stock_level || 'Not set'} {product.unit_of_measure}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Reorder Point</span>
-                  <span className="font-medium">{product.reorderPoint} {product.unit}</span>
+                  <span className="font-medium">{product.reorder_point || 'Not set'} {product.unit_of_measure}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Location</span>
-                  <span className="font-medium text-sm">{product.location}</span>
+                  <span className="text-sm text-muted-foreground">Tax Rate</span>
+                  <span className="font-medium text-sm">{product.tax_rate ? `${product.tax_rate}%` : 'Not set'}</span>
                 </div>
               </div>
             </CardContent>
@@ -294,22 +323,22 @@ export default function ProductDetails() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Cost Price</span>
-                <span className="font-medium">${product.costPrice}</span>
+                <span className="font-medium">${product.cost_price}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Selling Price</span>
-                <span className="font-medium">${product.sellingPrice}</span>
+                <span className="font-medium">${product.selling_price}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>
                 <span className="font-medium text-success">
-                  ${product.sellingPrice - product.costPrice} ({((product.sellingPrice - product.costPrice) / product.costPrice * 100).toFixed(1)}%)
+                  ${product.selling_price - product.cost_price} ({((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Stock Value</span>
-                <span className="font-medium">${(product.currentStock * product.costPrice).toLocaleString()}</span>
+                <span className="font-medium">${(product.current_stock * product.cost_price).toLocaleString()}</span>
               </div>
             </CardContent>
           </Card>
@@ -324,10 +353,10 @@ export default function ProductDetails() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <p className="font-medium">{product.supplier}</p>
-                <p className="text-sm text-muted-foreground">Last Purchase: March 10, 2024</p>
+                <p className="font-medium">{product.supplier.name}</p>
+                <p className="text-sm text-muted-foreground">Supplier Code: {product.supplier.supplier_code}</p>
                 <p className="text-sm text-muted-foreground">Average Lead Time: 5-7 days</p>
-                <Button variant="outline" size="sm" className="w-full mt-3">
+                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => navigate(`/suppliers/${product.supplier.id}`)}>
                   View Supplier Details
                 </Button>
               </div>
@@ -350,11 +379,11 @@ export default function ProductDetails() {
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Created Date</label>
-                <p className="font-medium">{product.createdDate}</p>
+                <p className="font-medium">{new Date(product.created_at).toLocaleDateString()}</p>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Last Updated</label>
-                <p className="font-medium">{product.lastUpdated}</p>
+                <p className="font-medium">{new Date(product.updated_at).toLocaleDateString()}</p>
               </div>
             </CardContent>
           </Card>

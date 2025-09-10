@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
+import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError } from "@/services/api"
 
 interface AddProductFormProps {
   open: boolean
@@ -30,26 +31,106 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
-    category: "",
-    subCategory: "",
-    unit: "pcs",
-    costPrice: "",
-    sellingPrice: "",
-    minStock: "",
-    maxStock: "",
-    supplier: "",
-    description: ""
+    category_id: "",
+    subcategory_id: "",
+    unit_of_measure: "pcs",
+    cost_price: "",
+    selling_price: "",
+    current_stock: "0",
+    min_stock_level: "",
+    max_stock_level: "",
+    supplier_id: "",
+    description: "",
+    barcode: "",
+    weight: "",
+    dimensions: "",
+    tax_rate: "",
+    notes: ""
   })
 
+  const [categories, setCategories] = useState<Category[]>([])
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // Fetch categories and suppliers when dialog opens
+  useEffect(() => {
+    if (open) {
+      const fetchData = async () => {
+        try {
+          setLoading(true)
+          const [categoriesData, suppliersData] = await Promise.all([
+            ApiService.getCategories({ limit: 100 }),
+            ApiService.getSuppliers({ limit: 100 })
+          ])
+          
+          setCategories(categoriesData.categories)
+          setSuppliers(suppliersData.suppliers)
+        } catch (err) {
+          console.error("Failed to fetch data:", err)
+          toast.error("Failed to load form data")
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchData()
+    }
+  }, [open])
+
+  const handleCategoryChange = async (categoryId: string) => {
+    setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
+    
+    if (categoryId) {
+      try {
+        const subcategoriesData = await ApiService.getSubcategories({ 
+          category_id: parseInt(categoryId), 
+          limit: 100 
+        })
+        setSubcategories(subcategoriesData.subcategories)
+      } catch (err) {
+        console.error("Failed to fetch subcategories:", err)
+        setSubcategories([])
+      }
+    } else {
+      setSubcategories([])
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log(formData)
+      // Validation
+      if (!formData.name || !formData.sku || !formData.cost_price || !formData.selling_price || !formData.category_id || !formData.supplier_id) {
+        toast.error("Please fill in all required fields")
+        return
+      }
+
+      const productData: CreateProductRequest = {
+        name: formData.name,
+        sku: formData.sku,
+        description: formData.description || undefined,
+        category_id: parseInt(formData.category_id),
+        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        unit_of_measure: formData.unit_of_measure,
+        cost_price: parseFloat(formData.cost_price),
+        selling_price: parseFloat(formData.selling_price),
+        current_stock: parseFloat(formData.current_stock),
+        min_stock_level: parseFloat(formData.min_stock_level),
+        max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
+        supplier_id: parseInt(formData.supplier_id),
+        barcode: formData.barcode || undefined,
+        weight: formData.weight ? parseFloat(formData.weight) : undefined,
+        dimensions: formData.dimensions || undefined,
+        tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
+        notes: formData.notes || undefined
+      }
+      
+      await ApiService.createProduct(productData)
       
       toast.success("Product added successfully!", {
         description: `${formData.name} has been added to your catalog.`
@@ -59,23 +140,35 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
       setFormData({
         name: "",
         sku: "",
-        category: "",
-        subCategory: "",
-        unit: "pcs",
-        costPrice: "",
-        sellingPrice: "",
-        minStock: "",
-        maxStock: "",
-        supplier: "",
-        description: ""
+        category_id: "",
+        subcategory_id: "",
+        unit_of_measure: "pcs",
+        cost_price: "",
+        selling_price: "",
+        current_stock: "0",
+        min_stock_level: "",
+        max_stock_level: "",
+        supplier_id: "",
+        description: "",
+        barcode: "",
+        weight: "",
+        dimensions: "",
+        tax_rate: "",
+        notes: ""
       })
       
       onProductAdded?.()
       onOpenChange(false)
     } catch (error) {
-      toast.error("Failed to add product", {
-        description: "Please try again later."
-      })
+      if (error instanceof ApiError) {
+        toast.error("Failed to add product", {
+          description: error.message
+        })
+      } else {
+        toast.error("Failed to add product", {
+          description: "Please try again later."
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -123,16 +216,16 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+              <Select value={formData.category_id} onValueChange={(value) => handleInputChange("category_id", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="electronics">Electronics</SelectItem>
-                  <SelectItem value="furniture">Furniture</SelectItem>
-                  <SelectItem value="office-supplies">Office Supplies</SelectItem>
-                  <SelectItem value="raw-materials">Raw Materials</SelectItem>
-                  <SelectItem value="components">Components</SelectItem>
+                  <SelectItem value="1">Electronics</SelectItem>
+                  <SelectItem value="2">Furniture</SelectItem>
+                  <SelectItem value="3-supplies">Office Supplies</SelectItem>
+                  <SelectItem value="4">Raw Materials</SelectItem>
+                  <SelectItem value="5">Components</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -141,8 +234,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
               <Label htmlFor="subCategory">Sub Category</Label>
               <Input
                 id="subCategory"
-                value={formData.subCategory}
-                onChange={(e) => handleInputChange("subCategory", e.target.value)}
+                value={formData.subcategory_id}
+                onChange={(e) => handleInputChange("subcategory_id", e.target.value)}
                 placeholder="Enter sub category"
               />
             </div>
@@ -151,7 +244,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="unit">Unit</Label>
-              <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
+              <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -172,8 +265,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 id="costPrice"
                 type="number"
                 step="0.01"
-                value={formData.costPrice}
-                onChange={(e) => handleInputChange("costPrice", e.target.value)}
+                value={formData.cost_price}
+                onChange={(e) => handleInputChange("cost_price", e.target.value)}
                 placeholder="0.00"
                 required
               />
@@ -185,8 +278,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 id="sellingPrice"
                 type="number"
                 step="0.01"
-                value={formData.sellingPrice}
-                onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
+                value={formData.selling_price}
+                onChange={(e) => handleInputChange("selling_price", e.target.value)}
                 placeholder="0.00"
               />
             </div>
@@ -198,8 +291,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
               <Input
                 id="minStock"
                 type="number"
-                value={formData.minStock}
-                onChange={(e) => handleInputChange("minStock", e.target.value)}
+                value={formData.min_stock_level}
+                onChange={(e) => handleInputChange("min_stock_level", e.target.value)}
                 placeholder="0"
                 required
               />
@@ -210,8 +303,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
               <Input
                 id="maxStock"
                 type="number"
-                value={formData.maxStock}
-                onChange={(e) => handleInputChange("maxStock", e.target.value)}
+                value={formData.max_stock_level}
+                onChange={(e) => handleInputChange("max_stock_level", e.target.value)}
                 placeholder="0"
               />
             </div>
@@ -219,15 +312,15 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
           <div className="space-y-2">
             <Label htmlFor="supplier">Supplier</Label>
-            <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+            <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select supplier" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="abc-electronics">ABC Electronics Ltd</SelectItem>
-                <SelectItem value="global-raw">Global Raw Materials Inc</SelectItem>
-                <SelectItem value="office-furniture">Office Furniture Pro</SelectItem>
-                <SelectItem value="premium-parts">Premium Parts Supply</SelectItem>
+                <SelectItem value="1">ABC Electronics Ltd</SelectItem>
+                <SelectItem value="2">Global Raw Materials Inc</SelectItem>
+                <SelectItem value="3">Office Furniture Pro</SelectItem>
+                <SelectItem value="4">Premium Parts Supply</SelectItem>
               </SelectContent>
             </Select>
           </div>
