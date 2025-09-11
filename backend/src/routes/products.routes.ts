@@ -14,6 +14,7 @@ import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjus
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
+import { deleteProductImage } from "@/utils/file-utils";
 
 const router = express.Router();
 
@@ -248,6 +249,16 @@ router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyn
         
         MyLogger.info(action, { productId: id, updateFields: Object.keys(productData), hasImage: !!req.file })
         
+        // Get current product to check for existing image
+        let currentProduct = null;
+        if (req.file) {
+            try {
+                currentProduct = await GetProductInfoMediator.getProductById(id);
+            } catch (error) {
+                MyLogger.warn('Could not fetch current product for image deletion', { productId: id, error });
+            }
+        }
+        
         // Add image URL to product data if file was uploaded
         if (req.file) {
             productData.image_url = `/uploads/products/${req.file.filename}`;
@@ -267,6 +278,17 @@ router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyn
         }
         
         const product = await UpdateProductInfoMediator.updateProduct(id, value);
+        
+        // Delete old image file if a new image was uploaded and old image exists
+        if (req.file && currentProduct?.image_url) {
+            const oldImageDeleted = await deleteProductImage(currentProduct.image_url);
+            MyLogger.info('Old image deletion result', { 
+                productId: id, 
+                oldImageUrl: currentProduct.image_url, 
+                deleted: oldImageDeleted 
+            });
+        }
+        
         MyLogger.success(action, { productId: id, productName: product.name, productSku: product.sku, hasImage: !!req.file })
         serializeSuccessResponse(res, product, 'SUCCESS')
     } catch (error: any) {
@@ -292,8 +314,26 @@ router.post('/:id/image', uploadProductImage, handleUploadError, expressAsyncHan
             return;
         }
         
+        // Get current product to check for existing image
+        let currentProduct = null;
+        try {
+            currentProduct = await GetProductInfoMediator.getProductById(id);
+        } catch (error) {
+            MyLogger.warn('Could not fetch current product for image deletion', { productId: id, error });
+        }
+        
         const imageUrl = `/uploads/products/${req.file.filename}`;
         const product = await UpdateProductInfoMediator.updateProduct(id, { image_url: imageUrl });
+        
+        // Delete old image file if it exists
+        if (currentProduct?.image_url) {
+            const oldImageDeleted = await deleteProductImage(currentProduct.image_url);
+            MyLogger.info('Old image deletion result', { 
+                productId: id, 
+                oldImageUrl: currentProduct.image_url, 
+                deleted: oldImageDeleted 
+            });
+        }
         
         MyLogger.success(action, { productId: id, productName: product.name, imageUrl })
         serializeSuccessResponse(res, product, 'SUCCESS')
@@ -359,7 +399,28 @@ router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { productId: id })
+        
+        // Get current product to check for existing image before deletion
+        let currentProduct = null;
+        try {
+            currentProduct = await GetProductInfoMediator.getProductById(id);
+        } catch (error) {
+            MyLogger.warn('Could not fetch current product for image deletion', { productId: id, error });
+        }
+        
         await DeleteProductMediator.deleteProduct(id);
+        
+        // Delete associated image file if it exists (for soft delete, we might want to keep the image)
+        // Uncomment the following lines if you want to delete images on soft delete
+        // if (currentProduct?.image_url) {
+        //     const imageDeleted = await deleteProductImage(currentProduct.image_url);
+        //     MyLogger.info('Image deletion result on soft delete', { 
+        //         productId: id, 
+        //         imageUrl: currentProduct.image_url, 
+        //         deleted: imageDeleted 
+        //     });
+        // }
+        
         MyLogger.success(action, { productId: id, message: 'Product marked as discontinued' })
         serializeSuccessResponse(res, { message: 'Product marked as discontinued' }, 'SUCCESS')
     } catch (error: any) {
@@ -374,7 +435,27 @@ router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { productId: id })
+        
+        // Get current product to check for existing image before deletion
+        let currentProduct = null;
+        try {
+            currentProduct = await GetProductInfoMediator.getProductById(id);
+        } catch (error) {
+            MyLogger.warn('Could not fetch current product for image deletion', { productId: id, error });
+        }
+        
         await DeleteProductMediator.hardDeleteProduct(id);
+        
+        // Delete associated image file if it exists (for hard delete, we definitely want to delete the image)
+        if (currentProduct?.image_url) {
+            const imageDeleted = await deleteProductImage(currentProduct.image_url);
+            MyLogger.info('Image deletion result on hard delete', { 
+                productId: id, 
+                imageUrl: currentProduct.image_url, 
+                deleted: imageDeleted 
+            });
+        }
+        
         MyLogger.success(action, { productId: id, message: 'Product permanently deleted' })
         serializeSuccessResponse(res, { message: 'Product permanently deleted' }, 'SUCCESS')
     } catch (error: any) {
