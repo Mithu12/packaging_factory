@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/sonner"
 import {
     Dialog,
     DialogContent,
@@ -33,6 +34,7 @@ import {
     Camera,
 } from "lucide-react"
 import { ApiService, ProductWithDetails, ApiError } from "@/services/api"
+import { ProductApi } from "@/services/product-api"
 import {
   Table,
   TableBody,
@@ -41,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getImagePath } from "@/utils/image.utils"
 
 export default function ProductDetails() {
   const { id } = useParams()
@@ -81,47 +84,46 @@ export default function ProductDetails() {
     
     setIsUploading(true);
     try {
-      // Here you would typically upload the image to your server
-      // For now, we'll just simulate the upload
-      console.log("Uploading image:", selectedImage.name);
+      // Upload the image using the API
+      const updatedProduct = await ProductApi.updateProductImage(product.id, selectedImage);
       
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update the product state with the new image URL
+      await fetchProduct()
       
       // Reset the dialog state
       setSelectedImage(null);
       setImagePreview("");
       setIsImageDialogOpen(false);
       
-      // You could also update the product state here if needed
+      toast.success("Image updated successfully!");
     } catch (error) {
       console.error("Failed to upload image:", error);
+      toast.error("Failed to upload image. Please try again.");
     } finally {
       setIsUploading(false);
     }
   };
 
+  const fetchProduct = async () => {
+    if (!id) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const productData = await ApiService.getProduct(parseInt(id))
+      setProduct(productData)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError("Failed to load product details")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
   // Fetch product data
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) return
-
-      try {
-        setLoading(true)
-        setError(null)
-        const productData = await ApiService.getProduct(parseInt(id))
-        setProduct(productData)
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message)
-        } else {
-          setError("Failed to load product details")
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProduct()
   }, [id])
 
@@ -300,9 +302,12 @@ export default function ProductDetails() {
             <CardContent>
               <div className="flex justify-center">
                 <img
-                  src="https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400"
+                  src={getImagePath(product.image_url)}
                   alt={product.name}
                   className="w-full max-w-md h-64 object-cover rounded-lg border"
+                  // onError={(e) => {
+                  //   e.currentTarget.src = "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
+                  // }}
                 />
               </div>
             </CardContent>

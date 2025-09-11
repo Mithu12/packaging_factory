@@ -164,6 +164,7 @@ export interface Product {
   dimensions?: string;
   tax_rate?: number;
   notes?: string;
+  image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -194,6 +195,7 @@ export interface CreateProductRequest {
   dimensions?: string;
   tax_rate?: number;
   notes?: string;
+  image_url?: string;
 }
 
 export interface UpdateProductRequest {
@@ -216,6 +218,7 @@ export interface UpdateProductRequest {
   dimensions?: string;
   tax_rate?: number;
   notes?: string;
+  image_url?: string;
 }
 
 export interface ProductQueryParams {

@@ -13,6 +13,7 @@ import { DeleteProductMediator } from "@/mediators/products/DeleteProduct.mediat
 import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjustmentMediator";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
+import { uploadProductImage, handleUploadError } from "@/middleware/upload";
 
 const router = express.Router();
 
@@ -186,6 +187,41 @@ router.post('/', validateRequest(createProductSchema), expressAsyncHandler(async
     }
 }));
 
+// POST /api/products/with-image - Create new product with image
+router.post('/with-image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+    let action = 'POST /api/products/with-image'
+    try {
+        // Parse the JSON data from FormData
+        const productData = JSON.parse(req.body.data);
+        
+        MyLogger.info(action, { productName: productData.name, productSku: productData.sku, hasImage: !!req.file })
+        
+        // Add image URL to product data if file was uploaded
+        if (req.file) {
+            productData.image_url = `/uploads/products/${req.file.filename}`;
+        }
+        
+        // Validate the product data
+        const { error, value } = createProductSchema.validate(productData);
+        if (error) {
+            res.status(400).json({
+                error: {
+                    message: 'Validation error',
+                    details: error.details.map((detail: any) => detail.message)
+                }
+            });
+            return;
+        }
+        
+        const product = await AddProductMediator.createProduct(value);
+        MyLogger.success(action, { productId: product.id, productName: product.name, productSku: product.sku, hasImage: !!req.file })
+        serializeSuccessResponse(res, product, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { productName: req.body.data?.name, productSku: req.body.data?.sku })
+        throw error;
+    }
+}));
+
 // PUT /api/products/:id - Update product
 router.put('/:id', validateRequest(updateProductSchema), expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/products/:id'
@@ -197,6 +233,72 @@ router.put('/:id', validateRequest(updateProductSchema), expressAsyncHandler(asy
         serializeSuccessResponse(res, product, 'SUCCESS')
     } catch (error: any) {
         MyLogger.error(action, error, { productId: req.params.id, updateFields: Object.keys(req.body) })
+        throw error;
+    }
+}));
+
+// PUT /api/products/:id/with-image - Update product with image
+router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+    let action = 'PUT /api/products/:id/with-image'
+    try {
+        const id = parseInt(req.params.id);
+        
+        // Parse the JSON data from FormData
+        const productData = JSON.parse(req.body.data);
+        
+        MyLogger.info(action, { productId: id, updateFields: Object.keys(productData), hasImage: !!req.file })
+        
+        // Add image URL to product data if file was uploaded
+        if (req.file) {
+            productData.image_url = `/uploads/products/${req.file.filename}`;
+        }
+        
+        // Validate the product data
+        const { error, value } = updateProductSchema.validate(productData);
+        if (error) {
+            MyLogger.error(action, error, {})
+            res.status(400).json({
+                error: {
+                    message: 'Validation error',
+                    details: error.details.map((detail: any) => detail.message)
+                }
+            });
+            return;
+        }
+        
+        const product = await UpdateProductInfoMediator.updateProduct(id, value);
+        MyLogger.success(action, { productId: id, productName: product.name, productSku: product.sku, hasImage: !!req.file })
+        serializeSuccessResponse(res, product, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { productId: req.params.id, updateFields: Object.keys(req.body.data || {}) })
+        throw error;
+    }
+}));
+
+// POST /api/products/:id/image - Update product image only
+router.post('/:id/image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+    let action = 'POST /api/products/:id/image'
+    try {
+        const id = parseInt(req.params.id);
+        MyLogger.info(action, { productId: id, hasImage: !!req.file })
+        
+        if (!req.file) {
+            res.status(400).json({
+                error: {
+                    message: 'No image file provided',
+                    details: 'Please upload an image file'
+                }
+            });
+            return;
+        }
+        
+        const imageUrl = `/uploads/products/${req.file.filename}`;
+        const product = await UpdateProductInfoMediator.updateProduct(id, { image_url: imageUrl });
+        
+        MyLogger.success(action, { productId: id, productName: product.name, imageUrl })
+        serializeSuccessResponse(res, product, 'SUCCESS')
+    } catch (error: any) {
+        MyLogger.error(action, error, { productId: req.params.id })
         throw error;
     }
 }));

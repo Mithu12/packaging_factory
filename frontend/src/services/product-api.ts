@@ -39,10 +39,63 @@ export class ProductApi {
     });
   }
 
+  static async createProductWithImage(data: CreateProductRequest, imageFile?: File) {
+    const formData = new FormData();
+    
+    // Add all product data as JSON string
+    formData.append('data', JSON.stringify(data));
+    
+    // Add image file if provided
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    
+    return makeRequest<Product>('/products/with-image', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+    });
+  }
+
   static async updateProduct(id: number, data: UpdateProductRequest) {
     return makeRequest<Product>(`/products/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  static async updateProductWithImage(id: number, data: UpdateProductRequest, imageFile?: File) {
+    const formData = new FormData();
+    
+    // Add all product data as JSON string
+    formData.append('data', JSON.stringify(data));
+    
+    // Add image file if provided
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    
+    return makeRequest<Product>(`/products/${id}/with-image`, {
+      method: 'PUT',
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
+    });
+  }
+
+  static async updateProductImage(id: number, imageFile: File) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    
+    return makeRequest<Product>(`/products/${id}/image`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      },
     });
   }
 

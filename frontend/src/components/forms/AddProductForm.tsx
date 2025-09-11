@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
 import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError } from "@/services/api"
+import { ProductApi } from "@/services/product-api"
 import { Upload, X, Image } from "lucide-react";
 import {Card, CardContent} from "@/components/ui/card";
 
@@ -191,7 +192,12 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         notes: formData.notes || undefined
       }
 
-      await ApiService.createProduct(productData)
+      // Use the new API method that supports image upload
+      if (selectedImage) {
+        await ProductApi.createProductWithImage(productData, selectedImage)
+      } else {
+        await ApiService.createProduct(productData)
+      }
 
       toast.success("Product added successfully!", {
         description: `${formData.name} has been added to your catalog.`

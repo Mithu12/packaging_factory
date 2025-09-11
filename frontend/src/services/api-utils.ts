@@ -23,12 +23,21 @@ export async function makeRequest<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   
   const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
     ...options,
   };
+
+  // Only set Content-Type for non-FormData requests
+  if (!(options.body instanceof FormData)) {
+    config.headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+  } else {
+    // For FormData, let the browser set the Content-Type with boundary
+    config.headers = {
+      ...options.headers,
+    };
+  }
 
   try {
     const response = await fetch(url, config);

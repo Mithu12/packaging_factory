@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
+import { ProductApi } from "@/services/product-api"
 import {
     ArrowLeft,
     Save,
@@ -266,7 +267,12 @@ export default function EditProduct() {
         notes: formData.notes || undefined
       }
 
-      await ApiService.updateProduct(parseInt(id), updateData)
+      // Use the new API method that supports image upload
+      if (selectedImage) {
+        await ProductApi.updateProductWithImage(parseInt(id), updateData, selectedImage)
+      } else {
+        await ApiService.updateProduct(parseInt(id), updateData)
+      }
 
       toast({
         title: "Product Updated",
