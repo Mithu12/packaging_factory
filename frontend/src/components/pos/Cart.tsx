@@ -34,6 +34,7 @@ import {
   X,
   CheckIcon,
   ChevronsUpDownIcon,
+  SquarePen,
 } from "lucide-react";
 
 import {
@@ -74,12 +75,16 @@ interface CartProps {
   selectedCustomer: Customer | null;
   paymentMethod: string;
   cashAmount: string;
+  overallDiscount: string;
+  overallTax: string;
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveFromCart: (id: string) => void;
   onClearCart: () => void;
   onCustomerChange: (customer: Customer | null) => void;
   onPaymentMethodChange: (method: string) => void;
   onCashAmountChange: (amount: string) => void;
+  onOverallDiscountChange: (discount: string) => void;
+  onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
   onAddCustomer: (customer: Omit<Customer, "id">) => Promise<Customer>;
 }
@@ -105,18 +110,28 @@ export function Cart({
   selectedCustomer,
   paymentMethod,
   cashAmount,
+  overallDiscount,
+  overallTax,
   onUpdateQuantity,
   onRemoveFromCart,
   onClearCart,
   onCustomerChange,
   onPaymentMethodChange,
   onCashAmountChange,
+  onOverallDiscountChange,
+  onOverallTaxChange,
   onProcessPayment,
   onAddCustomer,
 }: CartProps) {
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const tax = subtotal * 0.1; // 10% tax
-  const total = subtotal + tax;
+  const discountAmount = overallDiscount
+    ? (subtotal * parseFloat(overallDiscount)) / 100
+    : 0;
+  const discountedSubtotal = subtotal - discountAmount;
+  const tax = overallTax
+    ? (discountedSubtotal * parseFloat(overallTax)) / 100
+    : 0;
+  const total = discountedSubtotal + tax;
 
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("Walk-in Customer");
@@ -127,6 +142,11 @@ export function Cart({
     address: "",
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
+  const [discountType, setDiscountType] = useState("Percentage");
+  const [discountValue, setDiscountValue] = useState("");
+  const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
+  const [taxPercentage, setTaxPercentage] = useState("");
 
   const handleAddCustomer = () => {};
 
@@ -407,16 +427,161 @@ export function Cart({
 
         <Separator />
 
+        {/* Overall Discount and Tax */}
+        <div className="flex gap-5">
+          <div>
+            <Dialog
+              open={isDiscountDialogOpen}
+              onOpenChange={setIsDiscountDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start p-0 h-auto text-left"
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>Discount</span>
+                    <span className="text-blue-500">
+                      <SquarePen />
+                    </span>
+                    <span className="ml-auto font-medium">
+                      {overallDiscount || "0.00"}
+                    </span>
+                  </div>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Order Discount</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="discount-type">Order Discount Type</Label>
+                      <Select
+                        value={discountType}
+                        onValueChange={setDiscountType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Flat">Flat</SelectItem>
+                          <SelectItem value="Percentage">Percentage</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="discount-value">Value</Label>
+                      <Input
+                        id="discount-value"
+                        type="number"
+                        placeholder="0"
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(e.target.value)}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDiscountDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      onOverallDiscountChange(discountValue);
+                      setIsDiscountDialogOpen(false);
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <div>
+            <Dialog open={isTaxDialogOpen} onOpenChange={setIsTaxDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start p-0 h-auto text-left"
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>Tax</span>
+                    <span className="text-blue-500">
+                      <SquarePen />
+                    </span>
+                    <span className="ml-auto font-medium">
+                      {overallTax || "0.00"} %
+                    </span>
+                  </div>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Tax Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="tax-percentage">Tax Percentage (%)</Label>
+                    <Input
+                      id="tax-percentage"
+                      type="number"
+                      placeholder="0"
+                      value={taxPercentage}
+                      onChange={(e) => setTaxPercentage(e.target.value)}
+                      min="0"
+                      max="100"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTaxDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      onOverallTaxChange(taxPercentage);
+                      setIsTaxDialogOpen(false);
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Totals */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal:</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span>Tax (10%):</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
+          {overallDiscount && parseFloat(overallDiscount) > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Discount ({overallDiscount}%):</span>
+              <span>-${discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+          {overallTax && parseFloat(overallTax) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span>Tax ({overallTax}%):</span>
+              <span>${tax.toFixed(2)}</span>
+            </div>
+          )}
           <Separator />
           <div className="flex justify-between font-bold text-lg">
             <span>Total:</span>

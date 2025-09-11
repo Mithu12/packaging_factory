@@ -128,6 +128,8 @@ export default function POSManager() {
   const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashAmount, setCashAmount] = useState("");
+  const [overallDiscount, setOverallDiscount] = useState("");
+  const [overallTax, setOverallTax] = useState("");
   const [activeTab, setActiveTab] = useState("pos");
 
   const addToCart = (product: (typeof mockProducts)[0]) => {
@@ -199,8 +201,14 @@ export default function POSManager() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-  const tax = subtotal * 0.1; // 10% tax
-  const total = subtotal + tax;
+  const discountAmount = overallDiscount
+    ? (subtotal * parseFloat(overallDiscount)) / 100
+    : 0;
+  const discountedSubtotal = subtotal - discountAmount;
+  const tax = overallTax
+    ? (discountedSubtotal * parseFloat(overallTax)) / 100
+    : 0;
+  const total = discountedSubtotal + tax;
 
   const processPayment = () => {
     if (cart.length === 0) {
@@ -253,6 +261,8 @@ export default function POSManager() {
     setSelectedCustomer(null);
     setPaymentMethod("");
     setCashAmount("");
+    setOverallDiscount("");
+    setOverallTax("");
   };
 
   const clearCart = () => {
@@ -307,12 +317,16 @@ export default function POSManager() {
                 selectedCustomer={selectedCustomer}
                 paymentMethod={paymentMethod}
                 cashAmount={cashAmount}
+                overallDiscount={overallDiscount}
+                overallTax={overallTax}
                 onUpdateQuantity={updateQuantity}
                 onRemoveFromCart={removeFromCart}
                 onClearCart={clearCart}
                 onCustomerChange={setSelectedCustomer}
                 onPaymentMethodChange={setPaymentMethod}
                 onCashAmountChange={setCashAmount}
+                onOverallDiscountChange={setOverallDiscount}
+                onOverallTaxChange={setOverallTax}
                 onProcessPayment={processPayment}
                 onAddCustomer={handleAddCustomer}
               />
