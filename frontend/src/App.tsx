@@ -32,6 +32,7 @@ import ViewInvoice from "./pages/ViewInvoice";
 import PaymentHistory from "./pages/PaymentHistory";
 import SendReminder from "./pages/SendReminder";
 import GenerateStatement from "./pages/GenerateStatement";
+import POSManager from "./pages/POSManager";
 
 const queryClient = new QueryClient();
 
@@ -44,31 +45,214 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/categories" element={<DashboardLayout><Categories /></DashboardLayout>} />
-          <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
-          <Route path="/suppliers" element={<DashboardLayout><Suppliers /></DashboardLayout>} />
-          <Route path="/suppliers/:id" element={<DashboardLayout><SupplierDetails /></DashboardLayout>} />
-          <Route path="/suppliers/:id/edit" element={<DashboardLayout><EditSupplier /></DashboardLayout>} />
-          <Route path="/suppliers/:id/orders" element={<DashboardLayout><SupplierOrders /></DashboardLayout>} />
-          <Route path="/products" element={<DashboardLayout><Products /></DashboardLayout>} />
-          <Route path="/products/:id" element={<DashboardLayout><ProductDetails /></DashboardLayout>} />
-          <Route path="/products/:id/edit" element={<DashboardLayout><EditProduct /></DashboardLayout>} />
-          <Route path="/products/:id/adjust-stock" element={<DashboardLayout><AdjustStock /></DashboardLayout>} />
-          <Route path="/purchase-orders" element={<DashboardLayout><PurchaseOrders /></DashboardLayout>} />
-          <Route path="/purchase-orders/:id" element={<DashboardLayout><PurchaseOrderDetails /></DashboardLayout>} />
-          <Route path="/purchase-orders/:id/edit" element={<DashboardLayout><EditPurchaseOrder /></DashboardLayout>} />
-          <Route path="/purchase-orders/:id/receive" element={<DashboardLayout><ReceiveGoods /></DashboardLayout>} />
-          <Route path="/inventory" element={<DashboardLayout><Inventory /></DashboardLayout>} />
-          <Route path="/inventory/:id" element={<DashboardLayout><InventoryDetails /></DashboardLayout>} />
-          <Route path="/inventory/:id/edit" element={<DashboardLayout><EditInventory /></DashboardLayout>} />
-          <Route path="/inventory/:id/adjust" element={<DashboardLayout><AdjustStock /></DashboardLayout>} />
-          <Route path="/payments" element={<DashboardLayout><Payments /></DashboardLayout>} />
-          <Route path="/view-invoice/:invoiceId" element={<DashboardLayout><ViewInvoice /></DashboardLayout>} />
-          <Route path="/payment-history/:supplierId?" element={<DashboardLayout><PaymentHistory /></DashboardLayout>} />
-          <Route path="/send-reminder/:invoiceId" element={<DashboardLayout><SendReminder /></DashboardLayout>} />
-          <Route path="/generate-statement/:supplierId?" element={<DashboardLayout><GenerateStatement /></DashboardLayout>} />
-          <Route path="/reports" element={<DashboardLayout><Reports /></DashboardLayout>} />
-          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+          <Route
+            path="/pos-manager"
+            element={
+              <DashboardLayout>
+                <POSManager />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <DashboardLayout>
+                <Categories />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <DashboardLayout>
+                <Profile />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/suppliers"
+            element={
+              <DashboardLayout>
+                <Suppliers />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/suppliers/:id"
+            element={
+              <DashboardLayout>
+                <SupplierDetails />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/suppliers/:id/edit"
+            element={
+              <DashboardLayout>
+                <EditSupplier />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/suppliers/:id/orders"
+            element={
+              <DashboardLayout>
+                <SupplierOrders />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <DashboardLayout>
+                <Products />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <DashboardLayout>
+                <ProductDetails />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/products/:id/edit"
+            element={
+              <DashboardLayout>
+                <EditProduct />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/products/:id/adjust-stock"
+            element={
+              <DashboardLayout>
+                <AdjustStock />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/purchase-orders"
+            element={
+              <DashboardLayout>
+                <PurchaseOrders />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/purchase-orders/:id"
+            element={
+              <DashboardLayout>
+                <PurchaseOrderDetails />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/purchase-orders/:id/edit"
+            element={
+              <DashboardLayout>
+                <EditPurchaseOrder />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/purchase-orders/:id/receive"
+            element={
+              <DashboardLayout>
+                <ReceiveGoods />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <DashboardLayout>
+                <Inventory />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/inventory/:id"
+            element={
+              <DashboardLayout>
+                <InventoryDetails />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/inventory/:id/edit"
+            element={
+              <DashboardLayout>
+                <EditInventory />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/inventory/:id/adjust"
+            element={
+              <DashboardLayout>
+                <AdjustStock />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/payments"
+            element={
+              <DashboardLayout>
+                <Payments />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/view-invoice/:invoiceId"
+            element={
+              <DashboardLayout>
+                <ViewInvoice />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/payment-history/:supplierId?"
+            element={
+              <DashboardLayout>
+                <PaymentHistory />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/send-reminder/:invoiceId"
+            element={
+              <DashboardLayout>
+                <SendReminder />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/generate-statement/:supplierId?"
+            element={
+              <DashboardLayout>
+                <GenerateStatement />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <DashboardLayout>
+                <Reports />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <DashboardLayout>
+                <Settings />
+              </DashboardLayout>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

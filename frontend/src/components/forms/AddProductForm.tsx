@@ -20,11 +20,12 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
 import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError } from "@/services/api"
+import { Upload, X, Image } from "lucide-react";
 
 interface AddProductFormProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onProductAdded?: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onProductAdded?: () => void;
 }
 
 interface ProductFormData {
@@ -71,12 +72,25 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     tax_rate: "",
     notes: ""
   })
-
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                // 5MB limit
+                toast.error("Image too large", {
+                    description: "Please select an image smaller than 5MB.",
+                });
+                return;
+            }
+
 
   // Fetch categories and suppliers when dialog opens
   useEffect(() => {
@@ -88,7 +102,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
             ApiService.getCategories({ limit: 100 }),
             ApiService.getSuppliers({ limit: 100 })
           ])
-          
+
           setCategories(categoriesData.categories)
           setSuppliers(suppliersData.suppliers)
         } catch (err) {
@@ -105,12 +119,12 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
   const handleCategoryChange = async (categoryId: string) => {
     setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
-    
+
     if (categoryId) {
       try {
-        const subcategoriesData = await ApiService.getSubcategories({ 
-          category_id: parseInt(categoryId), 
-          limit: 100 
+        const subcategoriesData = await ApiService.getSubcategories({
+          category_id: parseInt(categoryId),
+          limit: 100
         })
         setSubcategories(subcategoriesData.subcategories)
       } catch (err) {
@@ -122,9 +136,29 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     }
   }
 
+      if (!file.type.startsWith("image/")) {
+        toast.error("Invalid file type", {
+          description: "Please select a valid image file.",
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+  };
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       console.log(formData)
@@ -155,7 +189,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         notes: formData.notes || undefined
       }
-      
+
       await ApiService.createProduct(productData)
       
       toast.success("Product added successfully!", {
@@ -184,6 +218,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         tax_rate: "",
         notes: ""
       })
+        setSelectedImage(null);
+        setImagePreview("");
       
       onProductAdded?.()
       onOpenChange(false)
@@ -198,9 +234,9 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         })
       }
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleInputChange = (field: keyof ProductFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -208,38 +244,105 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Product</DialogTitle>
           <DialogDescription>
-            Add a new product to your catalog. Fill in the required information below.
+            Add a new product to your catalog. Fill in the required information
+            below.
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                placeholder="Enter product name"
-                required
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Product Image */}
+            <div className="space-y-4">
+              <Label>Product Image</Label>
+              <Card>
+                <CardContent className="p-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="Product preview"
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6"
+                        onClick={removeImage}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                      <Image className="mx-auto h-12 w-12 text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Upload product image
+                      </p>
+                      <div className="flex flex-col items-center">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+
+                        <Label
+                          htmlFor="image-upload"
+                          className="cursor-pointer"
+                        >
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            asChild
+                          >
+                            <span>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Choose Image
+                            </span>
+                          </Button>
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          JPG, PNG, GIF up to 5MB
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU *</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => handleInputChange("sku", e.target.value)}
-                placeholder="e.g., PRD-001"
-                required
-              />
-            </div>
-          </div>
+
+            {/* Product Information */}
+            <div className="lg:col-span-3 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Product Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    placeholder="Enter product name"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sku">SKU *</Label>
+                  <Input
+                    id="sku"
+                    value={formData.sku}
+                    onChange={(e) => handleInputChange("sku", e.target.value)}
+                    placeholder="e.g., PRD-001"
+                    required
+                  />
+                </div>
+              </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -257,7 +360,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                   </SelectContent>
                 </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="subCategory">Sub Category</Label>
               <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
@@ -292,7 +395,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="costPrice">Cost Price *</Label>
               <Input
@@ -305,7 +408,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="sellingPrice">Selling Price</Label>
               <Input
@@ -331,7 +434,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="minStock">Minimum Stock *</Label>
               <Input
@@ -356,7 +459,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 placeholder="0"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="reorderPoint">Reorder Point</Label>
               <Input
@@ -385,7 +488,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="barcode">Barcode</Label>
               <Input
@@ -395,7 +498,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 placeholder="Enter barcode"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select value={formData.status || "active"} onValueChange={(value) => handleInputChange("status", value)}>
@@ -424,7 +527,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 placeholder="0.00"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="dimensions">Dimensions</Label>
               <Input
@@ -434,7 +537,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 placeholder="e.g., 10x20x30 cm"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="taxRate">Tax Rate (%)</Label>
               <Input
@@ -471,7 +574,11 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -481,5 +588,5 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

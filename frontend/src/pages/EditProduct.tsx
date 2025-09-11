@@ -10,7 +10,15 @@ import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Save, Package, Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
-
+import {
+    ArrowLeft,
+    Save,
+    Package,
+    Upload,
+    X,
+    Image,
+    Camera,
+} from "lucide-react";
 interface EditProductFormData {
   name: string
   sku: string
@@ -34,9 +42,9 @@ interface EditProductFormData {
 }
 
 export default function EditProduct() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { toast } = useToast()
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -45,7 +53,8 @@ export default function EditProduct() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>("");
   const [formData, setFormData] = useState<EditProductFormData>({
     name: "",
     sku: "",
@@ -65,28 +74,64 @@ export default function EditProduct() {
     weight: "",
     dimensions: "",
     tax_rate: "",
-    notes: ""
+    notes: "",
+      currentImage:
+          "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400",
   })
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                // 5MB limit
+                toast({
+                    title: "Image too large",
+                    description: "Please select an image smaller than 5MB.",
+                    variant: "destructive",
+                });
+                return;
+            }
 
+            if (!file.type.startsWith("image/")) {
+                toast({
+                    title: "Invalid file type",
+                    description: "Please select a valid image file.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        setSelectedImage(null);
+        setImagePreview("");
+    };
   // Fetch product data and related data
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return
-      
+
       try {
         setLoading(true)
         setError(null)
-        
+
         const [productData, categoriesData, suppliersData] = await Promise.all([
           ApiService.getProduct(parseInt(id)),
           ApiService.getCategories({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 })
         ])
-        
+
         setProduct(productData)
         setCategories(categoriesData.categories)
         setSuppliers(suppliersData.suppliers)
-        
+
         // Populate form with product data
         setFormData({
           name: productData.name,
@@ -109,12 +154,12 @@ export default function EditProduct() {
           tax_rate: productData.tax_rate?.toString() || "",
           notes: productData.notes || ""
         })
-        
+
         // Fetch subcategories for the selected category
         if (productData.category_id) {
-          const subcategoriesData = await ApiService.getSubcategories({ 
-            category_id: productData.category_id, 
-            limit: 100 
+          const subcategoriesData = await ApiService.getSubcategories({
+            category_id: productData.category_id,
+            limit: 100
           })
           setSubcategories(subcategoriesData.subcategories)
         }
@@ -138,12 +183,12 @@ export default function EditProduct() {
 
   const handleCategoryChange = async (categoryId: string) => {
     setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
-    
+
     if (categoryId) {
       try {
-        const subcategoriesData = await ApiService.getSubcategories({ 
-          category_id: parseInt(categoryId), 
-          limit: 100 
+        const subcategoriesData = await ApiService.getSubcategories({
+          category_id: parseInt(categoryId),
+          limit: 100
         })
         setSubcategories(subcategoriesData.subcategories)
       } catch (err) {
@@ -181,7 +226,7 @@ export default function EditProduct() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!id) return
     
     // Validation
@@ -189,14 +234,14 @@ export default function EditProduct() {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
       setSaving(true)
-      
+
       const updateData = {
         name: formData.name,
         sku: formData.sku,
@@ -218,14 +263,14 @@ export default function EditProduct() {
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         notes: formData.notes || undefined
       }
-      
+
       await ApiService.updateProduct(parseInt(id), updateData)
-      
+
       toast({
         title: "Product Updated",
         description: "Product has been successfully updated.",
       })
-      
+
       navigate(`/products/${id}`)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -263,7 +308,11 @@ export default function EditProduct() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/products/${id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -276,6 +325,92 @@ export default function EditProduct() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Information */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Product Image */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Image className="w-5 h-5" />
+                  Product Image
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Current Image */}
+                  <div>
+                    <Label>Current Image</Label>
+                    <div className="mt-2">
+                      <img
+                        src={formData.currentImage}
+                        alt={formData.name}
+                        className="w-full h-48 object-cover rounded-lg border"
+                        onError={(e) => {
+                          e.currentTarget.src =
+                            "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* New Image Upload */}
+                  <div>
+                    <Label>Upload New Image</Label>
+                    <div className="mt-2">
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="New product preview"
+                            className="w-full h-48 object-cover rounded-lg border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={removeImage}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center h-48 flex flex-col justify-center">
+                          <Image className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Upload new image
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="image-upload"
+                          />
+                          <Label
+                            htmlFor="image-upload"
+                            className="cursor-pointer"
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              asChild
+                            >
+                              <span>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Choose Image
+                              </span>
+                            </Button>
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            JPG, PNG, GIF up to 5MB
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -291,7 +426,9 @@ export default function EditProduct() {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("name", e.target.value)
+                      }
                       placeholder="Enter product name"
                       required
                     />
@@ -311,7 +448,9 @@ export default function EditProduct() {
                     <Input
                       id="brand"
                       value={formData.brand}
-                      onChange={(e) => handleInputChange("brand", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("brand", e.target.value)
+                      }
                       placeholder="Enter brand"
                     />
                   </div>
@@ -320,18 +459,22 @@ export default function EditProduct() {
                     <Input
                       id="barcode"
                       value={formData.barcode}
-                      onChange={(e) => handleInputChange("barcode", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("barcode", e.target.value)
+                      }
                       placeholder="Enter barcode"
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
+                    }
                     placeholder="Enter product description"
                     rows={3}
                   />
@@ -430,9 +573,11 @@ export default function EditProduct() {
                 
                 {formData.cost_price && formData.selling_price && (
                   <div className="p-3 bg-accent/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Profit Margin</div>
+                    <div className="text-sm text-muted-foreground">
+                      Profit Margin
+                    </div>
                     <div className="text-lg font-medium text-success">
-                      ${(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)} 
+                      ${(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
                       ({(((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseFloat(formData.cost_price)) * 100).toFixed(1)}%)
                     </div>
                   </div>
@@ -454,7 +599,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.01"
                       value={formData.weight}
-                      onChange={(e) => handleInputChange("weight", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("weight", e.target.value)
+                      }
                       placeholder="0.00"
                     />
                   </div>
@@ -465,7 +612,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.length}
-                      onChange={(e) => handleInputChange("length", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("length", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -476,7 +625,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.width}
-                      onChange={(e) => handleInputChange("width", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("width", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -487,7 +638,9 @@ export default function EditProduct() {
                       type="number"
                       step="0.1"
                       value={formData.height}
-                      onChange={(e) => handleInputChange("height", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("height", e.target.value)
+                      }
                       placeholder="0.0"
                     />
                   </div>
@@ -539,7 +692,9 @@ export default function EditProduct() {
                   <Input
                     id="location"
                     value={formData.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("location", e.target.value)
+                    }
                     placeholder="Warehouse - Shelf"
                   />
                 </div>
@@ -569,7 +724,12 @@ export default function EditProduct() {
                 </div>
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      handleInputChange("status", value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -600,9 +760,9 @@ export default function EditProduct() {
                     </>
                   )}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   className="w-full"
                   onClick={() => navigate(`/products/${id}`)}
                 >
@@ -614,5 +774,5 @@ export default function EditProduct() {
         </div>
       </form>
     </div>
-  )
+  );
 }

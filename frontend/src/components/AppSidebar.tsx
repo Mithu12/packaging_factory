@@ -9,6 +9,7 @@ import {
   DollarSign,
   Settings,
   FolderTree,
+  Calculator,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,7 @@ import {
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
+  { title: "POS Manager", url: "/pos-manager", icon: Calculator },
   { title: "Suppliers", url: "/suppliers", icon: Users },
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: FolderTree },
