@@ -57,6 +57,7 @@ export default function AdjustStock() {
         setError(null)
         const productData = await ApiService.getProduct(parseInt(id))
         setProduct(productData)
+        setCalculatedStock(productData.current_stock)
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message)
@@ -103,7 +104,7 @@ export default function AdjustStock() {
     )
   }
 
-  const [calculatedStock, setCalculatedStock] = useState(product.current_stock)
+  const [calculatedStock, setCalculatedStock] = useState(0)
 
   const recentAdjustments = [
     { date: "2024-03-01", type: "Increase", quantity: +2, reason: "Found extra stock", reference: "ADJ-2024-008", user: "John Doe" },
@@ -134,12 +135,17 @@ export default function AdjustStock() {
   const handleInputChange = (field: keyof StockAdjustmentFormData, value: string) => {
     setAdjustmentData(prev => ({ ...prev, [field]: value }))
     
-    if (field === "quantity" || field === "adjustment_type") {
-      const qty = parseFloat(value) || 0
-      if (adjustmentData.adjustment_type === "increase" || field === "adjustment_type" && value === "increase") {
+    // Calculate new stock when quantity or adjustment type changes
+    if ((field === "quantity" || field === "adjustment_type") && product) {
+      const newData = { ...adjustmentData, [field]: value }
+      const qty = parseFloat(newData.quantity) || 0
+      
+      if (newData.adjustment_type === "increase") {
         setCalculatedStock(product.current_stock + qty)
-      } else if (adjustmentData.adjustment_type === "decrease" || field === "adjustment_type" && value === "decrease") {
+      } else if (newData.adjustment_type === "decrease") {
         setCalculatedStock(product.current_stock - qty)
+      } else {
+        setCalculatedStock(product.current_stock)
       }
     }
   }
@@ -167,7 +173,7 @@ export default function AdjustStock() {
       return
     }
 
-    if (adjustmentData.adjustment_type === "decrease" && qty > product.current_stock) {
+    if (adjustmentData.adjustment_type === "decrease" && product && qty > product.current_stock) {
       toast({
         title: "Insufficient Stock",
         description: "Cannot decrease stock below zero.",
@@ -216,13 +222,14 @@ export default function AdjustStock() {
   }
 
   const getStockStatus = (stock: number) => {
+    if (!product) return { status: "Unknown", color: "text-muted-foreground" }
     if (stock <= product.min_stock_level * 0.5) return { status: "Critical", color: "text-destructive" }
     if (stock <= product.min_stock_level) return { status: "Low", color: "text-warning" }
     return { status: "Good", color: "text-success" }
   }
 
-  const currentStatus = getStockStatus(product.current_stock)
-  const newStatus = getStockStatus(calculatedStock)
+  const currentStatus = product ? getStockStatus(product.current_stock) : { status: "Unknown", color: "text-muted-foreground" }
+  const newStatus = product ? getStockStatus(calculatedStock) : { status: "Unknown", color: "text-muted-foreground" }
 
   return (
     <div className="space-y-6">
@@ -296,7 +303,7 @@ export default function AdjustStock() {
                   </div>
                 </div>
 
-                {adjustmentData.adjustment_type === "decrease" && calculatedStock < product.min_stock_level && (
+                {adjustmentData.adjustment_type === "decrease" && product && calculatedStock < product.min_stock_level && (
                   <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
                     <div>
@@ -345,7 +352,7 @@ export default function AdjustStock() {
                         min="1"
                         value={adjustmentData.quantity}
                         onChange={(e) => handleInputChange("quantity", e.target.value)}
-                        placeholder={`Enter quantity in ${product.unit}`}
+                        placeholder={`Enter quantity in ${product.unit_of_measure}`}
                         required
                       />
                     </div>
@@ -358,7 +365,7 @@ export default function AdjustStock() {
                         <SelectValue placeholder="Select reason for adjustment" />
                       </SelectTrigger>
                       <SelectContent>
-                        {adjustmentData.adjustmentType && adjustmentReasons[adjustmentData.adjustmentType as keyof typeof adjustmentReasons]?.map((reason) => (
+                        {adjustmentData.adjustment_type && adjustmentReasons[adjustmentData.adjustment_type as keyof typeof adjustmentReasons]?.map((reason) => (
                           <SelectItem key={reason} value={reason}>
                             {reason}
                           </SelectItem>
@@ -461,11 +468,11 @@ export default function AdjustStock() {
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Minimum Stock:</span>
-                  <span className="font-medium">{product.minStock} {product.unit}</span>
+                  <span className="font-medium">{product.min_stock_level} {product.unit_of_measure}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Maximum Stock:</span>
-                  <span className="font-medium">{product.maxStock} {product.unit}</span>
+                  <span className="font-medium">{product.max_stock_level || 'N/A'} {product.unit_of_measure}</span>
                 </div>
               </div>
               <Separator />
