@@ -347,6 +347,40 @@ export class ApiService {
       };
     }>(`/products/${id}/references`);
   }
+
+  // Stock Adjustment History API methods
+  static async getStockAdjustments(params?: StockAdjustmentQueryParams) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return this.request<StockAdjustment[]>(`/stock-adjustments${queryString ? `?${queryString}` : ''}`);
+  }
+
+  static async getStockAdjustmentStats(productId?: number) {
+    const queryParams = new URLSearchParams();
+    if (productId) {
+      queryParams.append('product_id', productId.toString());
+    }
+    const queryString = queryParams.toString();
+    return this.request<StockAdjustmentStats>(`/stock-adjustments/stats${queryString ? `?${queryString}` : ''}`);
+  }
+
+  static async getStockAdjustment(id: number) {
+    return this.request<StockAdjustment>(`/stock-adjustments/${id}`);
+  }
+
+  static async createStockAdjustment(data: StockAdjustmentRequest) {
+    return this.request<StockAdjustment>('/stock-adjustments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // Types
@@ -555,6 +589,39 @@ export interface StockAdjustmentRequest {
   reason: string;
   reference?: string;
   notes?: string;
+}
+
+export interface StockAdjustment {
+  id: number
+  product_id: number
+  adjustment_type: 'increase' | 'decrease' | 'set'
+  quantity: number
+  previous_stock: number
+  new_stock: number
+  reason: string
+  reference?: string
+  notes?: string
+  adjusted_by?: string
+  created_at: string
+  product_name?: string
+  product_sku?: string
+}
+
+export interface StockAdjustmentQueryParams {
+  product_id?: number
+  adjustment_type?: 'increase' | 'decrease' | 'set'
+  limit?: number
+  offset?: number
+  start_date?: string
+  end_date?: string
+}
+
+export interface StockAdjustmentStats {
+  total_adjustments: number
+  total_increases: number
+  total_decreases: number
+  total_quantity_adjusted: number
+  recent_adjustments: StockAdjustment[]
 }
 
 export { ApiError };

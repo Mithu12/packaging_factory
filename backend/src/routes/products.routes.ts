@@ -10,6 +10,7 @@ import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { AddProductMediator } from "@/mediators/products/AddProduct.mediator";
 import { UpdateProductInfoMediator } from "@/mediators/products/UpdateProductInfo.mediator";
 import { DeleteProductMediator } from "@/mediators/products/DeleteProduct.mediator";
+import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjustmentMediator";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 
@@ -220,10 +221,29 @@ router.patch('/:id/stock', validateRequest(stockAdjustmentSchema), expressAsyncH
     let action = 'PATCH /api/products/:id/stock'
     try {
         const id = parseInt(req.params.id);
-        const { quantity, reason } = req.body;
-        MyLogger.info(action, { productId: id, quantity, reason })
-        const product = await UpdateProductInfoMediator.updateStock(id, quantity, reason);
-        MyLogger.success(action, { productId: id, productName: product.name, newStock: product.current_stock })
+        const { adjustment_type, quantity, reason, reference, notes } = req.body;
+        MyLogger.info(action, { productId: id, adjustmentType: adjustment_type, quantity, reason })
+        
+        const adjustmentData = {
+            product_id: id,
+            adjustment_type,
+            quantity,
+            reason,
+            reference,
+            notes
+        };
+        
+        const adjustment = await StockAdjustmentMediator.createStockAdjustment(adjustmentData);
+        
+        // Get updated product data
+        const product = await GetProductInfoMediator.getProductById(id);
+        
+        MyLogger.success(action, { 
+            productId: id, 
+            adjustmentId: adjustment.id,
+            productName: product.name, 
+            newStock: product.current_stock 
+        })
         serializeSuccessResponse(res, product, 'SUCCESS')
     } catch (error: any) {
         MyLogger.error(action, error, { productId: req.params.id, quantity: req.body.quantity })

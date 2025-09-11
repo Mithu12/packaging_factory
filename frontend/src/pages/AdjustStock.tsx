@@ -19,7 +19,7 @@ import {
   Info,
   Loader2
 } from "lucide-react"
-import { ApiService, ProductWithDetails, StockAdjustmentRequest, ApiError } from "@/services/api"
+import { ApiService, ProductWithDetails, StockAdjustmentRequest, StockAdjustment, ApiError } from "@/services/api"
 
 interface StockAdjustmentFormData {
   adjustment_type: string
@@ -47,7 +47,7 @@ export default function AdjustStock() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [calculatedStock, setCalculatedStock] = useState(0)
-  const [recentAdjustments, setRecentAdjustments] = useState<any[]>([])
+  const [recentAdjustments, setRecentAdjustments] = useState<StockAdjustment[]>([])
   const [loadingAdjustments, setLoadingAdjustments] = useState(false)
   const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
     adjustment_type: "",
@@ -56,9 +56,6 @@ export default function AdjustStock() {
     reference: "",
     notes: ""
   })
-
-  // Fetch product data
-  useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return
       
@@ -79,23 +76,24 @@ export default function AdjustStock() {
       }
     }
 
+  // Fetch product data
+  useEffect(() => {
     fetchProduct()
   }, [id])
 
 
-  // Fetch adjustment history (placeholder for future implementation)
+  // Fetch adjustment history
   useEffect(() => {
     const fetchAdjustmentHistory = async () => {
       if (!id) return
       
       try {
         setLoadingAdjustments(true)
-        // TODO: Implement API endpoint for stock adjustment history
-        // const adjustments = await ApiService.getStockAdjustmentHistory(parseInt(id))
-        // setRecentAdjustments(adjustments)
-        
-        // For now, show empty state
-        setRecentAdjustments([])
+        const adjustments = await ApiService.getStockAdjustments({
+          product_id: parseInt(id),
+          limit: 10
+        })
+        setRecentAdjustments(adjustments)
       } catch (err) {
         console.error('Failed to fetch adjustment history:', err)
         setRecentAdjustments([])
@@ -208,7 +206,7 @@ export default function AdjustStock() {
       const stockAdjustmentData: StockAdjustmentRequest = {
         product_id: parseInt(id),
         adjustment_type: adjustmentData.adjustment_type as 'increase' | 'decrease' | 'set',
-        quantity: calculatedStock,
+        quantity: qty,
         reason: adjustmentData.reason,
         reference: adjustmentData.reference || undefined,
         notes: adjustmentData.notes || undefined
@@ -221,7 +219,22 @@ export default function AdjustStock() {
         description: `Stock has been ${adjustmentData.adjustment_type === "increase" ? "increased" : "decreased"} by ${qty} ${product.unit_of_measure}.`
       })
       
-      navigate(`/products/${id}`)
+      // Refresh adjustment history
+      const adjustments = await ApiService.getStockAdjustments({
+        product_id: parseInt(id),
+        limit: 10
+      })
+      setRecentAdjustments(adjustments)
+      
+      // Reset form
+      setAdjustmentData({
+        adjustment_type: "",
+        quantity: "",
+        reason: "",
+        reference: "",
+        notes: ""
+      })
+      fetchProduct()
     } catch (err) {
       if (err instanceof ApiError) {
         toast({
@@ -459,23 +472,23 @@ export default function AdjustStock() {
                 </div>
               ) : recentAdjustments.length > 0 ? (
                 <div className="space-y-4">
-                  {recentAdjustments.map((adjustment, index) => (
-                    <div key={index} className="p-3 bg-accent/20 rounded-lg">
+                  {recentAdjustments.map((adjustment) => (
+                    <div key={adjustment.id} className="p-3 bg-accent/20 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {adjustment.type === "Increase" ? 
+                          {adjustment.adjustment_type === "increase" ? 
                             <TrendingUp className="w-4 h-4 text-success" /> :
                             <TrendingDown className="w-4 h-4 text-destructive" />
                           }
-                          <span className="font-medium text-sm">{adjustment.type}</span>
+                          <span className="font-medium text-sm capitalize">{adjustment.adjustment_type}</span>
                         </div>
-                        <span className={`font-medium ${adjustment.type === "Increase" ? "text-success" : "text-destructive"}`}>
-                          {adjustment.quantity > 0 ? "+" : ""}{adjustment.quantity}
+                        <span className={`font-medium ${adjustment.adjustment_type === "increase" ? "text-success" : "text-destructive"}`}>
+                          {adjustment.adjustment_type === "increase" ? "+" : "-"}{adjustment.quantity}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground space-y-1">
                         <div>{adjustment.reason}</div>
-                        <div>{adjustment.date} • {adjustment.user}</div>
+                        <div>{new Date(adjustment.created_at).toLocaleDateString()} • {adjustment.adjusted_by || 'System'}</div>
                         {adjustment.reference && <div>Ref: {adjustment.reference}</div>}
                       </div>
                     </div>

@@ -211,6 +211,40 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Products Table')
 
+    // Create stock_adjustments table
+    MyLogger.info('Create Stock Adjustments Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        adjustment_type VARCHAR(20) NOT NULL CHECK (adjustment_type IN ('increase', 'decrease', 'set')),
+        quantity DECIMAL(10,2) NOT NULL,
+        previous_stock DECIMAL(10,2) NOT NULL,
+        new_stock DECIMAL(10,2) NOT NULL,
+        reason VARCHAR(255) NOT NULL,
+        reference VARCHAR(100),
+        notes TEXT,
+        adjusted_by VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Stock Adjustments Table')
+
+    // Create indexes for stock_adjustments
+    MyLogger.info('Create Stock Adjustments Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_product_id ON stock_adjustments(product_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_created_at ON stock_adjustments(created_at);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_type ON stock_adjustments(adjustment_type);
+    `);
+    MyLogger.success('Create Stock Adjustments Indexes')
+
     // Create indexes for products
     MyLogger.info('Create Product Indexes')
     await client.query(`
