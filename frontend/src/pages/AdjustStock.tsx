@@ -46,6 +46,14 @@ export default function AdjustStock() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [calculatedStock, setCalculatedStock] = useState(0)
+  const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
+    adjustment_type: "",
+    quantity: "",
+    reason: "",
+    reference: "",
+    notes: ""
+  })
 
   // Fetch product data
   useEffect(() => {
@@ -72,14 +80,6 @@ export default function AdjustStock() {
     fetchProduct()
   }, [id])
 
-  const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
-    adjustment_type: "",
-    quantity: "",
-    reason: "",
-    reference: "",
-    notes: ""
-  })
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -103,8 +103,6 @@ export default function AdjustStock() {
       </div>
     )
   }
-
-  const [calculatedStock, setCalculatedStock] = useState(0)
 
   const recentAdjustments = [
     { date: "2024-03-01", type: "Increase", quantity: +2, reason: "Found extra stock", reference: "ADJ-2024-008", user: "John Doe" },
@@ -141,9 +139,9 @@ export default function AdjustStock() {
       const qty = parseFloat(newData.quantity) || 0
       
       if (newData.adjustment_type === "increase") {
-        setCalculatedStock(product.current_stock + qty)
+        setCalculatedStock(Number(product.current_stock) + Number(qty))
       } else if (newData.adjustment_type === "decrease") {
-        setCalculatedStock(product.current_stock - qty)
+        setCalculatedStock(Number(product.current_stock) - Number(qty)) 
       } else {
         setCalculatedStock(product.current_stock)
       }
@@ -188,7 +186,7 @@ export default function AdjustStock() {
       const stockAdjustmentData: StockAdjustmentRequest = {
         product_id: parseInt(id),
         adjustment_type: adjustmentData.adjustment_type as 'increase' | 'decrease' | 'set',
-        quantity: qty,
+        quantity: calculatedStock,
         reason: adjustmentData.reason,
         reference: adjustmentData.reference || undefined,
         notes: adjustmentData.notes || undefined
