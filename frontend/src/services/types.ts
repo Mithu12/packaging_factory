@@ -334,14 +334,12 @@ export interface PurchaseOrderLineItem {
 }
 
 export interface PurchaseOrderWithDetails extends PurchaseOrder {
-  supplier: {
-    id: number;
-    name: string;
-    contact_person?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-  };
+  supplier_name: string;
+  supplier_code: string;
+  supplier_contact: string;
+  supplier_email: string;
+  supplier_phone: string;
+  supplier_address: string;
   line_items: PurchaseOrderLineItem[];
   timeline: PurchaseOrderTimeline[];
 }

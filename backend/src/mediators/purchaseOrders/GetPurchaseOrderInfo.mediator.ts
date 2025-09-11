@@ -97,6 +97,7 @@ class GetPurchaseOrderInfoMediator {
                 SELECT 
                     po.*,
                     s.name as supplier_name,
+                    s.supplier_code as supplier_code,
                     s.contact_person as supplier_contact,
                     s.email as supplier_email,
                     s.phone as supplier_phone,
@@ -146,6 +147,7 @@ class GetPurchaseOrderInfoMediator {
                     po.*,
                     s.id as supplier_id,
                     s.name as supplier_name,
+                    s.supplier_code as supplier_code,
                     s.contact_person as supplier_contact,
                     s.email as supplier_email,
                     s.phone as supplier_phone,

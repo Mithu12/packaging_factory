@@ -1,5 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { toast } from "@/components/ui/sonner"
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { PurchaseOrderWithDetails } from "@/services/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,93 +35,34 @@ import {
 export default function PurchaseOrderDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
+  
+  const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock PO data - in real app, fetch by ID
-  const purchaseOrder = {
-    id: "PO-2024-045",
-    supplier: {
-      name: "ABC Electronics Ltd",
-      code: "SUP-001",
-      contact: "John Smith",
-      email: "orders@abcelectronics.com",
-      phone: "+1 (555) 123-4567",
-      address: "123 Tech Street, Silicon Valley, CA 94025"
-    },
-    orderDate: "2024-03-10",
-    expectedDelivery: "2024-03-17",
-    actualDelivery: null,
-    status: "approved",
-    priority: "medium",
-    totalAmount: 34500,
-    currency: "USD",
-    paymentTerms: "Net 30",
-    deliveryTerms: "FOB Destination",
-    notes: "Urgent order for Q1 inventory replenishment. Please ensure all items are properly packaged.",
-    createdBy: "Sarah Wilson",
-    approvedBy: "Mike Johnson",
-    approvedDate: "2024-03-10",
-    department: "IT Equipment",
-    project: "Office Expansion 2024"
-  }
-
-  const lineItems = [
-    {
-      id: 1,
-      productSku: "LPT-001",
-      productName: "Business Laptop Model X",
-      description: "High-performance business laptop with Intel i7 processor",
-      quantity: 20,
-      unitPrice: 850,
-      totalPrice: 17000,
-      receivedQty: 0,
-      pendingQty: 20,
-      unit: "pcs"
-    },
-    {
-      id: 2,
-      productSku: "MON-205",
-      productName: "24-inch LED Monitor",
-      description: "Full HD LED monitor with adjustable stand",
-      quantity: 25,
-      unitPrice: 180,
-      totalPrice: 4500,
-      receivedQty: 0,
-      pendingQty: 25,
-      unit: "pcs"
-    },
-    {
-      id: 3,
-      productSku: "KBD-301",
-      productName: "Wireless Keyboard & Mouse Set",
-      description: "Ergonomic wireless keyboard and mouse combo",
-      quantity: 30,
-      unitPrice: 45,
-      totalPrice: 1350,
-      receivedQty: 0,
-      pendingQty: 30,
-      unit: "sets"
-    },
-    {
-      id: 4,
-      productSku: "CAB-102",
-      productName: "USB-C Hub Premium",
-      description: "Multi-port USB-C hub with HDMI and Ethernet",
-      quantity: 35,
-      unitPrice: 65,
-      totalPrice: 2275,
-      receivedQty: 0,
-      pendingQty: 35,
-      unit: "pcs"
+  // Fetch purchase order data
+  useEffect(() => {
+    if (id) {
+      fetchPurchaseOrder()
     }
-  ]
+  }, [id])
 
-  const timeline = [
-    { date: "2024-03-08", event: "PO Created", user: "Sarah Wilson", status: "completed" },
-    { date: "2024-03-09", event: "Pending Approval", user: "System", status: "completed" },
-    { date: "2024-03-10", event: "Approved", user: "Mike Johnson", status: "completed" },
-    { date: "2024-03-10", event: "Sent to Supplier", user: "System", status: "completed" },
-    { date: "2024-03-17", event: "Expected Delivery", user: "Supplier", status: "pending" }
-  ]
+  const fetchPurchaseOrder = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await PurchaseOrderApi.getPurchaseOrder(parseInt(id!))
+      setPurchaseOrder(data)
+    } catch (err: any) {
+      console.error('Error fetching purchase order:', err)
+      setError(err.message || 'Failed to load purchase order')
+      toast.error('Failed to load purchase order', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -142,9 +86,64 @@ export default function PurchaseOrderDetails() {
     }
   }
 
-  const totalReceived = lineItems.reduce((sum, item) => sum + item.receivedQty, 0)
-  const totalOrdered = lineItems.reduce((sum, item) => sum + item.quantity, 0)
+  // Calculate fulfillment percentage
+  const totalReceived = purchaseOrder?.line_items?.reduce((sum, item) => sum + (item.received_quantity || 0), 0) || 0
+  const totalOrdered = purchaseOrder?.line_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
   const fulfillmentPercentage = totalOrdered > 0 ? (totalReceived / totalOrdered) * 100 : 0
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/purchase-orders")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <div className="h-8 bg-muted animate-pulse rounded w-48"></div>
+            <div className="h-4 bg-muted animate-pulse rounded w-64 mt-2"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="h-4 bg-muted animate-pulse rounded w-20 mb-2"></div>
+                <div className="h-6 bg-muted animate-pulse rounded w-16"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !purchaseOrder) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/purchase-orders")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-foreground">Purchase Order Not Found</h1>
+            <p className="text-muted-foreground">The requested purchase order could not be loaded.</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Error Loading Purchase Order</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={fetchPurchaseOrder}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -154,8 +153,8 @@ export default function PurchaseOrderDetails() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground">{purchaseOrder.id}</h1>
-          <p className="text-muted-foreground">Purchase Order Details • {purchaseOrder.supplier.name}</p>
+          <h1 className="text-3xl font-bold text-foreground">{purchaseOrder.po_number}</h1>
+          <p className="text-muted-foreground">Purchase Order Details • {purchaseOrder.supplier_name}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
@@ -195,7 +194,12 @@ export default function PurchaseOrderDetails() {
                   <DollarSign className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">Total Amount</span>
                 </div>
-                <div className="text-xl font-bold">${purchaseOrder.totalAmount.toLocaleString()}</div>
+                <div className="text-xl font-bold">
+                  {purchaseOrder.total_amount.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: purchaseOrder.currency || 'USD'
+                  })}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -204,7 +208,7 @@ export default function PurchaseOrderDetails() {
                   <Package className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">Items</span>
                 </div>
-                <div className="text-xl font-bold">{lineItems.length}</div>
+                <div className="text-xl font-bold">{purchaseOrder.line_items?.length || 0}</div>
               </CardContent>
             </Card>
             <Card>
@@ -239,39 +243,55 @@ export default function PurchaseOrderDetails() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lineItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.productName}</div>
-                          <div className="text-sm text-muted-foreground">SKU: {item.productSku}</div>
-                          <div className="text-xs text-muted-foreground">{item.description}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.quantity} {item.unit}</div>
-                          {item.receivedQty > 0 && (
-                            <div className="text-xs text-success">Received: {item.receivedQty}</div>
+                  {purchaseOrder.line_items?.map((item) => {
+                    const receivedQty = item.received_quantity || 0
+                    const pendingQty = item.quantity - receivedQty
+                    const totalPrice = item.quantity * item.unit_price
+                    
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.product_name}</div>
+                            <div className="text-sm text-muted-foreground">SKU: {item.product_sku || 'N/A'}</div>
+                            <div className="text-xs text-muted-foreground">{item.description || 'No description'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.quantity} {item.unit_of_measure || 'pcs'}</div>
+                            {receivedQty > 0 && (
+                              <div className="text-xs text-success">Received: {receivedQty}</div>
+                            )}
+                            {pendingQty > 0 && (
+                              <div className="text-xs text-warning">Pending: {pendingQty}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {item.unit_price.toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: purchaseOrder.currency || 'USD'
+                          })}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {totalPrice.toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: purchaseOrder.currency || 'USD'
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          {receivedQty === item.quantity ? (
+                            <Badge className="bg-success text-white">Received</Badge>
+                          ) : receivedQty > 0 ? (
+                            <Badge className="bg-orange-500 text-white">Partial</Badge>
+                          ) : (
+                            <Badge className="bg-warning text-white">Pending</Badge>
                           )}
-                          {item.pendingQty > 0 && (
-                            <div className="text-xs text-warning">Pending: {item.pendingQty}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">${item.unitPrice}</TableCell>
-                      <TableCell className="font-medium">${item.totalPrice.toLocaleString()}</TableCell>
-                      <TableCell>
-                        {item.receivedQty === item.quantity ? (
-                          <Badge className="bg-success text-white">Received</Badge>
-                        ) : item.receivedQty > 0 ? (
-                          <Badge className="bg-orange-500 text-white">Partial</Badge>
-                        ) : (
-                          <Badge className="bg-warning text-white">Pending</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
               
@@ -281,16 +301,31 @@ export default function PurchaseOrderDetails() {
                 <div className="space-y-2 text-right">
                   <div className="flex justify-between gap-8">
                     <span>Subtotal:</span>
-                    <span className="font-medium">${(purchaseOrder.totalAmount * 0.9).toLocaleString()}</span>
+                    <span className="font-medium">
+                      {(purchaseOrder.total_amount * 0.9).toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: purchaseOrder.currency || 'USD'
+                      })}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-8">
                     <span>Tax (10%):</span>
-                    <span className="font-medium">${(purchaseOrder.totalAmount * 0.1).toLocaleString()}</span>
+                    <span className="font-medium">
+                      {(purchaseOrder.total_amount * 0.1).toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: purchaseOrder.currency || 'USD'
+                      })}
+                    </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between gap-8 text-lg font-bold">
                     <span>Total:</span>
-                    <span>${purchaseOrder.totalAmount.toLocaleString()}</span>
+                    <span>
+                      {purchaseOrder.total_amount.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: purchaseOrder.currency || 'USD'
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -307,7 +342,7 @@ export default function PurchaseOrderDetails() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {timeline.map((event, index) => (
+                {purchaseOrder.timeline?.map((event, index) => (
                   <div key={index} className="flex items-start gap-4">
                     <div className={`w-3 h-3 rounded-full mt-2 ${
                       event.status === "completed" ? "bg-success" : 
@@ -316,12 +351,21 @@ export default function PurchaseOrderDetails() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <div className="font-medium">{event.event}</div>
-                        <div className="text-sm text-muted-foreground">{event.date}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(event.created_at).toLocaleDateString()}
+                        </div>
                       </div>
                       <div className="text-sm text-muted-foreground">by {event.user}</div>
+                      {event.description && (
+                        <div className="text-xs text-muted-foreground mt-1">{event.description}</div>
+                      )}
                     </div>
                   </div>
-                ))}
+                )) || (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No timeline events available
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -352,12 +396,18 @@ export default function PurchaseOrderDetails() {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Order Date</label>
-                <p className="font-medium">{purchaseOrder.orderDate}</p>
+                <p className="font-medium">{new Date(purchaseOrder.order_date).toLocaleDateString()}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Expected Delivery</label>
-                <p className="font-medium">{purchaseOrder.expectedDelivery}</p>
+                <p className="font-medium">{new Date(purchaseOrder.expected_delivery_date).toLocaleDateString()}</p>
               </div>
+              {purchaseOrder.actual_delivery_date && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Actual Delivery</label>
+                  <p className="font-medium">{new Date(purchaseOrder.actual_delivery_date).toLocaleDateString()}</p>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Priority</label>
                 <p className={`font-medium capitalize ${getPriorityColor(purchaseOrder.priority)}`}>
@@ -366,11 +416,11 @@ export default function PurchaseOrderDetails() {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
-                <p className="font-medium">{purchaseOrder.paymentTerms}</p>
+                <p className="font-medium">{purchaseOrder.payment_terms}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Delivery Terms</label>
-                <p className="font-medium">{purchaseOrder.deliveryTerms}</p>
+                <p className="font-medium">{purchaseOrder.delivery_terms}</p>
               </div>
               {purchaseOrder.department && (
                 <div>
@@ -398,26 +448,31 @@ export default function PurchaseOrderDetails() {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Company</label>
-                <p className="font-medium">{purchaseOrder.supplier.name}</p>
-                <p className="text-sm text-muted-foreground">Code: {purchaseOrder.supplier.code}</p>
+                <p className="font-medium">{purchaseOrder.supplier_name}</p>
+                <p className="text-sm text-muted-foreground">Code: {purchaseOrder.supplier_code}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Contact Person</label>
-                <p className="font-medium">{purchaseOrder.supplier.contact}</p>
+                <p className="font-medium">{purchaseOrder.supplier_contact}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <p className="font-medium text-sm">{purchaseOrder.supplier.email}</p>
+                <p className="font-medium text-sm">{purchaseOrder.supplier_email}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                <p className="font-medium">{purchaseOrder.supplier.phone}</p>
+                <p className="font-medium">{purchaseOrder.supplier_phone}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Address</label>
-                <p className="text-sm leading-relaxed">{purchaseOrder.supplier.address}</p>
+                <p className="text-sm leading-relaxed">{purchaseOrder.supplier_address}</p>
               </div>
-              <Button variant="outline" size="sm" className="w-full mt-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full mt-3"
+                onClick={() => navigate(`/suppliers/${purchaseOrder.supplier_id}`)}
+              >
                 View Supplier Profile
               </Button>
             </CardContent>
@@ -431,17 +486,17 @@ export default function PurchaseOrderDetails() {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Created By</label>
-                <p className="font-medium">{purchaseOrder.createdBy}</p>
+                <p className="font-medium">{purchaseOrder.created_by}</p>
               </div>
-              {purchaseOrder.approvedBy && (
+              {purchaseOrder.approved_by && (
                 <>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Approved By</label>
-                    <p className="font-medium">{purchaseOrder.approvedBy}</p>
+                    <p className="font-medium">{purchaseOrder.approved_by}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Approval Date</label>
-                    <p className="font-medium">{purchaseOrder.approvedDate}</p>
+                    <p className="font-medium">{new Date(purchaseOrder.approved_date!).toLocaleDateString()}</p>
                   </div>
                 </>
               )}
