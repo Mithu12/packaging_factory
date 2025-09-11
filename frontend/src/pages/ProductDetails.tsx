@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
+import { Label } from "@/components/ui/label"
 import {
     Dialog,
     DialogContent,
@@ -51,6 +52,54 @@ export default function ProductDetails() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        console.error("Image too large");
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        console.error("Invalid file type");
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageSave = async () => {
+    if (!selectedImage || !product) return;
+    
+    setIsUploading(true);
+    try {
+      // Here you would typically upload the image to your server
+      // For now, we'll just simulate the upload
+      console.log("Uploading image:", selectedImage.name);
+      
+      // Simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reset the dialog state
+      setSelectedImage(null);
+      setImagePreview("");
+      setIsImageDialogOpen(false);
+      
+      // You could also update the product state here if needed
+    } catch (error) {
+      console.error("Failed to upload image:", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Fetch product data
   useEffect(() => {
@@ -251,13 +300,9 @@ export default function ProductDetails() {
             <CardContent>
               <div className="flex justify-center">
                 <img
-                  src={product.image}
+                  src="https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400"
                   alt={product.name}
                   className="w-full max-w-md h-64 object-cover rounded-lg border"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
-                  }}
                 />
               </div>
             </CardContent>
@@ -286,7 +331,7 @@ export default function ProductDetails() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Product Code</label>
-                  <p className="font-medium">{product.product_code}</p>
+                  <p className="font-medium">{product.sku}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Unit of Measure</label>
