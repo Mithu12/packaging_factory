@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Save, Package, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 import {
     ArrowLeft,
@@ -39,6 +39,7 @@ interface EditProductFormData {
   dimensions: string
   tax_rate: string
   notes: string
+  currentImage: string
 }
 
 export default function EditProduct() {
@@ -152,7 +153,8 @@ export default function EditProduct() {
           weight: productData.weight?.toString() || "",
           dimensions: productData.dimensions || "",
           tax_rate: productData.tax_rate?.toString() || "",
-          notes: productData.notes || ""
+          notes: productData.notes || "",
+          currentImage: ''
         })
 
         // Fetch subcategories for the selected category
@@ -444,17 +446,6 @@ export default function EditProduct() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="brand">Brand</Label>
-                    <Input
-                      id="brand"
-                      value={formData.brand}
-                      onChange={(e) =>
-                        handleInputChange("brand", e.target.value)
-                      }
-                      placeholder="Enter brand"
-                    />
-                  </div>
-                  <div>
                     <Label htmlFor="barcode">Barcode</Label>
                     <Input
                       id="barcode"
@@ -591,7 +582,7 @@ export default function EditProduct() {
                 <CardTitle>Physical Properties</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="weight">Weight (kg)</Label>
                     <Input
@@ -606,42 +597,14 @@ export default function EditProduct() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="length">Length (cm)</Label>
+                    <Label htmlFor="dimensions">Dimensions</Label>
                     <Input
-                      id="length"
-                      type="number"
-                      step="0.1"
-                      value={formData.length}
+                      id="dimensions"
+                      value={formData.dimensions}
                       onChange={(e) =>
-                        handleInputChange("length", e.target.value)
+                        handleInputChange("dimensions", e.target.value)
                       }
-                      placeholder="0.0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="width">Width (cm)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      step="0.1"
-                      value={formData.width}
-                      onChange={(e) =>
-                        handleInputChange("width", e.target.value)
-                      }
-                      placeholder="0.0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="height">Height (cm)</Label>
-                    <Input
-                      id="height"
-                      type="number"
-                      step="0.1"
-                      value={formData.height}
-                      onChange={(e) =>
-                        handleInputChange("height", e.target.value)
-                      }
-                      placeholder="0.0"
+                      placeholder="e.g., 10x20x30 cm"
                     />
                   </div>
                 </div>
@@ -685,17 +648,6 @@ export default function EditProduct() {
                     value={formData.reorder_point}
                     onChange={(e) => handleInputChange("reorder_point", e.target.value)}
                     placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="location">Storage Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) =>
-                      handleInputChange("location", e.target.value)
-                    }
-                    placeholder="Warehouse - Shelf"
                   />
                 </div>
               </CardContent>

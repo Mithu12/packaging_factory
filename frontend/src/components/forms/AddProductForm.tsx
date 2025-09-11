@@ -21,6 +21,7 @@ import {
 import { toast } from "@/components/ui/sonner"
 import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError } from "@/services/api"
 import { Upload, X, Image } from "lucide-react";
+import {Card, CardContent} from "@/components/ui/card";
 
 interface AddProductFormProps {
   open: boolean;
@@ -80,17 +81,32 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                // 5MB limit
-                toast.error("Image too large", {
-                    description: "Please select an image smaller than 5MB.",
-                });
-                return;
-            }
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        toast.error("Image too large", {
+          description: "Please select an image smaller than 5MB.",
+        });
+        return;
+      }
 
+      if (!file.type.startsWith("image/")) {
+        toast.error("Invalid file type", {
+          description: "Please select a valid image file.",
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Fetch categories and suppliers when dialog opens
   useEffect(() => {
@@ -136,22 +152,6 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     }
   }
 
-      if (!file.type.startsWith("image/")) {
-        toast.error("Invalid file type", {
-          description: "Please select a valid image file.",
-        });
-        return;
-      }
-
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview("");
@@ -165,6 +165,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
       // Validation
       if (!formData.name || !formData.sku || !formData.cost_price || !formData.selling_price || !formData.category_id || !formData.supplier_id) {
         toast.error("Please fill in all required fields")
+        setIsSubmitting(false)
         return
       }
 
@@ -191,11 +192,11 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
       }
 
       await ApiService.createProduct(productData)
-      
+
       toast.success("Product added successfully!", {
         description: `${formData.name} has been added to your catalog.`
       })
-      
+
       // Reset form
       setFormData({
         name: "",
@@ -220,7 +221,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
       })
         setSelectedImage(null);
         setImagePreview("");
-      
+
       onProductAdded?.()
       onOpenChange(false)
     } catch (error) {
@@ -571,6 +572,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
               placeholder="Enter any additional notes"
               rows={2}
             />
+          </div>
+          </div>
           </div>
 
           <DialogFooter>
