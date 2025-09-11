@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,12 +28,17 @@ import {
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/sonner"
 import { Plus, Trash2 } from "lucide-react"
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { SupplierApi } from "@/services/supplier-api"
+import { ProductApi } from "@/services/product-api"
+import { CreatePurchaseOrderRequest, Supplier, Product } from "@/services/types"
 
 interface PurchaseOrderItem {
   id: string
-  product: string
+  product_id: number
+  product_name: string
   quantity: number
-  unitPrice: number
+  unit_price: number
   total: number
 }
 
@@ -45,54 +50,117 @@ interface CreatePurchaseOrderFormProps {
 
 export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: CreatePurchaseOrderFormProps) {
   const [formData, setFormData] = useState({
-    supplier: "",
-    expectedDate: "",
+    supplier_id: "",
+    expected_delivery_date: "",
     priority: "normal",
-    notes: ""
+    notes: "",
+    payment_terms: "Net 30",
+    delivery_terms: "FOB Destination",
+    department: "",
+    project: ""
   })
 
   const [items, setItems] = useState<PurchaseOrderItem[]>([
-    { id: "1", product: "", quantity: 1, unitPrice: 0, total: 0 }
+    { id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }
   ])
 
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // Fetch suppliers and products when component mounts
+  useEffect(() => {
+    if (open) {
+      fetchData()
+    }
+  }, [open])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [suppliersResponse, productsResponse] = await Promise.all([
+        SupplierApi.getSuppliers({ limit: 100 }),
+        ProductApi.getProducts({ limit: 100 })
+      ])
+      
+      setSuppliers(suppliersResponse.suppliers)
+      setProducts(productsResponse.products)
+    } catch (error) {
+      console.error('Error fetching data:', error)
+      toast.error('Failed to load suppliers and products', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
+      // Validate form
+      if (!formData.supplier_id) {
+        toast.error("Please select a supplier")
+        setIsSubmitting(false)
+        return
+      }
+
       // Validate items
-      const validItems = items.filter(item => item.product && item.quantity > 0)
+      const validItems = items.filter(item => item.product_id > 0 && item.quantity > 0)
       if (validItems.length === 0) {
         toast.error("Please add at least one item to the purchase order")
         setIsSubmitting(false)
         return
       }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Prepare API request
+      const createRequest: CreatePurchaseOrderRequest = {
+        supplier_id: parseInt(formData.supplier_id),
+        expected_delivery_date: formData.expected_delivery_date || new Date().toISOString().split('T')[0],
+        priority: formData.priority as any,
+        payment_terms: formData.payment_terms,
+        delivery_terms: formData.delivery_terms,
+        department: formData.department || undefined,
+        project: formData.project || undefined,
+        notes: formData.notes || undefined,
+        line_items: validItems.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price
+        }))
+      }
+
+      // Create purchase order
+      const newPurchaseOrder = await PurchaseOrderApi.createPurchaseOrder(createRequest)
       
       const totalAmount = validItems.reduce((sum, item) => sum + item.total, 0)
       
       toast.success("Purchase order created successfully!", {
-        description: `PO for $${totalAmount.toLocaleString()} has been created and is pending approval.`
+        description: `PO ${newPurchaseOrder.po_number} for $${totalAmount.toLocaleString()} has been created.`
       })
       
       // Reset form
       setFormData({
-        supplier: "",
-        expectedDate: "",
+        supplier_id: "",
+        expected_delivery_date: "",
         priority: "normal",
-        notes: ""
+        notes: "",
+        payment_terms: "Net 30",
+        delivery_terms: "FOB Destination",
+        department: "",
+        project: ""
       })
-      setItems([{ id: "1", product: "", quantity: 1, unitPrice: 0, total: 0 }])
+      setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }])
       
       onOrderCreated?.()
       onOpenChange(false)
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating purchase order:', error)
       toast.error("Failed to create purchase order", {
-        description: "Please try again later."
+        description: error.message || "Please try again later."
       })
     } finally {
       setIsSubmitting(false)
@@ -105,7 +173,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
 
   const addItem = () => {
     const newId = (items.length + 1).toString()
-    setItems(prev => [...prev, { id: newId, product: "", quantity: 1, unitPrice: 0, total: 0 }])
+    setItems(prev => [...prev, { id: newId, product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }])
   }
 
   const removeItem = (id: string) => {
@@ -118,9 +186,21 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value }
-        if (field === 'quantity' || field === 'unitPrice') {
-          updated.total = updated.quantity * updated.unitPrice
+        
+        // If product is selected, update product_id and product_name
+        if (field === 'product_id' && typeof value === 'number') {
+          const product = products.find(p => p.id === value)
+          if (product) {
+            updated.product_name = product.name
+            updated.product_id = value
+          }
         }
+        
+        // Calculate total when quantity or unit_price changes
+        if (field === 'quantity' || field === 'unit_price') {
+          updated.total = updated.quantity * updated.unit_price
+        }
+        
         return updated
       }
       return item
@@ -143,15 +223,16 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+              <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select supplier" />
+                  <SelectValue placeholder={loading ? "Loading suppliers..." : "Select supplier"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="abc-electronics">ABC Electronics Ltd</SelectItem>
-                  <SelectItem value="global-raw">Global Raw Materials Inc</SelectItem>
-                  <SelectItem value="office-furniture">Office Furniture Pro</SelectItem>
-                  <SelectItem value="premium-parts">Premium Parts Supply</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -161,8 +242,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
               <Input
                 id="expectedDate"
                 type="date"
-                value={formData.expectedDate}
-                onChange={(e) => handleInputChange("expectedDate", e.target.value)}
+                value={formData.expected_delivery_date}
+                onChange={(e) => handleInputChange("expected_delivery_date", e.target.value)}
               />
             </div>
             
@@ -179,6 +260,50 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentTerms">Payment Terms</Label>
+              <Input
+                id="paymentTerms"
+                value={formData.payment_terms}
+                onChange={(e) => handleInputChange("payment_terms", e.target.value)}
+                placeholder="e.g., Net 30"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="deliveryTerms">Delivery Terms</Label>
+              <Input
+                id="deliveryTerms"
+                value={formData.delivery_terms}
+                onChange={(e) => handleInputChange("delivery_terms", e.target.value)}
+                placeholder="e.g., FOB Destination"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Input
+                id="department"
+                value={formData.department}
+                onChange={(e) => handleInputChange("department", e.target.value)}
+                placeholder="e.g., IT, Operations"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="project">Project</Label>
+              <Input
+                id="project"
+                value={formData.project}
+                onChange={(e) => handleInputChange("project", e.target.value)}
+                placeholder="e.g., Office Expansion"
+              />
             </div>
           </div>
 
@@ -207,18 +332,18 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
                     <TableRow key={item.id}>
                       <TableCell>
                         <Select 
-                          value={item.product} 
-                          onValueChange={(value) => updateItem(item.id, "product", value)}
+                          value={item.product_id.toString()} 
+                          onValueChange={(value) => updateItem(item.id, "product_id", parseInt(value))}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
+                            <SelectValue placeholder={loading ? "Loading products..." : "Select product"} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="laptop-x">Business Laptop Model X</SelectItem>
-                            <SelectItem value="office-chair">Ergonomic Office Chair</SelectItem>
-                            <SelectItem value="printer-toner">Laser Printer Toner</SelectItem>
-                            <SelectItem value="steel-material">Steel Raw Material Grade A</SelectItem>
-                            <SelectItem value="usb-cable">USB-C Cable Premium</SelectItem>
+                            {products.map((product) => (
+                              <SelectItem key={product.id} value={product.id.toString()}>
+                                {product.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -236,8 +361,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
                           type="number"
                           step="0.01"
                           min="0"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(item.id, "unitPrice", parseFloat(e.target.value) || 0)}
+                          value={item.unit_price}
+                          onChange={(e) => updateItem(item.id, "unit_price", parseFloat(e.target.value) || 0)}
                           className="w-24"
                         />
                       </TableCell>
@@ -283,7 +408,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !formData.supplier}>
+            <Button type="submit" disabled={isSubmitting || !formData.supplier_id || loading}>
               {isSubmitting ? "Creating..." : "Create Purchase Order"}
             </Button>
           </DialogFooter>
