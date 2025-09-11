@@ -3,6 +3,7 @@ export { SupplierApi } from './supplier-api';
 export { CategoryApi } from './category-api';
 export { ProductApi } from './product-api';
 export { StockAdjustmentApi } from './stock-adjustment-api';
+export { PurchaseOrderApi } from './purchase-order-api';
 
 // Re-export types and utilities
 export * from './types';
@@ -14,6 +15,7 @@ import { SupplierApi } from './supplier-api';
 import { CategoryApi } from './category-api';
 import { ProductApi } from './product-api';
 import { StockAdjustmentApi } from './stock-adjustment-api';
+import { PurchaseOrderApi } from './purchase-order-api';
 
 export class ApiService {
   // Supplier methods
@@ -171,5 +173,46 @@ export class ApiService {
 
   static async getStockAdjustment(id: number) {
     return StockAdjustmentApi.getStockAdjustment(id);
+  }
+
+  // Purchase Order methods
+  static async getPurchaseOrders(params?: any) {
+    return PurchaseOrderApi.getPurchaseOrders(params);
+  }
+
+  static async getPurchaseOrder(id: number) {
+    return PurchaseOrderApi.getPurchaseOrder(id);
+  }
+
+  static async createPurchaseOrder(data: any) {
+    return PurchaseOrderApi.createPurchaseOrder(data);
+  }
+
+  static async updatePurchaseOrder(id: number, data: any) {
+    return PurchaseOrderApi.updatePurchaseOrder(id, data);
+  }
+
+  static async updatePurchaseOrderStatus(id: number, data: any) {
+    return PurchaseOrderApi.updatePurchaseOrderStatus(id, data);
+  }
+
+  static async receiveGoods(id: number, data: any) {
+    return PurchaseOrderApi.receiveGoods(id, data);
+  }
+
+  static async deletePurchaseOrder(id: number) {
+    return PurchaseOrderApi.deletePurchaseOrder(id);
+  }
+
+  static async cancelPurchaseOrder(id: number, reason?: string) {
+    return PurchaseOrderApi.cancelPurchaseOrder(id, reason);
+  }
+
+  static async getPurchaseOrderStats() {
+    return PurchaseOrderApi.getPurchaseOrderStats();
+  }
+
+  static async searchPurchaseOrders(query: string, limit = 10) {
+    return PurchaseOrderApi.searchPurchaseOrders(query, limit);
   }
 }
