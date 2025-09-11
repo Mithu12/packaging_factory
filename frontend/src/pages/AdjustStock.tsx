@@ -47,6 +47,8 @@ export default function AdjustStock() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [calculatedStock, setCalculatedStock] = useState(0)
+  const [recentAdjustments, setRecentAdjustments] = useState<any[]>([])
+  const [loadingAdjustments, setLoadingAdjustments] = useState(false)
   const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
     adjustment_type: "",
     quantity: "",
@@ -80,6 +82,31 @@ export default function AdjustStock() {
     fetchProduct()
   }, [id])
 
+
+  // Fetch adjustment history (placeholder for future implementation)
+  useEffect(() => {
+    const fetchAdjustmentHistory = async () => {
+      if (!id) return
+      
+      try {
+        setLoadingAdjustments(true)
+        // TODO: Implement API endpoint for stock adjustment history
+        // const adjustments = await ApiService.getStockAdjustmentHistory(parseInt(id))
+        // setRecentAdjustments(adjustments)
+        
+        // For now, show empty state
+        setRecentAdjustments([])
+      } catch (err) {
+        console.error('Failed to fetch adjustment history:', err)
+        setRecentAdjustments([])
+      } finally {
+        setLoadingAdjustments(false)
+      }
+    }
+
+    fetchAdjustmentHistory()
+  }, [id])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -104,11 +131,6 @@ export default function AdjustStock() {
     )
   }
 
-  const recentAdjustments = [
-    { date: "2024-03-01", type: "Increase", quantity: +2, reason: "Found extra stock", reference: "ADJ-2024-008", user: "John Doe" },
-    { date: "2024-02-15", type: "Decrease", quantity: -3, reason: "Damaged goods", reference: "ADJ-2024-005", user: "Jane Smith" },
-    { date: "2024-02-10", type: "Increase", quantity: +5, reason: "Stock count correction", reference: "ADJ-2024-003", user: "Mike Johnson" }
-  ]
 
   const adjustmentReasons = {
     increase: [
@@ -428,29 +450,48 @@ export default function AdjustStock() {
               <CardTitle>Recent Adjustments</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentAdjustments.map((adjustment, index) => (
-                  <div key={index} className="p-3 bg-accent/20 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {adjustment.type === "Increase" ? 
-                          <TrendingUp className="w-4 h-4 text-success" /> :
-                          <TrendingDown className="w-4 h-4 text-destructive" />
-                        }
-                        <span className="font-medium text-sm">{adjustment.type}</span>
-                      </div>
-                      <span className={`font-medium ${adjustment.type === "Increase" ? "text-success" : "text-destructive"}`}>
-                        {adjustment.quantity > 0 ? "+" : ""}{adjustment.quantity}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <div>{adjustment.reason}</div>
-                      <div>{adjustment.date} • {adjustment.user}</div>
-                      {adjustment.reference && <div>Ref: {adjustment.reference}</div>}
-                    </div>
+              {loadingAdjustments ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading adjustment history...</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : recentAdjustments.length > 0 ? (
+                <div className="space-y-4">
+                  {recentAdjustments.map((adjustment, index) => (
+                    <div key={index} className="p-3 bg-accent/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {adjustment.type === "Increase" ? 
+                            <TrendingUp className="w-4 h-4 text-success" /> :
+                            <TrendingDown className="w-4 h-4 text-destructive" />
+                          }
+                          <span className="font-medium text-sm">{adjustment.type}</span>
+                        </div>
+                        <span className={`font-medium ${adjustment.type === "Increase" ? "text-success" : "text-destructive"}`}>
+                          {adjustment.quantity > 0 ? "+" : ""}{adjustment.quantity}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>{adjustment.reason}</div>
+                        <div>{adjustment.date} • {adjustment.user}</div>
+                        {adjustment.reference && <div>Ref: {adjustment.reference}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-muted rounded-full flex items-center justify-center">
+                    <Package className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">No adjustment history</p>
+                  <p className="text-xs text-muted-foreground">
+                    Stock adjustment history will appear here once you make your first adjustment.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
