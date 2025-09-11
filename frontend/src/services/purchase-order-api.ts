@@ -11,7 +11,7 @@ import {
 } from './types';
 
 export class PurchaseOrderApi {
-  private static baseUrl = '/api/purchase-orders';
+  private static baseUrl = '/purchase-orders';
 
   // Get all purchase orders with pagination and filtering
   static async getPurchaseOrders(params?: PurchaseOrderQueryParams): Promise<{

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { CreatePurchaseOrderForm } from "@/components/forms/CreatePurchaseOrderForm"
 import { toast } from "@/components/ui/sonner"
-import { 
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { PurchaseOrder, PurchaseOrderStats } from "@/services/types"
+import {
   Plus, 
   Search, 
   Filter, 
@@ -34,68 +36,42 @@ export default function PurchaseOrders() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateForm, setShowCreateForm] = useState(false)
-  
-  const purchaseOrders = [
-    {
-      id: "PO-2024-001",
-      supplier: "ABC Electronics Ltd",
-      orderDate: "2024-01-15",
-      expectedDate: "2024-01-25",
-      status: "approved",
-      totalAmount: 12500.00,
-      itemsCount: 5,
-      approvedBy: "John Manager",
-      priority: "normal"
-    },
-    {
-      id: "PO-2024-002",
-      supplier: "Global Raw Materials Inc",
-      orderDate: "2024-01-14",
-      expectedDate: "2024-01-20",
-      status: "pending",
-      totalAmount: 8750.50,
-      itemsCount: 3,
-      approvedBy: null,
-      priority: "high"
-    },
-    {
-      id: "PO-2024-003",
-      supplier: "Office Furniture Pro",
-      orderDate: "2024-01-13",
-      expectedDate: "2024-01-28",
-      status: "received",
-      totalAmount: 15200.00,
-      itemsCount: 8,
-      approvedBy: "Sarah Director",
-      priority: "normal"
-    },
-    {
-      id: "PO-2024-004",
-      supplier: "Premium Parts Supply",
-      orderDate: "2024-01-12",
-      expectedDate: "2024-01-22",
-      status: "partially-received",
-      totalAmount: 6890.25,
-      itemsCount: 12,
-      approvedBy: "John Manager",
-      priority: "normal"
-    },
-    {
-      id: "PO-2024-005",
-      supplier: "Tech Components Ltd",
-      orderDate: "2024-01-11",
-      expectedDate: "2024-01-18",
-      status: "draft",
-      totalAmount: 4520.00,
-      itemsCount: 4,
-      approvedBy: null,
-      priority: "low"
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
+  const [stats, setStats] = useState<PurchaseOrderStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch purchase orders and stats
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const [ordersResponse, statsResponse] = await Promise.all([
+        PurchaseOrderApi.getPurchaseOrders({ limit: 100 }),
+        PurchaseOrderApi.getPurchaseOrderStats()
+      ])
+      
+      setPurchaseOrders(ordersResponse.purchase_orders)
+      setStats(statsResponse)
+    } catch (err) {
+      console.error('Error fetching purchase orders:', err)
+      setError('Failed to load purchase orders')
+      toast.error('Failed to load purchase orders', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
   const filteredOrders = purchaseOrders.filter(order =>
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (order.supplier_name && order.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     order.status.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -120,19 +96,34 @@ export default function PurchaseOrders() {
     }
   }
 
-  const handleStatusChange = (orderId: string, newStatus: string) => {
-    toast.success(`Purchase order ${orderId} ${newStatus}`, {
-      description: `Status updated successfully.`
-    })
+  const handleStatusChange = async (orderId: number, newStatus: string) => {
+    try {
+      await PurchaseOrderApi.updatePurchaseOrderStatus(orderId, { 
+        status: newStatus as any,
+        notes: `Status changed to ${newStatus}`
+      })
+      
+      toast.success(`Purchase order ${orderId} ${newStatus}`, {
+        description: `Status updated successfully.`
+      })
+      
+      // Refresh the data
+      await fetchData()
+    } catch (err) {
+      console.error('Error updating purchase order status:', err)
+      toast.error('Failed to update status', {
+        description: 'Please try again later.'
+      })
+    }
   }
   const statusCounts = {
-    draft: purchaseOrders.filter(po => po.status === "draft").length,
-    pending: purchaseOrders.filter(po => po.status === "pending").length,
-    approved: purchaseOrders.filter(po => po.status === "approved").length,
-    received: purchaseOrders.filter(po => po.status === "received").length
+    draft: stats?.draft_orders || 0,
+    pending: stats?.pending_orders || 0,
+    approved: stats?.approved_orders || 0,
+    received: stats?.received_orders || 0
   }
 
-  const totalValue = purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0)
+  const totalValue = stats?.total_value || 0
 
   return (
     <div className="space-y-6">
@@ -155,7 +146,7 @@ export default function PurchaseOrders() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{purchaseOrders.length}</div>
+            <div className="text-2xl font-bold">{stats?.total_orders || 0}</div>
             <p className="text-xs text-success">+{statusCounts.draft} drafts</p>
           </CardContent>
         </Card>
@@ -173,7 +164,7 @@ export default function PurchaseOrders() {
             <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statusCounts.approved + statusCounts.received}</div>
+            <div className="text-2xl font-bold">{stats?.orders_this_month || 0}</div>
             <p className="text-xs text-success">Processed orders</p>
           </CardContent>
         </Card>
@@ -225,63 +216,98 @@ export default function PurchaseOrders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-accent/50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-primary" />
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <span className="ml-2">Loading purchase orders...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    <div className="text-destructive">
+                      {error}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="ml-2"
+                        onClick={fetchData}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    <div className="text-muted-foreground">
+                      No purchase orders found
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders.map((order) => (
+                  <TableRow key={order.id} className="hover:bg-accent/50">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{order.po_number}</div>
+                          {order.approved_by && (
+                            <div className="text-xs text-muted-foreground">
+                              Approved by {order.approved_by}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium">{order.id}</div>
-                        {order.approvedBy && (
-                          <div className="text-xs text-muted-foreground">
-                            Approved by {order.approvedBy}
-                          </div>
-                        )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-sm">{order.supplier_name || 'Unknown Supplier'}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(order.order_date).toLocaleDateString()}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-sm">{order.supplier}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="w-3 h-3" />
-                      {order.orderDate}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-muted-foreground">
-                      {order.expectedDate}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status.replace('-', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-medium">
-                      {order.itemsCount} items
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-3 h-3" />
-                      <span className="font-medium">
-                        {order.totalAmount.toLocaleString('en-US', {
-                          style: 'currency',
-                          currency: 'USD'
-                        })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(order.expected_delivery_date).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(order.status)}>
+                        {order.status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium">
+                        {/* We'll need to get this from line items count */}
+                        N/A items
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-3 h-3" />
+                        <span className="font-medium">
+                          {order.total_amount.toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: order.currency || 'USD'
+                          })}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-sm font-medium ${getPriorityColor(order.priority)}`}>
+                        {order.priority}
                       </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-sm font-medium ${getPriorityColor(order.priority)}`}>
-                      {order.priority}
-                    </span>
-                  </TableCell>
+                    </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -296,14 +322,14 @@ export default function PurchaseOrders() {
                         <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}/edit`)}>
                           Edit Order
                         </DropdownMenuItem>
-                        {(order.status === "approved" || order.status === "partially-received") && (
+                        {(order.status === "approved" || order.status === "partially_received") && (
                           <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}/receive`)}>
                             Receive Goods
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem>Print/Export</DropdownMenuItem>
                         {order.status === "draft" && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "submitted for approval")}>
+                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "pending")}>
                             Submit for Approval
                           </DropdownMenuItem>
                         )}
@@ -312,13 +338,13 @@ export default function PurchaseOrders() {
                             <DropdownMenuItem className="text-success" onClick={() => handleStatusChange(order.id, "approved")}>
                               Approve
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "rejected")}>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
                               Reject
                             </DropdownMenuItem>
                           </>
                         )}
                         {order.status === "approved" && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "marked as received")}>
+                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "received")}>
                             Mark as Received
                           </DropdownMenuItem>
                         )}
@@ -329,7 +355,8 @@ export default function PurchaseOrders() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -339,8 +366,8 @@ export default function PurchaseOrders() {
         open={showCreateForm} 
         onOpenChange={setShowCreateForm}
         onOrderCreated={() => {
-          // In a real app, this would refresh the purchase orders list
-          console.log("Purchase order created, refreshing list...")
+          fetchData()
+          toast.success("Purchase order created successfully!")
         }}
       />
     </div>
