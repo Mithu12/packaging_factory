@@ -424,7 +424,136 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Purchase Order Line Items Update Timestamp Trigger')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline'] })
+    // Create invoices table
+    MyLogger.info('Create Invoices Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id SERIAL PRIMARY KEY,
+        invoice_number VARCHAR(50) UNIQUE NOT NULL,
+        purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE SET NULL,
+        supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+        invoice_date DATE NOT NULL,
+        due_date DATE NOT NULL,
+        total_amount DECIMAL(12,2) NOT NULL CHECK (total_amount >= 0),
+        paid_amount DECIMAL(12,2) DEFAULT 0 CHECK (paid_amount >= 0),
+        outstanding_amount DECIMAL(12,2) NOT NULL CHECK (outstanding_amount >= 0),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'paid', 'overdue', 'cancelled')),
+        terms VARCHAR(50),
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Invoices Table')
+
+    // Create payments table
+    MyLogger.info('Create Payments Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        payment_number VARCHAR(50) UNIQUE NOT NULL,
+        invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
+        supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+        amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
+        payment_date DATE NOT NULL,
+        payment_method VARCHAR(50) NOT NULL,
+        reference VARCHAR(100),
+        status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+        notes TEXT,
+        created_by VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Payments Table')
+
+    // Create payment_history table for audit trail
+    MyLogger.info('Create Payment History Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payment_history (
+        id SERIAL PRIMARY KEY,
+        payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+        invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
+        event VARCHAR(100) NOT NULL,
+        description TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        user_name VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Payment History Table')
+
+    // Create indexes for payment tables
+    MyLogger.info('Create Payment Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoices_supplier_id ON invoices(supplier_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoices_purchase_order_id ON invoices(purchase_order_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments(invoice_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_payments_supplier_id ON payments(supplier_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_payments_payment_date ON payments(payment_date);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_history_payment_id ON payment_history(payment_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_history_invoice_id ON payment_history(invoice_id);
+    `);
+    MyLogger.success('Create Payment Indexes')
+
+    // Create triggers for payment tables
+    MyLogger.info('Create Payment Triggers')
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_invoices_updated_at ON invoices;
+      CREATE TRIGGER update_invoices_updated_at
+        BEFORE UPDATE ON invoices
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
+      CREATE TRIGGER update_payments_updated_at
+        BEFORE UPDATE ON payments
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Payment Triggers')
+
+    // Create sequence for invoice and payment numbers
+    MyLogger.info('Create Payment Number Sequences')
+    await client.query(`
+      create sequence if not exists invoice_number_sequence;
+    `);
+    
+    await client.query(`
+      create sequence if not exists payment_number_sequence;
+    `);
+    MyLogger.success('Create Payment Number Sequences')
+
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)
