@@ -163,8 +163,11 @@ export interface Product {
   weight?: number;
   dimensions?: string;
   tax_rate?: number;
+  supplier_name?: number;
+  subcategory_name?: number;
   notes?: string;
   image_url?: string;
+  category_name?: string;
   created_at: string;
   updated_at: string;
 }

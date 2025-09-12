@@ -8,6 +8,7 @@ import { CreatePurchaseOrderForm } from "@/components/forms/CreatePurchaseOrderF
 import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
 import { PurchaseOrder, PurchaseOrderStats } from "@/services/types"
+import { useFormatting } from "@/hooks/useFormatting"
 import {
   Plus, 
   Search, 
@@ -34,6 +35,7 @@ import {
 
 export default function PurchaseOrders() {
   const navigate = useNavigate()
+  const { formatCurrency, formatDate } = useFormatting()
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
@@ -173,7 +175,7 @@ export default function PurchaseOrders() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
             <p className="text-xs text-success">Active orders</p>
           </CardContent>
         </Card>
@@ -296,10 +298,7 @@ export default function PurchaseOrders() {
                       <div className="flex items-center gap-2">
                         <DollarSign className="w-3 h-3" />
                         <span className="font-medium">
-                          {order.total_amount.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: order.currency || 'USD'
-                          })}
+                          {formatCurrency(order.total_amount, order.currency)}
                         </span>
                       </div>
                     </TableCell>

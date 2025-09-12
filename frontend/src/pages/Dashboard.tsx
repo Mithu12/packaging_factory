@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/sonner"
 import { useNavigate } from "react-router-dom"
+import { useFormatting } from "@/hooks/useFormatting"
 import { 
   ShoppingCart, 
   Package, 
@@ -15,6 +16,7 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { formatCurrency, formatNumber } = useFormatting()
 
   const stats = [
     {
@@ -40,7 +42,7 @@ export default function Dashboard() {
     },
     {
       title: "Outstanding Payments",
-      value: "$45,320",
+      value: formatCurrency(45320),
       change: "8 overdue",
       icon: DollarSign,
       color: "text-red-600"
@@ -48,10 +50,10 @@ export default function Dashboard() {
   ]
 
   const recentOrders = [
-    { id: "PO-001", supplier: "ABC Electronics", amount: "$12,500", status: "approved", date: "2024-01-15" },
-    { id: "PO-002", supplier: "XYZ Materials", amount: "$8,750", status: "pending", date: "2024-01-14" },
-    { id: "PO-003", supplier: "Global Supplies", amount: "$15,200", status: "received", date: "2024-01-13" },
-    { id: "PO-004", supplier: "Tech Components", amount: "$6,890", status: "draft", date: "2024-01-12" }
+    { id: "PO-001", supplier: "ABC Electronics", amount: formatCurrency(12500), status: "approved", date: "2024-01-15" },
+    { id: "PO-002", supplier: "XYZ Materials", amount: formatCurrency(8750), status: "pending", date: "2024-01-14" },
+    { id: "PO-003", supplier: "Global Supplies", amount: formatCurrency(15200), status: "received", date: "2024-01-13" },
+    { id: "PO-004", supplier: "Tech Components", amount: formatCurrency(6890), status: "draft", date: "2024-01-12" }
   ]
 
   const lowStockItems = [

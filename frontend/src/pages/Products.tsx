@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { AddProductForm } from "@/components/forms/AddProductForm"
+import { useFormatting } from "@/hooks/useFormatting"
 import { 
   Plus, 
   Search, 
@@ -33,6 +34,7 @@ import {
 
 export default function Products() {
   const navigate = useNavigate()
+  const { formatCurrency, formatNumber, formatDate } = useFormatting()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
@@ -181,7 +183,7 @@ export default function Products() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats?.total_inventory_value ? (stats.total_inventory_value / 1000).toFixed(0) + 'K' : '0'}</div>
+            <div className="text-2xl font-bold">{stats?.total_inventory_value ? formatCurrency(stats.total_inventory_value) : formatCurrency(0)}</div>
             <p className="text-xs text-success">Inventory value</p>
           </CardContent>
         </Card>
@@ -281,8 +283,8 @@ export default function Products() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium text-sm">${product.selling_price}</div>
-                          <div className="text-xs text-muted-foreground">Cost: ${product.cost_price}</div>
+                          <div className="font-medium text-sm">{formatCurrency(product.selling_price)}</div>
+                          <div className="text-xs text-muted-foreground">Cost: {formatCurrency(product.cost_price)}</div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

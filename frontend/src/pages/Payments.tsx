@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { RecordPaymentForm } from "@/components/forms/RecordPaymentForm"
+import { useFormatting } from "@/hooks/useFormatting"
 import { 
   Plus, 
   Search, 
@@ -43,6 +44,7 @@ import {
 
 export default function Payments() {
   const navigate = useNavigate()
+  const { formatCurrency, formatDate } = useFormatting()
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("invoices")
   const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false)
