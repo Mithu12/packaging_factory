@@ -74,6 +74,11 @@ export const createPurchaseOrderSchema = Joi.object({
       description: Joi.string().max(500).optional()
         .messages({
           'string.max': 'Description cannot exceed 500 characters'
+        }),
+      
+      unit_of_measure: Joi.string().max(20).optional()
+        .messages({
+          'string.max': 'Unit of measure cannot exceed 20 characters'
         })
     })
   ).min(1).required()
@@ -168,6 +173,11 @@ export const updatePurchaseOrderSchema = Joi.object({
       description: Joi.string().max(500).optional()
         .messages({
           'string.max': 'Description cannot exceed 500 characters'
+        }),
+      
+      unit_of_measure: Joi.string().max(20).optional()
+        .messages({
+          'string.max': 'Unit of measure cannot exceed 20 characters'
         })
     })
   ).min(1).optional()

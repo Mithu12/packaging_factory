@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { toast } from "@/components/ui/sonner"
 import { 
   ArrowLeft, 
   Save, 
@@ -16,7 +17,8 @@ import {
   Plus,
   Trash2,
   User,
-  Calculator
+  Calculator,
+  Loader2
 } from "lucide-react"
 import {
   Table,
@@ -26,55 +28,107 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { SupplierApi } from "@/services/supplier-api"
+import { ProductApi } from "@/services/product-api"
+import { PurchaseOrderWithDetails, Supplier, Product, UpdatePurchaseOrderRequest } from "@/services/types"
+
+interface LineItem {
+  id: number | string
+  product_id: number
+  product_sku: string
+  product_name: string
+  description?: string
+  quantity: number
+  unit_price: number
+  unit_of_measure?: string
+}
 
 export default function EditPurchaseOrder() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Mock PO data - in real app, fetch by ID
+  // State management
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
   const [formData, setFormData] = useState({
-    supplier: "ABC Electronics Ltd",
-    orderDate: "2024-03-10",
-    expectedDelivery: "2024-03-17",
-    priority: "medium",
-    paymentTerms: "Net 30",
-    deliveryTerms: "FOB Destination",
-    department: "IT Equipment",
-    project: "Office Expansion 2024",
-    notes: "Urgent order for Q1 inventory replenishment. Please ensure all items are properly packaged.",
+    supplier_id: "",
+    expected_delivery_date: "",
+    priority: "normal",
+    payment_terms: "Net 30",
+    delivery_terms: "FOB Destination",
+    department: "",
+    project: "",
+    notes: "",
     currency: "USD"
   })
 
-  const [lineItems, setLineItems] = useState([
-    {
-      id: 1,
-      productSku: "LPT-001",
-      productName: "Business Laptop Model X",
-      description: "High-performance business laptop with Intel i7 processor",
-      quantity: 20,
-      unitPrice: 850,
-      unit: "pcs"
-    },
-    {
-      id: 2,
-      productSku: "MON-205",
-      productName: "24-inch LED Monitor",
-      description: "Full HD LED monitor with adjustable stand",
-      quantity: 25,
-      unitPrice: 180,
-      unit: "pcs"
-    },
-    {
-      id: 3,
-      productSku: "KBD-301",
-      productName: "Wireless Keyboard & Mouse Set",
-      description: "Ergonomic wireless keyboard and mouse combo",
-      quantity: 30,
-      unitPrice: 45,
-      unit: "sets"
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
+
+  // Fetch data on component mount
+  useEffect(() => {
+    if (id) {
+      fetchData()
     }
-  ])
+  }, [id])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch purchase order, suppliers, and products in parallel
+      const [poResponse, suppliersResponse, productsResponse] = await Promise.all([
+        PurchaseOrderApi.getPurchaseOrder(parseInt(id!)),
+        SupplierApi.getSuppliers({ limit: 100 }),
+        ProductApi.getProducts({ limit: 100 })
+      ])
+
+      setPurchaseOrder(poResponse)
+      setSuppliers(suppliersResponse.suppliers)
+      setProducts(productsResponse.products)
+
+      // Populate form data
+      setFormData({
+        supplier_id: poResponse.supplier_id.toString(),
+        expected_delivery_date: poResponse.expected_delivery_date.split('T')[0],
+        priority: poResponse.priority,
+        payment_terms: poResponse.payment_terms,
+        delivery_terms: poResponse.delivery_terms,
+        department: poResponse.department || "",
+        project: poResponse.project || "",
+        notes: poResponse.notes || "",
+        currency: poResponse.currency || "USD"
+      })
+
+      // Populate line items
+      setLineItems(poResponse.line_items?.map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_sku: item.product_sku || "",
+        product_name: item.product_name,
+        description: item.description || "",
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        unit_of_measure: item.unit_of_measure || "pcs"
+      })) || [])
+
+    } catch (err: any) {
+      console.error('Error fetching data:', err)
+      setError(err.message || 'Failed to load purchase order')
+      toast.error('Failed to load purchase order', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -87,14 +141,15 @@ export default function EditPurchaseOrder() {
   }
 
   const addLineItem = () => {
-    const newItem = {
+    const newItem: LineItem = {
       id: Date.now(),
-      productSku: "",
-      productName: "",
+      product_id: 0,
+      product_sku: "",
+      product_name: "",
       description: "",
       quantity: 1,
-      unitPrice: 0,
-      unit: "pcs"
+      unit_price: 0,
+      unit_of_measure: "pcs"
     }
     setLineItems(prev => [...prev, newItem])
   }
@@ -104,7 +159,7 @@ export default function EditPurchaseOrder() {
   }
 
   const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    return lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }
 
   const calculateTax = (subtotal: number) => {
@@ -117,75 +172,131 @@ export default function EditPurchaseOrder() {
     return subtotal + tax
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Validation
-    if (!formData.supplier || !formData.orderDate || !formData.expectedDelivery) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
+    if (!formData.supplier_id || !formData.expected_delivery_date) {
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields."
       })
       return
     }
 
     if (lineItems.length === 0) {
-      toast({
-        title: "No Items",
-        description: "Please add at least one item to the purchase order.",
-        variant: "destructive"
+      toast.error("No Items", {
+        description: "Please add at least one item to the purchase order."
       })
       return
     }
 
     // Check if all line items have required fields
     const invalidItems = lineItems.some(item => 
-      !item.productSku || !item.productName || item.quantity <= 0 || item.unitPrice <= 0
+      !item.product_sku || !item.product_name || item.quantity <= 0 || item.unit_price <= 0
     )
 
     if (invalidItems) {
-      toast({
-        title: "Invalid Items",
-        description: "Please ensure all items have valid SKU, name, quantity, and price.",
-        variant: "destructive"
+      toast.error("Invalid Items", {
+        description: "Please ensure all items have valid SKU, name, quantity, and price."
       })
       return
     }
 
-    // In a real app, send data to API
-    console.log("Updating purchase order:", {
-      id,
-      ...formData,
-      lineItems,
-      totals: {
-        subtotal: calculateSubtotal(),
-        tax: calculateTax(calculateSubtotal()),
-        total: calculateTotal()
+    try {
+      setSaving(true)
+
+      // Prepare update data
+      const updateData: UpdatePurchaseOrderRequest = {
+        supplier_id: parseInt(formData.supplier_id),
+        expected_delivery_date: formData.expected_delivery_date,
+        priority: formData.priority as 'low' | 'normal' | 'high' | 'urgent',
+        payment_terms: formData.payment_terms,
+        delivery_terms: formData.delivery_terms,
+        department: formData.department || undefined,
+        project: formData.project || undefined,
+        notes: formData.notes || undefined,
+        line_items: lineItems.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          description: item.description || undefined,
+          unit_of_measure: item.unit_of_measure || undefined
+        }))
       }
-    })
-    
-    toast({
-      title: "Purchase Order Updated",
-      description: "Purchase order has been updated successfully."
-    })
-    
-    navigate(`/purchase-orders/${id}`)
+
+      // Update purchase order
+      await PurchaseOrderApi.updatePurchaseOrder(parseInt(id!), updateData)
+      
+      toast.success("Purchase Order Updated", {
+        description: "Purchase order has been updated successfully."
+      })
+      
+      navigate(`/purchase-orders/${id}`)
+    } catch (err: any) {
+      console.error('Error updating purchase order:', err)
+      toast.error("Failed to Update Purchase Order", {
+        description: err.message || 'Please try again later.'
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const suppliers = [
-    { value: "ABC Electronics Ltd", label: "ABC Electronics Ltd" },
-    { value: "TechSupply Co", label: "TechSupply Co" },
-    { value: "Office Furniture Pro", label: "Office Furniture Pro" },
-    { value: "Global Raw Materials Inc", label: "Global Raw Materials Inc" }
-  ]
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/purchase-orders/${id}`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <div className="h-8 bg-muted animate-pulse rounded w-48"></div>
+            <div className="h-4 bg-muted animate-pulse rounded w-64 mt-2"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 space-y-6">
+            {[1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <div className="h-4 bg-muted animate-pulse rounded w-20 mb-2"></div>
+                  <div className="h-6 bg-muted animate-pulse rounded w-16"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-  const products = [
-    { sku: "LPT-001", name: "Business Laptop Model X", price: 850 },
-    { sku: "MON-205", name: "24-inch LED Monitor", price: 180 },
-    { sku: "KBD-301", name: "Wireless Keyboard & Mouse Set", price: 45 },
-    { sku: "CAB-102", name: "USB-C Hub Premium", price: 65 }
-  ]
+  if (error || !purchaseOrder) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/purchase-orders/${id}`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-foreground">Purchase Order Not Found</h1>
+            <p className="text-muted-foreground">The requested purchase order could not be loaded.</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h3 className="text-lg font-semibold mb-2">Error Loading Purchase Order</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={fetchData}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -196,7 +307,7 @@ export default function EditPurchaseOrder() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit Purchase Order</h1>
-          <p className="text-muted-foreground">Update purchase order information and line items</p>
+          <p className="text-muted-foreground">Update purchase order information and line items • {purchaseOrder.po_number}</p>
         </div>
       </div>
 
@@ -216,36 +327,26 @@ export default function EditPurchaseOrder() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="supplier">Supplier *</Label>
-                    <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+                    <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select supplier" />
                       </SelectTrigger>
                       <SelectContent>
                         {suppliers.map((supplier) => (
-                          <SelectItem key={supplier.value} value={supplier.value}>
-                            {supplier.label}
+                          <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                            {supplier.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="orderDate">Order Date *</Label>
-                    <Input
-                      id="orderDate"
-                      type="date"
-                      value={formData.orderDate}
-                      onChange={(e) => handleInputChange("orderDate", e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
                     <Label htmlFor="expectedDelivery">Expected Delivery *</Label>
                     <Input
                       id="expectedDelivery"
                       type="date"
-                      value={formData.expectedDelivery}
-                      onChange={(e) => handleInputChange("expectedDelivery", e.target.value)}
+                      value={formData.expected_delivery_date}
+                      onChange={(e) => handleInputChange("expected_delivery_date", e.target.value)}
                       required
                     />
                   </div>
@@ -257,8 +358,9 @@ export default function EditPurchaseOrder() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
                         <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -267,7 +369,7 @@ export default function EditPurchaseOrder() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="paymentTerms">Payment Terms</Label>
-                    <Select value={formData.paymentTerms} onValueChange={(value) => handleInputChange("paymentTerms", value)}>
+                    <Select value={formData.payment_terms} onValueChange={(value) => handleInputChange("payment_terms", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select payment terms" />
                       </SelectTrigger>
@@ -282,7 +384,7 @@ export default function EditPurchaseOrder() {
                   </div>
                   <div>
                     <Label htmlFor="deliveryTerms">Delivery Terms</Label>
-                    <Select value={formData.deliveryTerms} onValueChange={(value) => handleInputChange("deliveryTerms", value)}>
+                    <Select value={formData.delivery_terms} onValueChange={(value) => handleInputChange("delivery_terms", value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select delivery terms" />
                       </SelectTrigger>
@@ -366,13 +468,14 @@ export default function EditPurchaseOrder() {
                         <div>
                           <Label>Product SKU</Label>
                           <Select 
-                            value={item.productSku} 
+                            value={item.product_sku} 
                             onValueChange={(value) => {
                               const product = products.find(p => p.sku === value)
-                              handleLineItemChange(index, "productSku", value)
+                              handleLineItemChange(index, "product_sku", value)
                               if (product) {
-                                handleLineItemChange(index, "productName", product.name)
-                                handleLineItemChange(index, "unitPrice", product.price)
+                                handleLineItemChange(index, "product_id", product.id)
+                                handleLineItemChange(index, "product_name", product.name)
+                                handleLineItemChange(index, "unit_price", product.price)
                               }
                             }}
                           >
@@ -391,8 +494,8 @@ export default function EditPurchaseOrder() {
                         <div>
                           <Label>Product Name</Label>
                           <Input
-                            value={item.productName}
-                            onChange={(e) => handleLineItemChange(index, "productName", e.target.value)}
+                            value={item.product_name}
+                            onChange={(e) => handleLineItemChange(index, "product_name", e.target.value)}
                             placeholder="Enter product name"
                           />
                         </div>
@@ -412,8 +515,8 @@ export default function EditPurchaseOrder() {
                             type="number"
                             step="0.01"
                             min="0"
-                            value={item.unitPrice}
-                            onChange={(e) => handleLineItemChange(index, "unitPrice", parseFloat(e.target.value) || 0)}
+                            value={item.unit_price}
+                            onChange={(e) => handleLineItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
                             placeholder="0.00"
                           />
                         </div>
@@ -430,7 +533,7 @@ export default function EditPurchaseOrder() {
                       
                       <div className="text-right">
                         <span className="text-sm text-muted-foreground">Line Total: </span>
-                        <span className="font-medium">${(item.quantity * item.unitPrice).toLocaleString()}</span>
+                        <span className="font-medium">${(item.quantity * item.unit_price).toLocaleString()}</span>
                       </div>
                     </div>
                   ))}
@@ -507,10 +610,22 @@ export default function EditPurchaseOrder() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="font-medium">{formData.supplier}</p>
-                  <p className="text-sm text-muted-foreground">Payment Terms: {formData.paymentTerms}</p>
-                  <p className="text-sm text-muted-foreground">Delivery Terms: {formData.deliveryTerms}</p>
-                  <Button variant="outline" size="sm" className="w-full mt-3">
+                  <p className="font-medium">
+                    {suppliers.find(s => s.id.toString() === formData.supplier_id)?.name || 'No supplier selected'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Payment Terms: {formData.payment_terms}</p>
+                  <p className="text-sm text-muted-foreground">Delivery Terms: {formData.delivery_terms}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-3"
+                    onClick={() => {
+                      const supplier = suppliers.find(s => s.id.toString() === formData.supplier_id)
+                      if (supplier) {
+                        navigate(`/suppliers/${supplier.id}`)
+                      }
+                    }}
+                  >
                     View Supplier Details
                   </Button>
                 </div>
@@ -520,9 +635,18 @@ export default function EditPurchaseOrder() {
             {/* Action Buttons */}
             <Card>
               <CardContent className="pt-6 space-y-3">
-                <Button type="submit" className="w-full">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                <Button type="submit" className="w-full" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
                 <Button 
                   type="button" 
