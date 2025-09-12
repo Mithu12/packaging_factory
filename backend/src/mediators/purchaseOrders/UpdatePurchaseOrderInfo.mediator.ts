@@ -386,20 +386,81 @@ class UpdatePurchaseOrderInfoMediator {
                 }
 
                 const lineItem = lineItemResult.rows[0];
-                const newReceivedQuantity = lineItem.received_quantity + receivedItem.received_quantity;
+                const newReceivedQuantity = Number(lineItem.received_quantity) + Number(receivedItem.received_quantity);
                 const newPendingQuantity = lineItem.pending_quantity - receivedItem.received_quantity;
 
+                // Debug logging
+                MyLogger.info('Receive Goods Calculation', {
+                    lineItemId: receivedItem.line_item_id,
+                    currentReceived: lineItem.received_quantity,
+                    currentPending: lineItem.pending_quantity,
+                    receivingQuantity: receivedItem.received_quantity,
+                    newReceivedQuantity,
+                    newPendingQuantity
+                });
+
+                // Validate that we don't exceed ordered quantity
                 if (newReceivedQuantity > lineItem.quantity) {
-                    throw createError(`Cannot receive more than ordered quantity for line item ${receivedItem.line_item_id}`, 400);
+                    throw createError(`Cannot receive more than ordered quantity for line item ${receivedItem.line_item_id}. Ordered: ${lineItem.quantity}, Already received: ${lineItem.received_quantity}, Trying to receive: ${receivedItem.received_quantity}`, 400);
                 }
 
-                // Update line item
-                const updateLineItemQuery = `
+                // Validate that we don't receive more than what's pending
+                if (receivedItem.received_quantity > lineItem.pending_quantity) {
+                    throw createError(`Cannot receive more than pending quantity for line item ${receivedItem.line_item_id}. Pending: ${lineItem.pending_quantity}, Trying to receive: ${receivedItem.received_quantity}`, 400);
+                }
+
+                // Validate that pending quantity doesn't go negative
+                if (newPendingQuantity < 0) {
+                    throw createError(`Invalid pending quantity calculation for line item ${receivedItem.line_item_id}. Current pending: ${lineItem.pending_quantity}, Receiving: ${receivedItem.received_quantity}`, 400);
+                }
+
+                // Update line item - try separate updates to isolate the issue
+                const updateReceivedQuery = `
                     UPDATE purchase_order_line_items
-                    SET received_quantity = $1, pending_quantity = $2, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = $3
+                    SET received_quantity = $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
                 `;
-                await client.query(updateLineItemQuery, [newReceivedQuantity, newPendingQuantity, receivedItem.line_item_id]);
+                
+                const updatePendingQuery = `
+                    UPDATE purchase_order_line_items
+                    SET pending_quantity = $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
+                `;
+                
+                // Ensure proper data type conversion
+                const receivedQtyStr = newReceivedQuantity.toString();
+                const pendingQtyStr = newPendingQuantity.toString();
+                
+                MyLogger.info('Update Query Parameters', {
+                    lineItemId: receivedItem.line_item_id,
+                    receivedQtyStr,
+                    pendingQtyStr,
+                    newReceivedQuantity,
+                    newPendingQuantity
+                });
+                
+                // Update received_quantity first
+                await client.query(updateReceivedQuery, [receivedQtyStr, receivedItem.line_item_id]);
+                
+                // Update pending_quantity second
+                await client.query(updatePendingQuery, [pendingQtyStr, receivedItem.line_item_id]);
+
+                // Debug: Check what was actually stored in the database
+                const verifyQuery = `
+                    SELECT id, quantity, received_quantity, pending_quantity
+                    FROM purchase_order_line_items
+                    WHERE id = $1
+                `;
+                const verifyResult = await client.query(verifyQuery, [receivedItem.line_item_id]);
+                const storedData = verifyResult.rows[0];
+                
+                MyLogger.info('Database Verification After Update', {
+                    lineItemId: receivedItem.line_item_id,
+                    storedReceivedQuantity: storedData.received_quantity,
+                    storedPendingQuantity: storedData.pending_quantity,
+                    expectedReceivedQuantity: receivedQtyStr,
+                    expectedPendingQuantity: pendingQtyStr
+                });
 
                 // Check if all items are fully received
                 if (newReceivedQuantity < lineItem.quantity) {

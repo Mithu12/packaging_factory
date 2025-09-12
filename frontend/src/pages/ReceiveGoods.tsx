@@ -55,6 +55,8 @@ export default function ReceiveGoods() {
     productName: string
     orderedQty: number
     receivedQty: number
+    alreadyReceivedQty: number
+    additionalQty: number
     unitPrice: number
     unit: string
     condition: string
@@ -83,6 +85,8 @@ export default function ReceiveGoods() {
           productName: item.product_name,
           orderedQty: parseFloat(item.quantity.toString()),
           receivedQty: parseFloat(item.received_quantity.toString()),
+          alreadyReceivedQty: parseFloat(item.received_quantity.toString()),
+          additionalQty: 0, // Start with 0 additional quantity to receive
           unitPrice: parseFloat(item.unit_price.toString()),
           unit: item.unit_of_measure,
           condition: "good",
@@ -126,10 +130,11 @@ export default function ReceiveGoods() {
       return
     }
 
-    // Check if total received quantity is valid
-    const hasInvalidQuantities = lineItems.some(item => 
-      item.receivedQty < 0 || item.receivedQty > item.orderedQty
-    )
+    // Check if additional received quantity is valid
+    const hasInvalidQuantities = lineItems.some(item => {
+      const totalAfterReceipt = item.alreadyReceivedQty + item.additionalQty
+      return item.additionalQty < 0 || totalAfterReceipt > item.orderedQty
+    })
 
     if (hasInvalidQuantities) {
       toast({
@@ -143,12 +148,14 @@ export default function ReceiveGoods() {
     try {
       setSubmitting(true)
       
-      // Prepare data for API
+      // Prepare data for API - only send items with additional quantity > 0
       const receiveData = {
-        line_items: lineItems.map(item => ({
-          line_item_id: item.id,
-          received_quantity: item.receivedQty
-        })),
+        line_items: lineItems
+          .filter(item => item.additionalQty > 0)
+          .map(item => ({
+            line_item_id: item.id,
+            received_quantity: item.additionalQty
+          })),
         received_date: receiptData.receivedDate,
         notes: receiptData.notes || `Received by ${receiptData.receivedBy}. ${receiptData.deliveryNote ? `Delivery Note: ${receiptData.deliveryNote}` : ''}`
       }
@@ -185,11 +192,13 @@ export default function ReceiveGoods() {
   }
 
   const totalOrdered = lineItems.reduce((sum, item) => sum + item.orderedQty, 0)
-  const totalReceived = lineItems.reduce((sum, item) => sum + item.receivedQty, 0)
-  const receivedValue = lineItems.reduce((sum, item) => sum + (item.receivedQty * item.unitPrice), 0)
-  const fulfillmentPercentage = totalOrdered > 0 ? (totalReceived / totalOrdered) * 100 : 0
+  const totalAlreadyReceived = lineItems.reduce((sum, item) => sum + item.alreadyReceivedQty, 0)
+  const totalAdditionalToReceive = lineItems.reduce((sum, item) => sum + item.additionalQty, 0)
+  const totalAfterReceipt = totalAlreadyReceived + totalAdditionalToReceive
+  const additionalValue = lineItems.reduce((sum, item) => sum + (item.additionalQty * item.unitPrice), 0)
+  const fulfillmentPercentage = totalOrdered > 0 ? (totalAfterReceipt / totalOrdered) * 100 : 0
 
-  const hasDiscrepancies = lineItems.some(item => item.receivedQty !== item.orderedQty)
+  const hasDiscrepancies = lineItems.some(item => (item.alreadyReceivedQty + item.additionalQty) !== item.orderedQty)
 
   if (loading) {
     return (
@@ -378,16 +387,25 @@ export default function ReceiveGoods() {
                           <div className="font-medium">{item.orderedQty} {item.unit}</div>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={item.orderedQty}
-                            value={item.receivedQty}
-                            onChange={(e) => handleLineItemChange(index, "receivedQty", parseInt(e.target.value) || 0)}
-                            className="w-24"
-                          />
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Value: ${(item.receivedQty * item.unitPrice).toLocaleString()}
+                          <div className="space-y-2">
+                            <div className="text-sm text-muted-foreground">
+                              Already received: {item.alreadyReceivedQty} {item.unit}
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              max={item.orderedQty - item.alreadyReceivedQty}
+                              value={item.additionalQty}
+                              onChange={(e) => handleLineItemChange(index, "additionalQty", parseInt(e.target.value) || 0)}
+                              className="w-24"
+                              placeholder="Additional"
+                            />
+                            <div className="text-xs text-muted-foreground">
+                              Total after: {item.alreadyReceivedQty + item.additionalQty} {item.unit}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Value: ${(item.additionalQty * item.unitPrice).toLocaleString()}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -440,17 +458,25 @@ export default function ReceiveGoods() {
                     <span className="font-medium">{totalOrdered} items</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Received:</span>
-                    <span className="font-medium">{totalReceived} items</span>
+                    <span className="text-muted-foreground">Already Received:</span>
+                    <span className="font-medium">{totalAlreadyReceived} items</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Pending:</span>
-                    <span className="font-medium">{totalOrdered - totalReceived} items</span>
+                    <span className="text-muted-foreground">Additional to Receive:</span>
+                    <span className="font-medium">{totalAdditionalToReceive} items</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total After Receipt:</span>
+                    <span className="font-medium">{totalAfterReceipt} items</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Remaining:</span>
+                    <span className="font-medium">{totalOrdered - totalAfterReceipt} items</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Received Value:</span>
-                    <span>${receivedValue.toLocaleString()}</span>
+                    <span>Additional Value:</span>
+                    <span>${additionalValue.toLocaleString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -468,7 +494,7 @@ export default function ReceiveGoods() {
                       <div className="text-sm">
                         <div className="font-medium">{item.productSku}</div>
                         <div className="text-xs text-muted-foreground">
-                          {item.receivedQty}/{item.orderedQty} {item.unit}
+                          {item.alreadyReceivedQty + item.additionalQty}/{item.orderedQty} {item.unit}
                         </div>
                       </div>
                       <Badge className={getConditionColor(item.condition)}>
