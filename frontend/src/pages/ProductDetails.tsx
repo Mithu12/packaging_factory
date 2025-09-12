@@ -44,6 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
+import {useFormatting} from "@/hooks/useFormatting.ts";
 
 export default function ProductDetails() {
   const { id } = useParams()
@@ -55,6 +56,7 @@ export default function ProductDetails() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { formatCurrency, formatDate } = useFormatting()
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -495,22 +497,22 @@ export default function ProductDetails() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Cost Price</span>
-                <span className="font-medium">${product.cost_price}</span>
+                <span className="font-medium">{formatCurrency(product.cost_price)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Selling Price</span>
-                <span className="font-medium">${product.selling_price}</span>
+                <span className="font-medium">{formatCurrency(product.selling_price)}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>
                 <span className="font-medium text-success">
-                  ${product.selling_price - product.cost_price} ({((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
+                  {formatCurrency(product.selling_price - product.cost_price)} ({((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Stock Value</span>
-                <span className="font-medium">${(product.current_stock * product.cost_price).toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency((product.current_stock * product.cost_price))}</span>
               </div>
             </CardContent>
           </Card>
@@ -551,11 +553,11 @@ export default function ProductDetails() {
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Created Date</label>
-                <p className="font-medium">{new Date(product.created_at).toLocaleDateString()}</p>
+                <p className="font-medium">{formatDate(product.created_at)}</p>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Last Updated</label>
-                <p className="font-medium">{new Date(product.updated_at).toLocaleDateString()}</p>
+                <p className="font-medium">{formatDate(product.updated_at)}</p>
               </div>
             </CardContent>
           </Card>
