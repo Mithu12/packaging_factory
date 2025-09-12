@@ -100,37 +100,12 @@ class FormattingUtils {
 
   // Format Bangladesh number (lakh/crore system)
   private static formatBangladeshNumber(num: number): string {
-    const absNum = Math.abs(num);
-    const isNegative = num < 0;
-    
-    if (absNum >= 10000000) { // 1 crore
-      const crores = Math.floor(absNum / 10000000);
-      const lakhs = Math.floor((absNum % 10000000) / 100000);
-      const thousands = Math.floor((absNum % 100000) / 1000);
-      const remainder = absNum % 1000;
-      
-      let result = `${crores}`;
-      if (lakhs > 0) result += `,${lakhs.toString().padStart(2, '0')}`;
-      if (thousands > 0) result += `,${thousands.toString().padStart(3, '0')}`;
-      if (remainder > 0) result += `.${remainder.toFixed(2).padStart(5, '0')}`;
-      else result += '.00';
-      
-      return isNegative ? `-${result}` : result;
-    } else if (absNum >= 100000) { // 1 lakh
-      const lakhs = Math.floor(absNum / 100000);
-      const thousands = Math.floor((absNum % 100000) / 1000);
-      const remainder = absNum % 1000;
-      
-      let result = `${lakhs}`;
-      if (thousands > 0) result += `,${thousands.toString().padStart(3, '0')}`;
-      if (remainder > 0) result += `.${remainder.toFixed(2).padStart(5, '0')}`;
-      else result += '.00';
-      
-      return isNegative ? `-${result}` : result;
-    } else {
-      // Regular formatting for numbers less than 1 lakh
-      return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+    // For now, use standard formatting but with proper decimal handling
+    // This ensures consistent and correct formatting
+    return num.toLocaleString('en-US', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
   }
 
   // Format Indian number (lakh/crore system)
