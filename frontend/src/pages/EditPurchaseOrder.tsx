@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { useToast } from "@/hooks/use-toast"
 import { toast } from "@/components/ui/sonner"
 import { 
   ArrowLeft, 
@@ -47,7 +46,6 @@ interface LineItem {
 export default function EditPurchaseOrder() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { toast } = useToast()
 
   // State management
   const [loading, setLoading] = useState(true)
@@ -475,7 +473,7 @@ export default function EditPurchaseOrder() {
                               if (product) {
                                 handleLineItemChange(index, "product_id", product.id)
                                 handleLineItemChange(index, "product_name", product.name)
-                                handleLineItemChange(index, "unit_price", product.price)
+                                handleLineItemChange(index, "unit_price", product.cost_price)
                               }
                             }}
                           >
