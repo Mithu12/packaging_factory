@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { PurchaseOrderWithDetails } from "@/services/types"
+import { Loader2 } from "lucide-react"
 import { 
   ArrowLeft, 
   Save, 
@@ -32,13 +35,10 @@ export default function ReceiveGoods() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Mock PO data
-  const purchaseOrder = {
-    id: "PO-2024-045",
-    supplier: "ABC Electronics Ltd",
-    orderDate: "2024-03-10",
-    expectedDelivery: "2024-03-17"
-  }
+  const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const [receiptData, setReceiptData] = useState({
     receivedDate: new Date().toISOString().split('T')[0],
@@ -49,52 +49,59 @@ export default function ReceiveGoods() {
     trackingNumber: ""
   })
 
-  const [lineItems, setLineItems] = useState([
-    {
-      id: 1,
-      productSku: "LPT-001",
-      productName: "Business Laptop Model X",
-      orderedQty: 20,
-      receivedQty: 20,
-      unitPrice: 850,
-      unit: "pcs",
-      condition: "good",
-      notes: ""
-    },
-    {
-      id: 2,
-      productSku: "MON-205",
-      productName: "24-inch LED Monitor",
-      orderedQty: 25,
-      receivedQty: 23,
-      unitPrice: 180,
-      unit: "pcs",
-      condition: "good",
-      notes: "2 units damaged during transit"
-    },
-    {
-      id: 3,
-      productSku: "KBD-301",
-      productName: "Wireless Keyboard & Mouse Set",
-      orderedQty: 30,
-      receivedQty: 30,
-      unitPrice: 45,
-      unit: "sets",
-      condition: "good",
-      notes: ""
-    },
-    {
-      id: 4,
-      productSku: "CAB-102",
-      productName: "USB-C Hub Premium",
-      orderedQty: 35,
-      receivedQty: 0,
-      unitPrice: 65,
-      unit: "pcs",
-      condition: "not_received",
-      notes: "Item not delivered - backorder"
+  const [lineItems, setLineItems] = useState<Array<{
+    id: number
+    productSku: string
+    productName: string
+    orderedQty: number
+    receivedQty: number
+    unitPrice: number
+    unit: string
+    condition: string
+    notes: string
+  }>>([])
+
+  // Fetch purchase order data
+  useEffect(() => {
+    if (id) {
+      fetchPurchaseOrder()
     }
-  ])
+  }, [id])
+
+  const fetchPurchaseOrder = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await PurchaseOrderApi.getPurchaseOrder(parseInt(id!))
+      setPurchaseOrder(data)
+      
+      // Initialize line items from purchase order data
+      if (data.line_items) {
+        const items = data.line_items.map(item => ({
+          id: item.id,
+          productSku: item.product_sku,
+          productName: item.product_name,
+          orderedQty: parseFloat(item.quantity.toString()),
+          receivedQty: parseFloat(item.received_quantity.toString()),
+          unitPrice: parseFloat(item.unit_price.toString()),
+          unit: item.unit_of_measure,
+          condition: "good",
+          notes: ""
+        }))
+        setLineItems(items)
+      }
+    } catch (err: any) {
+      console.error('Error fetching purchase order:', err)
+      setError(err.message || 'Failed to load purchase order')
+      toast({
+        title: "Error",
+        description: "Failed to load purchase order details",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setReceiptData(prev => ({ ...prev, [field]: value }))
@@ -106,7 +113,7 @@ export default function ReceiveGoods() {
     ))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Validation
@@ -133,24 +140,38 @@ export default function ReceiveGoods() {
       return
     }
 
-    // In a real app, send data to API
-    console.log("Recording goods receipt:", {
-      purchaseOrderId: id,
-      receiptData,
-      lineItems,
-      totals: {
-        totalOrdered: lineItems.reduce((sum, item) => sum + item.orderedQty, 0),
-        totalReceived: lineItems.reduce((sum, item) => sum + item.receivedQty, 0),
-        receivedValue: lineItems.reduce((sum, item) => sum + (item.receivedQty * item.unitPrice), 0)
+    try {
+      setSubmitting(true)
+      
+      // Prepare data for API
+      const receiveData = {
+        line_items: lineItems.map(item => ({
+          line_item_id: item.id,
+          received_quantity: item.receivedQty
+        })),
+        received_date: receiptData.receivedDate,
+        notes: receiptData.notes || `Received by ${receiptData.receivedBy}. ${receiptData.deliveryNote ? `Delivery Note: ${receiptData.deliveryNote}` : ''}`
       }
-    })
-    
-    toast({
-      title: "Goods Receipt Recorded",
-      description: "Goods receipt has been recorded and inventory updated."
-    })
-    
-    navigate(`/purchase-orders/${id}`)
+
+      // Call the API to receive goods
+      await PurchaseOrderApi.receiveGoods(parseInt(id!), receiveData)
+      
+      toast({
+        title: "Goods Receipt Recorded",
+        description: "Goods receipt has been recorded and inventory updated."
+      })
+      
+      navigate(`/purchase-orders/${id}`)
+    } catch (err: any) {
+      console.error('Error recording goods receipt:', err)
+      toast({
+        title: "Error",
+        description: err.message || "Failed to record goods receipt",
+        variant: "destructive"
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const getConditionColor = (condition: string) => {
@@ -170,6 +191,36 @@ export default function ReceiveGoods() {
 
   const hasDiscrepancies = lineItems.some(item => item.receivedQty !== item.orderedQty)
 
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading purchase order details...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !purchaseOrder) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive">Error Loading Purchase Order</h1>
+          <p className="text-muted-foreground">{error || "Purchase order not found"}</p>
+          <Button 
+            onClick={() => navigate('/purchase-orders')} 
+            className="mt-4"
+          >
+            Back to Purchase Orders
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,7 +230,7 @@ export default function ReceiveGoods() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Receive Goods</h1>
-          <p className="text-muted-foreground">Record goods receipt for {purchaseOrder.id}</p>
+          <p className="text-muted-foreground">Record goods receipt for {purchaseOrder.po_number}</p>
         </div>
       </div>
 
@@ -200,15 +251,15 @@ export default function ReceiveGoods() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">PO Number:</span>
-                      <div className="font-medium">{purchaseOrder.id}</div>
+                      <div className="font-medium">{purchaseOrder.po_number}</div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Supplier:</span>
-                      <div className="font-medium">{purchaseOrder.supplier}</div>
+                      <div className="font-medium">{purchaseOrder.supplier_name}</div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Expected Date:</span>
-                      <div className="font-medium">{purchaseOrder.expectedDelivery}</div>
+                      <div className="font-medium">{new Date(purchaseOrder.expected_delivery_date).toLocaleDateString()}</div>
                     </div>
                   </div>
                 </div>
@@ -434,9 +485,18 @@ export default function ReceiveGoods() {
             {/* Action Buttons */}
             <Card>
               <CardContent className="pt-6 space-y-3">
-                <Button type="submit" className="w-full">
-                  <Save className="w-4 h-4 mr-2" />
-                  Record Receipt
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Recording...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Record Receipt
+                    </>
+                  )}
                 </Button>
                 <Button 
                   type="button" 
