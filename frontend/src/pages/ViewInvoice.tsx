@@ -1,9 +1,11 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import { 
   ArrowLeft, 
   Download, 
@@ -14,36 +16,43 @@ import {
   CreditCard,
   FileText
 } from "lucide-react"
+import { PaymentApi } from "@/services/payment-api"
+import { InvoiceWithDetails } from "@/services/types"
 
 export default function ViewInvoice() {
   const { invoiceId } = useParams()
   const navigate = useNavigate()
   
-  // Mock invoice data - in real app, fetch based on invoiceId
-  const invoice = {
-    id: "INV-2024-001",
-    supplier: {
-      name: "ABC Electronics Ltd",
-      address: "123 Business Park, Tech City, TC 12345",
-      email: "billing@abcelectronics.com",
-      phone: "+1 (555) 123-4567"
-    },
-    poNumber: "PO-2024-001",
-    invoiceDate: "2024-01-16",
-    dueDate: "2024-02-15",
-    amount: 12500.00,
-    paidAmount: 7500.00,
-    outstandingAmount: 5000.00,
-    status: "partial",
-    terms: "Net 30",
-    items: [
-      { description: "Electronic Components - Set A", quantity: 50, unitPrice: 150.00, total: 7500.00 },
-      { description: "Circuit Boards - Type B", quantity: 25, unitPrice: 200.00, total: 5000.00 }
-    ],
-    subtotal: 12500.00,
-    tax: 0,
-    total: 12500.00
-  }
+  // State management
+  const [invoice, setInvoice] = useState<InvoiceWithDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch invoice data
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      if (!invoiceId) {
+        setError("Invoice ID is required")
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await PaymentApi.getInvoice(parseInt(invoiceId))
+        setInvoice(response)
+      } catch (err: any) {
+        console.error('Error fetching invoice:', err)
+        setError(err.message || 'Failed to fetch invoice')
+        toast.error('Failed to load invoice')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchInvoice()
+  }, [invoiceId])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -55,6 +64,35 @@ export default function ViewInvoice() {
     }
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading invoice...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !invoice) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="text-destructive text-lg font-medium">
+            {error || "Invoice not found"}
+          </div>
+          <Button onClick={() => navigate(-1)} variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -64,8 +102,10 @@ export default function ViewInvoice() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Invoice {invoice.id}</h1>
-            <p className="text-muted-foreground">Purchase Order: {invoice.poNumber}</p>
+            <h1 className="text-3xl font-bold text-foreground">Invoice {invoice.invoice_number}</h1>
+            <p className="text-muted-foreground">
+              {invoice.purchase_order ? `Purchase Order: ${invoice.purchase_order.po_number}` : 'No Purchase Order'}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -96,7 +136,7 @@ export default function ViewInvoice() {
                       <FileText className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold">{invoice.id}</h2>
+                      <h2 className="text-2xl font-bold">{invoice.invoice_number}</h2>
                       <Badge className={getStatusColor(invoice.status)}>
                         {invoice.status}
                       </Badge>
@@ -105,9 +145,9 @@ export default function ViewInvoice() {
                 </div>
                 <div className="text-right space-y-1">
                   <div className="text-sm text-muted-foreground">Invoice Date</div>
-                  <div className="font-medium">{invoice.invoiceDate}</div>
+                  <div className="font-medium">{new Date(invoice.invoice_date).toLocaleDateString()}</div>
                   <div className="text-sm text-muted-foreground">Due Date</div>
-                  <div className="font-medium">{invoice.dueDate}</div>
+                  <div className="font-medium">{new Date(invoice.due_date).toLocaleDateString()}</div>
                 </div>
               </div>
             </CardHeader>
@@ -120,38 +160,43 @@ export default function ViewInvoice() {
                 </h3>
                 <div className="bg-accent/50 p-4 rounded-lg space-y-2">
                   <div className="font-medium">{invoice.supplier.name}</div>
-                  <div className="text-sm text-muted-foreground">{invoice.supplier.address}</div>
-                  <div className="text-sm text-muted-foreground">{invoice.supplier.email}</div>
-                  <div className="text-sm text-muted-foreground">{invoice.supplier.phone}</div>
+                  <div className="text-sm text-muted-foreground">Code: {invoice.supplier.supplier_code}</div>
+                  <div className="text-sm text-muted-foreground">ID: {invoice.supplier.id}</div>
                 </div>
               </div>
 
               <Separator />
 
-              {/* Invoice Items */}
+              {/* Invoice Summary */}
               <div>
-                <h3 className="font-semibold mb-3">Invoice Items</h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-accent/50">
-                      <tr>
-                        <th className="text-left p-3 font-medium">Description</th>
-                        <th className="text-right p-3 font-medium">Qty</th>
-                        <th className="text-right p-3 font-medium">Unit Price</th>
-                        <th className="text-right p-3 font-medium">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoice.items.map((item, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="p-3">{item.description}</td>
-                          <td className="p-3 text-right">{item.quantity}</td>
-                          <td className="p-3 text-right">${item.unitPrice.toFixed(2)}</td>
-                          <td className="p-3 text-right font-medium">${item.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h3 className="font-semibold mb-3">Invoice Summary</h3>
+                <div className="bg-accent/50 p-4 rounded-lg space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Invoice Number:</span>
+                    <span className="font-medium">{invoice.invoice_number}</span>
+                  </div>
+                  {invoice.purchase_order && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Purchase Order:</span>
+                      <span className="font-medium">{invoice.purchase_order.po_number}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Amount:</span>
+                    <span className="font-medium">${Number(invoice.total_amount).toLocaleString()}</span>
+                  </div>
+                  {invoice.terms && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Payment Terms:</span>
+                      <span className="font-medium">{invoice.terms}</span>
+                    </div>
+                  )}
+                  {invoice.notes && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Notes:</span>
+                      <span className="font-medium">{invoice.notes}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -160,17 +205,13 @@ export default function ViewInvoice() {
                 <div className="flex justify-end">
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>${invoice.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tax:</span>
-                      <span>${invoice.tax.toFixed(2)}</span>
+                      <span>Total Amount:</span>
+                      <span>${Number(invoice.total_amount).toLocaleString()}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-lg">
-                      <span>Total:</span>
-                      <span>${invoice.total.toFixed(2)}</span>
+                      <span>Invoice Total:</span>
+                      <span>${Number(invoice.total_amount).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -192,15 +233,15 @@ export default function ViewInvoice() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-medium">${invoice.amount.toFixed(2)}</span>
+                  <span className="font-medium">${Number(invoice.total_amount).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paid Amount:</span>
-                  <span className="font-medium text-success">${invoice.paidAmount.toFixed(2)}</span>
+                  <span className="font-medium text-success">${Number(invoice.paid_amount).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Outstanding:</span>
-                  <span className="font-medium text-warning">${invoice.outstandingAmount.toFixed(2)}</span>
+                  <span className="font-medium text-warning">${Number(invoice.outstanding_amount).toLocaleString()}</span>
                 </div>
               </div>
               
@@ -208,11 +249,14 @@ export default function ViewInvoice() {
               
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground">Payment Terms:</div>
-                <div className="font-medium">{invoice.terms}</div>
+                <div className="font-medium">{invoice.terms || 'Not specified'}</div>
               </div>
 
-              {invoice.outstandingAmount > 0 && (
-                <Button className="w-full bg-primary hover:bg-primary/90">
+              {Number(invoice.outstanding_amount) > 0 && (
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90"
+                  onClick={() => navigate(`/payments/record?invoice_id=${invoice.id}`)}
+                >
                   Record Payment
                 </Button>
               )}
@@ -229,16 +273,16 @@ export default function ViewInvoice() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Invoice Date:</span>
-                <span className="font-medium">{invoice.invoiceDate}</span>
+                <span className="font-medium">{new Date(invoice.invoice_date).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Due Date:</span>
-                <span className="font-medium">{invoice.dueDate}</span>
+                <span className="font-medium">{new Date(invoice.due_date).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Days Until Due:</span>
                 <span className="font-medium">
-                  {Math.ceil((new Date(invoice.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
+                  {Math.ceil((new Date(invoice.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
                 </span>
               </div>
             </CardContent>
