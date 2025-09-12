@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
 import { PaymentApi } from "@/services/payment-api"
+import { SupplierApi } from "@/services/supplier-api"
 import { Invoice, Supplier } from "@/services/types"
 
 interface RecordPaymentFormProps {
@@ -36,7 +37,8 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
     paymentDate: new Date().toISOString().split('T')[0],
     paymentMethod: "",
     reference: "",
-    notes: ""
+    notes: "",
+    outstanding_amount: "0"
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -55,12 +57,10 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
       setLoading(true)
       const [invoicesResponse, suppliersResponse] = await Promise.all([
         PaymentApi.getInvoices({ limit: 100 }),
-        // Note: We need to import SupplierApi or use existing supplier API
-        // For now, we'll use a placeholder
-        Promise.resolve([]) // TODO: Replace with actual supplier API call
+        SupplierApi.getSuppliers({ limit: 100 })
       ])
       setInvoices(invoicesResponse)
-      setSuppliers(suppliersResponse)
+      setSuppliers(suppliersResponse.suppliers)
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load data', {
@@ -71,14 +71,34 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
     }
   }
 
+  function resetFormData() {
+    setFormData({
+      invoice: "",
+      supplier: "",
+      amount: "",
+      paymentDate: new Date().toISOString().split('T')[0],
+      paymentMethod: "",
+      reference: "",
+      notes: "",
+      outstanding_amount: "0",
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
       // Validation
-      if (!formData.supplier || !formData.amount || !formData.paymentMethod) {
+      if (!formData.amount || !formData.paymentMethod) {
         toast.error("Please fill in all required fields")
+        setIsSubmitting(false)
+        return
+      }
+
+      // If no invoice is selected, supplier is required
+      if (!formData.invoice && !formData.supplier) {
+        toast.error("Please select either an invoice or a supplier")
         setIsSubmitting(false)
         return
       }
@@ -101,15 +121,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
       })
       
       // Reset form
-      setFormData({
-        invoice: "",
-        supplier: "",
-        amount: "",
-        paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethod: "",
-        reference: "",
-        notes: ""
-      })
+      resetFormData()
       
       onPaymentRecorded?.()
       onOpenChange(false)
@@ -124,7 +136,21 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value }
+      
+      // Auto-populate supplier when invoice is selected
+      if (field === 'invoice' && value) {
+        const selectedInvoice = invoices.find(inv => inv.id.toString() === value)
+        if (selectedInvoice) {
+          newData.supplier = selectedInvoice.supplier_id.toString()
+          newData.outstanding_amount = selectedInvoice.outstanding_amount.toString()
+          newData.amount = '0'
+        }
+      }
+      
+      return newData
+    })
   }
 
   return (
@@ -140,10 +166,23 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="invoice">Invoice *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="invoice">Invoice</Label>
+                {formData.invoice && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { resetFormData() }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
               <Select value={formData.invoice} onValueChange={(value) => handleInputChange("invoice", value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select invoice" />
+                  <SelectValue placeholder="Select invoice (optional)" />
                 </SelectTrigger>
                 <SelectContent>
                   {invoices.map((invoice) => (
@@ -156,10 +195,17 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+              <Label htmlFor="supplier">
+                Supplier {!formData.invoice ? '*' : ''}
+                {formData.invoice && <span className="text-sm text-muted-foreground ml-1">(auto-filled from invoice)</span>}
+              </Label>
+              <Select 
+                value={formData.supplier} 
+                onValueChange={(value) => handleInputChange("supplier", value)}
+                disabled={!!formData.invoice}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select supplier" />
+                  <SelectValue placeholder={formData.invoice ? "Auto-filled from invoice" : "Select supplier"} />
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((supplier) => (
@@ -173,6 +219,20 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Outstanding Amount *</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={formData.outstanding_amount}
+                onChange={(e) => handleInputChange("amount", e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+
             <div className="space-y-2">
               <Label htmlFor="amount">Payment Amount *</Label>
               <Input
@@ -241,7 +301,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !formData.invoice || !formData.amount || !formData.paymentMethod}>
+            <Button type="submit" disabled={isSubmitting || !formData.amount || !formData.paymentMethod || (!formData.invoice && !formData.supplier)}>
               {isSubmitting ? "Recording..." : "Record Payment"}
             </Button>
           </DialogFooter>

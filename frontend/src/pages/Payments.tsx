@@ -270,7 +270,7 @@ export default function Payments() {
                               <CreditCard className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <div className="font-medium">{invoice.id}</div>
+                              <div className="font-medium">{invoice.invoice_number}</div>
                               <div className="text-sm text-muted-foreground">PO: {invoice.po_number || 'N/A'}</div>
                             </div>
                           </div>
