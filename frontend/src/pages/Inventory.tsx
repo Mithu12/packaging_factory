@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   TrendingUp,
   Package,
-  BarChart3
+  BarChart3,
+  Loader2
 } from "lucide-react"
 import {
   Table,
@@ -35,146 +36,119 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/sonner"
+import { InventoryApi } from "@/services/inventory-api"
+import { InventoryItem, InventoryStats, StockMovement } from "@/services/types"
 
 export default function Inventory() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
   
-  const inventoryItems = [
-    {
-      id: "INV-001",
-      product: "Business Laptop Model X",
-      sku: "LPT-001",
-      location: "Warehouse A - Shelf 12",
-      currentStock: 45,
-      reservedStock: 8,
-      availableStock: 37,
-      minStock: 10,
-      maxStock: 100,
-      lastMovement: "2024-01-15",
-      movementType: "in",
-      supplier: "ABC Electronics Ltd",
-      unitCost: 850,
-      totalValue: 38250
-    },
-    {
-      id: "INV-002", 
-      product: "Ergonomic Office Chair",
-      sku: "CHR-205",
-      location: "Warehouse B - Section 3",
-      currentStock: 8,
-      reservedStock: 2,
-      availableStock: 6,
-      minStock: 15,
-      maxStock: 50,
-      lastMovement: "2024-01-14",
-      movementType: "out",
-      supplier: "Office Furniture Pro",
-      unitCost: 150,
-      totalValue: 1200
-    },
-    {
-      id: "INV-003",
-      product: "Laser Printer Toner",
-      sku: "TNR-301", 
-      location: "Supply Room - Cabinet A",
-      currentStock: 3,
-      reservedStock: 0,
-      availableStock: 3,
-      minStock: 12,
-      maxStock: 30,
-      lastMovement: "2024-01-13",
-      movementType: "out",
-      supplier: "Premium Parts Supply",
-      unitCost: 45,
-      totalValue: 135
-    }
-  ]
+  // State for real data
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [movements, setMovements] = useState<StockMovement[]>([])
+  const [stats, setStats] = useState<InventoryStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const movements = [
-    {
-      id: "MOV-001",
-      date: "2024-01-15",
-      product: "Business Laptop Model X",
-      type: "receipt",
-      quantity: 10,
-      reason: "Purchase Order PO-2024-001",
-      user: "John Doe",
-      reference: "GRN-001"
-    },
-    {
-      id: "MOV-002",
-      date: "2024-01-14", 
-      product: "Ergonomic Office Chair",
-      type: "issue",
-      quantity: -5,
-      reason: "Sales Order SO-2024-015",
-      user: "Sarah Smith",
-      reference: "DO-001"
-    },
-    {
-      id: "MOV-003",
-      date: "2024-01-13",
-      product: "Laser Printer Toner",
-      type: "adjustment",
-      quantity: -2,
-      reason: "Damaged goods write-off",
-      user: "Mike Johnson",
-      reference: "ADJ-001"
-    }
-  ]
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  const adjustments = [
-    {
-      id: "ADJ-001",
-      date: "2024-01-13",
-      product: "Laser Printer Toner",
-      currentStock: 5,
-      adjustedStock: 3,
-      difference: -2,
-      reason: "Damaged during transport",
-      approvedBy: "Manager",
-      status: "approved"
-    },
-    {
-      id: "ADJ-002",
-      date: "2024-01-10",
-      product: "USB Cables Premium",
-      currentStock: 98,
-      adjustedStock: 100,
-      difference: +2,
-      reason: "Found extra units during audit",
-      approvedBy: "Supervisor",
-      status: "approved"
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const [inventoryResponse, movementsResponse, statsResponse] = await Promise.all([
+        InventoryApi.getInventoryItems({ limit: 100 }),
+        InventoryApi.getStockMovements({ limit: 50 }),
+        InventoryApi.getInventoryStats()
+      ])
+      
+      setInventoryItems(inventoryResponse)
+      setMovements(movementsResponse)
+      setStats(statsResponse)
+    } catch (err: any) {
+      console.error('Error fetching inventory data:', err)
+      setError(err.message || 'Failed to load inventory data')
+      toast.error('Failed to load inventory data', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
   const filteredItems = inventoryItems.filter(item =>
-    item.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchTerm.toLowerCase())
+    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.product_sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const getStockStatus = (current: number, min: number, max: number) => {
+  const getStockStatus = (current: number, min: number, max?: number) => {
     if (current <= min * 0.5) return { status: "critical", color: "text-destructive", bgColor: "bg-destructive/10" }
     if (current <= min) return { status: "low", color: "text-warning", bgColor: "bg-warning/10" }
-    if (current >= max * 0.9) return { status: "overstock", color: "text-warning", bgColor: "bg-warning/10" }
+    if (max && current >= max * 0.9) return { status: "overstock", color: "text-warning", bgColor: "bg-warning/10" }
     return { status: "optimal", color: "text-success", bgColor: "bg-success/10" }
   }
 
   const getMovementTypeColor = (type: string) => {
     switch (type) {
-      case "receipt": return "text-success"
-      case "issue": return "text-destructive"
-      case "adjustment": return "text-warning"
+      case "increase": return "text-success"
+      case "decrease": return "text-destructive"
+      case "set": return "text-warning"
       default: return "text-muted-foreground"
     }
   }
 
-  const totalInventoryValue = inventoryItems.reduce((sum, item) => sum + item.totalValue, 0)
-  const lowStockItems = inventoryItems.filter(item => item.currentStock <= item.minStock).length
-  const criticalStockItems = inventoryItems.filter(item => item.currentStock <= item.minStock * 0.5).length
+  // Use stats from API or calculate from items
+  const totalInventoryValue = stats?.total_inventory_value || inventoryItems.reduce((sum, item) => sum + item.total_value, 0)
+  const lowStockItems = stats?.low_stock_items || inventoryItems.filter(item => item.current_stock <= item.min_stock_level).length
+  const criticalStockItems = stats?.critical_stock_items || inventoryItems.filter(item => item.current_stock <= item.min_stock_level * 0.5).length
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
+            <p className="text-muted-foreground">Track stock levels, movements, and perform adjustments</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span>Loading inventory data...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
+            <p className="text-muted-foreground">Track stock levels, movements, and perform adjustments</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-destructive mb-4">{error}</p>
+            <Button onClick={fetchData}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -241,7 +215,6 @@ export default function Inventory() {
         <TabsList>
           <TabsTrigger value="overview">Stock Overview</TabsTrigger>
           <TabsTrigger value="movements">Stock Movements</TabsTrigger>
-          <TabsTrigger value="adjustments">Stock Adjustments</TabsTrigger>
         </TabsList>
 
         {/* Stock Overview Tab */}
@@ -281,7 +254,7 @@ export default function Inventory() {
                 </TableHeader>
                 <TableBody>
                   {filteredItems.map((item) => {
-                    const stockInfo = getStockStatus(item.currentStock, item.minStock, item.maxStock)
+                    const stockInfo = getStockStatus(item.current_stock, item.min_stock_level, item.max_stock_level)
                     
                     return (
                       <TableRow key={item.id} className="hover:bg-accent/50">
@@ -291,30 +264,34 @@ export default function Inventory() {
                               <Package className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <div className="font-medium">{item.product}</div>
-                              <div className="text-sm text-muted-foreground">SKU: {item.sku}</div>
+                              <div className="font-medium">{item.product_name}</div>
+                              <div className="text-sm text-muted-foreground">SKU: {item.product_sku}</div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Warehouse className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">{item.location}</span>
+                            <span className="text-sm">{item.location || 'Main Warehouse'}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{item.currentStock}</span>
-                              <span className="text-muted-foreground text-sm">current</span>
+                              <span className="font-medium">{item.current_stock}</span>
+                              <span className="text-muted-foreground text-sm">{item.unit_of_measure}</span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{item.availableStock} available</span>
-                              <span>•</span>
-                              <span>{item.reservedStock} reserved</span>
+                              <span>{item.available_stock || item.current_stock} available</span>
+                              {item.reserved_stock && item.reserved_stock > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>{item.reserved_stock} reserved</span>
+                                </>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Min: {item.minStock} • Max: {item.maxStock}
+                              Min: {item.min_stock_level} {item.max_stock_level && `• Max: ${item.max_stock_level}`}
                             </div>
                           </div>
                         </TableCell>
@@ -326,13 +303,13 @@ export default function Inventory() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">${item.totalValue.toLocaleString()}</div>
-                            <div className="text-xs text-muted-foreground">${item.unitCost} per unit</div>
+                            <div className="font-medium">${item.total_value.toLocaleString()}</div>
+                            <div className="text-xs text-muted-foreground">${item.cost_price} per unit</div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm text-muted-foreground">
-                            {item.lastMovement}
+                            {item.last_movement_date ? new Date(item.last_movement_date).toLocaleDateString() : 'No movements'}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -346,10 +323,10 @@ export default function Inventory() {
                               <DropdownMenuItem onClick={() => navigate(`/inventory/${item.id}`)}>
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/inventory/${item.id}/edit`)}>
-                                Edit Item
+                              <DropdownMenuItem onClick={() => navigate(`/products/${item.id}/edit`)}>
+                                Edit Product
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/inventory/${item.id}/adjust`)}>
+                              <DropdownMenuItem onClick={() => navigate(`/products/${item.id}/adjust`)}>
                                 Adjust Stock
                               </DropdownMenuItem>
                               <DropdownMenuItem>Reserve Stock</DropdownMenuItem>
@@ -389,11 +366,11 @@ export default function Inventory() {
                 <TableBody>
                   {movements.map((movement) => (
                     <TableRow key={movement.id} className="hover:bg-accent/50">
-                      <TableCell className="text-sm">{movement.date}</TableCell>
-                      <TableCell className="font-medium">{movement.product}</TableCell>
+                      <TableCell className="text-sm">{new Date(movement.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium">{movement.product_name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getMovementTypeColor(movement.type)}>
-                          {movement.type}
+                        <Badge variant="outline" className={getMovementTypeColor(movement.movement_type)}>
+                          {movement.movement_type}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -402,8 +379,8 @@ export default function Inventory() {
                         </span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{movement.reason}</TableCell>
-                      <TableCell className="text-sm">{movement.user}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{movement.reference}</TableCell>
+                      <TableCell className="text-sm">{movement.user_name || 'System'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{movement.reference || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -412,58 +389,6 @@ export default function Inventory() {
           </Card>
         </TabsContent>
 
-        {/* Stock Adjustments Tab */}
-        <TabsContent value="adjustments">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Stock Adjustments</CardTitle>
-                <Button className="bg-primary hover:bg-primary/90">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Adjustment
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Before</TableHead>
-                    <TableHead>After</TableHead>
-                    <TableHead>Difference</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Approved By</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {adjustments.map((adjustment) => (
-                    <TableRow key={adjustment.id} className="hover:bg-accent/50">
-                      <TableCell className="text-sm">{adjustment.date}</TableCell>
-                      <TableCell className="font-medium">{adjustment.product}</TableCell>
-                      <TableCell>{adjustment.currentStock}</TableCell>
-                      <TableCell>{adjustment.adjustedStock}</TableCell>
-                      <TableCell>
-                        <span className={adjustment.difference > 0 ? "text-success" : "text-destructive"}>
-                          {adjustment.difference > 0 ? "+" : ""}{adjustment.difference}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{adjustment.reason}</TableCell>
-                      <TableCell className="text-sm">{adjustment.approvedBy}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-success text-white">
-                          {adjustment.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )
