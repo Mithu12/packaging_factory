@@ -98,15 +98,39 @@ class FormattingUtils {
     }
   }
 
-  // Format Bangladesh number (lakh/crore system)
+// Format Bangladesh number (lakh/crore system)
   private static formatBangladeshNumber(num: number): string {
-    // For now, use standard formatting but with proper decimal handling
-    // This ensures consistent and correct formatting
-    return num.toLocaleString('en-US', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
+    if (isNaN(num)) return "0.00";
+
+    // Convert to string, keep decimals as-is
+    const [integerPartRaw, decimalPartRaw] = num.toString().split(".");
+
+    // Work with integer part
+    let integerPart = integerPartRaw;
+    const isNegative = integerPart.startsWith("-");
+    if (isNegative) {
+      integerPart = integerPart.slice(1); // remove negative sign for formatting
+    }
+
+    let lastThree = integerPart.slice(-3);
+    let otherNumbers = integerPart.slice(0, -3);
+
+    if (otherNumbers !== "") {
+      lastThree = "," + lastThree;
+    }
+
+    const formattedInt =
+        otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+
+    // Re-attach decimal part (up to original precision, or .00 if absent)
+    const formattedDecimal =
+        decimalPartRaw !== undefined && decimalPartRaw.length > 0
+            ? "." + decimalPartRaw
+            : ".00";
+
+    return (isNegative ? "-" : "") + formattedInt + formattedDecimal;
   }
+
 
   // Format Indian number (lakh/crore system)
   private static formatIndianNumber(num: number): string {
