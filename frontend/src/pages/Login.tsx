@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "@/components/ui/use-toast"
-import { Eye, EyeOff, Lock, Mail } from "lucide-react"
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 })
 
@@ -22,27 +23,41 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const { login, isAuthenticated } = useAuth()
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   })
 
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    navigate("/")
+    return null
+  }
+
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
     
-    // Simulate login process
-    setTimeout(() => {
+    try {
+      await login(data)
       toast({
         title: "Login successful!",
-        description: `Welcome back, ${data.email}`,
+        description: `Welcome back, ${data.username}`,
       })
-      setIsLoading(false)
       navigate("/")
-    }, 1500)
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid credentials. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -59,15 +74,15 @@ const Login = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Username</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
-                          placeholder="Enter your email"
+                          placeholder="Enter your username"
                           className="pl-10"
                           {...field}
                         />

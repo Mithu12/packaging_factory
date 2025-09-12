@@ -1,5 +1,6 @@
 // Main exports for all API services
 export { ApiService } from './api';
+export { AuthApi } from './auth-api';
 export { SupplierApi } from './supplier-api';
 export { CategoryApi } from './category-api';
 export { ProductApi } from './product-api';

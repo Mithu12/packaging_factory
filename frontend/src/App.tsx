@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useFormatting } from "@/hooks/useFormatting";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Categories from "./pages/Categories";
@@ -46,35 +48,42 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/dashboard" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route
             path="/pos-manager"
             element={
-              <DashboardLayout>
-                <POSManager />
-              </DashboardLayout>
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <POSManager />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/categories"
             element={
-              <DashboardLayout>
-                <Categories />
-              </DashboardLayout>
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Categories />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/profile"
             element={
-              <DashboardLayout>
-                <Profile />
-              </DashboardLayout>
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Profile />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
@@ -288,9 +297,10 @@ const App = () => {
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+        </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 

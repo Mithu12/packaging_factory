@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/use-toast"
 import { User, Settings, LogOut, UserCircle } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface ProfileDropdownProps {
   user?: {
@@ -23,20 +24,25 @@ interface ProfileDropdownProps {
 
 export function ProfileDropdown({ user }: ProfileDropdownProps) {
   const navigate = useNavigate()
+  const { user: authUser, logout } = useAuth()
   
-  // Default user data - in a real app this would come from auth context
-  const currentUser = user || {
-    name: "John Doe",
-    email: "john.doe@example.com",
+  // Use auth user if available, otherwise fall back to prop or default
+  const currentUser = authUser ? {
+    name: authUser.full_name,
+    email: authUser.email,
+    avatar: ""
+  } : user || {
+    name: "Guest User",
+    email: "guest@example.com",
     avatar: ""
   }
 
   const handleLogout = () => {
+    logout()
     toast({
       title: "Logged out successfully",
       description: "You have been logged out of your account.",
     })
-    // In a real app, you would clear auth tokens here
     navigate("/login")
   }
 

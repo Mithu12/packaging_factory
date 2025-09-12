@@ -22,22 +22,30 @@ export async function makeRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Get auth token from localStorage
+  const token = localStorage.getItem('auth_token');
+  
   const config: RequestInit = {
     ...options,
   };
 
+  // Set headers
+  const headers: Record<string, string> = {};
+  
+  // Add auth token if available
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   // Only set Content-Type for non-FormData requests
   if (!(options.body instanceof FormData)) {
-    config.headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-  } else {
-    // For FormData, let the browser set the Content-Type with boundary
-    config.headers = {
-      ...options.headers,
-    };
+    headers['Content-Type'] = 'application/json';
   }
+  
+  config.headers = {
+    ...headers,
+    ...options.headers,
+  };
 
   try {
     const response = await fetch(url, config);
