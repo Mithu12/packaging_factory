@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,8 @@ import {
   Database,
   Users,
   Mail,
-  Save
+  Save,
+  Loader2
 } from "lucide-react"
 import {
   Tabs,
@@ -25,8 +27,178 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { toast } from "@/components/ui/sonner"
+import { SettingsApi } from "@/services/settings-api"
+import { 
+  CompanySettings, 
+  SystemSettings, 
+  NotificationSettings, 
+  SecuritySettings, 
+  IntegrationSettings 
+} from "@/services/settings-types"
 
 export default function Settings() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState("general")
+  
+  // Settings state
+  const [companySettings, setCompanySettings] = useState<CompanySettings>({
+    company_name: '',
+    company_email: '',
+    company_address: '',
+    phone: '',
+    tax_id: ''
+  })
+  
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    default_currency: 'usd',
+    timezone: 'est',
+    date_format: 'mm-dd-yyyy',
+    number_format: 'us'
+  })
+  
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    low_stock_alerts: true,
+    purchase_order_approvals: true,
+    payment_due_reminders: true,
+    supplier_performance: false,
+    system_updates: true,
+    security_alerts: true,
+    notification_emails: ''
+  })
+  
+  const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
+    require_2fa: false,
+    session_timeout: true,
+    session_duration: 60,
+    allow_user_registration: false,
+    email_verification_required: true,
+    default_user_role: 'viewer'
+  })
+  
+  const [integrationSettings, setIntegrationSettings] = useState<IntegrationSettings>({
+    email_service_connected: true,
+    email_service_config: {
+      smtp_host: '',
+      smtp_port: 587,
+      smtp_user: '',
+      smtp_password: ''
+    },
+    accounting_software_connected: false,
+    accounting_software_config: {
+      api_key: '',
+      api_url: ''
+    },
+    erp_system_connected: false,
+    erp_system_config: {
+      api_key: '',
+      api_url: ''
+    },
+    api_access_enabled: false,
+    api_key: 'sk_test_...',
+    webhook_url: ''
+  })
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true)
+      
+      // Try to load all settings, if they don't exist, initialize defaults
+      try {
+        const [company, system, notifications, security, integrations] = await Promise.all([
+          SettingsApi.getCompanySettings(),
+          SettingsApi.getSystemSettings(),
+          SettingsApi.getNotificationSettings(),
+          SettingsApi.getSecuritySettings(),
+          SettingsApi.getIntegrationSettings()
+        ])
+        
+        setCompanySettings(company)
+        setSystemSettings(system)
+        setNotificationSettings(notifications)
+        setSecuritySettings(security)
+        setIntegrationSettings(integrations)
+      } catch (error) {
+        // If settings don't exist, initialize defaults
+        console.log('Settings not found, initializing defaults...')
+        await SettingsApi.initializeDefaultSettings()
+        
+        // Reload settings after initialization
+        const [company, system, notifications, security, integrations] = await Promise.all([
+          SettingsApi.getCompanySettings(),
+          SettingsApi.getSystemSettings(),
+          SettingsApi.getNotificationSettings(),
+          SettingsApi.getSecuritySettings(),
+          SettingsApi.getIntegrationSettings()
+        ])
+        
+        setCompanySettings(company)
+        setSystemSettings(system)
+        setNotificationSettings(notifications)
+        setSecuritySettings(security)
+        setIntegrationSettings(integrations)
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error)
+      toast.error('Failed to load settings', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveSettings = async () => {
+    try {
+      setSaving(true)
+      
+      // Save all settings based on active tab
+      switch (activeTab) {
+        case 'general':
+          await Promise.all([
+            SettingsApi.updateCompanySettings(companySettings),
+            SettingsApi.updateSystemSettings(systemSettings)
+          ])
+          break
+        case 'notifications':
+          await SettingsApi.updateNotificationSettings(notificationSettings)
+          break
+        case 'security':
+          await SettingsApi.updateSecuritySettings(securitySettings)
+          break
+        case 'integrations':
+          await SettingsApi.updateIntegrationSettings(integrationSettings)
+          break
+      }
+      
+      toast.success('Settings saved successfully!', {
+        description: 'Your preferences have been updated.'
+      })
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      toast.error('Failed to save settings', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading settings...</span>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -35,13 +207,21 @@ export default function Settings() {
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
           <p className="text-muted-foreground">Configure your system preferences and manage account settings</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90">
-          <Save className="w-4 h-4 mr-2" />
-          Save Changes
+        <Button 
+          className="bg-primary hover:bg-primary/90" 
+          onClick={saveSettings}
+          disabled={saving}
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -63,25 +243,46 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="company-name">Company Name</Label>
-                    <Input id="company-name" defaultValue="Acme Corporation" />
+                    <Input 
+                      id="company-name" 
+                      value={companySettings.company_name}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, company_name: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="company-email">Company Email</Label>
-                    <Input id="company-email" type="email" defaultValue="admin@acmecorp.com" />
+                    <Input 
+                      id="company-email" 
+                      type="email" 
+                      value={companySettings.company_email}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, company_email: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="company-address">Address</Label>
-                  <Input id="company-address" defaultValue="123 Business Street, City, State 12345" />
+                  <Input 
+                    id="company-address" 
+                    value={companySettings.company_address}
+                    onChange={(e) => setCompanySettings(prev => ({ ...prev, company_address: e.target.value }))}
+                  />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" defaultValue="+1 (555) 123-4567" />
+                    <Input 
+                      id="phone" 
+                      value={companySettings.phone}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, phone: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tax-id">Tax ID</Label>
-                    <Input id="tax-id" defaultValue="12-3456789" />
+                    <Input 
+                      id="tax-id" 
+                      value={companySettings.tax_id}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, tax_id: e.target.value }))}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -95,7 +296,10 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="currency">Default Currency</Label>
-                    <Select defaultValue="usd">
+                    <Select 
+                      value={systemSettings.default_currency}
+                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, default_currency: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -103,12 +307,17 @@ export default function Settings() {
                         <SelectItem value="usd">USD ($)</SelectItem>
                         <SelectItem value="eur">EUR (€)</SelectItem>
                         <SelectItem value="gbp">GBP (£)</SelectItem>
+                        <SelectItem value="cad">CAD (C$)</SelectItem>
+                        <SelectItem value="aud">AUD (A$)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timezone">Timezone</Label>
-                    <Select defaultValue="est">
+                    <Select 
+                      value={systemSettings.timezone}
+                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, timezone: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -116,6 +325,8 @@ export default function Settings() {
                         <SelectItem value="est">Eastern Time (EST)</SelectItem>
                         <SelectItem value="pst">Pacific Time (PST)</SelectItem>
                         <SelectItem value="utc">UTC</SelectItem>
+                        <SelectItem value="gmt">GMT</SelectItem>
+                        <SelectItem value="cst">Central Time (CST)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -123,7 +334,10 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date-format">Date Format</Label>
-                    <Select defaultValue="mm-dd-yyyy">
+                    <Select 
+                      value={systemSettings.date_format}
+                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, date_format: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -136,7 +350,10 @@ export default function Settings() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="number-format">Number Format</Label>
-                    <Select defaultValue="us">
+                    <Select 
+                      value={systemSettings.number_format}
+                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, number_format: value }))}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -171,28 +388,40 @@ export default function Settings() {
                       <Label className="text-base">Low Stock Alerts</Label>
                       <p className="text-sm text-muted-foreground">Get notified when items fall below minimum stock</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={notificationSettings.low_stock_alerts}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, low_stock_alerts: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Purchase Order Approvals</Label>
                       <p className="text-sm text-muted-foreground">Notifications for PO approval requests</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={notificationSettings.purchase_order_approvals}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, purchase_order_approvals: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Payment Due Reminders</Label>
                       <p className="text-sm text-muted-foreground">Reminders for upcoming payment due dates</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={notificationSettings.payment_due_reminders}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, payment_due_reminders: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Supplier Performance</Label>
                       <p className="text-sm text-muted-foreground">Weekly supplier performance reports</p>
                     </div>
-                    <Switch />
+                    <Switch 
+                      checked={notificationSettings.supplier_performance}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, supplier_performance: checked }))}
+                    />
                   </div>
                 </div>
               </div>
@@ -205,14 +434,20 @@ export default function Settings() {
                       <Label className="text-base">System Updates</Label>
                       <p className="text-sm text-muted-foreground">Notifications about system maintenance and updates</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={notificationSettings.system_updates}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, system_updates: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Security Alerts</Label>
                       <p className="text-sm text-muted-foreground">Important security notifications</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={notificationSettings.security_alerts}
+                      onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, security_alerts: checked }))}
+                    />
                   </div>
                 </div>
               </div>
@@ -224,7 +459,8 @@ export default function Settings() {
                   <Input 
                     id="notification-emails" 
                     placeholder="email1@company.com, email2@company.com"
-                    defaultValue="manager@acmecorp.com, finance@acmecorp.com"
+                    value={notificationSettings.notification_emails}
+                    onChange={(e) => setNotificationSettings(prev => ({ ...prev, notification_emails: e.target.value }))}
                   />
                   <p className="text-sm text-muted-foreground">Comma-separated list of email addresses</p>
                 </div>
@@ -250,18 +486,30 @@ export default function Settings() {
                       <Label className="text-base">Require Two-Factor Authentication</Label>
                       <p className="text-sm text-muted-foreground">Enable 2FA for all user accounts</p>
                     </div>
-                    <Switch />
+                    <Switch 
+                      checked={securitySettings.require_2fa}
+                      onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, require_2fa: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Session Timeout</Label>
                       <p className="text-sm text-muted-foreground">Automatically log out inactive users</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={securitySettings.session_timeout}
+                      onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, session_timeout: checked }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="session-duration">Session Duration (minutes)</Label>
-                    <Input id="session-duration" type="number" defaultValue="60" className="w-32" />
+                    <Input 
+                      id="session-duration" 
+                      type="number" 
+                      value={securitySettings.session_duration}
+                      onChange={(e) => setSecuritySettings(prev => ({ ...prev, session_duration: parseInt(e.target.value) || 60 }))}
+                      className="w-32" 
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -281,18 +529,27 @@ export default function Settings() {
                       <Label className="text-base">Allow User Registration</Label>
                       <p className="text-sm text-muted-foreground">Allow new users to register accounts</p>
                     </div>
-                    <Switch />
+                    <Switch 
+                      checked={securitySettings.allow_user_registration}
+                      onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, allow_user_registration: checked }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-base">Email Verification Required</Label>
                       <p className="text-sm text-muted-foreground">Require email verification for new accounts</p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={securitySettings.email_verification_required}
+                      onCheckedChange={(checked) => setSecuritySettings(prev => ({ ...prev, email_verification_required: checked }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="default-role">Default User Role</Label>
-                    <Select defaultValue="viewer">
+                    <Select 
+                      value={securitySettings.default_user_role}
+                      onValueChange={(value) => setSecuritySettings(prev => ({ ...prev, default_user_role: value }))}
+                    >
                       <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
@@ -300,6 +557,7 @@ export default function Settings() {
                         <SelectItem value="viewer">Viewer</SelectItem>
                         <SelectItem value="editor">Editor</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -332,7 +590,9 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-success">Connected</span>
+                      <span className={`text-sm ${integrationSettings.email_service_connected ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {integrationSettings.email_service_connected ? 'Connected' : 'Not Connected'}
+                      </span>
                       <Button variant="outline" size="sm">Configure</Button>
                     </div>
                   </div>
@@ -348,7 +608,9 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Not Connected</span>
+                      <span className={`text-sm ${integrationSettings.accounting_software_connected ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {integrationSettings.accounting_software_connected ? 'Connected' : 'Not Connected'}
+                      </span>
                       <Button variant="outline" size="sm">Setup</Button>
                     </div>
                   </div>
@@ -364,7 +626,9 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Not Connected</span>
+                      <span className={`text-sm ${integrationSettings.erp_system_connected ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {integrationSettings.erp_system_connected ? 'Connected' : 'Not Connected'}
+                      </span>
                       <Button variant="outline" size="sm">Setup</Button>
                     </div>
                   </div>
@@ -380,20 +644,34 @@ export default function Settings() {
                 <div className="space-y-2">
                   <Label htmlFor="api-key">API Key</Label>
                   <div className="flex gap-2">
-                    <Input id="api-key" type="password" defaultValue="sk_test_..." className="flex-1" />
+                    <Input 
+                      id="api-key" 
+                      type="password" 
+                      value={integrationSettings.api_key}
+                      onChange={(e) => setIntegrationSettings(prev => ({ ...prev, api_key: e.target.value }))}
+                      className="flex-1" 
+                    />
                     <Button variant="outline">Regenerate</Button>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="webhook-url">Webhook URL</Label>
-                  <Input id="webhook-url" placeholder="https://your-domain.com/webhook" />
+                  <Input 
+                    id="webhook-url" 
+                    placeholder="https://your-domain.com/webhook"
+                    value={integrationSettings.webhook_url}
+                    onChange={(e) => setIntegrationSettings(prev => ({ ...prev, webhook_url: e.target.value }))}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-base">Enable API Access</Label>
                     <p className="text-sm text-muted-foreground">Allow external applications to access your data</p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={integrationSettings.api_access_enabled}
+                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, api_access_enabled: checked }))}
+                  />
                 </div>
               </CardContent>
             </Card>

@@ -553,7 +553,32 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Payment Number Sequences')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history'] })
+    // Create settings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id SERIAL PRIMARY KEY,
+        category VARCHAR(50) NOT NULL,
+        key VARCHAR(100) NOT NULL,
+        value TEXT,
+        data_type VARCHAR(20) NOT NULL DEFAULT 'string',
+        description TEXT,
+        is_public BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(category, key)
+      )
+    `);
+
+    // Create indexes for settings
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
+    `);
+    MyLogger.success('Create Settings Table')
+
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'settings'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)

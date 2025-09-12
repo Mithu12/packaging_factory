@@ -14,6 +14,7 @@ import stockAdjustmentRoutes from './routes/stockAdjustments.routes';
 import purchaseOrderRoutes from './routes/purchaseOrders.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import paymentRoutes from './routes/payments.routes';
+import settingsRoutes from './routes/settings.routes';
 import { errorHandler } from './middleware/errorHandler';
 import {MyLogger} from './utils/new-logger';
 
@@ -76,6 +77,7 @@ app.use('/api/stock-adjustments', stockAdjustmentRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
