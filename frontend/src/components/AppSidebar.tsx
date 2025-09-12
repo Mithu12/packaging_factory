@@ -11,6 +11,8 @@ import {
   FolderTree,
   Calculator,
   UserCog,
+  Tag,
+  MapPin,
 } from "lucide-react";
 
 import {
@@ -31,6 +33,8 @@ const menuItems = [
   { title: "Suppliers", url: "/suppliers", icon: Users },
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: FolderTree },
+  { title: "Brands", url: "/brands", icon: Tag },
+  { title: "Origins", url: "/origins", icon: MapPin },
   { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
   { title: "Inventory", url: "/inventory", icon: Truck },
   { title: "Payments", url: "/payments", icon: DollarSign },

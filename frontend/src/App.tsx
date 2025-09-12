@@ -34,6 +34,8 @@ import SendReminder from "./pages/SendReminder";
 import GenerateStatement from "./pages/GenerateStatement";
 import POSManager from "./pages/POSManager";
 import UserManagement from "./pages/UserManagement";
+import Brands from "./pages/Brands";
+import Origins from "./pages/Origins";
 
 const queryClient = new QueryClient();
 
@@ -259,6 +261,22 @@ const App = () => (
             element={
               <DashboardLayout>
                 <UserManagement />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/brands"
+            element={
+              <DashboardLayout>
+                <Brands />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/origins"
+            element={
+              <DashboardLayout>
+                <Origins />
               </DashboardLayout>
             }
           />
