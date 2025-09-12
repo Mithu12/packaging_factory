@@ -23,6 +23,8 @@ export interface Supplier {
   address: string;
   city: string;
   state: string;
+  zip_code: string;
+  notes: string;
   postal_code: string;
   country: string;
   tax_id: string;
@@ -30,6 +32,14 @@ export interface Supplier {
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
+  bank_name: string;
+  bank_account: string;
+  swift_code: string;
+  bank_routing: string;
+  iban: string;
+  rating: string;
+  total_orders: string;
+  last_order_date: string;
 }
 
 export interface CreateSupplierRequest {

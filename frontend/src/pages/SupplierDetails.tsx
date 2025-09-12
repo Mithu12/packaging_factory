@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {useFormatting} from "@/hooks/useFormatting.ts";
 
 export default function SupplierDetails() {
   const { id } = useParams()
@@ -39,6 +40,7 @@ export default function SupplierDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [togglingStatus, setTogglingStatus] = useState(false)
+  const { formatCurrency, formatDate } = useFormatting()
 
   // Fetch supplier data
   useEffect(() => {
@@ -397,7 +399,7 @@ export default function SupplierDetails() {
               {supplier.last_order_date && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Order</label>
-                  <p className="text-sm">{new Date(supplier.last_order_date).toLocaleDateString()}</p>
+                  <p className="text-sm">{formatDate(supplier.last_order_date)}</p>
                 </div>
               )}
             </CardContent>
@@ -411,11 +413,11 @@ export default function SupplierDetails() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Created</label>
-                <p className="text-sm">{new Date(supplier.created_at).toLocaleDateString()}</p>
+                <p className="text-sm">{formatDate(supplier.created_at)}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                <p className="text-sm">{new Date(supplier.updated_at).toLocaleDateString()}</p>
+                <p className="text-sm">{formatDate(supplier.updated_at)}</p>
               </div>
             </CardContent>
           </Card>
