@@ -28,6 +28,7 @@ import {
 import { PaymentApi } from "@/services/payment-api"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
 import { InvoiceWithDetails, PurchaseOrderWithDetails } from "@/services/types"
+import jsPDF from 'jspdf'
 
 export default function ViewInvoice() {
   const { invoiceId } = useParams()
@@ -86,6 +87,214 @@ export default function ViewInvoice() {
     }
   }
 
+  // PDF Generation Functions
+  const generateInvoicePDF = () => {
+    if (!invoice) return null
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 20
+    let yPosition = margin
+
+    // Helper function to add text with word wrap
+    const addText = (text: string, x: number, y: number, options: any = {}) => {
+      const maxWidth = pageWidth - x - margin
+      const lines = doc.splitTextToSize(text, maxWidth)
+      doc.text(lines, x, y, options)
+      return y + (lines.length * (options.lineHeight || 7))
+    }
+
+    // Helper function to add line
+    const addLine = (y: number) => {
+      doc.setLineWidth(0.5)
+      doc.line(margin, y, pageWidth - margin, y)
+      return y + 5
+    }
+
+    // Header
+    doc.setFontSize(24)
+    doc.setFont('helvetica', 'bold')
+    yPosition = addText('INVOICE', pageWidth - 60, yPosition, { align: 'right' })
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    yPosition = addText(invoice.invoice_number, pageWidth - 60, yPosition, { align: 'right' })
+    yPosition += 10
+
+    // Company Info (Left side)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    yPosition = addText('Your Company Name', margin, yPosition)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    yPosition = addText('123 Business Street', margin, yPosition)
+    yPosition = addText('Business City, BC 12345', margin, yPosition)
+    yPosition = addText('Phone: (555) 123-4567', margin, yPosition)
+    yPosition = addText('Email: billing@company.com', margin, yPosition)
+
+    // Invoice Details (Right side)
+    const rightX = pageWidth - 80
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    
+    let rightY = margin + 20
+    rightY = addText('Invoice Date:', rightX, rightY)
+    rightY = addText(new Date(invoice.invoice_date).toLocaleDateString(), rightX + 30, rightY - 7)
+    
+    rightY = addText('Due Date:', rightX, rightY)
+    rightY = addText(new Date(invoice.due_date).toLocaleDateString(), rightX + 30, rightY - 7)
+    
+    rightY = addText('Invoice #:', rightX, rightY)
+    rightY = addText(invoice.invoice_number, rightX + 30, rightY - 7)
+    
+    if (invoice.purchase_order) {
+      rightY = addText('PO #:', rightX, rightY)
+      rightY = addText(invoice.purchase_order.po_number, rightX + 30, rightY - 7)
+    }
+
+    yPosition = Math.max(yPosition, rightY) + 20
+
+    // Bill To Section
+    yPosition = addLine(yPosition)
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    yPosition = addText('Bill To:', margin, yPosition)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    yPosition = addText(invoice.supplier.name, margin, yPosition)
+    yPosition = addText(`Code: ${invoice.supplier.supplier_code}`, margin, yPosition)
+    yPosition += 10
+
+    // Items Table
+    yPosition = addLine(yPosition)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    
+    // Table Headers
+    const col1 = margin
+    const col2 = pageWidth - 120
+    const col3 = pageWidth - 80
+    const col4 = pageWidth - 40
+    
+    yPosition = addText('Description', col1, yPosition)
+    doc.text('Qty', col2, yPosition - 7)
+    doc.text('Price', col3, yPosition - 7)
+    doc.text('Total', col4, yPosition - 7)
+    
+    yPosition = addLine(yPosition)
+    doc.setFont('helvetica', 'normal')
+
+    // Table Rows
+    if (purchaseOrder && purchaseOrder.line_items && purchaseOrder.line_items.length > 0) {
+      purchaseOrder.line_items.forEach((item) => {
+        // Check if we need a new page
+        if (yPosition > 250) {
+          doc.addPage()
+          yPosition = margin
+        }
+
+        // Product name and description
+        let productText = `${item.product_name}\nSKU: ${item.product_sku}`
+        if (item.description) {
+          productText += `\n${item.description}`
+        }
+        
+        yPosition = addText(productText, col1, yPosition, { lineHeight: 5 })
+        
+        // Quantity, price, and total
+        const itemY = yPosition - (productText.split('\n').length * 5)
+        doc.text(`${Number(item.quantity)} ${item.unit_of_measure}`, col2, itemY)
+        doc.text(`$${Number(item.unit_price).toLocaleString()}`, col3, itemY)
+        doc.text(`$${Number(item.total_price).toLocaleString()}`, col4, itemY)
+        
+        yPosition += 5
+      })
+    } else {
+      yPosition = addText('No items available', col1, yPosition)
+    }
+
+    yPosition += 10
+
+    // Totals
+    yPosition = addLine(yPosition)
+    const totalsX = pageWidth - 80
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Subtotal:', totalsX, yPosition)
+    doc.text(`$${Number(invoice.total_amount).toLocaleString()}`, totalsX + 30, yPosition)
+    
+    yPosition += 7
+    doc.text('Tax:', totalsX, yPosition)
+    doc.text('$0.00', totalsX + 30, yPosition)
+    
+    yPosition += 7
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Total:', totalsX, yPosition)
+    doc.text(`$${Number(invoice.total_amount).toLocaleString()}`, totalsX + 30, yPosition)
+
+    yPosition += 20
+
+    // Payment Information
+    yPosition = addLine(yPosition)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    
+    yPosition = addText('Payment Information:', margin, yPosition)
+    yPosition = addText(`Status: ${invoice.status.toUpperCase()}`, margin, yPosition)
+    yPosition = addText(`Paid Amount: $${Number(invoice.paid_amount).toLocaleString()}`, margin, yPosition)
+    yPosition = addText(`Outstanding: $${Number(invoice.outstanding_amount).toLocaleString()}`, margin, yPosition)
+    
+    if (invoice.terms) {
+      yPosition = addText(`Payment Terms: ${invoice.terms}`, margin, yPosition)
+    }
+
+    if (invoice.notes) {
+      yPosition += 10
+      yPosition = addText('Notes:', margin, yPosition)
+      yPosition = addText(invoice.notes, margin, yPosition)
+    }
+
+    return doc
+  }
+
+  const handleDownloadPDF = () => {
+    const doc = generateInvoicePDF()
+    if (doc && invoice) {
+      doc.save(`invoice-${invoice.invoice_number}.pdf`)
+      toast.success('Invoice PDF downloaded successfully')
+    }
+  }
+
+  const handlePrintPDF = () => {
+    const doc = generateInvoicePDF()
+    if (doc && invoice) {
+      // Open PDF in new window for printing
+      const pdfDataUri = doc.output('datauristring')
+      const printWindow = window.open()
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Invoice ${invoice.invoice_number}</title>
+            </head>
+            <body style="margin: 0; padding: 0;">
+              <iframe src="${pdfDataUri}" style="width: 100%; height: 100vh; border: none;"></iframe>
+            </body>
+          </html>
+        `)
+        printWindow.document.close()
+        printWindow.focus()
+        printWindow.print()
+        printWindow.close()
+        toast.success('Invoice sent to printer')
+      }
+    }
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -131,17 +340,17 @@ export default function ViewInvoice() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="w-4 h-4 mr-2" />
             Download PDF
           </Button>
-          <Button variant="outline">
-            <Mail className="w-4 h-4 mr-2" />
-            Email
-          </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handlePrintPDF}>
             <Printer className="w-4 h-4 mr-2" />
             Print
+          </Button>
+          <Button variant="outline" disabled>
+            <Mail className="w-4 h-4 mr-2" />
+            Email
           </Button>
         </div>
       </div>
