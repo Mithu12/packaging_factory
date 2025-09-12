@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Loader2 } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { toast } from "sonner"
 import { 
   ArrowLeft, 
@@ -14,10 +22,12 @@ import {
   Building,
   Calendar,
   CreditCard,
-  FileText
+  FileText,
+  Package
 } from "lucide-react"
 import { PaymentApi } from "@/services/payment-api"
-import { InvoiceWithDetails } from "@/services/types"
+import { PurchaseOrderApi } from "@/services/purchase-order-api"
+import { InvoiceWithDetails, PurchaseOrderWithDetails } from "@/services/types"
 
 export default function ViewInvoice() {
   const { invoiceId } = useParams()
@@ -25,6 +35,7 @@ export default function ViewInvoice() {
   
   // State management
   const [invoice, setInvoice] = useState<InvoiceWithDetails | null>(null)
+  const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,6 +53,17 @@ export default function ViewInvoice() {
         setError(null)
         const response = await PaymentApi.getInvoice(parseInt(invoiceId))
         setInvoice(response)
+        
+        // If invoice has a purchase order, fetch the purchase order details
+        if (response.purchase_order_id) {
+          try {
+            const poResponse = await PurchaseOrderApi.getPurchaseOrder(response.purchase_order_id)
+            setPurchaseOrder(poResponse)
+          } catch (poErr: any) {
+            console.error('Error fetching purchase order:', poErr)
+            // Don't fail the entire page if PO fetch fails
+          }
+        }
       } catch (err: any) {
         console.error('Error fetching invoice:', err)
         setError(err.message || 'Failed to fetch invoice')
@@ -167,37 +189,61 @@ export default function ViewInvoice() {
 
               <Separator />
 
-              {/* Invoice Summary */}
+              {/* Invoice Items */}
               <div>
-                <h3 className="font-semibold mb-3">Invoice Summary</h3>
-                <div className="bg-accent/50 p-4 rounded-lg space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Invoice Number:</span>
-                    <span className="font-medium">{invoice.invoice_number}</span>
+                <h3 className="font-semibold mb-3">Invoice Items</h3>
+                {purchaseOrder && purchaseOrder.line_items && purchaseOrder.line_items.length > 0 ? (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Unit Price</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {purchaseOrder.line_items.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{item.product_name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  SKU: {item.product_sku}
+                                </div>
+                                {item.description && (
+                                  <div className="text-sm text-muted-foreground">
+                                    {item.description}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {Number(item.quantity)} {item.unit_of_measure}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              ${Number(item.unit_price).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              ${Number(item.total_price).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                  {invoice.purchase_order && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Purchase Order:</span>
-                      <span className="font-medium">{invoice.purchase_order.po_number}</span>
+                ) : (
+                  <div className="bg-accent/50 p-4 rounded-lg">
+                    <div className="text-center text-muted-foreground">
+                      <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>No product details available</p>
+                      {!invoice.purchase_order_id && (
+                        <p className="text-sm">This invoice was created without a purchase order</p>
+                      )}
                     </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Amount:</span>
-                    <span className="font-medium">${Number(invoice.total_amount).toLocaleString()}</span>
                   </div>
-                  {invoice.terms && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Payment Terms:</span>
-                      <span className="font-medium">{invoice.terms}</span>
-                    </div>
-                  )}
-                  {invoice.notes && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Notes:</span>
-                      <span className="font-medium">{invoice.notes}</span>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
               {/* Totals */}
