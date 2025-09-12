@@ -33,6 +33,7 @@ import PaymentHistory from "./pages/PaymentHistory";
 import SendReminder from "./pages/SendReminder";
 import GenerateStatement from "./pages/GenerateStatement";
 import POSManager from "./pages/POSManager";
+import UserManagement from "./pages/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -250,6 +251,14 @@ const App = () => (
             element={
               <DashboardLayout>
                 <Settings />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/user-management"
+            element={
+              <DashboardLayout>
+                <UserManagement />
               </DashboardLayout>
             }
           />
