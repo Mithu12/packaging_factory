@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import {MyLogger} from '@/utils/new-logger';
+import { AppError } from '@/utils/responseHelper';
 
-export interface AppError extends Error {
-  statusCode?: number;
-  isOperational?: boolean;
-}
 
 export const errorHandler = (
   err: AppError,
@@ -33,10 +30,10 @@ export const errorHandler = (
   } else if (err.name === 'CastError') {
     statusCode = 400;
     message = 'Invalid ID format';
-  } else if (err.code === '23505') { // PostgreSQL unique violation
+  } else if ((err as any).code === '23505') { // PostgreSQL unique violation
     statusCode = 409;
     message = 'Duplicate entry';
-  } else if (err.code === '23503') { // PostgreSQL foreign key violation
+  } else if ((err as any).code === '23503') { // PostgreSQL foreign key violation
     statusCode = 400;
     message = 'Referenced record not found';
   }
@@ -61,7 +58,7 @@ export const createError = (message: string, statusCode: number = 500): AppError
   let action = 'Create Error'
   try {
     MyLogger.info(action, { message, statusCode })
-    const error: AppError = new Error(message);
+    const error = new AppError(message, statusCode);
     error.statusCode = statusCode;
     error.isOperational = true;
     MyLogger.success(action, { message, statusCode })

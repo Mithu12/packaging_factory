@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 
 // Import routes
+import authRoutes from './routes/auth.routes';
 import supplierRoutes from './routes/suppliers.routes';
 import categoryRoutes from './routes/categories.routes';
 import productRoutes from './routes/products.routes';
@@ -17,6 +18,7 @@ import paymentRoutes from './routes/payments.routes';
 import settingsRoutes from './routes/settings.routes';
 import { errorHandler } from './middleware/errorHandler';
 import {MyLogger} from './utils/new-logger';
+import { createDefaultAdminUser } from './database/migrate';
 
 // Load environment variables
 dotenv.config();
@@ -70,6 +72,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
@@ -103,7 +106,7 @@ app.use('*', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   let action = 'Server Startup'
   try {
     const serverInfo = {
@@ -116,6 +119,13 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+    
+    // Create default admin user
+    try {
+      await createDefaultAdminUser();
+    } catch (error) {
+      console.warn('⚠️  Could not create default admin user:', error);
+    } 
   } catch (error: any) {
     MyLogger.error(action, error, { port: PORT });
     console.error('Failed to start server:', error);

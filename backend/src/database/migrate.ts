@@ -553,6 +553,42 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Payment Number Sequences')
 
+    // Create users table
+    MyLogger.info('Create Users Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255) NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'manager', 'employee', 'viewer')),
+        is_active BOOLEAN DEFAULT true,
+        last_login TIMESTAMP WITH TIME ZONE,
+        password_reset_token VARCHAR(255),
+        password_reset_expires TIMESTAMP WITH TIME ZONE,
+        email_verification_token VARCHAR(255),
+        email_verified BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes for users
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+    `);
+    MyLogger.success('Create Users Table')
+
     // Create settings table
     await client.query(`
       CREATE TABLE IF NOT EXISTS settings (
@@ -578,7 +614,7 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Settings Table')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'settings'] })
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'users', 'settings'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)
@@ -605,5 +641,63 @@ if (require.main === module) {
       process.exit(1);
     });
 }
+
+// Create default admin user
+export const createDefaultAdminUser = async () => {
+  const action = 'Create Default Admin User';
+  const client = await pool.connect();
+  
+  try {
+    MyLogger.info(action);
+    
+    // Check if admin user already exists
+    const existingAdmin = await client.query(
+      'SELECT id FROM users WHERE username = $1 OR email = $2',
+      ['admin', 'admin@erp.com']
+    );
+    
+    if (existingAdmin.rows.length > 0) {
+      MyLogger.info('Default admin user already exists');
+      return;
+    }
+    
+    // Create default admin user
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    await client.query(`
+      INSERT INTO users (username, email, password_hash, full_name, role, is_active, email_verified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [
+      'admin',
+      'admin@erp.com',
+      hashedPassword,
+      'System Administrator',
+      'admin',
+      true,
+      true
+    ]);
+    
+    MyLogger.success(action, { 
+      username: 'admin',
+      email: 'admin@erp.com',
+      password: 'admin123',
+      role: 'admin'
+    });
+    
+    console.log('✅ Default admin user created successfully');
+    console.log('📧 Username: admin');
+    console.log('📧 Email: admin@erp.com');
+    console.log('🔑 Password: admin123');
+    console.log('⚠️  Please change the default password after first login!');
+    
+  } catch (error) {
+    MyLogger.error(action, error);
+    console.error('❌ Error creating default admin user:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
 
 export default createTables;
