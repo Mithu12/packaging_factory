@@ -287,6 +287,43 @@ class UpdatePurchaseOrderInfoMediator {
                 'completed'
             ]);
 
+            // Create invoice when status is changed to received
+            if (data.status === 'received') {
+                try {
+                    const invoiceData = {
+                        purchase_order_id: id,
+                        supplier_id: updatedPO.supplier_id,
+                        invoice_date: new Date().toISOString().split('T')[0],
+                        due_date: this.calculateDueDate(updatedPO.payment_terms),
+                        total_amount: parseFloat(updatedPO.total_amount),
+                        terms: updatedPO.payment_terms,
+                        notes: `Invoice for Purchase Order ${updatedPO.po_number}`
+                    };
+
+                    const invoice = await InvoiceMediator.createInvoice(invoiceData);
+                    
+                    // Add timeline entry for invoice creation
+                    await client.query(timelineQuery, [
+                        id,
+                        'Invoice Created',
+                        `Invoice ${invoice.invoice_number} created automatically`,
+                        'System User',
+                        'completed'
+                    ]);
+
+                    MyLogger.success('Invoice Created', { 
+                        purchaseOrderId: id,
+                        invoiceId: invoice.id,
+                        invoiceNumber: invoice.invoice_number
+                    });
+                } catch (invoiceError: any) {
+                    MyLogger.error('Failed to create invoice', invoiceError, { 
+                        purchaseOrderId: id 
+                    });
+                    // Don't fail the entire transaction if invoice creation fails
+                }
+            }
+
             await client.query('COMMIT');
 
             MyLogger.success(action, { 

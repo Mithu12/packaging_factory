@@ -58,33 +58,31 @@ export function CreateInvoiceForm({
   useEffect(() => {
     if (open) {
       fetchSuppliers()
+      
+      // Reset form data first
+      const newFormData = {
+        supplier_id: "",
+        invoice_date: new Date().toISOString().split('T')[0],
+        due_date: "",
+        total_amount: "",
+        terms: "",
+        notes: ""
+      }
+      
       // Pre-fill form if data is provided
       if (supplierId) {
-        setFormData(prev => ({
-          ...prev,
-          supplier_id: supplierId.toString()
-        }))
+        newFormData.supplier_id = supplierId.toString()
       }
       if (totalAmount) {
-        setFormData(prev => ({
-          ...prev,
-          total_amount: totalAmount.toString()
-        }))
+        newFormData.total_amount = totalAmount.toString()
       }
       if (paymentTerms) {
-        setFormData(prev => ({
-          ...prev,
-          terms: paymentTerms
-        }))
+        newFormData.terms = paymentTerms
+        // Calculate due date based on payment terms
+        newFormData.due_date = calculateDueDate(paymentTerms)
       }
-      // Calculate due date based on payment terms
-      if (paymentTerms) {
-        const dueDate = calculateDueDate(paymentTerms)
-        setFormData(prev => ({
-          ...prev,
-          due_date: dueDate
-        }))
-      }
+      
+      setFormData(newFormData)
     }
   }, [open, supplierId, totalAmount, paymentTerms])
 
@@ -134,6 +132,11 @@ export function CreateInvoiceForm({
     try {
       // Validation
       if (!formData.supplier_id || !formData.total_amount || !formData.due_date) {
+        console.error('Form validation failed:', {
+          supplier_id: formData.supplier_id,
+          total_amount: formData.total_amount,
+          due_date: formData.due_date
+        })
         toast.error("Please fill in all required fields")
         setIsSubmitting(false)
         return
@@ -148,6 +151,8 @@ export function CreateInvoiceForm({
         terms: formData.terms || undefined,
         notes: formData.notes || undefined
       }
+
+      console.log('Submitting invoice data:', invoiceData)
 
       const newInvoice = await PaymentApi.createInvoice(invoiceData)
       
