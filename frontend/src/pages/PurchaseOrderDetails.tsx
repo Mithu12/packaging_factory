@@ -39,6 +39,7 @@ export default function PurchaseOrderDetails() {
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingPDF, setDownloadingPDF] = useState(false)
 
   // Fetch purchase order data
   useEffect(() => {
@@ -61,6 +62,25 @@ export default function PurchaseOrderDetails() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!purchaseOrder) return
+    
+    try {
+      setDownloadingPDF(true)
+      await PurchaseOrderApi.downloadPurchaseOrderPDF(purchaseOrder.id, purchaseOrder.po_number)
+      toast.success('PDF downloaded successfully', {
+        description: `Purchase Order ${purchaseOrder.po_number} has been downloaded.`
+      })
+    } catch (err: any) {
+      console.error('Error downloading PDF:', err)
+      toast.error('Failed to download PDF', {
+        description: err.message || 'Please try again later.'
+      })
+    } finally {
+      setDownloadingPDF(false)
     }
   }
 
@@ -157,9 +177,14 @@ export default function PurchaseOrderDetails() {
           <p className="text-muted-foreground">Purchase Order Details • {purchaseOrder.supplier_name}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleDownloadPDF}
+            disabled={downloadingPDF || !purchaseOrder}
+          >
             <Download className="w-4 h-4 mr-2" />
-            Download PDF
+            {downloadingPDF ? 'Generating...' : 'Download PDF'}
           </Button>
           <Button variant="outline" size="sm">
             <Mail className="w-4 h-4 mr-2" />

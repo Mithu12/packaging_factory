@@ -152,4 +152,49 @@ export class PurchaseOrderApi {
       throw error;
     }
   }
+
+  // Download purchase order as PDF
+  static async downloadPurchaseOrderPDF(id: number, po_number:string): Promise<void> {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}${this.baseUrl}/${id}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download PDF: ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${po_number}.pdf`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Error downloading PDF for purchase order ${id}:`, error);
+      throw error;
+    }
+  }
 }

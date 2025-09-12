@@ -13,6 +13,7 @@ import UpdatePurchaseOrderInfoMediator from "@/mediators/purchaseOrders/UpdatePu
 import DeletePurchaseOrderMediator from "@/mediators/purchaseOrders/DeletePurchaseOrder.mediator";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
+import { PDFGenerator } from "@/services/pdf-generator";
 
 const router = express.Router();
 
@@ -93,11 +94,7 @@ router.get('/search', expressAsyncHandler(async (req, res, next) => {
 router.get('/:id', expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     const purchaseOrder = await GetPurchaseOrderInfoMediator.getPurchaseOrderById(id);
     serializeSuccessResponse(res, purchaseOrder, 'SUCCESS')
@@ -113,11 +110,7 @@ router.post('/', validateRequest(createPurchaseOrderSchema), expressAsyncHandler
 router.put('/:id', validateRequest(updatePurchaseOrderSchema), expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     const purchaseOrder = await UpdatePurchaseOrderInfoMediator.updatePurchaseOrder(id, req.body);
     serializeSuccessResponse(res, purchaseOrder, 'SUCCESS')
@@ -127,11 +120,7 @@ router.put('/:id', validateRequest(updatePurchaseOrderSchema), expressAsyncHandl
 router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     const purchaseOrder = await UpdatePurchaseOrderInfoMediator.updatePurchaseOrderStatus(id, req.body);
     serializeSuccessResponse(res, purchaseOrder, 'SUCCESS')
@@ -141,11 +130,7 @@ router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), ex
 router.post('/:id/receive', validateRequest(receiveGoodsSchema), expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     const purchaseOrder = await UpdatePurchaseOrderInfoMediator.receiveGoods(id, req.body);
     serializeSuccessResponse(res, purchaseOrder, 'SUCCESS')
@@ -155,11 +140,7 @@ router.post('/:id/receive', validateRequest(receiveGoodsSchema), expressAsyncHan
 router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     await DeletePurchaseOrderMediator.deletePurchaseOrder(id);
     serializeSuccessResponse(res, {}, 'Deleted Successfully')
@@ -169,15 +150,49 @@ router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
 router.patch('/:id/cancel', expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-        return res.status(400).json({
-            error: {
-                message: 'Invalid purchase order ID'
-            }
-        });
+        throw new Error('Invalid purchase order ID')
     }
     const { reason } = req.body;
     await DeletePurchaseOrderMediator.cancelPurchaseOrder(id, reason);
     serializeSuccessResponse(res, {}, 'Purchase Order Cancelled Successfully')
+}));
+
+// GET /api/purchase-orders/:id/pdf - Download purchase order as PDF
+router.get('/:id/pdf', expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/purchase-orders/:id/pdf'
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            throw new Error('Invalid purchase order ID')
+        }
+
+        MyLogger.info(action, { purchaseOrderId: id });
+
+        // Get purchase order data
+        const purchaseOrder = await GetPurchaseOrderInfoMediator.getPurchaseOrderById(id);
+
+        // Generate PDF
+        const pdfBuffer = await PDFGenerator.generatePurchaseOrderPDF(purchaseOrder);
+
+        // Set response headers for PDF download
+        const filename = `Purchase_Order_${purchaseOrder.po_number}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+
+        // Send PDF buffer
+        res.send(pdfBuffer);
+
+        MyLogger.success(action, { 
+            purchaseOrderId: id, 
+            poNumber: purchaseOrder.po_number,
+            filename,
+            pdfSize: pdfBuffer.length 
+        });
+    } catch (error: any) {
+        MyLogger.error(action, error, { purchaseOrderId: req.params.id });
+        throw error;
+    }
 }));
 
 export default router;
