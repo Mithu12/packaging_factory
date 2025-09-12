@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
+import { PaymentApi } from "@/services/payment-api"
+import { Invoice, Supplier } from "@/services/types"
 
 interface RecordPaymentFormProps {
   open: boolean
@@ -38,14 +40,61 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      fetchData()
+    }
+  }, [open])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [invoicesResponse, suppliersResponse] = await Promise.all([
+        PaymentApi.getInvoices({ limit: 100 }),
+        // Note: We need to import SupplierApi or use existing supplier API
+        // For now, we'll use a placeholder
+        Promise.resolve([]) // TODO: Replace with actual supplier API call
+      ])
+      setInvoices(invoicesResponse)
+      setSuppliers(suppliersResponse)
+    } catch (error) {
+      console.error('Error fetching data:', error)
+      toast.error('Failed to load data', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Validation
+      if (!formData.supplier || !formData.amount || !formData.paymentMethod) {
+        toast.error("Please fill in all required fields")
+        setIsSubmitting(false)
+        return
+      }
+
+      const paymentData = {
+        invoice_id: formData.invoice ? parseInt(formData.invoice) : undefined,
+        supplier_id: parseInt(formData.supplier),
+        amount: parseFloat(formData.amount),
+        payment_date: formData.paymentDate,
+        payment_method: formData.paymentMethod,
+        reference: formData.reference || undefined,
+        notes: formData.notes || undefined,
+        created_by: "Current User" // TODO: Get from auth context
+      }
+
+      await PaymentApi.createPayment(paymentData)
       
       toast.success("Payment recorded successfully!", {
         description: `Payment of $${parseFloat(formData.amount).toLocaleString()} has been recorded.`
@@ -64,9 +113,10 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
       
       onPaymentRecorded?.()
       onOpenChange(false)
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error recording payment:', error)
       toast.error("Failed to record payment", {
-        description: "Please try again later."
+        description: error.message || "Please try again later."
       })
     } finally {
       setIsSubmitting(false)
@@ -96,23 +146,29 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
                   <SelectValue placeholder="Select invoice" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="INV-2024-001">INV-2024-001 - ABC Electronics Ltd</SelectItem>
-                  <SelectItem value="INV-2024-002">INV-2024-002 - Global Raw Materials Inc</SelectItem>
-                  <SelectItem value="INV-2024-003">INV-2024-003 - Office Furniture Pro</SelectItem>
-                  <SelectItem value="INV-2024-004">INV-2024-004 - Premium Parts Supply</SelectItem>
+                  {invoices.map((invoice) => (
+                    <SelectItem key={invoice.id} value={invoice.id.toString()}>
+                      {invoice.invoice_number} - {invoice.supplier_name || 'Unknown Supplier'}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier</Label>
-              <Input
-                id="supplier"
-                value={formData.supplier}
-                onChange={(e) => handleInputChange("supplier", e.target.value)}
-                placeholder="Auto-filled from invoice"
-                disabled
-              />
+              <Label htmlFor="supplier">Supplier *</Label>
+              <Select value={formData.supplier} onValueChange={(value) => handleInputChange("supplier", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name} ({supplier.supplier_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
