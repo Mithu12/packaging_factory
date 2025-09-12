@@ -2,7 +2,9 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
-import { PurchaseOrderWithDetails } from "@/services/types"
+import { PaymentApi } from "@/services/payment-api"
+import { PurchaseOrderWithDetails, Invoice } from "@/services/types"
+import { CreateInvoiceForm } from "@/components/forms/CreateInvoiceForm"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,11 +42,14 @@ export default function PurchaseOrderDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [showCreateInvoiceForm, setShowCreateInvoiceForm] = useState(false)
 
   // Fetch purchase order data
   useEffect(() => {
     if (id) {
       fetchPurchaseOrder()
+      fetchInvoices()
     }
   }, [id])
 
@@ -63,6 +68,26 @@ export default function PurchaseOrderDetails() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchInvoices = async () => {
+    try {
+      const data = await PaymentApi.getInvoices({ 
+        purchase_order_id: parseInt(id!),
+        limit: 100 
+      })
+      setInvoices(data)
+    } catch (err: any) {
+      console.error('Error fetching invoices:', err)
+      // Don't show error toast for invoices as it's not critical
+    }
+  }
+
+  const handleInvoiceCreated = (invoice: Invoice) => {
+    setInvoices(prev => [...prev, invoice])
+    toast.success("Invoice created successfully!", {
+      description: `Invoice ${invoice.invoice_number} has been created.`
+    })
   }
 
   const handleDownloadPDF = async () => {
@@ -357,6 +382,101 @@ export default function PurchaseOrderDetails() {
             </CardContent>
           </Card>
 
+          {/* Invoices Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Invoices
+                </div>
+                {purchaseOrder.status === 'received' && (
+                  <Button 
+                    onClick={() => setShowCreateInvoiceForm(true)}
+                    size="sm"
+                  >
+                    Create Invoice
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {invoices.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No invoices created for this purchase order yet.</p>
+                  {purchaseOrder.status === 'received' && (
+                    <p className="text-sm mt-2">Click "Create Invoice" to generate an invoice.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {invoices.map((invoice) => (
+                    <div key={invoice.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{invoice.invoice_number}</span>
+                          <Badge variant={
+                            invoice.status === 'paid' ? 'default' :
+                            invoice.status === 'partial' ? 'secondary' :
+                            invoice.status === 'overdue' ? 'destructive' :
+                            'outline'
+                          }>
+                            {invoice.status}
+                          </Badge>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">
+                            ${Number(invoice.total_amount).toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Outstanding: ${Number(invoice.outstanding_amount).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                        <div>
+                          <span className="font-medium">Invoice Date:</span> {new Date(invoice.invoice_date).toLocaleDateString()}
+                        </div>
+                        <div>
+                          <span className="font-medium">Due Date:</span> {new Date(invoice.due_date).toLocaleDateString()}
+                        </div>
+                        {invoice.terms && (
+                          <div>
+                            <span className="font-medium">Terms:</span> {invoice.terms}
+                          </div>
+                        )}
+                        {invoice.notes && (
+                          <div className="col-span-2">
+                            <span className="font-medium">Notes:</span> {invoice.notes}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/payments?invoice=${invoice.id}`)}
+                        >
+                          View Details
+                        </Button>
+                        {invoice.status !== 'paid' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => navigate(`/payments?record_payment=${invoice.id}`)}
+                          >
+                            Record Payment
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Order Timeline */}
           <Card>
             <CardHeader>
@@ -556,6 +676,17 @@ export default function PurchaseOrderDetails() {
           </Card>
         </div>
       </div>
+
+      {/* Create Invoice Form */}
+      <CreateInvoiceForm
+        open={showCreateInvoiceForm}
+        onOpenChange={setShowCreateInvoiceForm}
+        onInvoiceCreated={handleInvoiceCreated}
+        purchaseOrderId={purchaseOrder?.id}
+        supplierId={purchaseOrder?.supplier_id}
+        totalAmount={purchaseOrder?.total_amount}
+        paymentTerms={purchaseOrder?.payment_terms}
+      />
     </div>
   )
 }

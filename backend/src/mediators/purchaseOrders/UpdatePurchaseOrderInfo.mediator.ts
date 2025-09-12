@@ -7,8 +7,34 @@ import {
 } from "@/types/purchaseOrder";
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
+import { InvoiceMediator } from "@/mediators/payments/InvoiceMediator";
 
 class UpdatePurchaseOrderInfoMediator {
+
+    // Helper method to calculate due date based on payment terms
+    private calculateDueDate(paymentTerms: string): string {
+        const today = new Date();
+        let daysToAdd = 30; // Default to Net 30
+
+        if (paymentTerms) {
+            const terms = paymentTerms.toLowerCase();
+            if (terms.includes('net 15')) {
+                daysToAdd = 15;
+            } else if (terms.includes('net 30')) {
+                daysToAdd = 30;
+            } else if (terms.includes('net 45')) {
+                daysToAdd = 45;
+            } else if (terms.includes('net 60')) {
+                daysToAdd = 60;
+            } else if (terms.includes('net 90')) {
+                daysToAdd = 90;
+            }
+        }
+
+        const dueDate = new Date(today);
+        dueDate.setDate(today.getDate() + daysToAdd);
+        return dueDate.toISOString().split('T')[0];
+    }
 
     // Update purchase order
     async updatePurchaseOrder(id: number, data: UpdatePurchaseOrderRequest): Promise<PurchaseOrder> {
@@ -380,6 +406,43 @@ class UpdatePurchaseOrderInfoMediator {
                 'System User',
                 'completed'
             ]);
+
+            // Create invoice when all goods are received
+            if (allItemsReceived) {
+                try {
+                    const invoiceData = {
+                        purchase_order_id: id,
+                        supplier_id: updatedPO.supplier_id,
+                        invoice_date: new Date().toISOString().split('T')[0],
+                        due_date: this.calculateDueDate(updatedPO.payment_terms),
+                        total_amount: parseFloat(updatedPO.total_amount),
+                        terms: updatedPO.payment_terms,
+                        notes: `Invoice for Purchase Order ${updatedPO.po_number}`
+                    };
+
+                    const invoice = await InvoiceMediator.createInvoice(invoiceData);
+                    
+                    // Add timeline entry for invoice creation
+                    await client.query(timelineQuery, [
+                        id,
+                        'Invoice Created',
+                        `Invoice ${invoice.invoice_number} created automatically`,
+                        'System User',
+                        'completed'
+                    ]);
+
+                    MyLogger.success('Invoice Created', { 
+                        purchaseOrderId: id,
+                        invoiceId: invoice.id,
+                        invoiceNumber: invoice.invoice_number
+                    });
+                } catch (invoiceError: any) {
+                    MyLogger.error('Failed to create invoice', invoiceError, { 
+                        purchaseOrderId: id 
+                    });
+                    // Don't fail the entire transaction if invoice creation fails
+                }
+            }
 
             await client.query('COMMIT');
 
