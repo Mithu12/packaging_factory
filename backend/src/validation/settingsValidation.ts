@@ -35,10 +35,10 @@ export const validateCompanySettings = (data: any) => {
 // Validation for system settings
 export const validateSystemSettings = (data: any) => {
   const schema = Joi.object({
-    default_currency: Joi.string().valid('usd', 'eur', 'gbp', 'cad', 'aud').required(),
-    timezone: Joi.string().valid('est', 'pst', 'utc', 'gmt', 'cst').required(),
-    date_format: Joi.string().valid('mm-dd-yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd').required(),
-    number_format: Joi.string().valid('us', 'eu', 'in').required()
+    default_currency: Joi.string().valid('usd', 'eur', 'gbp', 'cad', 'aud', 'bdt', 'inr', 'pkr').required(),
+    timezone: Joi.string().valid('est', 'pst', 'utc', 'gmt', 'cst', 'bdt', 'ist', 'pkt').required(),
+    date_format: Joi.string().valid('mm-dd-yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd', 'dd/mm/yyyy', 'mm/dd/yyyy').required(),
+    number_format: Joi.string().valid('us', 'eu', 'in', 'bd').required()
   });
 
   return schema.validate(data);

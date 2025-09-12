@@ -46,16 +46,16 @@ export default function Settings() {
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     company_name: '',
     company_email: '',
-    company_address: '',
-    phone: '',
-    tax_id: ''
+    company_address: 'Dhaka, Bangladesh',
+    phone: '+880 1234 567890',
+    tax_id: 'VAT-123456789'
   })
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    default_currency: 'usd',
-    timezone: 'est',
-    date_format: 'mm-dd-yyyy',
-    number_format: 'us'
+    default_currency: 'bdt',
+    timezone: 'bdt',
+    date_format: 'dd/mm/yyyy',
+    number_format: 'bd'
   })
   
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -265,6 +265,7 @@ export default function Settings() {
                     id="company-address" 
                     value={companySettings.company_address}
                     onChange={(e) => setCompanySettings(prev => ({ ...prev, company_address: e.target.value }))}
+                    placeholder="House/Road, Area, City, Bangladesh"
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -274,6 +275,7 @@ export default function Settings() {
                       id="phone" 
                       value={companySettings.phone}
                       onChange={(e) => setCompanySettings(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+880 1234 567890"
                     />
                   </div>
                   <div className="space-y-2">
@@ -282,6 +284,7 @@ export default function Settings() {
                       id="tax-id" 
                       value={companySettings.tax_id}
                       onChange={(e) => setCompanySettings(prev => ({ ...prev, tax_id: e.target.value }))}
+                      placeholder="VAT-123456789"
                     />
                   </div>
                 </div>
@@ -304,11 +307,14 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="usd">USD ($)</SelectItem>
-                        <SelectItem value="eur">EUR (€)</SelectItem>
-                        <SelectItem value="gbp">GBP (£)</SelectItem>
-                        <SelectItem value="cad">CAD (C$)</SelectItem>
-                        <SelectItem value="aud">AUD (A$)</SelectItem>
+                        <SelectItem value="bdt">BDT (৳) - Bangladeshi Taka</SelectItem>
+                        <SelectItem value="usd">USD ($) - US Dollar</SelectItem>
+                        <SelectItem value="eur">EUR (€) - Euro</SelectItem>
+                        <SelectItem value="gbp">GBP (£) - British Pound</SelectItem>
+                        <SelectItem value="inr">INR (₹) - Indian Rupee</SelectItem>
+                        <SelectItem value="pkr">PKR (₨) - Pakistani Rupee</SelectItem>
+                        <SelectItem value="cad">CAD (C$) - Canadian Dollar</SelectItem>
+                        <SelectItem value="aud">AUD (A$) - Australian Dollar</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -322,11 +328,14 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="est">Eastern Time (EST)</SelectItem>
-                        <SelectItem value="pst">Pacific Time (PST)</SelectItem>
-                        <SelectItem value="utc">UTC</SelectItem>
-                        <SelectItem value="gmt">GMT</SelectItem>
-                        <SelectItem value="cst">Central Time (CST)</SelectItem>
+                        <SelectItem value="bdt">BDT - Bangladesh Standard Time (UTC+6)</SelectItem>
+                        <SelectItem value="ist">IST - India Standard Time (UTC+5:30)</SelectItem>
+                        <SelectItem value="pkt">PKT - Pakistan Standard Time (UTC+5)</SelectItem>
+                        <SelectItem value="utc">UTC - Coordinated Universal Time</SelectItem>
+                        <SelectItem value="gmt">GMT - Greenwich Mean Time</SelectItem>
+                        <SelectItem value="est">EST - Eastern Time (UTC-5)</SelectItem>
+                        <SelectItem value="pst">PST - Pacific Time (UTC-8)</SelectItem>
+                        <SelectItem value="cst">CST - Central Time (UTC-6)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -342,9 +351,11 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="mm-dd-yyyy">MM/DD/YYYY</SelectItem>
-                        <SelectItem value="dd-mm-yyyy">DD/MM/YYYY</SelectItem>
-                        <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                        <SelectItem value="dd/mm/yyyy">DD/MM/YYYY (Bangladesh Standard)</SelectItem>
+                        <SelectItem value="dd-mm-yyyy">DD-MM-YYYY</SelectItem>
+                        <SelectItem value="mm/dd/yyyy">MM/DD/YYYY (US Format)</SelectItem>
+                        <SelectItem value="mm-dd-yyyy">MM-DD-YYYY</SelectItem>
+                        <SelectItem value="yyyy-mm-dd">YYYY-MM-DD (ISO Format)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -358,9 +369,10 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="us">US (1,234.56)</SelectItem>
-                        <SelectItem value="eu">EU (1.234,56)</SelectItem>
-                        <SelectItem value="in">IN (1,23,456.78)</SelectItem>
+                        <SelectItem value="bd">BD (1,23,456.78) - Bangladesh Format</SelectItem>
+                        <SelectItem value="us">US (1,234.56) - US Format</SelectItem>
+                        <SelectItem value="eu">EU (1.234,56) - European Format</SelectItem>
+                        <SelectItem value="in">IN (1,23,456.78) - Indian Format</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

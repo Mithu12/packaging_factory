@@ -379,15 +379,15 @@ class SettingsMediator {
         // Company settings
         { category: 'company', key: 'company_name', value: 'Your Company Name', data_type: 'string' as const },
         { category: 'company', key: 'company_email', value: 'admin@company.com', data_type: 'string' as const },
-        { category: 'company', key: 'company_address', value: '123 Business Street, City, State 12345', data_type: 'string' as const },
-        { category: 'company', key: 'phone', value: '+1 (555) 123-4567', data_type: 'string' as const },
-        { category: 'company', key: 'tax_id', value: '12-3456789', data_type: 'string' as const },
+        { category: 'company', key: 'company_address', value: 'Dhaka, Bangladesh', data_type: 'string' as const },
+        { category: 'company', key: 'phone', value: '+880 1234 567890', data_type: 'string' as const },
+        { category: 'company', key: 'tax_id', value: 'VAT-123456789', data_type: 'string' as const },
         
         // System settings
-        { category: 'system', key: 'default_currency', value: 'usd', data_type: 'string' as const },
-        { category: 'system', key: 'timezone', value: 'est', data_type: 'string' as const },
-        { category: 'system', key: 'date_format', value: 'mm-dd-yyyy', data_type: 'string' as const },
-        { category: 'system', key: 'number_format', value: 'us', data_type: 'string' as const },
+        { category: 'system', key: 'default_currency', value: 'bdt', data_type: 'string' as const },
+        { category: 'system', key: 'timezone', value: 'bdt', data_type: 'string' as const },
+        { category: 'system', key: 'date_format', value: 'dd/mm/yyyy', data_type: 'string' as const },
+        { category: 'system', key: 'number_format', value: 'bd', data_type: 'string' as const },
         
         // Notification settings
         { category: 'notifications', key: 'low_stock_alerts', value: 'true', data_type: 'boolean' as const },
