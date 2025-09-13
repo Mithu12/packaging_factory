@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
-import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
+import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError, Origin } from "@/services/api"
 import { ProductApi } from "@/services/product-api"
 import { Brand } from "@/services/brand-api"
 import {

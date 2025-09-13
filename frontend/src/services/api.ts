@@ -2,6 +2,7 @@
 export { SupplierApi } from './supplier-api';
 export { CategoryApi } from './category-api';
 export { BrandApi } from './brand-api';
+export { OriginApi } from './origin-api';
 export { ProductApi } from './product-api';
 export { StockAdjustmentApi } from './stock-adjustment-api';
 export { PurchaseOrderApi } from './purchase-order-api';
@@ -15,6 +16,7 @@ export { makeRequest } from './api-utils';
 import { SupplierApi } from './supplier-api';
 import { CategoryApi } from './category-api';
 import { BrandApi } from './brand-api';
+import { OriginApi } from './origin-api';
 import { ProductApi } from './product-api';
 import { StockAdjustmentApi } from './stock-adjustment-api';
 import { PurchaseOrderApi } from './purchase-order-api';
@@ -130,6 +132,27 @@ export class ApiService {
 
   static async deleteBrand(id: number) {
     return BrandApi.deleteBrand(id);
+  }
+
+  // Origin methods
+  static async getOrigins(params?: any) {
+    return OriginApi.getAllOrigins();
+  }
+
+  static async getOrigin(id: number) {
+    return OriginApi.getOriginById(id);
+  }
+
+  static async createOrigin(data: any) {
+    return OriginApi.createOrigin(data);
+  }
+
+  static async updateOrigin(id: number, data: any) {
+    return OriginApi.updateOrigin(id, data);
+  }
+
+  static async deleteOrigin(id: number) {
+    return OriginApi.deleteOrigin(id);
   }
 
   // Product methods

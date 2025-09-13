@@ -7,6 +7,7 @@ export interface Product {
   category_id: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -29,6 +30,7 @@ export interface Product {
   category_name?: string;
   subcategory_name?: string;
   brand_name?: string;
+  origin_name?: string;
   supplier_name?: string;
 }
 
@@ -39,6 +41,7 @@ export interface CreateProductRequest {
   category_id: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -97,6 +100,10 @@ export interface ProductWithDetails extends Product {
     name: string;
   };
   brand?: {
+    id: number;
+    name: string;
+  };
+  origin?: {
     id: number;
     name: string;
   };

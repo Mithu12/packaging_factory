@@ -20,6 +20,7 @@ export class GetProductInfoMediator {
                 category_id,
                 subcategory_id,
                 brand_id,
+                origin_id,
                 supplier_id,
                 status,
                 low_stock,
@@ -54,6 +55,12 @@ export class GetProductInfoMediator {
             if (brand_id) {
                 whereConditions.push(`p.brand_id = $${paramIndex}`);
                 queryParams.push(brand_id);
+                paramIndex++;
+            }
+
+            if (origin_id) {
+                whereConditions.push(`p.origin_id = $${paramIndex}`);
+                queryParams.push(origin_id);
                 paramIndex++;
             }
 
@@ -92,12 +99,14 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name,
                     s.supplier_code
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE ${whereClause}
                 ORDER BY p.${sortBy} ${sortOrder.toUpperCase()}
@@ -139,12 +148,14 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name,
                     s.supplier_code
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE p.id = $1
             `;
@@ -252,11 +263,13 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE p.name ILIKE $1 OR p.sku ILIKE $1 OR p.product_code ILIKE $1
                 ORDER BY p.name
@@ -289,11 +302,13 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE p.current_stock <= p.min_stock_level
                 ORDER BY (p.current_stock - p.min_stock_level) ASC
@@ -324,11 +339,13 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE p.category_id = $1
                 ORDER BY p.name
@@ -360,11 +377,13 @@ export class GetProductInfoMediator {
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
+                    o.name as origin_name,
                     s.name as supplier_name
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
                 WHERE p.supplier_id = $1
                 ORDER BY p.name

@@ -35,7 +35,7 @@ export class UpdateProductInfoMediator {
             }
 
             // Validate foreign key references if being updated
-            if (productData.category_id || productData.subcategory_id || productData.brand_id || productData.supplier_id) {
+            if (productData.category_id || productData.subcategory_id || productData.brand_id || productData.origin_id || productData.supplier_id) {
                 await this.validateReferences(id, productData);
             }
 
@@ -198,6 +198,7 @@ export class UpdateProductInfoMediator {
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
                 brandId: productData.brand_id,
+                originId: productData.origin_id,
                 supplierId: productData.supplier_id
             });
 
@@ -210,6 +211,7 @@ export class UpdateProductInfoMediator {
             const categoryId = productData.category_id || currentProduct.category_id;
             const subcategoryId = productData.subcategory_id !== undefined ? productData.subcategory_id : currentProduct.subcategory_id;
             const brandId = productData.brand_id !== undefined ? productData.brand_id : currentProduct.brand_id;
+            const originId = productData.origin_id !== undefined ? productData.origin_id : currentProduct.origin_id;
             const supplierId = productData.supplier_id || currentProduct.supplier_id;
 
             // Validate category exists
@@ -240,6 +242,16 @@ export class UpdateProductInfoMediator {
                 }
             }
 
+            // Validate origin exists if provided
+            if (originId) {
+                const originQuery = 'SELECT id FROM origins WHERE id = $1 AND status = $2';
+                const originResult = await pool.query(originQuery, [originId, 'active']);
+                
+                if (originResult.rows.length === 0) {
+                    throw new Error('Origin not found or is inactive');
+                }
+            }
+
             // Validate supplier exists
             const supplierQuery = 'SELECT id FROM suppliers WHERE id = $1';
             const supplierResult = await pool.query(supplierQuery, [supplierId]);
@@ -253,6 +265,7 @@ export class UpdateProductInfoMediator {
                 categoryId,
                 subcategoryId,
                 brandId,
+                originId,
                 supplierId,
                 message: 'All references validated successfully'
             });
@@ -262,6 +275,7 @@ export class UpdateProductInfoMediator {
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
                 brandId: productData.brand_id,
+                originId: productData.origin_id,
                 supplierId: productData.supplier_id
             });
             throw error;

@@ -170,6 +170,8 @@ export interface Product {
   description?: string;
   category_id: number;
   subcategory_id?: number;
+  brand_id?: number;
+  origin_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -185,9 +187,20 @@ export interface Product {
   tax_rate?: number;
   supplier_name?: number;
   subcategory_name?: number;
+  brand_name?: string;
+  origin_name?: string;
   notes?: string;
   image_url?: string;
   category_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Origin {
+  id: number;
+  name: string;
+  description?: string;
+  status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
 }
@@ -196,6 +209,7 @@ export interface ProductWithDetails extends Product {
   category: Category;
   subcategory?: Subcategory;
   brand?: Brand;
+  origin?: Origin;
   supplier: Supplier;
 }
 
@@ -206,6 +220,7 @@ export interface CreateProductRequest {
   category_id: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -230,6 +245,7 @@ export interface UpdateProductRequest {
   category_id?: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   unit_of_measure?: string;
   cost_price?: number;
   selling_price?: number;
@@ -254,6 +270,7 @@ export interface ProductQueryParams {
   category_id?: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   supplier_id?: number;
   status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   low_stock?: boolean;
