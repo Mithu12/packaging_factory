@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,61 +34,22 @@ import {
   Edit,
   Trash2,
   MapPin,
+  Loader2,
 } from "lucide-react";
+import { OriginApi, Origin, OriginStats } from "@/services/origin-api";
 
-interface Origin {
-  id: string;
-  name: string;
-  description?: string;
-  status: "active" | "inactive";
-  createdAt: string;
-  productCount: number;
-}
+// Remove the duplicate interface since we're importing it from the API service
 
 export default function Origins() {
-  const [origins, setOrigins] = useState<Origin[]>([
-    {
-      id: "1",
-      name: "China",
-      description: "Products manufactured in China",
-      status: "active",
-      createdAt: "2024-01-15",
-      productCount: 67,
-    },
-    {
-      id: "2",
-      name: "Germany",
-      description: "High-quality German manufactured products",
-      status: "active",
-      createdAt: "2024-01-20",
-      productCount: 23,
-    },
-    {
-      id: "3",
-      name: "Local Factory",
-      description: "Locally manufactured products",
-      status: "active",
-      createdAt: "2024-02-01",
-      productCount: 15,
-    },
-    {
-      id: "4",
-      name: "Japan",
-      description: "Japanese manufactured products",
-      status: "active",
-      createdAt: "2024-02-10",
-      productCount: 8,
-    },
-    {
-      id: "5",
-      name: "USA",
-      description: "Products manufactured in the United States",
-      status: "inactive",
-      createdAt: "2024-02-15",
-      productCount: 0,
-    },
-  ]);
-
+  const [origins, setOrigins] = useState<Origin[]>([]);
+  const [stats, setStats] = useState<OriginStats>({
+    total_origins: 0,
+    active_origins: 0,
+    inactive_origins: 0,
+    total_products: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingOrigin, setEditingOrigin] = useState<Origin | null>(null);
@@ -97,6 +58,36 @@ export default function Origins() {
     description: "",
     status: "active" as "active" | "inactive",
   });
+
+  // Load origins and stats on component mount
+  useEffect(() => {
+    loadOrigins();
+    loadStats();
+  }, []);
+
+  const loadOrigins = async () => {
+    try {
+      setLoading(true);
+      const data = await OriginApi.getAllOrigins();
+      setOrigins(data);
+    } catch (error) {
+      console.error('Failed to load origins:', error);
+      toast.error("Failed to load origins", {
+        description: "Please try again later.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const data = await OriginApi.getOriginStats();
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  };
 
   const filteredOrigins = origins.filter(
     (origin) =>
@@ -120,9 +111,9 @@ export default function Origins() {
     setShowAddDialog(true);
   };
 
-  const handleDelete = (originId: string) => {
+  const handleDelete = async (originId: number) => {
     const origin = origins.find((o) => o.id === originId);
-    if (origin && origin.productCount > 0) {
+    if (origin && origin.product_count > 0) {
       toast.error("Cannot delete origin", {
         description:
           "This origin is used by existing products. Please remove products first.",
@@ -130,13 +121,22 @@ export default function Origins() {
       return;
     }
 
-    setOrigins(origins.filter((o) => o.id !== originId));
-    toast.success("Origin deleted", {
-      description: "Origin has been removed successfully.",
-    });
+    try {
+      await OriginApi.deleteOrigin(originId);
+      setOrigins(origins.filter((o) => o.id !== originId));
+      await loadStats(); // Refresh stats
+      toast.success("Origin deleted", {
+        description: "Origin has been removed successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete origin:', error);
+      toast.error("Failed to delete origin", {
+        description: "Please try again later.",
+      });
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -146,31 +146,39 @@ export default function Origins() {
       return;
     }
 
-    if (editingOrigin) {
-      setOrigins(
-        origins.map((origin) =>
-          origin.id === editingOrigin.id ? { ...origin, ...formData } : origin
-        )
-      );
-      toast.success("Origin updated", {
-        description: "Origin information has been updated successfully.",
-      });
-    } else {
-      const newOrigin: Origin = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split("T")[0],
-        productCount: 0,
-      };
-      setOrigins([...origins, newOrigin]);
-      toast.success("Origin added", {
-        description: "New origin has been added successfully.",
-      });
-    }
+    try {
+      setSubmitting(true);
+      
+      if (editingOrigin) {
+        const updatedOrigin = await OriginApi.updateOrigin(editingOrigin.id, formData);
+        setOrigins(
+          origins.map((origin) =>
+            origin.id === editingOrigin.id ? updatedOrigin : origin
+          )
+        );
+        toast.success("Origin updated", {
+          description: "Origin information has been updated successfully.",
+        });
+      } else {
+        const newOrigin = await OriginApi.createOrigin(formData);
+        setOrigins([...origins, newOrigin]);
+        toast.success("Origin added", {
+          description: "New origin has been added successfully.",
+        });
+      }
 
-    setShowAddDialog(false);
-    setFormData({ name: "", description: "", status: "active" });
-    setEditingOrigin(null);
+      await loadStats(); // Refresh stats
+      setShowAddDialog(false);
+      setFormData({ name: "", description: "", status: "active" });
+      setEditingOrigin(null);
+    } catch (error) {
+      console.error('Failed to save origin:', error);
+      toast.error("Failed to save origin", {
+        description: "Please try again later.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -210,7 +218,7 @@ export default function Origins() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{origins.length}</div>
+            <div className="text-2xl font-bold">{stats.total_origins}</div>
           </CardContent>
         </Card>
         <Card>
@@ -221,9 +229,7 @@ export default function Origins() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {origins.filter((o) => o.status === "active").length}
-            </div>
+            <div className="text-2xl font-bold">{stats.active_origins}</div>
           </CardContent>
         </Card>
         <Card>
@@ -234,9 +240,7 @@ export default function Origins() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {origins.filter((o) => o.status === "inactive").length}
-            </div>
+            <div className="text-2xl font-bold">{stats.inactive_origins}</div>
           </CardContent>
         </Card>
         <Card>
@@ -247,9 +251,7 @@ export default function Origins() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {origins.reduce((acc, origin) => acc + origin.productCount, 0)}
-            </div>
+            <div className="text-2xl font-bold">{stats.total_products}</div>
           </CardContent>
         </Card>
       </div>
@@ -284,43 +286,60 @@ export default function Origins() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrigins.map((origin) => (
-                <TableRow key={origin.id}>
-                  <TableCell className="font-medium">{origin.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {origin.description}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(origin.status)}>
-                      {origin.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{origin.productCount}</TableCell>
-                  <TableCell>{origin.createdAt}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(origin)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(origin.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Loading origins...
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredOrigins.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No origins found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrigins.map((origin) => (
+                  <TableRow key={origin.id}>
+                    <TableCell className="font-medium">{origin.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {origin.description}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(origin.status)}>
+                        {origin.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{origin.product_count}</TableCell>
+                    <TableCell>{new Date(origin.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(origin)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(origin.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -374,11 +393,19 @@ export default function Origins() {
                 type="button"
                 variant="outline"
                 onClick={() => setShowAddDialog(false)}
+                disabled={submitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingOrigin ? "Update Origin" : "Add Origin"}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {editingOrigin ? "Updating..." : "Adding..."}
+                  </>
+                ) : (
+                  editingOrigin ? "Update Origin" : "Add Origin"
+                )}
               </Button>
             </DialogFooter>
           </form>

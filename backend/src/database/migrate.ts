@@ -205,12 +205,47 @@ const createTables = async () => {
     // Create brand update timestamp trigger
     MyLogger.info('Create Brand Update Timestamp Trigger')
     await client.query(`
+      DROP TRIGGER IF EXISTS update_brands_updated_at ON brands;
       CREATE TRIGGER update_brands_updated_at
         BEFORE UPDATE ON brands
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column();
     `);
     MyLogger.success('Create Brand Update Timestamp Trigger')
+
+    // Create origins table
+    MyLogger.info('Create Origins Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS origins (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Origins Table')
+
+    // Create indexes for origins
+    MyLogger.info('Create Origin Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_origins_name ON origins(name);
+      CREATE INDEX IF NOT EXISTS idx_origins_status ON origins(status);
+      CREATE INDEX IF NOT EXISTS idx_origins_created_at ON origins(created_at);
+    `);
+    MyLogger.success('Create Origin Indexes')
+
+    // Create origin update timestamp trigger
+    MyLogger.info('Create Origin Update Timestamp Trigger')
+    await client.query(`
+      DROP TRIGGER IF EXISTS update_origins_updated_at ON origins;
+      CREATE TRIGGER update_origins_updated_at
+        BEFORE UPDATE ON origins
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Origin Update Timestamp Trigger')
 
     // Create products table
     MyLogger.info('Create Products Table')
