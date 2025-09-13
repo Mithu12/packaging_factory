@@ -562,6 +562,8 @@ const createTables = async () => {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         full_name VARCHAR(255) NOT NULL,
+        mobile_number VARCHAR(20),
+        departments TEXT[], -- Array of department values
         role VARCHAR(20) NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'manager', 'employee', 'viewer')),
         is_active BOOLEAN DEFAULT true,
         last_login TIMESTAMP WITH TIME ZONE,
@@ -573,6 +575,15 @@ const createTables = async () => {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add new columns to users table if they don't exist
+    MyLogger.info('Add new columns to users table')
+    await client.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS departments TEXT[];
+    `);
+
 
     // Create indexes for users
     await client.query(`

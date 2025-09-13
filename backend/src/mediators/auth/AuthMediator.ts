@@ -101,14 +101,16 @@ export class AuthMediator {
       
       // Create user
       const userResult = await client.query(`
-        INSERT INTO users (username, email, password_hash, full_name, role, is_active, email_verified)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO users (username, email, password_hash, full_name, mobile_number, departments, role, is_active, email_verified)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `, [
         registerData.username,
         registerData.email,
         hashedPassword,
         registerData.full_name,
+        registerData.mobile_number || null,
+        registerData.departments || null,
         registerData.role || UserRole.EMPLOYEE,
         true,
         false
@@ -207,6 +209,16 @@ export class AuthMediator {
       if (updateData.email) {
         updateFields.push(`email = $${paramCount++}`);
         updateValues.push(updateData.email);
+      }
+      
+      if (updateData.mobile_number !== undefined) {
+        updateFields.push(`mobile_number = $${paramCount++}`);
+        updateValues.push(updateData.mobile_number);
+      }
+      
+      if (updateData.departments !== undefined) {
+        updateFields.push(`departments = $${paramCount++}`);
+        updateValues.push(updateData.departments);
       }
       
       if (updateFields.length === 0) {
@@ -388,7 +400,7 @@ export class AuthMediator {
       return jwt.verify(token, this.JWT_SECRET) as JwtPayload;
     } catch (error) {
       throw createError('Invalid token', 401);
-    }
+    } 
   }
 
   // Generate password reset token

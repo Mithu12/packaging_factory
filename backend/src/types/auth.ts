@@ -3,6 +3,8 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
+  mobile_number?: string;
+  departments?: string[];
   role: UserRole;
   is_active: boolean;
   last_login?: Date;
@@ -27,6 +29,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   full_name: string;
+  mobile_number?: string;
+  departments?: string[];
   role?: UserRole;
 }
 
@@ -44,6 +48,8 @@ export interface ChangePasswordRequest {
 export interface UpdateProfileRequest {
   full_name?: string;
   email?: string;
+  mobile_number?: string;
+  departments?: string[];
 }
 
 export interface JwtPayload {

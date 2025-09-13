@@ -66,6 +66,8 @@ const userSchema = z.object({
   username: z.string().min(2, "Username must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
+  mobile_number: z.string().optional(),
+  departments: z.array(z.string()).optional(),
   role: z.string().min(1, "Please select a role"),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
 });
@@ -91,6 +93,8 @@ const UserManagement = () => {
       username: "",
       email: "",
       full_name: "",
+      mobile_number: "",
+      departments: [],
       role: "",
       password: "",
     },
@@ -113,6 +117,8 @@ const UserManagement = () => {
           username: "admin",
           email: "admin@erp.com",
           full_name: "System Administrator",
+          mobile_number: "+1234567890",
+          departments: ["it", "operations"],
           role: "admin",
           is_active: true,
           created_at: new Date().toISOString(),
@@ -134,18 +140,35 @@ const UserManagement = () => {
     { value: "employee", label: "Employee", color: "outline" },
   ];
 
+  const departments = [
+    { value: "it", label: "IT" },
+    { value: "sales", label: "Sales" },
+    { value: "inventory", label: "Inventory" },
+    { value: "finance", label: "Finance" },
+    { value: "hr", label: "Human Resources" },
+    { value: "operations", label: "Operations" },
+    { value: "marketing", label: "Marketing" },
+  ];
+
   const onSubmit = async (data: UserFormData) => {
     try {
       setSubmitting(true);
       
       if (selectedUser) {
-        // Update existing user - we can only update role for now
-        // Note: The backend doesn't have a general user update endpoint
+        // Update existing user profile
+        const updatedUser = await AuthApi.updateUserProfile(selectedUser.id, {
+          full_name: data.full_name,
+          email: data.email,
+          mobile_number: data.mobile_number,
+          departments: data.departments,
+        });
+        
+        // Update role if changed
         if (data.role !== selectedUser.role) {
-          const updatedUser = await AuthApi.updateUserRole(selectedUser.id, data.role as 'admin' | 'manager' | 'employee' | 'viewer');
-          setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
+          await AuthApi.updateUserRole(selectedUser.id, data.role as 'admin' | 'manager' | 'employee' | 'viewer');
         }
         
+        setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
         toast({
           title: "User updated",
           description: `${data.full_name} has been updated successfully.`,
@@ -156,6 +179,8 @@ const UserManagement = () => {
           username: data.username,
           email: data.email,
           full_name: data.full_name,
+          mobile_number: data.mobile_number,
+          departments: data.departments,
           password: data.password || 'defaultPassword123',
           role: data.role as 'admin' | 'manager' | 'employee' | 'viewer',
         });
@@ -187,6 +212,8 @@ const UserManagement = () => {
     form.setValue("username", user.username);
     form.setValue("email", user.email);
     form.setValue("full_name", user.full_name);
+    form.setValue("mobile_number", user.mobile_number || "");
+    form.setValue("departments", user.departments || []);
     form.setValue("role", user.role);
     form.setValue("password", ""); // Don't pre-fill password
     setIsAddUserOpen(true);
@@ -333,6 +360,66 @@ const UserManagement = () => {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="mobile_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mobile Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+1234567890" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="departments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Departments</FormLabel>
+                      <div className="space-y-2">
+                        {departments.map((dept) => (
+                          <div
+                            key={dept.value}
+                            className="flex items-center space-x-2"
+                          >
+                            <input
+                              type="checkbox"
+                              id={dept.value}
+                              checked={
+                                field.value?.includes(dept.value) || false
+                              }
+                              onChange={(e) => {
+                                const currentValue = field.value || [];
+                                if (e.target.checked) {
+                                  field.onChange([
+                                    ...currentValue,
+                                    dept.value,
+                                  ]);
+                                } else {
+                                  field.onChange(
+                                    currentValue.filter(
+                                      (v) => v !== dept.value
+                                    )
+                                  );
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <label htmlFor={dept.value} className="text-sm">
+                              {dept.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {!selectedUser && (
                   <FormField
                     control={form.control}
@@ -435,6 +522,7 @@ const UserManagement = () => {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Department</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -450,6 +538,10 @@ const UserManagement = () => {
                               <Mail className="h-3 w-3" />
                               {user.email}
                             </div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              {user.mobile_number || 'N/A'}
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               @{user.username}
                             </div>
@@ -460,6 +552,23 @@ const UserManagement = () => {
                             <Shield className="h-3 w-3 mr-1" />
                             {user.role}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.departments && user.departments.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {user.departments.map((dept) => (
+                                <Badge
+                                  key={dept}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {departments.find(d => d.value === dept)?.label || dept}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">N/A</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge

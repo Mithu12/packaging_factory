@@ -67,25 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setToken(authToken);
       localStorage.setItem('auth_token', authToken);
     } catch (error) {
-      // If backend is not available, use mock authentication for testing
-      if (credentials.username === 'admin' && credentials.password === 'admin123') {
-        const mockUser: User = {
-          id: 1,
-          username: 'admin',
-          email: 'admin@erp.com',
-          full_name: 'System Administrator',
-          role: 'admin',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const mockToken = 'mock-jwt-token';
-        
-        setUser(mockUser);
-        setToken(mockToken);
-        localStorage.setItem('auth_token', mockToken);
-        return;
-      }
+
       throw error;
     }
   };

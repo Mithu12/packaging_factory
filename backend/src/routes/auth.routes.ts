@@ -150,6 +150,29 @@ router.put('/users/:id/role',
   })
 );
 
+// Update user profile (admin only)
+router.put('/users/:id',
+  authenticate,
+  adminOnly,
+  validateAuth(validateUpdateProfile),
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+    
+    const user = await AuthMediator.updateProfile(userId, req.body);
+    return res.json({
+      success: true,
+      message: 'User profile updated successfully',
+      data: user
+    });
+  })
+);
+
 // Deactivate user (admin only)
 router.delete('/users/:id',
   authenticate,

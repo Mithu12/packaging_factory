@@ -64,7 +64,15 @@ export const validateRegister = Joi.object({
     .optional()
     .messages({
       'any.only': 'Role must be one of: admin, manager, employee, viewer'
-    })
+    }),
+  departments: Joi.array()
+    .items(Joi.string())
+    .optional()
+    .messages({
+      'array.items': 'Departments must be an array of strings'
+    }),
+  mobile_number: Joi.string()
+    .optional()
 });
 
 // Change password validation schema
@@ -100,7 +108,15 @@ export const validateUpdateProfile = Joi.object({
     .optional()
     .messages({
       'string.email': 'Please provide a valid email address'
-    })
+    }),
+  departments: Joi.array()
+    .items(Joi.string())
+    .optional()
+    .messages({
+      'array.items': 'Departments must be an array of strings'
+    }),
+  mobile_number: Joi.string()
+    .optional()
 }).min(1).messages({
   'object.min': 'At least one field must be provided for update'
 });

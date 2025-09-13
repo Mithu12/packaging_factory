@@ -6,6 +6,8 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
+  mobile_number?: string;
+  departments?: string[];
   role: 'admin' | 'manager' | 'employee' | 'viewer';
   is_active: boolean;
   last_login?: string;
@@ -23,6 +25,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   full_name: string;
+  mobile_number?: string;
+  departments?: string[];
   role?: 'admin' | 'manager' | 'employee' | 'viewer';
 }
 
@@ -40,6 +44,8 @@ export interface ChangePasswordRequest {
 export interface UpdateProfileRequest {
   full_name?: string;
   email?: string;
+  mobile_number?: string;
+  departments?: string[];
 }
 
 export interface PasswordResetRequest {
@@ -84,6 +90,14 @@ class AuthApiService {
   // Update current user profile
   async updateProfile(updateData: UpdateProfileRequest): Promise<User> {
     return makeRequest(`${this.baseUrl}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Update user profile by admin
+  async updateUserProfile(userId: number, updateData: UpdateProfileRequest): Promise<User> {
+    return makeRequest(`${this.baseUrl}/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
     });
