@@ -28,6 +28,7 @@ interface EditProductFormData {
   category_id: string
   subcategory_id: string
   brand_id: string
+  origin_id: string
   unit_of_measure: string
   cost_price: string
   selling_price: string
@@ -54,6 +55,7 @@ export default function EditProduct() {
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
+  const [origins, setOrigins] = useState<Origin[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,6 +69,7 @@ export default function EditProduct() {
     category_id: "",
     subcategory_id: "",
     brand_id: "",
+    origin_id: "",
     unit_of_measure: "",
     cost_price: "",
     selling_price: "",
@@ -128,16 +131,18 @@ export default function EditProduct() {
         setLoading(true)
         setError(null)
 
-        const [productData, categoriesData, brandsData, suppliersData] = await Promise.all([
+        const [productData, categoriesData, brandsData, originsData, suppliersData] = await Promise.all([
           ApiService.getProduct(parseInt(id)),
           ApiService.getCategories({ limit: 100 }),
           ApiService.getBrands({ limit: 100 }),
+          ApiService.getOrigins({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 })
         ])
 
         setProduct(productData)
         setCategories(categoriesData.categories)
         setBrands(brandsData)
+        setOrigins(originsData)
         setSuppliers(suppliersData.suppliers)
 
         // Populate form with product data
@@ -148,6 +153,7 @@ export default function EditProduct() {
           category_id: productData.category_id.toString(),
           subcategory_id: productData.subcategory_id?.toString() || "",
           brand_id: productData.brand?.id?.toString() || "",
+          origin_id: productData.origin_id?.toString() || "",
           unit_of_measure: productData.unit_of_measure,
           cost_price: productData.cost_price.toString(),
           selling_price: productData.selling_price.toString(),
@@ -259,6 +265,7 @@ export default function EditProduct() {
         category_id: parseInt(formData.category_id),
         subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
         brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
+        origin_id: formData.origin_id ? parseInt(formData.origin_id) : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
@@ -534,6 +541,21 @@ export default function EditProduct() {
                         {brands.map((brand) => (
                           <SelectItem key={brand.id} value={brand.id.toString()}>
                             {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="origin">Origin</Label>
+                    <Select value={formData.origin_id} onValueChange={(value) => handleInputChange("origin_id", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select origin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {origins.map((origin) => (
+                          <SelectItem key={origin.id} value={origin.id.toString()}>
+                            {origin.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

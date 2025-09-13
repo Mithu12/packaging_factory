@@ -69,6 +69,7 @@ export interface ProductQueryParams {
   category_id?: number;
   subcategory_id?: number;
   brand_id?: number;
+  origin_id?: number;
   supplier_id?: number;
   status?: string;
   low_stock?: boolean;

@@ -338,7 +338,11 @@ export default function ProductDetails() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Brand</label>
-                  <p className="font-medium">{product.brand?.name}</p>
+                  <p className="font-medium">{product.brand?.name || 'No brand'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Origin</label>
+                  <p className="font-medium">{product.origin_name || 'No origin'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Product Code</label>
