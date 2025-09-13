@@ -69,6 +69,15 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/login`, {
       method: 'POST',
       body: JSON.stringify(credentials),
+      credentials: 'include', // Include cookies in the request
+    });
+  }
+
+  // Logout user
+  async logout(): Promise<void> {
+    return makeRequest(`${this.baseUrl}/logout`, {
+      method: 'POST',
+      credentials: 'include', // Include cookies in the request
     });
   }
 
@@ -77,6 +86,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/register`, {
       method: 'POST',
       body: JSON.stringify(userData),
+      credentials: 'include',
     });
   }
 
@@ -84,6 +94,7 @@ class AuthApiService {
   async getProfile(): Promise<User> {
     return makeRequest(`${this.baseUrl}/profile`, {
       method: 'GET',
+      credentials: 'include',
     });
   }
 
@@ -92,6 +103,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/profile`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
+      credentials: 'include',
     });
   }
 
@@ -100,6 +112,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
+      credentials: 'include',
     });
   }
 
@@ -108,6 +121,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/change-password`, {
       method: 'PUT',
       body: JSON.stringify(passwordData),
+      credentials: 'include',
     });
   }
 
@@ -116,6 +130,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/forgot-password`, {
       method: 'POST',
       body: JSON.stringify({ email }),
+      credentials: 'include',
     });
   }
 
@@ -124,6 +139,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/reset-password`, {
       method: 'POST',
       body: JSON.stringify({ token, new_password: newPassword }),
+      credentials: 'include',
     });
   }
 
@@ -131,6 +147,7 @@ class AuthApiService {
   async getAllUsers(): Promise<User[]> {
     return makeRequest(`${this.baseUrl}/users`, {
       method: 'GET',
+      credentials: 'include',
     });
   }
 
@@ -138,6 +155,7 @@ class AuthApiService {
   async getUserById(userId: number): Promise<User> {
     return makeRequest(`${this.baseUrl}/users/${userId}`, {
       method: 'GET',
+      credentials: 'include',
     });
   }
 
@@ -146,6 +164,7 @@ class AuthApiService {
     return makeRequest(`${this.baseUrl}/users/${userId}/role`, {
       method: 'PUT',
       body: JSON.stringify({ role }),
+      credentials: 'include',
     });
   }
 
@@ -153,6 +172,7 @@ class AuthApiService {
   async deactivateUser(userId: number): Promise<void> {
     return makeRequest(`${this.baseUrl}/users/${userId}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
   }
 
@@ -160,6 +180,7 @@ class AuthApiService {
   async reactivateUser(userId: number): Promise<User> {
     return makeRequest(`${this.baseUrl}/users/${userId}/reactivate`, {
       method: 'PATCH',
+      credentials: 'include',
     });
   }
 }

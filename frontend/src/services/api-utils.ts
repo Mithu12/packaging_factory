@@ -22,20 +22,14 @@ export async function makeRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  // Get auth token from localStorage
-  const token = localStorage.getItem('auth_token');
-  
   const config: RequestInit = {
     ...options,
+    // Always include credentials for cookie-based auth
+    credentials: options.credentials || 'include',
   };
 
   // Set headers
   const headers: Record<string, string> = {};
-  
-  // Add auth token if available
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
   
   // Only set Content-Type for non-FormData requests
   if (!(options.body instanceof FormData)) {

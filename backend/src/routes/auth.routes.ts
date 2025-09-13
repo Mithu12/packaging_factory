@@ -24,10 +24,43 @@ router.post('/login',
   validateAuth(validateLogin),
   expressAsyncHandler(async (req, res, next) => {
     const result = await AuthMediator.login(req.body);
+    
+    // Set HTTP-only cookie with the token
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      sameSite: 'strict' as const,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+      path: '/'
+    };
+    
+    res.cookie('authToken', result.token, cookieOptions);
+    
+    // Remove token from response for security
+    const { token, ...responseData } = result;
+    
     res.json({
       success: true,
       message: 'Login successful',
-      data: result
+      data: responseData
+    });
+  })
+);
+
+// Logout
+router.post('/logout',
+  expressAsyncHandler(async (req, res, next) => {
+    // Clear the auth cookie
+    res.clearCookie('authToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+    
+    res.json({
+      success: true,
+      message: 'Logout successful'
     });
   })
 );

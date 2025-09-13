@@ -27,12 +27,16 @@ class BrandApiService {
 
   // Get all brands
   async getAllBrands(): Promise<Brand[]> {
-    return makeRequest(`${this.baseUrl}/`);
+    return makeRequest(`${this.baseUrl}/`, {
+      credentials: 'include',
+    });
   }
 
   // Get brand by ID
   async getBrandById(id: number): Promise<Brand> {
-    return makeRequest(`${this.baseUrl}/${id}`);
+    return makeRequest(`${this.baseUrl}/${id}`, {
+      credentials: 'include',
+    });
   }
 
   // Create new brand
@@ -40,6 +44,7 @@ class BrandApiService {
     return makeRequest(`${this.baseUrl}/`, {
       method: 'POST',
       body: JSON.stringify(brandData),
+      credentials: 'include',
     });
   }
 
@@ -48,6 +53,7 @@ class BrandApiService {
     return makeRequest(`${this.baseUrl}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(brandData),
+      credentials: 'include',
     });
   }
 
@@ -55,12 +61,15 @@ class BrandApiService {
   async deleteBrand(id: number): Promise<void> {
     return makeRequest(`${this.baseUrl}/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
   }
 
   // Get brands by status
   async getBrandsByStatus(status: 'active' | 'inactive'): Promise<Brand[]> {
-    return makeRequest(`${this.baseUrl}/status/${status}`);
+    return makeRequest(`${this.baseUrl}/status/${status}`, {
+      credentials: 'include',
+    });
   }
 }
 
