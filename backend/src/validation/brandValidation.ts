@@ -18,9 +18,8 @@ export const validateCreateBrand = Joi.object({
     .messages({
       'string.max': 'Description must not exceed 500 characters'
     }),
-  status: Joi.string()
-    .valid('active', 'inactive')
-    .default('active')
+  is_active: Joi.boolean()
+    .default(true)
     .messages({
       'any.only': 'Status must be either active or inactive'
     })
@@ -43,11 +42,10 @@ export const validateUpdateBrand = Joi.object({
     .messages({
       'string.max': 'Description must not exceed 500 characters'
     }),
-  status: Joi.string()
-    .valid('active', 'inactive')
+  is_active: Joi.boolean()
     .optional()
     .messages({
-      'any.only': 'Status must be either active or inactive'
+      'any.only': 'Status must be either true or false'
     })
 }).min(1).messages({
   'object.min': 'At least one field must be provided for update'

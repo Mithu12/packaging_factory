@@ -186,7 +186,7 @@ const createTables = async () => {
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
-        status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
@@ -197,7 +197,7 @@ const createTables = async () => {
     MyLogger.info('Create Brand Indexes')
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_brands_name ON brands(name);
-      CREATE INDEX IF NOT EXISTS idx_brands_status ON brands(status);
+      CREATE INDEX IF NOT EXISTS idx_brands_is_active ON brands(is_active);
       CREATE INDEX IF NOT EXISTS idx_brands_created_at ON brands(created_at);
     `);
     MyLogger.success('Create Brand Indexes')
@@ -223,6 +223,7 @@ const createTables = async () => {
         description TEXT,
         category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
         subcategory_id INTEGER REFERENCES subcategories(id) ON DELETE SET NULL,
+        brand_id INTEGER REFERENCES brands(id) ON DELETE SET NULL,
         unit_of_measure VARCHAR(20) NOT NULL,
         cost_price DECIMAL(10,2) NOT NULL CHECK (cost_price >= 0),
         selling_price DECIMAL(10,2) NOT NULL CHECK (selling_price >= 0),
@@ -294,6 +295,10 @@ const createTables = async () => {
     
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_products_subcategory_id ON products(subcategory_id);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
     `);
     
     await client.query(`

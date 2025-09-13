@@ -43,7 +43,7 @@ interface Brand {
   id: number;
   name: string;
   description?: string;
-  status: "active" | "inactive";
+  is_active: boolean;
   created_at: string;
   product_count: number;
 }
@@ -58,7 +58,7 @@ export default function Brands() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    status: "active" as "active" | "inactive",
+    is_active: true,
   });
   const { formatDate } = useFormatting();
 
@@ -90,7 +90,7 @@ export default function Brands() {
   );
 
   const handleAdd = () => {
-    setFormData({ name: "", description: "", status: "active" });
+    setFormData({ name: "", description: "", is_active: true });
     setEditingBrand(null);
     setShowAddDialog(true);
   };
@@ -99,7 +99,7 @@ export default function Brands() {
     setFormData({
       name: brand.name,
       description: brand.description || "",
-      status: brand.status,
+      is_active: brand.is_active,
     });
     setEditingBrand(brand);
     setShowAddDialog(true);
@@ -146,7 +146,7 @@ export default function Brands() {
         const updatedBrand = await BrandApi.updateBrand(editingBrand.id, {
           name: formData.name,
           description: formData.description,
-          status: formData.status,
+          is_active: formData.is_active,
         });
         
         setBrands(
@@ -161,7 +161,7 @@ export default function Brands() {
         const newBrand = await BrandApi.createBrand({
           name: formData.name,
           description: formData.description,
-          status: formData.status,
+          is_active: formData.is_active,
         });
         
         setBrands([...brands, newBrand]);
@@ -171,7 +171,7 @@ export default function Brands() {
       }
 
       setShowAddDialog(false);
-      setFormData({ name: "", description: "", status: "active" });
+      setFormData({ name: "", description: "", is_active: true });
       setEditingBrand(null);
     } catch (error: any) {
       console.error('Failed to save brand:', error);
@@ -230,7 +230,7 @@ export default function Brands() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {brands.filter((b) => b.status === "active").length}
+              {brands.filter((b) => b.is_active).length}
             </div>
           </CardContent>
         </Card>
@@ -243,7 +243,7 @@ export default function Brands() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {brands.filter((b) => b.status === "inactive").length}
+              {brands.filter((b) => !b.is_active).length}
             </div>
           </CardContent>
         </Card>
@@ -315,8 +315,8 @@ export default function Brands() {
                     {brand.description}
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(brand.status)}>
-                      {brand.status}
+                    <Badge className={getStatusColor(brand.is_active ? 'active' : 'inactive')}>
+                      {brand.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>{brand.product_count}</TableCell>

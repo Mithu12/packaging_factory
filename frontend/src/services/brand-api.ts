@@ -4,7 +4,7 @@ export interface Brand {
   id: number;
   name: string;
   description?: string;
-  status: 'active' | 'inactive';
+  is_active: boolean;
   product_count: number;
   created_at: string;
   updated_at: string;
@@ -13,13 +13,13 @@ export interface Brand {
 export interface CreateBrandRequest {
   name: string;
   description?: string;
-  status?: 'active' | 'inactive';
+  is_active?: boolean;
 }
 
 export interface UpdateBrandRequest {
   name?: string;
   description?: string;
-  status?: 'active' | 'inactive';
+  is_active?: boolean;
 }
 
 class BrandApiService {
@@ -27,9 +27,7 @@ class BrandApiService {
 
   // Get all brands
   async getAllBrands(): Promise<Brand[]> {
-    return makeRequest(`${this.baseUrl}/`, {
-      credentials: 'include',
-    });
+    return makeRequest(`${this.baseUrl}/`);
   }
 
   // Get brand by ID
@@ -66,8 +64,8 @@ class BrandApiService {
   }
 
   // Get brands by status
-  async getBrandsByStatus(status: 'active' | 'inactive'): Promise<Brand[]> {
-    return makeRequest(`${this.baseUrl}/status/${status}`, {
+  async getBrandsByStatus(is_active: boolean): Promise<Brand[]> {
+    return makeRequest(`${this.baseUrl}/status/${is_active ? 'active' : 'inactive'}`, {
       credentials: 'include',
     });
   }

@@ -35,7 +35,7 @@ export class UpdateProductInfoMediator {
             }
 
             // Validate foreign key references if being updated
-            if (productData.category_id || productData.subcategory_id || productData.supplier_id) {
+            if (productData.category_id || productData.subcategory_id || productData.brand_id || productData.supplier_id) {
                 await this.validateReferences(id, productData);
             }
 
@@ -197,6 +197,7 @@ export class UpdateProductInfoMediator {
                 productId: id,
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
+                brandId: productData.brand_id,
                 supplierId: productData.supplier_id
             });
 
@@ -208,6 +209,7 @@ export class UpdateProductInfoMediator {
 
             const categoryId = productData.category_id || currentProduct.category_id;
             const subcategoryId = productData.subcategory_id !== undefined ? productData.subcategory_id : currentProduct.subcategory_id;
+            const brandId = productData.brand_id !== undefined ? productData.brand_id : currentProduct.brand_id;
             const supplierId = productData.supplier_id || currentProduct.supplier_id;
 
             // Validate category exists
@@ -228,6 +230,16 @@ export class UpdateProductInfoMediator {
                 }
             }
 
+            // Validate brand exists if provided
+            if (brandId) {
+                const brandQuery = 'SELECT id FROM brands WHERE id = $1 AND is_active = $2';
+                const brandResult = await pool.query(brandQuery, [brandId, true]);
+                
+                if (brandResult.rows.length === 0) {
+                    throw new Error('Brand not found or is inactive');
+                }
+            }
+
             // Validate supplier exists
             const supplierQuery = 'SELECT id FROM suppliers WHERE id = $1';
             const supplierResult = await pool.query(supplierQuery, [supplierId]);
@@ -240,6 +252,7 @@ export class UpdateProductInfoMediator {
                 productId: id,
                 categoryId,
                 subcategoryId,
+                brandId,
                 supplierId,
                 message: 'All references validated successfully'
             });
@@ -248,6 +261,7 @@ export class UpdateProductInfoMediator {
                 productId: id,
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
+                brandId: productData.brand_id,
                 supplierId: productData.supplier_id
             });
             throw error;

@@ -6,6 +6,7 @@ export interface Product {
   description?: string;
   category_id: number;
   subcategory_id?: number;
+  brand_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -27,6 +28,7 @@ export interface Product {
   // Joined fields
   category_name?: string;
   subcategory_name?: string;
+  brand_name?: string;
   supplier_name?: string;
 }
 
@@ -36,6 +38,7 @@ export interface CreateProductRequest {
   description?: string;
   category_id: number;
   subcategory_id?: number;
+  brand_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -62,6 +65,7 @@ export interface ProductQueryParams {
   search?: string;
   category_id?: number;
   subcategory_id?: number;
+  brand_id?: number;
   supplier_id?: number;
   status?: string;
   low_stock?: boolean;
@@ -89,6 +93,10 @@ export interface ProductWithDetails extends Product {
     name: string;
   };
   subcategory?: {
+    id: number;
+    name: string;
+  };
+  brand?: {
     id: number;
     name: string;
   };

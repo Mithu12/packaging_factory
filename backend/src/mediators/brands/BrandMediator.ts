@@ -20,7 +20,7 @@ export class BrandMediator {
         LEFT JOIN (
           SELECT brand_id, COUNT(*) as product_count
           FROM products
-          WHERE is_active = true
+          WHERE status = 'active'
           GROUP BY brand_id
         ) p ON b.id = p.brand_id
         ORDER BY b.created_at DESC
@@ -53,12 +53,13 @@ export class BrandMediator {
       const result = await client.query(`
         SELECT 
           b.*,
+          
           COALESCE(p.product_count, 0) as product_count
         FROM brands b
         LEFT JOIN (
           SELECT brand_id, COUNT(*) as product_count
           FROM products
-          WHERE is_active = true
+          WHERE status = 'active'
           GROUP BY brand_id
         ) p ON b.id = p.brand_id
         WHERE b.id = $1
@@ -103,13 +104,13 @@ export class BrandMediator {
       }
       
       const result = await client.query(`
-        INSERT INTO brands (name, description, status)
+        INSERT INTO brands (name, description, is_active)
         VALUES ($1, $2, $3)
         RETURNING *
       `, [
         brandData.name,
         brandData.description || null,
-        brandData.status || 'active'
+        brandData.is_active
       ]);
       
       const brand = result.rows[0];
@@ -170,9 +171,9 @@ export class BrandMediator {
         updateValues.push(updateData.description || null);
       }
       
-      if (updateData.status !== undefined) {
-        updateFields.push(`status = $${paramCount++}`);
-        updateValues.push(updateData.status);
+      if (updateData.is_active !== undefined) {
+        updateFields.push(`is_active = $${paramCount++}`);
+        updateValues.push(updateData.is_active);
       }
       
       if (updateFields.length === 0) {
@@ -222,7 +223,7 @@ export class BrandMediator {
       
       // Check if brand has active products
       const productCount = await client.query(
-        'SELECT COUNT(*) as count FROM products WHERE brand_id = $1 AND is_active = true',
+        `SELECT COUNT(*) as count FROM products WHERE brand_id = $1 AND status = 'active'`,
         [id]
       );
       
@@ -232,8 +233,8 @@ export class BrandMediator {
       
       // Soft delete by setting status to inactive
       await client.query(
-        'UPDATE brands SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        ['inactive', id]
+        'DELETE FROM brands WHERE id = $1',
+        [ id]
       );
       
       MyLogger.success(action, { brand_id: id });
@@ -247,34 +248,35 @@ export class BrandMediator {
   }
 
   // Get brands by status
-  static async getBrandsByStatus(status: 'active' | 'inactive'): Promise<BrandWithProductCount[]> {
+  static async getBrandsByStatus(is_active: boolean): Promise<BrandWithProductCount[]> {
     const action = 'Get Brands By Status';
     const client = await pool.connect();
     
     try {
-      MyLogger.info(action, { status });
+      MyLogger.info(action, { is_active });
       
       const result = await client.query(`
         SELECT 
           b.*,
-          COALESCE(p.product_count, 0) as product_count
+          
+            COALESCE(p.product_count, 0) as product_count
         FROM brands b
         LEFT JOIN (
           SELECT brand_id, COUNT(*) as product_count
           FROM products
-          WHERE is_active = true
+          WHERE status = 'active'
           GROUP BY brand_id
         ) p ON b.id = p.brand_id
-        WHERE b.status = $1
+        WHERE b.is_active = $1
         ORDER BY b.created_at DESC
-      `, [status]);
+      `, [is_active]);
       
       const brands = result.rows.map(row => ({
         ...row,
         product_count: parseInt(row.product_count) || 0
       }));
       
-      MyLogger.success(action, { count: brands.length, status });
+      MyLogger.success(action, { count: brands.length, is_active });
       return brands;
       
     } catch (error) {

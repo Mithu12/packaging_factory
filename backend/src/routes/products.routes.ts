@@ -176,7 +176,7 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 
 // POST /api/products - Create new product
 router.post('/', validateRequest(createProductSchema), expressAsyncHandler(async (req, res, next) => {
-    let action = 'POST /api/products'
+    let action = 'Add Product'
     try {
         MyLogger.info(action, { productName: req.body.name, productSku: req.body.sku })
         const product = await AddProductMediator.createProduct(req.body);

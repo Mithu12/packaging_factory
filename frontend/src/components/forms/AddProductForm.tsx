@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/sonner"
 import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError } from "@/services/api"
+import { Brand } from "@/services/brand-api"
 import { ProductApi } from "@/services/product-api"
 import { Upload, X, Image } from "lucide-react";
 import {Card, CardContent} from "@/components/ui/card";
@@ -35,6 +36,7 @@ interface ProductFormData {
   sku: string
   category_id: string
   subcategory_id: string
+  brand_id: string
   unit_of_measure: string
   cost_price: string
   selling_price: string
@@ -58,6 +60,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     sku: "",
     category_id: "",
     subcategory_id: "",
+    brand_id: "",
     unit_of_measure: "pcs",
     cost_price: "",
     selling_price: "",
@@ -78,6 +81,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     const [imagePreview, setImagePreview] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -115,12 +119,14 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
       const fetchData = async () => {
         try {
           setLoading(true)
-          const [categoriesData, suppliersData] = await Promise.all([
+          const [categoriesData, brandsData, suppliersData] = await Promise.all([
             ApiService.getCategories({ limit: 100 }),
+            ApiService.getBrands({ limit: 100 }),
             ApiService.getSuppliers({ limit: 100 })
           ])
 
           setCategories(categoriesData.categories)
+          setBrands(brandsData)
           setSuppliers(suppliersData.suppliers)
         } catch (err) {
           console.error("Failed to fetch data:", err)
@@ -176,6 +182,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         description: formData.description || undefined,
         category_id: parseInt(formData.category_id),
         subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
@@ -209,6 +216,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         sku: "",
         category_id: "",
         subcategory_id: "",
+        brand_id: "",
         unit_of_measure: "pcs",
         cost_price: "",
         selling_price: "",
@@ -381,7 +389,25 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+                </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Select value={formData.brand_id} onValueChange={(value) => handleInputChange("brand_id", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id.toString()}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+                </Select>
             </div>
           </div>
 

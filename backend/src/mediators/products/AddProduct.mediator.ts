@@ -42,12 +42,12 @@ export class AddProductMediator {
 
             const query = `
                 INSERT INTO products (
-                    product_code, sku, name, description, category_id, subcategory_id,
+                    product_code, sku, name, description, category_id, subcategory_id, brand_id,
                     unit_of_measure, cost_price, selling_price, current_stock, min_stock_level,
                     max_stock_level, supplier_id, status, barcode, weight, dimensions,
                     tax_rate, reorder_point, reorder_quantity, notes, image_url
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
                 ) RETURNING *
             `;
 
@@ -58,6 +58,7 @@ export class AddProductMediator {
                 productData.description || null,
                 productData.category_id,
                 productData.subcategory_id || null,
+                productData.brand_id || null,
                 productData.unit_of_measure,
                 productData.cost_price,
                 productData.selling_price,
@@ -102,6 +103,7 @@ export class AddProductMediator {
             MyLogger.info(action, { 
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
+                brandId: productData.brand_id,
                 supplierId: productData.supplier_id
             });
 
@@ -126,6 +128,16 @@ export class AddProductMediator {
                 }
             }
 
+            // Validate brand exists if provided
+            if (productData.brand_id) {
+                const brandQuery = 'SELECT id FROM brands WHERE id = $1 AND is_active = $2';
+                const brandResult = await pool.query(brandQuery, [productData.brand_id, true]);
+                
+                if (brandResult.rows.length === 0) {
+                    throw new Error('Brand not found or is inactive');
+                }
+            }
+
             // Validate supplier exists
             const supplierQuery = 'SELECT id FROM suppliers WHERE id = $1';
             const supplierResult = await pool.query(supplierQuery, [productData.supplier_id]);
@@ -137,6 +149,7 @@ export class AddProductMediator {
             MyLogger.success(action, { 
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
+                brandId: productData.brand_id,
                 supplierId: productData.supplier_id,
                 message: 'All references validated successfully'
             });
@@ -144,6 +157,7 @@ export class AddProductMediator {
             MyLogger.error(action, error, { 
                 categoryId: productData.category_id,
                 subcategoryId: productData.subcategory_id,
+                brandId: productData.brand_id,
                 supplierId: productData.supplier_id
             });
             throw error;

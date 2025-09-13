@@ -112,7 +112,7 @@ router.get('/status/:status',
       });
     }
     
-    const brands = await BrandMediator.getBrandsByStatus(status);
+    const brands = await BrandMediator.getBrandsByStatus(status === 'active' ? true : false);
     res.json({
       success: true,
       message: `Brands with status ${status} retrieved successfully`,

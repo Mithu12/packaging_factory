@@ -1,6 +1,7 @@
 // Main API service that combines all modules
 export { SupplierApi } from './supplier-api';
 export { CategoryApi } from './category-api';
+export { BrandApi } from './brand-api';
 export { ProductApi } from './product-api';
 export { StockAdjustmentApi } from './stock-adjustment-api';
 export { PurchaseOrderApi } from './purchase-order-api';
@@ -13,6 +14,7 @@ export { makeRequest } from './api-utils';
 // Legacy ApiService class for backward compatibility
 import { SupplierApi } from './supplier-api';
 import { CategoryApi } from './category-api';
+import { BrandApi } from './brand-api';
 import { ProductApi } from './product-api';
 import { StockAdjustmentApi } from './stock-adjustment-api';
 import { PurchaseOrderApi } from './purchase-order-api';
@@ -107,6 +109,27 @@ export class ApiService {
 
   static async searchSubcategories(query: string, limit = 10) {
     return CategoryApi.searchSubcategories(query, limit);
+  }
+
+  // Brand methods
+  static async getBrands(params?: any) {
+    return BrandApi.getAllBrands();
+  }
+
+  static async getBrand(id: number) {
+    return BrandApi.getBrandById(id);
+  }
+
+  static async createBrand(data: any) {
+    return BrandApi.createBrand(data);
+  }
+
+  static async updateBrand(id: number, data: any) {
+    return BrandApi.updateBrand(id, data);
+  }
+
+  static async deleteBrand(id: number) {
+    return BrandApi.deleteBrand(id);
   }
 
   // Product methods
