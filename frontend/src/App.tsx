@@ -7,6 +7,7 @@ import { useFormatting } from "@/hooks/useFormatting";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Categories from "./pages/Categories";
@@ -280,9 +281,13 @@ const App = () => {
           <Route
             path="/user-management"
             element={
-              <DashboardLayout>
-                <UserManagement />
-              </DashboardLayout>
+              <ProtectedRoute>
+                <AdminRoute>
+                  <DashboardLayout>
+                    <UserManagement />
+                  </DashboardLayout>
+                </AdminRoute>
+              </ProtectedRoute>
             }
           />
           <Route

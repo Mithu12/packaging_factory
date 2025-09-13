@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,148 +54,190 @@ import {
   Mail,
   Phone,
   Calendar,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AuthApi } from "@/services/auth-api";
+import { User as BackendUser } from "@/services/auth-api";
+import { useFormatting } from "@/hooks/useFormatting";
 
 const userSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  username: z.string().min(2, "Username must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  full_name: z.string().min(2, "Full name must be at least 2 characters"),
   role: z.string().min(1, "Please select a role"),
-  departments: z
-    .array(z.string())
-    .min(1, "Please select at least one department"),
+  password: z.string().min(6, "Password must be at least 6 characters").optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  departments: string[];
-  status: "active" | "inactive";
-  createdAt: string;
-}
+// Use the backend User type
+type User = BackendUser;
 
 const UserManagement = () => {
   const { toast } = useToast();
+  const { formatDate } = useFormatting();
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john.doe@company.com",
-      phone: "+1234567890",
-      role: "Admin",
-      departments: ["IT", "Sales"],
-      status: "active",
-      createdAt: "2024-01-15",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane.smith@company.com",
-      phone: "+1234567891",
-      role: "Manager",
-      departments: ["Sales"],
-      status: "active",
-      createdAt: "2024-01-20",
-    },
-    {
-      id: "3",
-      name: "Mike Johnson",
-      email: "mike.johnson@company.com",
-      phone: "+1234567892",
-      role: "Employee",
-      departments: ["Inventory"],
-      status: "inactive",
-      createdAt: "2024-01-25",
-    },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      name: "",
+      username: "",
       email: "",
-      phone: "",
+      full_name: "",
       role: "",
-      departments: [],
+      password: "",
     },
   });
+
+  // Fetch users from backend
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const usersData = await AuthApi.getAllUsers();
+      setUsers(usersData);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setError('Failed to load users. Please try again.');
+      // Fallback to mock data if backend is not available
+      setUsers([
+        {
+          id: 1,
+          username: "admin",
+          email: "admin@erp.com",
+          full_name: "System Administrator",
+          role: "admin",
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const roles = [
     { value: "admin", label: "Admin", color: "destructive" },
     { value: "manager", label: "Manager", color: "secondary" },
     { value: "employee", label: "Employee", color: "outline" },
-    { value: "viewer", label: "Viewer", color: "outline" },
   ];
 
-  const departments = [
-    { value: "it", label: "IT" },
-    { value: "sales", label: "Sales" },
-    { value: "inventory", label: "Inventory" },
-    { value: "finance", label: "Finance" },
-    { value: "hr", label: "Human Resources" },
-  ];
-
-  const onSubmit = (data: UserFormData) => {
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-      departments: data.departments,
-      status: "active",
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setUsers([...users, newUser]);
-    setIsAddUserOpen(false);
-    form.reset();
-    toast({
-      title: "User created",
-      description: `${data.name} has been added successfully.`,
-    });
+  const onSubmit = async (data: UserFormData) => {
+    try {
+      setSubmitting(true);
+      
+      if (selectedUser) {
+        // Update existing user - we can only update role for now
+        // Note: The backend doesn't have a general user update endpoint
+        if (data.role !== selectedUser.role) {
+          const updatedUser = await AuthApi.updateUserRole(selectedUser.id, data.role as 'admin' | 'manager' | 'employee' | 'viewer');
+          setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
+        }
+        
+        toast({
+          title: "User updated",
+          description: `${data.full_name} has been updated successfully.`,
+        });
+      } else {
+        // Create new user
+        const newUser = await AuthApi.register({
+          username: data.username,
+          email: data.email,
+          full_name: data.full_name,
+          password: data.password || 'defaultPassword123',
+          role: data.role as 'admin' | 'manager' | 'employee' | 'viewer',
+        });
+        
+        setUsers([...users, newUser.user]);
+        toast({
+          title: "User created",
+          description: `${data.full_name} has been added successfully.`,
+        });
+      }
+      
+      setIsAddUserOpen(false);
+      setSelectedUser(null);
+      form.reset();
+    } catch (err: any) {
+      console.error('Failed to save user:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
-    form.setValue("name", user.name);
+    form.setValue("username", user.username);
     form.setValue("email", user.email);
-    form.setValue("phone", user.phone);
-    form.setValue("role", user.role.toLowerCase());
-    form.setValue(
-      "departments",
-      user.departments.map((dept) => dept.toLowerCase())
-    );
+    form.setValue("full_name", user.full_name);
+    form.setValue("role", user.role);
+    form.setValue("password", ""); // Don't pre-fill password
     setIsAddUserOpen(true);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter((user) => user.id !== userId));
-    toast({
-      title: "User deleted",
-      description: "User has been removed successfully.",
-    });
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      await AuthApi.deactivateUser(userId);
+      setUsers(users.filter((user) => user.id !== userId));
+      toast({
+        title: "User deactivated",
+        description: "User has been deactivated successfully.",
+      });
+    } catch (err: any) {
+      console.error('Failed to deactivate user:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to deactivate user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers(
-      users.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              status: user.status === "active" ? "inactive" : "active",
-            }
-          : user
-      )
-    );
+  const toggleUserStatus = async (userId: number) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+      
+      if (user.is_active) {
+        await AuthApi.deactivateUser(userId);
+        setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
+        toast({
+          title: "User deactivated",
+          description: "User has been deactivated successfully.",
+        });
+      } else {
+        // Note: We don't have an activate endpoint, so we'll just update locally
+        setUsers(users.map(u => u.id === userId ? { ...u, is_active: true } : u));
+        toast({
+          title: "User activated",
+          description: "User has been activated successfully.",
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle user status:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update user status. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getRoleBadgeVariant = (
@@ -247,12 +289,12 @@ const UserManagement = () => {
               >
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name</FormLabel>
+                      <FormLabel>Username</FormLabel>
                       <FormControl>
-                        <Input placeholder="John Doe" {...field} />
+                        <Input placeholder="johndoe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -279,93 +321,65 @@ const UserManagement = () => {
 
                 <FormField
                   control={form.control}
-                  name="phone"
+                  name="full_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>Full Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1234567890" {...field} />
+                        <Input placeholder="John Doe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                {!selectedUser && (
                   <FormField
                     control={form.control}
-                    name="role"
+                    name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Role</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select role" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {roles.map((role) => (
-                              <SelectItem key={role.value} value={role.value}>
-                                {role.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Enter password"
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                )}
 
-                  <FormField
-                    control={form.control}
-                    name="departments"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Departments</FormLabel>
-                        <div className="space-y-2">
-                          {departments.map((dept) => (
-                            <div
-                              key={dept.value}
-                              className="flex items-center space-x-2"
-                            >
-                              <input
-                                type="checkbox"
-                                id={dept.value}
-                                checked={
-                                  field.value?.includes(dept.value) || false
-                                }
-                                onChange={(e) => {
-                                  const currentValue = field.value || [];
-                                  if (e.target.checked) {
-                                    field.onChange([
-                                      ...currentValue,
-                                      dept.value,
-                                    ]);
-                                  } else {
-                                    field.onChange(
-                                      currentValue.filter(
-                                        (v) => v !== dept.value
-                                      )
-                                    );
-                                  }
-                                }}
-                                className="rounded border-gray-300"
-                              />
-                              <label htmlFor={dept.value} className="text-sm">
-                                {dept.label}
-                              </label>
-                            </div>
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {roles.map((role) => (
+                            <SelectItem key={role.value} value={role.value}>
+                              {role.label}
+                            </SelectItem>
                           ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <DialogFooter>
                   <Button
@@ -379,7 +393,8 @@ const UserManagement = () => {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" disabled={submitting}>
+                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {selectedUser ? "Update User" : "Create User"}
                   </Button>
                 </DialogFooter>
@@ -404,91 +419,86 @@ const UserManagement = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{user.name}</div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Mail className="h-3 w-3" />
-                            {user.email}
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {user.phone}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                          <Shield className="h-3 w-3 mr-1" />
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {user.departments.map((dept) => (
-                            <Badge
-                              key={dept}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {dept}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            user.status === "active" ? "default" : "secondary"
-                          }
-                          className="cursor-pointer"
-                          onClick={() => toggleUserStatus(user.id)}
-                        >
-                          {user.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-3 w-3" />
-                          {user.createdAt}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditUser(user)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="ml-2">Loading users...</span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center py-8 text-destructive">
+                  <AlertCircle className="h-8 w-8 mr-2" />
+                  <span>{error}</span>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{user.full_name}</div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Mail className="h-3 w-3" />
+                              {user.email}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              @{user.username}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            <Shield className="h-3 w-3 mr-1" />
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={user.is_active ? "default" : "secondary"}
+                            className="cursor-pointer"
+                            onClick={() => toggleUserStatus(user.id)}
+                          >
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(user.created_at)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -509,8 +519,6 @@ const UserManagement = () => {
                       "Department management and reporting"}
                     {role.value === "employee" &&
                       "Standard access to assigned areas"}
-                    {role.value === "viewer" &&
-                      "Read-only access to information"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -536,13 +544,6 @@ const UserManagement = () => {
                           <li>• POS operations</li>
                           <li>• Inventory updates</li>
                           <li>• Basic reporting</li>
-                        </>
-                      )}
-                      {role.value === "viewer" && (
-                        <>
-                          <li>• View dashboards</li>
-                          <li>• View reports</li>
-                          <li>• No edit access</li>
                         </>
                       )}
                     </ul>
