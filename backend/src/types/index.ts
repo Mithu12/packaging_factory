@@ -9,3 +9,4 @@ export * from './product';
 export * from './stockAdjustment';
 export * from './purchaseOrder';
 export * from './auth';
+export * from './brand';

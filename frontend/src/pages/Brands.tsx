@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,53 +34,24 @@ import {
   Edit,
   Trash2,
   Package,
+  Loader2,
 } from "lucide-react";
+import { BrandApi, Brand as BackendBrand } from "@/services/brand-api";
+import { useFormatting } from "@/hooks/useFormatting";
 
 interface Brand {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   status: "active" | "inactive";
-  createdAt: string;
-  productCount: number;
+  created_at: string;
+  product_count: number;
 }
 
 export default function Brands() {
-  const [brands, setBrands] = useState<Brand[]>([
-    {
-      id: "1",
-      name: "Samsung",
-      description: "South Korean multinational electronics company",
-      status: "active",
-      createdAt: "2024-01-15",
-      productCount: 45,
-    },
-    {
-      id: "2",
-      name: "Toyota",
-      description: "Japanese automotive manufacturer",
-      status: "active",
-      createdAt: "2024-01-20",
-      productCount: 12,
-    },
-    {
-      id: "3",
-      name: "LG",
-      description: "South Korean electronics company",
-      status: "active",
-      createdAt: "2024-02-01",
-      productCount: 28,
-    },
-    {
-      id: "4",
-      name: "Apple",
-      description: "American technology company",
-      status: "inactive",
-      createdAt: "2024-02-10",
-      productCount: 0,
-    },
-  ]);
-
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -89,6 +60,28 @@ export default function Brands() {
     description: "",
     status: "active" as "active" | "inactive",
   });
+  const { formatDate } = useFormatting();
+
+  // Fetch brands from API
+  const fetchBrands = async () => {
+    try {
+      setLoading(true);
+      const response = await BrandApi.getAllBrands();
+      setBrands(response);
+    } catch (error: any) {
+      console.error('Failed to fetch brands:', error);
+      toast.error("Error", {
+        description: error.message || "Failed to fetch brands. Please try again.",
+      });
+    
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBrands();
+  }, []);
 
   const filteredBrands = brands.filter(
     (brand) =>
@@ -112,23 +105,31 @@ export default function Brands() {
     setShowAddDialog(true);
   };
 
-  const handleDelete = (brandId: string) => {
-    const brand = brands.find((b) => b.id === brandId);
-    if (brand && brand.productCount > 0) {
-      toast.error("Cannot delete brand", {
-        description:
-          "This brand is used by existing products. Please remove products first.",
-      });
-      return;
-    }
+  const handleDelete = async (brandId: number) => {
+    try {
+      const brand = brands.find((b) => b.id === brandId);
+      if (brand && brand.product_count > 0) {
+        toast.error("Cannot delete brand", {
+          description:
+            "This brand is used by existing products. Please remove products first.",
+        });
+        return;
+      }
 
-    setBrands(brands.filter((b) => b.id !== brandId));
-    toast.success("Brand deleted", {
-      description: "Brand has been removed successfully.",
-    });
+      await BrandApi.deleteBrand(brandId);
+      setBrands(brands.filter((b) => b.id !== brandId));
+      toast.success("Brand deleted", {
+        description: "Brand has been removed successfully.",
+      });
+    } catch (error: any) {
+      console.error('Failed to delete brand:', error);
+      toast.error("Error", {
+        description: error.message || "Failed to delete brand. Please try again.",
+      });
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -138,31 +139,48 @@ export default function Brands() {
       return;
     }
 
-    if (editingBrand) {
-      setBrands(
-        brands.map((brand) =>
-          brand.id === editingBrand.id ? { ...brand, ...formData } : brand
-        )
-      );
-      toast.success("Brand updated", {
-        description: "Brand information has been updated successfully.",
-      });
-    } else {
-      const newBrand: Brand = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split("T")[0],
-        productCount: 0,
-      };
-      setBrands([...brands, newBrand]);
-      toast.success("Brand added", {
-        description: "New brand has been added successfully.",
-      });
-    }
+    try {
+      setSubmitting(true);
 
-    setShowAddDialog(false);
-    setFormData({ name: "", description: "", status: "active" });
-    setEditingBrand(null);
+      if (editingBrand) {
+        const updatedBrand = await BrandApi.updateBrand(editingBrand.id, {
+          name: formData.name,
+          description: formData.description,
+          status: formData.status,
+        });
+        
+        setBrands(
+          brands.map((brand) =>
+            brand.id === editingBrand.id ? updatedBrand : brand
+          )
+        );
+        toast.success("Brand updated", {
+          description: "Brand information has been updated successfully.",
+        });
+      } else {
+        const newBrand = await BrandApi.createBrand({
+          name: formData.name,
+          description: formData.description,
+          status: formData.status,
+        });
+        
+        setBrands([...brands, newBrand]);
+        toast.success("Brand added", {
+          description: "New brand has been added successfully.",
+        });
+      }
+
+      setShowAddDialog(false);
+      setFormData({ name: "", description: "", status: "active" });
+      setEditingBrand(null);
+    } catch (error: any) {
+      console.error('Failed to save brand:', error);
+      toast.error("Error", {
+        description: error.message || "Failed to save brand. Please try again.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -238,7 +256,7 @@ export default function Brands() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {brands.reduce((acc, brand) => acc + brand.productCount, 0)}
+              {brands.reduce((acc, brand) => acc + brand.product_count, 0)}
             </div>
           </CardContent>
         </Card>
@@ -274,7 +292,23 @@ export default function Brands() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredBrands.map((brand) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Loading brands...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredBrands.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No brands found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredBrands.map((brand) => (
                 <TableRow key={brand.id}>
                   <TableCell className="font-medium">{brand.name}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -285,8 +319,8 @@ export default function Brands() {
                       {brand.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{brand.productCount}</TableCell>
-                  <TableCell>{brand.createdAt}</TableCell>
+                  <TableCell>{brand.product_count}</TableCell>
+                  <TableCell>{formatDate(brand.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -310,7 +344,8 @@ export default function Brands() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -367,8 +402,15 @@ export default function Brands() {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingBrand ? "Update Brand" : "Add Brand"}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {editingBrand ? "Updating..." : "Adding..."}
+                  </>
+                ) : (
+                  editingBrand ? "Update Brand" : "Add Brand"
+                )}
               </Button>
             </DialogFooter>
           </form>

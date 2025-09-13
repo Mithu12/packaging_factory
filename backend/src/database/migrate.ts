@@ -179,6 +179,39 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Subcategory Update Timestamp Trigger')
 
+    // Create brands table
+    MyLogger.info('Create Brands Table')
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS brands (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    MyLogger.success('Create Brands Table')
+
+    // Create brands indexes
+    MyLogger.info('Create Brand Indexes')
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_brands_name ON brands(name);
+      CREATE INDEX IF NOT EXISTS idx_brands_status ON brands(status);
+      CREATE INDEX IF NOT EXISTS idx_brands_created_at ON brands(created_at);
+    `);
+    MyLogger.success('Create Brand Indexes')
+
+    // Create brand update timestamp trigger
+    MyLogger.info('Create Brand Update Timestamp Trigger')
+    await client.query(`
+      CREATE TRIGGER update_brands_updated_at
+        BEFORE UPDATE ON brands
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+    MyLogger.success('Create Brand Update Timestamp Trigger')
+
     // Create products table
     MyLogger.info('Create Products Table')
     await client.query(`
@@ -625,7 +658,7 @@ const createTables = async () => {
     `);
     MyLogger.success('Create Settings Table')
 
-    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'users', 'settings'] })
+    MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'brands', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'users', 'settings'] })
     console.log('✅ Database tables created successfully');
   } catch (error) {
     MyLogger.error(action, error)
