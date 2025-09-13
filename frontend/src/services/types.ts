@@ -97,6 +97,16 @@ export interface Category {
   updated_at: string;
 }
 
+// Brand types
+export interface Brand {
+  id: number;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Subcategory {
   id: number;
   category_id: number;
@@ -185,6 +195,7 @@ export interface Product {
 export interface ProductWithDetails extends Product {
   category: Category;
   subcategory?: Subcategory;
+  brand?: Brand;
   supplier: Supplier;
 }
 
@@ -194,6 +205,7 @@ export interface CreateProductRequest {
   description?: string;
   category_id: number;
   subcategory_id?: number;
+  brand_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
@@ -217,6 +229,7 @@ export interface UpdateProductRequest {
   description?: string;
   category_id?: number;
   subcategory_id?: number;
+  brand_id?: number;
   unit_of_measure?: string;
   cost_price?: number;
   selling_price?: number;
@@ -240,6 +253,7 @@ export interface ProductQueryParams {
   search?: string;
   category_id?: number;
   subcategory_id?: number;
+  brand_id?: number;
   supplier_id?: number;
   status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   low_stock?: boolean;

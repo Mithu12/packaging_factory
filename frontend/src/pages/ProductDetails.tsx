@@ -337,6 +337,10 @@ export default function ProductDetails() {
                   <p className="font-medium">{product.category.name} → {product.subcategory?.name || 'No subcategory'}</p>
                 </div>
                 <div>
+                  <label className="text-sm font-medium text-muted-foreground">Brand</label>
+                  <p className="font-medium">{product.brand?.name}</p>
+                </div>
+                <div>
                   <label className="text-sm font-medium text-muted-foreground">Product Code</label>
                   <p className="font-medium">{product.sku}</p>
                 </div>
