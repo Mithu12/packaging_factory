@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 import { ProductApi } from "@/services/product-api"
+import { Brand } from "@/services/brand-api"
 import {
     ArrowLeft,
     Save,
@@ -26,6 +27,7 @@ interface EditProductFormData {
   description: string
   category_id: string
   subcategory_id: string
+  brand_id: string
   unit_of_measure: string
   cost_price: string
   selling_price: string
@@ -51,6 +53,7 @@ export default function EditProduct() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -63,6 +66,7 @@ export default function EditProduct() {
     description: "",
     category_id: "",
     subcategory_id: "",
+    brand_id: "",
     unit_of_measure: "",
     cost_price: "",
     selling_price: "",
@@ -124,14 +128,16 @@ export default function EditProduct() {
         setLoading(true)
         setError(null)
 
-        const [productData, categoriesData, suppliersData] = await Promise.all([
+        const [productData, categoriesData, brandsData, suppliersData] = await Promise.all([
           ApiService.getProduct(parseInt(id)),
           ApiService.getCategories({ limit: 100 }),
+          ApiService.getBrands({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 })
         ])
 
         setProduct(productData)
         setCategories(categoriesData.categories)
+        setBrands(brandsData)
         setSuppliers(suppliersData.suppliers)
 
         // Populate form with product data
@@ -141,6 +147,7 @@ export default function EditProduct() {
           description: productData.description || "",
           category_id: productData.category_id.toString(),
           subcategory_id: productData.subcategory_id?.toString() || "",
+          brand_id: productData.brand?.id?.toString() || "",
           unit_of_measure: productData.unit_of_measure,
           cost_price: productData.cost_price.toString(),
           selling_price: productData.selling_price.toString(),
@@ -251,6 +258,7 @@ export default function EditProduct() {
         description: formData.description || undefined,
         category_id: parseInt(formData.category_id),
         subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
@@ -516,6 +524,24 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="brand">Brand</Label>
+                    <Select value={formData.brand_id} onValueChange={(value) => handleInputChange("brand_id", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select brand" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id.toString()}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="unit">Unit of Measure</Label>
                     <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>

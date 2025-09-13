@@ -191,7 +191,7 @@ export default function ProductDetails() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
-          <p className="text-muted-foreground">SKU: {product.sku} • {product.category.name} → {product.subcategory?.name || 'No subcategory'}</p>
+          <p className="text-muted-foreground">SKU: {product.sku} • {product.category.name} → {product.subcategory?.name || 'No subcategory'} {product.brand && `• ${product.brand.name}`}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate(`/products/${id}/edit`)}>
