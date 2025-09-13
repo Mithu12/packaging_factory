@@ -136,6 +136,7 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
 
+
   const roles = [
     { value: "admin", label: "Admin", color: "destructive" },
     { value: "manager", label: "Manager", color: "secondary" },
@@ -155,7 +156,7 @@ const UserManagement = () => {
   const onSubmit = async (data: UserFormData) => {
     try {
       setSubmitting(true);
-      
+
       if (selectedUser) {
         // Update existing user profile
         const updatedUser = await AuthApi.updateUserProfile(selectedUser.id, {
@@ -164,12 +165,12 @@ const UserManagement = () => {
           mobile_number: data.mobile_number,
           departments: data.departments,
         });
-        
+
         // Update role if changed
         if (data.role !== selectedUser.role) {
           await AuthApi.updateUserRole(selectedUser.id, data.role as 'admin' | 'manager' | 'employee' | 'viewer');
         }
-        
+
         setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
         toast({
           title: "User updated",
@@ -183,17 +184,17 @@ const UserManagement = () => {
           full_name: data.full_name,
           mobile_number: data.mobile_number,
           departments: data.departments,
-          password: data.password || 'defaultPassword123',
+          password: data.password,
           role: data.role as 'admin' | 'manager' | 'employee' | 'viewer',
         });
-        
+
         setUsers([...users, newUser.user]);
         toast({
           title: "User created",
           description: `${data.full_name} has been added successfully.`,
         });
       }
-      
+
       setIsAddUserOpen(false);
       setSelectedUser(null);
       form.reset();
@@ -217,7 +218,7 @@ const UserManagement = () => {
     form.setValue("mobile_number", user.mobile_number || "");
     form.setValue("departments", user.departments || []);
     form.setValue("role", user.role);
-    form.setValue("password", ""); // Don't pre-fill password
+    form.setValue("password", undefined); // Don't pre-fill password
     setIsAddUserOpen(true);
   };
 
@@ -250,7 +251,7 @@ const UserManagement = () => {
 
   const toggleUserStatus = async (userId: number) => {
     try {
-      if(user?.id === userId) {
+      if (user?.id === userId) {
         toast({
           title: "Error",
           description: "You cannot change your own status.",
@@ -267,7 +268,7 @@ const UserManagement = () => {
         });
         return;
       }
-      
+
       if (selectedUser.is_active) {
         await AuthApi.deactivateUser(userId);
         setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
