@@ -389,6 +389,35 @@ export class AuthMediator {
     }
   }
 
+  static async reactivateUser(userId: number): Promise<User> {
+    const action = 'Reactivate User';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { user_id: userId });
+      
+      const result = await client.query(
+        'UPDATE users SET is_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
+        [userId]
+      );
+      
+      if (result.rowCount === 0) {
+        throw createError('User not found', 404);
+      }
+      
+      const user = result.rows[0];
+      MyLogger.success(action, { user_id: userId });
+      
+      return user;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // Generate JWT token
   private static generateToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): string {
     return jwt.sign(payload, this.JWT_SECRET, { expiresIn: this.JWT_EXPIRES_IN } as jwt.SignOptions);

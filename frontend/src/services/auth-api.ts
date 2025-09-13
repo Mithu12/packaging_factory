@@ -155,6 +155,13 @@ class AuthApiService {
       method: 'DELETE',
     });
   }
+
+  // Reactivate user (admin only)
+  async reactivateUser(userId: number): Promise<User> {
+    return makeRequest(`${this.baseUrl}/users/${userId}/reactivate`, {
+      method: 'PATCH',
+    });
+  }
 }
 
 export const AuthApi = new AuthApiService();

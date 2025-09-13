@@ -142,7 +142,7 @@ router.put('/users/:id/role',
     }
     
     const user = await AuthMediator.updateUserRole(userId, req.body.role);
-    return res.json({
+    res.json({
       success: true,
       message: 'User role updated successfully',
       data: user
@@ -165,7 +165,7 @@ router.put('/users/:id',
     }
     
     const user = await AuthMediator.updateProfile(userId, req.body);
-    return res.json({
+    res.json({
       success: true,
       message: 'User profile updated successfully',
       data: user
@@ -187,9 +187,31 @@ router.delete('/users/:id',
     }
     
     await AuthMediator.deactivateUser(userId);
-    return res.json({
+    res.json({
       success: true,
       message: 'User deactivated successfully'
+    });
+  })
+);
+
+// Reactivate user (admin only)
+router.patch('/users/:id/reactivate',
+  authenticate,
+  adminOnly,
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+    
+    const user = await AuthMediator.reactivateUser(userId);
+    res.json({
+      success: true,
+      message: 'User reactivated successfully',
+      data: user
     });
   })
 );

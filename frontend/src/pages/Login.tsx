@@ -28,8 +28,8 @@ const Login = () => {
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
-      password: "",
+      username: "admin",
+      password: "admin123",
     },
   })
 
@@ -43,7 +43,10 @@ const Login = () => {
     setIsLoading(true)
     
     try {
-      await login(data)
+      await login({
+        username: data.username,
+        password: data.password,
+      })
       toast({
         title: "Login successful!",
         description: `Welcome back, ${data.username}`,

@@ -61,6 +61,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthApi } from "@/services/auth-api";
 import { User as BackendUser } from "@/services/auth-api";
 import { useFormatting } from "@/hooks/useFormatting";
+import { useAuth } from "@/contexts/AuthContext"
 
 const userSchema = z.object({
   username: z.string().min(2, "Username must be at least 2 characters"),
@@ -86,6 +87,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -221,8 +223,17 @@ const UserManagement = () => {
 
   const handleDeleteUser = async (userId: number) => {
     try {
+      if (userId === user?.id) {
+        toast({
+          title: "Error",
+          description: "You cannot delete your own account.",
+          variant: "destructive",
+        });
+        return;
+      }
       await AuthApi.deactivateUser(userId);
-      setUsers(users.filter((user) => user.id !== userId));
+      // Update user status instead of removing from list (soft delete)
+      setUsers(users.map(user => user.id === userId ? { ...user, is_active: false } : user));
       toast({
         title: "User deactivated",
         description: "User has been deactivated successfully.",
@@ -239,10 +250,25 @@ const UserManagement = () => {
 
   const toggleUserStatus = async (userId: number) => {
     try {
-      const user = users.find(u => u.id === userId);
-      if (!user) return;
+      if(user?.id === userId) {
+        toast({
+          title: "Error",
+          description: "You cannot change your own status.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const selectedUser = users.find(u => u.id === userId);
+      if (!selectedUser) {
+        toast({
+          title: "Error",
+          description: "User not found.",
+          variant: "destructive",
+        });
+        return;
+      }
       
-      if (user.is_active) {
+      if (selectedUser.is_active) {
         await AuthApi.deactivateUser(userId);
         setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
         toast({
@@ -250,11 +276,11 @@ const UserManagement = () => {
           description: "User has been deactivated successfully.",
         });
       } else {
-        // Note: We don't have an activate endpoint, so we'll just update locally
-        setUsers(users.map(u => u.id === userId ? { ...u, is_active: true } : u));
+        const reactivatedUser = await AuthApi.reactivateUser(userId);
+        setUsers(users.map(u => u.id === userId ? reactivatedUser : u));
         toast({
-          title: "User activated",
-          description: "User has been activated successfully.",
+          title: "User reactivated",
+          description: "User has been reactivated successfully.",
         });
       }
     } catch (err: any) {
@@ -530,7 +556,7 @@ const UserManagement = () => {
                   </TableHeader>
                   <TableBody>
                     {users.map((user) => (
-                      <TableRow key={user.id}>
+                      <TableRow key={user.id} className={!user.is_active ? "opacity-60" : ""}>
                         <TableCell>
                           <div className="space-y-1">
                             <div className="font-medium">{user.full_name}</div>
@@ -591,16 +617,28 @@ const UserManagement = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditUser(user)}
+                              disabled={!user.is_active}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {user.is_active ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleUserStatus(user.id)}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                Reactivate
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
