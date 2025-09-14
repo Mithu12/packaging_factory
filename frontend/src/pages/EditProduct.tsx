@@ -622,7 +622,7 @@ export default function EditProduct() {
                       Profit Margin
                     </div>
                     <div className="text-lg font-medium text-success">
-                      ${(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
+                      ${Number(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
                       ({(((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseFloat(formData.cost_price)) * 100).toFixed(1)}%)
                     </div>
                   </div>

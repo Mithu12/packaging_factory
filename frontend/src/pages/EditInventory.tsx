@@ -412,7 +412,7 @@ export default function EditInventory() {
                       <div>
                         <span className="text-muted-foreground">Profit Margin:</span>
                         <div className="font-medium text-lg text-success">
-                          ${(parseFloat(formData.sellingPrice) - parseFloat(formData.avgCostPrice)).toFixed(2)}
+                          ${Number(parseFloat(formData.sellingPrice) - parseFloat(formData.avgCostPrice)).toFixed(2)}
                         </div>
                       </div>
                       <div>

@@ -367,7 +367,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
                         />
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">${item.total.toFixed(2)}</span>
+                        <span className="font-medium">${Number(item.total).toFixed(2)}</span>
                       </TableCell>
                       <TableCell>
                         <Button
@@ -388,7 +388,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
             
             <div className="flex justify-end">
               <div className="text-lg font-semibold">
-                Total: ${totalAmount.toFixed(2)}
+                Total: ${Number(totalAmount).toFixed(2)}
               </div>
             </div>
           </div>

@@ -215,7 +215,7 @@ export function SalesPriceConfiguration() {
                 </div>
                 {formData.basePrice && formData.discount && (
                   <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-sm font-medium">Final Price: ${calculateFinalPrice(parseFloat(formData.basePrice), parseFloat(formData.discount)).toFixed(2)}</p>
+                    <p className="text-sm font-medium">Final Price: ${Number(calculateFinalPrice(parseFloat(formData.basePrice), parseFloat(formData.discount))).toFixed(2)}</p>
                   </div>
                 )}
                 <div className="flex gap-2 pt-4">
@@ -246,14 +246,14 @@ export function SalesPriceConfiguration() {
             {pricingRules.map((rule) => (
               <TableRow key={rule.id}>
                 <TableCell className="font-medium">{rule.productName}</TableCell>
-                <TableCell>${rule.basePrice.toFixed(2)}</TableCell>
+                <TableCell>${Number(rule.basePrice).toFixed(2)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Percent className="w-3 h-3" />
                     {rule.discount}%
                   </div>
                 </TableCell>
-                <TableCell className="font-bold">${rule.finalPrice.toFixed(2)}</TableCell>
+                <TableCell className="font-bold">${Number(rule.finalPrice).toFixed(2)}</TableCell>
                 <TableCell>
                   <Badge variant={rule.promotionType === "none" ? "secondary" : "default"}>
                     <Tag className="w-3 h-3 mr-1" />

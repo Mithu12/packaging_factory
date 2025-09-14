@@ -362,12 +362,12 @@ export default function POSManager() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Today's Sales</h3>
-                    <p className="text-2xl font-bold">${todaySales.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">${Number(todaySales).toFixed(2)}</p>
                     <p className="text-sm opacity-90">{todayOrders.length} transactions</p>
                   </div>
                   <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Average Order</h3>
-                    <p className="text-2xl font-bold">${averageOrder.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">${Number(averageOrder).toFixed(2)}</p>
                     <p className="text-sm opacity-90">Per transaction</p>
                   </div>
                   <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">

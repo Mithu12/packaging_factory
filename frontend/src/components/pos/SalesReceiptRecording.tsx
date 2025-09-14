@@ -146,7 +146,7 @@ export function SalesReceiptRecording() {
     
     toast({
       title: "Return Processed",
-      description: `Refund of $${selectedReceipt.total.toFixed(2)} processed for ${selectedReceipt.customer}`
+      description: `Refund of $${Number(selectedReceipt.total).toFixed(2)} processed for ${selectedReceipt.customer}`
     })
   }
 

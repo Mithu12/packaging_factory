@@ -334,7 +334,7 @@ export function SalesOrderProcessing() {
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="font-bold">${item.total.toFixed(2)}</span>
+                              <span className="font-bold">${Number(item.total).toFixed(2)}</span>
                               <Button variant="destructive" size="sm" onClick={() => removeItemFromOrder(item.id)}>
                                 ×
                               </Button>
@@ -343,10 +343,10 @@ export function SalesOrderProcessing() {
                         ))}
                         <div className="border-t pt-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-lg font-bold">Total: ${calculateOrderTotal(newOrder.items).total.toFixed(2)}</span>
+                            <span className="text-lg font-bold">Total: ${Number(calculateOrderTotal(newOrder.items).total).toFixed(2)}</span>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Calculator className="w-4 h-4" />
-                              Subtotal: ${calculateOrderTotal(newOrder.items).subtotal.toFixed(2)} + Tax: ${calculateOrderTotal(newOrder.items).tax.toFixed(2)}
+                              Subtotal: ${Number(calculateOrderTotal(newOrder.items).subtotal).toFixed(2)} + Tax: ${Number(calculateOrderTotal(newOrder.items).tax).toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -382,7 +382,7 @@ export function SalesOrderProcessing() {
                   <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>{order.customer_name || "Walk-in Customer"}</TableCell>
                   <TableCell>{order.line_items?.length || 0} items</TableCell>
-                  <TableCell className="font-bold">${order.total_amount.toFixed(2)}</TableCell>
+                  <TableCell className="font-bold">${Number(order.total_amount).toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">
                       {getStatusIcon(order.status)}
@@ -445,7 +445,7 @@ export function SalesOrderProcessing() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total Amount</Label>
-                  <p className="text-lg font-bold">${selectedOrder.total_amount.toFixed(2)}</p>
+                  <p className="text-lg font-bold">${Number(selectedOrder.total_amount).toFixed(2)}</p>
                 </div>
               </div>
 
@@ -469,7 +469,7 @@ export function SalesOrderProcessing() {
                           ${item.unit_price} × {item.quantity} {item.discount_percentage > 0 && `(${item.discount_percentage}% discount)`}
                         </p>
                       </div>
-                      <span className="font-bold">${item.total_price.toFixed(2)}</span>
+                      <span className="font-bold">${Number(item.total_price).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -477,15 +477,15 @@ export function SalesOrderProcessing() {
                 <div className="mt-4 space-y-2 border-t pt-4">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal:</span>
-                    <span>${selectedOrder.subtotal.toFixed(2)}</span>
+                    <span>${Number(selectedOrder.subtotal).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Tax:</span>
-                    <span>${selectedOrder.tax_amount.toFixed(2)}</span>
+                    <span>${Number(selectedOrder.tax_amount).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
-                    <span>${selectedOrder.total_amount.toFixed(2)}</span>
+                    <span>${Number(selectedOrder.total_amount).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
