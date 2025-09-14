@@ -1,5 +1,6 @@
 import pool from './connection';
 import {MyLogger} from '@/utils/new-logger';
+import { addSequences } from './add-sequences';
 
 const createTables = async () => {
   let action = 'Create Database Tables'
@@ -700,6 +701,13 @@ const createTables = async () => {
 
     MyLogger.success(action, { tablesCreated: ['suppliers', 'supplier_performance', 'categories', 'subcategories', 'brands', 'products', 'purchase_orders', 'purchase_order_line_items', 'purchase_order_timeline', 'invoices', 'payments', 'payment_history', 'users', 'settings'] })
     console.log('✅ Database tables created successfully');
+    
+    // Add POS tables and sequences
+    MyLogger.info('Adding POS tables and sequences');
+    const { addPOSTables } = await import('./add-pos-tables');
+    await addPOSTables();
+    await addSequences();
+    MyLogger.success('POS tables and sequences added');
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

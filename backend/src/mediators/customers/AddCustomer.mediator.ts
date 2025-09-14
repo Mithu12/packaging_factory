@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { Customer, CreateCustomerRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
+import { SequenceHelper } from '@/database/add-sequences';
 
 export class AddCustomerMediator {
     static async createCustomer(data: CreateCustomerRequest): Promise<Customer> {
@@ -13,8 +14,8 @@ export class AddCustomerMediator {
             try {
                 await client.query('BEGIN');
 
-                // Generate customer code
-                const customerCode = await this.generateCustomerCode(client);
+                // Generate customer code using sequence
+                const customerCode = await SequenceHelper.getNextCustomerCode(client);
 
                 const insertQuery = `
                     INSERT INTO customers (
@@ -76,26 +77,4 @@ export class AddCustomerMediator {
         }
     }
 
-    private static async generateCustomerCode(client: any): Promise<string> {
-        let action = 'AddCustomerMediator.generateCustomerCode';
-        try {
-            // Get the next sequence number
-            const sequenceQuery = `
-                SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code FROM 4) AS INTEGER)), 0) + 1 as next_number
-                FROM customers
-                WHERE customer_code ~ '^CUS-[0-9]+$'
-            `;
-            
-            const result = await client.query(sequenceQuery);
-            const nextNumber = result.rows[0].next_number;
-            
-            const customerCode = `CUS-${nextNumber.toString().padStart(4, '0')}`;
-            
-            MyLogger.info(action, { customerCode });
-            return customerCode;
-        } catch (error: any) {
-            MyLogger.error(action, error);
-            throw error;
-        }
-    }
 }

@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { SalesOrder, CreateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
+import { SequenceHelper } from '@/database/add-sequences';
 
 export class AddSalesOrderMediator {
     static async createSalesOrder(data: CreateSalesOrderRequest): Promise<SalesOrder> {
@@ -17,8 +18,8 @@ export class AddSalesOrderMediator {
             try {
                 await client.query('BEGIN');
 
-                // Generate order number
-                const orderNumber = await this.generateOrderNumber(client);
+                // Generate order number using sequence
+                const orderNumber = await SequenceHelper.getNextSalesOrderNumber(client);
 
                 // Calculate totals
                 let subtotal = 0;
@@ -170,26 +171,4 @@ export class AddSalesOrderMediator {
         }
     }
 
-    private static async generateOrderNumber(client: any): Promise<string> {
-        let action = 'AddSalesOrderMediator.generateOrderNumber';
-        try {
-            // Get the next sequence number
-            const sequenceQuery = `
-                SELECT COALESCE(MAX(CAST(SUBSTRING(order_number FROM 4) AS INTEGER)), 0) + 1 as next_number
-                FROM sales_orders
-                WHERE order_number ~ '^SO-[0-9]+$'
-            `;
-            
-            const result = await client.query(sequenceQuery);
-            const nextNumber = result.rows[0].next_number;
-            
-            const orderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
-            
-            MyLogger.info(action, { orderNumber });
-            return orderNumber;
-        } catch (error: any) {
-            MyLogger.error(action, error);
-            throw error;
-        }
-    }
 }
