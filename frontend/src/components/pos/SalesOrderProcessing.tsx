@@ -22,18 +22,6 @@ interface OrderItem {
   total: number
 }
 
-interface SalesOrder {
-  id: string
-  customerName: string
-  status: "Pending" | "Confirmed" | "Completed" | "Cancelled" | "On Hold"
-  items: OrderItem[]
-  subtotal: number
-  tax: number
-  total: number
-  createdDate: string
-  notes: string
-}
-
 export function SalesOrderProcessing() {
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -146,14 +134,10 @@ export function SalesOrderProcessing() {
       const orderData = {
         customer_id: parseInt(newOrder.customerId),
         cashier_id: 1, // TODO: Get from auth context
-        status: "pending",
-        payment_status: "pending",
-        payment_method: "cash",
-        subtotal,
-        tax_amount: tax,
-        discount_amount: 0,
-        total_amount: total,
+        payment_method: "cash" as const,
         notes: newOrder.notes,
+        discount_amount: 0,
+        discount_percentage: 0,
         line_items: newOrder.items.map(item => ({
           product_id: parseInt(item.id),
           quantity: item.quantity,
@@ -163,8 +147,8 @@ export function SalesOrderProcessing() {
         }))
       }
 
-      const newOrder = await SalesOrderApi.createSalesOrder(orderData)
-      setOrders(prev => [newOrder, ...prev])
+      const createdOrder = await SalesOrderApi.createSalesOrder(orderData)
+      setOrders(prev => [createdOrder, ...prev])
       setNewOrder({ customerId: "", notes: "", items: [] })
       setIsCreateDialogOpen(false)
       toast({ title: "Sales order created successfully" })
@@ -202,22 +186,22 @@ export function SalesOrderProcessing() {
 
   const getStatusIcon = (status: SalesOrder["status"]) => {
     switch (status) {
-      case "Pending": return <ShoppingBag className="w-4 h-4" />
-      case "Confirmed": return <CheckCircle className="w-4 h-4" />
-      case "Completed": return <CheckCircle className="w-4 h-4" />
-      case "Cancelled": return <XCircle className="w-4 h-4" />
-      case "On Hold": return <Pause className="w-4 h-4" />
+      case "pending": return <ShoppingBag className="w-4 h-4" />
+      case "processing": return <CheckCircle className="w-4 h-4" />
+      case "completed": return <CheckCircle className="w-4 h-4" />
+      case "cancelled": return <XCircle className="w-4 h-4" />
+      case "refunded": return <Pause className="w-4 h-4" />
       default: return <ShoppingBag className="w-4 h-4" />
     }
   }
 
   const getStatusVariant = (status: SalesOrder["status"]) => {
     switch (status) {
-      case "Pending": return "secondary"
-      case "Confirmed": return "default"
-      case "Completed": return "default"
-      case "Cancelled": return "destructive"
-      case "On Hold": return "secondary"
+      case "pending": return "secondary"
+      case "processing": return "default"
+      case "completed": return "default"
+      case "cancelled": return "destructive"
+      case "refunded": return "secondary"
       default: return "secondary"
     }
   }
@@ -380,33 +364,33 @@ export function SalesOrderProcessing() {
               {orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
-                  <TableCell>{order.customer_name || "Walk-in Customer"}</TableCell>
-                  <TableCell>{order.line_items?.length || 0} items</TableCell>
-                  <TableCell className="font-bold">${Number(order.total_amount).toFixed(2)}</TableCell>
+                  <TableCell>{order.customer_id ? `Customer #${order.customer_id}` : "Walk-in Customer"}</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell className="font-bold">R{Number(order.total_amount).toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">
                       {getStatusIcon(order.status)}
                       {order.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{new Date(order.order_date).toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(order); setIsViewDialogOpen(true) }}>
                         <Search className="w-3 h-3" />
                       </Button>
-                      {order.status === "On Hold" && (
-                        <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id, "Pending")}>
+                      {order.status === "refunded" && (
+                        <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "pending")}>
                           <Play className="w-3 h-3" />
                         </Button>
                       )}
-                      {order.status === "Pending" && (
-                        <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id, "On Hold")}>
+                      {order.status === "pending" && (
+                        <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "refunded")}>
                           <Pause className="w-3 h-3" />
                         </Button>
                       )}
-                      {(order.status === "Pending" || order.status === "On Hold") && (
-                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id, "Confirmed")}>
+                      {(order.status === "pending" || order.status === "refunded") && (
+                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "processing")}>
                           <CheckCircle className="w-3 h-3" />
                         </Button>
                       )}
@@ -441,11 +425,11 @@ export function SalesOrderProcessing() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Created Date</Label>
-                  <p>{new Date(selectedOrder.created_at).toLocaleString()}</p>
+                  <p>{new Date(selectedOrder.order_date).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total Amount</Label>
-                  <p className="text-lg font-bold">${Number(selectedOrder.total_amount).toFixed(2)}</p>
+                  <p className="text-lg font-bold">R{Number(selectedOrder.total_amount).toFixed(2)}</p>
                 </div>
               </div>
 
@@ -459,33 +443,21 @@ export function SalesOrderProcessing() {
               <Separator />
 
               <div>
-                <Label className="text-lg font-medium">Order Items</Label>
+                <Label className="text-lg font-medium">Order Summary</Label>
                 <div className="mt-3 space-y-2">
-                  {selectedOrder.line_items?.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{item.product_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          ${item.unit_price} × {item.quantity} {item.discount_percentage > 0 && `(${item.discount_percentage}% discount)`}
-                        </p>
-                      </div>
-                      <span className="font-bold">${Number(item.total_price).toFixed(2)}</span>
+                  <div className="mt-4 space-y-2 border-t pt-4">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span>R{Number(selectedOrder.subtotal).toFixed(2)}</span>
                     </div>
-                  ))}
-                </div>
-                
-                <div className="mt-4 space-y-2 border-t pt-4">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>${Number(selectedOrder.subtotal).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax:</span>
-                    <span>${Number(selectedOrder.tax_amount).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span>${Number(selectedOrder.total_amount).toFixed(2)}</span>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax:</span>
+                      <span>R{Number(selectedOrder.tax_amount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>Total:</span>
+                      <span>R{Number(selectedOrder.total_amount).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

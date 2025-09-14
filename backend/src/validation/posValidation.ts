@@ -48,12 +48,17 @@ export const createSalesOrderSchema = Joi.object({
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').required(),
   cash_received: Joi.number().min(0).optional(),
   notes: Joi.string().optional().allow(''),
+  discount_amount: Joi.number().min(0).optional().default(0),
+  discount_percentage: Joi.number().min(0).max(100).optional().default(0),
+  cashier_id: Joi.number().integer().positive().optional(),
   line_items: Joi.array().items(
     Joi.object({
       product_id: Joi.number().integer().positive().required(),
       quantity: Joi.number().positive().required(),
       unit_price: Joi.number().min(0).required(),
-      discount_percentage: Joi.number().min(0).max(100).default(0)
+      total_price: Joi.number().min(0).optional(),
+      discount_amount: Joi.number().min(0).optional().default(0),
+      discount_percentage: Joi.number().min(0).max(100).optional().default(0)
     })
   ).min(1).required()
 });

@@ -113,10 +113,15 @@ export interface CreateSalesOrderRequest {
   payment_method: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   cash_received?: number;
   notes?: string;
+  discount_amount?: number;
+  discount_percentage?: number;
+  cashier_id?: number;
   line_items: {
     product_id: number;
     quantity: number;
     unit_price: number;
+    total_price?: number;
+    discount_amount?: number;
     discount_percentage?: number;
   }[];
 }

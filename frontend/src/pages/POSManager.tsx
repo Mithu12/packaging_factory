@@ -223,21 +223,34 @@ export default function POSManager() {
       const salesOrderData = {
         customer_id: selectedCustomer.id,
         cashier_id: 1, // TODO: Get from auth context
-        status: "completed",
-        payment_status: "paid",
         payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
-        subtotal: discountedSubtotal,
-        tax_amount: tax,
-        discount_amount: discountAmount,
-        total_amount: total,
+        cash_received: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
         notes: `Payment processed via ${paymentMethod}`,
-        line_items: cart.map(item => ({
-          product_id: parseInt(item.id),
-          quantity: item.quantity,
-          unit_price: item.price,
-          discount_percentage: 0,
-          total_price: item.total
-        }))
+        discount_amount: discountAmount,
+        discount_percentage: overallDiscount ? parseFloat(overallDiscount) : 0,
+        line_items: cart.map(item => {
+          const itemSubtotal = item.price * item.quantity;
+          let itemDiscount = 0;
+          
+          if (item.discount && item.discount > 0) {
+            if (item.discountType === 'percentage') {
+              itemDiscount = (itemSubtotal * item.discount) / 100;
+            } else {
+              itemDiscount = item.discount;
+            }
+          }
+          
+          const itemTotal = itemSubtotal - itemDiscount;
+          
+          return {
+            product_id: parseInt(item.id),
+            quantity: item.quantity,
+            unit_price: item.price,
+            discount_percentage: item.discountType === 'percentage' ? item.discount : 0,
+            discount_amount: item.discountType === 'fixed' ? item.discount : 0,
+            total_price: itemTotal
+          };
+        })
       };
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);

@@ -25,7 +25,12 @@ export class AddSalesOrderMediator {
                 const lineItemsData = [];
 
                 for (const item of data.line_items) {
-                    const discountAmount = (item.unit_price * item.quantity * (item.discount_percentage || 0)) / 100;
+                    let discountAmount = 0;
+                    if (item.discount_percentage) {
+                        discountAmount = (item.unit_price * item.quantity * (item.discount_percentage || 0)) / 100;
+                    } else if (item.discount_amount) {
+                        discountAmount = item.discount_amount;
+                    }
                     const lineTotal = (item.unit_price * item.quantity) - discountAmount;
                     subtotal += lineTotal;
 
