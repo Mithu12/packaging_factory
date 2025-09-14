@@ -59,6 +59,8 @@ interface CartItem {
   price: number;
   quantity: number;
   total: number;
+  discount?: number;
+  discountType?: 'percentage' | 'fixed';
 }
 
 import { Customer } from "@/services/types";
@@ -81,6 +83,7 @@ interface CartProps {
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
   onAddCustomer: (customer: any) => Promise<Customer>;
+  onUpdateItemDiscount?: (id: string, discount: number, discountType: 'percentage' | 'fixed') => void;
   loading?: boolean;
 }
 
@@ -117,9 +120,23 @@ export function Cart({
   onOverallTaxChange,
   onProcessPayment,
   onAddCustomer,
+  onUpdateItemDiscount,
   loading = false,
 }: CartProps) {
-  const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const itemSubtotal = item.price * item.quantity;
+    let itemDiscount = 0;
+    
+    if (item.discount && item.discount > 0) {
+      if (item.discountType === 'percentage') {
+        itemDiscount = (itemSubtotal * item.discount) / 100;
+      } else {
+        itemDiscount = item.discount;
+      }
+    }
+    
+    return sum + (itemSubtotal - itemDiscount);
+  }, 0);
   const discountAmount = overallDiscount
     ? (subtotal * parseFloat(overallDiscount)) / 100
     : 0;
@@ -423,21 +440,46 @@ export function Cart({
                         <div className="flex items-center gap-1">
                           <Input
                             className="w-14 h-6 text-xs"
-                            defaultValue="0"
+                            type="number"
+                            value={item.discount || 0}
+                            onChange={(e) => {
+                              const discount = parseFloat(e.target.value) || 0;
+                              onUpdateItemDiscount?.(item.id, discount, item.discountType || 'percentage');
+                            }}
+                            min="0"
+                            step="0.01"
                           />
-                          <Select defaultValue="%">
+                          <Select 
+                            value={item.discountType || 'percentage'}
+                            onValueChange={(value) => {
+                              onUpdateItemDiscount?.(item.id, item.discount || 0, value as 'percentage' | 'fixed');
+                            }}
+                          >
                             <SelectTrigger className="w-15 h-6 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="%">%</SelectItem>
-                              <SelectItem value="R">R</SelectItem>
+                              <SelectItem value="percentage">%</SelectItem>
+                              <SelectItem value="fixed">R</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </td>
                       <td className="p-2 font-medium text-sm">
-                        {Number(item.total).toFixed(2)}
+                        {(() => {
+                          const itemSubtotal = item.price * item.quantity;
+                          let itemDiscount = 0;
+                          
+                          if (item.discount && item.discount > 0) {
+                            if (item.discountType === 'percentage') {
+                              itemDiscount = (itemSubtotal * item.discount) / 100;
+                            } else {
+                              itemDiscount = item.discount;
+                            }
+                          }
+                          
+                          return Number(itemSubtotal - itemDiscount).toFixed(2);
+                        })()}
                       </td>
                       <td className="p-2">
                         <Button

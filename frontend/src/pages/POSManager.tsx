@@ -26,6 +26,8 @@ interface CartItem {
   quantity: number;
   total: number;
   stock: number;
+  discount?: number;
+  discountType?: 'percentage' | 'fixed';
 }
 
 export default function POSManager() {
@@ -139,7 +141,32 @@ export default function POSManager() {
     setCart(cart.filter((item) => item.id !== id));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const updateItemDiscount = (id: string, discount: number, discountType: 'percentage' | 'fixed') => {
+    setCart(cart.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            discount,
+            discountType,
+          }
+        : item
+    ));
+  };
+
+  const subtotal = cart.reduce((sum, item) => {
+    const itemSubtotal = item.price * item.quantity;
+    let itemDiscount = 0;
+    
+    if (item.discount && item.discount > 0) {
+      if (item.discountType === 'percentage') {
+        itemDiscount = (itemSubtotal * item.discount) / 100;
+      } else {
+        itemDiscount = item.discount;
+      }
+    }
+    
+    return sum + (itemSubtotal - itemDiscount);
+  }, 0);
   const discountAmount = overallDiscount
     ? (subtotal * parseFloat(overallDiscount)) / 100
     : 0;
@@ -313,6 +340,7 @@ export default function POSManager() {
                 onOverallTaxChange={setOverallTax}
                 onProcessPayment={processPayment}
                 onAddCustomer={handleAddCustomer}
+                onUpdateItemDiscount={updateItemDiscount}
                 loading={loading}
               />
             </div>
