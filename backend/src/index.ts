@@ -19,6 +19,8 @@ import purchaseOrderRoutes from './routes/purchaseOrders.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import paymentRoutes from './routes/payments.routes';
 import settingsRoutes from './routes/settings.routes';
+import customerRoutes from './routes/customers.routes';
+import salesOrderRoutes from './routes/salesOrders.routes';
 import { errorHandler } from './middleware/errorHandler';
 import {MyLogger} from './utils/new-logger';
 import { createDefaultAdminUser } from './database/migrate';
@@ -89,6 +91,8 @@ app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/sales-orders', salesOrderRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

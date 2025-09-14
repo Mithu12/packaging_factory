@@ -6,6 +6,8 @@ export { OriginApi } from './origin-api';
 export { ProductApi } from './product-api';
 export { StockAdjustmentApi } from './stock-adjustment-api';
 export { PurchaseOrderApi } from './purchase-order-api';
+export { CustomerApi } from './customer-api';
+export { SalesOrderApi } from './sales-order-api';
 
 // Re-export types and utilities
 export * from './types';
@@ -20,6 +22,8 @@ import { OriginApi } from './origin-api';
 import { ProductApi } from './product-api';
 import { StockAdjustmentApi } from './stock-adjustment-api';
 import { PurchaseOrderApi } from './purchase-order-api';
+import { CustomerApi } from './customer-api';
+import { SalesOrderApi } from './sales-order-api';
 
 export class ApiService {
   // Supplier methods
@@ -260,5 +264,71 @@ export class ApiService {
 
   static async searchPurchaseOrders(query: string, limit = 10) {
     return PurchaseOrderApi.searchPurchaseOrders(query, limit);
+  }
+
+  // Customer methods
+  static async getCustomers(params?: any) {
+    return CustomerApi.getCustomers(params);
+  }
+
+  static async getCustomer(id: number) {
+    return CustomerApi.getCustomer(id);
+  }
+
+  static async createCustomer(data: any) {
+    return CustomerApi.createCustomer(data);
+  }
+
+  static async updateCustomer(id: number, data: any) {
+    return CustomerApi.updateCustomer(id, data);
+  }
+
+  static async toggleCustomerStatus(id: number) {
+    return CustomerApi.toggleCustomerStatus(id);
+  }
+
+  static async updateCustomerLoyaltyPoints(id: number, points: number) {
+    return CustomerApi.updateCustomerLoyaltyPoints(id, points);
+  }
+
+  static async deleteCustomer(id: number) {
+    return CustomerApi.deleteCustomer(id);
+  }
+
+  static async getCustomerStats() {
+    return CustomerApi.getCustomerStats();
+  }
+
+  static async searchCustomers(query: string, limit = 10) {
+    return CustomerApi.searchCustomers(query, limit);
+  }
+
+  static async getCustomersByType(customerType: string) {
+    return CustomerApi.getCustomersByType(customerType);
+  }
+
+  // Sales Order methods
+  static async getSalesOrders(params?: any) {
+    return SalesOrderApi.getSalesOrders(params);
+  }
+
+  static async getSalesOrder(id: number) {
+    return SalesOrderApi.getSalesOrder(id);
+  }
+
+  static async createSalesOrder(data: any) {
+    return SalesOrderApi.createSalesOrder(data);
+  }
+
+  static async updateSalesOrder(id: number, data: any) {
+    return SalesOrderApi.updateSalesOrder(id, data);
+  }
+
+  static async getPOSStats() {
+    return SalesOrderApi.getPOSStats();
+  }
+
+  static async searchSalesOrders(query: string, limit = 10) {
+    return SalesOrderApi.searchSalesOrders(query, limit);
   }
 }
