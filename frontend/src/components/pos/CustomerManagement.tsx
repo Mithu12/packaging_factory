@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { Users, Search, Plus, Edit, Eye, Phone, Mail, MapPin, Star, DollarSign } from "lucide-react"
 import { CustomerApi } from "@/services/api"
@@ -18,12 +20,25 @@ export function CustomerManagement() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
     address: ""
+  })
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    country: "",
+    customer_type: "regular" as "regular" | "vip" | "wholesale" | "walk_in",
+    notes: ""
   })
 
   // Load customers on component mount
@@ -92,6 +107,66 @@ export function CustomerManagement() {
   const handleViewCustomer = (customer: Customer) => {
     setSelectedCustomer(customer)
     setIsViewDialogOpen(true)
+  }
+
+  const handleEditCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setEditFormData({
+      name: customer.name || "",
+      phone: customer.phone || "",
+      email: customer.email || "",
+      address: customer.address || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      zip_code: customer.zip_code || "",
+      country: customer.country || "",
+      customer_type: customer.customer_type || "regular",
+      notes: customer.notes || ""
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateCustomer = async () => {
+    if (!selectedCustomer || !editFormData.name || !editFormData.phone) {
+      toast({
+        title: "Missing Fields",
+        description: "Name and phone are required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      const updatedCustomer = await CustomerApi.updateCustomer(selectedCustomer.id, {
+        name: editFormData.name,
+        phone: editFormData.phone,
+        email: editFormData.email || undefined,
+        address: editFormData.address || undefined,
+        city: editFormData.city || undefined,
+        state: editFormData.state || undefined,
+        zip_code: editFormData.zip_code || undefined,
+        country: editFormData.country || undefined,
+        customer_type: editFormData.customer_type,
+        notes: editFormData.notes || undefined
+      })
+
+      setCustomers(prev => prev.map(customer => 
+        customer.id === selectedCustomer.id ? updatedCustomer : customer
+      ))
+      setIsEditDialogOpen(false)
+      setSelectedCustomer(null)
+      toast({ title: "Customer updated successfully" })
+    } catch (error) {
+      console.error("Error updating customer:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update customer",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -226,7 +301,7 @@ export function CustomerManagement() {
                       <Button variant="outline" size="sm" onClick={() => handleViewCustomer(customer)}>
                         <Eye className="w-3 h-3" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleEditCustomer(customer)}>
                         <Edit className="w-3 h-3" />
                       </Button>
                     </div>
@@ -319,6 +394,136 @@ export function CustomerManagement() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-name">Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter customer name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-phone">Phone *</Label>
+                <Input
+                  id="edit-phone"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email address"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                value={editFormData.address}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Enter address"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="edit-city">City</Label>
+                <Input
+                  id="edit-city"
+                  value={editFormData.city}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="Enter city"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-state">State</Label>
+                <Input
+                  id="edit-state"
+                  value={editFormData.state}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, state: e.target.value }))}
+                  placeholder="Enter state"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-zip">ZIP Code</Label>
+                <Input
+                  id="edit-zip"
+                  value={editFormData.zip_code}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, zip_code: e.target.value }))}
+                  placeholder="Enter ZIP code"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-country">Country</Label>
+              <Input
+                id="edit-country"
+                value={editFormData.country}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, country: e.target.value }))}
+                placeholder="Enter country"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-type">Customer Type</Label>
+              <Select
+                value={editFormData.customer_type}
+                onValueChange={(value) => setEditFormData(prev => ({ ...prev, customer_type: value as any }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                  <SelectItem value="wholesale">Wholesale</SelectItem>
+                  <SelectItem value="walk_in">Walk-in</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={editFormData.notes}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Enter any additional notes"
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateCustomer} disabled={loading}>
+              {loading ? "Updating..." : "Update Customer"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
