@@ -26,7 +26,13 @@ export function CustomerManagement() {
     name: "",
     phone: "",
     email: "",
-    address: ""
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    country: "",
+    customer_type: "regular" as "regular" | "vip" | "wholesale" | "walk_in",
+    notes: ""
   })
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -85,11 +91,28 @@ export function CustomerManagement() {
         name: formData.name,
         phone: formData.phone,
         email: formData.email || undefined,
-        customer_type: "regular"
+        address: formData.address || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        zip_code: formData.zip_code || undefined,
+        country: formData.country || undefined,
+        customer_type: formData.customer_type,
+        notes: formData.notes || undefined
       })
 
       setCustomers(prev => [...prev, newCustomer])
-      setFormData({ name: "", phone: "", email: "", address: "" })
+      setFormData({ 
+        name: "", 
+        phone: "", 
+        email: "", 
+        address: "",
+        city: "",
+        state: "",
+        zip_code: "",
+        country: "",
+        customer_type: "regular",
+        notes: ""
+      })
       setIsAddDialogOpen(false)
       toast({ title: "Customer added successfully" })
     } catch (error) {
@@ -190,24 +213,27 @@ export function CustomerManagement() {
                   <DialogTitle>Add New Customer</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Enter customer name"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Name *</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter customer name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone *</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="+1234567890"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="phone">Phone *</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="+1234567890"
-                    />
-                  </div>
+                  
                   <div>
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -218,20 +244,95 @@ export function CustomerManagement() {
                       placeholder="customer@example.com"
                     />
                   </div>
+
                   <div>
                     <Label htmlFor="address">Address</Label>
                     <Input
                       id="address"
                       value={formData.address}
                       onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                      placeholder="123 Main St, City, State"
+                      placeholder="Enter address"
                     />
                   </div>
-                  <div className="flex gap-2 pt-4">
-                    <Button onClick={handleAddCustomer} className="flex-1">Add Customer</Button>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="Enter city"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state">State</Label>
+                      <Input
+                        id="state"
+                        value={formData.state}
+                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                        placeholder="Enter state"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="zip">ZIP Code</Label>
+                      <Input
+                        id="zip"
+                        value={formData.zip_code}
+                        onChange={(e) => setFormData(prev => ({ ...prev, zip_code: e.target.value }))}
+                        placeholder="Enter ZIP code"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="country">Country</Label>
+                    <Input
+                      id="country"
+                      value={formData.country}
+                      onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                      placeholder="Enter country"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="type">Customer Type</Label>
+                    <Select
+                      value={formData.customer_type}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, customer_type: value as any }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular</SelectItem>
+                        <SelectItem value="vip">VIP</SelectItem>
+                        <SelectItem value="wholesale">Wholesale</SelectItem>
+                        <SelectItem value="walk_in">Walk-in</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Enter any additional notes"
+                      rows={3}
+                    />
                   </div>
                 </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddCustomer} disabled={loading}>
+                    {loading ? "Adding..." : "Add Customer"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </CardTitle>
