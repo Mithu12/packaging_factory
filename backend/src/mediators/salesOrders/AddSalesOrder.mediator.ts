@@ -1,7 +1,6 @@
 import pool from '@/database/connection';
 import { SalesOrder, CreateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
-import { SequenceHelper } from '@/database/add-sequences';
 
 export class AddSalesOrderMediator {
     static async createSalesOrder(data: CreateSalesOrderRequest): Promise<SalesOrder> {
@@ -19,7 +18,7 @@ export class AddSalesOrderMediator {
                 await client.query('BEGIN');
 
                 // Generate order number using sequence
-                const orderNumber = await SequenceHelper.getNextSalesOrderNumber(client);
+                const orderNumber = await this.getNextSalesOrderNumber(client);
 
                 // Calculate totals
                 let subtotal = 0;
@@ -169,6 +168,12 @@ export class AddSalesOrderMediator {
             MyLogger.error(action, error, { customerId: data.customer_id });
             throw error;
         }
+    }
+
+    private static async getNextSalesOrderNumber(client: any): Promise<string> {
+        const result = await client.query('SELECT nextval(\'sales_order_number_seq\') as next_number');
+        const nextNumber = result.rows[0].next_number;
+        return `SO-${nextNumber.toString().padStart(6, '0')}`;
     }
 
 }

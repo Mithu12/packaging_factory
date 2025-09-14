@@ -149,20 +149,8 @@ async function setInitialSequenceValues(client: any) {
   }
 }
 
-// Helper functions to get next sequence values
+// Helper functions to get next sequence values for future use
 export class SequenceHelper {
-  static async getNextCustomerCode(client: any): Promise<string> {
-    const result = await client.query('SELECT nextval(\'customer_code_seq\') as next_number');
-    const nextNumber = result.rows[0].next_number;
-    return `CUS-${nextNumber.toString().padStart(4, '0')}`;
-  }
-
-  static async getNextSalesOrderNumber(client: any): Promise<string> {
-    const result = await client.query('SELECT nextval(\'sales_order_number_seq\') as next_number');
-    const nextNumber = result.rows[0].next_number;
-    return `SO-${nextNumber.toString().padStart(6, '0')}`;
-  }
-
   static async getNextSalesReceiptNumber(client: any): Promise<string> {
     const result = await client.query('SELECT nextval(\'sales_receipt_number_seq\') as next_number');
     const nextNumber = result.rows[0].next_number;

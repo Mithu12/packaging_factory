@@ -1,7 +1,6 @@
 import pool from '@/database/connection';
 import { Customer, CreateCustomerRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
-import { SequenceHelper } from '@/database/add-sequences';
 
 export class AddCustomerMediator {
     static async createCustomer(data: CreateCustomerRequest): Promise<Customer> {
@@ -15,7 +14,7 @@ export class AddCustomerMediator {
                 await client.query('BEGIN');
 
                 // Generate customer code using sequence
-                const customerCode = await SequenceHelper.getNextCustomerCode(client);
+                const customerCode = await this.getNextCustomerCode(client);
 
                 const insertQuery = `
                     INSERT INTO customers (
@@ -75,6 +74,12 @@ export class AddCustomerMediator {
             MyLogger.error(action, error, { customerName: data.name });
             throw error;
         }
+    }
+
+    private static async getNextCustomerCode(client: any): Promise<string> {
+        const result = await client.query('SELECT nextval(\'customer_code_seq\') as next_number');
+        const nextNumber = result.rows[0].next_number;
+        return `CUS-${nextNumber.toString().padStart(4, '0')}`;
     }
 
 }
