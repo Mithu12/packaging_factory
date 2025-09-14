@@ -61,13 +61,7 @@ interface CartItem {
   total: number;
 }
 
-export interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  isWalkIn?: boolean;
-}
+import { Customer } from "@/services/types";
 
 interface CartProps {
   cart: CartItem[];
@@ -86,7 +80,8 @@ interface CartProps {
   onOverallDiscountChange: (discount: string) => void;
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
-  onAddCustomer: (customer: Omit<Customer, "id">) => Promise<Customer>;
+  onAddCustomer: (customer: any) => Promise<Customer>;
+  loading?: boolean;
 }
 
 const demoCustomers = [
@@ -122,6 +117,7 @@ export function Cart({
   onOverallTaxChange,
   onProcessPayment,
   onAddCustomer,
+  loading = false,
 }: CartProps) {
   const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
   const discountAmount = overallDiscount
@@ -134,7 +130,7 @@ export function Cart({
   const total = discountedSubtotal + tax;
 
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("Walk-in Customer");
+  const [value, setValue] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -148,7 +144,32 @@ export function Cart({
   const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
   const [taxPercentage, setTaxPercentage] = useState("");
 
-  const handleAddCustomer = () => {};
+  const handleAddCustomer = async () => {
+    if (!formData.name || !formData.phone) {
+      toast({
+        title: "Missing Fields",
+        description: "Name and phone are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const newCustomer = await onAddCustomer({
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        customer_type: "regular",
+      });
+      
+      setFormData({ name: "", phone: "", email: "", address: "" });
+      setIsAddDialogOpen(false);
+      setValue(newCustomer.name);
+      onCustomerChange(newCustomer);
+    } catch (error) {
+      // Error handling is done in the parent component
+    }
+  };
 
   return (
     <Card>
@@ -181,10 +202,8 @@ export function Cart({
                         aria-expanded={open}
                         className="justify-between w-[300px]"
                       >
-                        {value
-                          ? demoCustomers.find(
-                              (customer) => customer.value === value
-                            )?.label
+                        {selectedCustomer
+                          ? selectedCustomer.name
                           : "Search Customer..."}
                         <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -195,26 +214,39 @@ export function Cart({
                         <CommandList>
                           <CommandEmpty>No Customer found.</CommandEmpty>
                           <CommandGroup>
-                            {demoCustomers.map((customer) => (
+                            <CommandItem
+                              value="walk-in"
+                              onSelect={() => {
+                                onCustomerChange(null);
+                                setOpen(false);
+                              }}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  !selectedCustomer ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              Walk-in Customer
+                            </CommandItem>
+                            {customers.map((customer) => (
                               <CommandItem
-                                key={customer.value}
-                                value={customer.value}
-                                onSelect={(currentValue) => {
-                                  setValue(
-                                    currentValue === value ? "" : currentValue
-                                  );
+                                key={customer.id}
+                                value={customer.name}
+                                onSelect={() => {
+                                  onCustomerChange(customer);
                                   setOpen(false);
                                 }}
                               >
                                 <CheckIcon
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    value === customer.value
+                                    selectedCustomer?.id === customer.id
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                {customer.label}
+                                {customer.name}
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -386,7 +418,7 @@ export function Cart({
                           </Button>
                         </div>
                       </td>
-                      <td className="p-2 text-sm">{item.price.toFixed(2)}</td>
+                      <td className="p-2 text-sm">{Number(item.price).toFixed(2)}</td>
                       <td className="p-2">
                         <div className="flex items-center gap-1">
                           <Input
@@ -405,7 +437,7 @@ export function Cart({
                         </div>
                       </td>
                       <td className="p-2 font-medium text-sm">
-                        {item.total.toFixed(2)}
+                        {Number(item.total).toFixed(2)}
                       </td>
                       <td className="p-2">
                         <Button
@@ -568,24 +600,24 @@ export function Cart({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal:</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>${Number(subtotal).toFixed(2)}</span>
           </div>
           {overallDiscount && parseFloat(overallDiscount) > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Discount ({overallDiscount}%):</span>
-              <span>-${discountAmount.toFixed(2)}</span>
+              <span>-${Number(discountAmount).toFixed(2)}</span>
             </div>
           )}
           {overallTax && parseFloat(overallTax) > 0 && (
             <div className="flex justify-between text-sm">
               <span>Tax ({overallTax}%):</span>
-              <span>${tax.toFixed(2)}</span>
+              <span>${Number(tax).toFixed(2)}</span>
             </div>
           )}
           <Separator />
           <div className="flex justify-between font-bold text-lg">
             <span>Total:</span>
-            <span>${total.toFixed(2)}</span>
+            <span>${Number(total).toFixed(2)}</span>
           </div>
         </div>
 
@@ -625,7 +657,7 @@ export function Cart({
               />
               {cashAmount && parseFloat(cashAmount) > total && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Change: ${(parseFloat(cashAmount) - total).toFixed(2)}
+                  Change: ${Number(parseFloat(cashAmount) - Number(total)).toFixed(2)}
                 </p>
               )}
             </div>
@@ -633,12 +665,12 @@ export function Cart({
 
           <Button
             onClick={onProcessPayment}
-            disabled={cart.length === 0 || !paymentMethod}
+            disabled={cart.length === 0 || !paymentMethod || loading}
             className="w-full"
             size="lg"
           >
             <Receipt className="w-4 h-4 mr-2" />
-            Process Payment (${total.toFixed(2)})
+            {loading ? "Processing..." : `Process Payment ($${Number(total).toFixed(2)})`}
           </Button>
         </div>
       </CardContent>

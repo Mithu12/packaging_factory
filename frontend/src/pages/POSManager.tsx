@@ -15,94 +15,9 @@ import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
 import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
 
-// Mock data
-const mockProducts = [
-  {
-    id: "1",
-    name: "Laptop Computer",
-    price: 999.99,
-    stock: 15,
-    category: "Electronics",
-    barcode: "123456789",
-  },
-  {
-    id: "2",
-    name: "Wireless Mouse",
-    price: 29.99,
-    stock: 50,
-    category: "Electronics",
-    barcode: "987654321",
-  },
-  {
-    id: "3",
-    name: "Office Chair",
-    price: 199.99,
-    stock: 8,
-    category: "Furniture",
-    barcode: "456789123",
-  },
-  {
-    id: "4",
-    name: "Notebook",
-    price: 4.99,
-    stock: 100,
-    category: "Stationery",
-    barcode: "789123456",
-  },
-  {
-    id: "5",
-    name: "Water Bottle",
-    price: 12.99,
-    stock: 25,
-    category: "Accessories",
-    barcode: "321654987",
-  },
-  {
-    id: "6",
-    name: "Desk Lamp",
-    price: 45.99,
-    stock: 12,
-    category: "Electronics",
-    barcode: "654987321",
-  },
-];
-
-const mockCustomers = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+1234567890",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "+1987654321",
-  },
-  { id: "3", name: "Walk-in Customer", email: "", phone: "", isWalkIn: true },
-];
-
-const mockTransactions = [
-  {
-    id: "TXN-001",
-    date: "2024-01-09 14:30",
-    customer: "John Doe",
-    items: 3,
-    total: 1074.97,
-    status: "Completed",
-    paymentMethod: "Credit Card",
-  },
-  {
-    id: "TXN-002",
-    date: "2024-01-09 13:15",
-    customer: "Walk-in Customer",
-    items: 1,
-    total: 29.99,
-    status: "Completed",
-    paymentMethod: "Cash",
-  },
-];
+// API Services
+import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
+import { Product, Customer, SalesOrder } from "@/services/types";
 
 interface CartItem {
   id: string;
@@ -110,36 +25,59 @@ interface CartItem {
   price: number;
   quantity: number;
   total: number;
-}
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  isWalkIn?: boolean;
+  stock: number;
 }
 
 export default function POSManager() {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashAmount, setCashAmount] = useState("");
   const [overallDiscount, setOverallDiscount] = useState("");
   const [overallTax, setOverallTax] = useState("");
   const [activeTab, setActiveTab] = useState("pos");
+  const [loading, setLoading] = useState(false);
 
-  const addToCart = (product: (typeof mockProducts)[0]) => {
-    const existingItem = cart.find((item) => item.id === product.id);
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      const [productsData, customersData, salesOrdersData] = await Promise.all([
+        ProductApi.getProducts({ page: 1, limit: 100 }),
+        CustomerApi.getCustomers({ page: 1, limit: 100 }),
+        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 })
+      ]);
+
+      setProducts(productsData.products || []);
+      setCustomers(customersData.customers || []);
+      setSalesOrders(salesOrdersData.sales_orders || []);
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = (product: Product) => {
+    const existingItem = cart.find((item) => item.id === product.id.toString());
 
     if (existingItem) {
-      if (existingItem.quantity < product.stock) {
+      if (existingItem.quantity < product.current_stock) {
         setCart(
           cart.map((item) =>
-            item.id === product.id
+            item.id === product.id.toString()
               ? {
                   ...item,
                   quantity: item.quantity + 1,
@@ -151,7 +89,7 @@ export default function POSManager() {
       } else {
         toast({
           title: "Insufficient Stock",
-          description: `Only ${product.stock} items available`,
+          description: `Only ${product.current_stock} items available`,
           variant: "destructive",
         });
       }
@@ -159,23 +97,24 @@ export default function POSManager() {
       setCart([
         ...cart,
         {
-          id: product.id,
+          id: product.id.toString(),
           name: product.name,
-          price: product.price,
+          price: product.selling_price,
           quantity: 1,
-          total: product.price,
+          total: product.selling_price,
+          stock: product.current_stock,
         },
       ]);
     }
   };
 
   const updateQuantity = (id: string, newQuantity: number) => {
-    const product = mockProducts.find((p) => p.id === id);
+    const product = products.find((p) => p.id.toString() === id);
     if (!product) return;
 
     if (newQuantity <= 0) {
       removeFromCart(id);
-    } else if (newQuantity <= product.stock) {
+    } else if (newQuantity <= product.current_stock) {
       setCart(
         cart.map((item) =>
           item.id === id
@@ -190,7 +129,7 @@ export default function POSManager() {
     } else {
       toast({
         title: "Insufficient Stock",
-        description: `Only ${product.stock} items available`,
+        description: `Only ${product.current_stock} items available`,
         variant: "destructive",
       });
     }
@@ -210,7 +149,7 @@ export default function POSManager() {
     : 0;
   const total = discountedSubtotal + tax;
 
-  const processPayment = () => {
+  const processPayment = async () => {
     if (cart.length === 0) {
       toast({
         title: "Empty Cart",
@@ -250,19 +189,59 @@ export default function POSManager() {
       return;
     }
 
-    // Process payment logic here
-    toast({
-      title: "Payment Processed",
-      description: `Transaction completed successfully - ${paymentMethod}`,
-    });
+    try {
+      setLoading(true);
+      
+      // Create sales order
+      const salesOrderData = {
+        customer_id: selectedCustomer.id,
+        cashier_id: 1, // TODO: Get from auth context
+        status: "completed",
+        payment_status: "paid",
+        payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
+        subtotal: discountedSubtotal,
+        tax_amount: tax,
+        discount_amount: discountAmount,
+        total_amount: total,
+        notes: `Payment processed via ${paymentMethod}`,
+        line_items: cart.map(item => ({
+          product_id: parseInt(item.id),
+          quantity: item.quantity,
+          unit_price: item.price,
+          discount_percentage: 0,
+          total_price: item.total
+        }))
+      };
 
-    // Clear cart and reset form
-    setCart([]);
-    setSelectedCustomer(null);
-    setPaymentMethod("");
-    setCashAmount("");
-    setOverallDiscount("");
-    setOverallTax("");
+      const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
+      
+      toast({
+        title: "Payment Processed",
+        description: `Transaction completed successfully - ${paymentMethod}`,
+      });
+
+      // Clear cart and reset form
+      setCart([]);
+      setSelectedCustomer(null);
+      setPaymentMethod("");
+      setCashAmount("");
+      setOverallDiscount("");
+      setOverallTax("");
+
+      // Refresh sales orders
+      const updatedOrders = await SalesOrderApi.getSalesOrders({ page: 1, limit: 100 });
+      setSalesOrders(updatedOrders.sales_orders || []);
+
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      toast({
+        title: "Payment Failed",
+        description: "Failed to process payment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearCart = () => {
@@ -270,16 +249,21 @@ export default function POSManager() {
     setSelectedCustomer(null);
   };
 
-  const handleAddCustomer = async (customerData: Omit<Customer, "id">) => {
-    const newCustomer = {
-      ...customerData,
-      id: Date.now().toString(),
-    };
-
-    setCustomers((prev) => [...prev, newCustomer]);
-    setSelectedCustomer(newCustomer);
-
-    return newCustomer;
+  const handleAddCustomer = async (customerData: any) => {
+    try {
+      const newCustomer = await CustomerApi.createCustomer(customerData);
+      setCustomers((prev) => [...prev, newCustomer]);
+      setSelectedCustomer(newCustomer);
+      return newCustomer;
+    } catch (error) {
+      console.error("Error adding customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   return (
@@ -306,7 +290,7 @@ export default function POSManager() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Product Selection */}
             <div className="space-y-4">
-              <ProductSearch products={mockProducts} onAddToCart={addToCart} />
+              <ProductSearch products={products} onAddToCart={addToCart} />
             </div>
 
             {/* Shopping Cart */}
@@ -329,6 +313,7 @@ export default function POSManager() {
                 onOverallTaxChange={setOverallTax}
                 onProcessPayment={processPayment}
                 onAddCustomer={handleAddCustomer}
+                loading={loading}
               />
             </div>
           </div>
@@ -351,102 +336,128 @@ export default function POSManager() {
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Today's Sales</h3>
-              <p className="text-2xl font-bold">$1,104.96</p>
-              <p className="text-sm opacity-90">2 transactions</p>
-            </div>
-            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Average Order</h3>
-              <p className="text-2xl font-bold">$552.48</p>
-              <p className="text-sm opacity-90">Per transaction</p>
-            </div>
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Items Sold</h3>
-              <p className="text-2xl font-bold">4</p>
-              <p className="text-sm opacity-90">Products</p>
-            </div>
-          </div>
+          {(() => {
+            // Get recent transactions for display
+            const recentTransactions = salesOrders.slice(0, 5).map(order => ({
+              id: order.order_number,
+              date: new Date(order.created_at).toLocaleString(),
+              customer: order.customer_name || "Walk-in Customer",
+              items: 0, // TODO: Get from line items when available
+              total: order.total_amount,
+              status: order.status,
+              paymentMethod: order.payment_method
+            }));
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="font-semibold mb-4 text-lg">
-                Recent Transactions
-              </h3>
-              <div className="space-y-3">
-                {mockTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{transaction.id}</span>
-                        <Badge
-                          variant={
-                            transaction.status === "Completed"
-                              ? "default"
-                              : "secondary"
-                          }
+            // Calculate today's stats
+            const today = new Date().toDateString();
+            const todayOrders = salesOrders.filter(order => 
+              new Date(order.created_at).toDateString() === today
+            );
+            const todaySales = todayOrders.reduce((sum, order) => sum + order.total_amount, 0);
+            const averageOrder = todayOrders.length > 0 ? todaySales / todayOrders.length : 0;
+            const itemsSold = 0; // TODO: Calculate from line items when available
+
+            return (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">Today's Sales</h3>
+                    <p className="text-2xl font-bold">${todaySales.toFixed(2)}</p>
+                    <p className="text-sm opacity-90">{todayOrders.length} transactions</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">Average Order</h3>
+                    <p className="text-2xl font-bold">${averageOrder.toFixed(2)}</p>
+                    <p className="text-sm opacity-90">Per transaction</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">Items Sold</h3>
+                    <p className="text-2xl font-bold">{itemsSold}</p>
+                    <p className="text-sm opacity-90">Products</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 className="font-semibold mb-4 text-lg">
+                      Recent Transactions
+                    </h3>
+                    <div className="space-y-3">
+                      {recentTransactions.map((transaction) => (
+                        <div
+                          key={transaction.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          {transaction.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {transaction.customer}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.date}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">
-                        ${transaction.total.toFixed(2)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {transaction.items} items
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.paymentMethod}
-                      </p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{transaction.id}</span>
+                              <Badge
+                                variant={
+                                  transaction.status === "completed"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {transaction.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {transaction.customer}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {transaction.date}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">
+                              ${Number(transaction.total).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {transaction.items} items
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {transaction.paymentMethod}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h3 className="font-semibold mb-4 text-lg">Payment Methods</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Credit Card</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: "66%" }}
-                      ></div>
+                  <div className="bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 className="font-semibold mb-4 text-lg">Payment Methods</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Credit Card</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: "66%" }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium">66%</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Cash</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-green-600 h-2 rounded-full"
+                              style={{ width: "34%" }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium">34%</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium">66%</span>
                   </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Cash</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full"
-                        style={{ width: "34%" }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium">34%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>

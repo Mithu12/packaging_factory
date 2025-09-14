@@ -171,7 +171,7 @@ export function SalesReceiptRecording() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
-                <p className="text-2xl font-bold">${totalSales.toFixed(2)}</p>
+                <p className="text-2xl font-bold">${Number(totalSales).toFixed(2)}</p>
               </div>
               <DollarSign className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -193,7 +193,7 @@ export function SalesReceiptRecording() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Returns/Refunds</p>
-                <p className="text-2xl font-bold">${totalReturns.toFixed(2)}</p>
+                <p className="text-2xl font-bold">${Number(totalReturns).toFixed(2)}</p>
               </div>
               <RotateCcw className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -253,7 +253,7 @@ export function SalesReceiptRecording() {
                   <TableCell className="font-medium">{receipt.invoiceNo}</TableCell>
                   <TableCell>{receipt.customer}</TableCell>
                   <TableCell>{receipt.items.length} items</TableCell>
-                  <TableCell className="font-bold">${receipt.total.toFixed(2)}</TableCell>
+                  <TableCell className="font-bold">${Number(receipt.total).toFixed(2)}</TableCell>
                   <TableCell>{receipt.paymentMethod}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{receipt.date}</TableCell>
                   <TableCell>
@@ -324,11 +324,11 @@ export function SalesReceiptRecording() {
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ${item.price.toFixed(2)} × {item.quantity}
+                          ${Number(item.price).toFixed(2)} × {item.quantity}  
                           {item.discount > 0 && ` (${item.discount}% discount)`}
                         </p>
                       </div>
-                      <span className="font-medium">${item.total.toFixed(2)}</span>
+                      <span className="font-medium">${Number(item.total).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -340,22 +340,22 @@ export function SalesReceiptRecording() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>${selectedReceipt.subtotal.toFixed(2)}</span>
+                  <span>${Number(selectedReceipt.subtotal).toFixed(2)}</span>
                 </div>
                 {selectedReceipt.discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Total Discount:</span>
-                    <span>-${selectedReceipt.discount.toFixed(2)}</span>
+                    <span>-${Number(selectedReceipt.discount).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Tax (10%):</span>
-                  <span>${selectedReceipt.tax.toFixed(2)}</span>
+                  <span>${Number(selectedReceipt.tax).toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total:</span>
-                  <span>${selectedReceipt.total.toFixed(2)}</span>
+                  <span>${Number(selectedReceipt.total).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -366,7 +366,7 @@ export function SalesReceiptRecording() {
                   <div className="space-y-1 text-sm">
                     <p><strong>Return Date:</strong> {selectedReceipt.returnInfo.returnDate}</p>
                     <p><strong>Reason:</strong> {selectedReceipt.returnInfo.reason}</p>
-                    <p><strong>Refund Amount:</strong> ${selectedReceipt.returnInfo.refundAmount.toFixed(2)}</p>
+                    <p><strong>Refund Amount:</strong> ${Number(selectedReceipt.returnInfo.refundAmount).toFixed(2)}</p>
                   </div>
                 </div>
               )}
@@ -398,7 +398,7 @@ export function SalesReceiptRecording() {
               <div className="p-4 border rounded-lg bg-muted/50">
                 <p className="font-medium">Receipt: {selectedReceipt.invoiceNo}</p>
                 <p className="text-sm text-muted-foreground">Customer: {selectedReceipt.customer}</p>
-                <p className="text-sm text-muted-foreground">Total: ${selectedReceipt.total.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total: ${Number(selectedReceipt.total).toFixed(2)}</p>
               </div>
               
               <div>
@@ -419,7 +419,7 @@ export function SalesReceiptRecording() {
 
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm font-medium text-green-800">
-                  Refund Amount: ${selectedReceipt.total.toFixed(2)}
+                  Refund Amount: ${Number(selectedReceipt.total).toFixed(2)}
                 </p>
                 <p className="text-xs text-green-600">
                   Full refund will be processed to original payment method

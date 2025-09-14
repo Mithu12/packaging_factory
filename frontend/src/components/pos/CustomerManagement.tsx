@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,60 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Users, Search, Plus, Edit, Eye, Phone, Mail, MapPin, Star, DollarSign } from "lucide-react"
-
-interface Customer {
-  id: string
-  name: string
-  phone: string
-  email: string
-  address: string
-  loyaltyPoints: number
-  outstandingBalance: number
-  purchaseHistory: Purchase[]
-}
-
-interface Purchase {
-  id: string
-  date: string
-  items: string[]
-  total: number
-  paymentMethod: string
-}
-
-const mockCustomers: Customer[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    phone: "+1234567890",
-    email: "john@example.com",
-    address: "123 Main St, City, State 12345",
-    loyaltyPoints: 1250,
-    outstandingBalance: 0,
-    purchaseHistory: [
-      { id: "TXN-001", date: "2024-01-09", items: ["Laptop", "Mouse"], total: 1029.98, paymentMethod: "Credit Card" },
-      { id: "TXN-005", date: "2024-01-08", items: ["Notebook"], total: 4.99, paymentMethod: "Cash" }
-    ]
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    phone: "+1987654321",
-    email: "jane@example.com",
-    address: "456 Oak Ave, City, State 67890",
-    loyaltyPoints: 850,
-    outstandingBalance: 25.50,
-    purchaseHistory: [
-      { id: "TXN-003", date: "2024-01-07", items: ["Office Chair"], total: 199.99, paymentMethod: "Debit Card" }
-    ]
-  }
-]
+import { CustomerApi } from "@/services/api"
+import { Customer } from "@/services/types"
 
 export function CustomerManagement() {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers)
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -70,13 +26,35 @@ export function CustomerManagement() {
     address: ""
   })
 
+  // Load customers on component mount
+  useEffect(() => {
+    loadCustomers()
+  }, [])
+
+  const loadCustomers = async () => {
+    try {
+      setLoading(true)
+      const response = await CustomerApi.getCustomers({ page: 1, limit: 100 })
+      setCustomers(response.customers || [])
+    } catch (error) {
+      console.error("Error loading customers:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load customers",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.phone.includes(searchQuery) ||
     customer.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!formData.name || !formData.phone) {
       toast({
         title: "Missing Fields",
@@ -86,21 +64,29 @@ export function CustomerManagement() {
       return
     }
 
-    const newCustomer: Customer = {
-      id: Date.now().toString(),
-      name: formData.name,
-      phone: formData.phone,
-      email: formData.email,
-      address: formData.address,
-      loyaltyPoints: 0,
-      outstandingBalance: 0,
-      purchaseHistory: []
-    }
+    try {
+      setLoading(true)
+      const newCustomer = await CustomerApi.createCustomer({
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        customer_type: "regular"
+      })
 
-    setCustomers(prev => [...prev, newCustomer])
-    setFormData({ name: "", phone: "", email: "", address: "" })
-    setIsAddDialogOpen(false)
-    toast({ title: "Customer added successfully" })
+      setCustomers(prev => [...prev, newCustomer])
+      setFormData({ name: "", phone: "", email: "", address: "" })
+      setIsAddDialogOpen(false)
+      toast({ title: "Customer added successfully" })
+    } catch (error) {
+      console.error("Error adding customer:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleViewCustomer = (customer: Customer) => {
@@ -219,17 +205,17 @@ export function CustomerManagement() {
                   <TableCell>
                     <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                       <Star className="w-3 h-3" />
-                      {customer.loyaltyPoints}
+                      {customer.loyalty_points}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {customer.outstandingBalance > 0 ? (
-                      <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                    {customer.total_purchases > 0 ? (
+                      <Badge variant="default" className="flex items-center gap-1 w-fit">
                         <DollarSign className="w-3 h-3" />
-                        ${customer.outstandingBalance.toFixed(2)}
+                        ${Number(customer.total_purchases).toFixed(2)}
                       </Badge>
                     ) : (
-                      <Badge variant="default" className="flex items-center gap-1 w-fit">
+                      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                         <DollarSign className="w-3 h-3" />
                         $0.00
                       </Badge>
@@ -283,7 +269,14 @@ export function CustomerManagement() {
                   <Label className="text-sm font-medium">Loyalty Points</Label>
                   <p className="flex items-center gap-2">
                     <Star className="w-4 h-4" />
-                    {selectedCustomer.loyaltyPoints}
+                    {selectedCustomer.loyalty_points}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Total Purchases</Label>
+                  <p className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    ${Number(selectedCustomer.total_purchases).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -301,31 +294,27 @@ export function CustomerManagement() {
               <Separator />
 
               <div>
-                <Label className="text-lg font-medium">Purchase History</Label>
-                <div className="mt-3 space-y-3">
-                  {selectedCustomer.purchaseHistory.length === 0 ? (
-                    <p className="text-muted-foreground">No purchase history available</p>
-                  ) : (
-                    selectedCustomer.purchaseHistory.map((purchase) => (
-                      <div key={purchase.id} className="border rounded-lg p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="font-medium">{purchase.id}</p>
-                            <p className="text-sm text-muted-foreground">{purchase.date}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">${purchase.total.toFixed(2)}</p>
-                            <p className="text-sm text-muted-foreground">{purchase.paymentMethod}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {purchase.items.map((item, index) => (
-                            <Badge key={index} variant="secondary">{item}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <Label className="text-lg font-medium">Customer Information</Label>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Customer Type:</span>
+                    <Badge variant="outline">{selectedCustomer.customer_type}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <Badge variant={selectedCustomer.status === 'active' ? 'default' : 'secondary'}>
+                      {selectedCustomer.status}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Last Purchase:</span>
+                    <span className="text-sm">
+                      {selectedCustomer.last_purchase_date 
+                        ? new Date(selectedCustomer.last_purchase_date).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

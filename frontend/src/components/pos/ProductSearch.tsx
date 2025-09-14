@@ -4,15 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus } from "lucide-react"
-
-interface Product {
-  id: string
-  name: string
-  price: number
-  stock: number
-  category: string
-  barcode: string
-}
+import { Product } from "@/services/types"
 
 interface ProductSearchProps {
   products: Product[]
@@ -24,8 +16,8 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode.includes(searchQuery) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase())
+    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.category?.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -53,13 +45,13 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"} className="text-xs px-1 py-0">
-                      QTY: {product.stock}
+                    <Badge variant={product.current_stock > 10 ? "default" : product.current_stock > 0 ? "secondary" : "destructive"} className="text-xs px-1 py-0">
+                      QTY: {product.current_stock}
                     </Badge>
                   </div>
                   <h4 className="font-medium text-sm mb-1">{product.name}</h4>
-                  <p className="text-xs text-muted-foreground mb-1">Price: {product.price}</p>
-                  <p className="text-xs text-muted-foreground">SKU: {product.barcode}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Price: ${product.selling_price}</p>
+                  <p className="text-xs text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
                 </div>
                 <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
                   <div className="w-8 h-8 bg-gray-200 rounded"></div>

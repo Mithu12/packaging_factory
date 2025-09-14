@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator } from "lucide-react"
+import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
+import { SalesOrder, Customer, Product } from "@/services/types"
 
 interface OrderItem {
   id: string
@@ -32,51 +34,16 @@ interface SalesOrder {
   notes: string
 }
 
-const mockOrders: SalesOrder[] = [
-  {
-    id: "ORD-001",
-    customerName: "John Doe",
-    status: "Confirmed",
-    items: [
-      { id: "1", productName: "Laptop Computer", price: 999.99, quantity: 1, discount: 10, total: 899.99 },
-      { id: "2", productName: "Wireless Mouse", price: 29.99, quantity: 2, discount: 0, total: 59.98 }
-    ],
-    subtotal: 959.97,
-    tax: 96.00,
-    total: 1055.97,
-    createdDate: "2024-01-09 10:30",
-    notes: "Priority delivery requested"
-  },
-  {
-    id: "ORD-002",
-    customerName: "Jane Smith",
-    status: "On Hold",
-    items: [
-      { id: "3", productName: "Office Chair", price: 199.99, quantity: 1, discount: 5, total: 189.99 }
-    ],
-    subtotal: 189.99,
-    tax: 19.00,
-    total: 208.99,
-    createdDate: "2024-01-09 14:15",
-    notes: "Waiting for stock confirmation"
-  }
-]
-
-const mockProducts = [
-  { id: "1", name: "Laptop Computer", price: 999.99 },
-  { id: "2", name: "Wireless Mouse", price: 29.99 },
-  { id: "3", name: "Office Chair", price: 199.99 },
-  { id: "4", name: "Notebook", price: 4.99 },
-  { id: "5", name: "Water Bottle", price: 12.99 }
-]
-
 export function SalesOrderProcessing() {
-  const [orders, setOrders] = useState<SalesOrder[]>(mockOrders)
+  const [orders, setOrders] = useState<SalesOrder[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [newOrder, setNewOrder] = useState({
-    customerName: "",
+    customerId: "",
     notes: "",
     items: [] as OrderItem[]
   })
@@ -85,6 +52,35 @@ export function SalesOrderProcessing() {
     quantity: "1",
     discount: "0"
   })
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [ordersData, customersData, productsData] = await Promise.all([
+        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
+        CustomerApi.getCustomers({ page: 1, limit: 100 }),
+        ProductApi.getProducts({ page: 1, limit: 100 })
+      ])
+
+      setOrders(ordersData.sales_orders || [])
+      setCustomers(customersData.customers || [])
+      setProducts(productsData.products || [])
+    } catch (error) {
+      console.error("Error loading data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load data",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const addItemToOrder = () => {
     if (!newItem.productId) {
@@ -96,17 +92,17 @@ export function SalesOrderProcessing() {
       return
     }
 
-    const product = mockProducts.find(p => p.id === newItem.productId)
+    const product = products.find(p => p.id.toString() === newItem.productId)
     if (!product) return
 
     const quantity = parseInt(newItem.quantity) || 1
     const discount = parseFloat(newItem.discount) || 0
-    const total = (product.price * quantity) - ((product.price * quantity) * discount / 100)
+    const total = (product.selling_price * quantity) - ((product.selling_price * quantity) * discount / 100)
 
     const orderItem: OrderItem = {
       id: Date.now().toString(),
       productName: product.name,
-      price: product.price,
+      price: product.selling_price,
       quantity,
       discount,
       total
@@ -133,41 +129,75 @@ export function SalesOrderProcessing() {
     return { subtotal, tax, total: subtotal + tax }
   }
 
-  const createOrder = () => {
-    if (!newOrder.customerName || newOrder.items.length === 0) {
+  const createOrder = async () => {
+    if (!newOrder.customerId || newOrder.items.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please add customer name and at least one item",
+        description: "Please select a customer and add at least one item",
         variant: "destructive"
       })
       return
     }
 
-    const { subtotal, tax, total } = calculateOrderTotal(newOrder.items)
-    
-    const order: SalesOrder = {
-      id: `ORD-${String(orders.length + 1).padStart(3, '0')}`,
-      customerName: newOrder.customerName,
-      status: "Pending",
-      items: newOrder.items,
-      subtotal,
-      tax,
-      total,
-      createdDate: new Date().toLocaleString(),
-      notes: newOrder.notes
-    }
+    try {
+      setLoading(true)
+      const { subtotal, tax, total } = calculateOrderTotal(newOrder.items)
+      
+      const orderData = {
+        customer_id: parseInt(newOrder.customerId),
+        cashier_id: 1, // TODO: Get from auth context
+        status: "pending",
+        payment_status: "pending",
+        payment_method: "cash",
+        subtotal,
+        tax_amount: tax,
+        discount_amount: 0,
+        total_amount: total,
+        notes: newOrder.notes,
+        line_items: newOrder.items.map(item => ({
+          product_id: parseInt(item.id),
+          quantity: item.quantity,
+          unit_price: item.price,
+          discount_percentage: item.discount,
+          total_price: item.total
+        }))
+      }
 
-    setOrders(prev => [order, ...prev])
-    setNewOrder({ customerName: "", notes: "", items: [] })
-    setIsCreateDialogOpen(false)
-    toast({ title: "Sales order created successfully" })
+      const newOrder = await SalesOrderApi.createSalesOrder(orderData)
+      setOrders(prev => [newOrder, ...prev])
+      setNewOrder({ customerId: "", notes: "", items: [] })
+      setIsCreateDialogOpen(false)
+      toast({ title: "Sales order created successfully" })
+    } catch (error) {
+      console.error("Error creating order:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create sales order",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const updateOrderStatus = (orderId: string, newStatus: SalesOrder["status"]) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ))
-    toast({ title: `Order ${orderId} status updated to ${newStatus}` })
+  const updateOrderStatus = async (orderId: string, newStatus: SalesOrder["status"]) => {
+    try {
+      setLoading(true)
+      await SalesOrderApi.updateSalesOrder(parseInt(orderId), { status: newStatus })
+      setOrders(prev => prev.map(order => 
+        order.id.toString() === orderId ? { ...order, status: newStatus } : order
+      ))
+      toast({ title: `Order ${orderId} status updated to ${newStatus}` })
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getStatusIcon = (status: SalesOrder["status"]) => {
@@ -215,13 +245,19 @@ export function SalesOrderProcessing() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="customerName">Customer Name *</Label>
-                      <Input
-                        id="customerName"
-                        value={newOrder.customerName}
-                        onChange={(e) => setNewOrder(prev => ({ ...prev, customerName: e.target.value }))}
-                        placeholder="Enter customer name"
-                      />
+                      <Label htmlFor="customerId">Customer *</Label>
+                      <Select value={newOrder.customerId} onValueChange={(value) => setNewOrder(prev => ({ ...prev, customerId: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id.toString()}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="notes">Notes</Label>
@@ -246,9 +282,9 @@ export function SalesOrderProcessing() {
                             <SelectValue placeholder="Select product" />
                           </SelectTrigger>
                           <SelectContent>
-                            {mockProducts.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} - ${product.price}
+                            {products.map((product) => (
+                              <SelectItem key={product.id} value={product.id.toString()}>
+                                {product.name} - ${product.selling_price}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -343,17 +379,17 @@ export function SalesOrderProcessing() {
             <TableBody>
               {orders.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customerName}</TableCell>
-                  <TableCell>{order.items.length} items</TableCell>
-                  <TableCell className="font-bold">${order.total.toFixed(2)}</TableCell>
+                  <TableCell className="font-medium">{order.order_number}</TableCell>
+                  <TableCell>{order.customer_name || "Walk-in Customer"}</TableCell>
+                  <TableCell>{order.line_items?.length || 0} items</TableCell>
+                  <TableCell className="font-bold">${order.total_amount.toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">
                       {getStatusIcon(order.status)}
                       {order.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{order.createdDate}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(order); setIsViewDialogOpen(true) }}>
@@ -387,14 +423,14 @@ export function SalesOrderProcessing() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Order Details - {selectedOrder?.id}</DialogTitle>
+            <DialogTitle>Order Details - {selectedOrder?.order_number}</DialogTitle>
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Customer</Label>
-                  <p className="text-lg">{selectedOrder.customerName}</p>
+                  <p className="text-lg">{selectedOrder.customer_name || "Walk-in Customer"}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Status</Label>
@@ -405,11 +441,11 @@ export function SalesOrderProcessing() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Created Date</Label>
-                  <p>{selectedOrder.createdDate}</p>
+                  <p>{new Date(selectedOrder.created_at).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total Amount</Label>
-                  <p className="text-lg font-bold">${selectedOrder.total.toFixed(2)}</p>
+                  <p className="text-lg font-bold">${selectedOrder.total_amount.toFixed(2)}</p>
                 </div>
               </div>
 
@@ -425,15 +461,15 @@ export function SalesOrderProcessing() {
               <div>
                 <Label className="text-lg font-medium">Order Items</Label>
                 <div className="mt-3 space-y-2">
-                  {selectedOrder.items.map((item) => (
+                  {selectedOrder.line_items?.map((item) => (
                     <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg">
                       <div>
-                        <p className="font-medium">{item.productName}</p>
+                        <p className="font-medium">{item.product_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ${item.price} × {item.quantity} {item.discount > 0 && `(${item.discount}% discount)`}
+                          ${item.unit_price} × {item.quantity} {item.discount_percentage > 0 && `(${item.discount_percentage}% discount)`}
                         </p>
                       </div>
-                      <span className="font-bold">${item.total.toFixed(2)}</span>
+                      <span className="font-bold">${item.total_price.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -444,12 +480,12 @@ export function SalesOrderProcessing() {
                     <span>${selectedOrder.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Tax (10%):</span>
-                    <span>${selectedOrder.tax.toFixed(2)}</span>
+                    <span>Tax:</span>
+                    <span>${selectedOrder.tax_amount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
-                    <span>${selectedOrder.total.toFixed(2)}</span>
+                    <span>${selectedOrder.total_amount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
