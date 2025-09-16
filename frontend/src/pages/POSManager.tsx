@@ -73,6 +73,16 @@ export default function POSManager() {
   };
 
   const addToCart = (product: Product) => {
+    // Check if product has stock
+    if (product.current_stock <= 0) {
+      toast({
+        title: "Out of Stock",
+        description: `${product.name} is currently out of stock`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const existingItem = cart.find((item) => item.id === product.id.toString());
 
     if (existingItem) {
