@@ -9,6 +9,7 @@ import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { AddCustomerMediator } from "@/mediators/customers/AddCustomer.mediator";
 import { UpdateCustomerInfoMediator } from "@/mediators/customers/UpdateCustomerInfo.mediator";
 import { DeleteCustomerMediator } from "@/mediators/customers/DeleteCustomer.mediator";
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 
@@ -66,7 +67,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/customers - Get all customers with pagination and filtering
-router.get('/', validateQuery(customerQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view customers
+  validateQuery(customerQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/customers'
     try {
         MyLogger.info(action, { query: req.query })
@@ -142,7 +147,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/customers - Create new customer
-router.post('/', validateRequest(createCustomerSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can create customers
+  validateRequest(createCustomerSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/customers'
     try {
         MyLogger.info(action, { customerName: req.body.name, customerType: req.body.customer_type })
@@ -156,7 +165,11 @@ router.post('/', validateRequest(createCustomerSchema), expressAsyncHandler(asyn
 }));
 
 // PUT /api/customers/:id - Update customer
-router.put('/:id', validateRequest(updateCustomerSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can update customers
+  validateRequest(updateCustomerSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/customers/:id'
     try {
         const id = parseInt(req.params.id);
@@ -202,7 +215,10 @@ router.patch('/:id/loyalty-points', expressAsyncHandler(async (req, res, next) =
 }));
 
 // DELETE /api/customers/:id - Soft delete customer (mark as inactive)
-router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  adminOnly, // Only admins can delete customers
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/customers/:id'
     try {
         const id = parseInt(req.params.id);

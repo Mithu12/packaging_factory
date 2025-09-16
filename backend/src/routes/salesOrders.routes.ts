@@ -8,6 +8,7 @@ import { GetSalesOrderInfoMediator } from "@/mediators/salesOrders/GetSalesOrder
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { AddSalesOrderMediator } from "@/mediators/salesOrders/AddSalesOrder.mediator";
 import { UpdateSalesOrderInfoMediator } from "@/mediators/salesOrders/UpdateSalesOrderInfo.mediator";
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 
@@ -65,7 +66,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/sales-orders - Get all sales orders with pagination and filtering
-router.get('/', validateQuery(salesOrderQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view orders
+  validateQuery(salesOrderQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/sales-orders'
     try {
         MyLogger.info(action, { query: req.query })
@@ -79,7 +84,10 @@ router.get('/', validateQuery(salesOrderQuerySchema), expressAsyncHandler(async 
 }));
 
 // GET /api/sales-orders/stats - Get POS statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can view statistics
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/sales-orders/stats'
     try {
         MyLogger.info(action)
@@ -93,7 +101,10 @@ router.get('/stats', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/sales-orders/search - Search sales orders
-router.get('/search', expressAsyncHandler(async (req, res, next) => {
+router.get('/search', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can search orders
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/sales-orders/search'
     try {
         const {q, limit} = req.query;
@@ -111,7 +122,10 @@ router.get('/search', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/sales-orders/:id - Get sales order by ID with details
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view order details
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/sales-orders/:id'
     try {
         const id = parseInt(req.params.id);
@@ -126,7 +140,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/sales-orders - Create new sales order
-router.post('/', validateRequest(createSalesOrderSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  employeeAndAbove, // Only employees and above can create orders
+  validateRequest(createSalesOrderSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/sales-orders'
     try {
         MyLogger.info(action, { 
@@ -148,7 +166,11 @@ router.post('/', validateRequest(createSalesOrderSchema), expressAsyncHandler(as
 }));
 
 // PUT /api/sales-orders/:id - Update sales order
-router.put('/:id', validateRequest(updateSalesOrderSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can modify orders
+  validateRequest(updateSalesOrderSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/sales-orders/:id'
     try {
         const id = parseInt(req.params.id);

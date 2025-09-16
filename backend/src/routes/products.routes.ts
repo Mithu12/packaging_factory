@@ -11,6 +11,7 @@ import { AddProductMediator } from "@/mediators/products/AddProduct.mediator";
 import { UpdateProductInfoMediator } from "@/mediators/products/UpdateProductInfo.mediator";
 import { DeleteProductMediator } from "@/mediators/products/DeleteProduct.mediator";
 import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjustmentMediator";
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
@@ -70,7 +71,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/products - Get all products with pagination and filtering
-router.get('/', validateQuery(productQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view products
+  validateQuery(productQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/products'
     try {
         MyLogger.info(action, { query: req.query })
@@ -84,7 +89,10 @@ router.get('/', validateQuery(productQuerySchema), expressAsyncHandler(async (re
 }));
 
 // GET /api/products/stats - Get product statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can view product statistics
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/products/stats'
     try {
         MyLogger.info(action)
@@ -175,7 +183,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/products - Create new product
-router.post('/', validateRequest(createProductSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can create products
+  validateRequest(createProductSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'Add Product'
     try {
         MyLogger.info(action, { productName: req.body.name, productSku: req.body.sku })
@@ -224,7 +236,11 @@ router.post('/with-image', uploadProductImage, handleUploadError, expressAsyncHa
 }));
 
 // PUT /api/products/:id - Update product
-router.put('/:id', validateRequest(updateProductSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can update products
+  validateRequest(updateProductSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/products/:id'
     try {
         const id = parseInt(req.params.id);
@@ -394,7 +410,10 @@ router.patch('/:id/stock', validateRequest(stockAdjustmentSchema), expressAsyncH
 }));
 
 // DELETE /api/products/:id - Soft delete product (mark as discontinued)
-router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  adminOnly, // Only admins can delete products
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/products/:id'
     try {
         const id = parseInt(req.params.id);
