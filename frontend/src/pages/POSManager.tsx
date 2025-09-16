@@ -39,6 +39,7 @@ export default function POSManager() {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashAmount, setCashAmount] = useState("");
   const [overallDiscount, setOverallDiscount] = useState("");
+  const [overallDiscountType, setOverallDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [overallTax, setOverallTax] = useState("");
   const [activeTab, setActiveTab] = useState("pos");
   const [loading, setLoading] = useState(false);
@@ -163,6 +164,11 @@ export default function POSManager() {
     ));
   };
 
+  const handleOverallDiscountChange = (discount: string, discountType: 'percentage' | 'fixed') => {
+    setOverallDiscount(discount);
+    setOverallDiscountType(discountType);
+  };
+
   const subtotal = cart.reduce((sum, item) => {
     const itemSubtotal = item.price * item.quantity;
     let itemDiscount = 0;
@@ -178,7 +184,9 @@ export default function POSManager() {
     return sum + (itemSubtotal - itemDiscount);
   }, 0);
   const discountAmount = overallDiscount
-    ? (subtotal * parseFloat(overallDiscount)) / 100
+    ? overallDiscountType === 'percentage'
+      ? (subtotal * parseFloat(overallDiscount)) / 100
+      : parseFloat(overallDiscount)
     : 0;
   const discountedSubtotal = subtotal - discountAmount;
   const tax = overallTax
@@ -236,8 +244,8 @@ export default function POSManager() {
         payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
         cash_received: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
         notes: `Payment processed via ${paymentMethod}`,
-        discount_amount: discountAmount,
-        discount_percentage: overallDiscount ? parseFloat(overallDiscount) : 0,
+        discount_amount: overallDiscountType === 'fixed' ? parseFloat(overallDiscount) : 0,
+        discount_percentage: overallDiscountType === 'percentage' ? parseFloat(overallDiscount) : 0,
         line_items: cart.map(item => {
           const itemSubtotal = item.price * item.quantity;
           let itemDiscount = 0;
@@ -352,6 +360,7 @@ export default function POSManager() {
                 paymentMethod={paymentMethod}
                 cashAmount={cashAmount}
                 overallDiscount={overallDiscount}
+                overallDiscountType={overallDiscountType}
                 overallTax={overallTax}
                 onUpdateQuantity={updateQuantity}
                 onRemoveFromCart={removeFromCart}
@@ -359,7 +368,7 @@ export default function POSManager() {
                 onCustomerChange={setSelectedCustomer}
                 onPaymentMethodChange={setPaymentMethod}
                 onCashAmountChange={setCashAmount}
-                onOverallDiscountChange={setOverallDiscount}
+                onOverallDiscountChange={handleOverallDiscountChange}
                 onOverallTaxChange={setOverallTax}
                 onProcessPayment={processPayment}
                 onAddCustomer={handleAddCustomer}

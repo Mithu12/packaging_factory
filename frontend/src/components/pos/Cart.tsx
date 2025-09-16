@@ -72,6 +72,7 @@ interface CartProps {
   paymentMethod: string;
   cashAmount: string;
   overallDiscount: string;
+  overallDiscountType: 'percentage' | 'fixed';
   overallTax: string;
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveFromCart: (id: string) => void;
@@ -79,7 +80,7 @@ interface CartProps {
   onCustomerChange: (customer: Customer | null) => void;
   onPaymentMethodChange: (method: string) => void;
   onCashAmountChange: (amount: string) => void;
-  onOverallDiscountChange: (discount: string) => void;
+  onOverallDiscountChange: (discount: string, discountType: 'percentage' | 'fixed') => void;
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
   onAddCustomer: (customer: any) => Promise<Customer>;
@@ -109,6 +110,7 @@ export function Cart({
   paymentMethod,
   cashAmount,
   overallDiscount,
+  overallDiscountType,
   overallTax,
   onUpdateQuantity,
   onRemoveFromCart,
@@ -138,7 +140,9 @@ export function Cart({
     return sum + (itemSubtotal - itemDiscount);
   }, 0);
   const discountAmount = overallDiscount
-    ? (subtotal * parseFloat(overallDiscount)) / 100
+    ? overallDiscountType === 'percentage'
+      ? (subtotal * parseFloat(overallDiscount)) / 100
+      : parseFloat(overallDiscount)
     : 0;
   const discountedSubtotal = subtotal - discountAmount;
   const tax = overallTax
@@ -504,7 +508,7 @@ export function Cart({
                       <SquarePen />
                     </span>
                     <span className="ml-auto font-medium">
-                      {overallDiscount || "0.00"}
+                      {overallDiscount || "0.00"}{overallDiscountType === 'percentage' ? '%' : ''}
                     </span>
                   </div>
                 </Button>
@@ -553,7 +557,7 @@ export function Cart({
                   </Button>
                   <Button
                     onClick={() => {
-                      onOverallDiscountChange(discountValue);
+                      onOverallDiscountChange(discountValue, discountType.toLowerCase() as 'percentage' | 'fixed');
                       setIsDiscountDialogOpen(false);
                     }}
                   >
@@ -631,7 +635,7 @@ export function Cart({
           </div>
           {overallDiscount && parseFloat(overallDiscount) > 0 && (
             <div className="flex justify-between text-sm text-green-600">
-              <span>Discount ({overallDiscount}%):</span>
+              <span>Discount ({overallDiscount}{overallDiscountType === 'percentage' ? '%' : ''}):</span>
               <span>-${Number(discountAmount).toFixed(2)}</span>
             </div>
           )}
