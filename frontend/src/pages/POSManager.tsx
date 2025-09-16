@@ -14,6 +14,7 @@ import { SalesPriceConfiguration } from "@/components/pos/SalesPriceConfiguratio
 import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
 import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
+import { Receipt } from "@/components/pos/Receipt";
 
 // API Services
 import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
@@ -43,6 +44,8 @@ export default function POSManager() {
   const [overallTax, setOverallTax] = useState("");
   const [activeTab, setActiveTab] = useState("pos");
   const [loading, setLoading] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
 
   // Load initial data
   useEffect(() => {
@@ -273,6 +276,27 @@ export default function POSManager() {
       };
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
+      
+      // Prepare receipt data
+      const receiptInfo = {
+        orderNumber: newOrder.order_number,
+        customer: selectedCustomer,
+        cart: [...cart], // Copy cart before clearing
+        subtotal: subtotal,
+        overallDiscount: parseFloat(overallDiscount) || 0,
+        overallDiscountType: overallDiscountType,
+        tax: tax,
+        total: total,
+        paymentMethod: paymentMethod,
+        cashReceived: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
+        changeGiven: paymentMethod === "cash" ? Math.max(0, (parseFloat(cashAmount) || total) - total) : undefined,
+        orderDate: newOrder.order_date,
+        notes: `Payment processed via ${paymentMethod}`
+      };
+      
+      // Show receipt
+      setReceiptData(receiptInfo);
+      setShowReceipt(true);
       
       toast({
         title: "Payment Processed",
@@ -521,6 +545,33 @@ export default function POSManager() {
           })()}
         </TabsContent>
       </Tabs>
+
+      {/* Receipt Dialog */}
+      {showReceipt && receiptData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Payment Successful!</h2>
+            <p className="text-gray-600 mb-4">
+              Order #{receiptData.orderNumber} has been processed successfully.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Would you like to print or download the receipt?
+            </p>
+            
+            <Receipt {...receiptData} />
+            
+            <div className="mt-4">
+              <Button 
+                onClick={() => setShowReceipt(false)}
+                variant="outline"
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
