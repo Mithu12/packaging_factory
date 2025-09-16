@@ -13,7 +13,7 @@ import { Cart } from "@/components/pos/Cart";
 import { SalesPriceConfiguration } from "@/components/pos/SalesPriceConfiguration";
 import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
-import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
+// import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/components/pos/Receipt";
 
 // API Services
@@ -365,7 +365,7 @@ export default function POSManager() {
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="receipts">Receipts</TabsTrigger>
+          {/* <TabsTrigger value="receipts">Receipts</TabsTrigger> */}
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
@@ -416,9 +416,9 @@ export default function POSManager() {
           <SalesOrderProcessing />
         </TabsContent>
 
-        <TabsContent value="receipts">
+        {/* <TabsContent value="receipts">
           <SalesReceiptRecording />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="transactions" className="space-y-4">
           {(() => {
