@@ -76,11 +76,42 @@ export class AddSalesOrderMediator {
                     changeGiven = Math.max(0, data.cash_received - totalAmount);
                 }
                 
+                // Determine order and payment status based on payment method
+                let orderStatus = 'pending';
+                let paymentStatus = 'pending';
+                
+                if (data.payment_method === 'cash') {
+                    // Cash payments are immediately completed and paid
+                    orderStatus = 'completed';
+                    paymentStatus = 'paid';
+                } else if (data.payment_method === 'card') {
+                    // Card payments are completed but payment status depends on processing
+                    orderStatus = 'completed';
+                    paymentStatus = 'paid'; // Assuming card payment is processed immediately in POS
+                } else if (data.payment_method === 'credit') {
+                    // Credit payments remain pending until payment is received
+                    orderStatus = 'pending';
+                    paymentStatus = 'pending';
+                } else {
+                    // Other payment methods (check, bank_transfer) remain pending
+                    orderStatus = 'pending';
+                    paymentStatus = 'pending';
+                }
+                
+                MyLogger.info('Order status determination', {
+                    paymentMethod: data.payment_method,
+                    orderStatus: orderStatus,
+                    paymentStatus: paymentStatus
+                });
+                
                 // Insert sales order
                 const insertOrderQuery = `
                     INSERT INTO sales_orders (
                         order_number,
                         customer_id,
+                        order_date,
+                        status,
+                        payment_status,
                         payment_method,
                         subtotal,
                         discount_amount,
@@ -90,13 +121,16 @@ export class AddSalesOrderMediator {
                         change_given,
                         notes
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
                     ) RETURNING *
                 `;
 
                 const orderValues = [
                     orderNumber,
                     data.customer_id || null,
+                    new Date().toISOString(), // order_date
+                    orderStatus,
+                    paymentStatus,
                     data.payment_method,
                     discountedSubtotal,
                     overallDiscountAmount,

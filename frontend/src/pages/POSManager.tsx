@@ -15,7 +15,6 @@ import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
 import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/components/pos/Receipt";
-import { OrderDetailsTest } from "@/components/pos/OrderDetailsTest";
 
 // API Services
 import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
@@ -367,7 +366,6 @@ export default function POSManager() {
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
-          <TabsTrigger value="test">Test</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
@@ -420,10 +418,6 @@ export default function POSManager() {
 
         <TabsContent value="receipts">
           <SalesReceiptRecording />
-        </TabsContent>
-
-        <TabsContent value="test">
-          <OrderDetailsTest />
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
