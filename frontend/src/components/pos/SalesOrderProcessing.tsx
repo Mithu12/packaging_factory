@@ -448,7 +448,12 @@ export function SalesOrderProcessing() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>{`${order.customer_name}`}</TableCell>
-                  <TableCell>-</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{order.product_count || 0}</span>
+                      <span className="text-sm text-muted-foreground">items</span>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-bold">R{Number(order.total_amount).toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">

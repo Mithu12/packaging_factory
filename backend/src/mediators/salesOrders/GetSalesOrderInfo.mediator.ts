@@ -110,10 +110,18 @@ export class GetSalesOrderInfoMediator {
                     c.name as customer_name,
                     c.email as customer_email,
                     c.phone as customer_phone,
-                    u.full_name as cashier_name
+                    u.full_name as cashier_name,
+                    COALESCE(li.product_count, 0) as product_count
                 FROM sales_orders so
                 LEFT JOIN customers c ON so.customer_id = c.id
                 LEFT JOIN users u ON so.cashier_id = u.id
+                LEFT JOIN (
+                    SELECT 
+                        sales_order_id,
+                        COUNT(DISTINCT product_id) as product_count
+                    FROM sales_order_line_items
+                    GROUP BY sales_order_id
+                ) li ON so.id = li.sales_order_id
                 WHERE ${whereClause}
                 ORDER BY so.${sortBy} ${sortOrder.toUpperCase()}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

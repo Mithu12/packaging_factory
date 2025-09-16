@@ -826,6 +826,7 @@ export interface SalesOrder {
   customer_email?: string;
   customer_phone?: string;
   cashier_name?: string;
+  product_count?: number;
 }
 
 export interface SalesOrderLineItem {
