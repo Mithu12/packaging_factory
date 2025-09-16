@@ -13,6 +13,7 @@ import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Cal
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
 import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
 import { Receipt } from "./Receipt"
+import { useFormatting } from "@/hooks/useFormatting"
 
 interface OrderItem {
   id: string
@@ -44,6 +45,8 @@ export function SalesOrderProcessing() {
     quantity: "1",
     discount: "0"
   })
+
+  const { formatCurrency } = useFormatting();
 
   // Load data on component mount
   useEffect(() => {
@@ -454,7 +457,7 @@ export function SalesOrderProcessing() {
                       <span className="text-sm text-muted-foreground">items</span>
                     </div>
                   </TableCell>
-                  <TableCell className="font-bold">R{Number(order.total_amount).toFixed(2)}</TableCell>
+                  <TableCell className="font-bold">{formatCurrency(order.total_amount)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">
                       {getStatusIcon(order.status)}
@@ -520,7 +523,7 @@ export function SalesOrderProcessing() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total Amount</Label>
-                  <p className="text-lg font-bold">R{Number(selectedOrder.total_amount).toFixed(2)}</p>
+                  <p className="text-lg font-bold">{formatCurrency(selectedOrder.total_amount)}</p>
                 </div>
               </div>
 
@@ -558,17 +561,17 @@ export function SalesOrderProcessing() {
                               </div>
                             </TableCell>
                             <TableCell>{item.quantity}</TableCell>
-                            <TableCell>R{Number(item.unit_price).toFixed(2)}</TableCell>
+                            <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell>
                               {item.discount_percentage > 0 ? (
                                 <span className="text-sm">{item.discount_percentage}%</span>
                               ) : item.discount_amount > 0 ? (
-                                <span className="text-sm">R{Number(item.discount_amount).toFixed(2)}</span>
+                                <span className="text-sm">{formatCurrency(item.discount_amount)}</span>
                               ) : (
                                 <span className="text-sm text-muted-foreground">None</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">R{Number(item.line_total).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.line_total)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -583,15 +586,15 @@ export function SalesOrderProcessing() {
                   <div className="mt-4 space-y-2 border-t pt-4">
                     <div className="flex justify-between text-sm">
                       <span>Subtotal:</span>
-                      <span>R{Number(selectedOrder.subtotal).toFixed(2)}</span>
+                      <span>{formatCurrency(selectedOrder.subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Tax:</span>
-                      <span>R{Number(selectedOrder.tax_amount).toFixed(2)}</span>
+                      <span>{formatCurrency(selectedOrder.tax_amount)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total:</span>
-                      <span>R{Number(selectedOrder.total_amount).toFixed(2)}</span>
+                      <span>{formatCurrency(selectedOrder.total_amount)}</span>
                     </div>
                   </div>
                 </div>
