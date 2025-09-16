@@ -59,12 +59,12 @@ export class AddSalesOrderMediator {
                 const discountedSubtotal = subtotal - overallDiscountAmount;
                 
                 // Use tax amount from frontend, or fallback to 10% if not provided
-                const taxAmount = data.tax_amount || (discountedSubtotal * 0.1);
+                const taxAmount = data.tax_amount || 0;
                 const totalAmount = discountedSubtotal + taxAmount;
                 
                 MyLogger.info('Tax calculation', { 
                     frontendTaxAmount: data.tax_amount,
-                    calculatedTaxAmount: data.tax_amount ? 'using frontend value' : 'using 10% fallback',
+                    calculatedTaxAmount: data.tax_amount ? 'using frontend value' : 'using 0% fallback',
                     finalTaxAmount: taxAmount,
                     discountedSubtotal: discountedSubtotal,
                     totalAmount: totalAmount
