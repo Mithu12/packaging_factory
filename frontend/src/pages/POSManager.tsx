@@ -19,6 +19,7 @@ import { Receipt } from "@/components/pos/Receipt";
 // API Services
 import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
 import { Product, Customer, SalesOrder } from "@/services/types";
+import { useFormatting } from "@/hooks/useFormatting";
 
 interface CartItem {
   id: string;
@@ -46,6 +47,8 @@ export default function POSManager() {
   const [loading, setLoading] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+
+  const { formatCurrency } = useFormatting();
 
   // Load initial data
   useEffect(() => {
@@ -427,7 +430,7 @@ export default function POSManager() {
               id: order.order_number,
               date: new Date(order.created_at).toLocaleString(),
               customer: order.customer_name || "Walk-in Customer",
-              items: 0, // TODO: Get from line items when available
+              items: order.product_count, // TODO: Get from line items when available
               total: order.total_amount,
               status: order.status,
               paymentMethod: order.payment_method
@@ -438,21 +441,21 @@ export default function POSManager() {
             const todayOrders = salesOrders.filter(order => 
               new Date(order.created_at).toDateString() === today
             );
-            const todaySales = todayOrders.reduce((sum, order) => sum + order.total_amount, 0);
+            const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
             const averageOrder = todayOrders.length > 0 ? todaySales / todayOrders.length : 0;
-            const itemsSold = 0; // TODO: Calculate from line items when available
+            const itemsSold = todayOrders.reduce((sum, order) => sum + Number(order.product_count), 0); // TODO: Calculate from line items when available
 
             return (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Today's Sales</h3>
-                    <p className="text-2xl font-bold">${Number(todaySales).toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(todaySales)}</p>
                     <p className="text-sm opacity-90">{todayOrders.length} transactions</p>
                   </div>
                   <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Average Order</h3>
-                    <p className="text-2xl font-bold">${Number(averageOrder).toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(averageOrder)}</p>
                     <p className="text-sm opacity-90">Per transaction</p>
                   </div>
                   <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
@@ -496,7 +499,7 @@ export default function POSManager() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold">
-                              ${Number(transaction.total).toFixed(2)}
+                              {formatCurrency(transaction.total)}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {transaction.items} items
