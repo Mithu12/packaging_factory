@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
-import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator } from "lucide-react"
+import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer } from "lucide-react"
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
-import { SalesOrder, Customer, Product } from "@/services/types"
+import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
+import { Receipt } from "./Receipt"
 
 interface OrderItem {
   id: string
@@ -28,7 +29,10 @@ export function SalesOrderProcessing() {
   const [products, setProducts] = useState<Product[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<SalesOrderWithDetails | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [showReceipt, setShowReceipt] = useState(false)
+  const [receiptData, setReceiptData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [newOrder, setNewOrder] = useState({
     customerId: "",
@@ -157,6 +161,85 @@ export function SalesOrderProcessing() {
       toast({
         title: "Error",
         description: "Failed to create sales order",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleViewOrder = async (order: SalesOrder) => {
+    try {
+      setLoading(true)
+      const orderDetails = await SalesOrderApi.getSalesOrder(order.id)
+      setSelectedOrder(order)
+      setSelectedOrderDetails(orderDetails)
+      setIsViewDialogOpen(true)
+    } catch (error) {
+      console.error("Error fetching order details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load order details",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePrintReceipt = async (order: SalesOrder) => {
+    try {
+      setLoading(true)
+      const orderDetails = await SalesOrderApi.getSalesOrder(order.id)
+      
+      // Convert line items to cart format for receipt
+      const cartItems = orderDetails.line_items.map(item => ({
+        id: item.product_id.toString(),
+        name: item.product_name,
+        price: item.unit_price,
+        quantity: item.quantity,
+        discount: item.discount_percentage > 0 ? item.discount_percentage : item.discount_amount,
+        discountType: item.discount_percentage > 0 ? 'percentage' as const : 'fixed' as const
+      }))
+
+      // Calculate totals
+      const subtotal = orderDetails.line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)
+      const totalDiscount = orderDetails.line_items.reduce((sum, item) => {
+        const itemSubtotal = item.unit_price * item.quantity
+        const itemDiscount = item.discount_percentage > 0 
+          ? (itemSubtotal * item.discount_percentage) / 100 
+          : item.discount_amount
+        return sum + itemDiscount
+      }, 0)
+      
+      const receiptData = {
+        orderNumber: orderDetails.order_number,
+        customer: orderDetails.customer_id ? {
+          id: orderDetails.customer_id,
+          name: orderDetails.customer_name || 'Unknown',
+          email: orderDetails.customer_email,
+          phone: orderDetails.customer_phone
+        } : null,
+        cart: cartItems,
+        subtotal: subtotal,
+        overallDiscount: orderDetails.discount_amount || 0,
+        overallDiscountType: orderDetails.discount_amount > 0 ? 'flat' as const : 'percentage' as const,
+        tax: orderDetails.tax_amount,
+        total: orderDetails.total_amount,
+        paymentMethod: orderDetails.payment_method || 'cash',
+        cashReceived: orderDetails.cash_received,
+        changeGiven: orderDetails.change_given,
+        orderDate: orderDetails.order_date,
+        notes: orderDetails.notes || ''
+      }
+
+      setReceiptData(receiptData)
+      setShowReceipt(true)
+    } catch (error) {
+      console.error("Error preparing receipt:", error)
+      toast({
+        title: "Error",
+        description: "Failed to prepare receipt",
         variant: "destructive"
       })
     } finally {
@@ -364,7 +447,7 @@ export function SalesOrderProcessing() {
               {orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
-                  <TableCell>{order.customer_id ? `Customer #${order.customer_id}` : "Walk-in Customer"}</TableCell>
+                  <TableCell>{`${order.customer_name}`}</TableCell>
                   <TableCell>-</TableCell>
                   <TableCell className="font-bold">R{Number(order.total_amount).toFixed(2)}</TableCell>
                   <TableCell>
@@ -376,8 +459,11 @@ export function SalesOrderProcessing() {
                   <TableCell className="text-sm text-muted-foreground">{new Date(order.order_date).toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(order); setIsViewDialogOpen(true) }}>
+                      <Button variant="outline" size="sm" onClick={() => handleViewOrder(order)}>
                         <Search className="w-3 h-3" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handlePrintReceipt(order)}>
+                        <Printer className="w-3 h-3" />
                       </Button>
                       {order.status === "refunded" && (
                         <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "pending")}>
@@ -442,6 +528,50 @@ export function SalesOrderProcessing() {
 
               <Separator />
 
+              {/* Line Items */}
+              {selectedOrderDetails?.line_items && selectedOrderDetails.line_items.length > 0 && (
+                <div>
+                  <Label className="text-lg font-medium">Order Items</Label>
+                  <div className="mt-3">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Unit Price</TableHead>
+                          <TableHead>Discount</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedOrderDetails.line_items.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{item.product_name}</div>
+                                <div className="text-sm text-muted-foreground">SKU: {item.product_sku}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>R{Number(item.unit_price).toFixed(2)}</TableCell>
+                            <TableCell>
+                              {item.discount_percentage > 0 ? (
+                                <span className="text-sm">{item.discount_percentage}%</span>
+                              ) : item.discount_amount > 0 ? (
+                                <span className="text-sm">R{Number(item.discount_amount).toFixed(2)}</span>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">None</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">R{Number(item.line_total).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label className="text-lg font-medium">Order Summary</Label>
                 <div className="mt-3 space-y-2">
@@ -465,6 +595,33 @@ export function SalesOrderProcessing() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Receipt Dialog */}
+      {showReceipt && receiptData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Print Receipt</h2>
+            <p className="text-gray-600 mb-4">
+              Order #{receiptData.orderNumber} - {receiptData.customer?.name || 'Walk-in Customer'}
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Choose how you'd like to handle the receipt:
+            </p>
+            
+            <Receipt {...receiptData} />
+            
+            <div className="mt-4">
+              <Button 
+                onClick={() => setShowReceipt(false)}
+                variant="outline"
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

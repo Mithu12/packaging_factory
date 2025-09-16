@@ -15,6 +15,7 @@ import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
 import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/components/pos/Receipt";
+import { OrderDetailsTest } from "@/components/pos/OrderDetailsTest";
 
 // API Services
 import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
@@ -360,12 +361,13 @@ export default function POSManager() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="pos">Point of Sale</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
+          <TabsTrigger value="test">Test</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
@@ -418,6 +420,10 @@ export default function POSManager() {
 
         <TabsContent value="receipts">
           <SalesReceiptRecording />
+        </TabsContent>
+
+        <TabsContent value="test">
+          <OrderDetailsTest />
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
