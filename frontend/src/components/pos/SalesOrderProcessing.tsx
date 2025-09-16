@@ -61,7 +61,7 @@ export function SalesOrderProcessing() {
 
       setOrders(ordersData.sales_orders || [])
       setCustomers(customersData.customers || [])
-      setProducts(productsData.products || [])
+      setProducts(productsData.products.filter(product => product.current_stock > 0) || [])
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -92,7 +92,7 @@ export function SalesOrderProcessing() {
     const total = (product.selling_price * quantity) - ((product.selling_price * quantity) * discount / 100)
 
     const orderItem: OrderItem = {
-      id: Date.now().toString(),
+      id: product.id.toString(),
       productName: product.name,
       price: product.selling_price,
       quantity,
@@ -138,7 +138,7 @@ export function SalesOrderProcessing() {
       const orderData = {
         customer_id: parseInt(newOrder.customerId),
         cashier_id: 1, // TODO: Get from auth context
-        payment_method: "cash" as const,
+        payment_method: "credit" as const,
         notes: newOrder.notes,
         discount_amount: 0,
         discount_percentage: 0,

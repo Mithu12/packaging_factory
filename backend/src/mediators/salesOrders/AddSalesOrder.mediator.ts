@@ -103,7 +103,7 @@ export class AddSalesOrderMediator {
                     orderStatus: orderStatus,
                     paymentStatus: paymentStatus
                 });
-                
+                MyLogger.info('Inserting sales order');
                 // Insert sales order
                 const insertOrderQuery = `
                     INSERT INTO sales_orders (
@@ -160,6 +160,17 @@ export class AddSalesOrderMediator {
 
                     const product = productResult.rows[0];
 
+                    MyLogger.info('Inserting line item', {
+                        salesOrderId: salesOrder.id,
+                        productId: itemData.product_id,
+                        productSku: product.sku,
+                        productName: product.name,
+                        quantity: itemData.quantity,
+                        unitPrice: itemData.unit_price,
+                        discountPercentage: itemData.discount_percentage,
+                        discountAmount: itemData.discount_amount,
+                        lineTotal: itemData.line_total
+                    });
                     const insertLineItemQuery = `
                         INSERT INTO sales_order_line_items (
                             sales_order_id,
@@ -191,6 +202,10 @@ export class AddSalesOrderMediator {
                     await client.query(insertLineItemQuery, lineItemValues);
 
                     // Update product stock
+                    MyLogger.info('Updating product stock', {
+                        productId: itemData.product_id,
+                        quantity: itemData.quantity
+                    });
                     const updateStockQuery = `
                         UPDATE products 
                         SET current_stock = current_stock - $1,
@@ -202,6 +217,10 @@ export class AddSalesOrderMediator {
 
                 // Update customer total purchases if customer exists
                 if (data.customer_id) {
+                    MyLogger.info('Updating customer total purchases', {
+                        customerId: data.customer_id,
+                        totalAmount: totalAmount
+                    });
                     const updateCustomerQuery = `
                         UPDATE customers 
                         SET total_purchases = total_purchases + $1,
