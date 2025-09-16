@@ -115,6 +115,7 @@ export interface CreateSalesOrderRequest {
   notes?: string;
   discount_amount?: number;
   discount_percentage?: number;
+  tax_amount?: number;
   cashier_id?: number;
   line_items: {
     product_id: number;

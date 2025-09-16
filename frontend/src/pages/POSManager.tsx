@@ -39,7 +39,7 @@ export default function POSManager() {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashAmount, setCashAmount] = useState("");
   const [overallDiscount, setOverallDiscount] = useState("");
-  const [overallDiscountType, setOverallDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [overallDiscountType, setOverallDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [overallTax, setOverallTax] = useState("");
   const [activeTab, setActiveTab] = useState("pos");
   const [loading, setLoading] = useState(false);
@@ -164,7 +164,7 @@ export default function POSManager() {
     ));
   };
 
-  const handleOverallDiscountChange = (discount: string, discountType: 'percentage' | 'fixed') => {
+  const handleOverallDiscountChange = (discount: string, discountType: 'percentage' | 'flat') => {
     setOverallDiscount(discount);
     setOverallDiscountType(discountType);
   };
@@ -244,8 +244,9 @@ export default function POSManager() {
         payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
         cash_received: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
         notes: `Payment processed via ${paymentMethod}`,
-        discount_amount: overallDiscountType === 'fixed' ? parseFloat(overallDiscount) : 0,
+        discount_amount: overallDiscountType === 'flat' ? parseFloat(overallDiscount) : 0,
         discount_percentage: overallDiscountType === 'percentage' ? parseFloat(overallDiscount) : 0,
+        tax_amount: tax,
         line_items: cart.map(item => {
           const itemSubtotal = item.price * item.quantity;
           let itemDiscount = 0;

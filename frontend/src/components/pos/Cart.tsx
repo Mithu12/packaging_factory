@@ -72,7 +72,7 @@ interface CartProps {
   paymentMethod: string;
   cashAmount: string;
   overallDiscount: string;
-  overallDiscountType: 'percentage' | 'fixed';
+  overallDiscountType: 'percentage' | 'flat';
   overallTax: string;
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveFromCart: (id: string) => void;
@@ -80,7 +80,7 @@ interface CartProps {
   onCustomerChange: (customer: Customer | null) => void;
   onPaymentMethodChange: (method: string) => void;
   onCashAmountChange: (amount: string) => void;
-  onOverallDiscountChange: (discount: string, discountType: 'percentage' | 'fixed') => void;
+  onOverallDiscountChange: (discount: string, discountType: 'percentage' | 'flat') => void;
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
   onAddCustomer: (customer: any) => Promise<Customer>;

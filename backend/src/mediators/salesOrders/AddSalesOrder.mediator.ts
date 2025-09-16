@@ -6,14 +6,9 @@ export class AddSalesOrderMediator {
     static async createSalesOrder(data: CreateSalesOrderRequest): Promise<SalesOrder> {
         let action = 'AddSalesOrderMediator.createSalesOrder';
         try {
-            MyLogger.info(action, { 
-                customerId: data.customer_id, 
-                paymentMethod: data.payment_method,
-                lineItemsCount: data.line_items.length
-            });
-
+            MyLogger.info(action, data);
             const client = await pool.connect();
-            
+
             try {
                 await client.query('BEGIN');
 
@@ -44,16 +39,43 @@ export class AddSalesOrderMediator {
                     });
                 }
 
-                // For now, we'll use a simple tax calculation (10%)
-                const taxAmount = subtotal * 0.1;
-                const totalAmount = subtotal + taxAmount;
+                // Apply overall discount
+                let overallDiscountAmount = 0;
+                if (data.discount_percentage && data.discount_percentage > 0) {
+                    overallDiscountAmount = (subtotal * data.discount_percentage) / 100;
+                    MyLogger.info('Applied percentage discount', { 
+                        originalSubtotal: subtotal, 
+                        discountPercentage: data.discount_percentage, 
+                        discountAmount: overallDiscountAmount 
+                    });
+                } else if (data.discount_amount && data.discount_amount > 0) {
+                    overallDiscountAmount = data.discount_amount;
+                    MyLogger.info('Applied fixed discount', { 
+                        originalSubtotal: subtotal, 
+                        discountAmount: overallDiscountAmount 
+                    });
+                }
+                
+                const discountedSubtotal = subtotal - overallDiscountAmount;
+                
+                // Use tax amount from frontend, or fallback to 10% if not provided
+                const taxAmount = data.tax_amount || (discountedSubtotal * 0.1);
+                const totalAmount = discountedSubtotal + taxAmount;
+                
+                MyLogger.info('Tax calculation', { 
+                    frontendTaxAmount: data.tax_amount,
+                    calculatedTaxAmount: data.tax_amount ? 'using frontend value' : 'using 10% fallback',
+                    finalTaxAmount: taxAmount,
+                    discountedSubtotal: discountedSubtotal,
+                    totalAmount: totalAmount
+                });
 
                 // Calculate change if cash payment
                 let changeGiven = 0;
                 if (data.payment_method === 'cash' && data.cash_received) {
                     changeGiven = Math.max(0, data.cash_received - totalAmount);
                 }
-
+                
                 // Insert sales order
                 const insertOrderQuery = `
                     INSERT INTO sales_orders (
@@ -61,13 +83,14 @@ export class AddSalesOrderMediator {
                         customer_id,
                         payment_method,
                         subtotal,
+                        discount_amount,
                         tax_amount,
                         total_amount,
                         cash_received,
                         change_given,
                         notes
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
                     ) RETURNING *
                 `;
 
@@ -75,7 +98,8 @@ export class AddSalesOrderMediator {
                     orderNumber,
                     data.customer_id || null,
                     data.payment_method,
-                    subtotal,
+                    discountedSubtotal,
+                    overallDiscountAmount,
                     taxAmount,
                     totalAmount,
                     data.cash_received || 0,
