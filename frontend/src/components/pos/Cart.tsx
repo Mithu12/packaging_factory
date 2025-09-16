@@ -231,21 +231,6 @@ export function Cart({
                         <CommandList>
                           <CommandEmpty>No Customer found.</CommandEmpty>
                           <CommandGroup>
-                            <CommandItem
-                              value="walk-in"
-                              onSelect={() => {
-                                onCustomerChange(null);
-                                setOpen(false);
-                              }}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  !selectedCustomer ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              Walk-in Customer
-                            </CommandItem>
                             {customers.map((customer) => (
                               <CommandItem
                                 key={customer.id}

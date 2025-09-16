@@ -38,8 +38,8 @@ export const customerQuerySchema = Joi.object({
   search: Joi.string().optional(),
   customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
   status: Joi.string().valid('active', 'inactive', 'blocked').optional(),
-  sortBy: Joi.string().valid('name', 'email', 'phone', 'customer_type', 'status', 'total_purchases', 'created_at').default('created_at'),
-  sortOrder: Joi.string().valid('asc', 'desc').default('desc')
+  sortBy: Joi.string().valid('name', 'email', 'phone', 'customer_type', 'status', 'total_purchases', 'created_at').default('id'),
+  sortOrder: Joi.string().valid('asc', 'desc').default('asc')
 });
 
 // Sales Order validation schemas
