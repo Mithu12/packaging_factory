@@ -714,6 +714,12 @@ const createTables = async () => {
     const { addWhatsAppToSuppliers } = await import('./add-whatsapp-to-suppliers');
     await addWhatsAppToSuppliers();
     MyLogger.success('WhatsApp field added to suppliers');
+
+    // Add supplier categories table
+    MyLogger.info('Adding supplier categories table');
+    const { addSupplierCategoriesTable } = await import('./add-supplier-categories-table');
+    await addSupplierCategoriesTable();
+    MyLogger.success('Supplier categories table added');
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

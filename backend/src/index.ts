@@ -10,6 +10,7 @@ import path from 'path';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import supplierRoutes from './routes/suppliers.routes';
+import supplierCategoryRoutes from './routes/supplierCategories.routes';
 import categoryRoutes from './routes/categories.routes';
 import brandRoutes from './routes/brands.routes';
 import originRoutes from './routes/origins.routes';
@@ -82,6 +83,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/supplier-categories', supplierCategoryRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/origins', originRoutes);

@@ -150,13 +150,26 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleAddNewCategory = () => {
+  const handleAddNewCategory = async () => {
     if (newCategoryName.trim()) {
       const categoryName = newCategoryName.trim()
       if (!supplierCategories.includes(categoryName)) {
-        setSupplierCategories(prev => [...prev, categoryName])
-        setFormData(prev => ({ ...prev, category: categoryName }))
-        toast.success("New category added successfully!")
+        try {
+          // Create the category in the backend
+          await ApiService.createSupplierCategory({
+            name: categoryName,
+            description: `Supplier category: ${categoryName}`,
+            color: '#3B82F6' // Default blue color
+          })
+          
+          // Add to local state
+          setSupplierCategories(prev => [...prev, categoryName])
+          setFormData(prev => ({ ...prev, category: categoryName }))
+          toast.success("New category added successfully!")
+        } catch (error) {
+          console.error("Failed to create supplier category:", error)
+          toast.error("Failed to create new category. Please try again.")
+        }
       } else {
         toast.error("Category already exists")
       }

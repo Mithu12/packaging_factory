@@ -1,5 +1,6 @@
 // Main API service that combines all modules
 export { SupplierApi } from './supplier-api';
+export { default as SupplierCategoryApi } from './supplier-category-api';
 export { CategoryApi } from './category-api';
 export { BrandApi } from './brand-api';
 export { OriginApi } from './origin-api';
@@ -16,6 +17,7 @@ export { makeRequest } from './api-utils';
 
 // Legacy ApiService class for backward compatibility
 import { SupplierApi } from './supplier-api';
+import SupplierCategoryApi from './supplier-category-api';
 import { CategoryApi } from './category-api';
 import { BrandApi } from './brand-api';
 import { OriginApi } from './origin-api';
@@ -56,7 +58,28 @@ export class ApiService {
   }
 
   static async getSupplierCategories() {
-    return SupplierApi.getSupplierCategories();
+    return SupplierCategoryApi.getSupplierCategoryNames();
+  }
+
+  // Supplier Category methods
+  static async getSupplierCategoryList(params?: any) {
+    return SupplierCategoryApi.getSupplierCategories(params);
+  }
+
+  static async getSupplierCategory(id: number) {
+    return SupplierCategoryApi.getSupplierCategory(id);
+  }
+
+  static async createSupplierCategory(data: any) {
+    return SupplierCategoryApi.createSupplierCategory(data);
+  }
+
+  static async updateSupplierCategory(id: number, data: any) {
+    return SupplierCategoryApi.updateSupplierCategory(id, data);
+  }
+
+  static async deleteSupplierCategory(id: number) {
+    return SupplierCategoryApi.deleteSupplierCategory(id);
   }
 
   static async searchSuppliers(query: string, limit = 10) {
