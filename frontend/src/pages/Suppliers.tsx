@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { AddSupplierForm } from "@/components/forms/AddSupplierForm"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Plus,
   Search,
   Filter,
@@ -14,7 +21,11 @@ import {
   Mail,
   MapPin,
   MessageCircle,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react"
 import { ApiService, Supplier, SupplierStats, ApiError } from "@/services/api"
 import { toast } from "@/components/ui/sonner"
@@ -40,6 +51,17 @@ export default function Suppliers() {
   const [stats, setStats] = useState<SupplierStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Pagination and filtering state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalSuppliers, setTotalSuppliers] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [selectedCategory, setSelectedCategory] = useState<string>("all-categories")
+  const [selectedStatus, setSelectedStatus] = useState<string>("all-status")
+  const [sortBy, setSortBy] = useState<string>("created_at")
+  const [sortOrder, setSortOrder] = useState<string>("desc")
+  const [supplierCategories, setSupplierCategories] = useState<string[]>([])
 
   // Load suppliers and stats
   const loadData = async () => {
@@ -47,13 +69,27 @@ export default function Suppliers() {
       setLoading(true)
       setError(null)
 
-      const [suppliersData, statsData] = await Promise.all([
-        ApiService.getSuppliers({ limit: 50 }),
-        ApiService.getSupplierStats()
+      const params = {
+        page: currentPage,
+        limit: pageSize,
+        search: searchTerm || undefined,
+        category: selectedCategory && selectedCategory !== "all-categories" ? selectedCategory : undefined,
+        status: selectedStatus && selectedStatus !== "all-status" ? selectedStatus : undefined,
+        sortBy,
+        sortOrder
+      }
+
+      const [suppliersData, statsData, categoriesData] = await Promise.all([
+        ApiService.getSuppliers(params),
+        ApiService.getSupplierStats(),
+        ApiService.getSupplierCategories()
       ])
 
       setSuppliers(suppliersData.suppliers)
+      setTotalSuppliers(suppliersData.total)
+      setTotalPages(Math.ceil(suppliersData.total / pageSize))
       setStats(statsData)
+      setSupplierCategories(categoriesData.categories)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -73,13 +109,21 @@ export default function Suppliers() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [currentPage, pageSize, searchTerm, selectedCategory, selectedStatus, sortBy, sortOrder])
 
-  const filteredSuppliers = suppliers.filter(supplier =>
-      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (supplier.contact_person && supplier.contact_person.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedCategory, selectedStatus, sortBy, sortOrder])
+
+  // Clear filters function
+  const clearFilters = () => {
+    setSearchTerm("")
+    setSelectedCategory("all-categories")
+    setSelectedStatus("all-status")
+    setSortBy("created_at")
+    setSortOrder("desc")
+  }
 
   const handleSupplierAdded = () => {
     loadData() // Refresh the data
@@ -111,11 +155,6 @@ export default function Suppliers() {
     }
   }
 
-  const getRatingColor = (rating: number) => {
-    if (rating >= 4.5) return "text-success"
-    if (rating >= 4.0) return "text-warning"
-    return "text-destructive"
-  }
 
   return (
       <div className="space-y-6">
@@ -159,24 +198,24 @@ export default function Suppliers() {
           </Card>
           <Card className="bg-gradient-to-br from-card to-accent/10">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Categories</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Inactive Suppliers</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats?.categories_count || 0}
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats?.inactive_suppliers || 0}
               </div>
-              <p className="text-xs text-muted-foreground">Different categories</p>
+              <p className="text-xs text-muted-foreground">Inactive suppliers</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-card to-accent/10">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Rating</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Recent Suppliers</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats?.average_rating.toFixed(1) || '0.0'}
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats?.recent_suppliers?.length || 0}
               </div>
-              <p className="text-xs text-success">Above target</p>
+              <p className="text-xs text-muted-foreground">Added this month</p>
             </CardContent>
           </Card>
         </div>
@@ -184,21 +223,100 @@ export default function Suppliers() {
         {/* Filters and Search */}
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <CardTitle>Supplier Directory</CardTitle>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:flex-initial">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                      placeholder="Search suppliers..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-full sm:w-80"
-                  />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <CardTitle>Supplier Directory</CardTitle>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                        placeholder="Search suppliers..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 w-full sm:w-80"
+                    />
+                  </div>
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
                 </div>
-                <Button variant="outline" size="icon">
-                  <Filter className="h-4 w-4" />
-                </Button>
+              </div>
+              
+              {/* Filter Controls */}
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Category:</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-categories">All Categories</SelectItem>
+                      {supplierCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Status:</label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-status">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Sort by:</label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="created_at">Date Created</SelectItem>
+                      <SelectItem value="rating">Rating</SelectItem>
+                      <SelectItem value="total_orders">Total Orders</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Order:</label>
+                  <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Per page:</label>
+                  <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -210,16 +328,14 @@ export default function Suppliers() {
                   <TableHead>Contact</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Last Order</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Loading suppliers...
@@ -228,7 +344,7 @@ export default function Suppliers() {
                     </TableRow>
                 ) : error ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <div className="text-destructive">
                           {error}
                         </div>
@@ -242,16 +358,16 @@ export default function Suppliers() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                ) : filteredSuppliers.length === 0 ? (
+                ) : suppliers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <div className="text-muted-foreground">
-                          {searchTerm ? 'No suppliers found matching your search.' : 'No suppliers found.'}
+                          {searchTerm || (selectedCategory && selectedCategory !== "all-categories") || (selectedStatus && selectedStatus !== "all-status") ? 'No suppliers found matching your filters.' : 'No suppliers found.'}
                         </div>
                       </TableCell>
                     </TableRow>
                 ) : (
-                    filteredSuppliers.map((supplier) => (
+                    suppliers.map((supplier) => (
                         <TableRow key={supplier.id} className="hover:bg-accent/50">
                           <TableCell>
                             <div className="flex items-center gap-3">
@@ -302,14 +418,8 @@ export default function Suppliers() {
                               {supplier.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                      <span className={`font-medium ${getRatingColor(supplier.rating)}`}>
-                        {supplier.rating}
-                      </span>
-                          </TableCell>
-                          <TableCell>{supplier.total_orders}</TableCell>
                           <TableCell className="text-muted-foreground">
-                            {supplier.last_order_date ? new Date(supplier.last_order_date).toLocaleDateString() : 'Never'}
+                            {supplier.created_at ? new Date(supplier.created_at).toLocaleDateString() : 'N/A'}
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>
@@ -342,6 +452,80 @@ export default function Suppliers() {
                 )}
               </TableBody>
             </Table>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalSuppliers)} of {totalSuppliers} suppliers
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
