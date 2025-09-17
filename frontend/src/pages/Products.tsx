@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { AddProductForm } from "@/components/forms/AddProductForm"
 import { useFormatting } from "@/hooks/useFormatting"
+import { useAuth } from "@/contexts/AuthContext"
+import { hasPermission } from "@/utils/rbac"
+import RoleGuard from "@/components/RoleGuard"
 import { 
   Plus, 
   Search, 
@@ -35,6 +38,7 @@ import {
 export default function Products() {
   const navigate = useNavigate()
   const { formatCurrency, formatNumber, formatDate } = useFormatting()
+  const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
@@ -143,10 +147,12 @@ export default function Products() {
           <h1 className="text-3xl font-bold text-foreground">Products</h1>
           <p className="text-muted-foreground">Manage your product catalog and inventory levels</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowAddForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </Button>
+        <RoleGuard module="products" action="create">
+          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowAddForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
+        </RoleGuard>
       </div>
 
       {/* Stats Cards */}
@@ -306,16 +312,24 @@ export default function Products() {
                             <DropdownMenuItem onClick={() => navigate(`/products/${product.id}`)}>
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>
-                              Edit Product
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/adjust-stock`)}>
-                              Adjust Stock
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>Create PO</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Discontinue
-                            </DropdownMenuItem>
+                            <RoleGuard module="products" action="update">
+                              <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>
+                                Edit Product
+                              </DropdownMenuItem>
+                            </RoleGuard>
+                            <RoleGuard module="products" action="adjust_stock">
+                              <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/adjust-stock`)}>
+                                Adjust Stock
+                              </DropdownMenuItem>
+                            </RoleGuard>
+                            <RoleGuard module="purchase_orders" action="create">
+                              <DropdownMenuItem>Create PO</DropdownMenuItem>
+                            </RoleGuard>
+                            <RoleGuard module="products" action="delete">
+                              <DropdownMenuItem className="text-destructive">
+                                Discontinue
+                              </DropdownMenuItem>
+                            </RoleGuard>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

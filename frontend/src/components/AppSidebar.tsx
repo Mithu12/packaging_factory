@@ -26,19 +26,88 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission, Role } from "@/utils/rbac";
+import RoleGuard from "@/components/RoleGuard";
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: BarChart3 },
-  { title: "POS Manager", url: "/pos-manager", icon: Calculator },
-  { title: "Suppliers", url: "/suppliers", icon: Users },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Categories", url: "/categories", icon: FolderTree },
-  { title: "Brands", url: "/brands", icon: Tag },
-  { title: "Origins", url: "/origins", icon: MapPin },
-  { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
-  { title: "Inventory", url: "/inventory", icon: Truck },
-  { title: "Payments", url: "/payments", icon: DollarSign },
-  { title: "Reports", url: "/reports", icon: FileText },
+  { 
+    title: "Dashboard", 
+    url: "/", 
+    icon: BarChart3, 
+    module: "dashboard", 
+    action: "view" 
+  },
+  { 
+    title: "POS Manager", 
+    url: "/pos-manager", 
+    icon: Calculator, 
+    module: "pos", 
+    action: "view" 
+  },
+  { 
+    title: "Suppliers", 
+    url: "/suppliers", 
+    icon: Users, 
+    module: "suppliers", 
+    action: "view" 
+  },
+  { 
+    title: "Products", 
+    url: "/products", 
+    icon: Package, 
+    module: "products", 
+    action: "view" 
+  },
+  { 
+    title: "Categories", 
+    url: "/categories", 
+    icon: FolderTree, 
+    module: "categories", 
+    action: "view" 
+  },
+  { 
+    title: "Brands", 
+    url: "/brands", 
+    icon: Tag, 
+    module: "brands", 
+    action: "view" 
+  },
+  { 
+    title: "Origins", 
+    url: "/origins", 
+    icon: MapPin, 
+    module: "origins", 
+    action: "view" 
+  },
+  { 
+    title: "Purchase Orders", 
+    url: "/purchase-orders", 
+    icon: ShoppingCart, 
+    module: "purchase_orders", 
+    action: "view" 
+  },
+  { 
+    title: "Inventory", 
+    url: "/inventory", 
+    icon: Truck, 
+    module: "inventory", 
+    action: "view" 
+  },
+  { 
+    title: "Payments", 
+    url: "/payments", 
+    icon: DollarSign, 
+    module: "payments", 
+    action: "view" 
+  },
+  { 
+    title: "Reports", 
+    url: "/reports", 
+    icon: FileText, 
+    module: "reports", 
+    action: "view" 
+  },
 ];
 
 export function AppSidebar() {
@@ -46,6 +115,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
+  const { user } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
@@ -56,6 +126,11 @@ export function AppSidebar() {
     isActive(path)
       ? "bg-primary text-primary-foreground font-medium"
       : "hover:bg-accent hover:text-accent-foreground";
+
+  // Filter menu items based on user permissions
+  const visibleMenuItems = menuItems.filter(item => 
+    hasPermission(user, item.module, item.action)
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -79,7 +154,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={getNavCls(item.url)}>
@@ -96,25 +171,29 @@ export function AppSidebar() {
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink
-                    to="/user-management"
-                    className={getNavCls("/user-management")}
-                  >
-                    <UserCog className="h-4 w-4" />
-                    {!isCollapsed && <span>User Management</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/settings" className={getNavCls("/settings")}>
-                    <Settings className="h-4 w-4" />
-                    {!isCollapsed && <span>Settings</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <RoleGuard module="users" action="view">
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/user-management"
+                      className={getNavCls("/user-management")}
+                    >
+                      <UserCog className="h-4 w-4" />
+                      {!isCollapsed && <span>User Management</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </RoleGuard>
+              <RoleGuard module="settings" action="view">
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/settings" className={getNavCls("/settings")}>
+                      <Settings className="h-4 w-4" />
+                      {!isCollapsed && <span>Settings</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </RoleGuard>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

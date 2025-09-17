@@ -57,7 +57,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="viewer">
               <DashboardLayout>
                 <Dashboard />
               </DashboardLayout>
@@ -67,7 +67,7 @@ const App = () => {
           <Route
             path="/pos-manager"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="employee">
                 <DashboardLayout>
                   <POSManager />
                 </DashboardLayout>
@@ -77,7 +77,7 @@ const App = () => {
           <Route
             path="/categories"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="viewer">
                 <DashboardLayout>
                   <Categories />
                 </DashboardLayout>
@@ -87,7 +87,7 @@ const App = () => {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="viewer">
                 <DashboardLayout>
                   <Profile />
                 </DashboardLayout>
@@ -97,213 +97,261 @@ const App = () => {
           <Route
             path="/suppliers"
             element={
-              <DashboardLayout>
-                <Suppliers />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Suppliers />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/suppliers/:id"
             element={
-              <DashboardLayout>
-                <SupplierDetails />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <SupplierDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/suppliers/:id/edit"
             element={
-              <DashboardLayout>
-                <EditSupplier />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <EditSupplier />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/suppliers/:id/orders"
             element={
-              <DashboardLayout>
-                <SupplierOrders />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <SupplierOrders />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/products"
             element={
-              <DashboardLayout>
-                <Products />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Products />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/products/:id"
             element={
-              <DashboardLayout>
-                <ProductDetails />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <ProductDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/products/:id/edit"
             element={
-              <DashboardLayout>
-                <EditProduct />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <EditProduct />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/products/:id/adjust-stock"
             element={
-              <DashboardLayout>
-                <AdjustStock />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <AdjustStock />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/purchase-orders"
             element={
-              <DashboardLayout>
-                <PurchaseOrders />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <PurchaseOrders />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/purchase-orders/:id"
             element={
-              <DashboardLayout>
-                <PurchaseOrderDetails />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <PurchaseOrderDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/purchase-orders/:id/edit"
             element={
-              <DashboardLayout>
-                <EditPurchaseOrder />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <EditPurchaseOrder />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/purchase-orders/:id/receive"
             element={
-              <DashboardLayout>
-                <ReceiveGoods />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="employee">
+                <DashboardLayout>
+                  <ReceiveGoods />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/inventory"
             element={
-              <DashboardLayout>
-                <Inventory />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Inventory />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/inventory/:id"
             element={
-              <DashboardLayout>
-                <InventoryDetails />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <InventoryDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/inventory/:id/edit"
             element={
-              <DashboardLayout>
-                <EditInventory />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <EditInventory />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/inventory/:id/adjust"
             element={
-              <DashboardLayout>
-                <AdjustStock />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <AdjustStock />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/payments"
             element={
-              <DashboardLayout>
-                <Payments />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Payments />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/view-invoice/:invoiceId"
             element={
-              <DashboardLayout>
-                <ViewInvoice />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <ViewInvoice />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/payment-history/:supplierId?"
             element={
-              <DashboardLayout>
-                <PaymentHistory />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <PaymentHistory />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/send-reminder/:invoiceId"
             element={
-              <DashboardLayout>
-                <SendReminder />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <SendReminder />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/generate-statement/:supplierId?"
             element={
-              <DashboardLayout>
-                <GenerateStatement />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <GenerateStatement />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/reports"
             element={
-              <DashboardLayout>
-                <Reports />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Reports />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/settings"
             element={
-              <DashboardLayout>
-                <Settings />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Settings />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/user-management"
             element={
-              <ProtectedRoute>
-                <AdminRoute>
-                  <DashboardLayout>
-                    <UserManagement />
-                  </DashboardLayout>
-                </AdminRoute>
+              <ProtectedRoute requiredRole="admin">
+                <DashboardLayout>
+                  <UserManagement />
+                </DashboardLayout>
               </ProtectedRoute>
             }
           />
           <Route
             path="/brands"
             element={
-              <DashboardLayout>
-                <Brands />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Brands />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/origins"
             element={
-              <DashboardLayout>
-                <Origins />
-              </DashboardLayout>
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Origins />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

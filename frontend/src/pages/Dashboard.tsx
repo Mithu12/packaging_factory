@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/sonner"
 import { useNavigate } from "react-router-dom"
 import { useFormatting } from "@/hooks/useFormatting"
+import { useAuth } from "@/contexts/AuthContext"
+import { hasPermission } from "@/utils/rbac"
+import RoleGuard from "@/components/RoleGuard"
 import { 
   ShoppingCart, 
   Package, 
@@ -17,6 +20,7 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { formatCurrency, formatNumber } = useFormatting()
+  const { user } = useAuth()
 
   const stats = [
     {
@@ -119,30 +123,38 @@ export default function Dashboard() {
           </Button>
           <div className="absolute right-0 top-full mt-2 w-48 bg-popover border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
             <div className="p-2 space-y-1">
-              <button 
-                onClick={() => handleQuickAction("create-po")}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
-              >
-                Create Purchase Order
-              </button>
-              <button 
-                onClick={() => handleQuickAction("add-product")}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
-              >
-                Add Product
-              </button>
-              <button 
-                onClick={() => handleQuickAction("add-supplier")}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
-              >
-                Add Supplier
-              </button>
-              <button 
-                onClick={() => handleQuickAction("record-payment")}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
-              >
-                Record Payment
-              </button>
+              <RoleGuard module="purchase_orders" action="create">
+                <button 
+                  onClick={() => handleQuickAction("create-po")}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
+                >
+                  Create Purchase Order
+                </button>
+              </RoleGuard>
+              <RoleGuard module="products" action="create">
+                <button 
+                  onClick={() => handleQuickAction("add-product")}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
+                >
+                  Add Product
+                </button>
+              </RoleGuard>
+              <RoleGuard module="suppliers" action="create">
+                <button 
+                  onClick={() => handleQuickAction("add-supplier")}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
+                >
+                  Add Supplier
+                </button>
+              </RoleGuard>
+              <RoleGuard module="payments" action="create">
+                <button 
+                  onClick={() => handleQuickAction("record-payment")}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-md transition-colors"
+                >
+                  Record Payment
+                </button>
+              </RoleGuard>
             </div>
           </div>
         </div>
