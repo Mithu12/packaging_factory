@@ -708,6 +708,12 @@ const createTables = async () => {
     await addPOSTables();
     await addSequences();
     MyLogger.success('POS tables and sequences added');
+
+    // Add WhatsApp field to suppliers
+    MyLogger.info('Adding WhatsApp field to suppliers');
+    const { addWhatsAppToSuppliers } = await import('./add-whatsapp-to-suppliers');
+    await addWhatsAppToSuppliers();
+    MyLogger.success('WhatsApp field added to suppliers');
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

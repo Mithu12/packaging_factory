@@ -13,8 +13,11 @@ export const createSupplierSchema = Joi.object({
   phone: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).optional().messages({
     'string.pattern.base': 'Please provide a valid phone number'
   }),
-  email: Joi.string().email().optional().messages({
+  email: Joi.string().email().optional().allow('').messages({
     'string.email': 'Please provide a valid email address'
+  }),
+  whatsapp_number: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).optional().allow('').messages({
+    'string.pattern.base': 'Please provide a valid WhatsApp number'
   }),
   website: Joi.string().uri().optional().messages({
     'string.uri': 'Please provide a valid website URL'
@@ -81,8 +84,11 @@ export const updateSupplierSchema = Joi.object({
   phone: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).optional().messages({
     'string.pattern.base': 'Please provide a valid phone number'
   }),
-  email: Joi.string().email().optional().messages({
+  email: Joi.string().email().optional().allow('').messages({
     'string.email': 'Please provide a valid email address'
+  }),
+  whatsapp_number: Joi.string().pattern(/^[\+]?[1-9][\d]{0,15}$/).optional().allow('').messages({
+    'string.pattern.base': 'Please provide a valid WhatsApp number'
   }),
   website: Joi.string().uri().optional().messages({
     'string.uri': 'Please provide a valid website URL'

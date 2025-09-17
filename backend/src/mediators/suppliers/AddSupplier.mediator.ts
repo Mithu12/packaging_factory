@@ -36,6 +36,7 @@ class AddSupplierMediator {
                 contact_person,
                 phone,
                 email,
+                whatsapp_number,
                 website,
                 address,
                 city,
@@ -57,17 +58,17 @@ class AddSupplierMediator {
             const supplierCode = await this.generateSupplierCode();
 
             const query = `
-                INSERT INTO suppliers (supplier_code, name, contact_person, phone, email, website,
+                INSERT INTO suppliers (supplier_code, name, contact_person, phone, email, whatsapp_number, website,
                                        address, city, state, zip_code, country, category, tax_id, vat_id,
                                        payment_terms, bank_name, bank_account, bank_routing, swift_code, iban,
                                        status, notes)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
-                        $22)
+                        $22, $23)
                 RETURNING *
             `;
 
             const values = [
-                supplierCode, name, contact_person, phone, email,
+                supplierCode, name, contact_person, phone, email, whatsapp_number,
                 website, address, city, state, zip_code,
                 country, category, tax_id, vat_id, payment_terms,
                 bank_name, bank_account, bank_routing, swift_code,

@@ -33,6 +33,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     contactPerson: "",
     phone: "",
     email: "",
+    whatsappNumber: "",
     address: "",
     city: "",
     state: "",
@@ -56,6 +57,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         contact_person: formData.contactPerson || undefined,
         phone: formData.phone || undefined,
         email: formData.email || undefined,
+        whatsapp_number: formData.whatsappNumber || undefined,
         website: undefined, // Not in current form
         address: formData.address || undefined,
         city: formData.city || undefined,
@@ -81,6 +83,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         contactPerson: "",
         phone: "",
         email: "",
+        whatsappNumber: "",
         address: "",
         city: "",
         state: "",
@@ -161,14 +164,25 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address *</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     placeholder="contact@company.com"
-                    required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="whatsappNumber">WhatsApp Number</Label>
+                <Input
+                    id="whatsappNumber"
+                    value={formData.whatsappNumber}
+                    onChange={(e) => handleInputChange("whatsappNumber", e.target.value)}
+                    placeholder="+1 (555) 123-4567"
                 />
               </div>
             </div>

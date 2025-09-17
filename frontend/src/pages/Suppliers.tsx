@@ -13,6 +13,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  MessageCircle,
   Loader2
 } from "lucide-react"
 import { ApiService, Supplier, SupplierStats, ApiError } from "@/services/api"
@@ -275,6 +276,12 @@ export default function Suppliers() {
                                   <div className="flex items-center gap-2 text-sm">
                                     <Mail className="w-3 h-3" />
                                     {supplier.email}
+                                  </div>
+                              )}
+                              {supplier.whatsapp_number && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <MessageCircle className="w-3 h-3" />
+                                    {supplier.whatsapp_number}
                                   </div>
                               )}
                               {supplier.address && (

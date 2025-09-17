@@ -5,6 +5,7 @@ export interface Supplier {
   contact_person?: string;
   phone?: string;
   email?: string;
+  whatsapp_number?: string;
   website?: string;
   address?: string;
   city?: string;
@@ -48,6 +49,7 @@ export interface CreateSupplierRequest {
   contact_person?: string;
   phone?: string;
   email?: string;
+  whatsapp_number?: string;
   website?: string;
   address?: string;
   city?: string;
