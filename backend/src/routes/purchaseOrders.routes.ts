@@ -11,6 +11,7 @@ import { serializeSuccessResponse } from "@/utils/responseHelper";
 import AddPurchaseOrderMediator from "@/mediators/purchaseOrders/AddPurchaseOrder.mediator";
 import UpdatePurchaseOrderInfoMediator from "@/mediators/purchaseOrders/UpdatePurchaseOrderInfo.mediator";
 import DeletePurchaseOrderMediator from "@/mediators/purchaseOrders/DeletePurchaseOrder.mediator";
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { PDFGenerator } from "@/services/pdf-generator";
@@ -69,19 +70,29 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/purchase-orders - Get all purchase orders with pagination and filtering
-router.get('/', validateQuery(purchaseOrderQuerySchema), expressAsyncHandler(async (req, res) => {
+router.get('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view purchase orders
+  validateQuery(purchaseOrderQuerySchema), 
+  expressAsyncHandler(async (req, res) => {
     const result = await GetPurchaseOrderInfoMediator.getPurchaseOrderList(req.query);
     serializeSuccessResponse(res, result, 'SUCCESS')
 }));
 
 // GET /api/purchase-orders/stats - Get purchase order statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can view purchase order statistics
+  expressAsyncHandler(async (req, res, next) => {
     const stats = await GetPurchaseOrderInfoMediator.getPurchaseOrderStats();
     serializeSuccessResponse(res, stats, 'SUCCESS')
 }));
 
 // GET /api/purchase-orders/search - Search purchase orders
-router.get('/search', expressAsyncHandler(async (req, res, next) => {
+router.get('/search', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can search purchase orders
+  expressAsyncHandler(async (req, res, next) => {
     const { q, limit } = req.query;
     const purchaseOrders = await GetPurchaseOrderInfoMediator.searchPurchaseOrders(
         q as string,
@@ -91,7 +102,10 @@ router.get('/search', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/purchase-orders/:id - Get purchase order by ID
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view purchase order details
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')
@@ -101,13 +115,21 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/purchase-orders - Create new purchase order
-router.post('/', validateRequest(createPurchaseOrderSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can create purchase orders
+  validateRequest(createPurchaseOrderSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     const purchaseOrder = await AddPurchaseOrderMediator.createPurchaseOrder(req.body);
     serializeSuccessResponse(res, purchaseOrder, 'SUCCESS')
 }));
 
 // PUT /api/purchase-orders/:id - Update purchase order
-router.put('/:id', validateRequest(updatePurchaseOrderSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can update purchase orders
+  validateRequest(updatePurchaseOrderSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')
@@ -127,7 +149,11 @@ router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), ex
 }));
 
 // POST /api/purchase-orders/:id/receive - Receive goods for purchase order
-router.post('/:id/receive', validateRequest(receiveGoodsSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/:id/receive', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can receive goods
+  validateRequest(receiveGoodsSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')
@@ -137,7 +163,10 @@ router.post('/:id/receive', validateRequest(receiveGoodsSchema), expressAsyncHan
 }));
 
 // DELETE /api/purchase-orders/:id - Delete purchase order
-router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  adminOnly, // Only admins can delete purchase orders
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')
@@ -158,7 +187,10 @@ router.patch('/:id/cancel', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/purchase-orders/:id/pdf - Download purchase order as PDF
-router.get('/:id/pdf', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id/pdf', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can generate purchase order PDFs
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/purchase-orders/:id/pdf'
     try {
         const id = parseInt(req.params.id);

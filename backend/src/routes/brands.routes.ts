@@ -3,13 +3,14 @@ import expressAsyncHandler from 'express-async-handler';
 import { BrandMediator } from '@/mediators/brands/BrandMediator';
 import { validateCreateBrand, validateUpdateBrand } from '@/validation/brandValidation';
 import { validateRequest } from '@/middleware/validation';
-import { authenticate, managerAndAbove } from '@/middleware/auth';
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
 
 const router = express.Router();
 
 // Get all brands
 router.get('/',
   authenticate,
+  employeeAndAbove, // Employees and above can view brands
   expressAsyncHandler(async (req, res, next) => {
     const brands = await BrandMediator.getAllBrands();
     res.json({
@@ -23,6 +24,7 @@ router.get('/',
 // Get brand by ID
 router.get('/:id',
   authenticate,
+  employeeAndAbove, // Employees and above can view brand details
   expressAsyncHandler(async (req, res, next) => {
     const brandId = parseInt(req.params.id);
     if (isNaN(brandId)) {
@@ -82,7 +84,7 @@ router.put('/:id',
 // Delete brand (soft delete)
 router.delete('/:id',
   authenticate,
-  managerAndAbove,
+  adminOnly, // Only admins can delete brands
   expressAsyncHandler(async (req, res, next) => {
     const brandId = parseInt(req.params.id);
     if (isNaN(brandId)) {
@@ -103,6 +105,7 @@ router.delete('/:id',
 // Get brands by status
 router.get('/status/:status',
   authenticate,
+  employeeAndAbove, // Employees and above can view brands by status
   expressAsyncHandler(async (req, res, next) => {
     const status = req.params.status as 'active' | 'inactive';
     if (!['active', 'inactive'].includes(status)) {

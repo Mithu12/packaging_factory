@@ -12,6 +12,7 @@ import {serializeSuccessResponse} from "@/utils/responseHelper";
 import AddCategoryMediator from "@/mediators/categories/AddCategory.mediator";
 import UpdateCategoryInfoMediator from "@/mediators/categories/UpdateCategoryInfo.mediator";
 import DeleteCategoryMediator from "@/mediators/categories/DeleteCategory.mediator";
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
 
@@ -71,7 +72,11 @@ const validateQuery = (schema: any) => {
 // ===== CATEGORY ROUTES =====
 
 // GET /api/categories - Get all categories with pagination and filtering
-router.get('/', validateQuery(getCategoriesQuerySchema), expressAsyncHandler(async (req, res) => {
+router.get('/', 
+  authenticate, 
+  employeeAndAbove, // Employees and above can view categories
+  validateQuery(getCategoriesQuerySchema), 
+  expressAsyncHandler(async (req, res) => {
     let action = 'GET /api/categories'
     try {
         MyLogger.info(action, { query: req.query })
@@ -85,7 +90,10 @@ router.get('/', validateQuery(getCategoriesQuerySchema), expressAsyncHandler(asy
 }));
 
 // GET /api/categories/stats - Get category statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can view category statistics
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/categories/stats'
     try {
         MyLogger.info(action)
@@ -179,7 +187,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/categories - Create new category
-router.post('/', validateRequest(createCategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can create categories
+  validateRequest(createCategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/categories'
     try {
         MyLogger.info(action, { categoryName: req.body.name })
@@ -193,7 +205,11 @@ router.post('/', validateRequest(createCategorySchema), expressAsyncHandler(asyn
 }));
 
 // PUT /api/categories/:id - Update category
-router.put('/:id', validateRequest(updateCategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can update categories
+  validateRequest(updateCategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/categories/:id'
     try {
         const id = parseInt(req.params.id);
@@ -208,7 +224,10 @@ router.put('/:id', validateRequest(updateCategorySchema), expressAsyncHandler(as
 }));
 
 // DELETE /api/categories/:id - Delete category
-router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  adminOnly, // Only admins can delete categories
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/categories/:id'
     try {
         const id = parseInt(req.params.id);
@@ -241,7 +260,11 @@ router.get('/:categoryId/subcategories', validateQuery(getSubcategoriesQuerySche
 }));
 
 // POST /api/subcategories - Create new subcategory
-router.post('/subcategories', validateRequest(createSubcategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/subcategories', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can create subcategories
+  validateRequest(createSubcategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/subcategories'
     try {
         MyLogger.info(action, { subcategoryName: req.body.name, categoryId: req.body.category_id })
@@ -255,7 +278,11 @@ router.post('/subcategories', validateRequest(createSubcategorySchema), expressA
 }));
 
 // PUT /api/subcategories/:id - Update subcategory
-router.put('/subcategories/:id', validateRequest(updateSubcategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/subcategories/:id', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can update subcategories
+  validateRequest(updateSubcategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/subcategories/:id'
     try {
         const id = parseInt(req.params.id);
@@ -270,7 +297,10 @@ router.put('/subcategories/:id', validateRequest(updateSubcategorySchema), expre
 }));
 
 // DELETE /api/subcategories/:id - Delete subcategory
-router.delete('/subcategories/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/subcategories/:id', 
+  authenticate, 
+  adminOnly, // Only admins can delete subcategories
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/subcategories/:id'
     try {
         const id = parseInt(req.params.id);

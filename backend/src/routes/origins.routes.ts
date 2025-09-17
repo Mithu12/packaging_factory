@@ -3,7 +3,7 @@ import expressAsyncHandler from 'express-async-handler';
 import { OriginMediator } from '@/mediators/origins/OriginMediator';
 import { validateCreateOrigin, validateUpdateOrigin } from '@/validation/originValidation';
 import { validateRequest } from '@/middleware/validation';
-import { authenticate, managerAndAbove } from '@/middleware/auth';
+import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
 
@@ -12,6 +12,7 @@ const router = express.Router();
 // Get all origins
 router.get('/',
   authenticate,
+  employeeAndAbove, // Employees and above can view origins
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/origins';
     try {
@@ -29,6 +30,7 @@ router.get('/',
 // Get origin by ID
 router.get('/:id',
   authenticate,
+  employeeAndAbove, // Employees and above can view origin details
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/origins/:id';
     try {
@@ -106,7 +108,7 @@ router.put('/:id',
 // Delete origin (soft delete)
 router.delete('/:id',
   authenticate,
-  managerAndAbove,
+  adminOnly, // Only admins can delete origins
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/origins/:id';
     try {
@@ -133,6 +135,7 @@ router.delete('/:id',
 // Get origins by status
 router.get('/status/:status',
   authenticate,
+  employeeAndAbove, // Employees and above can view origins by status
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/origins/status/:status';
     try {
@@ -159,6 +162,7 @@ router.get('/status/:status',
 // Get origin statistics
 router.get('/stats',
   authenticate,
+  managerAndAbove, // Only managers and above can view origin statistics
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/origins/stats';
     try {
