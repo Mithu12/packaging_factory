@@ -14,7 +14,8 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
-  Loader2
+  Loader2,
+  MessageCircle
 } from "lucide-react"
 import { ApiService, Supplier, ApiError } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
@@ -214,29 +215,6 @@ export default function SupplierDetails() {
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the supplier
-                  "{supplier.name}" and remove all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </div>
 
@@ -275,6 +253,12 @@ export default function SupplierDetails() {
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm">{supplier.phone}</span>
+                  </div>
+                )}
+                {supplier.whatsapp_number && (
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{supplier.whatsapp_number}</span>
                   </div>
                 )}
                 {supplier.email && (

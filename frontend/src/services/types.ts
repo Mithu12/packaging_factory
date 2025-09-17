@@ -49,22 +49,7 @@ export interface CreateSupplierRequest {
   email?: string;
   phone?: string;
   whatsapp_number?: string;
-  category?: string;
-  address: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  tax_id?: string;
-  payment_terms?: string;
-}
-
-export interface UpdateSupplierRequest {
-  name?: string;
-  contact_person?: string;
-  email?: string;
-  phone?: string;
-  whatsapp_number?: string;
+  website?: string;
   category?: string;
   address?: string;
   city?: string;
@@ -72,6 +57,7 @@ export interface UpdateSupplierRequest {
   zip_code?: string;
   country?: string;
   tax_id?: string;
+  vat_id?: string;
   payment_terms?: string;
   bank_name?: string;
   bank_account?: string;
@@ -80,6 +66,34 @@ export interface UpdateSupplierRequest {
   iban?: string;
   notes?: string;
   status?: 'active' | 'inactive';
+}
+
+export interface UpdateSupplierRequest {
+  name?: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  whatsapp_number?: string;
+  website?: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  tax_id?: string;
+  vat_id?: string;
+  payment_terms?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_routing?: string;
+  swift_code?: string;
+  iban?: string;
+  notes?: string;
+  status?: 'active' | 'inactive';
+  rating?: number;
+  total_orders?: number;
+  last_order_date?: string;
 }
 
 export interface SupplierQueryParams {

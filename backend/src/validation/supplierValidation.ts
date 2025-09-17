@@ -96,43 +96,43 @@ export const updateSupplierSchema = Joi.object({
   address: Joi.string().max(500).optional().messages({
     'string.max': 'Address cannot exceed 500 characters'
   }),
-  city: Joi.string().max(100).optional().messages({
+  city: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'City name cannot exceed 100 characters'
   }),
-  state: Joi.string().max(100).optional().messages({
+  state: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'State name cannot exceed 100 characters'
   }),
-  zip_code: Joi.string().max(20).optional().messages({
+  zip_code: Joi.string().max(20).optional().allow('').messages({
     'string.max': 'ZIP code cannot exceed 20 characters'
   }),
-  country: Joi.string().max(100).optional().messages({
+  country: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'Country name cannot exceed 100 characters'
   }),
   category: Joi.string().max(100).optional().messages({
     'string.max': 'Category cannot exceed 100 characters'
   }),
-  tax_id: Joi.string().max(100).optional().messages({
+  tax_id: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'Tax ID cannot exceed 100 characters'
   }),
-  vat_id: Joi.string().max(100).optional().messages({
+  vat_id: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'VAT ID cannot exceed 100 characters'
   }),
   payment_terms: Joi.string().valid('net-15', 'net-30', 'net-45', 'net-60', 'cod', 'prepaid').optional().messages({
     'any.only': 'Payment terms must be one of: net-15, net-30, net-45, net-60, cod, prepaid'
   }),
-  bank_name: Joi.string().max(255).optional().messages({
+  bank_name: Joi.string().max(255).optional().allow('').messages({
     'string.max': 'Bank name cannot exceed 255 characters'
   }),
-  bank_account: Joi.string().max(100).optional().messages({
+  bank_account: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'Bank account cannot exceed 100 characters'
   }),
-  bank_routing: Joi.string().max(100).optional().messages({
+  bank_routing: Joi.string().max(100).optional().allow('').messages({
     'string.max': 'Bank routing cannot exceed 100 characters'
   }),
-  swift_code: Joi.string().max(20).optional().messages({
+  swift_code: Joi.string().max(20).optional().allow('').messages({
     'string.max': 'SWIFT code cannot exceed 20 characters'
   }),
-  iban: Joi.string().max(50).optional().messages({
+  iban: Joi.string().max(50).optional().allow('').messages({
     'string.max': 'IBAN cannot exceed 50 characters'
   }),
   status: Joi.string().valid('active', 'inactive').optional().messages({
@@ -150,7 +150,7 @@ export const updateSupplierSchema = Joi.object({
   last_order_date: Joi.date().iso().optional().messages({
     'date.format': 'Last order date must be a valid date'
   }),
-  notes: Joi.string().max(1000).optional().messages({
+  notes: Joi.string().max(1000).optional().allow('').messages({
     'string.max': 'Notes cannot exceed 1000 characters'
   })
 });

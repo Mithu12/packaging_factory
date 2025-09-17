@@ -61,6 +61,7 @@ class UpdateSupplierInfoMediator {
                 iban,
                 status,
                 notes,
+                whatsapp_number
             } = data
 
             const query = {
@@ -86,7 +87,8 @@ class UpdateSupplierInfoMediator {
                         swift_code     = $19,
                         iban           = $20,
                         status         = $21,
-                        notes          = $22
+                        notes          = $22,
+                        whatsapp_number = $23
                     WHERE id = $1
                     RETURNING *
                 `,
@@ -113,6 +115,7 @@ class UpdateSupplierInfoMediator {
                     iban,
                     status,
                     notes,
+                    whatsapp_number
                 ]
             }
 
