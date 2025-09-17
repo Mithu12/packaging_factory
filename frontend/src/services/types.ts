@@ -62,16 +62,24 @@ export interface CreateSupplierRequest {
 export interface UpdateSupplierRequest {
   name?: string;
   contact_person?: string;
-  email: string;
-  phone: string;
-  category: string;
-  address: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  tax_id: string;
-  payment_terms: string;
+  email?: string;
+  phone?: string;
+  whatsapp_number?: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  tax_id?: string;
+  payment_terms?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_routing?: string;
+  swift_code?: string;
+  iban?: string;
+  notes?: string;
+  status?: 'active' | 'inactive';
 }
 
 export interface SupplierQueryParams {
