@@ -22,8 +22,9 @@ import { toast } from "@/components/ui/sonner"
 import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError, Origin } from "@/services/api"
 import { Brand } from "@/services/brand-api"
 import { ProductApi } from "@/services/product-api"
-import { Upload, X, Image } from "lucide-react";
+import { Upload, X, Image, RefreshCw } from "lucide-react";
 import {Card, CardContent} from "@/components/ui/card";
+import { generateSKU, generateSimpleSKU } from "@/utils/sku-generator";
 
 interface AddProductFormProps {
   open: boolean;
@@ -148,6 +149,15 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
   const handleCategoryChange = async (categoryId: string) => {
     setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
 
+    // Regenerate SKU if product name exists
+    if (formData.name.trim()) {
+      const categoryName = categories.find(cat => cat.id.toString() === categoryId)?.name;
+      const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
+      
+      const generatedSKU = generateSKU(formData.name, categoryName, brandName);
+      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+    }
+
     if (categoryId) {
       try {
         const subcategoriesData = await ApiService.getSubcategories({
@@ -223,6 +233,7 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         category_id: "",
         subcategory_id: "",
         brand_id: "",
+        origin_id: "",
         unit_of_measure: "pcs",
         cost_price: "",
         selling_price: "",
@@ -261,6 +272,38 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
   const handleInputChange = (field: keyof ProductFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // Auto-generate SKU when product name changes
+    if (field === 'name' && value.trim()) {
+      const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
+      const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
+      
+      const generatedSKU = generateSKU(value, categoryName, brandName);
+      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+    }
+    
+    // Regenerate SKU when brand changes (if product name exists)
+    if (field === 'brand_id' && formData.name.trim()) {
+      const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
+      const brandName = brands.find(brand => brand.id.toString() === value)?.name;
+      
+      const generatedSKU = generateSKU(formData.name, categoryName, brandName);
+      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+    }
+  }
+
+  const generateSKUFromName = () => {
+    if (!formData.name.trim()) {
+      toast.error("Please enter a product name first");
+      return;
+    }
+    
+    const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
+    const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
+    
+    const generatedSKU = generateSKU(formData.name, categoryName, brandName);
+    setFormData(prev => ({ ...prev, sku: generatedSKU }))
+    toast.success("SKU generated successfully!");
   }
 
   return (
@@ -355,13 +398,25 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
                 <div className="space-y-2">
                   <Label htmlFor="sku">SKU *</Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={(e) => handleInputChange("sku", e.target.value)}
-                    placeholder="e.g., PRD-001"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="sku"
+                      value={formData.sku}
+                      onChange={(e) => handleInputChange("sku", e.target.value)}
+                      placeholder="e.g., PRD-001"
+                      required
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={generateSKUFromName}
+                      title="Generate SKU from product name"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
