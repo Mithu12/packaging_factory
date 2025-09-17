@@ -20,6 +20,8 @@ export interface Product {
   weight?: number;
   dimensions?: string;
   tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
   reorder_point?: number;
   reorder_quantity?: number;
   notes?: string;
@@ -54,6 +56,8 @@ export interface CreateProductRequest {
   weight?: number;
   dimensions?: string;
   tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
   reorder_point?: number;
   reorder_quantity?: number;
   notes?: string;

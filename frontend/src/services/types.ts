@@ -258,6 +258,8 @@ export interface CreateProductRequest {
   weight?: number;
   dimensions?: string;
   tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
   notes?: string;
   image_url?: string;
 }

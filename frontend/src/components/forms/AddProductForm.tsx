@@ -25,6 +25,7 @@ import { ProductApi } from "@/services/product-api"
 import { Upload, X, Image, RefreshCw } from "lucide-react";
 import {Card, CardContent} from "@/components/ui/card";
 import { generateSKU, generateSimpleSKU } from "@/utils/sku-generator";
+import { generateBarcode, generateBarcodeFromSKU } from "@/utils/barcode-generator";
 
 interface AddProductFormProps {
   open: boolean;
@@ -53,6 +54,8 @@ interface ProductFormData {
   weight: string
   dimensions: string
   tax_rate: string
+  warranty_period: string
+  service_time: string
   notes: string
 }
 
@@ -78,6 +81,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     weight: "",
     dimensions: "",
     tax_rate: "",
+    warranty_period: "",
+    service_time: "",
     notes: ""
   })
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -212,6 +217,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
+        warranty_period: formData.warranty_period ? parseInt(formData.warranty_period) : undefined,
+        service_time: formData.service_time ? parseInt(formData.service_time) : undefined,
         notes: formData.notes || undefined
       }
 
@@ -248,6 +255,8 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         weight: "",
         dimensions: "",
         tax_rate: "",
+        warranty_period: "",
+        service_time: "",
         notes: ""
       })
         setSelectedImage(null);
@@ -304,6 +313,23 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     const generatedSKU = generateSKU(formData.name, categoryName, brandName);
     setFormData(prev => ({ ...prev, sku: generatedSKU }))
     toast.success("SKU generated successfully!");
+  }
+
+  const generateBarcodeFromSKUHandler = () => {
+    if (!formData.sku.trim()) {
+      toast.error("Please enter or generate a SKU first");
+      return;
+    }
+    
+    const generatedBarcode = generateBarcodeFromSKU(formData.sku);
+    setFormData(prev => ({ ...prev, barcode: generatedBarcode }))
+    toast.success("Barcode generated successfully!");
+  }
+
+  const generateRandomBarcode = () => {
+    const generatedBarcode = generateBarcode();
+    setFormData(prev => ({ ...prev, barcode: generatedBarcode }))
+    toast.success("Random barcode generated successfully!");
   }
 
   return (
@@ -600,12 +626,34 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
 
             <div className="space-y-2">
               <Label htmlFor="barcode">Barcode</Label>
-              <Input
-                id="barcode"
-                value={formData.barcode}
-                onChange={(e) => handleInputChange("barcode", e.target.value)}
-                placeholder="Enter barcode"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="barcode"
+                  value={formData.barcode}
+                  onChange={(e) => handleInputChange("barcode", e.target.value)}
+                  placeholder="Enter barcode"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateBarcodeFromSKUHandler}
+                  disabled={!formData.sku.trim()}
+                  title="Generate barcode from SKU"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateRandomBarcode}
+                  title="Generate random barcode"
+                >
+                  🎲
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -656,6 +704,30 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 value={formData.tax_rate}
                 onChange={(e) => handleInputChange("tax_rate", e.target.value)}
                 placeholder="0.00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="warrantyPeriod">Warranty Period (months)</Label>
+              <Input
+                id="warrantyPeriod"
+                type="number"
+                min="0"
+                value={formData.warranty_period}
+                onChange={(e) => handleInputChange("warranty_period", e.target.value)}
+                placeholder="e.g., 12"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="serviceTime">Service Reminder Interval (months)</Label>
+              <Input
+                id="serviceTime"
+                type="number"
+                min="0"
+                value={formData.service_time}
+                onChange={(e) => handleInputChange("service_time", e.target.value)}
+                placeholder="e.g., 6"
               />
             </div>
           </div>
