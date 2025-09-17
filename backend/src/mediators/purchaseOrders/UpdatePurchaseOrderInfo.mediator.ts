@@ -375,7 +375,7 @@ class UpdatePurchaseOrderInfoMediator {
             // Update line items
             for (const receivedItem of data.line_items) {
                 const lineItemQuery = `
-                    SELECT id, quantity, received_quantity, pending_quantity
+                    SELECT id, product_id, quantity, received_quantity, pending_quantity
                     FROM purchase_order_line_items
                     WHERE id = $1 AND purchase_order_id = $2
                 `;
@@ -461,6 +461,49 @@ class UpdatePurchaseOrderInfoMediator {
                     expectedReceivedQuantity: receivedQtyStr,
                     expectedPendingQuantity: pendingQtyStr
                 });
+
+                // Update product stock - INCREASE stock when goods are received
+                MyLogger.info('Updating product stock for received goods', {
+                    lineItemId: receivedItem.line_item_id,
+                    productId: lineItem.product_id,
+                    receivedQuantity: receivedItem.received_quantity
+                });
+
+                // Get current stock before updating
+                const currentStockQuery = `
+                    SELECT current_stock FROM products WHERE id = $1
+                `;
+                const currentStockResult = await client.query(currentStockQuery, [lineItem.product_id]);
+                const currentStock = Number(currentStockResult.rows[0].current_stock);
+                const newStock = currentStock + Number(receivedItem.received_quantity);
+
+                const updateStockQuery = `
+                    UPDATE products 
+                    SET current_stock = $1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
+                `;
+                await client.query(updateStockQuery, [newStock, lineItem.product_id]);
+
+                // Create stock adjustment record for audit trail
+                const stockAdjustmentQuery = `
+                    INSERT INTO stock_adjustments (
+                        product_id, adjustment_type, quantity, 
+                        previous_stock, new_stock,
+                        reason, reference, notes, adjusted_by
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `;
+                await client.query(stockAdjustmentQuery, [
+                    lineItem.product_id,
+                    'increase',
+                    receivedItem.received_quantity,
+                    currentStock,
+                    newStock,
+                    'Purchase Order Receipt',
+                    `PO-${id}`,
+                    `Goods received for Purchase Order ${id}`,
+                    'System User'
+                ]);
 
                 // Check if all items are fully received
                 if (newReceivedQuantity < lineItem.quantity) {
