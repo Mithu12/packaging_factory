@@ -684,16 +684,16 @@ export default function EditProduct() {
                     placeholder="0"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="maxStock">Maximum Stock</Label>
-                  <Input
-                    id="maxStock"
-                    type="number"
-                    value={formData.max_stock_level}
-                    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
+                {/*<div>*/}
+                {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
+                {/*  <Input*/}
+                {/*    id="maxStock"*/}
+                {/*    type="number"*/}
+                {/*    value={formData.max_stock_level}*/}
+                {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
+                {/*    placeholder="0"*/}
+                {/*  />*/}
+                {/*</div>*/}
                 <div>
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input

@@ -558,16 +558,16 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="maxStock">Maximum Stock</Label>
-              <Input
-                id="maxStock"
-                type="number"
-                value={formData.max_stock_level}
-                onChange={(e) => handleInputChange("max_stock_level", e.target.value)}
-                placeholder="0"
-              />
-            </div>
+            {/*<div className="space-y-2">*/}
+            {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
+            {/*  <Input*/}
+            {/*    id="maxStock"*/}
+            {/*    type="number"*/}
+            {/*    value={formData.max_stock_level}*/}
+            {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
+            {/*    placeholder="0"*/}
+            {/*  />*/}
+            {/*</div>*/}
 
             <div className="space-y-2">
               <Label htmlFor="reorderPoint">Reorder Point</Label>

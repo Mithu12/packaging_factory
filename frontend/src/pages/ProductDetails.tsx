@@ -478,10 +478,10 @@ export default function ProductDetails() {
                   <span className="text-sm text-muted-foreground">Minimum Stock</span>
                   <span className="font-medium">{product.min_stock_level} {product.unit_of_measure}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Maximum Stock</span>
-                  <span className="font-medium">{product.max_stock_level || 'Not set'} {product.unit_of_measure}</span>
-                </div>
+                {/*<div className="flex justify-between">*/}
+                {/*  <span className="text-sm text-muted-foreground">Maximum Stock</span>*/}
+                {/*  <span className="font-medium">{product.max_stock_level || 'Not set'} {product.unit_of_measure}</span>*/}
+                {/*</div>*/}
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Reorder Point</span>
                   <span className="font-medium">{product.reorder_point || 'Not set'} {product.unit_of_measure}</span>
