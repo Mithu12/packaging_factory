@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
 import {useFormatting} from "@/hooks/useFormatting.ts";
+import { BarcodeDisplay } from "@/components/BarcodeDisplay";
 
 export default function ProductDetails() {
   const { id } = useParams()
@@ -364,6 +365,14 @@ export default function ProductDetails() {
                   <label className="text-sm font-medium text-muted-foreground">Dimensions</label>
                   <p className="font-medium">{product.dimensions || 'Not set'}</p>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Warranty Period</label>
+                  <p className="font-medium">{product.warranty_period ? `${product.warranty_period} months` : 'Not set'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Service Reminder Interval</label>
+                  <p className="font-medium">{product.service_time ? `${product.service_time} months` : 'Not set'}</p>
+                </div>
               </div>
               <Separator />
               <div>
@@ -372,6 +381,13 @@ export default function ProductDetails() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Barcode Display */}
+          <BarcodeDisplay 
+            barcode={product.barcode || ''} 
+            productName={product.name}
+            sku={product.sku}
+          />
 
           {/* Stock Movements */}
           <Card>

@@ -209,6 +209,8 @@ export interface Product {
   weight?: number;
   dimensions?: string;
   tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
   supplier_name?: number;
   subcategory_name?: number;
   brand_name?: string;
