@@ -322,14 +322,11 @@ export default function Products() {
                                 Adjust Stock
                               </DropdownMenuItem>
                             </RoleGuard>
-                            <RoleGuard module="purchase_orders" action="create">
-                              <DropdownMenuItem>Create PO</DropdownMenuItem>
-                            </RoleGuard>
-                            <RoleGuard module="products" action="delete">
-                              <DropdownMenuItem className="text-destructive">
-                                Discontinue
-                              </DropdownMenuItem>
-                            </RoleGuard>
+                            {/*<RoleGuard module="products" action="delete">*/}
+                            {/*  <DropdownMenuItem className="text-destructive">*/}
+                            {/*    Deactivate*/}
+                            {/*  </DropdownMenuItem>*/}
+                            {/*</RoleGuard>*/}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

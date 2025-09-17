@@ -45,9 +45,9 @@ export class AddProductMediator {
                     product_code, sku, name, description, category_id, subcategory_id, brand_id, origin_id,
                     unit_of_measure, cost_price, selling_price, current_stock, min_stock_level,
                     max_stock_level, supplier_id, status, barcode, weight, dimensions,
-                    tax_rate, reorder_point, reorder_quantity, notes, image_url
+                    tax_rate, reorder_point, reorder_quantity, notes, image_url, warranty_period, service_time
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
                 ) RETURNING *
             `;
 
@@ -75,7 +75,9 @@ export class AddProductMediator {
                 productData.reorder_point || null,
                 productData.reorder_quantity || null,
                 productData.notes || null,
-                productData.image_url || null
+                productData.image_url || null,
+                productData.warranty_period || null,
+                productData.service_time || null,
             ];
 
             const result = await pool.query(query, values);
