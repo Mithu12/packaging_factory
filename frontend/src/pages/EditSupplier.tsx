@@ -28,21 +28,22 @@ import {
 import { ApiService, Supplier, ApiError } from "@/services/api"
 
 const supplierSchema = z.object({
-  name: z.string().min(2, "Company name must be at least 2 characters"),
-  contact_person: z.string().min(2, "Contact person name is required"),
-  phone: z.string().min(10, "Valid phone number is required"),
-  email: z.string().email("Valid email is required"),
-  address: z.string().min(10, "Complete address is required"),
+  name: z.string().min(2, "Company name must be at least 2 characters").optional(),
+  contact_person: z.string().min(2, "Contact person name must be at least 2 characters").optional(),
+  phone: z.string().min(10, "Valid phone number is required").optional(),
+  email: z.string().email("Valid email is required").optional().or(z.literal("")),
+  whatsapp_number: z.string().optional().or(z.literal("")),
+  address: z.string().min(10, "Complete address is required").optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zip_code: z.string().optional(),
   country: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  status: z.string().min(1, "Status is required"),
-  tax_id: z.string().min(3, "Tax ID is required").optional(),
-  payment_terms: z.string().min(1, "Payment terms are required"),
-  bank_name: z.string().min(2, "Bank name is required").optional(),
-  bank_account: z.string().min(8, "Account number is required").optional(),
+  category: z.string().optional(),
+  status: z.string().optional(),
+  tax_id: z.string().optional(),
+  payment_terms: z.string().optional(),
+  bank_name: z.string().optional(),
+  bank_account: z.string().optional(),
   bank_routing: z.string().optional(),
   swift_code: z.string().optional(),
   iban: z.string().optional(),
@@ -68,6 +69,7 @@ export default function EditSupplier() {
       contact_person: "",
       phone: "",
       email: "",
+      whatsapp_number: "",
       address: "",
       city: "",
       state: "",
@@ -103,6 +105,7 @@ export default function EditSupplier() {
           contact_person: supplierData.contact_person || "",
           phone: supplierData.phone || "",
           email: supplierData.email || "",
+          whatsapp_number: supplierData.whatsapp_number || "",
           address: supplierData.address || "",
           city: supplierData.city || "",
           state: supplierData.state || "",
@@ -319,6 +322,22 @@ export default function EditSupplier() {
                           <FormLabel>Email Address</FormLabel>
                           <FormControl>
                             <Input type="email" placeholder="Enter email address" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="whatsapp_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>WhatsApp Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter WhatsApp number" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
