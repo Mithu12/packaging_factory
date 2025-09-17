@@ -61,6 +61,8 @@ export default function EditSupplier() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [supplierCategories, setSupplierCategories] = useState<string[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
 
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierSchema),
@@ -177,16 +179,38 @@ export default function EditSupplier() {
     }
   }
 
-  const categories = [
-    "Electronics",
-    "Raw Materials", 
-    "Furniture",
-    "Components",
-    "Textiles",
-    "Food & Beverage",
-    "Industrial Equipment",
-    "Office Supplies"
-  ]
+  // Fetch supplier categories
+  useEffect(() => {
+    const fetchSupplierCategories = async () => {
+      try {
+        setLoadingCategories(true)
+        const response = await ApiService.getSupplierCategories()
+        setSupplierCategories(response.categories || [])
+      } catch (err) {
+        console.error("Failed to fetch supplier categories:", err)
+        toast({
+          title: "Warning",
+          description: "Failed to load supplier categories. Using default categories.",
+          variant: "destructive"
+        })
+        // Fallback to default categories if API fails
+        setSupplierCategories([
+          "Electronics",
+          "Raw Materials", 
+          "Furniture",
+          "Components",
+          "Textiles",
+          "Food & Beverage",
+          "Industrial Equipment",
+          "Office Supplies"
+        ])
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+
+    fetchSupplierCategories()
+  }, [toast])
 
   const paymentTermsOptions = [
     "net-15",
@@ -427,15 +451,20 @@ export default function EditSupplier() {
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select category" />
+                                <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category"} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {categories.map((category) => (
+                              {supplierCategories.map((category) => (
                                 <SelectItem key={category} value={category}>
                                   {category}
                                 </SelectItem>
                               ))}
+                              {supplierCategories.length === 0 && !loadingCategories && (
+                                <SelectItem value="no-categories" disabled>
+                                  No categories available
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />

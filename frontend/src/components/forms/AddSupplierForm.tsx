@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,7 +45,39 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     notes: ""
   })
 
+  const [supplierCategories, setSupplierCategories] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+
+  // Fetch supplier categories when dialog opens
+  useEffect(() => {
+    if (open) {
+      const fetchSupplierCategories = async () => {
+        try {
+          setLoadingCategories(true)
+          const response = await ApiService.getSupplierCategories()
+          setSupplierCategories(response.categories || [])
+        } catch (err) {
+          console.error("Failed to fetch supplier categories:", err)
+          toast.error("Failed to load supplier categories")
+          // Fallback to default categories if API fails
+          setSupplierCategories([
+            "Electronics",
+            "Furniture", 
+            "Raw Materials",
+            "Components",
+            "Services"
+          ])
+        } finally {
+          setLoadingCategories(false)
+        }
+      }
+
+      fetchSupplierCategories()
+    }
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,6 +126,8 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         paymentTerms: "",
         notes: ""
       })
+      setShowNewCategoryInput(false)
+      setNewCategoryName("")
 
       onSupplierAdded?.()
       onOpenChange(false)
@@ -114,6 +148,29 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleAddNewCategory = () => {
+    if (newCategoryName.trim()) {
+      const categoryName = newCategoryName.trim()
+      if (!supplierCategories.includes(categoryName)) {
+        setSupplierCategories(prev => [...prev, categoryName])
+        setFormData(prev => ({ ...prev, category: categoryName }))
+        toast.success("New category added successfully!")
+      } else {
+        toast.error("Category already exists")
+      }
+      setNewCategoryName("")
+      setShowNewCategoryInput(false)
+    }
+  }
+
+  const handleCategoryChange = (value: string) => {
+    if (value === "add-new") {
+      setShowNewCategoryInput(true)
+    } else {
+      handleInputChange("category", value)
+    }
   }
 
   return (
@@ -247,18 +304,68 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="electronics">Electronics</SelectItem>
-                    <SelectItem value="furniture">Furniture</SelectItem>
-                    <SelectItem value="raw-materials">Raw Materials</SelectItem>
-                    <SelectItem value="components">Components</SelectItem>
-                    <SelectItem value="services">Services</SelectItem>
-                  </SelectContent>
-                </Select>
+                {showNewCategoryInput ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Enter new category name"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddNewCategory()
+                        } else if (e.key === 'Escape') {
+                          setShowNewCategoryInput(false)
+                          setNewCategoryName("")
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddNewCategory}
+                      size="sm"
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowNewCategoryInput(false)
+                        setNewCategoryName("")
+                      }}
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Select 
+                    value={formData.category} 
+                    onValueChange={handleCategoryChange}
+                    disabled={loadingCategories}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supplierCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                      {supplierCategories.length === 0 && !loadingCategories && (
+                        <SelectItem value="no-categories" disabled>
+                          No categories available
+                        </SelectItem>
+                      )}
+                      <SelectItem value="add-new" className="text-blue-600 font-medium">
+                        + Add New Category
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
