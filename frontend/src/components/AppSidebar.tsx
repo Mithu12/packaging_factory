@@ -13,6 +13,7 @@ import {
   UserCog,
   Tag,
   MapPin,
+  Receipt,
 } from "lucide-react";
 
 import {
@@ -99,6 +100,13 @@ const menuItems = [
     url: "/payments", 
     icon: DollarSign, 
     module: "payments", 
+    action: "view" 
+  },
+  { 
+    title: "Expenses", 
+    url: "/expenses", 
+    icon: Receipt, 
+    module: "expenses", 
     action: "view" 
   },
   { 

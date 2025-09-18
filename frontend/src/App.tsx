@@ -40,6 +40,8 @@ import POSManager from "./pages/POSManager";
 import UserManagement from "./pages/UserManagement";
 import Brands from "./pages/Brands";
 import Origins from "./pages/Origins";
+import Expenses from "./pages/Expenses";
+import ExpenseDetails from "./pages/ExpenseDetails";
 
 const queryClient = new QueryClient();
 
@@ -354,6 +356,29 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          
+          {/* Expense Routes */}
+          <Route
+            path="/expenses"
+            element={
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <Expenses />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/expenses/:id"
+            element={
+              <ProtectedRoute requiredRole="viewer">
+                <DashboardLayout>
+                  <ExpenseDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

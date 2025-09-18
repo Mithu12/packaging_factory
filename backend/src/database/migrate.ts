@@ -726,6 +726,12 @@ const createTables = async () => {
     const { addWarrantyServiceTimeToProducts } = await import('./add-warranty-service-time-to-products');
     await addWarrantyServiceTimeToProducts();
     MyLogger.success('Warranty period and service time added to products');
+
+    // Add expense tables
+    MyLogger.info('Adding expense tables');
+    const { addExpenseTables } = await import('./add-expense-tables');
+    await addExpenseTables();
+    MyLogger.success('Expense tables added');
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

@@ -9,6 +9,8 @@ export { StockAdjustmentApi } from './stock-adjustment-api';
 export { PurchaseOrderApi } from './purchase-order-api';
 export { CustomerApi } from './customer-api';
 export { SalesOrderApi } from './sales-order-api';
+export { ExpenseApi } from './expense-api';
+export { ExpenseCategoryApi } from './expense-category-api';
 
 // Re-export types and utilities
 export * from './types';
@@ -26,6 +28,8 @@ import { StockAdjustmentApi } from './stock-adjustment-api';
 import { PurchaseOrderApi } from './purchase-order-api';
 import { CustomerApi } from './customer-api';
 import { SalesOrderApi } from './sales-order-api';
+import { ExpenseApi } from './expense-api';
+import { ExpenseCategoryApi } from './expense-category-api';
 
 export class ApiService {
   // Supplier methods
@@ -353,5 +357,67 @@ export class ApiService {
 
   static async searchSalesOrders(query: string, limit = 10) {
     return SalesOrderApi.searchSalesOrders(query, limit);
+  }
+
+  // Expense methods
+  static async getExpenses(params?: any) {
+    return ExpenseApi.getExpenses(params);
+  }
+
+  static async getExpense(id: number) {
+    return ExpenseApi.getExpense(id);
+  }
+
+  static async createExpense(data: any) {
+    return ExpenseApi.createExpense(data);
+  }
+
+  static async updateExpense(id: number, data: any) {
+    return ExpenseApi.updateExpense(id, data);
+  }
+
+  static async approveExpense(id: number, notes?: string) {
+    return ExpenseApi.approveExpense(id, notes);
+  }
+
+  static async rejectExpense(id: number, reason: string) {
+    return ExpenseApi.rejectExpense(id, reason);
+  }
+
+  static async payExpense(id: number, notes?: string) {
+    return ExpenseApi.payExpense(id, notes);
+  }
+
+  static async deleteExpense(id: number) {
+    return ExpenseApi.deleteExpense(id);
+  }
+
+  static async getExpenseStats(params?: any) {
+    return ExpenseApi.getExpenseStats(params);
+  }
+
+  // Expense Category methods
+  static async getExpenseCategories(params?: any) {
+    return ExpenseCategoryApi.getExpenseCategories(params);
+  }
+
+  static async getActiveExpenseCategories() {
+    return ExpenseCategoryApi.getActiveExpenseCategories();
+  }
+
+  static async getExpenseCategory(id: number) {
+    return ExpenseCategoryApi.getExpenseCategory(id);
+  }
+
+  static async createExpenseCategory(data: any) {
+    return ExpenseCategoryApi.createExpenseCategory(data);
+  }
+
+  static async updateExpenseCategory(id: number, data: any) {
+    return ExpenseCategoryApi.updateExpenseCategory(id, data);
+  }
+
+  static async deleteExpenseCategory(id: number) {
+    return ExpenseCategoryApi.deleteExpenseCategory(id);
   }
 }
