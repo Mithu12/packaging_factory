@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -63,9 +63,13 @@ export default function Payments() {
   // Basic state
   const [activeTab, setActiveTab] = useState("invoices")
   const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Search state (separate from filters for debouncing)
+  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState("")
+  const [paymentSearchTerm, setPaymentSearchTerm] = useState("")
   
   // Data state
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -90,7 +94,6 @@ export default function Payments() {
   const [invoiceFilters, setInvoiceFilters] = useState<InvoiceQueryParams>({
     page: 1,
     limit: 10,
-    search: "",
     status: undefined,
     start_date: undefined,
     end_date: undefined,
@@ -103,7 +106,6 @@ export default function Payments() {
   const [paymentFilters, setPaymentFilters] = useState<PaymentQueryParams>({
     page: 1,
     limit: 10,
-    search: "",
     status: undefined,
     payment_method: undefined,
     start_date: undefined,
@@ -112,13 +114,36 @@ export default function Payments() {
     sortOrder: "desc"
   })
 
+  // Debounced search effect
   useEffect(() => {
-    fetchData()
-  }, [invoiceFilters, paymentFilters])
+    const timeoutId = setTimeout(() => {
+      if (activeTab === "invoices") {
+        setInvoiceFilters(prev => ({
+          ...prev,
+          search: invoiceSearchTerm.trim() || undefined,
+          page: 1 // Reset to first page when search changes
+        }))
+      } else {
+        setPaymentFilters(prev => ({
+          ...prev,
+          search: paymentSearchTerm.trim() || undefined,
+          page: 1 // Reset to first page when search changes
+        }))
+      }
+    }, 500) // 500ms debounce
 
-  const fetchData = async () => {
+    return () => clearTimeout(timeoutId)
+  }, [invoiceSearchTerm, paymentSearchTerm, activeTab])
+
+  // Initial load flag
+  const [hasInitialLoad, setHasInitialLoad] = useState(false)
+
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true)
+      // Don't show loading for filter changes to prevent full page reload appearance
+      if (!hasInitialLoad) {
+        setLoading(true)
+      }
       setError(null)
       
       // Clean up filters to remove empty strings
@@ -162,9 +187,17 @@ export default function Payments() {
         description: 'Please try again later.'
       })
     } finally {
-      setLoading(false)
+      if (!hasInitialLoad) {
+        setLoading(false)
+        setHasInitialLoad(true)
+      }
     }
-  }
+  }, [invoiceFilters, paymentFilters, hasInitialLoad])
+
+  // Fetch data when filters change
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handlePaymentRecorded = () => {
     fetchData() // Refresh data after payment is recorded
@@ -188,10 +221,10 @@ export default function Payments() {
   }
 
   const clearInvoiceFilters = () => {
+    setInvoiceSearchTerm("")
     setInvoiceFilters({
       page: 1,
       limit: 10,
-      search: "",
       status: undefined,
       start_date: undefined,
       end_date: undefined,
@@ -203,10 +236,10 @@ export default function Payments() {
   }
 
   const clearPaymentFilters = () => {
+    setPaymentSearchTerm("")
     setPaymentFilters({
       page: 1,
       limit: 10,
-      search: "",
       status: undefined,
       payment_method: undefined,
       start_date: undefined,
@@ -232,6 +265,274 @@ export default function Payments() {
   const handlePaymentLimitChange = (limit: number) => {
     setPaymentFilters(prev => ({ ...prev, limit, page: 1 }))
   }
+
+  // Memoized filter component to prevent unnecessary re-renders
+  const FilterComponent = useMemo(() => {
+    const isInvoiceTab = activeTab === "invoices"
+    const currentSearchTerm = isInvoiceTab ? invoiceSearchTerm : paymentSearchTerm
+    const setCurrentSearchTerm = isInvoiceTab ? setInvoiceSearchTerm : setPaymentSearchTerm
+    const currentFilters = isInvoiceTab ? invoiceFilters : paymentFilters
+    const handleFilterChange = isInvoiceTab ? handleInvoiceFilterChange : handlePaymentFilterChange
+    const clearFilters = isInvoiceTab ? clearInvoiceFilters : clearPaymentFilters
+
+    return (
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={isInvoiceTab ? "Search invoices..." : "Search payments..."}
+              value={currentSearchTerm}
+              onChange={(e) => setCurrentSearchTerm(e.target.value)}
+              className="pl-10 w-full sm:w-80"
+            />
+          </div>
+        </div>
+        
+        {/* Always visible filter controls */}
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 flex-wrap">
+            {/* Status Filter */}
+            <Select 
+              value={currentFilters.status || "all"} 
+              onValueChange={(value) => handleFilterChange("status", value === "all" ? undefined : value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                {isInvoiceTab ? (
+                  <>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+
+            {/* Payment Method Filter (only for payments) */}
+            {!isInvoiceTab && (
+              <Select 
+                value={(currentFilters as PaymentQueryParams).payment_method || "all"} 
+                onValueChange={(value) => handlePaymentFilterChange("payment_method", value === "all" ? undefined : value)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Sort By Filter */}
+            <Select 
+              value={currentFilters.sortBy || (isInvoiceTab ? "created_at" : "payment_date")} 
+              onValueChange={(value) => handleFilterChange("sortBy", value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                {isInvoiceTab ? (
+                  <>
+                    <SelectItem value="created_at">Created Date</SelectItem>
+                    <SelectItem value="invoice_date">Invoice Date</SelectItem>
+                    <SelectItem value="due_date">Due Date</SelectItem>
+                    <SelectItem value="total_amount">Amount</SelectItem>
+                    <SelectItem value="supplier_name">Supplier</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="payment_date">Payment Date</SelectItem>
+                    <SelectItem value="amount">Amount</SelectItem>
+                    <SelectItem value="payment_method">Method</SelectItem>
+                    <SelectItem value="supplier_name">Supplier</SelectItem>
+                    <SelectItem value="created_at">Created Date</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+
+            {/* Advanced Filters Button */}
+            <Button variant="outline" size="sm" onClick={() => setShowAdvancedFilters(true)}>
+              <Filter className="h-4 w-4 mr-2" />
+              More Filters
+            </Button>
+
+            {/* Clear Filters Button */}
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              <X className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }, [activeTab, invoiceSearchTerm, paymentSearchTerm, invoiceFilters, paymentFilters])
+
+  // Advanced filters dialog component
+  const AdvancedFiltersDialog = useMemo(() => {
+    const isInvoiceTab = activeTab === "invoices"
+    const currentInvoiceFilters = invoiceFilters
+    const currentPaymentFilters = paymentFilters
+    
+    const handleInvoiceAdvancedFilterChange = (key: keyof InvoiceQueryParams, value: any) => {
+      handleInvoiceFilterChange(key, value)
+    }
+    
+    const handlePaymentAdvancedFilterChange = (key: keyof PaymentQueryParams, value: any) => {
+      handlePaymentFilterChange(key, value)
+    }
+    
+    const clearFilters = isInvoiceTab ? clearInvoiceFilters : clearPaymentFilters
+
+    return (
+      <Dialog open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {isInvoiceTab ? "Filter Invoices" : "Filter Payments"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date Range Filters */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                type="date"
+                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).start_date || ""}
+                onChange={(e) => isInvoiceTab 
+                  ? handleInvoiceAdvancedFilterChange("start_date", e.target.value || undefined)
+                  : handlePaymentAdvancedFilterChange("start_date", e.target.value || undefined)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                type="date"
+                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).end_date || ""}
+                onChange={(e) => isInvoiceTab 
+                  ? handleInvoiceAdvancedFilterChange("end_date", e.target.value || undefined)
+                  : handlePaymentAdvancedFilterChange("end_date", e.target.value || undefined)
+                }
+              />
+            </div>
+
+            {/* Invoice-specific filters */}
+            {isInvoiceTab && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDateFrom">Due Date From</Label>
+                  <Input
+                    type="date"
+                    value={currentInvoiceFilters.due_date_from || ""}
+                    onChange={(e) => handleInvoiceAdvancedFilterChange("due_date_from", e.target.value || undefined)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDateTo">Due Date To</Label>
+                  <Input
+                    type="date"
+                    value={currentInvoiceFilters.due_date_to || ""}
+                    onChange={(e) => handleInvoiceAdvancedFilterChange("due_date_to", e.target.value || undefined)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="supplierId">Supplier ID</Label>
+                  <Input
+                    type="number"
+                    value={currentInvoiceFilters.supplier_id || ""}
+                    onChange={(e) => handleInvoiceAdvancedFilterChange("supplier_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Enter supplier ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="poId">Purchase Order ID</Label>
+                  <Input
+                    type="number"
+                    value={currentInvoiceFilters.purchase_order_id || ""}
+                    onChange={(e) => handleInvoiceAdvancedFilterChange("purchase_order_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Enter PO ID"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Payment-specific filters */}
+            {!isInvoiceTab && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="supplierId">Supplier ID</Label>
+                  <Input
+                    type="number"
+                    value={currentPaymentFilters.supplier_id || ""}
+                    onChange={(e) => handlePaymentAdvancedFilterChange("supplier_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Enter supplier ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoiceId">Invoice ID</Label>
+                  <Input
+                    type="number"
+                    value={currentPaymentFilters.invoice_id || ""}
+                    onChange={(e) => handlePaymentAdvancedFilterChange("invoice_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    placeholder="Enter invoice ID"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Sort Order */}
+            <div className="space-y-2">
+              <Label htmlFor="sortOrder">Sort Order</Label>
+              <Select 
+                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).sortOrder || "desc"} 
+                onValueChange={(value) => isInvoiceTab 
+                  ? handleInvoiceAdvancedFilterChange("sortOrder", value)
+                  : handlePaymentAdvancedFilterChange("sortOrder", value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={clearFilters}>
+              <X className="h-4 w-4 mr-2" />
+              Clear All Filters
+            </Button>
+            <Button onClick={() => setShowAdvancedFilters(false)}>
+              Apply Filters
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }, [activeTab, showAdvancedFilters, invoiceFilters, paymentFilters])
 
   // Pagination component
   const PaginationComponent = ({ 
@@ -459,114 +760,10 @@ export default function Payments() {
         <TabsContent value="invoices">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <CardTitle>Supplier Invoices</CardTitle>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:flex-initial">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Search invoices..."
-                      value={invoiceFilters.search || ""}
-                      onChange={(e) => handleInvoiceFilterChange("search", e.target.value)}
-                      className="pl-10 w-full sm:w-80"
-                    />
-                  </div>
-                  <Dialog open={showFilters} onOpenChange={setShowFilters}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <Filter className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Filter Invoices</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="status">Status</Label>
-                          <Select 
-                            value={invoiceFilters.status || "all"} 
-                            onValueChange={(value) => handleInvoiceFilterChange("status", value === "all" ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All statuses" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All statuses</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="partial">Partial</SelectItem>
-                              <SelectItem value="paid">Paid</SelectItem>
-                              <SelectItem value="overdue">Overdue</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="sortBy">Sort By</Label>
-                          <Select 
-                            value={invoiceFilters.sortBy || "created_at"} 
-                            onValueChange={(value) => handleInvoiceFilterChange("sortBy", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="created_at">Created Date</SelectItem>
-                              <SelectItem value="invoice_date">Invoice Date</SelectItem>
-                              <SelectItem value="due_date">Due Date</SelectItem>
-                              <SelectItem value="total_amount">Amount</SelectItem>
-                              <SelectItem value="supplier_name">Supplier</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            type="date"
-                            value={invoiceFilters.start_date || ""}
-                            onChange={(e) => handleInvoiceFilterChange("start_date", e.target.value || undefined)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            type="date"
-                            value={invoiceFilters.end_date || ""}
-                            onChange={(e) => handleInvoiceFilterChange("end_date", e.target.value || undefined)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dueDateFrom">Due Date From</Label>
-                          <Input
-                            type="date"
-                            value={invoiceFilters.due_date_from || ""}
-                            onChange={(e) => handleInvoiceFilterChange("due_date_from", e.target.value || undefined)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dueDateTo">Due Date To</Label>
-                          <Input
-                            type="date"
-                            value={invoiceFilters.due_date_to || ""}
-                            onChange={(e) => handleInvoiceFilterChange("due_date_to", e.target.value || undefined)}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <Button variant="outline" onClick={clearInvoiceFilters}>
-                          <X className="h-4 w-4 mr-2" />
-                          Clear Filters
-                        </Button>
-                        <Button onClick={() => setShowFilters(false)}>
-                          Apply Filters
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
+              <CardTitle>Supplier Invoices</CardTitle>
             </CardHeader>
             <CardContent>
+              {FilterComponent}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -670,116 +867,10 @@ export default function Payments() {
         <TabsContent value="payments">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <CardTitle>Payment History</CardTitle>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:flex-initial">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Search payments..."
-                      value={paymentFilters.search || ""}
-                      onChange={(e) => handlePaymentFilterChange("search", e.target.value)}
-                      className="pl-10 w-full sm:w-80"
-                    />
-                  </div>
-                  <Dialog open={showFilters} onOpenChange={setShowFilters}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <Filter className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Filter Payments</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="status">Status</Label>
-                          <Select 
-                            value={paymentFilters.status || "all"} 
-                            onValueChange={(value) => handlePaymentFilterChange("status", value === "all" ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All statuses" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All statuses</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                              <SelectItem value="failed">Failed</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="paymentMethod">Payment Method</Label>
-                          <Select 
-                            value={paymentFilters.payment_method || "all"} 
-                            onValueChange={(value) => handlePaymentFilterChange("payment_method", value === "all" ? undefined : value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All methods" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All methods</SelectItem>
-                              <SelectItem value="cash">Cash</SelectItem>
-                              <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                              <SelectItem value="check">Check</SelectItem>
-                              <SelectItem value="credit_card">Credit Card</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="sortBy">Sort By</Label>
-                          <Select 
-                            value={paymentFilters.sortBy || "payment_date"} 
-                            onValueChange={(value) => handlePaymentFilterChange("sortBy", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="payment_date">Payment Date</SelectItem>
-                              <SelectItem value="amount">Amount</SelectItem>
-                              <SelectItem value="payment_method">Payment Method</SelectItem>
-                              <SelectItem value="supplier_name">Supplier</SelectItem>
-                              <SelectItem value="created_at">Created Date</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            type="date"
-                            value={paymentFilters.start_date || ""}
-                            onChange={(e) => handlePaymentFilterChange("start_date", e.target.value || undefined)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            type="date"
-                            value={paymentFilters.end_date || ""}
-                            onChange={(e) => handlePaymentFilterChange("end_date", e.target.value || undefined)}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <Button variant="outline" onClick={clearPaymentFilters}>
-                          <X className="h-4 w-4 mr-2" />
-                          Clear Filters
-                        </Button>
-                        <Button onClick={() => setShowFilters(false)}>
-                          Apply Filters
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
+              <CardTitle>Payment History</CardTitle>
             </CardHeader>
             <CardContent>
+              {FilterComponent}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -829,6 +920,9 @@ export default function Payments() {
         </TabsContent>
 
       </Tabs>
+
+      {/* Advanced Filters Dialog */}
+      {AdvancedFiltersDialog}
 
       <RecordPaymentForm 
         open={showRecordPaymentForm} 
