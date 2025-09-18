@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { toast } from "@/components/ui/sonner"
 import { PaymentApi } from "@/services/payment-api"
+import { ApiService } from "@/services/api"
 import { Invoice, Payment, PaymentStats, InvoiceQueryParams, PaymentQueryParams } from "@/services/types"
 import {
   Table,
@@ -75,6 +76,7 @@ export default function Payments() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [stats, setStats] = useState<PaymentStats | null>(null)
+  const [suppliers, setSuppliers] = useState<{id: number, name: string}[]>([])
   
   // Pagination state
   const [invoicesPagination, setInvoicesPagination] = useState({
@@ -137,6 +139,23 @@ export default function Payments() {
 
   // Initial load flag
   const [hasInitialLoad, setHasInitialLoad] = useState(false)
+
+  // Fetch suppliers on component mount
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        const suppliersData = await ApiService.getSuppliers({ status: 'active', limit: 100 })
+        setSuppliers(suppliersData.suppliers.map((supplier: any) => ({
+          id: supplier.id,
+          name: supplier.name
+        })))
+      } catch (error) {
+        console.error('Error fetching suppliers:', error)
+      }
+    }
+    
+    fetchSuppliers()
+  }, [])
 
   const fetchData = useCallback(async () => {
     try {
@@ -456,13 +475,23 @@ export default function Payments() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="supplierId">Supplier ID</Label>
-                  <Input
-                    type="number"
-                    value={currentInvoiceFilters.supplier_id || ""}
-                    onChange={(e) => handleInvoiceAdvancedFilterChange("supplier_id", e.target.value ? parseInt(e.target.value) : undefined)}
-                    placeholder="Enter supplier ID"
-                  />
+                  <Label htmlFor="supplierId">Supplier</Label>
+                  <Select
+                    value={currentInvoiceFilters.supplier_id?.toString() || "all"}
+                    onValueChange={(value) => handleInvoiceAdvancedFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Suppliers</SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="poId">Purchase Order ID</Label>
@@ -480,13 +509,23 @@ export default function Payments() {
             {!isInvoiceTab && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="supplierId">Supplier ID</Label>
-                  <Input
-                    type="number"
-                    value={currentPaymentFilters.supplier_id || ""}
-                    onChange={(e) => handlePaymentAdvancedFilterChange("supplier_id", e.target.value ? parseInt(e.target.value) : undefined)}
-                    placeholder="Enter supplier ID"
-                  />
+                  <Label htmlFor="supplierId">Supplier</Label>
+                  <Select 
+                    value={currentPaymentFilters.supplier_id?.toString() || "all"} 
+                    onValueChange={(value) => handlePaymentAdvancedFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Suppliers</SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="invoiceId">Invoice ID</Label>
@@ -532,7 +571,7 @@ export default function Payments() {
         </DialogContent>
       </Dialog>
     )
-  }, [activeTab, showAdvancedFilters, invoiceFilters, paymentFilters])
+  }, [activeTab, showAdvancedFilters, invoiceFilters, paymentFilters, suppliers])
 
   // Pagination component
   const PaginationComponent = ({ 
