@@ -73,6 +73,7 @@ interface CartProps {
   selectedCustomer: Customer | null;
   paymentMethod: string;
   cashAmount: string;
+  partialPaymentAmount?: string;
   overallDiscount: string;
   overallDiscountType: 'percentage' | 'flat';
   overallTax: string;
@@ -82,6 +83,7 @@ interface CartProps {
   onCustomerChange: (customer: Customer | null) => void;
   onPaymentMethodChange: (method: string) => void;
   onCashAmountChange: (amount: string) => void;
+  onPartialPaymentAmountChange?: (amount: string) => void;
   onOverallDiscountChange: (discount: string, discountType: 'percentage' | 'flat') => void;
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
@@ -111,6 +113,7 @@ export function Cart({
   selectedCustomer,
   paymentMethod,
   cashAmount,
+  partialPaymentAmount,
   overallDiscount,
   overallDiscountType,
   overallTax,
@@ -120,6 +123,7 @@ export function Cart({
   onCustomerChange,
   onPaymentMethodChange,
   onCashAmountChange,
+  onPartialPaymentAmountChange,
   onOverallDiscountChange,
   onOverallTaxChange,
   onProcessPayment,
@@ -688,7 +692,7 @@ export function Cart({
         {/* Payment */}
         <div className="space-y-3">
           <Label>Payment Method</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant={paymentMethod === "cash" ? "default" : "outline"}
               onClick={() => onPaymentMethodChange("cash")}
@@ -713,6 +717,15 @@ export function Cart({
             >
               <User className="w-4 h-4" />
               Credit
+            </Button>
+            <Button
+              variant={paymentMethod === "partial" ? "default" : "outline"}
+              onClick={() => onPaymentMethodChange("partial")}
+              className="flex items-center gap-2"
+              disabled={!selectedCustomer || selectedCustomer.customer_type === 'walk_in'}
+            >
+              <Receipt className="w-4 h-4" />
+              Partial
             </Button>
           </div>
 
@@ -747,6 +760,10 @@ export function Cart({
                 <span className="font-medium">${(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
+                <span>Available Credit:</span>
+                <span className="font-medium">${Math.max(0, (selectedCustomer.credit_limit || 0) - (selectedCustomer.due_amount || 0)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span>Order Total:</span>
                 <span className="font-medium">${total.toFixed(2)}</span>
               </div>
@@ -769,6 +786,59 @@ export function Cart({
             </div>
           )}
 
+          {paymentMethod === "partial" && selectedCustomer && (
+            <div className="space-y-3">
+              <div className="p-3 bg-yellow-50 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span>Order Total:</span>
+                  <span className="font-medium">${total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Current Due:</span>
+                  <span className="font-medium">${(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Credit Limit:</span>
+                  <span className="font-medium">${(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="partial-amount">Payment Amount</Label>
+                <Input
+                  id="partial-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={total}
+                  value={partialPaymentAmount || ""}
+                  onChange={(e) => onPartialPaymentAmountChange?.(e.target.value)}
+                  placeholder="Enter payment amount"
+                />
+                {partialPaymentAmount && parseFloat(partialPaymentAmount) > 0 && (
+                  <div className="mt-2 p-2 bg-green-50 rounded text-sm">
+                    <div className="flex justify-between">
+                      <span>Payment:</span>
+                      <span className="font-medium">${parseFloat(partialPaymentAmount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Remaining Due:</span>
+                      <span className="font-medium">
+                        ${(total - parseFloat(partialPaymentAmount)).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>New Customer Due:</span>
+                      <span className="font-medium">
+                        ${((selectedCustomer.due_amount || 0) + total - parseFloat(partialPaymentAmount)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={onProcessPayment}
             disabled={cart.length === 0 || !paymentMethod || loading}
@@ -780,7 +850,9 @@ export function Cart({
               ? "Processing..." 
               : paymentMethod === "credit" 
                 ? `Add to Credit ($${Number(total).toFixed(2)})` 
-                : `Process Payment ($${Number(total).toFixed(2)})`
+                : paymentMethod === "partial"
+                  ? `Partial Payment ($${parseFloat(partialPaymentAmount || "0").toFixed(2)})`
+                  : `Process Payment ($${Number(total).toFixed(2)})`
             }
           </Button>
         </div>

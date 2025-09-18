@@ -42,6 +42,7 @@ export default function POSManager() {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [cashAmount, setCashAmount] = useState("");
+  const [partialPaymentAmount, setPartialPaymentAmount] = useState("");
   const [overallDiscount, setOverallDiscount] = useState("");
   const [overallDiscountType, setOverallDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [overallTax, setOverallTax] = useState("");
@@ -279,17 +280,75 @@ export default function POSManager() {
       }
     }
 
+    // Partial payment validation
+    if (paymentMethod === "partial") {
+      if (selectedCustomer.customer_type === 'walk_in') {
+        toast({
+          title: "Partial Payment Not Allowed",
+          description: "Walk-in customers cannot use partial payment",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!partialPaymentAmount || parseFloat(partialPaymentAmount) <= 0) {
+        toast({
+          title: "Invalid Payment Amount",
+          description: "Please enter a valid payment amount",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (parseFloat(partialPaymentAmount) > total) {
+        toast({
+          title: "Payment Too High",
+          description: "Payment amount cannot exceed order total",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentDue = selectedCustomer.due_amount || 0;
+      const creditLimit = selectedCustomer.credit_limit || 0;
+      const remainingDue = total - parseFloat(partialPaymentAmount);
+      const newTotalDue = currentDue + remainingDue;
+
+      if (newTotalDue > creditLimit) {
+        toast({
+          title: "Credit Limit Exceeded",
+          description: `This order would exceed the credit limit by $${(newTotalDue - creditLimit).toFixed(2)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       
       // Create sales order
+      const getDueAmount = () => {
+        if (paymentMethod === "credit") return total;
+        if (paymentMethod === "partial") return total - parseFloat(partialPaymentAmount);
+        return 0;
+      };
+
+      const getCashReceived = () => {
+        if (paymentMethod === "cash") return parseFloat(cashAmount) || total;
+        if (paymentMethod === "partial") return parseFloat(partialPaymentAmount);
+        return undefined;
+      };
+
       const salesOrderData = {
         customer_id: selectedCustomer.id,
         cashier_id: 1, // TODO: Get from auth context
-        payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
-        cash_received: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
-        due_amount: paymentMethod === "credit" ? total : 0,
-        notes: `Payment processed via ${paymentMethod}`,
+        payment_method: paymentMethod === "partial" ? "cash" : paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
+        cash_received: getCashReceived(),
+        due_amount: getDueAmount(),
+        notes: paymentMethod === "partial" 
+          ? `Partial payment: $${partialPaymentAmount} paid, $${(total - parseFloat(partialPaymentAmount)).toFixed(2)} due`
+          : `Payment processed via ${paymentMethod}`,
         discount_amount: overallDiscountType === 'flat' ? parseFloat(overallDiscount) : 0,
         discount_percentage: overallDiscountType === 'percentage' ? parseFloat(overallDiscount) : 0,
         tax_amount: tax,
@@ -321,11 +380,12 @@ export default function POSManager() {
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
       
-      // Update customer due amount locally for credit sales
-      if (paymentMethod === "credit" && selectedCustomer) {
+      // Update customer due amount locally for credit/partial sales
+      if ((paymentMethod === "credit" || paymentMethod === "partial") && selectedCustomer) {
+        const dueAmount = paymentMethod === "credit" ? total : total - parseFloat(partialPaymentAmount);
         const updatedCustomer = {
           ...selectedCustomer,
-          due_amount: (selectedCustomer.due_amount || 0) + total
+          due_amount: (selectedCustomer.due_amount || 0) + dueAmount
         };
         setSelectedCustomer(updatedCustomer);
         
@@ -357,10 +417,16 @@ export default function POSManager() {
       setShowReceipt(true);
       
       toast({
-        title: paymentMethod === "credit" ? "Credit Sale Processed" : "Payment Processed",
+        title: paymentMethod === "credit" 
+          ? "Credit Sale Processed" 
+          : paymentMethod === "partial"
+            ? "Partial Payment Processed"
+            : "Payment Processed",
         description: paymentMethod === "credit" 
           ? `$${total.toFixed(2)} added to ${selectedCustomer.name}'s account`
-          : `Transaction completed successfully - ${paymentMethod}`,
+          : paymentMethod === "partial"
+            ? `$${partialPaymentAmount} paid, $${(total - parseFloat(partialPaymentAmount)).toFixed(2)} added to ${selectedCustomer.name}'s account`
+            : `Transaction completed successfully - ${paymentMethod}`,
       });
 
       // Clear cart and reset form
@@ -368,6 +434,7 @@ export default function POSManager() {
       setSelectedCustomer(null);
       setPaymentMethod("");
       setCashAmount("");
+      setPartialPaymentAmount("");
       setOverallDiscount("");
       setOverallTax("");
 
@@ -464,6 +531,7 @@ export default function POSManager() {
                 selectedCustomer={selectedCustomer}
                 paymentMethod={paymentMethod}
                 cashAmount={cashAmount}
+                partialPaymentAmount={partialPaymentAmount}
                 overallDiscount={overallDiscount}
                 overallDiscountType={overallDiscountType}
                 overallTax={overallTax}
@@ -473,6 +541,7 @@ export default function POSManager() {
                 onCustomerChange={setSelectedCustomer}
                 onPaymentMethodChange={setPaymentMethod}
                 onCashAmountChange={setCashAmount}
+                onPartialPaymentAmountChange={setPartialPaymentAmount}
                 onOverallDiscountChange={handleOverallDiscountChange}
                 onOverallTaxChange={setOverallTax}
                 onProcessPayment={processPayment}

@@ -95,7 +95,10 @@ export function Receipt({
     // Order details
     yPosition = addText(`Receipt #: ${orderNumber}`, margin, yPosition);
     yPosition = addText(`Date: ${new Date(orderDate).toLocaleString()}`, margin, yPosition);
-    yPosition = addText(`Payment: ${paymentMethod.toUpperCase()}`, margin, yPosition);
+    const paymentMethodText = paymentMethod === 'partial' 
+      ? 'PARTIAL PAYMENT' 
+      : paymentMethod.toUpperCase();
+    yPosition = addText(`Payment: ${paymentMethodText}`, margin, yPosition);
     
     if (customer) {
       yPosition = addText(`Customer: ${customer.name}`, margin, yPosition);
@@ -196,6 +199,12 @@ export function Receipt({
       yPosition = addRightText(`Cash Received: $${Number(cashReceived).toFixed(2)}`, yPosition);
       if (changeGiven && changeGiven > 0) {
         yPosition = addRightText(`Change: $${Number(changeGiven).toFixed(2)}`, yPosition);
+      }
+    } else if (paymentMethod === 'partial' && cashReceived) {
+      yPosition = addRightText(`Amount Paid: $${Number(cashReceived).toFixed(2)}`, yPosition);
+      const remainingDue = total - cashReceived;
+      if (remainingDue > 0) {
+        yPosition = addRightText(`Remaining Due: $${Number(remainingDue).toFixed(2)}`, yPosition);
       }
     }
 
