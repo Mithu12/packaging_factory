@@ -35,7 +35,8 @@ export class AddSalesOrderMediator {
                         unit_price: item.unit_price,
                         discount_percentage: item.discount_percentage || 0,
                         discount_amount: discountAmount,
-                        line_total: lineTotal
+                        line_total: lineTotal,
+                        is_gift: item.is_gift || false
                     });
                 }
 
@@ -118,10 +119,11 @@ export class AddSalesOrderMediator {
                         tax_amount,
                         total_amount,
                         cash_received,
+                        due_amount,
                         change_given,
                         notes
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                     ) RETURNING *
                 `;
 
@@ -137,6 +139,7 @@ export class AddSalesOrderMediator {
                     taxAmount,
                     totalAmount,
                     data.cash_received || 0,
+                    data.due_amount || 0,
                     changeGiven,
                     data.notes || null
                 ];
@@ -181,9 +184,10 @@ export class AddSalesOrderMediator {
                             unit_price,
                             discount_percentage,
                             discount_amount,
-                            line_total
+                            line_total,
+                            is_gift
                         ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8, $9
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
                         )
                     `;
 
@@ -196,7 +200,8 @@ export class AddSalesOrderMediator {
                         itemData.unit_price,
                         itemData.discount_percentage,
                         itemData.discount_amount,
-                        itemData.line_total
+                        itemData.line_total,
+                        itemData.is_gift
                     ];
 
                     await client.query(insertLineItemQuery, lineItemValues);
@@ -229,6 +234,22 @@ export class AddSalesOrderMediator {
                         WHERE id = $2
                     `;
                     await client.query(updateCustomerQuery, [totalAmount, data.customer_id]);
+
+                    // Update customer due amount for credit/partial payments
+                    if (data.due_amount && data.due_amount > 0) {
+                        MyLogger.info('Updating customer due amount', {
+                            customerId: data.customer_id,
+                            dueAmount: data.due_amount,
+                            paymentMethod: data.payment_method
+                        });
+                        const updateDueAmountQuery = `
+                            UPDATE customers 
+                            SET due_amount = COALESCE(due_amount, 0) + $1,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $2
+                        `;
+                        await client.query(updateDueAmountQuery, [data.due_amount, data.customer_id]);
+                    }
                 }
 
                 await client.query('COMMIT');

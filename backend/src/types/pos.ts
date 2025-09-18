@@ -11,11 +11,14 @@ export interface Customer {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   status: 'active' | 'inactive' | 'blocked';
   total_purchases: number;
   loyalty_points: number;
+  credit_limit?: number;
+  due_amount?: number;
   last_purchase_date?: string;
+  last_payment_date?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -32,7 +35,8 @@ export interface CreateCustomerRequest {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type?: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
+  credit_limit?: number;
   notes?: string;
 }
 
@@ -47,8 +51,9 @@ export interface UpdateCustomerRequest {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type?: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   status?: 'active' | 'inactive' | 'blocked';
+  credit_limit?: number;
   notes?: string;
 }
 
@@ -75,6 +80,7 @@ export interface SalesOrder {
   tax_amount: number;
   total_amount: number;
   cash_received: number;
+  due_amount: number;
   change_given: number;
   cashier_id?: number;
   notes?: string;
@@ -99,6 +105,7 @@ export interface SalesOrderLineItem {
   discount_percentage: number;
   discount_amount: number;
   line_total: number;
+  is_gift: boolean;
   created_at: string;
   // Joined fields
   product_description?: string;
@@ -113,6 +120,7 @@ export interface CreateSalesOrderRequest {
   customer_id?: number;
   payment_method: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   cash_received?: number;
+  due_amount?: number;
   notes?: string;
   discount_amount?: number;
   discount_percentage?: number;
@@ -125,6 +133,7 @@ export interface CreateSalesOrderRequest {
     total_price?: number;
     discount_amount?: number;
     discount_percentage?: number;
+    is_gift?: boolean;
   }[];
 }
 
@@ -133,6 +142,7 @@ export interface UpdateSalesOrderRequest {
   payment_status?: 'pending' | 'paid' | 'partially_paid' | 'refunded';
   payment_method?: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   cash_received?: number;
+  due_amount?: number;
   notes?: string;
 }
 

@@ -49,6 +49,7 @@ export const createSalesOrderSchema = Joi.object({
   customer_id: Joi.number().integer().positive().optional(),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').required(),
   cash_received: Joi.number().min(0).optional(),
+  due_amount: Joi.number().min(0).optional().default(0),
   notes: Joi.string().optional().allow(''),
   discount_amount: Joi.number().min(0).optional().allow(null).default(0),
   discount_percentage: Joi.number().min(0).max(100).optional().allow(null).default(0),
@@ -61,7 +62,8 @@ export const createSalesOrderSchema = Joi.object({
       unit_price: Joi.number().min(0).required(),
       total_price: Joi.number().min(0).optional(),
       discount_amount: Joi.number().min(0).optional().default(0),
-      discount_percentage: Joi.number().min(0).max(100).optional().default(0)
+      discount_percentage: Joi.number().min(0).max(100).optional().default(0),
+      is_gift: Joi.boolean().optional().default(false)
     })
   ).min(1).required()
 });
@@ -71,6 +73,7 @@ export const updateSalesOrderSchema = Joi.object({
   payment_status: Joi.string().valid('pending', 'paid', 'partially_paid', 'refunded').optional(),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').optional(),
   cash_received: Joi.number().min(0).optional(),
+  due_amount: Joi.number().min(0).optional(),
   notes: Joi.string().optional().allow('')
 });
 

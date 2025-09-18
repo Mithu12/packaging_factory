@@ -77,7 +77,10 @@ export class GetCustomerInfoMediator {
                     c.status,
                     c.total_purchases,
                     c.loyalty_points,
+                    c.credit_limit,
+                    c.due_amount,
                     c.last_purchase_date,
+                    c.last_payment_date,
                     c.notes,
                     c.created_at,
                     c.updated_at
@@ -127,7 +130,10 @@ export class GetCustomerInfoMediator {
                     c.status,
                     c.total_purchases,
                     c.loyalty_points,
+                    c.credit_limit,
+                    c.due_amount,
                     c.last_purchase_date,
+                    c.last_payment_date,
                     c.notes,
                     c.created_at,
                     c.updated_at
