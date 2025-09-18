@@ -267,7 +267,7 @@ export default function PurchaseOrderDetails() {
                   <Truck className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">Fulfillment</span>
                 </div>
-                <div className="text-xl font-bold">{fulfillmentPercentage.toFixed(0)}%</div>
+                <div className="text-xl font-bold">{Number(fulfillmentPercentage).toFixed(0)}%</div>
                 <Progress value={fulfillmentPercentage} className="mt-2 h-1" />
               </CardContent>
             </Card>

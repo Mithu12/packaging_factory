@@ -192,7 +192,7 @@ export default function Suppliers() {
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stats?.active_suppliers || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats ? `${((stats.active_suppliers / stats.total_suppliers) * 100).toFixed(1)}% active rate` : '0% active rate'}
+                {stats ? `${Number((stats.active_suppliers / stats.total_suppliers) * 100).toFixed(1)}% active rate` : '0% active rate'}
               </p>
             </CardContent>
           </Card>

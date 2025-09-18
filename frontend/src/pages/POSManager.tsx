@@ -266,14 +266,14 @@ export default function POSManager() {
         return;
       }
 
-      const currentDue = selectedCustomer.due_amount || 0;
-      const creditLimit = selectedCustomer.credit_limit || 0;
+      const currentDue = Number(selectedCustomer.due_amount) || 0;
+      const creditLimit = Number(selectedCustomer.credit_limit) || 0;
       const newTotalDue = currentDue + total;
 
       if (newTotalDue > creditLimit) {
         toast({
           title: "Credit Limit Exceeded",
-          description: `This order would exceed the credit limit by $${(newTotalDue - creditLimit).toFixed(2)}`,
+          description: `This order would exceed the credit limit by $${Number(newTotalDue - creditLimit).toFixed(2)}`,
           variant: "destructive",
         });
         return;
@@ -309,15 +309,16 @@ export default function POSManager() {
         return;
       }
 
-      const currentDue = selectedCustomer.due_amount || 0;
-      const creditLimit = selectedCustomer.credit_limit || 0;
+      const currentDue = Number(selectedCustomer.due_amount) || 0;
+      const creditLimit = Number(selectedCustomer.credit_limit) || 0;
       const remainingDue = total - parseFloat(partialPaymentAmount);
       const newTotalDue = currentDue + remainingDue;
 
+        console.log({creditLimit, currentDue, newTotalDue});
       if (newTotalDue > creditLimit) {
         toast({
           title: "Credit Limit Exceeded",
-          description: `This order would exceed the credit limit by $${(newTotalDue - creditLimit).toFixed(2)}`,
+          description: `This order would exceed the credit limit by $${Number(newTotalDue - creditLimit).toFixed(2)}`,
           variant: "destructive",
         });
         return;
@@ -347,7 +348,7 @@ export default function POSManager() {
         cash_received: getCashReceived(),
         due_amount: getDueAmount(),
         notes: paymentMethod === "partial" 
-          ? `Partial payment: $${partialPaymentAmount} paid, $${(total - parseFloat(partialPaymentAmount)).toFixed(2)} due`
+          ? `Partial payment: $${Number(partialPaymentAmount).toFixed(2)} paid, $${Number(total - parseFloat(partialPaymentAmount)).toFixed(2)} due`
           : `Payment processed via ${paymentMethod}`,
         discount_amount: overallDiscountType === 'flat' ? parseFloat(overallDiscount) : 0,
         discount_percentage: overallDiscountType === 'percentage' ? parseFloat(overallDiscount) : 0,
@@ -385,7 +386,7 @@ export default function POSManager() {
         const dueAmount = paymentMethod === "credit" ? total : total - parseFloat(partialPaymentAmount);
         const updatedCustomer = {
           ...selectedCustomer,
-          due_amount: (selectedCustomer.due_amount || 0) + dueAmount
+          due_amount: (Number(selectedCustomer.due_amount) || 0) + dueAmount
         };
         setSelectedCustomer(updatedCustomer);
         
@@ -423,9 +424,9 @@ export default function POSManager() {
             ? "Partial Payment Processed"
             : "Payment Processed",
         description: paymentMethod === "credit" 
-          ? `$${total.toFixed(2)} added to ${selectedCustomer.name}'s account`
+          ? `$${Number(total).toFixed(2)} added to ${selectedCustomer.name}'s account`
           : paymentMethod === "partial"
-            ? `$${partialPaymentAmount} paid, $${(total - parseFloat(partialPaymentAmount)).toFixed(2)} added to ${selectedCustomer.name}'s account`
+            ? `$${Number(partialPaymentAmount).toFixed(2)} paid, $${Number(total - parseFloat(partialPaymentAmount)).toFixed(2)} added to ${selectedCustomer.name}'s account`
             : `Transaction completed successfully - ${paymentMethod}`,
       });
 

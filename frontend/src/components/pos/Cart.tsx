@@ -753,11 +753,11 @@ export function Cart({
             <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
               <div className="flex justify-between text-sm">
                 <span>Current Due:</span>
-                <span className="font-medium">${(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+                <span className="font-medium">${Number(selectedCustomer.due_amount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Credit Limit:</span>
-                <span className="font-medium">${(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+                <span className="font-medium">${Number(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Available Credit:</span>
@@ -795,11 +795,11 @@ export function Cart({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Current Due:</span>
-                  <span className="font-medium">${(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+                  <span className="font-medium">${Number(selectedCustomer.due_amount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Credit Limit:</span>
-                  <span className="font-medium">${(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+                  <span className="font-medium">${Number(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
                 </div>
               </div>
               
@@ -830,7 +830,7 @@ export function Cart({
                     <div className="flex justify-between">
                       <span>New Customer Due:</span>
                       <span className="font-medium">
-                        ${((selectedCustomer.due_amount || 0) + total - parseFloat(partialPaymentAmount)).toFixed(2)}
+                        ${(Number(selectedCustomer.due_amount || 0) + Number(total - parseFloat(partialPaymentAmount))).toFixed(2)}
                       </span>
                     </div>
                   </div>

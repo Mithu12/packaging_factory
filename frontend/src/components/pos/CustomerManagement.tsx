@@ -468,7 +468,7 @@ export function CustomerManagement() {
                     {(customer.due_amount || 0) > 0 ? (
                       <Badge variant="destructive" className="flex items-center gap-1 w-fit">
                         <DollarSign className="w-3 h-3" />
-                        ${(customer.due_amount || 0).toFixed(2)}
+                        ${Number(customer.due_amount || 0).toFixed(2)}
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="flex items-center gap-1 w-fit text-green-600">
@@ -766,7 +766,7 @@ export function CustomerManagement() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">{paymentCustomer.name}</span>
                   <Badge variant="destructive">
-                    Due: ${(paymentCustomer.due_amount || 0).toFixed(2)}
+                    Due: ${Number(paymentCustomer.due_amount || 0).toFixed(2)}
                   </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground">
@@ -812,12 +812,12 @@ export function CustomerManagement() {
                 <div className="p-3 bg-green-50 rounded-lg">
                   <div className="flex justify-between text-sm">
                     <span>Payment Amount:</span>
-                    <span className="font-medium">${parseFloat(paymentAmount).toFixed(2)}</span>
+                    <span className="font-medium">${Number(parseFloat(paymentAmount)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Remaining Due:</span>
                     <span className="font-medium">
-                      ${((paymentCustomer.due_amount || 0) - parseFloat(paymentAmount)).toFixed(2)}
+                      ${(Number(paymentCustomer.due_amount || 0) - Number(parseFloat(paymentAmount))).toFixed(2)}
                     </span>
                   </div>
                 </div>

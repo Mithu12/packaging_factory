@@ -619,7 +619,7 @@ export default function ProductDetails() {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>
                 <span className="font-medium text-success">
-                  {formatCurrency(product.selling_price - product.cost_price)} ({((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
+                  {formatCurrency(product.selling_price - product.cost_price)} ({Number((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
                 </span>
               </div>
               <div className="flex justify-between">
