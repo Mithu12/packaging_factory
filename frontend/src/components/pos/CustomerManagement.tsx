@@ -357,7 +357,7 @@ export function CustomerManagement() {
                 <TableHead>Name</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Loyalty Points</TableHead>
-                <TableHead>Outstanding Balance</TableHead>
+                <TableHead>Total Purchases</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -443,6 +443,12 @@ export function CustomerManagement() {
                   </p>
                 </div>
                 <div>
+                  <Label className="text-sm font-medium">Customer Type</Label>
+                  <p className="flex items-center gap-2">
+                    <Badge variant="outline">{selectedCustomer.customer_type}</Badge>
+                  </p>
+                </div>
+                <div>
                   <Label className="text-sm font-medium">Loyalty Points</Label>
                   <p className="flex items-center gap-2">
                     <Star className="w-4 h-4" />
@@ -473,10 +479,6 @@ export function CustomerManagement() {
               <div>
                 <Label className="text-lg font-medium">Customer Information</Label>
                 <div className="mt-3 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Customer Type:</span>
-                    <Badge variant="outline">{selectedCustomer.customer_type}</Badge>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Status:</span>
                     <Badge variant={selectedCustomer.status === 'active' ? 'default' : 'secondary'}>

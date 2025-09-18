@@ -765,7 +765,7 @@ export interface Customer {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   status: 'active' | 'inactive' | 'blocked';
   total_purchases: number;
   loyalty_points: number;
@@ -786,7 +786,7 @@ export interface CreateCustomerRequest {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type?: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   notes?: string;
 }
 
@@ -801,7 +801,7 @@ export interface UpdateCustomerRequest {
   country?: string;
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
-  customer_type?: 'regular' | 'vip' | 'wholesale' | 'walk_in';
+  customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   status?: 'active' | 'inactive' | 'blocked';
   notes?: string;
 }

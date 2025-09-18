@@ -27,7 +27,7 @@ export const updateCustomerSchema = Joi.object({
   country: Joi.string().max(100).optional().allow(''),
   date_of_birth: Joi.date().optional().allow(''),
   gender: Joi.string().valid('male', 'female', 'other').optional(),
-  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
+  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   status: Joi.string().valid('active', 'inactive', 'blocked').optional(),
   notes: Joi.string().optional().allow('')
 });
@@ -36,7 +36,7 @@ export const customerQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
   search: Joi.string().optional(),
-  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
+  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   status: Joi.string().valid('active', 'inactive', 'blocked').optional(),
   sortBy: Joi.string().valid('name', 'email', 'phone', 'customer_type', 'status', 'total_purchases', 'created_at').default('id'),
   sortOrder: Joi.string().valid('asc', 'desc').default('asc')
@@ -106,7 +106,7 @@ export const createPricingRuleSchema = Joi.object({
   max_quantity: Joi.number().min(1).optional(),
   start_date: Joi.date().required(),
   end_date: Joi.date().optional(),
-  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
+  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   priority: Joi.number().integer().min(0).default(0)
 }).custom((value, helpers) => {
   // Ensure either product_id or category_id is provided, but not both
@@ -134,7 +134,7 @@ export const updatePricingRuleSchema = Joi.object({
   max_quantity: Joi.number().min(1).optional(),
   start_date: Joi.date().optional(),
   end_date: Joi.date().optional(),
-  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
+  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   is_active: Joi.boolean().optional(),
   priority: Joi.number().integer().min(0).optional()
 });
@@ -146,7 +146,7 @@ export const pricingRuleQuerySchema = Joi.object({
   product_id: Joi.number().integer().positive().optional(),
   category_id: Joi.number().integer().positive().optional(),
   rule_type: Joi.string().valid('discount', 'markup', 'fixed_price').optional(),
-  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'walk_in').optional(),
+  customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   is_active: Joi.boolean().optional(),
   sortBy: Joi.string().valid('name', 'rule_type', 'start_date', 'end_date', 'priority', 'created_at').default('created_at'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc')
