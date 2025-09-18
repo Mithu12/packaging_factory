@@ -19,6 +19,7 @@ import {
   X as XIcon
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getImagePath } from '@/utils/image.utils';
 
 interface ExpenseFormData {
   title: string;
@@ -148,6 +149,15 @@ export default function EditExpense() {
   const handleFileChange = (file: File | null) => {
     setFormData(prev => ({ ...prev, receipt_file: file || undefined }));
   };
+
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (formData.receipt_file) {
+        URL.revokeObjectURL(URL.createObjectURL(formData.receipt_file));
+      }
+    };
+  }, [formData.receipt_file]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,7 +467,39 @@ export default function EditExpense() {
 
               <div className="md:col-span-2">
                 <Label htmlFor="receipt">Receipt Image (Optional)</Label>
-                <div className="mt-2">
+                <div className="mt-2 space-y-3">
+                  {/* Show existing receipt image if available */}
+                  {expense?.receipt_url && !formData.receipt_file && (
+                    <div className="border rounded-lg p-3 bg-accent/30">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Image className="w-5 h-5 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Current Receipt</p>
+                          <p className="text-xs text-muted-foreground">
+                            Click to view full size
+                          </p>
+                        </div>
+                      </div>
+                      <div className="relative group">
+                        <img
+                          src={getImagePath(expense.receipt_url)}
+                          alt="Current receipt"
+                          className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => {
+                            // Open image in new tab
+                            window.open(getImagePath(expense.receipt_url), '_blank');
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
+                            <Image className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show new file selection */}
                   {formData.receipt_file ? (
                     <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
                       <Image className="w-5 h-5 text-primary" />
@@ -495,7 +537,7 @@ export default function EditExpense() {
                       <label htmlFor="receipt" className={canEdit ? "cursor-pointer" : "cursor-not-allowed"}>
                         <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">
-                          Click to upload receipt image
+                          {expense?.receipt_url ? 'Replace receipt image' : 'Click to upload receipt image'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           PNG, JPG, GIF up to 5MB

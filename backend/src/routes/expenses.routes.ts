@@ -136,6 +136,8 @@ router.post('/', authenticate, employeeAndAbove, validateRequest(createExpenseSc
 // POST /api/expenses/with-receipt - Create new expense with receipt image
 router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expenses/with-receipt'
+    let uploadedFile: Express.Multer.File | null = null;
+    
     try {
         // Parse the JSON data from FormData
         const expenseData = JSON.parse(req.body.data);
@@ -149,12 +151,28 @@ router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceip
         
         // Add receipt URL to expense data if file was uploaded
         if (req.file) {
+            uploadedFile = req.file; // Store reference for cleanup
             expenseData.receipt_url = `/uploads/expenses/${req.file.filename}`;
         }
         
         // Validate the expense data
         const { error, value } = createExpenseSchema.validate(expenseData);
         if (error) {
+            // Clean up uploaded file if validation fails
+            if (uploadedFile) {
+                const fs = require('fs');
+                const path = require('path');
+                const filePath = path.join(process.cwd(), 'uploads', 'expenses', uploadedFile.filename);
+                try {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                        MyLogger.info('Cleaned up uploaded file after validation failure', { filename: uploadedFile.filename });
+                    }
+                } catch (cleanupError) {
+                    MyLogger.warn('Failed to cleanup uploaded file after validation failure', { filename: uploadedFile.filename, error: cleanupError });
+                }
+            }
+            
             res.status(400).json({
                 error: {
                     message: 'Validation error',
@@ -168,6 +186,21 @@ router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceip
         MyLogger.success(action, { expenseId: expense.id, expenseNumber: expense.expense_number, hasReceipt: !!req.file })
         serializeSuccessResponse(res, expense, 'SUCCESS')
     } catch (error) {
+        // Clean up uploaded file if expense creation fails
+        if (uploadedFile) {
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'uploads', 'expenses', uploadedFile.filename);
+            try {
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    MyLogger.info('Cleaned up uploaded file after expense creation failure', { filename: uploadedFile.filename });
+                }
+            } catch (cleanupError) {
+                MyLogger.warn('Failed to cleanup uploaded file after expense creation failure', { filename: uploadedFile.filename, error: cleanupError });
+            }
+        }
+        
         MyLogger.error(action, error)
         next(error)
     }
@@ -236,6 +269,8 @@ router.patch('/:id/pay', authenticate, managerAndAbove, validateRequest(payExpen
 // POST /api/expenses/:id/receipt - Update expense receipt image
 router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expenses/:id/receipt'
+    let uploadedFile: Express.Multer.File | null = null;
+    
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { expenseId: id, hasReceipt: !!req.file })
@@ -249,6 +284,8 @@ router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt
             });
             return;
         }
+        
+        uploadedFile = req.file; // Store reference for cleanup
         
         // Get current expense to check for existing receipt
         let currentExpense = null;
@@ -286,6 +323,21 @@ router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt
         MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number, receiptUrl })
         serializeSuccessResponse(res, expense, 'SUCCESS')
     } catch (error) {
+        // Clean up uploaded file if expense update fails
+        if (uploadedFile) {
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'uploads', 'expenses', uploadedFile.filename);
+            try {
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    MyLogger.info('Cleaned up uploaded file after expense update failure', { filename: uploadedFile.filename });
+                }
+            } catch (cleanupError) {
+                MyLogger.warn('Failed to cleanup uploaded file after expense update failure', { filename: uploadedFile.filename, error: cleanupError });
+            }
+        }
+        
         MyLogger.error(action, error, { expenseId: req.params.id })
         next(error)
     }

@@ -203,6 +203,15 @@ export default function Expenses() {
     setFormData(prev => ({ ...prev, receipt_file: file || undefined }));
   };
 
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (formData.receipt_file) {
+        URL.revokeObjectURL(URL.createObjectURL(formData.receipt_file));
+      }
+    };
+  }, [formData.receipt_file]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -542,22 +551,33 @@ export default function Expenses() {
                     <Label htmlFor="receipt">Receipt Image (Optional)</Label>
                     <div className="mt-2">
                       {formData.receipt_file ? (
-                        <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
-                          <Image className="w-5 h-5 text-primary" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{formData.receipt_file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
+                            <Image className="w-5 h-5 text-primary" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{formData.receipt_file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleFileChange(null)}
+                            >
+                              <XIcon className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleFileChange(null)}
-                          >
-                            <XIcon className="w-4 h-4" />
-                          </Button>
+                          {/* Preview the selected file */}
+                          <div className="border rounded-lg p-3 bg-accent/30">
+                            <p className="text-sm font-medium mb-2">Preview:</p>
+                            <img
+                              src={URL.createObjectURL(formData.receipt_file)}
+                              alt="Receipt preview"
+                              className="w-full h-32 object-cover rounded border"
+                            />
+                          </div>
                         </div>
                       ) : (
                         <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
@@ -1015,24 +1035,67 @@ export default function Expenses() {
 
               <div className="md:col-span-2">
                 <Label htmlFor="edit-receipt">Receipt Image (Optional)</Label>
-                <div className="mt-2">
-                  {formData.receipt_file ? (
-                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
-                      <Image className="w-5 h-5 text-primary" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{formData.receipt_file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
+                <div className="mt-2 space-y-3">
+                  {/* Show existing receipt image if available */}
+                  {editingExpense?.receipt_url && !formData.receipt_file && (
+                    <div className="border rounded-lg p-3 bg-accent/30">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Image className="w-5 h-5 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Current Receipt</p>
+                          <p className="text-xs text-muted-foreground">
+                            Click to view full size
+                          </p>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleFileChange(null)}
-                      >
-                        <XIcon className="w-4 h-4" />
-                      </Button>
+                      <div className="relative group">
+                        <img
+                          src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${editingExpense.receipt_url}`}
+                          alt="Current receipt"
+                          className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => {
+                            // Open image in new tab
+                            window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${editingExpense.receipt_url}`, '_blank');
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
+                            <Image className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show new file selection */}
+                  {formData.receipt_file ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
+                        <Image className="w-5 h-5 text-primary" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{formData.receipt_file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleFileChange(null)}
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {/* Preview the selected file */}
+                      <div className="border rounded-lg p-3 bg-accent/30">
+                        <p className="text-sm font-medium mb-2">Preview:</p>
+                        <img
+                          src={URL.createObjectURL(formData.receipt_file)}
+                          alt="Receipt preview"
+                          className="w-full h-32 object-cover rounded border"
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
@@ -1049,7 +1112,7 @@ export default function Expenses() {
                       <label htmlFor="edit-receipt" className="cursor-pointer">
                         <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">
-                          Click to upload receipt image
+                          {editingExpense?.receipt_url ? 'Replace receipt image' : 'Click to upload receipt image'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           PNG, JPG, GIF up to 5MB
