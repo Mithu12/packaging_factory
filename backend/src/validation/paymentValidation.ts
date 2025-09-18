@@ -47,7 +47,7 @@ export const updatePaymentSchema = Joi.object({
 export const invoiceQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
-  search: Joi.string().max(255).optional(),
+  search: Joi.string().max(255).optional().allow(''),
   supplier_id: Joi.number().integer().positive().optional(),
   purchase_order_id: Joi.number().integer().positive().optional(),
   status: Joi.string().valid('pending', 'partial', 'paid', 'overdue', 'cancelled').optional(),
@@ -55,20 +55,20 @@ export const invoiceQuerySchema = Joi.object({
   end_date: Joi.date().iso().optional(),
   due_date_from: Joi.date().iso().optional(),
   due_date_to: Joi.date().iso().optional(),
-  sortBy: Joi.string().valid('invoice_date', 'due_date', 'total_amount', 'outstanding_amount', 'status', 'invoice_number').optional(),
+  sortBy: Joi.string().valid('invoice_date', 'due_date', 'total_amount', 'outstanding_amount', 'status', 'invoice_number', 'created_at', 'supplier_name').optional(),
   sortOrder: Joi.string().valid('asc', 'desc').optional()
 });
 
 export const paymentQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
-  search: Joi.string().max(255).optional(),
+  search: Joi.string().max(255).optional().allow(''),
   supplier_id: Joi.number().integer().positive().optional(),
   invoice_id: Joi.number().integer().positive().optional(),
   status: Joi.string().valid('pending', 'completed', 'failed', 'cancelled').optional(),
   payment_method: Joi.string().max(50).optional(),
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
-  sortBy: Joi.string().valid('payment_date', 'amount', 'status', 'payment_number', 'payment_method').optional(),
+  sortBy: Joi.string().valid('payment_date', 'amount', 'status', 'payment_number', 'payment_method', 'created_at', 'supplier_name').optional(),
   sortOrder: Joi.string().valid('asc', 'desc').optional()
 });

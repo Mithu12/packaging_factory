@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RecordPaymentForm } from "@/components/forms/RecordPaymentForm"
 import { useFormatting } from "@/hooks/useFormatting"
 import { 
@@ -16,11 +18,16 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  X
 } from "lucide-react"
 import { toast } from "@/components/ui/sonner"
 import { PaymentApi } from "@/services/payment-api"
-import { Invoice, Payment, PaymentStats } from "@/services/types"
+import { Invoice, Payment, PaymentStats, InvoiceQueryParams, PaymentQueryParams } from "@/services/types"
 import {
   Table,
   TableBody,
@@ -41,37 +48,113 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export default function Payments() {
   const navigate = useNavigate()
   const { formatCurrency, formatDate } = useFormatting()
-  const [searchTerm, setSearchTerm] = useState("")
+  
+  // Basic state
   const [activeTab, setActiveTab] = useState("invoices")
   const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Data state
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [stats, setStats] = useState<PaymentStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Pagination state
+  const [invoicesPagination, setInvoicesPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  })
+  const [paymentsPagination, setPaymentsPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  })
+  
+  // Filter state
+  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceQueryParams>({
+    page: 1,
+    limit: 10,
+    search: "",
+    status: undefined,
+    start_date: undefined,
+    end_date: undefined,
+    due_date_from: undefined,
+    due_date_to: undefined,
+    sortBy: "created_at",
+    sortOrder: "desc"
+  })
+  
+  const [paymentFilters, setPaymentFilters] = useState<PaymentQueryParams>({
+    page: 1,
+    limit: 10,
+    search: "",
+    status: undefined,
+    payment_method: undefined,
+    start_date: undefined,
+    end_date: undefined,
+    sortBy: "payment_date",
+    sortOrder: "desc"
+  })
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [invoiceFilters, paymentFilters])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
       
+      // Clean up filters to remove empty strings
+      const cleanInvoiceFilters = {
+        ...invoiceFilters,
+        search: invoiceFilters.search?.trim() || undefined
+      }
+      
+      const cleanPaymentFilters = {
+        ...paymentFilters,
+        search: paymentFilters.search?.trim() || undefined
+      }
+      
       const [invoicesResponse, paymentsResponse, statsResponse] = await Promise.all([
-        PaymentApi.getInvoices({ limit: 100 }),
-        PaymentApi.getPayments({ limit: 100 }),
+        PaymentApi.getInvoices(cleanInvoiceFilters),
+        PaymentApi.getPayments(cleanPaymentFilters),
         PaymentApi.getPaymentStats()
       ])
       
       setInvoices(invoicesResponse)
       setPayments(paymentsResponse)
       setStats(statsResponse)
+      
+      // Update pagination info (assuming the API returns pagination metadata)
+      // Note: You may need to adjust this based on your actual API response structure
+      setInvoicesPagination(prev => ({
+        ...prev,
+        total: invoicesResponse.length, // This should come from API metadata
+        totalPages: Math.ceil(invoicesResponse.length / prev.limit)
+      }))
+      
+      setPaymentsPagination(prev => ({
+        ...prev,
+        total: paymentsResponse.length, // This should come from API metadata
+        totalPages: Math.ceil(paymentsResponse.length / prev.limit)
+      }))
     } catch (err: any) {
       console.error('Error fetching payment data:', err)
       setError(err.message || 'Failed to load payment data')
@@ -87,21 +170,170 @@ export default function Payments() {
     fetchData() // Refresh data after payment is recorded
   }
 
+  // Filter handlers
+  const handleInvoiceFilterChange = (key: keyof InvoiceQueryParams, value: any) => {
+    setInvoiceFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1 // Reset to first page when filters change
+    }))
+  }
 
-  // Filter data based on search term
-  const filteredInvoices = invoices.filter(invoice => 
-    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (invoice.supplier_name && invoice.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.po_number && invoice.po_number.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const handlePaymentFilterChange = (key: keyof PaymentQueryParams, value: any) => {
+    setPaymentFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1 // Reset to first page when filters change
+    }))
+  }
 
-  const filteredPayments = payments.filter(payment =>
-    payment.payment_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (payment.supplier_name && payment.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (payment.invoice_number && payment.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (payment.reference && payment.reference.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const clearInvoiceFilters = () => {
+    setInvoiceFilters({
+      page: 1,
+      limit: 10,
+      search: "",
+      status: undefined,
+      start_date: undefined,
+      end_date: undefined,
+      due_date_from: undefined,
+      due_date_to: undefined,
+      sortBy: "created_at",
+      sortOrder: "desc"
+    })
+  }
 
+  const clearPaymentFilters = () => {
+    setPaymentFilters({
+      page: 1,
+      limit: 10,
+      search: "",
+      status: undefined,
+      payment_method: undefined,
+      start_date: undefined,
+      end_date: undefined,
+      sortBy: "payment_date",
+      sortOrder: "desc"
+    })
+  }
+
+  // Pagination handlers
+  const handleInvoicePageChange = (page: number) => {
+    setInvoiceFilters(prev => ({ ...prev, page }))
+  }
+
+  const handlePaymentPageChange = (page: number) => {
+    setPaymentFilters(prev => ({ ...prev, page }))
+  }
+
+  const handleInvoiceLimitChange = (limit: number) => {
+    setInvoiceFilters(prev => ({ ...prev, limit, page: 1 }))
+  }
+
+  const handlePaymentLimitChange = (limit: number) => {
+    setPaymentFilters(prev => ({ ...prev, limit, page: 1 }))
+  }
+
+  // Pagination component
+  const PaginationComponent = ({ 
+    currentPage, 
+    totalPages, 
+    onPageChange, 
+    onLimitChange, 
+    currentLimit,
+    total 
+  }: {
+    currentPage: number
+    totalPages: number
+    onPageChange: (page: number) => void
+    onLimitChange: (limit: number) => void
+    currentLimit: number
+    total: number
+  }) => {
+    const startItem = (currentPage - 1) * currentLimit + 1
+    const endItem = Math.min(currentPage * currentLimit, total)
+
+    return (
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center space-x-2">
+          <p className="text-sm text-muted-foreground">
+            Showing {startItem} to {endItem} of {total} results
+          </p>
+          <Select value={currentLimit.toString()} onValueChange={(value) => onLimitChange(Number(value))}>
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent side="top">
+              {[10, 20, 30, 40, 50].map((pageSize) => (
+                <SelectItem key={pageSize} value={pageSize.toString()}>
+                  {pageSize}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center space-x-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum
+              if (totalPages <= 5) {
+                pageNum = i + 1
+              } else if (currentPage <= 3) {
+                pageNum = i + 1
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i
+              } else {
+                pageNum = currentPage - 2 + i
+              }
+              
+              return (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onPageChange(pageNum)}
+                  className="w-8 h-8 p-0"
+                >
+                  {pageNum}
+                </Button>
+              )
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -234,14 +466,103 @@ export default function Payments() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
                       placeholder="Search invoices..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={invoiceFilters.search || ""}
+                      onChange={(e) => handleInvoiceFilterChange("search", e.target.value)}
                       className="pl-10 w-full sm:w-80"
                     />
                   </div>
-                  <Button variant="outline" size="icon">
-                    <Filter className="h-4 w-4" />
-                  </Button>
+                  <Dialog open={showFilters} onOpenChange={setShowFilters}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Filter Invoices</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="status">Status</Label>
+                          <Select 
+                            value={invoiceFilters.status || "all"} 
+                            onValueChange={(value) => handleInvoiceFilterChange("status", value === "all" ? undefined : value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All statuses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All statuses</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="partial">Partial</SelectItem>
+                              <SelectItem value="paid">Paid</SelectItem>
+                              <SelectItem value="overdue">Overdue</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sortBy">Sort By</Label>
+                          <Select 
+                            value={invoiceFilters.sortBy || "created_at"} 
+                            onValueChange={(value) => handleInvoiceFilterChange("sortBy", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="created_at">Created Date</SelectItem>
+                              <SelectItem value="invoice_date">Invoice Date</SelectItem>
+                              <SelectItem value="due_date">Due Date</SelectItem>
+                              <SelectItem value="total_amount">Amount</SelectItem>
+                              <SelectItem value="supplier_name">Supplier</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="startDate">Start Date</Label>
+                          <Input
+                            type="date"
+                            value={invoiceFilters.start_date || ""}
+                            onChange={(e) => handleInvoiceFilterChange("start_date", e.target.value || undefined)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endDate">End Date</Label>
+                          <Input
+                            type="date"
+                            value={invoiceFilters.end_date || ""}
+                            onChange={(e) => handleInvoiceFilterChange("end_date", e.target.value || undefined)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="dueDateFrom">Due Date From</Label>
+                          <Input
+                            type="date"
+                            value={invoiceFilters.due_date_from || ""}
+                            onChange={(e) => handleInvoiceFilterChange("due_date_from", e.target.value || undefined)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="dueDateTo">Due Date To</Label>
+                          <Input
+                            type="date"
+                            value={invoiceFilters.due_date_to || ""}
+                            onChange={(e) => handleInvoiceFilterChange("due_date_to", e.target.value || undefined)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <Button variant="outline" onClick={clearInvoiceFilters}>
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Filters
+                        </Button>
+                        <Button onClick={() => setShowFilters(false)}>
+                          Apply Filters
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardHeader>
@@ -260,7 +581,7 @@ export default function Payments() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.map((invoice) => {
+                  {invoices.map((invoice) => {
                     const StatusIcon = getStatusIcon(invoice.status)
                     const isOverdue = invoice.status === "overdue"
                     
@@ -329,6 +650,18 @@ export default function Payments() {
                   })}
                 </TableBody>
               </Table>
+              
+              {/* Pagination for Invoices */}
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <PaginationComponent
+                  currentPage={invoicesPagination.page}
+                  totalPages={invoicesPagination.totalPages}
+                  onPageChange={handleInvoicePageChange}
+                  onLimitChange={handleInvoiceLimitChange}
+                  currentLimit={invoicesPagination.limit}
+                  total={invoicesPagination.total}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -337,7 +670,114 @@ export default function Payments() {
         <TabsContent value="payments">
           <Card>
             <CardHeader>
-              <CardTitle>Payment History</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <CardTitle>Payment History</CardTitle>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      placeholder="Search payments..."
+                      value={paymentFilters.search || ""}
+                      onChange={(e) => handlePaymentFilterChange("search", e.target.value)}
+                      className="pl-10 w-full sm:w-80"
+                    />
+                  </div>
+                  <Dialog open={showFilters} onOpenChange={setShowFilters}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Filter Payments</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="status">Status</Label>
+                          <Select 
+                            value={paymentFilters.status || "all"} 
+                            onValueChange={(value) => handlePaymentFilterChange("status", value === "all" ? undefined : value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All statuses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All statuses</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="failed">Failed</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="paymentMethod">Payment Method</Label>
+                          <Select 
+                            value={paymentFilters.payment_method || "all"} 
+                            onValueChange={(value) => handlePaymentFilterChange("payment_method", value === "all" ? undefined : value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All methods" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All methods</SelectItem>
+                              <SelectItem value="cash">Cash</SelectItem>
+                              <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                              <SelectItem value="check">Check</SelectItem>
+                              <SelectItem value="credit_card">Credit Card</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sortBy">Sort By</Label>
+                          <Select 
+                            value={paymentFilters.sortBy || "payment_date"} 
+                            onValueChange={(value) => handlePaymentFilterChange("sortBy", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="payment_date">Payment Date</SelectItem>
+                              <SelectItem value="amount">Amount</SelectItem>
+                              <SelectItem value="payment_method">Payment Method</SelectItem>
+                              <SelectItem value="supplier_name">Supplier</SelectItem>
+                              <SelectItem value="created_at">Created Date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="startDate">Start Date</Label>
+                          <Input
+                            type="date"
+                            value={paymentFilters.start_date || ""}
+                            onChange={(e) => handlePaymentFilterChange("start_date", e.target.value || undefined)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endDate">End Date</Label>
+                          <Input
+                            type="date"
+                            value={paymentFilters.end_date || ""}
+                            onChange={(e) => handlePaymentFilterChange("end_date", e.target.value || undefined)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <Button variant="outline" onClick={clearPaymentFilters}>
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Filters
+                        </Button>
+                        <Button onClick={() => setShowFilters(false)}>
+                          Apply Filters
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -354,7 +794,7 @@ export default function Payments() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPayments.map((payment) => (
+                  {payments.map((payment) => (
                     <TableRow key={payment.id} className="hover:bg-accent/50">
                       <TableCell className="font-medium">{payment.id}</TableCell>
                       <TableCell>{payment.invoice_id || 'N/A'}</TableCell>
@@ -372,6 +812,18 @@ export default function Payments() {
                   ))}
                 </TableBody>
               </Table>
+              
+              {/* Pagination for Payments */}
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <PaginationComponent
+                  currentPage={paymentsPagination.page}
+                  totalPages={paymentsPagination.totalPages}
+                  onPageChange={handlePaymentPageChange}
+                  onLimitChange={handlePaymentLimitChange}
+                  currentLimit={paymentsPagination.limit}
+                  total={paymentsPagination.total}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
