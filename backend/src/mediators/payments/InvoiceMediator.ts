@@ -265,6 +265,16 @@ export class InvoiceMediator {
       `
       const paymentsResult = await client.query(paymentsQuery, [id])
 
+      // Get payment history for this invoice
+      const paymentHistoryQuery = `
+        SELECT ph.*, p.payment_number
+        FROM payment_history ph
+        LEFT JOIN payments p ON ph.payment_id = p.id
+        WHERE ph.invoice_id = $1
+        ORDER BY ph.created_at DESC
+      `
+      const paymentHistoryResult = await client.query(paymentHistoryQuery, [id])
+
       const invoiceWithDetails: InvoiceWithDetails = {
         ...invoice,
         supplier: {
@@ -276,7 +286,8 @@ export class InvoiceMediator {
           id: invoice.purchase_order_id,
           po_number: invoice.po_number
         } : undefined,
-        payments: paymentsResult.rows
+        payments: paymentsResult.rows,
+        payment_history: paymentHistoryResult.rows
       }
 
       MyLogger.success(action, { invoiceId: id, invoiceNumber: invoice.invoice_number })

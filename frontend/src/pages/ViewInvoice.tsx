@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { 
+import {
   ArrowLeft, 
   Download, 
   Mail, 
@@ -23,7 +23,11 @@ import {
   Calendar,
   CreditCard,
   FileText,
-  Package
+  Package,
+  History,
+  Clock,
+  User,
+  DollarSign
 } from "lucide-react"
 import { PaymentApi } from "@/services/payment-api"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
@@ -542,6 +546,117 @@ export default function ViewInvoice() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Payment History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Payment History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {invoice.payment_history && invoice.payment_history.length > 0 ? (
+                <div className="space-y-4">
+                  {invoice.payment_history.map((history, index) => (
+                    <div key={history.id} className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-sm">{history.event}</h4>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(history.created_at).toLocaleDateString()} {new Date(history.created_at).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        {history.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{history.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          {history.payment_number && (
+                            <div className="flex items-center gap-1">
+                              <CreditCard className="w-3 h-3" />
+                              <span>Payment: {history.payment_number}</span>
+                            </div>
+                          )}
+                          {history.user_name && (
+                            <div className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              <span>By: {history.user_name}</span>
+                            </div>
+                          )}
+                          {history.new_value && (
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              <span>Amount: ${Number(history.new_value).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                        {history.old_value && history.new_value && (
+                          <div className="mt-2 text-xs">
+                            <span className="text-muted-foreground">Changed from </span>
+                            <span className="font-medium">${Number(history.old_value).toLocaleString()}</span>
+                            <span className="text-muted-foreground"> to </span>
+                            <span className="font-medium">${Number(history.new_value).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <History className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground text-sm">No payment history available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payments List */}
+          {invoice.payments && invoice.payments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Payments Received
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {invoice.payments.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-accent/30 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-success/10 rounded-full flex items-center justify-center">
+                          <DollarSign className="w-4 h-4 text-success" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{payment.payment_number}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {payment.payment_method} • {new Date(payment.payment_date).toLocaleDateString()}
+                          </div>
+                          {payment.reference && (
+                            <div className="text-xs text-muted-foreground">
+                              Ref: {payment.reference}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium text-success">
+                          ${Number(payment.amount).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {payment.status}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

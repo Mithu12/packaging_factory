@@ -49,6 +49,7 @@ export interface PaymentHistory {
   new_value?: string;
   user_name?: string;
   created_at: string;
+  payment_number?: string;
 }
 
 export interface CreateInvoiceRequest {
@@ -137,6 +138,7 @@ export interface InvoiceWithDetails extends Invoice {
     po_number: string;
   };
   payments?: Payment[];
+  payment_history?: PaymentHistory[];
 }
 
 export interface PaymentWithDetails extends Payment {
