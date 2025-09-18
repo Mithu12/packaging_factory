@@ -102,6 +102,12 @@ export const PERMISSIONS: Permission[] = [
   { module: 'users', action: 'create', roles: ['admin'] },
   { module: 'users', action: 'update', roles: ['admin'] },
   { module: 'users', action: 'delete', roles: ['admin'] },
+
+  // Expenses
+  { module: 'expenses', action: 'view', roles: ['viewer', 'employee', 'manager', 'admin'] },
+  { module: 'expenses', action: 'create', roles: ['manager', 'admin'] },
+  { module: 'expenses', action: 'update', roles: ['manager', 'admin'] },
+  { module: 'expenses', action: 'delete', roles: ['admin'] },
 ];
 
 /**
@@ -192,6 +198,7 @@ export function canViewRoute(user: User | null, route: string): boolean {
     '/reports': 'reports',
     '/settings': 'settings',
     '/user-management': 'users',
+    '/expenses': 'expenses',
   };
   
   const module = routeModuleMap[route];

@@ -1,4 +1,4 @@
-import { pool } from '@/database/connection';
+import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import {
@@ -280,3 +280,5 @@ export class ExpenseCategoryMediator {
     }
   }
 }
+
+export default new ExpenseCategoryMediator();

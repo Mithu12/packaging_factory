@@ -4,7 +4,7 @@ import {
     updateExpenseCategorySchema,
     expenseCategoryQuerySchema
 } from '@/validation/expenseValidation';
-import { ExpenseCategoryMediator } from '@/mediators/expenses/ExpenseCategoryMediator';
+import ExpenseCategoryMediator from '@/mediators/expenses/ExpenseCategoryMediator';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
 import expressAsyncHandler from 'express-async-handler';
@@ -68,7 +68,7 @@ router.get('/', authenticate, employeeAndAbove, validateQuery(expenseCategoryQue
     let action = 'GET /api/expense-categories'
     try {
         MyLogger.info(action, { query: req.query })
-        const categories = await ExpenseCategoryMediator.prototype.getExpenseCategories(req.query);
+        const categories = await ExpenseCategoryMediator.getExpenseCategories(req.query);
         MyLogger.success(action, { count: categories.categories.length, total: categories.total })
         serializeSuccessResponse(res, categories, 'SUCCESS')
     } catch (error) {
@@ -82,7 +82,7 @@ router.get('/active', authenticate, employeeAndAbove, expressAsyncHandler(async 
     let action = 'GET /api/expense-categories/active'
     try {
         MyLogger.info(action)
-        const categories = await ExpenseCategoryMediator.prototype.getActiveExpenseCategories();
+        const categories = await ExpenseCategoryMediator.getActiveExpenseCategories();
         MyLogger.success(action, { count: categories.length })
         serializeSuccessResponse(res, categories, 'SUCCESS')
     } catch (error) {
@@ -97,7 +97,7 @@ router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(async (re
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { categoryId: id })
-        const category = await ExpenseCategoryMediator.prototype.getExpenseCategoryById(id);
+        const category = await ExpenseCategoryMediator.getExpenseCategoryById(id);
         MyLogger.success(action, { categoryId: id, name: category.name })
         serializeSuccessResponse(res, category, 'SUCCESS')
     } catch (error) {
@@ -111,7 +111,7 @@ router.post('/', authenticate, managerAndAbove, validateRequest(createExpenseCat
     let action = 'POST /api/expense-categories'
     try {
         MyLogger.info(action, { name: req.body.name })
-        const category = await ExpenseCategoryMediator.prototype.createExpenseCategory(req.body);
+        const category = await ExpenseCategoryMediator.createExpenseCategory(req.body);
         MyLogger.success(action, { categoryId: category.id, name: category.name })
         serializeSuccessResponse(res, category, 'SUCCESS')
     } catch (error) {
@@ -126,7 +126,7 @@ router.put('/:id', authenticate, managerAndAbove, validateRequest(updateExpenseC
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { categoryId: id })
-        const category = await ExpenseCategoryMediator.prototype.updateExpenseCategory(id, req.body);
+        const category = await ExpenseCategoryMediator.updateExpenseCategory(id, req.body);
         MyLogger.success(action, { categoryId: id, name: category.name })
         serializeSuccessResponse(res, category, 'SUCCESS')
     } catch (error) {
@@ -141,7 +141,7 @@ router.delete('/:id', authenticate, adminOnly, expressAsyncHandler(async (req, r
     try {
         const id = parseInt(req.params.id);
         MyLogger.info(action, { categoryId: id })
-        await ExpenseCategoryMediator.prototype.deleteExpenseCategory(id);
+        await ExpenseCategoryMediator.deleteExpenseCategory(id);
         MyLogger.success(action, { categoryId: id })
         serializeSuccessResponse(res, { message: 'Expense category deleted successfully' }, 'SUCCESS')
     } catch (error) {
