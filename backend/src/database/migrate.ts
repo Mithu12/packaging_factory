@@ -743,6 +743,34 @@ ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT false;
 ALTER TABLE sales_orders 
 ADD COLUMN IF NOT EXISTS gift_count INTEGER DEFAULT 0;
     `);
+
+      // Create settings table
+      await client.query(`
+      ALTER TABLE customers 
+ADD COLUMN IF NOT EXISTS due_amount DECIMAL(12,2) DEFAULT 0 CHECK (due_amount >= 0),
+ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(12,2) DEFAULT 0 CHECK (credit_limit >= 0),
+ADD COLUMN IF NOT EXISTS last_payment_date TIMESTAMP WITH TIME ZONE;
+
+-- Add due amount to sales orders
+ALTER TABLE sales_orders 
+ADD COLUMN IF NOT EXISTS due_amount DECIMAL(12,2) DEFAULT 0 CHECK (due_amount >= 0);
+
+-- Create customer due transactions table for audit trail
+CREATE TABLE IF NOT EXISTS customer_due_transactions (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  sales_order_id INTEGER REFERENCES sales_orders(id) ON DELETE SET NULL,
+  transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('charge', 'payment', 'adjustment')),
+  amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
+  balance_before DECIMAL(12,2) NOT NULL DEFAULT 0,
+  balance_after DECIMAL(12,2) NOT NULL DEFAULT 0,
+  payment_method VARCHAR(20) CHECK (payment_method IN ('cash', 'card', 'bank_transfer', 'check')),
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+    `);
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

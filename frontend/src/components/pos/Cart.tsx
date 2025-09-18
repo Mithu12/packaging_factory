@@ -688,7 +688,7 @@ export function Cart({
         {/* Payment */}
         <div className="space-y-3">
           <Label>Payment Method</Label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Button
               variant={paymentMethod === "cash" ? "default" : "outline"}
               onClick={() => onPaymentMethodChange("cash")}
@@ -704,6 +704,15 @@ export function Cart({
             >
               <CreditCard className="w-4 h-4" />
               Card
+            </Button>
+            <Button
+              variant={paymentMethod === "credit" ? "default" : "outline"}
+              onClick={() => onPaymentMethodChange("credit")}
+              className="flex items-center gap-2"
+              disabled={!selectedCustomer || selectedCustomer.customer_type === 'walk_in'}
+            >
+              <User className="w-4 h-4" />
+              Credit
             </Button>
           </div>
 
@@ -727,6 +736,39 @@ export function Cart({
             </div>
           )}
 
+          {paymentMethod === "credit" && selectedCustomer && (
+            <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span>Current Due:</span>
+                <span className="font-medium">${(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Credit Limit:</span>
+                <span className="font-medium">${(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Order Total:</span>
+                <span className="font-medium">${total.toFixed(2)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between text-sm font-semibold">
+                <span>New Total Due:</span>
+                <span className={`${
+                  ((selectedCustomer.due_amount || 0) + total) > (selectedCustomer.credit_limit || 0) 
+                    ? 'text-red-600' 
+                    : 'text-blue-600'
+                }`}>
+                  ${((selectedCustomer.due_amount || 0) + total).toFixed(2)}
+                </span>
+              </div>
+              {((selectedCustomer.due_amount || 0) + total) > (selectedCustomer.credit_limit || 0) && (
+                <div className="text-xs text-red-600 mt-2">
+                  ⚠️ This order will exceed the credit limit by ${(((selectedCustomer.due_amount || 0) + total) - (selectedCustomer.credit_limit || 0)).toFixed(2)}
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={onProcessPayment}
             disabled={cart.length === 0 || !paymentMethod || loading}
@@ -734,7 +776,12 @@ export function Cart({
             size="lg"
           >
             <Receipt className="w-4 h-4 mr-2" />
-            {loading ? "Processing..." : `Process Payment ($${Number(total).toFixed(2)})`}
+            {loading 
+              ? "Processing..." 
+              : paymentMethod === "credit" 
+                ? `Add to Credit ($${Number(total).toFixed(2)})` 
+                : `Process Payment ($${Number(total).toFixed(2)})`
+            }
           </Button>
         </div>
       </CardContent>

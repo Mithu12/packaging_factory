@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { Users, Search, Plus, Edit, Eye, Phone, Mail, MapPin, Star, DollarSign } from "lucide-react"
+import { Users, Search, Plus, Edit, Eye, Phone, Mail, MapPin, Star, DollarSign, CreditCard } from "lucide-react"
 import { CustomerApi } from "@/services/api"
 import { Customer } from "@/services/types"
 
@@ -21,6 +21,10 @@ export function CustomerManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null)
+  const [paymentAmount, setPaymentAmount] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState("cash")
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -192,6 +196,67 @@ export function CustomerManagement() {
     }
   }
 
+  const handleCollectPayment = (customer: Customer) => {
+    setPaymentCustomer(customer)
+    setPaymentAmount(customer.due_amount?.toString() || "")
+    setIsPaymentDialogOpen(true)
+  }
+
+  const processPaymentCollection = async () => {
+    if (!paymentCustomer || !paymentAmount || parseFloat(paymentAmount) <= 0) {
+      toast({
+        title: "Invalid Payment",
+        description: "Please enter a valid payment amount",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (parseFloat(paymentAmount) > (paymentCustomer.due_amount || 0)) {
+      toast({
+        title: "Payment Exceeds Due Amount",
+        description: "Payment amount cannot exceed the due amount",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      // Here you would call the API to record the payment
+      // For now, we'll just simulate the update
+      
+      const updatedCustomers = customers.map(customer => 
+        customer.id === paymentCustomer.id 
+          ? { 
+              ...customer, 
+              due_amount: (customer.due_amount || 0) - parseFloat(paymentAmount),
+              last_payment_date: new Date().toISOString()
+            }
+          : customer
+      )
+      
+      setCustomers(updatedCustomers)
+      setIsPaymentDialogOpen(false)
+      setPaymentAmount("")
+      setPaymentCustomer(null)
+      
+      toast({
+        title: "Payment Recorded",
+        description: `Payment of $${parseFloat(paymentAmount).toFixed(2)} recorded successfully`,
+      })
+    } catch (error) {
+      console.error("Error recording payment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -356,6 +421,7 @@ export function CustomerManagement() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Due Amount</TableHead>
                 <TableHead>Loyalty Points</TableHead>
                 <TableHead>Total Purchases</TableHead>
                 <TableHead>Actions</TableHead>
@@ -378,6 +444,19 @@ export function CustomerManagement() {
                         </div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {(customer.due_amount || 0) > 0 ? (
+                      <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                        <DollarSign className="w-3 h-3" />
+                        ${(customer.due_amount || 0).toFixed(2)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="flex items-center gap-1 w-fit text-green-600">
+                        <DollarSign className="w-3 h-3" />
+                        $0.00
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="flex items-center gap-1 w-fit">
@@ -406,6 +485,16 @@ export function CustomerManagement() {
                       <Button variant="outline" size="sm" onClick={() => handleEditCustomer(customer)}>
                         <Edit className="w-3 h-3" />
                       </Button>
+                      {(customer.due_amount || 0) > 0 && (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={() => handleCollectPayment(customer)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -627,6 +716,92 @@ export function CustomerManagement() {
             </Button>
             <Button onClick={handleUpdateCustomer} disabled={loading}>
               {loading ? "Updating..." : "Update Customer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Collection Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Collect Payment</DialogTitle>
+          </DialogHeader>
+          
+          {paymentCustomer && (
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">{paymentCustomer.name}</span>
+                  <Badge variant="destructive">
+                    Due: ${(paymentCustomer.due_amount || 0).toFixed(2)}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {paymentCustomer.phone && (
+                    <div className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {paymentCustomer.phone}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-amount">Payment Amount</Label>
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={paymentCustomer.due_amount || 0}
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter payment amount"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="payment-method">Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {paymentAmount && parseFloat(paymentAmount) > 0 && (
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="flex justify-between text-sm">
+                    <span>Payment Amount:</span>
+                    <span className="font-medium">${parseFloat(paymentAmount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Remaining Due:</span>
+                    <span className="font-medium">
+                      ${((paymentCustomer.due_amount || 0) - parseFloat(paymentAmount)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={processPaymentCollection}
+              disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || loading}
+            >
+              {loading ? "Processing..." : "Record Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

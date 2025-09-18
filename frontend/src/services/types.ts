@@ -769,7 +769,10 @@ export interface Customer {
   status: 'active' | 'inactive' | 'blocked';
   total_purchases: number;
   loyalty_points: number;
+  due_amount?: number;
+  credit_limit?: number;
   last_purchase_date?: string;
+  last_payment_date?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
