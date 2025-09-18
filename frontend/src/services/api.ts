@@ -372,8 +372,16 @@ export class ApiService {
     return ExpenseApi.createExpense(data);
   }
 
+  static async createExpenseWithReceipt(data: any, receiptFile?: File) {
+    return ExpenseApi.createExpenseWithReceipt(data, receiptFile);
+  }
+
   static async updateExpense(id: number, data: any) {
     return ExpenseApi.updateExpense(id, data);
+  }
+
+  static async updateExpenseReceipt(id: number, receiptFile: File) {
+    return ExpenseApi.updateExpenseReceipt(id, receiptFile);
   }
 
   static async approveExpense(id: number, notes?: string) {

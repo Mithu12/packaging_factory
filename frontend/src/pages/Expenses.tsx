@@ -32,7 +32,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Download,
-  Upload
+  Upload,
+  Image,
+  X as XIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -57,6 +59,7 @@ interface ExpenseFormData {
   department: string;
   project: string;
   notes: string;
+  receipt_file?: File;
 }
 
 const paymentMethods = [
@@ -117,7 +120,8 @@ export default function Expenses() {
     receipt_number: '',
     department: '',
     project: '',
-    notes: ''
+    notes: '',
+    receipt_file: undefined
   });
 
   // Load data
@@ -190,8 +194,13 @@ export default function Expenses() {
       receipt_number: '',
       department: '',
       project: '',
-      notes: ''
+      notes: '',
+      receipt_file: undefined
     });
+  };
+
+  const handleFileChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, receipt_file: file || undefined }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -204,13 +213,23 @@ export default function Expenses() {
         amount: parseFloat(formData.amount)
       };
 
+      // Remove receipt_file from the data object as it's handled separately
+      delete expenseData.receipt_file;
+
       if (editingExpense) {
         await ApiService.updateExpense(editingExpense.id, expenseData);
+        
+        // If there's a new receipt file, upload it separately
+        if (formData.receipt_file) {
+          await ApiService.updateExpenseReceipt(editingExpense.id, formData.receipt_file);
+        }
+        
         toast.success('Expense updated successfully');
         setIsEditDialogOpen(false);
         setEditingExpense(null);
       } else {
-        await ApiService.createExpense(expenseData);
+        // Use the new API method that supports file upload
+        await ApiService.createExpenseWithReceipt(expenseData, formData.receipt_file);
         toast.success('Expense created successfully');
         setIsAddDialogOpen(false);
       }
@@ -517,6 +536,53 @@ export default function Expenses() {
                       placeholder="Enter additional notes"
                       rows={3}
                     />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="receipt">Receipt Image (Optional)</Label>
+                    <div className="mt-2">
+                      {formData.receipt_file ? (
+                        <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
+                          <Image className="w-5 h-5 text-primary" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{formData.receipt_file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleFileChange(null)}
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
+                          <input
+                            type="file"
+                            id="receipt"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              handleFileChange(file);
+                            }}
+                            className="hidden"
+                          />
+                          <label htmlFor="receipt" className="cursor-pointer">
+                            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                              Click to upload receipt image
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              PNG, JPG, GIF up to 5MB
+                            </p>
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -945,6 +1011,53 @@ export default function Expenses() {
                   placeholder="Enter additional notes"
                   rows={3}
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="edit-receipt">Receipt Image (Optional)</Label>
+                <div className="mt-2">
+                  {formData.receipt_file ? (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
+                      <Image className="w-5 h-5 text-primary" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{formData.receipt_file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleFileChange(null)}
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
+                      <input
+                        type="file"
+                        id="edit-receipt"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          handleFileChange(file);
+                        }}
+                        className="hidden"
+                      />
+                      <label htmlFor="edit-receipt" className="cursor-pointer">
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload receipt image
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PNG, JPG, GIF up to 5MB
+                        </p>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

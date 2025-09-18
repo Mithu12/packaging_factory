@@ -10,6 +10,7 @@ import {
 import ExpenseMediator from '@/mediators/expenses/ExpenseMediator';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
+import { uploadExpenseReceipt, handleExpenseUploadError } from '@/middleware/expenseUpload';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
 
@@ -132,6 +133,46 @@ router.post('/', authenticate, employeeAndAbove, validateRequest(createExpenseSc
     }
 }));
 
+// POST /api/expenses/with-receipt - Create new expense with receipt image
+router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
+    let action = 'POST /api/expenses/with-receipt'
+    try {
+        // Parse the JSON data from FormData
+        const expenseData = JSON.parse(req.body.data);
+        
+        MyLogger.info(action, { 
+            title: expenseData.title, 
+            amount: expenseData.amount,
+            category: expenseData.category_id,
+            hasReceipt: !!req.file
+        })
+        
+        // Add receipt URL to expense data if file was uploaded
+        if (req.file) {
+            expenseData.receipt_url = `/uploads/expenses/${req.file.filename}`;
+        }
+        
+        // Validate the expense data
+        const { error, value } = createExpenseSchema.validate(expenseData);
+        if (error) {
+            res.status(400).json({
+                error: {
+                    message: 'Validation error',
+                    details: error.details.map((detail: any) => detail.message)
+                }
+            });
+            return;
+        }
+        
+        const expense = await ExpenseMediator.createExpense(value, req.user!.user_id);
+        MyLogger.success(action, { expenseId: expense.id, expenseNumber: expense.expense_number, hasReceipt: !!req.file })
+        serializeSuccessResponse(res, expense, 'SUCCESS')
+    } catch (error) {
+        MyLogger.error(action, error)
+        next(error)
+    }
+}));
+
 // PUT /api/expenses/:id - Update expense
 router.put('/:id', authenticate, employeeAndAbove, validateRequest(updateExpenseSchema), expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/expenses/:id'
@@ -188,6 +229,64 @@ router.patch('/:id/pay', authenticate, managerAndAbove, validateRequest(payExpen
         serializeSuccessResponse(res, expense, 'SUCCESS')
     } catch (error) {
         MyLogger.error(action, error)
+        next(error)
+    }
+}));
+
+// POST /api/expenses/:id/receipt - Update expense receipt image
+router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
+    let action = 'POST /api/expenses/:id/receipt'
+    try {
+        const id = parseInt(req.params.id);
+        MyLogger.info(action, { expenseId: id, hasReceipt: !!req.file })
+        
+        if (!req.file) {
+            res.status(400).json({
+                error: {
+                    message: 'No receipt file provided',
+                    details: 'Please upload a receipt image file'
+                }
+            });
+            return;
+        }
+        
+        // Get current expense to check for existing receipt
+        let currentExpense = null;
+        try {
+            currentExpense = await ExpenseMediator.getExpenseById(id);
+        } catch (error) {
+            MyLogger.warn('Could not fetch current expense for receipt deletion', { expenseId: id, error });
+        }
+        
+        const receiptUrl = `/uploads/expenses/${req.file.filename}`;
+        const expense = await ExpenseMediator.updateExpense(id, { receipt_url: receiptUrl });
+        
+        // Delete old receipt file if it exists
+        if (currentExpense?.receipt_url) {
+            const fs = require('fs');
+            const path = require('path');
+            const oldFilePath = path.join(process.cwd(), currentExpense.receipt_url);
+            try {
+                if (fs.existsSync(oldFilePath)) {
+                    fs.unlinkSync(oldFilePath);
+                    MyLogger.info('Old receipt deleted', { 
+                        expenseId: id, 
+                        oldReceiptUrl: currentExpense.receipt_url
+                    });
+                }
+            } catch (deleteError) {
+                MyLogger.warn('Failed to delete old receipt', { 
+                    expenseId: id, 
+                    oldReceiptUrl: currentExpense.receipt_url,
+                    error: deleteError
+                });
+            }
+        }
+        
+        MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number, receiptUrl })
+        serializeSuccessResponse(res, expense, 'SUCCESS')
+    } catch (error) {
+        MyLogger.error(action, error, { expenseId: req.params.id })
         next(error)
     }
 }));

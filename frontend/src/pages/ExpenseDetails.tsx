@@ -27,6 +27,7 @@ import {
   AlertCircle,
   DollarSign as DollarIcon
 } from 'lucide-react';
+import {getImagePath} from "@/utils/image.utils.ts";
 
 export default function ExpenseDetails() {
   const { id } = useParams<{ id: string }>();
@@ -338,7 +339,7 @@ export default function ExpenseDetails() {
               <CardContent>
                 <div className="border rounded-lg p-4">
                   <img 
-                    src={expense.receipt_url} 
+                    src={getImagePath(expense.receipt_url)}
                     alt="Receipt" 
                     className="max-w-full h-auto rounded"
                     onError={(e) => {

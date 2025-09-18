@@ -58,6 +58,30 @@ export class ExpenseApi {
     }
   }
 
+  // Create expense with receipt image
+  static async createExpenseWithReceipt(data: CreateExpenseRequest, receiptFile?: File): Promise<Expense> {
+    try {
+      if (receiptFile) {
+        // Use FormData for file upload
+        const formData = new FormData();
+        formData.append('data', JSON.stringify(data));
+        formData.append('receipt', receiptFile);
+
+        return await makeRequest(`${this.baseUrl}/with-receipt`, { 
+          method: 'POST', 
+          body: formData,
+          headers: {} // Let browser set Content-Type for FormData
+        });
+      } else {
+        // Fallback to regular create if no file
+        return await this.createExpense(data);
+      }
+    } catch (error) {
+      console.error('Error creating expense with receipt:', error);
+      throw error;
+    }
+  }
+
   // Update expense
   static async updateExpense(id: number, data: UpdateExpenseRequest): Promise<Expense> {
     try {
@@ -67,6 +91,23 @@ export class ExpenseApi {
       });
     } catch (error) {
       console.error(`Error updating expense ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Update expense receipt image
+  static async updateExpenseReceipt(id: number, receiptFile: File): Promise<Expense> {
+    try {
+      const formData = new FormData();
+      formData.append('receipt', receiptFile);
+
+      return await makeRequest(`${this.baseUrl}/${id}/receipt`, { 
+        method: 'POST', 
+        body: formData,
+        headers: {} // Let browser set Content-Type for FormData
+      });
+    } catch (error) {
+      console.error(`Error updating expense receipt ${id}:`, error);
       throw error;
     }
   }

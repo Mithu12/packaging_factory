@@ -13,7 +13,10 @@ import {
   ArrowLeft,
   Save,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Image,
+  X as XIcon
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -31,6 +34,7 @@ interface ExpenseFormData {
   department: string;
   project: string;
   notes: string;
+  receipt_file?: File;
 }
 
 const paymentMethods = [
@@ -76,7 +80,8 @@ export default function EditExpense() {
     receipt_number: '',
     department: '',
     project: '',
-    notes: ''
+    notes: '',
+    receipt_file: undefined
   });
 
   // Check if expense can be edited
@@ -140,6 +145,10 @@ export default function EditExpense() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleFileChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, receipt_file: file || undefined }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -157,7 +166,16 @@ export default function EditExpense() {
         amount: parseFloat(formData.amount)
       };
 
+      // Remove receipt_file from the data object as it's handled separately
+      delete expenseData.receipt_file;
+
       await ApiService.updateExpense(parseInt(id!), expenseData);
+      
+      // If there's a new receipt file, upload it separately
+      if (formData.receipt_file) {
+        await ApiService.updateExpenseReceipt(parseInt(id!), formData.receipt_file);
+      }
+      
       toast.success('Expense updated successfully');
       navigate(`/expenses/${id}`);
     } catch (err) {
@@ -435,6 +453,57 @@ export default function EditExpense() {
                   rows={3}
                   disabled={!canEdit}
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="receipt">Receipt Image (Optional)</Label>
+                <div className="mt-2">
+                  {formData.receipt_file ? (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
+                      <Image className="w-5 h-5 text-primary" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{formData.receipt_file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(formData.receipt_file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleFileChange(null)}
+                        disabled={!canEdit}
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className={`border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center transition-colors ${
+                      canEdit ? 'hover:border-muted-foreground/50 cursor-pointer' : 'opacity-50'
+                    }`}>
+                      <input
+                        type="file"
+                        id="receipt"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          handleFileChange(file);
+                        }}
+                        className="hidden"
+                        disabled={!canEdit}
+                      />
+                      <label htmlFor="receipt" className={canEdit ? "cursor-pointer" : "cursor-not-allowed"}>
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload receipt image
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PNG, JPG, GIF up to 5MB
+                        </p>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
