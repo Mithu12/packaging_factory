@@ -543,7 +543,7 @@ export function Cart({
                         value={discountValue}
                         onChange={(e) => setDiscountValue(e.target.value)}
                         min="0"
-                        step="0.01"
+                        step="0.1"
                       />
                     </div>
                   </div>
@@ -557,7 +557,7 @@ export function Cart({
                   </Button>
                   <Button
                     onClick={() => {
-                      onOverallDiscountChange(discountValue, discountType.toLowerCase() as 'percentage' | 'fixed');
+                      onOverallDiscountChange(discountValue, discountType.toLowerCase() as 'percentage' | 'flat');
                       setIsDiscountDialogOpen(false);
                     }}
                   >
