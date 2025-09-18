@@ -680,10 +680,12 @@ export default function Expenses() {
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(expense)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
+                            {!['paid', 'approved'].includes(expense.status) && (
+                              <DropdownMenuItem onClick={() => navigate(`/expenses/${expense.id}/edit`)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             {expense.status === 'pending' && (
                               <>
@@ -704,13 +706,15 @@ export default function Expenses() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(expense.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {!['paid', 'approved'].includes(expense.status) && (
+                              <DropdownMenuItem 
+                                onClick={() => handleDelete(expense.id)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

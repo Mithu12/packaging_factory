@@ -212,14 +212,18 @@ export default function ExpenseDetails() {
               Mark as Paid
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => navigate(`/expenses/${expense.id}/edit`)}>
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
+          {!['paid', 'approved'].includes(expense.status) && (
+            <Button variant="outline" size="sm" onClick={() => navigate(`/expenses/${expense.id}/edit`)}>
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+          )}
+          {!['paid', 'approved'].includes(expense.status) && (
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -413,14 +417,16 @@ export default function ExpenseDetails() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate(`/expenses/${expense.id}/edit`)}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Expense
-              </Button>
+              {!['paid', 'approved'].includes(expense.status) && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => navigate(`/expenses/${expense.id}/edit`)}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Expense
+                </Button>
+              )}
               
               {expense.status === 'pending' && (
                 <>

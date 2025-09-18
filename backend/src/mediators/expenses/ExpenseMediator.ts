@@ -333,9 +333,9 @@ export class ExpenseMediator {
 
       const currentExpense = checkResult.rows[0];
       
-      // Don't allow updates to paid expenses
-      if (currentExpense.status === 'paid') {
-        throw createError('Cannot update paid expenses', 400);
+      // Don't allow updates to paid or approved expenses
+      if (currentExpense.status === 'paid' || currentExpense.status === 'approved') {
+        throw createError('Cannot update paid or approved expenses', 400);
       }
 
       // Build update query dynamically
@@ -511,11 +511,20 @@ export class ExpenseMediator {
     try {
       MyLogger.info(action, { expenseId: id });
 
-      const result = await client.query('DELETE FROM expenses WHERE id = $1', [id]);
-
-      if (result.rowCount === 0) {
+      // Check if expense exists and its status
+      const checkResult = await client.query('SELECT id, status FROM expenses WHERE id = $1', [id]);
+      if (checkResult.rows.length === 0) {
         throw createError('Expense not found', 404);
       }
+
+      const currentExpense = checkResult.rows[0];
+      
+      // Don't allow deletion of paid or approved expenses
+      if (currentExpense.status === 'paid' || currentExpense.status === 'approved') {
+        throw createError('Cannot delete paid or approved expenses', 400);
+      }
+
+      const result = await client.query('DELETE FROM expenses WHERE id = $1', [id]);
 
       MyLogger.success(action, { expenseId: id });
 

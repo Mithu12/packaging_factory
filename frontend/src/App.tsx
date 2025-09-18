@@ -42,6 +42,7 @@ import Brands from "./pages/Brands";
 import Origins from "./pages/Origins";
 import Expenses from "./pages/Expenses";
 import ExpenseDetails from "./pages/ExpenseDetails";
+import EditExpense from "./pages/EditExpense";
 
 const queryClient = new QueryClient();
 
@@ -374,6 +375,16 @@ const App = () => {
               <ProtectedRoute requiredRole="viewer">
                 <DashboardLayout>
                   <ExpenseDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/expenses/:id/edit"
+            element={
+              <ProtectedRoute requiredRole="manager">
+                <DashboardLayout>
+                  <EditExpense />
                 </DashboardLayout>
               </ProtectedRoute>
             }
