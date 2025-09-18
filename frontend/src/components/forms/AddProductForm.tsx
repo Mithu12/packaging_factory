@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -17,15 +17,26 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { toast } from "@/components/ui/sonner"
-import { ApiService, Category, Subcategory, Supplier, CreateProductRequest, ApiError, Origin } from "@/services/api"
-import { Brand } from "@/services/brand-api"
-import { ProductApi } from "@/services/product-api"
+} from "@/components/ui/dialog";
+import { toast } from "@/components/ui/sonner";
+import {
+  ApiService,
+  Category,
+  Subcategory,
+  Supplier,
+  CreateProductRequest,
+  ApiError,
+  Origin,
+} from "@/services/api";
+import { Brand } from "@/services/brand-api";
+import { ProductApi } from "@/services/product-api";
 import { Upload, X, Image, RefreshCw } from "lucide-react";
-import {Card, CardContent} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { generateSKU, generateSimpleSKU } from "@/utils/sku-generator";
-import { generateBarcode, generateBarcodeFromSKU } from "@/utils/barcode-generator";
+import {
+  generateBarcode,
+  generateBarcodeFromSKU,
+} from "@/utils/barcode-generator";
 
 interface AddProductFormProps {
   open: boolean;
@@ -34,32 +45,36 @@ interface AddProductFormProps {
 }
 
 interface ProductFormData {
-  name: string
-  sku: string
-  category_id: string
-  subcategory_id: string
-  brand_id: string
-  origin_id: string
-  unit_of_measure: string
-  cost_price: string
-  selling_price: string
-  current_stock: string
-  min_stock_level: string
-  max_stock_level: string
-  reorder_point: string
-  supplier_id: string
-  status: string
-  description: string
-  barcode: string
-  weight: string
-  dimensions: string
-  tax_rate: string
-  warranty_period: string
-  service_time: string
-  notes: string
+  name: string;
+  sku: string;
+  category_id: string;
+  subcategory_id: string;
+  brand_id: string;
+  origin_id: string;
+  unit_of_measure: string;
+  cost_price: string;
+  selling_price: string;
+  current_stock: string;
+  min_stock_level: string;
+  max_stock_level: string;
+  reorder_point: string;
+  supplier_id: string;
+  status: string;
+  description: string;
+  barcode: string;
+  weight: string;
+  dimensions: string;
+  tax_rate: string;
+  warranty_period: string;
+  service_time: string;
+  notes: string;
 }
 
-export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProductFormProps) {
+export function AddProductForm({
+  open,
+  onOpenChange,
+  onProductAdded,
+}: AddProductFormProps) {
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
     sku: "",
@@ -83,17 +98,17 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     tax_rate: "",
     warranty_period: "",
     service_time: "",
-    notes: ""
-  })
-    const [selectedImage, setSelectedImage] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string>("");
-  const [categories, setCategories] = useState<Category[]>([])
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [origins, setOrigins] = useState<Origin[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loading, setLoading] = useState(false)
+    notes: "",
+  });
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [origins, setOrigins] = useState<Origin[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,57 +142,66 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     if (open) {
       const fetchData = async () => {
         try {
-          setLoading(true)
-          const [categoriesData, brandsData, originsData, suppliersData] = await Promise.all([
-            ApiService.getCategories({ limit: 100 }),
-            ApiService.getBrands({ limit: 100 }),
-            ApiService.getOrigins({ limit: 100 }),
-            ApiService.getSuppliers({ limit: 100 })
-          ])
+          setLoading(true);
+          const [categoriesData, brandsData, originsData, suppliersData] =
+            await Promise.all([
+              ApiService.getCategories({ limit: 100 }),
+              ApiService.getBrands({ limit: 100 }),
+              ApiService.getOrigins({ limit: 100 }),
+              ApiService.getSuppliers({ limit: 100 }),
+            ]);
 
-          setCategories(categoriesData.categories)
-          setBrands(brandsData)
-          setOrigins(originsData)
-          setSuppliers(suppliersData.suppliers)
+          setCategories(categoriesData.categories);
+          setBrands(brandsData);
+          setOrigins(originsData);
+          setSuppliers(suppliersData.suppliers);
         } catch (err) {
-          console.error("Failed to fetch data:", err)
-          toast.error("Failed to load form data")
+          console.error("Failed to fetch data:", err);
+          toast.error("Failed to load form data");
         } finally {
-          setLoading(false)
+          setLoading(false);
         }
-      }
+      };
 
-      fetchData()
+      fetchData();
     }
-  }, [open])
+  }, [open]);
 
   const handleCategoryChange = async (categoryId: string) => {
-    setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
+    setFormData((prev) => ({
+      ...prev,
+      category_id: categoryId,
+      subcategory_id: "",
+    }));
 
     // Regenerate SKU if product name exists
     if (formData.name.trim()) {
-      const categoryName = categories.find(cat => cat.id.toString() === categoryId)?.name;
-      const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
-      
+      const categoryName = categories.find(
+        (cat) => cat.id.toString() === categoryId
+      )?.name;
+      const brandName = brands.find(
+        (brand) => brand.id.toString() === formData.brand_id
+      )?.name;
+
       const generatedSKU = generateSKU(formData.name, categoryName, brandName);
-      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     }
 
     if (categoryId) {
       try {
         const subcategoriesData = await ApiService.getSubcategories({
           category_id: parseInt(categoryId),
-          limit: 100
-        })
-        setSubcategories(subcategoriesData.subcategories)
+          limit: 100,
+        });
+        setSubcategories(subcategoriesData.subcategories);
       } catch (err) {
-        console.error("Failed to fetch subcategories:", err)
-        setSubcategories([])
+        console.error("Failed to fetch subcategories:", err);
+        setSubcategories([]);
       }
     } else {
-      setSubcategories([])
+      setSubcategories([]);
     }
-  }
+  };
 
   const removeImage = () => {
     setSelectedImage(null);
@@ -188,12 +212,19 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
     setIsSubmitting(true);
 
     try {
-      console.log(formData)
+      console.log(formData);
       // Validation
-      if (!formData.name || !formData.sku || !formData.cost_price || !formData.selling_price || !formData.category_id || !formData.supplier_id) {
-        toast.error("Please fill in all required fields")
-        setIsSubmitting(false)
-        return
+      if (
+        !formData.name ||
+        !formData.sku ||
+        !formData.cost_price ||
+        !formData.selling_price ||
+        !formData.category_id ||
+        !formData.supplier_id
+      ) {
+        toast.error("Please fill in all required fields");
+        setIsSubmitting(false);
+        return;
       }
 
       const productData: CreateProductRequest = {
@@ -201,37 +232,53 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         sku: formData.sku,
         description: formData.description || undefined,
         category_id: parseInt(formData.category_id),
-        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        subcategory_id: formData.subcategory_id
+          ? parseInt(formData.subcategory_id)
+          : undefined,
         brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
-        origin_id: formData.origin_id ? parseInt(formData.origin_id) : undefined,
+        origin_id: formData.origin_id
+          ? parseInt(formData.origin_id)
+          : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
-        max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
-        reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
+        max_stock_level: formData.max_stock_level
+          ? parseFloat(formData.max_stock_level)
+          : undefined,
+        reorder_point: formData.reorder_point
+          ? parseFloat(formData.reorder_point)
+          : undefined,
         supplier_id: parseInt(formData.supplier_id),
-        status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
+        status: formData.status as
+          | "active"
+          | "inactive"
+          | "discontinued"
+          | "out_of_stock",
         barcode: formData.barcode || undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
-        warranty_period: formData.warranty_period ? parseInt(formData.warranty_period) : undefined,
-        service_time: formData.service_time ? parseInt(formData.service_time) : undefined,
-        notes: formData.notes || undefined
-      }
+        warranty_period: formData.warranty_period
+          ? parseInt(formData.warranty_period)
+          : undefined,
+        service_time: formData.service_time
+          ? parseInt(formData.service_time)
+          : undefined,
+        notes: formData.notes || undefined,
+      };
 
       // Use the new API method that supports image upload
       if (selectedImage) {
-        await ProductApi.createProductWithImage(productData, selectedImage)
+        await ProductApi.createProductWithImage(productData, selectedImage);
       } else {
-        await ApiService.createProduct(productData)
+        await ApiService.createProduct(productData);
       }
 
       toast.success("Product added successfully!", {
-        description: `${formData.name} has been added to your catalog.`
-      })
+        description: `${formData.name} has been added to your catalog.`,
+      });
 
       // Reset form
       setFormData({
@@ -257,22 +304,22 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
         tax_rate: "",
         warranty_period: "",
         service_time: "",
-        notes: ""
-      })
-        setSelectedImage(null);
-        setImagePreview("");
+        notes: "",
+      });
+      setSelectedImage(null);
+      setImagePreview("");
 
-      onProductAdded?.()
-      onOpenChange(false)
+      onProductAdded?.();
+      onOpenChange(false);
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error("Failed to add product", {
-          description: error.message
-        })
+          description: error.message,
+        });
       } else {
         toast.error("Failed to add product", {
-          description: "Please try again later."
-        })
+          description: "Please try again later.",
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -280,57 +327,69 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
   };
 
   const handleInputChange = (field: keyof ProductFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
     // Auto-generate SKU when product name changes
-    if (field === 'name' && value.trim()) {
-      const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
-      const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
-      
+    if (field === "name" && value.trim()) {
+      const categoryName = categories.find(
+        (cat) => cat.id.toString() === formData.category_id
+      )?.name;
+      const brandName = brands.find(
+        (brand) => brand.id.toString() === formData.brand_id
+      )?.name;
+
       const generatedSKU = generateSKU(value, categoryName, brandName);
-      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     }
-    
+
     // Regenerate SKU when brand changes (if product name exists)
-    if (field === 'brand_id' && formData.name.trim()) {
-      const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
-      const brandName = brands.find(brand => brand.id.toString() === value)?.name;
-      
+    if (field === "brand_id" && formData.name.trim()) {
+      const categoryName = categories.find(
+        (cat) => cat.id.toString() === formData.category_id
+      )?.name;
+      const brandName = brands.find(
+        (brand) => brand.id.toString() === value
+      )?.name;
+
       const generatedSKU = generateSKU(formData.name, categoryName, brandName);
-      setFormData(prev => ({ ...prev, sku: generatedSKU }))
+      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     }
-  }
+  };
 
   const generateSKUFromName = () => {
     if (!formData.name.trim()) {
       toast.error("Please enter a product name first");
       return;
     }
-    
-    const categoryName = categories.find(cat => cat.id.toString() === formData.category_id)?.name;
-    const brandName = brands.find(brand => brand.id.toString() === formData.brand_id)?.name;
-    
+
+    const categoryName = categories.find(
+      (cat) => cat.id.toString() === formData.category_id
+    )?.name;
+    const brandName = brands.find(
+      (brand) => brand.id.toString() === formData.brand_id
+    )?.name;
+
     const generatedSKU = generateSKU(formData.name, categoryName, brandName);
-    setFormData(prev => ({ ...prev, sku: generatedSKU }))
+    setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     toast.success("SKU generated successfully!");
-  }
+  };
 
   const generateBarcodeFromSKUHandler = () => {
     if (!formData.sku.trim()) {
       toast.error("Please enter or generate a SKU first");
       return;
     }
-    
+
     const generatedBarcode = generateBarcodeFromSKU(formData.sku);
-    setFormData(prev => ({ ...prev, barcode: generatedBarcode }))
+    setFormData((prev) => ({ ...prev, barcode: generatedBarcode }));
     toast.success("Barcode generated successfully!");
-  }
+  };
 
   const generateRandomBarcode = () => {
     const generatedBarcode = generateBarcode();
-    setFormData(prev => ({ ...prev, barcode: generatedBarcode }))
+    setFormData((prev) => ({ ...prev, barcode: generatedBarcode }));
     toast.success("Random barcode generated successfully!");
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -446,314 +505,389 @@ export function AddProductForm({ open, onOpenChange, onProductAdded }: AddProduc
                 </div>
               </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-                <Select value={formData.category_id} onValueChange={handleCategoryChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <Select
+                    value={formData.category_id}
+                    onValueChange={handleCategoryChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem
+                          key={category.id}
+                          value={category.id.toString()}
+                        >
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="subCategory">Sub Category</Label>
-              <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sub category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.id} value={subcategory.id.toString()}>
-                      {subcategory.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-                </Select>
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subCategory">Sub Category</Label>
+                  <Select
+                    value={formData.subcategory_id}
+                    onValueChange={(value) =>
+                      handleInputChange("subcategory_id", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories.map((subcategory) => (
+                        <SelectItem
+                          key={subcategory.id}
+                          value={subcategory.id.toString()}
+                        >
+                          {subcategory.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="brand">Brand</Label>
-              <Select value={formData.brand_id} onValueChange={(value) => handleInputChange("brand_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id.toString()}>
-                      {brand.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-                </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="origin">Origin</Label>
-              <Select value={formData.origin_id} onValueChange={(value) => handleInputChange("origin_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select origin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {origins.map((origin) => (
-                    <SelectItem key={origin.id} value={origin.id.toString()}>
-                      {origin.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-                </Select>
-            </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Select
+                    value={formData.brand_id}
+                    onValueChange={(value) =>
+                      handleInputChange("brand_id", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id.toString()}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="origin">Origin</Label>
+                  <Select
+                    value={formData.origin_id}
+                    onValueChange={(value) =>
+                      handleInputChange("origin_id", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select origin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {origins.map((origin) => (
+                        <SelectItem
+                          key={origin.id}
+                          value={origin.id.toString()}
+                        >
+                          {origin.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="unit">Unit</Label>
-              <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pcs">Pieces</SelectItem>
-                  <SelectItem value="kg">Kilograms</SelectItem>
-                  <SelectItem value="lbs">Pounds</SelectItem>
-                  <SelectItem value="m">Meters</SelectItem>
-                  <SelectItem value="ft">Feet</SelectItem>
-                  <SelectItem value="box">Box</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit</Label>
+                  <Select
+                    value={formData.unit_of_measure}
+                    onValueChange={(value) =>
+                      handleInputChange("unit_of_measure", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pcs">Pieces</SelectItem>
+                      <SelectItem value="kg">Kilograms</SelectItem>
+                      <SelectItem value="lbs">Pounds</SelectItem>
+                      <SelectItem value="m">Meters</SelectItem>
+                      <SelectItem value="ft">Feet</SelectItem>
+                      <SelectItem value="box">Box</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="costPrice">Cost Price *</Label>
-              <Input
-                id="costPrice"
-                type="number"
-                step="0.01"
-                value={formData.cost_price}
-                onChange={(e) => handleInputChange("cost_price", e.target.value)}
-                placeholder="0.00"
-                required
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="costPrice">Cost Price *</Label>
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_price}
+                    onChange={(e) =>
+                      handleInputChange("cost_price", e.target.value)
+                    }
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sellingPrice">Selling Price</Label>
-              <Input
-                id="sellingPrice"
-                type="number"
-                step="0.01"
-                value={formData.selling_price}
-                onChange={(e) => handleInputChange("selling_price", e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sellingPrice">Selling Price</Label>
+                  <Input
+                    id="sellingPrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.selling_price}
+                    onChange={(e) =>
+                      handleInputChange("selling_price", e.target.value)
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="currentStock">Current Stock *</Label>
-              <Input
-                id="currentStock"
-                type="number"
-                value={formData.current_stock}
-                onChange={(e) => handleInputChange("current_stock", e.target.value)}
-                placeholder="0"
-                required
-              />
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentStock">Current Stock *</Label>
+                  <Input
+                    id="currentStock"
+                    type="number"
+                    value={formData.current_stock}
+                    onChange={(e) =>
+                      handleInputChange("current_stock", e.target.value)
+                    }
+                    placeholder="0"
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="minStock">Minimum Stock *</Label>
-              <Input
-                id="minStock"
-                type="number"
-                value={formData.min_stock_level}
-                onChange={(e) => handleInputChange("min_stock_level", e.target.value)}
-                placeholder="0"
-                required
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minStock">Minimum Stock *</Label>
+                  <Input
+                    id="minStock"
+                    type="number"
+                    value={formData.min_stock_level}
+                    onChange={(e) =>
+                      handleInputChange("min_stock_level", e.target.value)
+                    }
+                    placeholder="0"
+                    required
+                  />
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/*<div className="space-y-2">*/}
-            {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
-            {/*  <Input*/}
-            {/*    id="maxStock"*/}
-            {/*    type="number"*/}
-            {/*    value={formData.max_stock_level}*/}
-            {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
-            {/*    placeholder="0"*/}
-            {/*  />*/}
-            {/*</div>*/}
+                <div className="space-y-2">
+                  <Label htmlFor="reorderPoint">Reorder Point</Label>
+                  <Input
+                    id="reorderPoint"
+                    type="number"
+                    value={formData.reorder_point}
+                    onChange={(e) =>
+                      handleInputChange("reorder_point", e.target.value)
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="reorderPoint">Reorder Point</Label>
-              <Input
-                id="reorderPoint"
-                type="number"
-                value={formData.reorder_point}
-                onChange={(e) => handleInputChange("reorder_point", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/*<div className="space-y-2">*/}
+                {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
+                {/*  <Input*/}
+                {/*    id="maxStock"*/}
+                {/*    type="number"*/}
+                {/*    value={formData.max_stock_level}*/}
+                {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
+                {/*    placeholder="0"*/}
+                {/*  />*/}
+                {/*</div>*/}
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="supplier">Supplier *</Label>
+                  <Select
+                    value={formData.supplier_id}
+                    onValueChange={(value) =>
+                      handleInputChange("supplier_id", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((supplier) => (
+                        <SelectItem
+                          key={supplier.id}
+                          value={supplier.id.toString()}
+                        >
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="barcode">Barcode</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="barcode"
-                  value={formData.barcode}
-                  onChange={(e) => handleInputChange("barcode", e.target.value)}
-                  placeholder="Enter barcode"
-                  className="flex-1"
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">Barcode</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="barcode"
+                      value={formData.barcode}
+                      onChange={(e) =>
+                        handleInputChange("barcode", e.target.value)
+                      }
+                      placeholder="Enter barcode"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateBarcodeFromSKUHandler}
+                      disabled={!formData.sku.trim()}
+                      title="Generate barcode from SKU"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateRandomBarcode}
+                      title="Generate random barcode"
+                    >
+                      🎲
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status || "active"}
+                    onValueChange={(value) =>
+                      handleInputChange("status", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="discontinued">Discontinued</SelectItem>
+                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    step="0.01"
+                    value={formData.weight}
+                    onChange={(e) =>
+                      handleInputChange("weight", e.target.value)
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dimensions">Dimensions</Label>
+                  <Input
+                    id="dimensions"
+                    value={formData.dimensions}
+                    onChange={(e) =>
+                      handleInputChange("dimensions", e.target.value)
+                    }
+                    placeholder="e.g., 10x20x30 cm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Input
+                    id="taxRate"
+                    type="number"
+                    step="0.01"
+                    value={formData.tax_rate}
+                    onChange={(e) =>
+                      handleInputChange("tax_rate", e.target.value)
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="warrantyPeriod">
+                    Warranty Period (months)
+                  </Label>
+                  <Input
+                    id="warrantyPeriod"
+                    type="number"
+                    min="0"
+                    value={formData.warranty_period}
+                    onChange={(e) =>
+                      handleInputChange("warranty_period", e.target.value)
+                    }
+                    placeholder="e.g., 12"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="serviceTime">
+                    Service Reminder Interval (months)
+                  </Label>
+                  <Input
+                    id="serviceTime"
+                    type="number"
+                    min="0"
+                    value={formData.service_time}
+                    onChange={(e) =>
+                      handleInputChange("service_time", e.target.value)
+                    }
+                    placeholder="e.g., 6"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
+                  placeholder="Enter product description"
+                  rows={3}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={generateBarcodeFromSKUHandler}
-                  disabled={!formData.sku.trim()}
-                  title="Generate barcode from SKU"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={generateRandomBarcode}
-                  title="Generate random barcode"
-                >
-                  🎲
-                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => handleInputChange("notes", e.target.value)}
+                  placeholder="Enter any additional notes"
+                  rows={2}
+                />
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status || "active"} onValueChange={(value) => handleInputChange("status", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="discontinued">Discontinued</SelectItem>
-                  <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="weight">Weight (kg)</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.01"
-                value={formData.weight}
-                onChange={(e) => handleInputChange("weight", e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dimensions">Dimensions</Label>
-              <Input
-                id="dimensions"
-                value={formData.dimensions}
-                onChange={(e) => handleInputChange("dimensions", e.target.value)}
-                placeholder="e.g., 10x20x30 cm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="taxRate">Tax Rate (%)</Label>
-              <Input
-                id="taxRate"
-                type="number"
-                step="0.01"
-                value={formData.tax_rate}
-                onChange={(e) => handleInputChange("tax_rate", e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="warrantyPeriod">Warranty Period (months)</Label>
-              <Input
-                id="warrantyPeriod"
-                type="number"
-                min="0"
-                value={formData.warranty_period}
-                onChange={(e) => handleInputChange("warranty_period", e.target.value)}
-                placeholder="e.g., 12"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="serviceTime">Service Reminder Interval (months)</Label>
-              <Input
-                id="serviceTime"
-                type="number"
-                min="0"
-                value={formData.service_time}
-                onChange={(e) => handleInputChange("service_time", e.target.value)}
-                placeholder="e.g., 6"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Enter product description"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange("notes", e.target.value)}
-              placeholder="Enter any additional notes"
-              rows={2}
-            />
-          </div>
-          </div>
           </div>
 
           <DialogFooter>
