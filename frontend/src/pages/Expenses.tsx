@@ -72,11 +72,9 @@ const paymentMethods = [
 ];
 
 const currencies = [
+  { value: 'BDT', label: 'BDT' },
   { value: 'USD', label: 'USD' },
   { value: 'EUR', label: 'EUR' },
-  { value: 'GBP', label: 'GBP' },
-  { value: 'CAD', label: 'CAD' },
-  { value: 'AUD', label: 'AUD' }
 ];
 
 export default function Expenses() {
@@ -112,7 +110,7 @@ export default function Expenses() {
     description: '',
     category_id: '',
     amount: '',
-    currency: 'USD',
+    currency: 'BDT',
     expense_date: new Date().toISOString().split('T')[0],
     payment_method: 'cash',
     vendor_name: '',
@@ -186,7 +184,7 @@ export default function Expenses() {
       description: '',
       category_id: '',
       amount: '',
-      currency: 'USD',
+      currency: 'BDT',
       expense_date: new Date().toISOString().split('T')[0],
       payment_method: 'cash',
       vendor_name: '',

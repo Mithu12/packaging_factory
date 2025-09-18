@@ -183,7 +183,7 @@ export default function Payments() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">${totalOutstanding.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-warning">{formatCurrency(totalOutstanding)}</div>
             <p className="text-xs text-muted-foreground">Total unpaid</p>
           </CardContent>
         </Card>
@@ -192,7 +192,7 @@ export default function Payments() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Overdue Payments</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">${overdueAmount.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(overdueAmount)}</div>
             <p className="text-xs text-muted-foreground">Need immediate attention</p>
           </CardContent>
         </Card>
@@ -201,7 +201,7 @@ export default function Payments() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Paid This Month</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">${totalPaid.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-success">{formatCurrency(totalPaid)}</div>
             <p className="text-xs text-success">+12% vs last month</p>
           </CardContent>
         </Card>
@@ -210,7 +210,7 @@ export default function Payments() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Advance Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${advanceBalance.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(advanceBalance)}</div>
             <p className="text-xs text-muted-foreground">Available to utilize</p>
           </CardContent>
         </Card>
@@ -290,14 +290,14 @@ export default function Payments() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">${Number(invoice.total_amount).toLocaleString()}</div>
+                          <div className="font-medium">{formatCurrency(invoice.total_amount)}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-success font-medium">${Number(invoice.paid_amount).toLocaleString()}</div>
+                          <div className="text-success font-medium">{formatCurrency(invoice.paid_amount)}</div>
                         </TableCell>
                         <TableCell>
                           <div className={`font-medium ${Number(invoice.outstanding_amount) > 0 ? "text-warning" : "text-muted-foreground"}`}>
-                            ${Number(invoice.outstanding_amount).toLocaleString()}
+                            {formatCurrency(invoice.outstanding_amount)}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -360,7 +360,7 @@ export default function Payments() {
                       <TableCell>{payment.invoice_id || 'N/A'}</TableCell>
                       <TableCell>{payment.supplier_name || 'Unknown Supplier'}</TableCell>
                       <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">${Number(payment.amount).toLocaleString()}</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
                       <TableCell>{payment.payment_method}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{payment.reference}</TableCell>
                       <TableCell>
