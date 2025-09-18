@@ -42,6 +42,8 @@ interface EditProductFormData {
   weight: string
   dimensions: string
   tax_rate: string
+  warranty_period: string
+  service_time: string
   notes: string
   currentImage: string
 }
@@ -83,6 +85,8 @@ export default function EditProduct() {
     weight: "",
     dimensions: "",
     tax_rate: "",
+    warranty_period: "",
+    service_time: "",
     notes: "",
       currentImage:
           "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400",
@@ -167,6 +171,8 @@ export default function EditProduct() {
           weight: productData.weight?.toString() || "",
           dimensions: productData.dimensions || "",
           tax_rate: productData.tax_rate?.toString() || "",
+          warranty_period: productData.warranty_period?.toString() || "",
+          service_time: productData.service_time?.toString() || "",
           notes: productData.notes || "",
           currentImage: ''
         })
@@ -279,6 +285,8 @@ export default function EditProduct() {
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
+        warranty_period: formData.warranty_period ? parseInt(formData.warranty_period) : undefined,
+        service_time: formData.service_time ? parseInt(formData.service_time) : undefined,
         notes: formData.notes || undefined
       }
 
@@ -659,6 +667,43 @@ export default function EditProduct() {
                         handleInputChange("dimensions", e.target.value)
                       }
                       placeholder="e.g., 10x20x30 cm"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Warranty & Service Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Warranty & Service Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="warrantyPeriod">Warranty Period (months)</Label>
+                    <Input
+                      id="warrantyPeriod"
+                      type="number"
+                      min="0"
+                      value={formData.warranty_period}
+                      onChange={(e) =>
+                        handleInputChange("warranty_period", e.target.value)
+                      }
+                      placeholder="e.g., 12"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="serviceTime">Service Reminder Interval (months)</Label>
+                    <Input
+                      id="serviceTime"
+                      type="number"
+                      min="0"
+                      value={formData.service_time}
+                      onChange={(e) =>
+                        handleInputChange("service_time", e.target.value)
+                      }
+                      placeholder="e.g., 6"
                     />
                   </div>
                 </div>
