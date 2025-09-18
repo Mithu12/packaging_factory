@@ -33,7 +33,7 @@ import {
     Image,
     Camera,
 } from "lucide-react"
-import { ApiService, ProductWithDetails, ApiError } from "@/services/api"
+import { ApiService, ProductWithDetails, ApiError, StockAdjustment, PurchaseOrderWithDetails } from "@/services/api"
 import { ProductApi } from "@/services/product-api"
 import {
   Table,
@@ -57,6 +57,10 @@ export default function ProductDetails() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [stockMovements, setStockMovements] = useState<StockAdjustment[]>([])
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseOrderWithDetails[]>([])
+  const [loadingMovements, setLoadingMovements] = useState(false)
+  const [loadingPurchaseHistory, setLoadingPurchaseHistory] = useState(false)
   const { formatCurrency, formatDate } = useFormatting()
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,24 +129,72 @@ export default function ProductDetails() {
       setLoading(false)
     }
   }
+
+  const fetchStockMovements = async () => {
+    if (!id) return
+
+    try {
+      setLoadingMovements(true)
+      const movements = await ApiService.getStockAdjustments({
+        product_id: parseInt(id),
+        limit: 10
+      })
+      setStockMovements(movements)
+    } catch (err) {
+      console.error("Failed to load stock movements:", err)
+      setStockMovements([])
+    } finally {
+      setLoadingMovements(false)
+    }
+  }
+
+  const fetchPurchaseHistory = async () => {
+    if (!id) return
+
+    try {
+      setLoadingPurchaseHistory(true)
+      // Get all purchase orders and filter by product
+      const response = await ApiService.getPurchaseOrders({
+        limit: 100 // Get more to filter by product
+      })
+      
+      // For now, we'll get basic purchase orders and fetch details for those that might contain our product
+      // This is a simplified approach - in a real app, you'd want a more efficient endpoint
+      const productPurchaseOrders: PurchaseOrderWithDetails[] = []
+      
+      // Get details for each purchase order to check if it contains our product
+      for (const po of response.purchase_orders.slice(0, 20)) { // Limit to first 20 for performance
+        try {
+          const detailedPO = await ApiService.getPurchaseOrder(po.id)
+          if (detailedPO.line_items?.some(item => item.product_id === parseInt(id))) {
+            productPurchaseOrders.push(detailedPO)
+          }
+        } catch (err) {
+          console.error(`Failed to get details for PO ${po.id}:`, err)
+        }
+      }
+      
+      setPurchaseHistory(productPurchaseOrders.slice(0, 10)) // Limit to 10 most recent
+    } catch (err) {
+      console.error("Failed to load purchase history:", err)
+      setPurchaseHistory([])
+    } finally {
+      setLoadingPurchaseHistory(false)
+    }
+  }
   // Fetch product data
   useEffect(() => {
     fetchProduct()
   }, [id])
 
-  const stockMovements = [
-    { date: "2024-03-10", type: "Purchase", quantity: +20, reference: "PO-2024-045", balance: 45 },
-    { date: "2024-03-08", type: "Sale", quantity: -5, reference: "SO-2024-123", balance: 25 },
-    { date: "2024-03-05", type: "Sale", quantity: -3, reference: "SO-2024-118", balance: 30 },
-    { date: "2024-03-01", type: "Adjustment", quantity: +2, reference: "ADJ-2024-008", balance: 33 },
-    { date: "2024-02-28", type: "Sale", quantity: -7, reference: "SO-2024-105", balance: 31 }
-  ]
+  // Fetch dynamic data when product is loaded
+  useEffect(() => {
+    if (product) {
+      fetchStockMovements()
+      fetchPurchaseHistory()
+    }
+  }, [product])
 
-  const purchaseHistory = [
-    { date: "2024-03-10", supplier: "ABC Electronics Ltd", quantity: 20, unitCost: 850, total: 17000, poNumber: "PO-2024-045" },
-    { date: "2024-02-15", supplier: "ABC Electronics Ltd", quantity: 25, unitCost: 840, total: 21000, poNumber: "PO-2024-032" },
-    { date: "2024-01-20", supplier: "TechSupply Co", quantity: 15, unitCost: 860, total: 12900, poNumber: "PO-2024-018" }
-  ]
 
   if (loading) {
     return (
@@ -398,37 +450,54 @@ export default function ProductDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Balance</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stockMovements.map((movement, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{movement.date}</TableCell>
-                      <TableCell>
-                        <Badge variant={movement.type === 'Purchase' ? 'default' : movement.type === 'Sale' ? 'secondary' : 'outline'}>
-                          {movement.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className={`flex items-center gap-1 ${movement.quantity > 0 ? 'text-success' : 'text-destructive'}`}>
-                          {movement.quantity > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                          {Math.abs(movement.quantity)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{movement.reference}</TableCell>
-                      <TableCell className="font-medium">{movement.balance}</TableCell>
+              {loadingMovements ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading stock movements...</span>
+                  </div>
+                </div>
+              ) : stockMovements.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>New Stock</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {stockMovements.map((movement) => (
+                      <TableRow key={movement.id}>
+                        <TableCell className="font-medium">{formatDate(movement.created_at)}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            movement.adjustment_type === 'increase' ? 'default' : 
+                            movement.adjustment_type === 'decrease' ? 'destructive' : 
+                            'outline'
+                          }>
+                            {movement.adjustment_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className={`flex items-center gap-1 ${movement.adjustment_type === 'increase' ? 'text-success' : 'text-destructive'}`}>
+                            {movement.adjustment_type === 'increase' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                            {Math.abs(movement.quantity)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{movement.reference || 'N/A'}</TableCell>
+                        <TableCell className="font-medium">{movement.new_stock}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No stock movements found for this product.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -441,30 +510,49 @@ export default function ProductDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit Cost</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>PO Number</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {purchaseHistory.map((purchase, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{purchase.date}</TableCell>
-                      <TableCell>{purchase.supplier}</TableCell>
-                      <TableCell>{purchase.quantity} {product.unit_of_measure}</TableCell>
-                      <TableCell>${purchase.unitCost}</TableCell>
-                      <TableCell className="font-medium">${purchase.total.toLocaleString()}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{purchase.poNumber}</TableCell>
+              {loadingPurchaseHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading purchase history...</span>
+                  </div>
+                </div>
+              ) : purchaseHistory.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Unit Cost</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>PO Number</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {purchaseHistory.map((purchase) => {
+                      // Find the line item for this product
+                      const lineItem = purchase.line_items?.find(item => item.product_id === parseInt(id!))
+                      if (!lineItem) return null
+                      
+                      return (
+                        <TableRow key={purchase.id}>
+                          <TableCell className="font-medium">{formatDate(purchase.order_date)}</TableCell>
+                          <TableCell>{purchase.supplier_name}</TableCell>
+                          <TableCell>{lineItem.quantity} {product?.unit_of_measure}</TableCell>
+                          <TableCell>{formatCurrency(lineItem.unit_price)}</TableCell>
+                          <TableCell className="font-medium">{formatCurrency(lineItem.total_price)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{purchase.po_number}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No purchase history found for this product.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
