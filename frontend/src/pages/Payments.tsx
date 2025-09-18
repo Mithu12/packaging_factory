@@ -360,34 +360,55 @@ export default function Payments() {
               </Select>
             )}
 
-            {/* Sort By Filter */}
-            <Select 
-              value={currentFilters.sortBy || (isInvoiceTab ? "created_at" : "payment_date")} 
-              onValueChange={(value) => handleFilterChange("sortBy", value)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                {isInvoiceTab ? (
-                  <>
-                    <SelectItem value="created_at">Created Date</SelectItem>
-                    <SelectItem value="invoice_date">Invoice Date</SelectItem>
-                    <SelectItem value="due_date">Due Date</SelectItem>
-                    <SelectItem value="total_amount">Amount</SelectItem>
-                    <SelectItem value="supplier_name">Supplier</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="payment_date">Payment Date</SelectItem>
-                    <SelectItem value="amount">Amount</SelectItem>
-                    <SelectItem value="payment_method">Method</SelectItem>
-                    <SelectItem value="supplier_name">Supplier</SelectItem>
-                    <SelectItem value="created_at">Created Date</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+              {/* Supplier Filter */}
+              <Select 
+                value={(isInvoiceTab ? invoiceFilters : paymentFilters).supplier_id?.toString() || "all"} 
+                onValueChange={(value) => isInvoiceTab 
+                  ? handleInvoiceFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))
+                  : handlePaymentFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))
+                }
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort By Filter */}
+              <Select 
+                value={currentFilters.sortBy || (isInvoiceTab ? "created_at" : "payment_date")} 
+                onValueChange={(value) => handleFilterChange("sortBy", value)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isInvoiceTab ? (
+                    <>
+                      <SelectItem value="created_at">Created Date</SelectItem>
+                      <SelectItem value="invoice_date">Invoice Date</SelectItem>
+                      <SelectItem value="due_date">Due Date</SelectItem>
+                      <SelectItem value="total_amount">Amount</SelectItem>
+                      <SelectItem value="supplier_name">Supplier</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="payment_date">Payment Date</SelectItem>
+                      <SelectItem value="amount">Amount</SelectItem>
+                      <SelectItem value="payment_method">Method</SelectItem>
+                      <SelectItem value="supplier_name">Supplier</SelectItem>
+                      <SelectItem value="created_at">Created Date</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
 
             {/* Advanced Filters Button */}
             <Button variant="outline" size="sm" onClick={() => setShowAdvancedFilters(true)}>
@@ -404,7 +425,7 @@ export default function Payments() {
         </div>
       </div>
     )
-  }, [activeTab, invoiceSearchTerm, paymentSearchTerm, invoiceFilters, paymentFilters])
+  }, [activeTab, invoiceSearchTerm, paymentSearchTerm, invoiceFilters, paymentFilters, suppliers])
 
   // Advanced filters dialog component
   const AdvancedFiltersDialog = useMemo(() => {
@@ -475,25 +496,6 @@ export default function Payments() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="supplierId">Supplier</Label>
-                  <Select
-                    value={currentInvoiceFilters.supplier_id?.toString() || "all"}
-                    onValueChange={(value) => handleInvoiceAdvancedFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Suppliers</SelectItem>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="poId">Purchase Order ID</Label>
                   <Input
                     type="number"
@@ -508,25 +510,6 @@ export default function Payments() {
             {/* Payment-specific filters */}
             {!isInvoiceTab && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="supplierId">Supplier</Label>
-                  <Select 
-                    value={currentPaymentFilters.supplier_id?.toString() || "all"} 
-                    onValueChange={(value) => handlePaymentAdvancedFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Suppliers</SelectItem>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="invoiceId">Invoice ID</Label>
                   <Input

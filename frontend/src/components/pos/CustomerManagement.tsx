@@ -31,7 +31,7 @@ export function CustomerManagement() {
     state: "",
     zip_code: "",
     country: "",
-    customer_type: "regular" as "regular" | "vip" | "wholesale" | "walk_in",
+    customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
     notes: ""
   })
   const [editFormData, setEditFormData] = useState({
@@ -43,7 +43,7 @@ export function CustomerManagement() {
     state: "",
     zip_code: "",
     country: "",
-    customer_type: "regular" as "regular" | "vip" | "wholesale" | "walk_in",
+    customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
     notes: ""
   })
 
@@ -308,6 +308,7 @@ export function CustomerManagement() {
                         <SelectItem value="regular">Regular</SelectItem>
                         <SelectItem value="vip">VIP</SelectItem>
                         <SelectItem value="wholesale">Wholesale</SelectItem>
+                        <SelectItem value="retail">Retail</SelectItem>
                         <SelectItem value="walk_in">Walk-in</SelectItem>
                       </SelectContent>
                     </Select>
@@ -600,6 +601,7 @@ export function CustomerManagement() {
                   <SelectItem value="regular">Regular</SelectItem>
                   <SelectItem value="vip">VIP</SelectItem>
                   <SelectItem value="wholesale">Wholesale</SelectItem>
+                  <SelectItem value="retail">Retail</SelectItem>
                   <SelectItem value="walk_in">Walk-in</SelectItem>
                 </SelectContent>
               </Select>
