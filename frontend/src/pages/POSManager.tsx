@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Clock, CheckCircle, Search, Plus, User } from "lucide-react";
+import { Clock, CheckCircle, Search, Plus, User, Gift } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ interface CartItem {
   stock: number;
   discount?: number;
   discountType?: 'percentage' | 'fixed';
+  isGift: boolean;
 }
 
 export default function POSManager() {
@@ -47,6 +49,7 @@ export default function POSManager() {
   const [loading, setLoading] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+  const [isGiftMode, setIsGiftMode] = useState(false);
 
   const { formatCurrency } = useFormatting();
 
@@ -80,8 +83,8 @@ export default function POSManager() {
   };
 
   const addToCart = (product: Product) => {
-    // Check if product has stock
-    if (product.current_stock <= 0) {
+    // For gifts, we don't need to check stock (since they're free)
+    if (!isGiftMode && product.current_stock <= 0) {
       toast({
         title: "Out of Stock",
         description: `${product.name} is currently out of stock`,
@@ -90,17 +93,20 @@ export default function POSManager() {
       return;
     }
 
-    const existingItem = cart.find((item) => item.id === product.id.toString());
+    // Find existing item considering both product id and gift status
+    const existingItem = cart.find((item) => 
+      item.id === product.id.toString() && item.isGift === isGiftMode
+    );
 
     if (existingItem) {
-      if (existingItem.quantity < product.current_stock) {
+      if (isGiftMode || existingItem.quantity < product.current_stock) {
         setCart(
           cart.map((item) =>
-            item.id === product.id.toString()
+            item.id === product.id.toString() && item.isGift === isGiftMode
               ? {
                   ...item,
                   quantity: item.quantity + 1,
-                  total: (item.quantity + 1) * item.price,
+                  total: isGiftMode ? 0 : (item.quantity + 1) * item.price,
                 }
               : item
           )
@@ -120,11 +126,19 @@ export default function POSManager() {
           name: product.name,
           price: product.selling_price,
           quantity: 1,
-          total: product.selling_price,
+          total: isGiftMode ? 0 : product.selling_price,
           stock: product.current_stock,
+          isGift: isGiftMode,
+          discount: isGiftMode ? 100 : undefined,
+          discountType: isGiftMode ? 'percentage' : undefined,
         },
       ]);
     }
+
+    toast({
+      title: isGiftMode ? "Gift Added" : "Added to Cart",
+      description: `${product.name} ${isGiftMode ? 'added as gift' : 'added to cart'}`,
+    });
   };
 
   const updateQuantity = (id: string, newQuantity: number) => {
@@ -373,6 +387,26 @@ export default function POSManager() {
         </TabsList>
 
         <TabsContent value="pos" className="space-y-6">
+          {/* Gift Mode Toggle */}
+          <div className="flex items-center justify-between bg-card border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="gift-mode"
+                checked={isGiftMode}
+                onCheckedChange={setIsGiftMode}
+              />
+              <Label htmlFor="gift-mode" className="flex items-center gap-2 cursor-pointer">
+                <Gift className={`h-4 w-4 ${isGiftMode ? 'text-yellow-600' : 'text-muted-foreground'}`} />
+                Gift Mode
+              </Label>
+            </div>
+            {isGiftMode && (
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                Products will be added as gifts (100% discount)
+              </Badge>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Product Selection */}
             <div className="space-y-4">

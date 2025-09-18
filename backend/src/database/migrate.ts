@@ -732,6 +732,17 @@ const createTables = async () => {
     const { addExpenseTables } = await import('./add-expense-tables');
     await addExpenseTables();
     MyLogger.success('Expense tables added');
+
+      // Create settings table
+      await client.query(`
+      -- Only need to add gift flag to track gift items
+ALTER TABLE sales_order_line_items 
+ADD COLUMN IF NOT EXISTS is_gift BOOLEAN DEFAULT false;
+
+-- Optional: Add gift count to sales_orders for quick reporting
+ALTER TABLE sales_orders 
+ADD COLUMN IF NOT EXISTS gift_count INTEGER DEFAULT 0;
+    `);
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

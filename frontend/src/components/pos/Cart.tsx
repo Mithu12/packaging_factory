@@ -59,8 +59,10 @@ interface CartItem {
   price: number;
   quantity: number;
   total: number;
+  stock: number;
   discount?: number;
   discountType?: 'percentage' | 'fixed';
+  isGift: boolean;
 }
 
 import { Customer } from "@/services/types";
@@ -391,9 +393,16 @@ export function Cart({
                       <td className="p-2 text-sm">{index + 1}</td>
                       <td className="p-2">
                         <div>
-                          <div className="font-medium text-sm">{item.name}</div>
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            {item.isGift && '🎁 '}{item.name}
+                            {item.isGift && (
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+                                GIFT
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            Stock: 100
+                            {item.isGift ? "Free Gift Item" : `Stock: ${item.stock || 100}`}
                           </div>
                         </div>
                       </td>
@@ -424,51 +433,75 @@ export function Cart({
                           </Button>
                         </div>
                       </td>
-                      <td className="p-2 text-sm">{Number(item.price).toFixed(2)}</td>
+                      <td className="p-2 text-sm">
+                        {item.isGift ? (
+                          <span className="text-muted-foreground line-through">
+                            {Number(item.price).toFixed(2)}
+                          </span>
+                        ) : (
+                          Number(item.price).toFixed(2)
+                        )}
+                      </td>
                       <td className="p-2">
-                        <div className="flex items-center gap-1">
-                          <Input
-                            className="w-14 h-6 text-xs"
-                            type="number"
-                            value={item.discount || 0}
-                            onChange={(e) => {
-                              const discount = parseFloat(e.target.value) || 0;
-                              onUpdateItemDiscount?.(item.id, discount, item.discountType || 'percentage');
-                            }}
-                            min="0"
-                            step="0.01"
-                          />
-                          <Select 
-                            value={item.discountType || 'percentage'}
-                            onValueChange={(value) => {
-                              onUpdateItemDiscount?.(item.id, item.discount || 0, value as 'percentage' | 'fixed');
-                            }}
-                          >
-                            <SelectTrigger className="w-15 h-6 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">%</SelectItem>
-                              <SelectItem value="fixed">R</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {item.isGift ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              className="w-14 h-6 text-xs bg-yellow-50"
+                              type="number"
+                              value="100"
+                              readOnly
+                            />
+                            <span className="text-xs text-yellow-600">% GIFT</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              className="w-14 h-6 text-xs"
+                              type="number"
+                              value={item.discount || 0}
+                              onChange={(e) => {
+                                const discount = parseFloat(e.target.value) || 0;
+                                onUpdateItemDiscount?.(item.id, discount, item.discountType || 'percentage');
+                              }}
+                              min="0"
+                              step="0.01"
+                            />
+                            <Select 
+                              value={item.discountType || 'percentage'}
+                              onValueChange={(value) => {
+                                onUpdateItemDiscount?.(item.id, item.discount || 0, value as 'percentage' | 'fixed');
+                              }}
+                            >
+                              <SelectTrigger className="w-15 h-6 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percentage">%</SelectItem>
+                                <SelectItem value="fixed">R</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </td>
                       <td className="p-2 font-medium text-sm">
-                        {(() => {
-                          const itemSubtotal = item.price * item.quantity;
-                          let itemDiscount = 0;
-                          
-                          if (item.discount && item.discount > 0) {
-                            if (item.discountType === 'percentage') {
-                              itemDiscount = (itemSubtotal * item.discount) / 100;
-                            } else {
-                              itemDiscount = item.discount;
+                        {item.isGift ? (
+                          <span className="text-green-600 font-semibold">FREE</span>
+                        ) : (
+                          (() => {
+                            const itemSubtotal = item.price * item.quantity;
+                            let itemDiscount = 0;
+                            
+                            if (item.discount && item.discount > 0) {
+                              if (item.discountType === 'percentage') {
+                                itemDiscount = (itemSubtotal * item.discount) / 100;
+                              } else {
+                                itemDiscount = item.discount;
+                              }
                             }
-                          }
-                          
-                          return Number(itemSubtotal - itemDiscount).toFixed(2);
-                        })()}
+                            
+                            return Number(itemSubtotal - itemDiscount).toFixed(2);
+                          })()
+                        )}
                       </td>
                       <td className="p-2">
                         <Button

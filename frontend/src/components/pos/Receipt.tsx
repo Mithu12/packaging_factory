@@ -11,6 +11,7 @@ interface CartItem {
   quantity: number;
   discount?: number;
   discountType?: 'percentage' | 'fixed';
+  isGift: boolean;
 }
 
 interface Customer {
@@ -138,14 +139,29 @@ export function Receipt({
       if (itemName.length > 25) {
         itemName = itemName.substring(0, 22) + '...';
       }
-      
+
+      // Add gift indicator to name
+      if (item.isGift) {
+        itemName = `${itemName} (GIFT)`;
+      }
+
       yPosition = addText(itemName, margin, yPosition);
       doc.text(item.quantity.toString(), margin + 60, yPosition - 5);
-      doc.text(`$${Number(item.price).toFixed(2)}`, margin + 90, yPosition - 5);
-      doc.text(`$${Number(itemTotal).toFixed(2)}`, pageWidth - margin - 20, yPosition - 5, { align: 'right' });
       
-      // Show discount if applicable
-      if (itemDiscount > 0) {
+      if (item.isGift) {
+        // Show crossed out price for gifts
+        doc.text(`$${Number(item.price).toFixed(2)}`, margin + 90, yPosition - 5);
+        doc.line(margin + 90, yPosition - 7, margin + 115, yPosition - 7); // Strike through
+        doc.text('FREE', pageWidth - margin - 20, yPosition - 5, { align: 'right' });
+      } else {
+        doc.text(`$${Number(item.price).toFixed(2)}`, margin + 90, yPosition - 5);
+        doc.text(`$${Number(itemTotal).toFixed(2)}`, pageWidth - margin - 20, yPosition - 5, { align: 'right' });
+      }
+      
+      // Show discount if applicable (gifts show as 100% discount)
+      if (item.isGift) {
+        yPosition = addText(`  Gift Item (100% discount)`, margin + 10, yPosition, { fontSize: 8 });
+      } else if (itemDiscount > 0) {
         yPosition = addText(`  Discount: -$${Number(itemDiscount).toFixed(2)}`, margin + 10, yPosition, { fontSize: 8 });
       }
     });
