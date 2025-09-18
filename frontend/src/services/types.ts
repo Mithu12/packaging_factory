@@ -790,6 +790,7 @@ export interface CreateCustomerRequest {
   date_of_birth?: string;
   gender?: 'male' | 'female' | 'other';
   customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
+  credit_limit?: number;
   notes?: string;
 }
 
@@ -806,6 +807,7 @@ export interface UpdateCustomerRequest {
   gender?: 'male' | 'female' | 'other';
   customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   status?: 'active' | 'inactive' | 'blocked';
+  credit_limit?: number;
   notes?: string;
 }
 

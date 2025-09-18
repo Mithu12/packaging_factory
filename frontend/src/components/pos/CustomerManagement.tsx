@@ -36,6 +36,7 @@ export function CustomerManagement() {
     zip_code: "",
     country: "",
     customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
+    credit_limit: "",
     notes: ""
   })
   const [editFormData, setEditFormData] = useState({
@@ -48,6 +49,7 @@ export function CustomerManagement() {
     zip_code: "",
     country: "",
     customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
+    credit_limit: "",
     notes: ""
   })
 
@@ -101,6 +103,7 @@ export function CustomerManagement() {
         zip_code: formData.zip_code || undefined,
         country: formData.country || undefined,
         customer_type: formData.customer_type,
+        credit_limit: formData.credit_limit ? parseFloat(formData.credit_limit) : undefined,
         notes: formData.notes || undefined
       })
 
@@ -115,6 +118,7 @@ export function CustomerManagement() {
         zip_code: "",
         country: "",
         customer_type: "regular",
+        credit_limit: "",
         notes: ""
       })
       setIsAddDialogOpen(false)
@@ -148,6 +152,7 @@ export function CustomerManagement() {
       zip_code: customer.zip_code || "",
       country: customer.country || "",
       customer_type: customer.customer_type || "regular",
+      credit_limit: (customer.credit_limit || 0).toString(),
       notes: customer.notes || ""
     })
     setIsEditDialogOpen(true)
@@ -175,6 +180,7 @@ export function CustomerManagement() {
         zip_code: editFormData.zip_code || undefined,
         country: editFormData.country || undefined,
         customer_type: editFormData.customer_type,
+        credit_limit: editFormData.credit_limit ? parseFloat(editFormData.credit_limit) : undefined,
         notes: editFormData.notes || undefined
       })
 
@@ -377,6 +383,19 @@ export function CustomerManagement() {
                         <SelectItem value="walk_in">Walk-in</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="credit-limit">Credit Limit ($)</Label>
+                    <Input
+                      id="credit-limit"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.credit_limit}
+                      onChange={(e) => setFormData(prev => ({ ...prev, credit_limit: e.target.value }))}
+                      placeholder="0.00"
+                    />
                   </div>
 
                   <div>
@@ -696,6 +715,19 @@ export function CustomerManagement() {
                   <SelectItem value="walk_in">Walk-in</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-credit-limit">Credit Limit ($)</Label>
+              <Input
+                id="edit-credit-limit"
+                type="number"
+                step="0.01"
+                min="0"
+                value={editFormData.credit_limit}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, credit_limit: e.target.value }))}
+                placeholder="0.00"
+              />
             </div>
 
             <div>

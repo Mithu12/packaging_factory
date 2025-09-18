@@ -254,6 +254,31 @@ export default function POSManager() {
       return;
     }
 
+    // Credit payment validation
+    if (paymentMethod === "credit") {
+      if (selectedCustomer.customer_type === 'walk_in') {
+        toast({
+          title: "Credit Not Allowed",
+          description: "Walk-in customers cannot use credit",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentDue = selectedCustomer.due_amount || 0;
+      const creditLimit = selectedCustomer.credit_limit || 0;
+      const newTotalDue = currentDue + total;
+
+      if (newTotalDue > creditLimit) {
+        toast({
+          title: "Credit Limit Exceeded",
+          description: `This order would exceed the credit limit by $${(newTotalDue - creditLimit).toFixed(2)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       
@@ -263,6 +288,7 @@ export default function POSManager() {
         cashier_id: 1, // TODO: Get from auth context
         payment_method: paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
         cash_received: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
+        due_amount: paymentMethod === "credit" ? total : 0,
         notes: `Payment processed via ${paymentMethod}`,
         discount_amount: overallDiscountType === 'flat' ? parseFloat(overallDiscount) : 0,
         discount_percentage: overallDiscountType === 'percentage' ? parseFloat(overallDiscount) : 0,
@@ -287,12 +313,27 @@ export default function POSManager() {
             unit_price: item.price,
             discount_percentage: item.discountType === 'percentage' ? item.discount : 0,
             discount_amount: item.discountType === 'fixed' ? item.discount : 0,
-            total_price: itemTotal
+            total_price: itemTotal,
+            is_gift: item.isGift || false
           };
         })
       };
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
+      
+      // Update customer due amount locally for credit sales
+      if (paymentMethod === "credit" && selectedCustomer) {
+        const updatedCustomer = {
+          ...selectedCustomer,
+          due_amount: (selectedCustomer.due_amount || 0) + total
+        };
+        setSelectedCustomer(updatedCustomer);
+        
+        // Update the customer in the customers list as well
+        setCustomers(prev => prev.map(customer => 
+          customer.id === selectedCustomer.id ? updatedCustomer : customer
+        ));
+      }
       
       // Prepare receipt data
       const receiptInfo = {
@@ -316,8 +357,10 @@ export default function POSManager() {
       setShowReceipt(true);
       
       toast({
-        title: "Payment Processed",
-        description: `Transaction completed successfully - ${paymentMethod}`,
+        title: paymentMethod === "credit" ? "Credit Sale Processed" : "Payment Processed",
+        description: paymentMethod === "credit" 
+          ? `$${total.toFixed(2)} added to ${selectedCustomer.name}'s account`
+          : `Transaction completed successfully - ${paymentMethod}`,
       });
 
       // Clear cart and reset form

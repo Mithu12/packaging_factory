@@ -30,9 +30,10 @@ export class AddCustomerMediator {
                         date_of_birth,
                         gender,
                         customer_type,
-                        notes
+                        notes,
+                        credit_limit
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
                     ) RETURNING *
                 `;
 
@@ -49,7 +50,8 @@ export class AddCustomerMediator {
                     data.date_of_birth || null,
                     data.gender || null,
                     data.customer_type || 'regular',
-                    data.notes || null
+                    data.notes || null,
+                    data.credit_limit,
                 ];
 
                 const result = await client.query(insertQuery, values);
