@@ -84,37 +84,10 @@ router.get('/', authenticate, employeeAndAbove, validateQuery(expenseQuerySchema
 router.get('/stats', authenticate, employeeAndAbove, expressAsyncHandler(ExpensesController.getExpenseStats));
 
 // GET /api/expenses/:id - Get expense by ID
-router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/expenses/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { expenseId: id })
-        const expense = await ExpenseMediator.getExpenseById(id);
-        MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number })
-        serializeSuccessResponse(res, expense, 'SUCCESS')
-    } catch (error) {
-        MyLogger.error(action, error)
-        next(error)
-    }
-}));
+router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(ExpensesController.getExpenseById));
 
 // POST /api/expenses - Create new expense
-router.post('/', authenticate, employeeAndAbove, validateRequest(createExpenseSchema), expressAsyncHandler(async (req, res, next) => {
-    let action = 'POST /api/expenses'
-    try {
-        MyLogger.info(action, { 
-            title: req.body.title, 
-            amount: req.body.amount,
-            category: req.body.category_id
-        })
-        const expense = await ExpenseMediator.createExpense(req.body, req.user!.user_id);
-        MyLogger.success(action, { expenseId: expense.id, expenseNumber: expense.expense_number })
-        serializeSuccessResponse(res, expense, 'SUCCESS')
-    } catch (error) {
-        MyLogger.error(action, error)
-        next(error)
-    }
-}));
+router.post('/', authenticate, employeeAndAbove, validateRequest(createExpenseSchema), expressAsyncHandler(ExpensesController.createExpense));
 
 // POST /api/expenses/with-receipt - Create new expense with receipt image
 router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
@@ -190,19 +163,7 @@ router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceip
 }));
 
 // PUT /api/expenses/:id - Update expense
-router.put('/:id', authenticate, employeeAndAbove, validateRequest(updateExpenseSchema), expressAsyncHandler(async (req, res, next) => {
-    let action = 'PUT /api/expenses/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { expenseId: id })
-        const expense = await ExpenseMediator.updateExpense(id, req.body);
-        MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number })
-        serializeSuccessResponse(res, expense, 'SUCCESS')
-    } catch (error) {
-        MyLogger.error(action, error)
-        next(error)
-    }
-}));
+router.put('/:id', authenticate, employeeAndAbove, validateRequest(updateExpenseSchema), expressAsyncHandler(ExpensesController.updateExpense));
 
 // PATCH /api/expenses/:id/approve - Approve expense
 router.patch('/:id/approve', authenticate, managerAndAbove, validateRequest(approveExpenseSchema), expressAsyncHandler(async (req, res, next) => {

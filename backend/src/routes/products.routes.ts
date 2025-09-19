@@ -164,19 +164,8 @@ router.put('/:id',
   authenticate, 
   managerAndAbove, // Only managers and above can update products
   validateRequest(updateProductSchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'PUT /api/products/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { productId: id, updateFields: Object.keys(req.body) })
-        const product = await UpdateProductInfoMediator.updateProduct(id, req.body);
-        MyLogger.success(action, { productId: id, productName: product.name, productSku: product.sku })
-        serializeSuccessResponse(res, product, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { productId: req.params.id, updateFields: Object.keys(req.body) })
-        throw error;
-    }
-}));
+  expressAsyncHandler(ProductsController.updateProduct)
+);
 
 // PUT /api/products/:id/with-image - Update product with image
 router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
