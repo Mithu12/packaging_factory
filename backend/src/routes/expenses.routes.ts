@@ -7,12 +7,11 @@ import {
     rejectExpenseSchema,
     payExpenseSchema
 } from '@/validation/expenseValidation';
-import ExpenseMediator from '@/mediators/expenses/ExpenseMediator';
-import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
 import { uploadExpenseReceipt, handleExpenseUploadError } from '@/middleware/expenseUpload';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
+import ExpensesController from '@/controllers/expenses/expenses.controller';
 
 const router = express.Router();
 
@@ -82,23 +81,7 @@ router.get('/', authenticate, employeeAndAbove, validateQuery(expenseQuerySchema
 }));
 
 // GET /api/expenses/stats - Get expense statistics
-router.get('/stats', authenticate, employeeAndAbove, expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/expenses/stats'
-    try {
-        const { start_date, end_date, department } = req.query;
-        MyLogger.info(action, { start_date, end_date, department })
-        const stats = await ExpenseMediator.getExpenseStats({
-            start_date: start_date as string,
-            end_date: end_date as string,
-            department: department as string
-        });
-        MyLogger.success(action, { statsCount: Object.keys(stats).length })
-        serializeSuccessResponse(res, stats, 'SUCCESS')
-    } catch (error) {
-        MyLogger.error(action, error)
-        next(error)
-    }
-}));
+router.get('/stats', authenticate, employeeAndAbove, expressAsyncHandler(ExpensesController.getExpenseStats));
 
 // GET /api/expenses/:id - Get expense by ID
 router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(async (req, res, next) => {

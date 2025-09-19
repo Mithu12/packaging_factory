@@ -5,17 +5,11 @@ import {
     productQuerySchema,
     stockAdjustmentSchema
 } from '@/validation/productValidation';
-import { GetProductInfoMediator } from "@/mediators/products/GetProductInfo.mediator";
-import { serializeSuccessResponse } from "@/utils/responseHelper";
-import { AddProductMediator } from "@/mediators/products/AddProduct.mediator";
-import { UpdateProductInfoMediator } from "@/mediators/products/UpdateProductInfo.mediator";
-import { DeleteProductMediator } from "@/mediators/products/DeleteProduct.mediator";
-import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjustmentMediator";
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
-import { deleteProductImage } from "@/utils/file-utils";
+import ProductsController from "@/controllers/products/products.controller";
 
 const router = express.Router();
 
@@ -75,35 +69,15 @@ router.get('/',
   authenticate, 
   employeeAndAbove, // Employees and above can view products
   validateQuery(productQuerySchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products'
-    try {
-        MyLogger.info(action, { query: req.query })
-        const result = await GetProductInfoMediator.getAllProducts(req.query);
-        MyLogger.success(action, { total: result.total, page: result.page, limit: result.limit })
-        serializeSuccessResponse(res, result, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query })
-        throw error;
-    }
-}));
+  expressAsyncHandler(ProductsController.getAllProducts)
+);
 
 // GET /api/products/stats - Get product statistics
 router.get('/stats', 
   authenticate, 
   managerAndAbove, // Only managers and above can view product statistics
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products/stats'
-    try {
-        MyLogger.info(action)
-        const stats = await GetProductInfoMediator.getProductStats();
-        MyLogger.success(action, { stats })
-        serializeSuccessResponse(res, stats, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error)
-        throw error;
-    }
-}));
+  expressAsyncHandler(ProductsController.getProductStats)
+);
 
 // GET /api/products/search - Search products
 router.get('/search', expressAsyncHandler(async (req, res, next) => {

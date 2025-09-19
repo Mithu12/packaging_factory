@@ -1,11 +1,9 @@
 import express, { NextFunction, Request, Response } from 'express';
-import { InvoiceMediator } from "@/mediators/payments/InvoiceMediator";
-import { PaymentMediator } from "@/mediators/payments/PaymentMediator";
-import { serializeSuccessResponse } from "@/utils/responseHelper";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import Joi from 'joi';
 import paymentApprovalRoutes from './paymentApproval.routes';
+import PaymentsController from "@/controllers/payments/payments.controller";
 
 const router = express.Router();
 
@@ -73,32 +71,10 @@ const validateQuery = (schema: Joi.ObjectSchema) => {
 // ==================== INVOICE ROUTES ====================
 
 // GET /api/payments/invoices - Get invoices with filtering and pagination
-router.get('/invoices', validateQuery(invoiceQuerySchema), expressAsyncHandler(async (req, res, next) => {
-  let action = 'GET /api/payments/invoices'
-  try {
-    MyLogger.info(action, { query: req.query })
-    const invoices = await InvoiceMediator.getInvoices(req.query);
-    MyLogger.success(action, { count: invoices.length })
-    serializeSuccessResponse(res, invoices, 'SUCCESS')
-  } catch (error: any) {
-    MyLogger.error(action, error, { query: req.query })
-    throw error;
-  }
-}));
+router.get('/invoices', validateQuery(invoiceQuerySchema), expressAsyncHandler(PaymentsController.getInvoices));
 
 // GET /api/payments/invoices/stats - Get invoice statistics
-router.get('/invoices/stats', expressAsyncHandler(async (req, res, next) => {
-  let action = 'GET /api/payments/invoices/stats'
-  try {
-    MyLogger.info(action)
-    const stats = await InvoiceMediator.getInvoiceStats();
-    MyLogger.success(action, stats)
-    serializeSuccessResponse(res, stats, 'SUCCESS')
-  } catch (error: any) {
-    MyLogger.error(action, error)
-    throw error;
-  }
-}));
+router.get('/invoices/stats', expressAsyncHandler(PaymentsController.getInvoiceStats));
 
 // GET /api/payments/invoices/:id - Get specific invoice
 router.get('/invoices/:id', expressAsyncHandler(async (req, res, next) => {

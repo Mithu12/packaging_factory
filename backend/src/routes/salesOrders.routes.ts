@@ -4,13 +4,10 @@ import {
     updateSalesOrderSchema,
     salesOrderQuerySchema
 } from '@/validation/posValidation';
-import { GetSalesOrderInfoMediator } from "@/mediators/salesOrders/GetSalesOrderInfo.mediator";
-import { serializeSuccessResponse } from "@/utils/responseHelper";
-import { AddSalesOrderMediator } from "@/mediators/salesOrders/AddSalesOrder.mediator";
-import { UpdateSalesOrderInfoMediator } from "@/mediators/salesOrders/UpdateSalesOrderInfo.mediator";
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
+import SalesOrdersController from "@/controllers/salesOrders/salesOrders.controller";
 
 const router = express.Router();
 
@@ -70,35 +67,15 @@ router.get('/',
   authenticate, 
   employeeAndAbove, // Employees and above can view orders
   validateQuery(salesOrderQuerySchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/sales-orders'
-    try {
-        MyLogger.info(action, { query: req.query })
-        const result = await GetSalesOrderInfoMediator.getAllSalesOrders(req.query);
-        MyLogger.success(action, { total: result.total, page: result.page, limit: result.limit })
-        serializeSuccessResponse(res, result, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query })
-        throw error;
-    }
-}));
+  expressAsyncHandler(SalesOrdersController.getAllSalesOrders)
+);
 
 // GET /api/sales-orders/stats - Get POS statistics
 router.get('/stats', 
   authenticate, 
   managerAndAbove, // Only managers and above can view statistics
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/sales-orders/stats'
-    try {
-        MyLogger.info(action)
-        const stats = await GetSalesOrderInfoMediator.getPOSStats();
-        MyLogger.success(action, { stats })
-        serializeSuccessResponse(res, stats, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error)
-        throw error;
-    }
-}));
+  expressAsyncHandler(SalesOrdersController.getPOSStats)
+);
 
 // GET /api/sales-orders/search - Search sales orders
 router.get('/search', 

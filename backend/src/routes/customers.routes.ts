@@ -84,56 +84,23 @@ router.get('/search', expressAsyncHandler(CustomersController.searchCustomers));
 router.get('/type/:type', expressAsyncHandler(CustomersController.getCustomersByType));
 
 // GET /api/customers/:id - Get customer by ID
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/customers/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { customerId: id })
-        const customer = await GetCustomerInfoMediator.getCustomerById(id);
-        MyLogger.success(action, { customerId: id, customerName: customer.name })
-        serializeSuccessResponse(res, customer, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { customerId: req.params.id })
-        throw error;
-    }
-}));
+router.get('/:id', expressAsyncHandler(CustomersController.getCustomerById));
 
 // POST /api/customers - Create new customer
 router.post('/', 
   authenticate, 
   employeeAndAbove, // Employees and above can create customers
   validateRequest(createCustomerSchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'POST /api/customers'
-    try {
-        MyLogger.info(action, { customerName: req.body.name, customerType: req.body.customer_type })
-        const customer = await AddCustomerMediator.createCustomer(req.body);
-        MyLogger.success(action, { customerId: customer.id, customerName: customer.name, customerCode: customer.customer_code })
-        serializeSuccessResponse(res, customer, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { customerName: req.body.name })
-        throw error;
-    }
-}));
+  expressAsyncHandler(CustomersController.createCustomer)
+);
 
 // PUT /api/customers/:id - Update customer
 router.put('/:id', 
   authenticate, 
   managerAndAbove, // Only managers and above can update customers
   validateRequest(updateCustomerSchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'PUT /api/customers/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { customerId: id, updateFields: Object.keys(req.body) })
-        const customer = await UpdateCustomerInfoMediator.updateCustomer(id, req.body);
-        MyLogger.success(action, { customerId: id, customerName: customer.name })
-        serializeSuccessResponse(res, customer, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { customerId: req.params.id, updateFields: Object.keys(req.body) })
-        throw error;
-    }
-}));
+  expressAsyncHandler(CustomersController.updateCustomer)
+);
 
 // PATCH /api/customers/:id/toggle-status - Toggle customer status
 router.patch('/:id/toggle-status', expressAsyncHandler(async (req, res, next) => {

@@ -6,15 +6,10 @@ import {
     receiveGoodsSchema,
     purchaseOrderQuerySchema
 } from '@/validation/purchaseOrderValidation';
-import GetPurchaseOrderInfoMediator from "@/mediators/purchaseOrders/GetPurchaseOrderInfo.mediator";
-import { serializeSuccessResponse } from "@/utils/responseHelper";
-import AddPurchaseOrderMediator from "@/mediators/purchaseOrders/AddPurchaseOrder.mediator";
-import UpdatePurchaseOrderInfoMediator from "@/mediators/purchaseOrders/UpdatePurchaseOrderInfo.mediator";
-import DeletePurchaseOrderMediator from "@/mediators/purchaseOrders/DeletePurchaseOrder.mediator";
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
-import { PDFGenerator } from "@/services/pdf-generator";
+import PurchaseOrdersController from "@/controllers/purchaseOrders/purchaseOrders.controller";
 
 const router = express.Router();
 
@@ -74,19 +69,15 @@ router.get('/',
   authenticate, 
   employeeAndAbove, // Employees and above can view purchase orders
   validateQuery(purchaseOrderQuerySchema), 
-  expressAsyncHandler(async (req, res) => {
-    const result = await GetPurchaseOrderInfoMediator.getPurchaseOrderList(req.query);
-    serializeSuccessResponse(res, result, 'SUCCESS')
-}));
+  expressAsyncHandler(PurchaseOrdersController.getAllPurchaseOrders)
+);
 
 // GET /api/purchase-orders/stats - Get purchase order statistics
 router.get('/stats', 
   authenticate, 
   managerAndAbove, // Only managers and above can view purchase order statistics
-  expressAsyncHandler(async (req, res, next) => {
-    const stats = await GetPurchaseOrderInfoMediator.getPurchaseOrderStats();
-    serializeSuccessResponse(res, stats, 'SUCCESS')
-}));
+  expressAsyncHandler(PurchaseOrdersController.getPurchaseOrderStats)
+);
 
 // GET /api/purchase-orders/search - Search purchase orders
 router.get('/search', 
