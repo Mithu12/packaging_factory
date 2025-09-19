@@ -342,11 +342,11 @@ export default function PurchaseOrders() {
                             </DropdownMenuItem>
                           </>
                         )}
-                        {order.status === "approved" && (
+                        {/* {order.status === "approved" && (
                           <DropdownMenuItem onClick={() => handleStatusChange(order.id, "received")}>
                             Mark as Received
                           </DropdownMenuItem>
-                        )}
+                        )} */}
                         <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
                           Cancel Order
                         </DropdownMenuItem>
