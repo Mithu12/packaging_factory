@@ -14,6 +14,7 @@ import {
   Tag,
   MapPin,
   Receipt,
+  Shield,
 } from "lucide-react";
 
 import {
@@ -188,6 +189,16 @@ export function AppSidebar() {
                     >
                       <UserCog className="h-4 w-4" />
                       {!isCollapsed && <span>User Management</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </RoleGuard>
+              <RoleGuard module="rbac" action="view">
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/rbac" className={getNavCls("/rbac")}>
+                      <Shield className="h-4 w-4" />
+                      {!isCollapsed && <span>RBAC Management</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

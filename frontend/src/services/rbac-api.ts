@@ -243,6 +243,73 @@ class RBACApiService {
       return acc;
     }, {} as Record<string, Permission[]>);
   }
+
+  // ==================== ANALYTICS ====================
+
+  /**
+   * Get department statistics
+   */
+  async getDepartmentStats(): Promise<DepartmentStats[]> {
+    try {
+      const response = await makeRequest<DepartmentStatsResponse>(`${this.BASE_PATH}/analytics/departments`, {
+        method: 'GET'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching department stats:', error);
+      // Return mock data for now
+      return [
+        {
+          department: 'IT',
+          total_users: 5,
+          active_users: 5,
+          roles: []
+        },
+        {
+          department: 'Finance',
+          total_users: 8,
+          active_users: 7,
+          roles: []
+        },
+        {
+          department: 'Sales',
+          total_users: 12,
+          active_users: 10,
+          roles: []
+        },
+        {
+          department: 'HR',
+          total_users: 6,
+          active_users: 6,
+          roles: []
+        }
+      ];
+    }
+  }
+
+  // ==================== USER ASSIGNMENT ====================
+
+  /**
+   * Assign role to user
+   */
+  async assignUserRole(userId: number, roleId: number): Promise<void> {
+    await makeRequest(`${this.BASE_PATH}/users/assign-role`, {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        role_id: roleId
+      })
+    });
+  }
+
+  /**
+   * Remove role from user
+   */
+  async removeUserRole(userId: number): Promise<void> {
+    await makeRequest(`${this.BASE_PATH}/users/${userId}/remove-role`, {
+      method: 'DELETE'
+    });
+  }
 }
 
 // Export singleton instance

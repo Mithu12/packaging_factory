@@ -85,6 +85,11 @@ export interface PermissionStats {
   roles_using: number;
 }
 
+export interface Progress {
+  value: number;
+  className?: string;
+}
+
 // Role constants for the frontend
 export const ROLE_NAMES = {
   SYSTEM_ADMIN: 'system_admin',

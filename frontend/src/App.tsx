@@ -43,6 +43,8 @@ import Origins from "./pages/Origins";
 import Expenses from "./pages/Expenses";
 import ExpenseDetails from "./pages/ExpenseDetails";
 import EditExpense from "./pages/EditExpense";
+import RoleManagement from "./pages/RoleManagement";
+import RBACDashboard from "./pages/RBACDashboard";
 
 const queryClient = new QueryClient();
 
@@ -385,6 +387,28 @@ const App = () => {
               <ProtectedRoute requiredRole="manager">
                 <DashboardLayout>
                   <EditExpense />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* RBAC Management Routes */}
+          <Route
+            path="/rbac"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DashboardLayout>
+                  <RBACDashboard />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DashboardLayout>
+                  <RoleManagement />
                 </DashboardLayout>
               </ProtectedRoute>
             }
