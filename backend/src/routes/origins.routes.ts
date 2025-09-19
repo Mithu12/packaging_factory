@@ -17,6 +17,26 @@ router.get('/',
   expressAsyncHandler(OriginsController.getAllOrigins)
 );
 
+
+// Get origin statistics
+router.get('/stats',
+    authenticate,
+    managerAndAbove, // Only managers and above can view origin statistics
+    expressAsyncHandler(async (req, res, next) => {
+        let action = 'GET /api/origins/stats';
+        try {
+            MyLogger.info(action);
+            const stats = await OriginMediator.getOriginStats();
+            MyLogger.success(action, { stats });
+            serializeSuccessResponse(res, stats, 'SUCCESS');
+        } catch (error: any) {
+            MyLogger.error(action, error);
+            throw error;
+        }
+    })
+);
+
+
 // Get origin by ID
 router.get('/:id',
   authenticate,
@@ -124,24 +144,6 @@ router.get('/status/:status',
       serializeSuccessResponse(res, origins, 'SUCCESS');
     } catch (error: any) {
       MyLogger.error(action, error, { status: req.params.status });
-      throw error;
-    }
-  })
-);
-
-// Get origin statistics
-router.get('/stats',
-  authenticate,
-  managerAndAbove, // Only managers and above can view origin statistics
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/origins/stats';
-    try {
-      MyLogger.info(action);
-      const stats = await OriginMediator.getOriginStats();
-      MyLogger.success(action, { stats });
-      serializeSuccessResponse(res, stats, 'SUCCESS');
-    } catch (error: any) {
-      MyLogger.error(action, error);
       throw error;
     }
   })
