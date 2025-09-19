@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
 import { PurchaseOrder, PurchaseOrderStats } from "@/services/types"
 import { useFormatting } from "@/hooks/useFormatting"
+import { useAuth } from "@/contexts/AuthContext"
 import {
   Plus, 
   Search, 
@@ -16,7 +17,10 @@ import {
   MoreHorizontal,
   FileText,
   Calendar,
-  DollarSign
+  DollarSign,
+  CheckCircle2,
+  Send,
+  Clock
 } from "lucide-react"
 import {
   Table,
@@ -36,12 +40,14 @@ import {
 export default function PurchaseOrders() {
   const navigate = useNavigate()
   const { formatCurrency, formatDate } = useFormatting()
+  const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [stats, setStats] = useState<PurchaseOrderStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
 
   // Fetch purchase orders and stats
   useEffect(() => {
@@ -118,6 +124,78 @@ export default function PurchaseOrders() {
       })
     }
   }
+
+  // Approval functions
+  const submitForApproval = async (poId: number) => {
+    setActionLoading(poId)
+    try {
+      // Mock API call - replace with actual implementation
+      console.log(`Submitting PO ${poId} for approval`)
+      
+      // Update local state
+      setPurchaseOrders(prev => prev.map(po => 
+        po.id === poId 
+          ? { ...po, approval_status: 'submitted' as any }
+          : po
+      ))
+      
+      toast.success("Purchase order submitted for approval successfully")
+    } catch (error) {
+      console.error('Error submitting for approval:', error)
+      toast.error("Failed to submit for approval")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const approvePurchaseOrder = async (poId: number) => {
+    setActionLoading(poId)
+    try {
+      // Mock API call - replace with actual implementation
+      console.log(`Approving PO ${poId}`)
+      
+      // Update local state
+      setPurchaseOrders(prev => prev.map(po => 
+        po.id === poId 
+          ? { ...po, approval_status: 'approved' as any }
+          : po
+      ))
+      
+      toast.success("Purchase order approved successfully")
+    } catch (error) {
+      console.error('Error approving:', error)
+      toast.error("Failed to approve purchase order")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Helper functions for approval
+  const canSubmit = (po: PurchaseOrder) => {
+    return (po.approval_status === 'draft' || !po.approval_status) && 
+           ['admin', 'manager', 'employee'].includes(user?.role || '')
+  }
+
+  const canApprove = (po: PurchaseOrder) => {
+    return po.approval_status === 'submitted' && 
+           ['admin', 'accounts'].includes(user?.role || '')
+  }
+
+  const getApprovalStatusBadge = (status: string | undefined) => {
+    switch (status) {
+      case 'draft':
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Draft</Badge>
+      case 'submitted':
+        return <Badge variant="outline"><Send className="w-3 h-3 mr-1" />Submitted</Badge>
+      case 'approved':
+        return <Badge variant="default"><CheckCircle2 className="w-3 h-3 mr-1" />Approved</Badge>
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>
+      default:
+        return <Badge variant="secondary">Draft</Badge>
+    }
+  }
+
   const statusCounts = {
     draft: stats?.draft_orders || 0,
     pending: stats?.pending_orders || 0,

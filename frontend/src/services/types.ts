@@ -383,6 +383,13 @@ export interface PurchaseOrder {
   created_by: string;
   approved_by?: string;
   approved_date?: string;
+  // New approval fields
+  submitted_at?: string;
+  submitted_by?: number;
+  approved_at?: string;
+  approved_by_id?: number;
+  approval_status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  approval_notes?: string;
   created_at: string;
   updated_at: string;
   supplier_name?: string;

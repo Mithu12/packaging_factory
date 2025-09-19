@@ -31,6 +31,13 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   notes?: string;
   created_by?: string;
+  // New approval fields
+  submitted_at?: string;
+  submitted_by?: number;
+  approved_at?: string;
+  approved_by?: number;
+  approval_status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  approval_notes?: string;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -120,10 +127,17 @@ export interface PaymentStats {
   total_paid_amount: number;
   overdue_amount: number;
   recent_payments_count: number;
+    recent_movements_count: number;
   monthly_payment_trend: {
     month: string;
     total_payments: number;
     total_amount: number;
+  }[];
+    monthly_movement_trend: {
+      month: number,
+      receipts: number,
+      issues: number, // Not applicable for payments
+      adjustments: number // Not applicable for payments
   }[];
 }
 
@@ -151,4 +165,14 @@ export interface PaymentWithDetails extends Payment {
     id: number;
     invoice_number: string;
   };
+}
+
+// Approval workflow interfaces for payments
+export interface SubmitPaymentRequest {
+  notes?: string;
+}
+
+export interface ApprovePaymentRequest {
+  action: 'approve' | 'reject';
+  notes?: string;
 }

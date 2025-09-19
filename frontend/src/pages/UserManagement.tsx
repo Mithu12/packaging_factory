@@ -140,6 +140,7 @@ const UserManagement = () => {
   const roles = [
     { value: "admin", label: "Admin", color: "destructive" },
     { value: "manager", label: "Manager", color: "secondary" },
+    { value: "accounts", label: "Accounts", color: "default" },
     { value: "employee", label: "Employee", color: "outline" },
   ];
 

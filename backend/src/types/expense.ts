@@ -27,6 +27,12 @@ export interface Expense {
   approved_at?: string;
   paid_by?: number;
   paid_at?: string;
+  // New approval fields
+  submitted_at?: string;
+  submitted_by?: number;
+  approved_by_id?: number;
+  approval_status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  approval_notes?: string;
   department?: string;
   project?: string;
   tags?: string[];
@@ -157,4 +163,14 @@ export interface ExpenseListResponse {
   page: number;
   limit: number;
   total_pages: number;
+}
+
+// Approval workflow interfaces for expenses
+export interface SubmitExpenseRequest {
+  notes?: string;
+}
+
+export interface ApproveExpenseRequest {
+  action: 'approve' | 'reject';
+  notes?: string;
 }

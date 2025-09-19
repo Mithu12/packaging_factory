@@ -1,6 +1,6 @@
 import { User } from '@/services/auth-api';
 
-export type Role = 'admin' | 'manager' | 'employee' | 'viewer';
+export type Role = 'admin' | 'manager' | 'accounts' | 'employee' | 'viewer';
 
 export interface Permission {
   module: string;

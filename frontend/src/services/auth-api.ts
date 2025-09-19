@@ -8,7 +8,7 @@ export interface User {
   full_name: string;
   mobile_number?: string;
   departments?: string[];
-  role: 'admin' | 'manager' | 'employee' | 'viewer';
+  role: 'admin' | 'manager' | 'accounts' | 'employee' | 'viewer';
   is_active: boolean;
   last_login?: string;
   created_at: string;
@@ -58,7 +58,7 @@ export interface PasswordResetConfirmRequest {
 }
 
 export interface UpdateUserRoleRequest {
-  role: 'admin' | 'manager' | 'employee' | 'viewer';
+  role: 'admin' | 'manager' | 'accounts' | 'employee' | 'viewer';
 }
 
 class AuthApiService {
