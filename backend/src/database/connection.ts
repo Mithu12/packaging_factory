@@ -10,7 +10,7 @@ const pool = new Pool({
     database: process.env.DB_NAME || 'erp_system',
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'password',
-    ssl: true,
+    // ssl: true,
     max: 20, // Maximum number of clients in the pool
     idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
     connectionTimeoutMillis: 20000, // Return an error after 20 seconds if connection could not be established

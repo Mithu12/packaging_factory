@@ -163,8 +163,8 @@ export default function EditSupplier() {
     } catch (err) {
       if (err instanceof ApiError) {
         toast({
-          title: "Error",
-          description: err.message,
+          title: err.message,
+          description: err.details?.[0] ||JSON.stringify(err.details),
           variant: "destructive"
         })
       } else {

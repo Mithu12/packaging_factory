@@ -771,6 +771,68 @@ CREATE TABLE IF NOT EXISTS customer_due_transactions (
 );
 
     `);
+
+
+    // Create origins table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS origins (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add origin_id column to products table if it doesn't exist
+    await client.query(`
+      ALTER TABLE products 
+      ADD COLUMN IF NOT EXISTS origin_id INTEGER REFERENCES origins(id) ON DELETE SET NULL
+    `);
+    
+    // Create index on name for faster lookups
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_origins_name ON origins(name)
+    `);
+    
+    // Create index on status for filtering
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_origins_status ON origins(status)
+    `);
+    
+    // Add trigger to update updated_at timestamp
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_origins_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_update_origins_updated_at ON origins;
+      CREATE TRIGGER trigger_update_origins_updated_at
+        BEFORE UPDATE ON origins
+        FOR EACH ROW
+        EXECUTE FUNCTION update_origins_updated_at()
+    `);
+    
+    // Add image column to products table
+    await client.query(`
+      ALTER TABLE products 
+      ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);
+    `);
+
+
+
+
+    
+
+
+
   } catch (error) {
     MyLogger.error(action, error)
     console.error('❌ Error creating tables:', error);

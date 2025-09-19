@@ -264,6 +264,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
                   value={formData.address}
                   onChange={(e) => handleInputChange("address", e.target.value)}
                   placeholder="Enter street address"
+                  required
               />
             </div>
 
@@ -383,7 +384,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
 
               <div className="space-y-2">
                 <Label htmlFor="paymentTerms">Payment Terms</Label>
-                <Select value={formData.paymentTerms} onValueChange={(value) => handleInputChange("paymentTerms", value)}>
+                <Select required value={formData.paymentTerms} onValueChange={(value) => handleInputChange("paymentTerms", value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select payment terms" />
                   </SelectTrigger>
