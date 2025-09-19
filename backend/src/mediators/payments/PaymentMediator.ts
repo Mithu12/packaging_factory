@@ -589,6 +589,8 @@ export class PaymentMediator {
         total_outstanding_amount: invoiceStats.total_outstanding_amount,
         total_paid_amount: parseFloat(paymentStats.total_payment_amount) || 0,
         overdue_amount: invoiceStats.overdue_amount,
+          recent_payments_count: 0,
+          monthly_payment_trend:[],
         recent_movements_count: recentPaymentsCount,
         monthly_movement_trend: trendResult.rows.map(row => ({
           month: row.month,

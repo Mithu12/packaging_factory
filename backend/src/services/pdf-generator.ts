@@ -1,12 +1,12 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import { PurchaseOrderWithDetails } from '@/types/purchaseOrder';
 import { MyLogger } from '@/utils/new-logger';
 
 export class PDFGenerator {
-  private static browser: puppeteer.Browser | null = null;
+  private static browser: Browser | null = null;
 
   // Initialize browser instance
-  private static async getBrowser(): Promise<puppeteer.Browser> {
+  private static async getBrowser(): Promise<Browser> {
     if (!this.browser) {
       this.browser = await puppeteer.launch({
         headless: true,
@@ -341,23 +341,23 @@ export class PDFGenerator {
                 <h3>Supplier Information</h3>
                 <div class="detail-row">
                     <span class="detail-label">Company:</span>
-                    <span class="detail-value">${purchaseOrder.supplier_name}</span>
+                    <span class="detail-value">${purchaseOrder.supplier.name}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Code:</span>
-                    <span class="detail-value">${purchaseOrder.supplier_code}</span>
+                    <span class="detail-value">${purchaseOrder.supplier.id}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Contact:</span>
-                    <span class="detail-value">${purchaseOrder.supplier_contact || 'N/A'}</span>
+                    <span class="detail-value">${purchaseOrder.supplier.contact_person || 'N/A'}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Email:</span>
-                    <span class="detail-value">${purchaseOrder.supplier_email || 'N/A'}</span>
+                    <span class="detail-value">${purchaseOrder.supplier.email || 'N/A'}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Phone:</span>
-                    <span class="detail-value">${purchaseOrder.supplier_phone || 'N/A'}</span>
+                    <span class="detail-value">${purchaseOrder.supplier.phone || 'N/A'}</span>
                 </div>
             </div>
         </div>

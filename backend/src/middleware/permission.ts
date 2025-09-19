@@ -116,9 +116,10 @@ export const requirePermissionOrOwnership = (
       const hasPermission = await RoleMediator.hasPermission(userId, permission);
       
       if (hasPermission) {
-        MyLogger.info(action, 'General permission granted', {
+        MyLogger.info(action, {
           userId,
-          permission: `${permission.module}.${permission.action}.${permission.resource}`
+          permission: `${permission.module}.${permission.action}.${permission.resource}`,
+          status: 'General permission granted'
         });
         return next();
       }
@@ -128,22 +129,24 @@ export const requirePermissionOrOwnership = (
         const resourceOwnerId = await getResourceOwnerIdFn(req);
         
         if (resourceOwnerId === userId) {
-          MyLogger.info(action, 'Owner access granted', {
+          MyLogger.info(action, {
             userId,
             resourceOwnerId,
-            path: req.path
+            path: req.path,
+            status: 'Owner access granted'
           });
           return next();
         }
       } catch (ownershipError) {
-        MyLogger.warn(action, 'Could not determine resource ownership', ownershipError);
+        MyLogger.warn(action, `Could not determine resource ownership: ${ownershipError}`);
       }
 
       // Neither permission nor ownership
-      MyLogger.warn(action, 'Access denied - no permission or ownership', {
+      MyLogger.warn(action, {
         userId,
         permission: `${permission.module}.${permission.action}.${permission.resource}`,
-        path: req.path
+        path: req.path,
+        status: 'Access denied - no permission or ownership'
       });
 
       return serializeErrorResponse(res, {}, '403', 'Insufficient permissions to access this resource');
@@ -175,23 +178,25 @@ export const requireSystemAdmin = () => {
       const isAdmin = await RoleMediator.isSystemAdmin(userId);
 
       if (!isAdmin) {
-        MyLogger.warn(action, 'System admin access denied', {
+        MyLogger.warn(action, {
           userId,
           username: req.user.username,
           role: req.user.role,
-          path: req.path
+          path: req.path,
+          status: 'System admin access denied'
         });
 
         return serializeErrorResponse(res, {}, '403', 'System administrator access required');
       }
 
-      MyLogger.info(action, 'System admin access granted', {
+      MyLogger.info(action, {
         userId,
         username: req.user.username,
-        path: req.path
+        path: req.path,
+        status: 'System admin access granted'
       });
 
-      next();
+      return next();
 
     } catch (error) {
       MyLogger.error(action, error, {
