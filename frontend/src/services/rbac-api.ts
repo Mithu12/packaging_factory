@@ -152,10 +152,10 @@ class RBACApiService {
    * Get user permissions
    */
   async getUserPermissions(userId: number): Promise<UserWithPermissions> {
-    const response = await makeRequest<UserPermissionsResponse>(`${this.BASE_PATH}/users/${userId}/permissions`, {
+    const response = await makeRequest<UserWithPermissions>(`${this.BASE_PATH}/users/${userId}/permissions`, {
       method: 'GET'
-    });
-    return response.data;
+    });    
+    return response;
   }
 
   /**
