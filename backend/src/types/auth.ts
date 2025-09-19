@@ -5,7 +5,8 @@ export interface User {
   full_name: string;
   mobile_number?: string;
   departments?: string[];
-  role: UserRole;
+  role: UserRole; // Legacy role field - still supported for backward compatibility
+  role_id?: number; // New RBAC role system
   is_active: boolean;
   last_login?: Date;
   created_at: Date;
@@ -56,7 +57,9 @@ export interface UpdateProfileRequest {
 export interface JwtPayload {
   user_id: number;
   username: string;
-  role: UserRole;
+  role: UserRole; // Legacy role
+  role_id?: number; // New RBAC role ID
+  permissions?: string[]; // User's computed permissions
   iat: number;
   exp: number;
 }

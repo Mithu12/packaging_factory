@@ -1,0 +1,638 @@
+import pool from '@/database/connection';
+import { MyLogger } from '@/utils/new-logger';
+import { createError } from '@/utils/responseHelper';
+import {
+  Role,
+  Permission,
+  RoleWithPermissions,
+  UserWithPermissions,
+  CreateRoleRequest,
+  UpdateRoleRequest,
+  RolePermissionRequest,
+  AssignPermissionRequest,
+  PermissionCheck,
+  PermissionContext,
+  DepartmentStats,
+  PermissionStats,
+  ROLE_NAMES
+} from '@/types/rbac';
+
+export class RoleMediator {
+  
+  // ==================== ROLE MANAGEMENT ====================
+  
+  static async getAllRoles(): Promise<Role[]> {
+    const action = 'RoleMediator.getAllRoles';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action);
+      
+      const query = `
+        SELECT * FROM roles 
+        WHERE is_active = true
+        ORDER BY level ASC, display_name ASC
+      `;
+      
+      const result = await client.query(query);
+      
+      MyLogger.success(action, { rolesCount: result.rows.length });
+      return result.rows;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getRoleById(roleId: number): Promise<RoleWithPermissions> {
+    const action = 'RoleMediator.getRoleById';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { roleId });
+      
+      // Get role details
+      const roleQuery = `
+        SELECT r.*, 
+               COUNT(u.id) as user_count
+        FROM roles r
+        LEFT JOIN users u ON u.role_id = r.id AND u.is_active = true
+        WHERE r.id = $1
+        GROUP BY r.id
+      `;
+      
+      const roleResult = await client.query(roleQuery, [roleId]);
+      
+      if (roleResult.rows.length === 0) {
+        throw createError('Role not found', 404);
+      }
+      
+      const role = roleResult.rows[0];
+      
+      // Get role permissions
+      const permissionsQuery = `
+        SELECT p.* 
+        FROM permissions p
+        INNER JOIN role_permissions rp ON rp.permission_id = p.id
+        WHERE rp.role_id = $1
+        ORDER BY p.module, p.action, p.resource
+      `;
+      
+      const permissionsResult = await client.query(permissionsQuery, [roleId]);
+      
+      const roleWithPermissions: RoleWithPermissions = {
+        ...role,
+        permissions: permissionsResult.rows,
+        user_count: parseInt(role.user_count)
+      };
+      
+      MyLogger.success(action, { roleId, permissionsCount: permissionsResult.rows.length });
+      return roleWithPermissions;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { roleId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async createRole(data: CreateRoleRequest, createdBy: number): Promise<Role> {
+    const action = 'RoleMediator.createRole';
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      MyLogger.info(action, { roleName: data.name });
+      
+      // Check if role name already exists
+      const existingRole = await client.query('SELECT id FROM roles WHERE name = $1', [data.name]);
+      if (existingRole.rows.length > 0) {
+        throw createError('Role name already exists', 400);
+      }
+      
+      // Create role
+      const roleQuery = `
+        INSERT INTO roles (name, display_name, description, level, department)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `;
+      
+      const roleResult = await client.query(roleQuery, [
+        data.name,
+        data.display_name,
+        data.description,
+        data.level,
+        data.department
+      ]);
+      
+      const role = roleResult.rows[0];
+      
+      // Assign permissions if provided
+      if (data.permission_ids && data.permission_ids.length > 0) {
+        await this.assignPermissionsToRole(client, role.id, data.permission_ids, createdBy);
+      }
+      
+      await client.query('COMMIT');
+      
+      MyLogger.success(action, { roleId: role.id, roleName: role.name });
+      return role;
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { roleName: data.name });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async updateRole(roleId: number, data: UpdateRoleRequest, updatedBy: number): Promise<Role> {
+    const action = 'RoleMediator.updateRole';
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      MyLogger.info(action, { roleId });
+      
+      // Build dynamic update query
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+      
+      if (data.display_name !== undefined) {
+        updateFields.push(`display_name = $${paramCount++}`);
+        values.push(data.display_name);
+      }
+      
+      if (data.description !== undefined) {
+        updateFields.push(`description = $${paramCount++}`);
+        values.push(data.description);
+      }
+      
+      if (data.level !== undefined) {
+        updateFields.push(`level = $${paramCount++}`);
+        values.push(data.level);
+      }
+      
+      if (data.department !== undefined) {
+        updateFields.push(`department = $${paramCount++}`);
+        values.push(data.department);
+      }
+      
+      if (data.is_active !== undefined) {
+        updateFields.push(`is_active = $${paramCount++}`);
+        values.push(data.is_active);
+      }
+      
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(roleId);
+      
+      const updateQuery = `
+        UPDATE roles 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING *
+      `;
+      
+      const result = await client.query(updateQuery, values);
+      
+      if (result.rows.length === 0) {
+        throw createError('Role not found', 404);
+      }
+      
+      const role = result.rows[0];
+      
+      // Update permissions if provided
+      if (data.permission_ids !== undefined) {
+        // Remove existing permissions
+        await client.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
+        
+        // Add new permissions
+        if (data.permission_ids.length > 0) {
+          await this.assignPermissionsToRole(client, roleId, data.permission_ids, updatedBy);
+        }
+      }
+      
+      await client.query('COMMIT');
+      
+      MyLogger.success(action, { roleId, roleName: role.name });
+      return role;
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { roleId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async deleteRole(roleId: number): Promise<void> {
+    const action = 'RoleMediator.deleteRole';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { roleId });
+      
+      // Check if role is being used by any users
+      const usersResult = await client.query('SELECT COUNT(*) as count FROM users WHERE role_id = $1', [roleId]);
+      const userCount = parseInt(usersResult.rows[0].count);
+      
+      if (userCount > 0) {
+        throw createError(`Cannot delete role. It is assigned to ${userCount} user(s)`, 400);
+      }
+      
+      // Soft delete by setting is_active to false
+      const result = await client.query(`
+        UPDATE roles 
+        SET is_active = false, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $1
+        RETURNING name
+      `, [roleId]);
+      
+      if (result.rows.length === 0) {
+        throw createError('Role not found', 404);
+      }
+      
+      MyLogger.success(action, { roleId, roleName: result.rows[0].name });
+      
+    } catch (error) {
+      MyLogger.error(action, error, { roleId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== PERMISSION MANAGEMENT ====================
+  
+  static async getAllPermissions(): Promise<Permission[]> {
+    const action = 'RoleMediator.getAllPermissions';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action);
+      
+      const query = `
+        SELECT * FROM permissions 
+        ORDER BY module, action, resource
+      `;
+      
+      const result = await client.query(query);
+      
+      MyLogger.success(action, { permissionsCount: result.rows.length });
+      return result.rows;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getPermissionsByModule(module: string): Promise<Permission[]> {
+    const action = 'RoleMediator.getPermissionsByModule';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { module });
+      
+      const query = `
+        SELECT * FROM permissions 
+        WHERE module = $1
+        ORDER BY action, resource
+      `;
+      
+      const result = await client.query(query, [module]);
+      
+      MyLogger.success(action, { module, permissionsCount: result.rows.length });
+      return result.rows;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { module });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== USER PERMISSION MANAGEMENT ====================
+  
+  static async getUserPermissions(userId: number): Promise<UserWithPermissions> {
+    const action = 'RoleMediator.getUserPermissions';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { userId });
+      
+      // Get user with role information
+      const userQuery = `
+        SELECT u.*, r.name as role_name, r.display_name as role_display_name, 
+               r.level as role_level, r.department as role_department
+        FROM users u
+        LEFT JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1
+      `;
+      
+      const userResult = await client.query(userQuery, [userId]);
+      
+      if (userResult.rows.length === 0) {
+        throw createError('User not found', 404);
+      }
+      
+      const user = userResult.rows[0];
+      
+      // Get role-based permissions
+      const rolePermissionsQuery = `
+        SELECT DISTINCT p.* 
+        FROM permissions p
+        INNER JOIN role_permissions rp ON rp.permission_id = p.id
+        WHERE rp.role_id = $1
+        ORDER BY p.module, p.action, p.resource
+      `;
+      
+      let rolePermissions = [];
+      if (user.role_id) {
+        const rolePermResult = await client.query(rolePermissionsQuery, [user.role_id]);
+        rolePermissions = rolePermResult.rows;
+      }
+      
+      // Get direct user permissions
+      const directPermissionsQuery = `
+        SELECT p.* 
+        FROM permissions p
+        INNER JOIN user_permissions up ON up.permission_id = p.id
+        WHERE up.user_id = $1 
+          AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP)
+        ORDER BY p.module, p.action, p.resource
+      `;
+      
+      const directPermResult = await client.query(directPermissionsQuery, [userId]);
+      const directPermissions = directPermResult.rows;
+      
+      // Combine all permissions (remove duplicates)
+      const allPermissionsMap = new Map();
+      
+      rolePermissions.forEach(perm => {
+        allPermissionsMap.set(perm.name, perm);
+      });
+      
+      directPermissions.forEach(perm => {
+        allPermissionsMap.set(perm.name, perm);
+      });
+      
+      const allPermissions = Array.from(allPermissionsMap.values());
+      
+      const userWithPermissions: UserWithPermissions = {
+        ...user,
+        role_permissions: rolePermissions,
+        direct_permissions: directPermissions,
+        all_permissions: allPermissions
+      };
+      
+      MyLogger.success(action, { 
+        userId, 
+        rolePermissions: rolePermissions.length,
+        directPermissions: directPermissions.length,
+        totalPermissions: allPermissions.length
+      });
+      
+      return userWithPermissions;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { userId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async assignPermissionsToUser(data: AssignPermissionRequest, assignedBy: number): Promise<void> {
+    const action = 'RoleMediator.assignPermissionsToUser';
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      MyLogger.info(action, { userId: data.user_id, permissionCount: data.permission_ids.length });
+      
+      // Remove existing direct permissions for this user
+      await client.query('DELETE FROM user_permissions WHERE user_id = $1', [data.user_id]);
+      
+      // Add new permissions
+      for (const permissionId of data.permission_ids) {
+        await client.query(`
+          INSERT INTO user_permissions (user_id, permission_id, granted_by, expires_at)
+          VALUES ($1, $2, $3, $4)
+        `, [data.user_id, permissionId, assignedBy, data.expires_at || null]);
+      }
+      
+      await client.query('COMMIT');
+      
+      MyLogger.success(action, { userId: data.user_id, permissionsAssigned: data.permission_ids.length });
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { userId: data.user_id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== PERMISSION CHECKING ====================
+  
+  static async hasPermission(userId: number, check: PermissionCheck): Promise<boolean> {
+    const action = 'RoleMediator.hasPermission';
+    const client = await pool.connect();
+    
+    try {
+      // Check for exact permission match
+      const query = `
+        SELECT 1 FROM (
+          -- Role-based permissions
+          SELECT p.module, p.action, p.resource
+          FROM permissions p
+          INNER JOIN role_permissions rp ON rp.permission_id = p.id
+          INNER JOIN users u ON u.role_id = rp.role_id
+          WHERE u.id = $1 AND u.is_active = true
+          
+          UNION
+          
+          -- Direct user permissions
+          SELECT p.module, p.action, p.resource
+          FROM permissions p
+          INNER JOIN user_permissions up ON up.permission_id = p.id
+          WHERE up.user_id = $1 
+            AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP)
+        ) perms
+        WHERE perms.module = $2 AND perms.action = $3 AND perms.resource = $4
+        LIMIT 1
+      `;
+      
+      const result = await client.query(query, [userId, check.module, check.action, check.resource]);
+      
+      const hasAccess = result.rows.length > 0;
+      
+      MyLogger.info(action, { 
+        userId, 
+        permission: `${check.module}.${check.action}.${check.resource}`,
+        hasAccess 
+      });
+      
+      return hasAccess;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { userId, check });
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async hasAnyPermission(userId: number, checks: PermissionCheck[]): Promise<boolean> {
+    for (const check of checks) {
+      if (await this.hasPermission(userId, check)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static async getUserPermissionNames(userId: number): Promise<string[]> {
+    const action = 'RoleMediator.getUserPermissionNames';
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        SELECT DISTINCT p.name
+        FROM permissions p
+        WHERE p.id IN (
+          -- Role-based permissions
+          SELECT rp.permission_id
+          FROM role_permissions rp
+          INNER JOIN users u ON u.role_id = rp.role_id
+          WHERE u.id = $1 AND u.is_active = true
+          
+          UNION
+          
+          -- Direct user permissions
+          SELECT up.permission_id
+          FROM user_permissions up
+          WHERE up.user_id = $1 
+            AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP)
+        )
+        ORDER BY p.name
+      `;
+      
+      const result = await client.query(query, [userId]);
+      const permissions = result.rows.map(row => row.name);
+      
+      MyLogger.success(action, { userId, permissionCount: permissions.length });
+      return permissions;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { userId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== ANALYTICS & REPORTING ====================
+  
+  static async getDepartmentStats(): Promise<DepartmentStats[]> {
+    const action = 'RoleMediator.getDepartmentStats';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action);
+      
+      const query = `
+        SELECT 
+          r.department,
+          COUNT(DISTINCT u.id) as total_users,
+          COUNT(DISTINCT CASE WHEN u.is_active = true THEN u.id END) as active_users,
+          array_agg(DISTINCT jsonb_build_object(
+            'id', r.id, 
+            'name', r.name, 
+            'display_name', r.display_name,
+            'level', r.level
+          )) as roles
+        FROM roles r
+        LEFT JOIN users u ON u.role_id = r.id
+        WHERE r.is_active = true
+        GROUP BY r.department
+        ORDER BY r.department
+      `;
+      
+      const result = await client.query(query);
+      
+      const stats = result.rows.map(row => ({
+        department: row.department,
+        total_users: parseInt(row.total_users),
+        active_users: parseInt(row.active_users),
+        roles: row.roles.filter((role: any) => role.id !== null)
+      }));
+      
+      MyLogger.success(action, { departmentCount: stats.length });
+      return stats;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== HELPER METHODS ====================
+  
+  private static async assignPermissionsToRole(
+    client: any, 
+    roleId: number, 
+    permissionIds: number[], 
+    assignedBy: number
+  ): Promise<void> {
+    for (const permissionId of permissionIds) {
+      await client.query(`
+        INSERT INTO role_permissions (role_id, permission_id, granted_by)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (role_id, permission_id) DO NOTHING
+      `, [roleId, permissionId, assignedBy]);
+    }
+  }
+
+  // Check if user has admin privileges
+  static async isSystemAdmin(userId: number): Promise<boolean> {
+    const action = 'RoleMediator.isSystemAdmin';
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        SELECT 1 FROM users u
+        INNER JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.is_active = true 
+          AND r.name = $2 AND r.is_active = true
+        LIMIT 1
+      `;
+      
+      const result = await client.query(query, [userId, ROLE_NAMES.SYSTEM_ADMIN]);
+      
+      return result.rows.length > 0;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { userId });
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+}
