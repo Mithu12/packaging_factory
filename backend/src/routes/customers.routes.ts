@@ -8,6 +8,9 @@ import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/mi
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomersController from "@/controllers/customers/customers.controller";
+import {DeleteCustomerMediator} from "@/mediators/customers/DeleteCustomer.mediator";
+import {serializeSuccessResponse} from "@/utils/responseHelper";
+import {UpdateCustomerInfoMediator} from "@/mediators/customers/UpdateCustomerInfo.mediator";
 
 const router = express.Router();
 

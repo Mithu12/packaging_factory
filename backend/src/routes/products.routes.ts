@@ -10,6 +10,13 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
 import ProductsController from "@/controllers/products/products.controller";
+import {GetProductInfoMediator} from "@/mediators/products/GetProductInfo.mediator";
+import {serializeSuccessResponse} from "@/utils/responseHelper";
+import {AddProductMediator} from "@/mediators/products/AddProduct.mediator";
+import {UpdateProductInfoMediator} from "@/mediators/products/UpdateProductInfo.mediator";
+import {deleteProductImage} from "@/utils/file-utils";
+import {StockAdjustmentMediator} from "@/mediators/stockAdjustments/StockAdjustmentMediator";
+import {DeleteProductMediator} from "@/mediators/products/DeleteProduct.mediator";
 
 const router = express.Router();
 

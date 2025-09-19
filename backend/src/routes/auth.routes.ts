@@ -13,6 +13,7 @@ import {
 } from '@/validation/authValidation';
 import { authRateLimit } from '@/middleware/auth';
 import expressAsyncHandler from 'express-async-handler';
+import { createError } from '@/utils/responseHelper';
 
 const router = express.Router();
 
@@ -168,10 +169,7 @@ router.put('/users/:id/role',
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
+      throw createError('Invalid user ID', 400);
     }
     
     const user = await AuthMediator.updateUserRole(userId, req.body.role);
@@ -191,10 +189,7 @@ router.put('/users/:id',
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
+      throw createError('Invalid user ID', 400);
     }
     
     const user = await AuthMediator.updateProfile(userId, req.body);
@@ -213,10 +208,7 @@ router.delete('/users/:id',
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
+      throw createError('Invalid user ID', 400);
     }
     
     await AuthMediator.deactivateUser(userId);
@@ -234,10 +226,7 @@ router.patch('/users/:id/reactivate',
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
+      throw createError('Invalid user ID', 400);
     }
     
     const user = await AuthMediator.reactivateUser(userId);
@@ -258,14 +247,11 @@ router.get('/users/:id',
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
     if (isNaN(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
+      throw createError('Invalid user ID', 400);
     }
     
     const user = await AuthMediator.getUserProfile(userId);
-    return res.json({
+    res.json({
       success: true,
       message: 'User retrieved successfully',
       data: user

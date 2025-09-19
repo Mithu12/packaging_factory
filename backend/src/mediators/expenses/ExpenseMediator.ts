@@ -10,7 +10,7 @@ import {
   ExpenseListResponse
 } from '@/types/expense';
 
-export class ExpenseMediator {
+class ExpenseMediator {
   // Create new expense
   async createExpense(data: CreateExpenseRequest, createdBy: number): Promise<Expense> {
     let action = 'Create Expense';
