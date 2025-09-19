@@ -422,19 +422,21 @@ const RoleManagement: React.FC = () => {
 
       {/* Role Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Role Details - {selectedRole?.display_name}</DialogTitle>
           </DialogHeader>
-          {selectedRole && (
-            <RoleDetailsDialog
-              role={selectedRole}
-              onClose={() => {
-                setShowDetailsDialog(false);
-                setSelectedRole(null);
-              }}
-            />
-          )}
+          <div className="flex-1 overflow-hidden">
+            {selectedRole && (
+              <RoleDetailsDialog
+                role={selectedRole}
+                onClose={() => {
+                  setShowDetailsDialog(false);
+                  setSelectedRole(null);
+                }}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
