@@ -13,6 +13,7 @@ import { Role, DepartmentStats } from '@/services/rbac-types';
 import { RoleForm } from '@/components/rbac/RoleForm';
 import { PermissionAssignment } from '@/components/rbac/PermissionAssignment';
 import { RoleDetailsDialog } from '@/components/rbac/RoleDetailsDialog';
+import { RBACDebug } from '@/components/debug/RBACDebug';
 
 const RoleManagement: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -34,18 +35,28 @@ const RoleManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('Loading role data...');
+      
       const [rolesData, statsData] = await Promise.all([
         RBACApi.getAllRoles(),
         RBACApi.getDepartmentStats()
       ]);
-      setRoles(rolesData);
-      setDepartmentStats(statsData);
+      
+      console.log('Roles data received:', rolesData);
+      console.log('Stats data received:', statsData);
+      
+      setRoles(rolesData || []);
+      setDepartmentStats(statsData || []);
     } catch (error) {
+      console.error('Error loading role data:', error);
       toast({
         title: "Error",
-        description: "Failed to load role data",
+        description: `Failed to load role data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
+      // Set empty arrays as fallback
+      setRoles([]);
+      setDepartmentStats([]);
     } finally {
       setLoading(false);
     }
@@ -161,6 +172,9 @@ const RoleManagement: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Debug Component - Remove in production */}
+      <RBACDebug />
+      
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

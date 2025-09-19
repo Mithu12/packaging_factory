@@ -42,19 +42,25 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
         RBACApi.getAllPermissions()
       ]);
       
-      setRoleWithPermissions(roleData);
-      setAllPermissions(permissionsData.permissions);
-      setGroupedPermissions(permissionsData.grouped);
+      setRoleWithPermissions(roleData || null);
+      setAllPermissions(permissionsData?.permissions || []);
+      setGroupedPermissions(permissionsData?.grouped || {});
       
       // Set currently assigned permissions
-      const assignedIds = new Set(roleData.permissions.map(p => p.id));
+      const assignedIds = new Set((roleData?.permissions || []).map(p => p?.id).filter(Boolean));
       setSelectedPermissions(assignedIds);
     } catch (error) {
+      console.error('Error loading permission data:', error);
       toast({
         title: "Error",
-        description: "Failed to load permission data",
+        description: `Failed to load permission data: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
+      // Set fallback values
+      setRoleWithPermissions(null);
+      setAllPermissions([]);
+      setGroupedPermissions({});
+      setSelectedPermissions(new Set());
     } finally {
       setLoading(false);
     }
@@ -88,6 +94,8 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
   const handleSave = async () => {
     try {
       setSaving(true);
+      console.log('Saving role permissions for role:', role.id);
+      console.log('Selected permissions:', Array.from(selectedPermissions));
       
       const updateData = {
         permission_ids: Array.from(selectedPermissions)
@@ -102,9 +110,10 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
       
       onClose();
     } catch (error) {
+      console.error('Error saving role permissions:', error);
       toast({
         title: "Error",
-        description: "Failed to update role permissions",
+        description: `Failed to update role permissions: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {
@@ -113,27 +122,29 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
   };
 
   const getFilteredPermissions = (modulePermissions: Permission[]) => {
+    if (!modulePermissions || !Array.isArray(modulePermissions)) return [];
+    
     let filtered = modulePermissions;
     
     if (searchTerm) {
       filtered = filtered.filter(permission =>
-        permission.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        permission.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        permission.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        permission.resource.toLowerCase().includes(searchTerm.toLowerCase())
+        permission?.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        permission?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        permission?.action?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        permission?.resource?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
     if (showOnlyAssigned) {
-      filtered = filtered.filter(permission => selectedPermissions.has(permission.id));
+      filtered = filtered.filter(permission => permission?.id && selectedPermissions.has(permission.id));
     }
     
     return filtered;
   };
 
   const getModuleStats = (module: string) => {
-    const modulePermissions = groupedPermissions[module] || [];
-    const assigned = modulePermissions.filter(p => selectedPermissions.has(p.id)).length;
+    const modulePermissions = groupedPermissions?.[module] || [];
+    const assigned = modulePermissions.filter(p => p?.id && selectedPermissions.has(p.id)).length;
     const total = modulePermissions.length;
     return { assigned, total, percentage: total > 0 ? Math.round((assigned / total) * 100) : 0 };
   };
@@ -166,9 +177,9 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
     );
   }
 
-  const modules = Object.keys(groupedPermissions);
-  const totalSelected = selectedPermissions.size;
-  const totalAvailable = allPermissions.length;
+  const modules = Object.keys(groupedPermissions || {});
+  const totalSelected = selectedPermissions?.size || 0;
+  const totalAvailable = allPermissions?.length || 0;
 
   return (
     <div className="space-y-6">

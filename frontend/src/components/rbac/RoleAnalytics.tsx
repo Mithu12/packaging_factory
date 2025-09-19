@@ -21,14 +21,23 @@ export const RoleAnalytics: React.FC = () => {
   const loadAnalyticsData = async () => {
     try {
       setLoading(true);
+      console.log('Loading analytics data...');
+      
       const [rolesData, statsData] = await Promise.all([
         RBACApi.getAllRoles(),
         RBACApi.getDepartmentStats()
       ]);
-      setRoles(rolesData);
-      setDepartmentStats(statsData);
+      
+      console.log('Analytics roles data:', rolesData);
+      console.log('Analytics stats data:', statsData);
+      
+      setRoles(rolesData || []);
+      setDepartmentStats(statsData || []);
     } catch (error) {
       console.error('Error loading analytics data:', error);
+      // Set fallback data
+      setRoles([]);
+      setDepartmentStats([]);
     } finally {
       setLoading(false);
     }
@@ -41,20 +50,23 @@ export const RoleAnalytics: React.FC = () => {
       return acc;
     }, {} as Record<string, number>) || {};
 
+    const totalRoles = roles?.length || 1; // Avoid division by zero
     return Object.entries(levelCounts).map(([level, count]) => ({
       level,
       count,
-      percentage: Math.round((count / roles.length) * 100)
+      percentage: Math.round((count / totalRoles) * 100)
     }));
   };
 
   const getDepartmentData = () => {
-    return departmentStats?.map(dept => ({
-      department: dept.department,
-      total_users: dept.total_users,
-      active_users: dept.active_users,
-      roles_count: dept.roles.length,
-      utilization: dept.total_users > 0 ? Math.round((dept.active_users / dept.total_users) * 100) : 0
+    if (!departmentStats || !Array.isArray(departmentStats)) return [];
+    
+    return departmentStats.map(dept => ({
+      department: dept?.department || 'Unknown',
+      total_users: dept?.total_users || 0,
+      active_users: dept?.active_users || 0,
+      roles_count: dept?.roles?.length || 0,
+      utilization: (dept?.total_users || 0) > 0 ? Math.round(((dept?.active_users || 0) / (dept?.total_users || 1)) * 100) : 0
     }));
   };
 
@@ -93,7 +105,7 @@ export const RoleAnalytics: React.FC = () => {
     const totalUsers = departmentStats?.reduce((sum, dept) => sum + dept.total_users, 0);
     const activeUsers = departmentStats?.reduce((sum, dept) => sum + dept.active_users, 0);
     const totalDepartments = departmentStats?.length || 0;
-    const avgRolesPerDept = totalDepartments > 0 ? Math.round(roles?.length || 0 / totalDepartments) : 0;
+    const avgRolesPerDept = totalDepartments > 0 ? Math.round((roles?.length || 0) / totalDepartments) : 0;
 
     return {
       totalRoles: roles?.length,

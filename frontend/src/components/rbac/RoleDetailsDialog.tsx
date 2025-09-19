@@ -24,19 +24,23 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
   const loadRoleDetails = async () => {
     try {
       setLoading(true);
+      console.log('Loading role details for role ID:', role.id);
       const details = await RBACApi.getRoleById(role.id);
-      setRoleDetails(details);
+      console.log('Role details received:', details);
+      setRoleDetails(details || null);
     } catch (error) {
       console.error('Error loading role details:', error);
+      setRoleDetails(null);
     } finally {
       setLoading(false);
     }
   };
 
   const getPermissionsByModule = () => {
-    if (!roleDetails) return {};
+    if (!roleDetails?.permissions) return {};
     
     return roleDetails.permissions.reduce((acc, permission) => {
+      if (!permission?.module) return acc;
       if (!acc[permission.module]) {
         acc[permission.module] = [];
       }
