@@ -27,13 +27,20 @@ router.post('/login',
     const result = await AuthMediator.login(req.body);
     
     // Set HTTP-only cookie with the token
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      sameSite: 'strict' as const,
+      secure: false, // Set to false for development/IP access, true for HTTPS production
+      sameSite: 'lax' as const, // Changed from 'strict' to 'lax' for cross-origin requests
       maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-      path: '/'
+      path: '/',
+      domain: undefined // Don't set domain for IP address access
     };
+    
+    // Log cookie setting for debugging
+    console.log('🍪 Setting cookie with options:', cookieOptions);
+    console.log('🌐 Request origin:', req.headers.origin);
+    console.log('🔗 Request host:', req.headers.host);
     
     res.cookie('authToken', result.token, cookieOptions);
     
