@@ -71,51 +71,17 @@ router.get('/',
 );
 
 // GET /api/customers/stats - Get customer statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/customers/stats'
-    try {
-        MyLogger.info(action)
-        const stats = await GetCustomerInfoMediator.getCustomerStats();
-        MyLogger.success(action, { stats })
-        serializeSuccessResponse(res, stats, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error)
-        throw error;
-    }
-}));
+router.get('/stats', 
+  authenticate, 
+  managerAndAbove, // Only managers and above can view customer statistics
+  expressAsyncHandler(CustomersController.getCustomerStats)
+);
 
 // GET /api/customers/search - Search customers
-router.get('/search', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/customers/search'
-    try {
-        const {q, limit} = req.query;
-        MyLogger.info(action, { query: q, limit })
-        const customers = await GetCustomerInfoMediator.searchCustomers(
-            q as string,
-            limit ? parseInt(limit as string) : 10
-        );
-        MyLogger.success(action, { query: q, resultsCount: customers.length })
-        serializeSuccessResponse(res, customers, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query.q })
-        throw error;
-    }
-}));
+router.get('/search', expressAsyncHandler(CustomersController.searchCustomers));
 
 // GET /api/customers/type/:type - Get customers by type
-router.get('/type/:type', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/customers/type/:type'
-    try {
-        const customerType = req.params.type;
-        MyLogger.info(action, { customerType })
-        const customers = await GetCustomerInfoMediator.getCustomersByType(customerType);
-        MyLogger.success(action, { customerType, customersCount: customers.length })
-        serializeSuccessResponse(res, customers, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { customerType: req.params.type })
-        throw error;
-    }
-}));
+router.get('/type/:type', expressAsyncHandler(CustomersController.getCustomersByType));
 
 // GET /api/customers/:id - Get customer by ID
 router.get('/:id', expressAsyncHandler(async (req, res, next) => {

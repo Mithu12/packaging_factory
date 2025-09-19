@@ -59,34 +59,7 @@ class SalesOrdersController {
         }
     }
 
-    async updateSalesOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
-        let action = 'PATCH /api/sales-orders/:id/status';
-        try {
-            const id = parseInt(req.params.id);
-            const { status } = req.body;
-            MyLogger.info(action, { salesOrderId: id, newStatus: status });
-            const salesOrder = await UpdateSalesOrderInfoMediator.updateSalesOrderStatus(id, status);
-            MyLogger.success(action, { salesOrderId: id, newStatus: status });
-            serializeSuccessResponse(res, salesOrder, 'SUCCESS');
-        } catch (error: any) {
-            MyLogger.error(action, error, { salesOrderId: req.params.id });
-            throw error;
-        }
-    }
-
-    async finalizeSalesOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
-        let action = 'POST /api/sales-orders/:id/finalize';
-        try {
-            const id = parseInt(req.params.id);
-            MyLogger.info(action, { salesOrderId: id });
-            const salesOrder = await UpdateSalesOrderInfoMediator.finalizeSalesOrder(id);
-            MyLogger.success(action, { salesOrderId: id });
-            serializeSuccessResponse(res, salesOrder, 'SUCCESS');
-        } catch (error: any) {
-            MyLogger.error(action, error, { salesOrderId: req.params.id });
-            throw error;
-        }
-    }
+    // Additional status update methods can be added when mediator methods are available
 }
 
 export default new SalesOrdersController();
