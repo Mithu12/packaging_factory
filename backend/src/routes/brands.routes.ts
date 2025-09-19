@@ -4,22 +4,12 @@ import { BrandMediator } from '@/mediators/brands/BrandMediator';
 import { validateCreateBrand, validateUpdateBrand } from '@/validation/brandValidation';
 import { validateRequest } from '@/middleware/validation';
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
+import BrandsController from "@/controllers/brands.controller";
 
 const router = express.Router();
 
 // Get all brands
-router.get('/',
-  authenticate,
-  employeeAndAbove, // Employees and above can view brands
-  expressAsyncHandler(async (req, res, next) => {
-    const brands = await BrandMediator.getAllBrands();
-    res.json({
-      success: true,
-      message: 'Brands retrieved successfully',
-      data: brands
-    });
-  })
-);
+router.get('/', authenticate, employeeAndAbove, expressAsyncHandler(BrandsController.getAllBrands));
 
 // Get brand by ID
 router.get('/:id',
@@ -33,7 +23,7 @@ router.get('/:id',
         message: 'Invalid brand ID'
       });
     }
-    
+
     const brand = await BrandMediator.getBrandById(brandId);
     res.json({
       success: true,
@@ -71,7 +61,7 @@ router.put('/:id',
         message: 'Invalid brand ID'
       });
     }
-    
+
     const brand = await BrandMediator.updateBrand(brandId, req.body);
     res.json({
       success: true,
@@ -93,7 +83,7 @@ router.delete('/:id',
         message: 'Invalid brand ID'
       });
     }
-    
+
     await BrandMediator.deleteBrand(brandId);
     res.json({
       success: true,
@@ -114,7 +104,7 @@ router.get('/status/:status',
         message: 'Invalid status. Must be active or inactive'
       });
     }
-    
+
     const brands = await BrandMediator.getBrandsByStatus(status === 'active' ? true : false);
     res.json({
       success: true,
