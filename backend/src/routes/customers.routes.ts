@@ -4,14 +4,10 @@ import {
     updateCustomerSchema,
     customerQuerySchema
 } from '@/validation/posValidation';
-import { GetCustomerInfoMediator } from "@/mediators/customers/GetCustomerInfo.mediator";
-import { serializeSuccessResponse } from "@/utils/responseHelper";
-import { AddCustomerMediator } from "@/mediators/customers/AddCustomer.mediator";
-import { UpdateCustomerInfoMediator } from "@/mediators/customers/UpdateCustomerInfo.mediator";
-import { DeleteCustomerMediator } from "@/mediators/customers/DeleteCustomer.mediator";
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
+import CustomersController from "@/controllers/customers/customers.controller";
 
 const router = express.Router();
 
@@ -71,18 +67,8 @@ router.get('/',
   authenticate, 
   employeeAndAbove, // Employees and above can view customers
   validateQuery(customerQuerySchema), 
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/customers'
-    try {
-        MyLogger.info(action, { query: req.query })
-        const result = await GetCustomerInfoMediator.getAllCustomers(req.query);
-        MyLogger.success(action, { total: result.total, page: result.page, limit: result.limit })
-        serializeSuccessResponse(res, result, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query })
-        throw error;
-    }
-}));
+  expressAsyncHandler(CustomersController.getAllCustomers)
+);
 
 // GET /api/customers/stats - Get customer statistics
 router.get('/stats', expressAsyncHandler(async (req, res, next) => {
