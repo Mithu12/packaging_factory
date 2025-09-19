@@ -1,11 +1,9 @@
 import express from 'express';
 import expressAsyncHandler from 'express-async-handler';
-import { OriginMediator } from '@/mediators/origins/OriginMediator';
 import { validateCreateOrigin, validateUpdateOrigin } from '@/validation/originValidation';
 import { validateRequest } from '@/middleware/validation';
 import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
-import { serializeSuccessResponse } from '@/utils/responseHelper';
-import { MyLogger } from '@/utils/new-logger';
+import OriginsController from '@/controllers/origins/origins.controller';
 
 const router = express.Router();
 
@@ -13,45 +11,14 @@ const router = express.Router();
 router.get('/',
   authenticate,
   employeeAndAbove, // Employees and above can view origins
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/origins';
-    try {
-      MyLogger.info(action);
-      const origins = await OriginMediator.getAllOrigins();
-      MyLogger.success(action, { count: origins.length });
-      serializeSuccessResponse(res, origins, 'SUCCESS');
-    } catch (error: any) {
-      MyLogger.error(action, error);
-      throw error;
-    }
-  })
+  expressAsyncHandler(OriginsController.getAllOrigins)
 );
 
 // Get origin by ID
 router.get('/:id',
   authenticate,
   employeeAndAbove, // Employees and above can view origin details
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/origins/:id';
-    try {
-      const originId = parseInt(req.params.id);
-      if (isNaN(originId)) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid origin ID'
-        });
-        return;
-      }
-      
-      MyLogger.info(action, { origin_id: originId });
-      const origin = await OriginMediator.getOriginById(originId);
-      MyLogger.success(action, { origin_id: originId, name: origin.name });
-      serializeSuccessResponse(res, origin, 'SUCCESS');
-    } catch (error: any) {
-      MyLogger.error(action, error, { origin_id: req.params.id });
-      throw error;
-    }
-  })
+  expressAsyncHandler(OriginsController.getOriginById)
 );
 
 // Create new origin

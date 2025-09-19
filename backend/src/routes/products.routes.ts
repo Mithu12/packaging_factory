@@ -80,66 +80,16 @@ router.get('/stats',
 );
 
 // GET /api/products/search - Search products
-router.get('/search', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products/search'
-    try {
-        const {q, limit} = req.query;
-        MyLogger.info(action, { query: q, limit })
-        const products = await GetProductInfoMediator.searchProducts(
-            q as string,
-            limit ? parseInt(limit as string) : 10
-        );
-        MyLogger.success(action, { query: q, resultsCount: products.length })
-        serializeSuccessResponse(res, products, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { query: req.query.q })
-        throw error;
-    }
-}));
+router.get('/search', expressAsyncHandler(ProductsController.searchProducts));
 
 // GET /api/products/low-stock - Get low stock products
-router.get('/low-stock', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products/low-stock'
-    try {
-        MyLogger.info(action)
-        const products = await GetProductInfoMediator.getLowStockProducts();
-        MyLogger.success(action, { lowStockCount: products.length })
-        serializeSuccessResponse(res, products, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error)
-        throw error;
-    }
-}));
+router.get('/low-stock', expressAsyncHandler(ProductsController.getLowStockProducts));
 
 // GET /api/products/category/:categoryId - Get products by category
-router.get('/category/:categoryId', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products/category/:categoryId'
-    try {
-        const categoryId = parseInt(req.params.categoryId);
-        MyLogger.info(action, { categoryId })
-        const products = await GetProductInfoMediator.getProductsByCategory(categoryId);
-        MyLogger.success(action, { categoryId, productsCount: products.length })
-        serializeSuccessResponse(res, products, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { categoryId: req.params.categoryId })
-        throw error;
-    }
-}));
+router.get('/category/:categoryId', expressAsyncHandler(ProductsController.getProductsByCategory));
 
 // GET /api/products/supplier/:supplierId - Get products by supplier
-router.get('/supplier/:supplierId', expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/products/supplier/:supplierId'
-    try {
-        const supplierId = parseInt(req.params.supplierId);
-        MyLogger.info(action, { supplierId })
-        const products = await GetProductInfoMediator.getProductsBySupplier(supplierId);
-        MyLogger.success(action, { supplierId, productsCount: products.length })
-        serializeSuccessResponse(res, products, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { supplierId: req.params.supplierId })
-        throw error;
-    }
-}));
+router.get('/supplier/:supplierId', expressAsyncHandler(ProductsController.getProductsBySupplier));
 
 // GET /api/products/:id - Get product by ID with details
 router.get('/:id', expressAsyncHandler(async (req, res, next) => {

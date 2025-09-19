@@ -102,19 +102,8 @@ router.get('/search',
 router.get('/:id', 
   authenticate, 
   employeeAndAbove, // Employees and above can view order details
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'GET /api/sales-orders/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { salesOrderId: id })
-        const salesOrder = await GetSalesOrderInfoMediator.getSalesOrderById(id);
-        MyLogger.success(action, { salesOrderId: id, orderNumber: salesOrder.order_number })
-        serializeSuccessResponse(res, salesOrder, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { salesOrderId: req.params.id })
-        throw error;
-    }
-}));
+  expressAsyncHandler(SalesOrdersController.getSalesOrderById)
+);
 
 // POST /api/sales-orders - Create new sales order
 router.post('/', 

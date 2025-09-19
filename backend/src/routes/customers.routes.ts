@@ -137,19 +137,8 @@ router.patch('/:id/loyalty-points', expressAsyncHandler(async (req, res, next) =
 router.delete('/:id', 
   authenticate, 
   adminOnly, // Only admins can delete customers
-  expressAsyncHandler(async (req, res, next) => {
-    let action = 'DELETE /api/customers/:id'
-    try {
-        const id = parseInt(req.params.id);
-        MyLogger.info(action, { customerId: id })
-        await DeleteCustomerMediator.deleteCustomer(id);
-        MyLogger.success(action, { customerId: id, message: 'Customer deleted successfully' })
-        serializeSuccessResponse(res, { message: 'Customer deleted successfully' }, 'SUCCESS')
-    } catch (error: any) {
-        MyLogger.error(action, error, { customerId: req.params.id })
-        throw error;
-    }
-}));
+  expressAsyncHandler(CustomersController.deleteCustomer)
+);
 
 // DELETE /api/customers/:id/hard - Hard delete customer (permanent)
 router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
