@@ -252,7 +252,7 @@ router.patch('/:id/reject', authenticate, managerAndAbove, validateRequest(rejec
 }));
 
 // PATCH /api/expenses/:id/pay - Mark expense as paid
-router.patch('/:id/pay', authenticate, managerAndAbove, validateRequest(payExpenseSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/pay', authenticate, employeeAndAbove, validateRequest(payExpenseSchema), expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/pay'
     try {
         const id = parseInt(req.params.id);

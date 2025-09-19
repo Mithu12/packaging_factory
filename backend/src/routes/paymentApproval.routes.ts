@@ -10,11 +10,11 @@ import { MyLogger } from '@/utils/new-logger';
 const router = express.Router();
 
 // Validation schemas
-const submitPurchaseOrderSchema = Joi.object({
+const submitPaymentSchema = Joi.object({
   notes: Joi.string().optional().allow('')
 });
 
-const approvePurchaseOrderSchema = Joi.object({
+const approvePaymentSchema = Joi.object({
   action: Joi.string().valid('approve', 'reject').required(),
   notes: Joi.string().optional().allow('')
 });
@@ -36,104 +36,104 @@ const canApprove = (req: any, res: any, next: any) => {
   return next();
 };
 
-// POST /api/purchase-orders/:id/submit - Submit purchase order for approval
+// POST /api/payments/:id/submit - Submit payment for approval
 router.post('/:id/submit',
   authenticate,
   canSubmit,
-  validateRequest(submitPurchaseOrderSchema),
+  validateRequest(submitPaymentSchema),
   expressAsyncHandler(async (req, res) => {
-    const action = 'POST /api/purchase-orders/:id/submit';
-    const purchaseOrderId = parseInt(req.params.id);
+    const action = 'POST /api/payments/:id/submit';
+    const paymentId = parseInt(req.params.id);
     const userId = req.user?.user_id || 1;
     const { notes } = req.body;
 
     try {
-      MyLogger.info(action, { purchaseOrderId, userId, notes });
+      MyLogger.info(action, { paymentId, userId, notes });
 
       await ApprovalMediator.submitForApproval(
-        'purchase_order',
-        purchaseOrderId,
+        'payment',
+        paymentId,
         userId,
         notes
       );
 
-      MyLogger.success(action, { purchaseOrderId, userId });
-      serializeSuccessResponse(res, null, 'Purchase order submitted for approval');
+      MyLogger.success(action, { paymentId, userId });
+      serializeSuccessResponse(res, null, 'Payment submitted for approval');
 
     } catch (error: any) {
-      MyLogger.error(action, error, { purchaseOrderId, userId });
+      MyLogger.error(action, error, { paymentId, userId });
       throw error;
     }
   })
 );
 
-// POST /api/purchase-orders/:id/approve - Approve or reject purchase order
+// POST /api/payments/:id/approve - Approve or reject payment
 router.post('/:id/approve',
   authenticate,
   canApprove,
-  validateRequest(approvePurchaseOrderSchema),
+  validateRequest(approvePaymentSchema),
   expressAsyncHandler(async (req, res) => {
-    const action = 'POST /api/purchase-orders/:id/approve';
-    const purchaseOrderId = parseInt(req.params.id);
+    const action = 'POST /api/payments/:id/approve';
+    const paymentId = parseInt(req.params.id);
     const userId = req.user?.user_id || 1;
     const { action: approvalAction, notes } = req.body;
 
     try {
-      MyLogger.info(action, { purchaseOrderId, userId, approvalAction, notes });
+      MyLogger.info(action, { paymentId, userId, approvalAction, notes });
 
       await ApprovalMediator.processApproval(
-        'purchase_order',
-        purchaseOrderId,
+        'payment',
+        paymentId,
         userId,
         approvalAction,
         notes
       );
 
       const message = approvalAction === 'approve' 
-        ? 'Purchase order approved successfully'
-        : 'Purchase order rejected';
+        ? 'Payment approved successfully'
+        : 'Payment rejected';
 
-      MyLogger.success(action, { purchaseOrderId, userId, approvalAction });
+      MyLogger.success(action, { paymentId, userId, approvalAction });
       serializeSuccessResponse(res, null, message);
 
     } catch (error: any) {
-      MyLogger.error(action, error, { purchaseOrderId, userId, approvalAction });
+      MyLogger.error(action, error, { paymentId, userId, approvalAction });
       throw error;
     }
   })
 );
 
-// GET /api/purchase-orders/:id/approval-history - Get approval history
+// GET /api/payments/:id/approval-history - Get approval history
 router.get('/:id/approval-history',
   authenticate,
   expressAsyncHandler(async (req, res) => {
-    const action = 'GET /api/purchase-orders/:id/approval-history';
-    const purchaseOrderId = parseInt(req.params.id);
+    const action = 'GET /api/payments/:id/approval-history';
+    const paymentId = parseInt(req.params.id);
 
     try {
-      MyLogger.info(action, { purchaseOrderId });
+      MyLogger.info(action, { paymentId });
 
       const history = await ApprovalMediator.getApprovalHistory(
-        'purchase_order',
-        purchaseOrderId
+        'payment',
+        paymentId
       );
 
-      MyLogger.success(action, { purchaseOrderId, historyCount: history.length });
+      MyLogger.success(action, { paymentId, historyCount: history.length });
       serializeSuccessResponse(res, history, 'Approval history retrieved successfully');
 
     } catch (error: any) {
-      MyLogger.error(action, error, { purchaseOrderId });
+      MyLogger.error(action, error, { paymentId });
       throw error;
     }
   })
 );
 
-// GET /api/purchase-orders/pending-approvals - Get purchase orders pending approval
+// GET /api/payments/pending-approvals - Get payments pending approval
 router.get('/pending-approvals',
   authenticate,
   canApprove,
   expressAsyncHandler(async (req, res) => {
-    const action = 'GET /api/purchase-orders/pending-approvals';
+    const action = 'GET /api/payments/pending-approvals';
     const userRole = req.user?.role || 'viewer';
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -142,7 +142,7 @@ router.get('/pending-approvals',
       MyLogger.info(action, { userRole, page, limit });
 
       const result = await ApprovalMediator.getPendingApprovals(
-        'purchase_order',
+        'payment',
         userRole,
         page,
         limit

@@ -5,6 +5,7 @@ import { serializeSuccessResponse } from "@/utils/responseHelper";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import Joi from 'joi';
+import paymentApprovalRoutes from './paymentApproval.routes';
 
 const router = express.Router();
 
@@ -288,5 +289,8 @@ router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
     throw error;
   }
 }));
+
+// Mount payment approval routes
+router.use('/', paymentApprovalRoutes);
 
 export default router;

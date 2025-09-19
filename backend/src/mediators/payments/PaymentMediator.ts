@@ -77,8 +77,8 @@ export class PaymentMediator {
       const query = `
         INSERT INTO payments (
           payment_number, invoice_id, supplier_id, amount, payment_date,
-          payment_method, reference, notes, created_by, approval_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          payment_method, reference, notes, created_by, approval_status, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `
 
@@ -92,14 +92,16 @@ export class PaymentMediator {
         data.reference || null,
         data.notes || null,
         data.created_by || null,
-        'draft' // Set default approval_status
+        'draft', // Set default approval_status
+          'pending'
       ]
 
       const result = await client.query(query, values)
       const payment = result.rows[0]
 
-      // Update invoice if payment is for a specific invoice
-      if (data.invoice_id) {
+      // Only update invoice if payment is approved (not for draft payments)
+      // Invoice will be updated when payment is approved through the approval workflow
+      if (data.invoice_id && payment.approval_status === 'approved') {
         await this.updateInvoicePaymentStatus(data.invoice_id, data.amount)
       }
 

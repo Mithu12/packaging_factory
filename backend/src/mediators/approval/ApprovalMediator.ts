@@ -87,7 +87,7 @@ export class ApprovalMediator {
             const newStatus = action === 'approve' ? 'approved' : 'rejected';
             
             // Update entity approval status
-            const updateQuery = `
+            let updateQuery = `
                 UPDATE ${tableName} 
                 SET approval_status = $1,
                     approved_at = CURRENT_TIMESTAMP,
@@ -96,6 +96,20 @@ export class ApprovalMediator {
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $4 AND approval_status = 'submitted'
             `;
+            
+            // For payments, also update the status field when approved
+            if (entityType === 'payment' && action === 'approve') {
+                updateQuery = `
+                    UPDATE ${tableName} 
+                    SET approval_status = $1,
+                        approved_at = CURRENT_TIMESTAMP,
+                        approved_by = $2,
+                        approval_notes = $3,
+                        status = 'completed',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $4 AND approval_status = 'submitted'
+                `;
+            }
             
             const result = await client.query(updateQuery, [newStatus, approvedBy, notes, entityId]);
             
@@ -114,6 +128,11 @@ export class ApprovalMediator {
                 newStatus,
                 notes
             );
+
+            // For approved payments, update the related invoice status
+            if (entityType === 'payment' && action === 'approve') {
+                await this.processApprovedPayment(client, entityId);
+            }
 
             await client.query('COMMIT');
             MyLogger.success(mediatorAction, { entityType, entityId, approvedBy, action, newStatus });
@@ -236,6 +255,78 @@ export class ApprovalMediator {
      */
     static canSubmit(userRole: string): boolean {
         return ['admin', 'manager', 'accounts', 'employee'].includes(userRole);
+    }
+
+    /**
+     * Process approved payment - update related invoice status
+     */
+    private static async processApprovedPayment(client: any, paymentId: number): Promise<void> {
+        try {
+            // Get payment details
+            const paymentQuery = `
+                SELECT invoice_id, amount 
+                FROM payments 
+                WHERE id = $1 AND invoice_id IS NOT NULL
+            `;
+            const paymentResult = await client.query(paymentQuery, [paymentId]);
+            
+            if (paymentResult.rows.length > 0) {
+                const payment = paymentResult.rows[0];
+                
+                // Update invoice payment status
+                await this.updateInvoicePaymentStatus(client, payment.invoice_id, parseFloat(payment.amount));
+            }
+        } catch (error) {
+            MyLogger.error('ApprovalMediator.processApprovedPayment', error, { paymentId });
+            throw error;
+        }
+    }
+
+    /**
+     * Update invoice payment status when payment is approved
+     */
+    private static async updateInvoicePaymentStatus(client: any, invoiceId: number, paymentAmount: number): Promise<void> {
+        try {
+            // Get current invoice status
+            const invoiceResult = await client.query(
+                'SELECT total_amount, paid_amount, outstanding_amount FROM invoices WHERE id = $1',
+                [invoiceId]
+            );
+
+            if (invoiceResult.rows.length === 0) {
+                throw new Error('Invoice not found');
+            }
+
+            const invoice = invoiceResult.rows[0];
+            const newPaidAmount = parseFloat(invoice.paid_amount || 0) + paymentAmount;
+            const newOutstandingAmount = parseFloat(invoice.outstanding_amount) - paymentAmount;
+
+            // Determine new status
+            let newStatus = 'pending';
+            if (newOutstandingAmount <= 0) {
+                newStatus = 'paid';
+            } else if (newPaidAmount > 0) {
+                newStatus = 'partial';
+            }
+
+            // Update invoice
+            await client.query(
+                `UPDATE invoices 
+                 SET paid_amount = $1, outstanding_amount = $2, status = $3, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $4`,
+                [newPaidAmount, newOutstandingAmount, newStatus, invoiceId]
+            );
+
+            MyLogger.info('Invoice payment status updated', { 
+                invoiceId, 
+                newPaidAmount, 
+                newOutstandingAmount, 
+                newStatus 
+            });
+        } catch (error) {
+            MyLogger.error('ApprovalMediator.updateInvoicePaymentStatus', error, { invoiceId });
+            throw error;
+        }
     }
 
     // Private helper methods
