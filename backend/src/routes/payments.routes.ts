@@ -113,11 +113,8 @@ router.get('/invoices/:id', expressAsyncHandler(async (req, res, next) => {
     const invoice = await InvoiceMediator.getInvoiceById(id);
     
     if (!invoice) {
-      return res.status(404).json({
-        error: {
-          message: 'Invoice not found'
-        }
-      });
+      res.status(404)
+        throw new Error('Invoice not found');
     }
     
     MyLogger.success(action, { invoiceId: id, invoiceNumber: invoice.invoice_number })
@@ -223,11 +220,8 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
     const payment = await PaymentMediator.getPaymentById(id);
     
     if (!payment) {
-      return res.status(404).json({
-        error: {
-          message: 'Payment not found'
-        }
-      });
+      res.status(404);
+      throw new Error('Payment not found');
     }
     
     MyLogger.success(action, { paymentId: id, paymentNumber: payment.payment_number })

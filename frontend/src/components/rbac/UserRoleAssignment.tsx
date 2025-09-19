@@ -32,8 +32,8 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [tempRoleId, setTempRoleId] = useState<number | null>(null);
   const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
@@ -47,12 +47,16 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
   const loadRoles = async () => {
     try {
       setLoading(true);
+      console.log('UserRoleAssignment: Loading roles...');
       const rolesData = await RBACApi.getAllRoles();
-      setRoles(rolesData);
+      console.log('UserRoleAssignment: Roles received:', rolesData);
+      setRoles(Array.isArray(rolesData) ? rolesData : []);
     } catch (error) {
+      console.error('UserRoleAssignment: Error loading roles:', error);
+      setRoles([]);
       toast({
         title: "Error",
-        description: "Failed to load roles",
+        description: `Failed to load roles: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {
@@ -82,7 +86,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
   };
 
   const handleViewPermissions = async (user: User) => {
-    if (!user.role_id) {
+    if (!user || !user.role_id) {
       toast({
         title: "No Role Assigned",
         description: "This user doesn't have a role assigned yet",
@@ -92,42 +96,50 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
     }
 
     try {
+      console.log('UserRoleAssignment: Loading permissions for user:', user.id);
       const userPermissions = await RBACApi.getUserPermissions(user.id);
-      setSelectedUserPermissions(userPermissions);
+      console.log('UserRoleAssignment: User permissions received:', userPermissions);
+      setSelectedUserPermissions(userPermissions || null);
       setShowPermissionsDialog(true);
     } catch (error) {
+      console.error('UserRoleAssignment: Error loading user permissions:', error);
+      setSelectedUserPermissions(null);
       toast({
         title: "Error",
-        description: "Failed to load user permissions",
+        description: `Failed to load user permissions: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
   };
 
   const getRoleById = (roleId: number) => {
-    return roles.find(role => role.id === roleId);
+    if (!roleId || !roles || !Array.isArray(roles)) return null;
+    return roles.find(role => role?.id === roleId) || null;
   };
 
   const getRoleByName = (roleName: string) => {
-    return roles.find(role => role.name === roleName);
+    if (!roleName || !roles || !Array.isArray(roles)) return null;
+    return roles.find(role => role?.name === roleName) || null;
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredUsers = (users || []).filter(user => {
+    if (!user) return false;
+    
+    const matchesSearch = (user.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (user.username?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const userRole = user.role_id ? getRoleById(user.role_id) : getRoleByName(user.role || '');
-    const matchesDepartment = !selectedDepartment || userRole?.department === selectedDepartment;
-    const matchesRole = !selectedRole || userRole?.name === selectedRole;
+    const matchesDepartment = selectedDepartment === 'all' || userRole?.department === selectedDepartment;
+    const matchesRole = selectedRole === 'all' || userRole?.name === selectedRole;
     
     return matchesSearch && matchesDepartment && matchesRole;
   });
 
-  const uniqueDepartments = [...new Set(roles.map(role => role.department).filter(Boolean))];
+  const uniqueDepartments = [...new Set((roles || []).map(role => role?.department).filter(Boolean))];
 
-  const getDepartmentBadgeColor = (department: string) => {
-    const colors: Record<string, string> = {
+  const getDepartmentBadgeColor = (department: string): "default" | "destructive" | "outline" | "secondary" => {
+    const colors: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
       'IT': 'destructive',
       'Management': 'default',
       'Finance': 'default',
@@ -237,15 +249,15 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
                   className="pl-10"
                 />
               </div>
-            </div>
+            </div> 
             <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Departments</SelectItem>
+                <SelectItem value="all">All Departments</SelectItem>
                 {uniqueDepartments.map(dept => (
-                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  <SelectItem key={dept || 'unknown'} value={dept || 'unknown'}>{dept || 'Unknown'}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -254,10 +266,10 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
-                {roles.map(role => (
-                  <SelectItem key={role.name} value={role.name}>{role.display_name}</SelectItem>
-                ))}
+                <SelectItem value="all">All Roles</SelectItem>
+                {(roles || []).map(role => role ? (
+                  <SelectItem key={role.name || role.id} value={role.name || 'unknown'}>{role.display_name || role.name || 'Unknown Role'}</SelectItem>
+                ) : null)}
               </SelectContent>
             </Select>
           </div>
@@ -286,41 +298,43 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => {
+                if (!user) return null;
+                
                 const currentRole = user.role_id ? getRoleById(user.role_id) : getRoleByName(user.role || '');
                 const isEditing = editingUser === user.id;
                 
                 return (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id || Math.random()}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{user.full_name}</span>
-                        <span className="text-sm text-gray-500">{user.username}</span>
-                        <span className="text-xs text-gray-400">{user.email}</span>
+                        <span className="font-medium">{user.full_name || 'Unknown User'}</span>
+                        <span className="text-sm text-gray-500">{user.username || 'No username'}</span>
+                        <span className="text-xs text-gray-400">{user.email || 'No email'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Select 
-                          value={tempRoleId?.toString() || ''} 
-                          onValueChange={(value) => setTempRoleId(value ? parseInt(value) : null)}
+                          value={tempRoleId?.toString() || 'none'} 
+                          onValueChange={(value) => setTempRoleId(value === 'none' ? null : (value ? parseInt(value) : null))}
                         >
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">No Role</SelectItem>
-                            {roles.map(role => (
+                            <SelectItem value="none">No Role</SelectItem>
+                            {(roles || []).map(role => role ? (
                               <SelectItem key={role.id} value={role.id.toString()}>
-                                {role.display_name}
+                                {role.display_name || role.name || 'Unknown Role'}
                               </SelectItem>
-                            ))}
+                            ) : null)}
                           </SelectContent>
                         </Select>
                       ) : currentRole ? (
                         <div className="flex flex-col">
-                          <span className="font-medium">{currentRole.display_name}</span>
+                          <span className="font-medium">{currentRole.display_name || currentRole.name || 'Unknown Role'}</span>
                           <Badge variant="outline" className="w-fit mt-1">
-                            Level {currentRole.level}
+                            Level {currentRole.level || 'N/A'}
                           </Badge>
                         </div>
                       ) : (
@@ -343,7 +357,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
+                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -409,13 +423,13 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
       <Dialog open={showPermissionsDialog} onOpenChange={setShowPermissionsDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>User Permissions - {selectedUserPermissions?.full_name}</DialogTitle>
+            <DialogTitle>User Permissions - {selectedUserPermissions?.full_name || 'Unknown User'}</DialogTitle>
             <DialogDescription>
               Effective permissions for this user based on their assigned role
             </DialogDescription>
           </DialogHeader>
           
-          {selectedUserPermissions && (
+          {selectedUserPermissions ? (
             <div className="space-y-6">
               {/* Permission Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -491,6 +505,10 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({ users, o
                   </CardContent>
                 </Card>
               )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No permission data available</p>
             </div>
           )}
         </DialogContent>
