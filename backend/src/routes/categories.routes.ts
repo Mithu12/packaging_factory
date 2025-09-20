@@ -7,7 +7,8 @@ import {
     getCategoriesQuerySchema,
     getSubcategoriesQuerySchema
 } from '@/validation/categoryValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
+import { authenticate } from "@/middleware/auth";
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
 import CategoriesController from "@/controllers/categories/categories.controller";
@@ -70,7 +71,7 @@ const validateQuery = (schema: any) => {
 // GET /api/categories - Get all categories with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view categories
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
   validateQuery(getCategoriesQuerySchema), 
   expressAsyncHandler(CategoriesController.getAllCategories)
 );
@@ -78,29 +79,50 @@ router.get('/',
 // GET /api/categories/stats - Get category statistics
 router.get('/stats', 
   authenticate, 
-  managerAndAbove, // Only managers and above can view category statistics
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
   expressAsyncHandler(CategoriesController.getCategoryStats)
 );
 
 // GET /api/categories/search - Search categories
-router.get('/search', expressAsyncHandler(CategoriesController.searchCategories));
+router.get('/search', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  expressAsyncHandler(CategoriesController.searchCategories)
+);
 
 // GET /api/categories/subcategories - Get all subcategories with pagination and filtering
-router.get('/subcategories', validateQuery(getSubcategoriesQuerySchema), expressAsyncHandler(CategoriesController.getAllSubcategories));
+router.get('/subcategories', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  validateQuery(getSubcategoriesQuerySchema), 
+  expressAsyncHandler(CategoriesController.getAllSubcategories)
+);
 
 // GET /api/categories/subcategories/search - Search subcategories
-router.get('/subcategories/search', expressAsyncHandler(CategoriesController.searchSubcategories));
+router.get('/subcategories/search', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  expressAsyncHandler(CategoriesController.searchSubcategories)
+);
 
 // GET /api/categories/subcategories/:id - Get subcategory by ID
-router.get('/subcategories/:id', expressAsyncHandler(CategoriesController.getSubcategoryById));
+router.get('/subcategories/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  expressAsyncHandler(CategoriesController.getSubcategoryById)
+);
 
 // GET /api/categories/:id - Get category by ID with subcategories
-router.get('/:id', expressAsyncHandler(CategoriesController.getCategoryById));
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  expressAsyncHandler(CategoriesController.getCategoryById)
+);
 
 // POST /api/categories - Create new category
 router.post('/', 
   authenticate, 
-  managerAndAbove, // Only managers and above can create categories
+  requirePermission(PERMISSIONS.CATEGORIES_CREATE),
   validateRequest(createCategorySchema), 
   expressAsyncHandler(CategoriesController.createCategory)
 );
@@ -108,7 +130,7 @@ router.post('/',
 // PUT /api/categories/:id - Update category
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update categories
+  requirePermission(PERMISSIONS.CATEGORIES_UPDATE),
   validateRequest(updateCategorySchema), 
   expressAsyncHandler(CategoriesController.updateCategory)
 );
@@ -116,19 +138,24 @@ router.put('/:id',
 // DELETE /api/categories/:id - Delete category
 router.delete('/:id', 
   authenticate, 
-  adminOnly, // Only admins can delete categories
+  requirePermission(PERMISSIONS.CATEGORIES_DELETE),
   expressAsyncHandler(CategoriesController.deleteCategory)
 );
 
 // ===== SUBCATEGORY ROUTES =====
 
 // GET /api/categories/:categoryId/subcategories - Get subcategories for a specific category
-router.get('/:categoryId/subcategories', validateQuery(getSubcategoriesQuerySchema), expressAsyncHandler(CategoriesController.getSubcategoriesByCategory));
+router.get('/:categoryId/subcategories', 
+  authenticate,
+  requirePermission(PERMISSIONS.CATEGORIES_READ),
+  validateQuery(getSubcategoriesQuerySchema), 
+  expressAsyncHandler(CategoriesController.getSubcategoriesByCategory)
+);
 
 // POST /api/subcategories - Create new subcategory
 router.post('/subcategories', 
   authenticate, 
-  managerAndAbove, // Only managers and above can create subcategories
+  requirePermission(PERMISSIONS.CATEGORIES_CREATE),
   validateRequest(createSubcategorySchema), 
   expressAsyncHandler(CategoriesController.createSubcategory)
 );
@@ -136,7 +163,7 @@ router.post('/subcategories',
 // PUT /api/subcategories/:id - Update subcategory
 router.put('/subcategories/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update subcategories
+  requirePermission(PERMISSIONS.CATEGORIES_UPDATE),
   validateRequest(updateSubcategorySchema), 
   expressAsyncHandler(CategoriesController.updateSubcategory)
 );
@@ -144,7 +171,7 @@ router.put('/subcategories/:id',
 // DELETE /api/subcategories/:id - Delete subcategory
 router.delete('/subcategories/:id', 
   authenticate, 
-  adminOnly, // Only admins can delete subcategories
+  requirePermission(PERMISSIONS.CATEGORIES_DELETE),
   expressAsyncHandler(CategoriesController.deleteSubcategory)
 );
 

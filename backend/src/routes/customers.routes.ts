@@ -4,7 +4,8 @@ import {
     updateCustomerSchema,
     customerQuerySchema
 } from '@/validation/posValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
+import { authenticate } from "@/middleware/auth";
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomersController from "@/controllers/customers/customers.controller";
@@ -68,7 +69,7 @@ const validateQuery = (schema: any) => {
 // GET /api/customers - Get all customers with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view customers
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
   validateQuery(customerQuerySchema), 
   expressAsyncHandler(CustomersController.getAllCustomers)
 );
@@ -76,23 +77,35 @@ router.get('/',
 // GET /api/customers/stats - Get customer statistics
 router.get('/stats', 
   authenticate, 
-  managerAndAbove, // Only managers and above can view customer statistics
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
   expressAsyncHandler(CustomersController.getCustomerStats)
 );
 
 // GET /api/customers/search - Search customers
-router.get('/search', expressAsyncHandler(CustomersController.searchCustomers));
+router.get('/search', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
+  expressAsyncHandler(CustomersController.searchCustomers)
+);
 
 // GET /api/customers/type/:type - Get customers by type
-router.get('/type/:type', expressAsyncHandler(CustomersController.getCustomersByType));
+router.get('/type/:type', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
+  expressAsyncHandler(CustomersController.getCustomersByType)
+);
 
 // GET /api/customers/:id - Get customer by ID
-router.get('/:id', expressAsyncHandler(CustomersController.getCustomerById));
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
+  expressAsyncHandler(CustomersController.getCustomerById)
+);
 
 // POST /api/customers - Create new customer
 router.post('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can create customers
+  requirePermission(PERMISSIONS.CUSTOMERS_CREATE),
   validateRequest(createCustomerSchema), 
   expressAsyncHandler(CustomersController.createCustomer)
 );
@@ -100,13 +113,16 @@ router.post('/',
 // PUT /api/customers/:id - Update customer
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update customers
+  requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
   validateRequest(updateCustomerSchema), 
   expressAsyncHandler(CustomersController.updateCustomer)
 );
 
 // PATCH /api/customers/:id/toggle-status - Toggle customer status
-router.patch('/:id/toggle-status', expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/toggle-status', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/customers/:id/toggle-status'
     try {
         const id = parseInt(req.params.id);
@@ -121,7 +137,10 @@ router.patch('/:id/toggle-status', expressAsyncHandler(async (req, res, next) =>
 }));
 
 // PATCH /api/customers/:id/loyalty-points - Update customer loyalty points
-router.patch('/:id/loyalty-points', expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/loyalty-points', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/customers/:id/loyalty-points'
     try {
         const id = parseInt(req.params.id);
@@ -139,12 +158,15 @@ router.patch('/:id/loyalty-points', expressAsyncHandler(async (req, res, next) =
 // DELETE /api/customers/:id - Soft delete customer (mark as inactive)
 router.delete('/:id', 
   authenticate, 
-  adminOnly, // Only admins can delete customers
+  requirePermission(PERMISSIONS.CUSTOMERS_DELETE),
   expressAsyncHandler(CustomersController.deleteCustomer)
 );
 
 // DELETE /api/customers/:id/hard - Hard delete customer (permanent)
-router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id/hard', 
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/customers/:id/hard'
     try {
         const id = parseInt(req.params.id);
@@ -159,7 +181,10 @@ router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/customers/:id/references - Check customer references
-router.get('/:id/references', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id/references', 
+  authenticate,
+  requirePermission(PERMISSIONS.CUSTOMERS_READ),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/customers/:id/references'
     try {
         const id = parseInt(req.params.id);

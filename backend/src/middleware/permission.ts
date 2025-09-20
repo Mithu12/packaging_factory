@@ -240,8 +240,12 @@ export const PERMISSIONS = {
   SALES_ORDERS_CREATE: createPermissionCheck('Sales', 'create', 'sales_orders'),
   SALES_ORDERS_READ: createPermissionCheck('Sales', 'read', 'sales_orders'),
   SALES_ORDERS_APPROVE: createPermissionCheck('Sales', 'approve', 'sales_orders'),
+  
+  // Customers
   CUSTOMERS_CREATE: createPermissionCheck('Sales', 'create', 'customers'),
   CUSTOMERS_READ: createPermissionCheck('Sales', 'read', 'customers'),
+  CUSTOMERS_UPDATE: createPermissionCheck('Sales', 'update', 'customers'),
+  CUSTOMERS_DELETE: createPermissionCheck('Sales', 'delete', 'customers'),
 
   // Purchase
   PURCHASE_ORDERS_CREATE: createPermissionCheck('Purchase', 'create', 'purchase_orders'),
@@ -261,6 +265,12 @@ export const PERMISSIONS = {
   BRANDS_READ: createPermissionCheck('Inventory', 'read', 'brands'),
   BRANDS_UPDATE: createPermissionCheck('Inventory', 'update', 'brands'),
   BRANDS_DELETE: createPermissionCheck('Inventory', 'delete', 'brands'),
+  
+  // Categories
+  CATEGORIES_CREATE: createPermissionCheck('Inventory', 'create', 'categories'),
+  CATEGORIES_READ: createPermissionCheck('Inventory', 'read', 'categories'),
+  CATEGORIES_UPDATE: createPermissionCheck('Inventory', 'update', 'categories'),
+  CATEGORIES_DELETE: createPermissionCheck('Inventory', 'delete', 'categories'),
 
   // Reports & Dashboard
   DASHBOARD_EXECUTIVE: createPermissionCheck('Dashboard', 'read', 'executive_dashboard'),
