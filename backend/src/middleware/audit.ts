@@ -11,6 +11,7 @@ declare global {
         sessionId?: string;
         originalBody?: any;
         originalQuery?: any;
+        originalPath?: string;
       };
     }
   }
@@ -45,9 +46,11 @@ export class AuditMiddleware {
   public auditRequest = async (req: Request, res: Response, next: NextFunction) => {
     const startTime = Date.now();
     MyLogger.info('Audit middleware', { endpoint: req.path });
+    const originalPath = req.originalUrl || req.url || req.path;
+    
     // Skip if endpoint is excluded
-    if (this.shouldSkipAudit(req)) {
-        MyLogger.info('Skipping audit for endpoint', { endpoint: req.path });
+    if (this.shouldSkipAudit(req, originalPath)) {
+        MyLogger.info('Skipping audit for endpoint', { endpoint: originalPath });
       return next();
     }
 
@@ -56,7 +59,8 @@ export class AuditMiddleware {
       startTime,
       sessionId: this.extractSessionId(req),
       originalBody: this.sanitizeData(req.body),
-      originalQuery: this.sanitizeData(req.query)
+      originalQuery: this.sanitizeData(req.query),
+      originalPath: req.originalUrl || req.url || req.path
     };
 
     // Store original response methods
@@ -98,13 +102,25 @@ export class AuditMiddleware {
       return;
     }
 
+    const originalPath = req.auditContext?.originalPath || req.originalUrl || req.url || req.path;
+    
+    // Debug logging
+    MyLogger.info('Audit logging details', {
+      'req.path': req.path,
+      'req.originalUrl': req.originalUrl,
+      'req.url': req.url,
+      'originalPath': originalPath,
+      'resourceType': this.extractResourceType(originalPath),
+      'statusCode': res.statusCode
+    });
+    
     const activityData = {
       userId: user?.user_id || null,
       sessionId: req.auditContext?.sessionId,
       action: this.mapHttpMethodToAction(req.method),
-      resourceType: this.extractResourceType(req.path),
+      resourceType: this.extractResourceType(originalPath),
       resourceId: this.extractResourceId(req),
-      endpoint: req.path,
+      endpoint: originalPath,
       method: req.method,
       ipAddress: this.getClientIP(req),
       userAgent: req.get('User-Agent'),
@@ -126,10 +142,10 @@ export class AuditMiddleware {
   }
 
   // Helper methods
-  private shouldSkipAudit(req: Request): boolean {
-    const path = req.path.toLowerCase();
+  private shouldSkipAudit(req: Request, path?: string): boolean {
+    const pathToCheck = (path || req.path).toLowerCase();
     return this.config.excludeEndpoints?.some(endpoint => 
-      path.includes(endpoint.toLowerCase())
+      pathToCheck.includes(endpoint.toLowerCase())
     ) || false;
   }
 

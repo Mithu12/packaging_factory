@@ -92,7 +92,6 @@ export class BrandMediator {
     
     try {
       MyLogger.info(action, { name: brandData.name });
-      throw new Error('Test error');
       // Check if brand name already exists
       const existingBrand = await client.query(
         'SELECT id FROM brands WHERE LOWER(name) = LOWER($1)',
