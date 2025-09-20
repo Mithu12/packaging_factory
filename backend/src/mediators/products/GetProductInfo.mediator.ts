@@ -271,7 +271,7 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
-                WHERE p.name ILIKE $1 OR p.sku ILIKE $1 OR p.product_code ILIKE $1
+                WHERE p.name ILIKE $1 OR p.sku ILIKE $1 OR p.product_code ILIKE $1 OR p.barcode ILIKE $1
                 ORDER BY p.name
                 LIMIT $2
             `;
@@ -287,6 +287,45 @@ export class GetProductInfoMediator {
             return products;
         } catch (error: any) {
             MyLogger.error(action, error, { query, limit });
+            throw error;
+        }
+    }
+
+    static async searchProductByBarcode(barcode: string): Promise<Product | null> {
+        let action = 'GetProductInfoMediator.searchProductByBarcode';
+        try {
+            MyLogger.info(action, { barcode });
+
+            const searchQuery = `
+                SELECT 
+                    p.*,
+                    c.name as category_name,
+                    sc.name as subcategory_name,
+                    b.name as brand_name,
+                    o.name as origin_name,
+                    s.name as supplier_name
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
+                LEFT JOIN brands b ON p.brand_id = b.id
+                LEFT JOIN origins o ON p.origin_id = o.id
+                LEFT JOIN suppliers s ON p.supplier_id = s.id
+                WHERE p.barcode = $1
+                LIMIT 1
+            `;
+
+            const result = await pool.query(searchQuery, [barcode]);
+            const product = result.rows[0] || null;
+
+            MyLogger.success(action, { 
+                barcode, 
+                found: !!product,
+                productName: product?.name 
+            });
+
+            return product;
+        } catch (error: any) {
+            MyLogger.error(action, error, { barcode });
             throw error;
         }
     }

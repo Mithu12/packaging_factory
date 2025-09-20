@@ -52,6 +52,31 @@ class ProductsController {
         }
     }
 
+    async searchProductByBarcode(req: Request, res: Response, next: NextFunction): Promise<void> {
+        let action = 'GET /api/products/barcode/:barcode';
+        try {
+            const { barcode } = req.params;
+            MyLogger.info(action, { barcode });
+            const product = await GetProductInfoMediator.searchProductByBarcode(barcode);
+            
+            if (!product) {
+                res.status(404).json({
+                    error: {
+                        message: 'Product not found',
+                        details: 'No product found with the given barcode'
+                    }
+                });
+                return;
+            }
+            
+            MyLogger.success(action, { barcode, productName: product.name });
+            serializeSuccessResponse(res, product, 'SUCCESS');
+        } catch (error: any) {
+            MyLogger.error(action, error, { barcode: req.params.barcode });
+            throw error;
+        }
+    }
+
     async getLowStockProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/products/low-stock';
         try {

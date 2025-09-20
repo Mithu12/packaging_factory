@@ -89,6 +89,9 @@ router.get('/stats',
 // GET /api/products/search - Search products
 router.get('/search', expressAsyncHandler(ProductsController.searchProducts));
 
+// GET /api/products/barcode/:barcode - Search product by barcode
+router.get('/barcode/:barcode', expressAsyncHandler(ProductsController.searchProductByBarcode));
+
 // GET /api/products/low-stock - Get low stock products
 router.get('/low-stock', expressAsyncHandler(ProductsController.getLowStockProducts));
 
