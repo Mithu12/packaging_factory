@@ -2,6 +2,7 @@ import express from 'express';
 import expressAsyncHandler from 'express-async-handler';
 import Joi from 'joi';
 import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
 import { validateRequest } from '@/middleware/validation';
 import { ApprovalMediator } from '@/mediators/approval/ApprovalMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
@@ -39,7 +40,7 @@ const canApprove = (req: any, res: any, next: any) => {
 // POST /api/purchase-orders/:id/submit - Submit purchase order for approval
 router.post('/:id/submit',
   authenticate,
-  canSubmit,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_CREATE),
   validateRequest(submitPurchaseOrderSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'POST /api/purchase-orders/:id/submit';
@@ -70,7 +71,7 @@ router.post('/:id/submit',
 // POST /api/purchase-orders/:id/approve - Approve or reject purchase order
 router.post('/:id/approve',
   authenticate,
-  canApprove,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_APPROVE),
   validateRequest(approvePurchaseOrderSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'POST /api/purchase-orders/:id/approve';
@@ -106,6 +107,7 @@ router.post('/:id/approve',
 // GET /api/purchase-orders/:id/approval-history - Get approval history
 router.get('/:id/approval-history',
   authenticate,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/purchase-orders/:id/approval-history';
     const purchaseOrderId = parseInt(req.params.id);
@@ -131,7 +133,7 @@ router.get('/:id/approval-history',
 // GET /api/purchase-orders/pending-approvals - Get purchase orders pending approval
 router.get('/pending-approvals',
   authenticate,
-  canApprove,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_APPROVE),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/purchase-orders/pending-approvals';
     const userRole = req.user?.role || 'viewer';

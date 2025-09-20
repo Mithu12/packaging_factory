@@ -137,8 +137,11 @@ router.put('/:id',
 }));
 
 // PATCH /api/purchase-orders/:id/status - Update purchase order status
-// todo: l1 add authorization
-router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/status', 
+  authenticate,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
+  validateRequest(updatePurchaseOrderStatusSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')
@@ -175,8 +178,10 @@ router.delete('/:id',
 }));
 
 // PATCH /api/purchase-orders/:id/cancel - Cancel purchase order
-// todo: l1 add authorization
-router.patch('/:id/cancel', expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/cancel', 
+  authenticate,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_CANCEL),
+  expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
         throw new Error('Invalid purchase order ID')

@@ -2,6 +2,7 @@ import express from 'express';
 import expressAsyncHandler from 'express-async-handler';
 import Joi from 'joi';
 import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
 import { validateRequest } from '@/middleware/validation';
 import { ApprovalMediator } from '@/mediators/approval/ApprovalMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
@@ -39,7 +40,7 @@ const canApprove = (req: any, res: any, next: any) => {
 // POST /api/payments/:id/submit - Submit payment for approval
 router.post('/:id/submit',
   authenticate,
-  canSubmit,
+  requirePermission(PERMISSIONS.PAYMENTS_CREATE),
   validateRequest(submitPaymentSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'POST /api/payments/:id/submit';
@@ -70,7 +71,7 @@ router.post('/:id/submit',
 // POST /api/payments/:id/approve - Approve or reject payment
 router.post('/:id/approve',
   authenticate,
-  canApprove,
+  requirePermission(PERMISSIONS.PAYMENTS_APPROVE),
   validateRequest(approvePaymentSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'POST /api/payments/:id/approve';
@@ -106,6 +107,7 @@ router.post('/:id/approve',
 // GET /api/payments/:id/approval-history - Get approval history
 router.get('/:id/approval-history',
   authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/payments/:id/approval-history';
     const paymentId = parseInt(req.params.id);
@@ -131,6 +133,7 @@ router.get('/:id/approval-history',
 // GET /api/payments/pending-approvals - Get payments pending approval
 router.get('/pending-approvals',
   authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_APPROVE),
   canApprove,
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/payments/pending-approvals';

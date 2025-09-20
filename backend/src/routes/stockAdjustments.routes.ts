@@ -7,6 +7,8 @@ import { StockAdjustmentMediator } from "@/mediators/stockAdjustments/StockAdjus
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 
 const router = express.Router();
 
@@ -62,7 +64,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/stock-adjustments - Get stock adjustments with filtering
-router.get('/', validateQuery(stockAdjustmentQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_READ),
+  validateQuery(stockAdjustmentQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/stock-adjustments'
     try {
         MyLogger.info(action, { query: req.query })
@@ -76,7 +82,10 @@ router.get('/', validateQuery(stockAdjustmentQuerySchema), expressAsyncHandler(a
 }));
 
 // GET /api/stock-adjustments/stats - Get stock adjustment statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/stock-adjustments/stats'
     try {
         const { product_id } = req.query;
@@ -93,7 +102,10 @@ router.get('/stats', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/stock-adjustments/:id - Get stock adjustment by ID
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/stock-adjustments/:id'
     try {
         const id = parseInt(req.params.id);
@@ -108,7 +120,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/stock-adjustments - Create new stock adjustment
-router.post('/', validateRequest(createStockAdjustmentSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_CREATE),
+  validateRequest(createStockAdjustmentSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/stock-adjustments'
     try {
         MyLogger.info(action, { 
