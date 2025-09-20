@@ -255,6 +255,12 @@ export const PERMISSIONS = {
   PRODUCTS_READ: createPermissionCheck('Inventory', 'read', 'products'),
   INVENTORY_TRACK: createPermissionCheck('Inventory', 'read', 'inventory'),
   INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
+  
+  // Brands
+  BRANDS_CREATE: createPermissionCheck('Inventory', 'create', 'brands'),
+  BRANDS_READ: createPermissionCheck('Inventory', 'read', 'brands'),
+  BRANDS_UPDATE: createPermissionCheck('Inventory', 'update', 'brands'),
+  BRANDS_DELETE: createPermissionCheck('Inventory', 'delete', 'brands'),
 
   // Reports & Dashboard
   DASHBOARD_EXECUTIVE: createPermissionCheck('Dashboard', 'read', 'executive_dashboard'),
