@@ -15,7 +15,7 @@ const createTables = async () => {
     MyLogger.info('Create Suppliers Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS suppliers (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         supplier_code VARCHAR(20) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
         contact_person VARCHAR(255),
@@ -51,7 +51,7 @@ const createTables = async () => {
     MyLogger.info('Create Supplier Performance Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS supplier_performance (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         supplier_id INTEGER REFERENCES suppliers(id) ON DELETE CASCADE,
         delivery_time_days INTEGER,
         quality_rating DECIMAL(3,2) CHECK (quality_rating >= 0 AND quality_rating <= 5),
@@ -121,7 +121,7 @@ const createTables = async () => {
     MyLogger.info('Create Categories Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
         description TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -134,7 +134,7 @@ const createTables = async () => {
     MyLogger.info('Create Subcategories Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS subcategories (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -186,7 +186,7 @@ const createTables = async () => {
     MyLogger.info('Create Brands Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS brands (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
         is_active BOOLEAN DEFAULT true,
@@ -220,7 +220,7 @@ const createTables = async () => {
     MyLogger.info('Create Origins Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS origins (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
@@ -254,7 +254,7 @@ const createTables = async () => {
     MyLogger.info('Create Products Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         product_code VARCHAR(20) NOT NULL UNIQUE,
         sku VARCHAR(50) NOT NULL UNIQUE,
         name VARCHAR(255) NOT NULL,
@@ -287,7 +287,7 @@ const createTables = async () => {
     MyLogger.info('Create Stock Adjustments Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS stock_adjustments (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
         adjustment_type VARCHAR(20) NOT NULL CHECK (adjustment_type IN ('increase', 'decrease', 'set')),
         quantity DECIMAL(10,2) NOT NULL,
@@ -371,7 +371,7 @@ const createTables = async () => {
     MyLogger.info('Create Purchase Orders Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         po_number VARCHAR(50) UNIQUE NOT NULL,
         supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
         order_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -399,7 +399,7 @@ const createTables = async () => {
     MyLogger.info('Create Purchase Order Line Items Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_order_line_items (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         purchase_order_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
         product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
         product_sku VARCHAR(50) NOT NULL,
@@ -421,7 +421,7 @@ const createTables = async () => {
     MyLogger.info('Create Purchase Order Timeline Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_order_timeline (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         purchase_order_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
         event VARCHAR(100) NOT NULL,
         description TEXT,
@@ -504,7 +504,7 @@ const createTables = async () => {
     MyLogger.info('Create Invoices Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS invoices (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         invoice_number VARCHAR(50) UNIQUE NOT NULL,
         purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE SET NULL,
         supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
@@ -526,7 +526,7 @@ const createTables = async () => {
     MyLogger.info('Create Payments Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS payments (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         payment_number VARCHAR(50) UNIQUE NOT NULL,
         invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
         supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
@@ -547,7 +547,7 @@ const createTables = async () => {
     MyLogger.info('Create Payment History Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS payment_history (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
         invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
         event VARCHAR(100) NOT NULL,
@@ -633,7 +633,7 @@ const createTables = async () => {
     MyLogger.info('Create Users Table')
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
@@ -679,7 +679,7 @@ const createTables = async () => {
     // Create settings table
     await client.query(`
       CREATE TABLE IF NOT EXISTS settings (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         category VARCHAR(50) NOT NULL,
         key VARCHAR(100) NOT NULL,
         value TEXT,
@@ -759,7 +759,7 @@ ADD COLUMN IF NOT EXISTS due_amount DECIMAL(12,2) DEFAULT 0 CHECK (due_amount >=
 
 -- Create customer due transactions table for audit trail
 CREATE TABLE IF NOT EXISTS customer_due_transactions (
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   sales_order_id INTEGER REFERENCES sales_orders(id) ON DELETE SET NULL,
   transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('charge', 'payment', 'adjustment')),
@@ -778,7 +778,7 @@ CREATE TABLE IF NOT EXISTS customer_due_transactions (
     // Create origins table
     await client.query(`
       CREATE TABLE IF NOT EXISTS origins (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
         status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),

@@ -38,7 +38,7 @@ export async function addAuditSystem(): Promise<void> {
     // 2. Create user_sessions table for session tracking
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         session_id VARCHAR(255) UNIQUE NOT NULL,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         ip_address INET,
@@ -55,7 +55,7 @@ export async function addAuditSystem(): Promise<void> {
     // 3. Create security_events table for security-related activities
     await client.query(`
       CREATE TABLE IF NOT EXISTS security_events (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         event_type VARCHAR(50) NOT NULL, -- 'failed_login', 'permission_denied', 'suspicious_activity', 'password_change'
         severity VARCHAR(20) DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
@@ -74,7 +74,7 @@ export async function addAuditSystem(): Promise<void> {
     // 4. Create data_changes table for detailed field-level tracking
     await client.query(`
       CREATE TABLE IF NOT EXISTS data_changes (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         activity_log_id INTEGER REFERENCES user_activity_logs(id) ON DELETE CASCADE,
         table_name VARCHAR(100) NOT NULL,
         record_id INTEGER NOT NULL,
@@ -89,7 +89,7 @@ export async function addAuditSystem(): Promise<void> {
     // 5. Create audit_settings table for configuration
     await client.query(`
       CREATE TABLE IF NOT EXISTS audit_settings (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         setting_key VARCHAR(100) UNIQUE NOT NULL,
         setting_value JSONB NOT NULL,
         description TEXT,

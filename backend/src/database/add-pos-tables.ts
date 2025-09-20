@@ -12,7 +12,7 @@ export async function addPOSTables() {
     MyLogger.info('Create Customers Table');
     await client.query(`
       CREATE TABLE IF NOT EXISTS customers (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         customer_code VARCHAR(20) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255),
@@ -40,7 +40,7 @@ export async function addPOSTables() {
     MyLogger.info('Create Sales Orders Table');
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_orders (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         order_number VARCHAR(50) UNIQUE NOT NULL,
         customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
         order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -65,7 +65,7 @@ export async function addPOSTables() {
     MyLogger.info('Create Sales Order Line Items Table');
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_order_line_items (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         sales_order_id INTEGER NOT NULL REFERENCES sales_orders(id) ON DELETE CASCADE,
         product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
         product_sku VARCHAR(50) NOT NULL,
@@ -84,7 +84,7 @@ export async function addPOSTables() {
     MyLogger.info('Create Sales Receipts Table');
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_receipts (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         receipt_number VARCHAR(50) UNIQUE NOT NULL,
         sales_order_id INTEGER NOT NULL REFERENCES sales_orders(id) ON DELETE CASCADE,
         receipt_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -102,7 +102,7 @@ export async function addPOSTables() {
     MyLogger.info('Create Pricing Rules Table');
     await client.query(`
       CREATE TABLE IF NOT EXISTS pricing_rules (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,

@@ -67,7 +67,7 @@ async function addApprovalSystem(): Promise<void> {
     // Create approval history table for audit trail
     await client.query(`
       CREATE TABLE IF NOT EXISTS approval_history (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('purchase_order', 'payment', 'expense')),
         entity_id INTEGER NOT NULL,
         action VARCHAR(20) NOT NULL CHECK (action IN ('submitted', 'approved', 'rejected', 'revised')),

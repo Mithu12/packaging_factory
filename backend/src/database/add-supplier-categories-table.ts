@@ -11,7 +11,7 @@ export const addSupplierCategoriesTable = async () => {
     // Create supplier_categories table
     await client.query(`
       CREATE TABLE IF NOT EXISTS supplier_categories (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
         description TEXT,
         color VARCHAR(7) DEFAULT '#3B82F6', -- Default blue color for UI

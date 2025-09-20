@@ -11,7 +11,7 @@ export async function addExpenseTables() {
         MyLogger.info('Create Expense Categories Table');
         await client.query(`
             CREATE TABLE IF NOT EXISTS expense_categories (
-                id SERIAL PRIMARY KEY,
+                id BIGSERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL UNIQUE,
                 description TEXT,
                 color VARCHAR(7) DEFAULT '#3B82F6',
@@ -48,7 +48,7 @@ export async function addExpenseTables() {
         MyLogger.info('Create Expenses Table');
         await client.query(`
             CREATE TABLE IF NOT EXISTS expenses (
-                id SERIAL PRIMARY KEY,
+                id BIGSERIAL PRIMARY KEY,
                 expense_number VARCHAR(50) UNIQUE NOT NULL,
                 title VARCHAR(255) NOT NULL,
                 description TEXT,

@@ -12,7 +12,7 @@ export async function addRBACSystem(): Promise<void> {
     // 1. Create roles table
     await client.query(`
       CREATE TABLE IF NOT EXISTS roles (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE NOT NULL,
         display_name VARCHAR(200) NOT NULL,
         description TEXT,
@@ -27,7 +27,7 @@ export async function addRBACSystem(): Promise<void> {
     // 2. Create permissions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS permissions (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE NOT NULL,
         display_name VARCHAR(200) NOT NULL,
         description TEXT,
@@ -41,7 +41,7 @@ export async function addRBACSystem(): Promise<void> {
     // 3. Create role_permissions junction table
     await client.query(`
       CREATE TABLE IF NOT EXISTS role_permissions (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
         permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
         granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -59,7 +59,7 @@ export async function addRBACSystem(): Promise<void> {
     // 5. Create user_permissions table for additional individual permissions
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_permissions (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
         granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -72,7 +72,7 @@ export async function addRBACSystem(): Promise<void> {
     // 6. Create role_hierarchy table for role inheritance
     await client.query(`
       CREATE TABLE IF NOT EXISTS role_hierarchy (
-        id SERIAL PRIMARY KEY,
+        id BIGSERIAL PRIMARY KEY,
         parent_role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
         child_role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

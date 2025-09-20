@@ -20,7 +20,7 @@ error: type "idx_user_activity_user_id" does not exist
 ```sql
 -- Before (INVALID):
 CREATE TABLE user_activity_logs (
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL,
   -- ... other columns
   INDEX idx_user_activity_user_id (user_id)  -- ❌ Invalid syntax
@@ -28,7 +28,7 @@ CREATE TABLE user_activity_logs (
 
 -- After (VALID):
 CREATE TABLE user_activity_logs (
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL
   -- ... other columns
 );
