@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { DataTablePagination } from "@/components/DataTablePagination"
+import { useClientPagination } from "@/hooks/usePagination"
 import { CreatePurchaseOrderForm } from "@/components/forms/CreatePurchaseOrderForm"
 import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/services/purchase-order-api"
@@ -82,6 +84,11 @@ export default function PurchaseOrders() {
     (order.supplier_name && order.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     order.status.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Use client-side pagination for filtered purchase orders
+  const ordersPagination = useClientPagination(filteredOrders, {
+    initialPageSize: 10
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -321,7 +328,7 @@ export default function PurchaseOrders() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredOrders.length === 0 ? (
+              ) : ordersPagination.totalItems === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8">
                     <div className="text-muted-foreground">
@@ -330,7 +337,7 @@ export default function PurchaseOrders() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrders.map((order) => (
+                ordersPagination.data.map((order) => (
                   <TableRow key={order.id} className="hover:bg-accent/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -436,6 +443,18 @@ export default function PurchaseOrders() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination */}
+          <div className="mt-4">
+            <DataTablePagination
+              currentPage={ordersPagination.currentPage}
+              totalPages={ordersPagination.totalPages}
+              pageSize={ordersPagination.pageSize}
+              totalItems={ordersPagination.totalItems}
+              onPageChange={ordersPagination.setPage}
+              onPageSizeChange={ordersPagination.setPageSize}
+            />
+          </div>
         </CardContent>
       </Card>
 
