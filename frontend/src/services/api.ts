@@ -223,6 +223,10 @@ export class ApiService {
     return ProductApi.searchProducts(query, limit);
   }
 
+  static async searchProductByBarcode(barcode: string) {
+    return ProductApi.searchProductByBarcode(barcode);
+  }
+
   static async getLowStockProducts() {
     return ProductApi.getLowStockProducts();
   }

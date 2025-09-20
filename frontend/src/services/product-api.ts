@@ -126,6 +126,10 @@ export class ProductApi {
     return makeRequest<Product[]>(`/products/search?q=${encodeURIComponent(query)}&limit=${limit}`);
   }
 
+  static async searchProductByBarcode(barcode: string) {
+    return makeRequest<Product>(`/products/barcode/${encodeURIComponent(barcode)}`);
+  }
+
   static async getLowStockProducts() {
     return makeRequest<Product[]>('/products/low-stock');
   }

@@ -16,6 +16,7 @@ import { CustomerManagement } from "@/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/components/pos/SalesOrderProcessing";
 // import { SalesReceiptRecording } from "@/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/components/pos/Receipt";
+import { BarcodeScanner } from "@/components/barcode/BarcodeScanner";
 
 // API Services
 import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
@@ -521,6 +522,7 @@ export default function POSManager() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Product Selection */}
             <div className="space-y-4">
+              <BarcodeScanner onProductFound={addToCart} />
               <ProductSearch products={products} onAddToCart={addToCart} />
             </div>
 
