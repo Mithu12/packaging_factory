@@ -93,7 +93,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
   // Check if user is system admin
   const isSystemAdmin = (): boolean => {
     return hasPermission(PERMISSIONS.SYSTEM_ADMIN) || 
-           userPermissions?.user_role?.name === 'system_admin' ||
+           userPermissions?.role_details?.name === 'system_admin' ||
            userPermissions?.role === 'admin';
   };
 

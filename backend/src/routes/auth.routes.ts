@@ -131,6 +131,68 @@ router.get('/profile',
   })
 );
 
+// Get current user profile with permissions (for frontend RBAC)
+router.get('/profile/permissions',
+  authenticate,
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = req.user!.user_id;
+    const userWithPermissions = await AuthMediator.getUserWithPermissions(userId);
+    res.json({
+      success: true,
+      message: 'User profile with permissions retrieved successfully',
+      data: userWithPermissions
+    });
+  })
+);
+
+// Check single permission (for frontend RBAC)
+router.post('/check-permission',
+  authenticate,
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = req.user!.user_id;
+    const { module, action, resource } = req.body;
+    
+    if (!module || !action || !resource) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required fields: module, action, resource'
+      });
+      return;
+    }
+
+    const hasPermission = await AuthMediator.hasPermission(userId, { module, action, resource });
+    res.json({
+      success: true,
+      message: 'Permission check completed',
+      data: { hasPermission }
+    });
+  })
+);
+
+// Check multiple permissions (for frontend RBAC)
+router.post('/check-any-permission',
+  authenticate,
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = req.user!.user_id;
+    const { permissions } = req.body;
+    
+    if (!permissions || !Array.isArray(permissions)) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required field: permissions (array)'
+      });
+      return;
+    }
+
+    const hasPermission = await AuthMediator.hasAnyPermission(userId, permissions);
+    res.json({
+      success: true,
+      message: 'Permission check completed',
+      data: { hasPermission }
+    });
+  })
+);
+
 // Update current user profile
 router.put('/profile',
   authenticate,

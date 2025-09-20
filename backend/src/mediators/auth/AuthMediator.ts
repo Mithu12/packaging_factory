@@ -11,6 +11,8 @@ import {
   UpdateProfileRequest,
   JwtPayload 
 } from '@/types/auth';
+import { UserWithPermissions, PermissionCheck } from '@/types/rbac';
+import { RoleMediator } from '@/mediators/rbac/RoleMediator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -513,5 +515,100 @@ export class AuthMediator {
     } finally {
       client.release();
     }
+  }
+
+  // ==================== RBAC METHODS FOR FRONTEND ====================
+
+  // Get user with all permissions (for frontend RBAC)
+  static async getUserWithPermissions(userId: number): Promise<UserWithPermissions> {
+    const action = 'AuthMediator.getUserWithPermissions';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action, { userId });
+      
+      // Get basic user profile
+      const user = await this.getUserProfile(userId);
+      
+      // Get user's role details
+      const roleQuery = `
+        SELECT r.* FROM roles r
+        INNER JOIN users u ON u.role_id = r.id
+        WHERE u.id = $1
+      `;
+      const roleResult = await client.query(roleQuery, [userId]);
+      const userRole = roleResult.rows[0] || null;
+      
+      // Get role permissions
+      const rolePermissionsQuery = `
+        SELECT p.* FROM permissions p
+        INNER JOIN role_permissions rp ON rp.permission_id = p.id
+        INNER JOIN users u ON u.role_id = rp.role_id
+        WHERE u.id = $1
+      `;
+      const rolePermissionsResult = await client.query(rolePermissionsQuery, [userId]);
+      const rolePermissions = rolePermissionsResult.rows;
+      
+      // Get direct user permissions
+      const directPermissionsQuery = `
+        SELECT p.* FROM permissions p
+        INNER JOIN user_permissions up ON up.permission_id = p.id
+        WHERE up.user_id = $1 
+          AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP)
+      `;
+      const directPermissionsResult = await client.query(directPermissionsQuery, [userId]);
+      const directPermissions = directPermissionsResult.rows;
+      
+      // Combine all permissions (remove duplicates)
+      const allPermissionsMap = new Map();
+      [...rolePermissions, ...directPermissions].forEach(permission => {
+        allPermissionsMap.set(permission.id, permission);
+      });
+      const allPermissions = Array.from(allPermissionsMap.values());
+      
+      const userWithPermissions: UserWithPermissions = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.full_name.split(' ')[0] || user.full_name,
+        last_name: user.full_name.split(' ').slice(1).join(' ') || '',
+        phone: user.mobile_number,
+        is_active: user.is_active,
+        role: user.role,
+        role_id: userRole?.id || user.role_id,
+        role_details: userRole,
+        created_at: user.created_at.toISOString(),
+        updated_at: user.updated_at.toISOString(),
+        last_login: user.last_login?.toISOString(),
+        role_permissions: rolePermissions,
+        direct_permissions: directPermissions,
+        all_permissions: allPermissions
+      };
+      
+      MyLogger.success(action, { 
+        userId, 
+        rolePermissionsCount: rolePermissions.length,
+        directPermissionsCount: directPermissions.length,
+        totalPermissionsCount: allPermissions.length
+      });
+      
+      return userWithPermissions;
+      
+    } catch (error) {
+      MyLogger.error(action, error, { userId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Check if user has a specific permission (delegates to RoleMediator)
+  static async hasPermission(userId: number, check: PermissionCheck): Promise<boolean> {
+    return RoleMediator.hasPermission(userId, check);
+  }
+
+  // Check if user has any of the specified permissions (delegates to RoleMediator)
+  static async hasAnyPermission(userId: number, checks: PermissionCheck[]): Promise<boolean> {
+    return RoleMediator.hasAnyPermission(userId, checks);
   }
 }

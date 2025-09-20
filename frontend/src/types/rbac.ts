@@ -36,14 +36,14 @@ export interface UserWithPermissions {
   full_name: string;
   mobile_number?: string;
   departments?: string[];
-  role: string;
-  role_id: number;
+  role: string; // Legacy role field
+  role_id?: number;
   is_active: boolean;
   last_login?: string;
   created_at: string;
   updated_at: string;
   // RBAC specific fields
-  user_role: Role;
+  role_details?: Role;
   role_permissions: Permission[];
   direct_permissions: Permission[];
   all_permissions: Permission[];
