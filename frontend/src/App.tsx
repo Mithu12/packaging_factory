@@ -5,8 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useFormatting } from "@/hooks/useFormatting";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RBACProvider } from "@/contexts/RBACContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute as RBACProtectedRoute } from "@/components/rbac/ProtectedRoute";
+import { AccessDenied } from "@/pages/AccessDenied";
 import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -55,10 +58,11 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <RBACProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={
@@ -414,11 +418,15 @@ const App = () => {
             }
           />
           
+          {/* Access Denied Route */}
+          <Route path="/access-denied" element={<AccessDenied />} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
         </BrowserRouter>
         </TooltipProvider>
+        </RBACProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
