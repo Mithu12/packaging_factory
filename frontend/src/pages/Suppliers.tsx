@@ -85,11 +85,11 @@ export default function Suppliers() {
         ApiService.getSupplierCategories()
       ])
 
-      setSuppliers(suppliersData.suppliers)
+      setSuppliers(suppliersData.suppliers || [])
       setTotalSuppliers(suppliersData.total)
       setTotalPages(Math.ceil(suppliersData.total / pageSize))
       setStats(statsData)
-      setSupplierCategories(categoriesData.categories)
+      setSupplierCategories(categoriesData.categories || [])
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -252,11 +252,11 @@ export default function Suppliers() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all-categories">All Categories</SelectItem>
-                      {supplierCategories.map((category) => (
+                      {supplierCategories?.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
-                      ))}
+                      )) || []}
                     </SelectContent>
                   </Select>
                 </div>
@@ -367,7 +367,7 @@ export default function Suppliers() {
                       </TableCell>
                     </TableRow>
                 ) : (
-                    suppliers.map((supplier) => (
+                    suppliers?.map((supplier) => (
                         <TableRow key={supplier.id} className="hover:bg-accent/50">
                           <TableCell>
                             <div className="flex items-center gap-3">

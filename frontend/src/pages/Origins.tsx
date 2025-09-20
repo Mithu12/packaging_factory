@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DataTablePagination } from "@/components/DataTablePagination";
+import { useClientPagination } from "@/hooks/usePagination";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,17 @@ export default function Origins() {
     status: "active" as "active" | "inactive",
   });
 
+  // Filter origins based on search term
+  const filteredOrigins = origins.filter(origin =>
+    origin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    origin.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Use client-side pagination for filtered origins
+  const originsPagination = useClientPagination(filteredOrigins, {
+    initialPageSize: 10
+  });
+
   // Load origins and stats on component mount
   useEffect(() => {
     loadOrigins();
@@ -89,11 +102,6 @@ export default function Origins() {
     }
   };
 
-  const filteredOrigins = origins.filter(
-    (origin) =>
-      origin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      origin.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleAdd = () => {
     setFormData({ name: "", description: "", status: "active" });
@@ -295,14 +303,14 @@ export default function Origins() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredOrigins.length === 0 ? (
+              ) : originsPagination.totalItems === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No origins found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrigins.map((origin) => (
+                originsPagination.data.map((origin) => (
                   <TableRow key={origin.id}>
                     <TableCell className="font-medium">{origin.name}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -342,6 +350,18 @@ export default function Origins() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination */}
+          <div className="mt-4">
+            <DataTablePagination
+              currentPage={originsPagination.currentPage}
+              totalPages={originsPagination.totalPages}
+              pageSize={originsPagination.pageSize}
+              totalItems={originsPagination.totalItems}
+              onPageChange={originsPagination.setPage}
+              onPageSizeChange={originsPagination.setPageSize}
+            />
+          </div>
         </CardContent>
       </Card>
 

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { DataTablePagination } from "@/components/DataTablePagination"
+import { useClientPagination } from "@/hooks/usePagination"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { Plus, Edit, Trash2, FolderPlus, Tag, Loader2 } from "lucide-react"
+import { Plus, Edit, Trash2, FolderPlus, Tag, Loader2, Search } from "lucide-react"
 import { ApiService, Category, Subcategory, CreateCategoryRequest, CreateSubcategoryRequest, UpdateCategoryRequest, UpdateSubcategoryRequest, ApiError } from "@/services/api"
 
 // Remove duplicate types since we're importing from API service
@@ -39,6 +41,18 @@ const Categories = () => {
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+
+  // Filter categories based on search term
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Use client-side pagination for filtered categories
+  const categoriesPagination = useClientPagination(filteredCategories, {
+    initialPageSize: 6
+  })
 
   // Helper function to refresh subcategories data
   const refreshSubcategories = async () => {
@@ -460,7 +474,7 @@ const Categories = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map(category => (
+                            {categories?.map(category => (
                               <SelectItem key={category.id} value={category.id.toString()}>
                                 {category.name}
                               </SelectItem>
@@ -519,8 +533,26 @@ const Categories = () => {
         </div>
       </div>
 
+      {/* Search Input */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Showing {categoriesPagination.startIndex}-{categoriesPagination.endIndex} of {categoriesPagination.totalItems} categories
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-6">
-        {categories.map(category => (
+        {categoriesPagination.data.map(category => (
           <Card key={category.id}>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
@@ -555,7 +587,7 @@ const Categories = () => {
             <CardContent>
               {category.subcategories && category.subcategories.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {category.subcategories.map(subcategory => (
+                  {category.subcategories?.map(subcategory => (
                     <div
                       key={subcategory.id}
                       className="p-3 border rounded-lg bg-muted/50 flex justify-between items-start"
@@ -598,6 +630,18 @@ const Categories = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Pagination */}
+      <div className="mt-6">
+        <DataTablePagination
+          currentPage={categoriesPagination.currentPage}
+          totalPages={categoriesPagination.totalPages}
+          pageSize={categoriesPagination.pageSize}
+          totalItems={categoriesPagination.totalItems}
+          onPageChange={categoriesPagination.setPage}
+          onPageSizeChange={categoriesPagination.setPageSize}
+        />
       </div>
 
       {/* Edit Category Dialog */}

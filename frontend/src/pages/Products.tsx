@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { AddProductForm } from "@/components/forms/AddProductForm"
+import { DataTablePagination } from "@/components/DataTablePagination"
+import { useClientPagination } from "@/hooks/usePagination"
 import { useFormatting } from "@/hooks/useFormatting"
 import { useAuth } from "@/contexts/AuthContext"
 import { hasPermission } from "@/utils/rbac"
@@ -46,6 +48,19 @@ export default function Products() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Filter products based on search term
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Use client-side pagination for filtered products
+  const pagination = useClientPagination(filteredProducts, {
+    initialPageSize: 10
+  })
+
   // Fetch products and stats on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -73,12 +88,6 @@ export default function Products() {
 
     fetchData()
   }, [])
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
 
   const getStockStatus = (current: number, min: number) => {
     if (current <= min * 0.5) return { status: "critical", color: "text-destructive", icon: AlertTriangle }
@@ -251,7 +260,7 @@ export default function Products() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => {
+                {pagination.data.map((product) => {
                   const stockInfo = getStockStatus(product.current_stock, product.min_stock_level)
                   const StockIcon = stockInfo.icon
                   
@@ -335,6 +344,18 @@ export default function Products() {
                 })}
               </TableBody>
             </Table>
+            
+            {/* Pagination */}
+            <div className="mt-4">
+              <DataTablePagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                pageSize={pagination.pageSize}
+                totalItems={pagination.totalItems}
+                onPageChange={pagination.setPage}
+                onPageSizeChange={pagination.setPageSize}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>

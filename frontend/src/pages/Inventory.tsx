@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { DataTablePagination } from "@/components/DataTablePagination"
+import { useClientPagination } from "@/hooks/usePagination"
 import { 
   Plus, 
   Search, 
@@ -88,6 +90,11 @@ export default function Inventory() {
     item.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Use client-side pagination for filtered inventory items
+  const inventoryPagination = useClientPagination(filteredItems, {
+    initialPageSize: 15
+  })
 
   const getStockStatus = (current: number, min: number, max?: number) => {
     if (current <= min * 0.5) return { status: "critical", color: "text-destructive", bgColor: "bg-destructive/10" }
@@ -253,7 +260,7 @@ export default function Inventory() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.map((item) => {
+                  {inventoryPagination.data.map((item) => {
                     const stockInfo = getStockStatus(item.current_stock, item.min_stock_level, item.max_stock_level)
                     
                     return (
@@ -340,6 +347,18 @@ export default function Inventory() {
                   })}
                 </TableBody>
               </Table>
+              
+              {/* Pagination */}
+              <div className="mt-4">
+                <DataTablePagination
+                  currentPage={inventoryPagination.currentPage}
+                  totalPages={inventoryPagination.totalPages}
+                  pageSize={inventoryPagination.pageSize}
+                  totalItems={inventoryPagination.totalItems}
+                  onPageChange={inventoryPagination.setPage}
+                  onPageSizeChange={inventoryPagination.setPageSize}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

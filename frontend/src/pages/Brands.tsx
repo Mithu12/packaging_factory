@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DataTablePagination } from "@/components/DataTablePagination";
+import { useClientPagination } from "@/hooks/usePagination";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +90,11 @@ export default function Brands() {
       brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       brand.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Use client-side pagination for filtered brands
+  const brandsPagination = useClientPagination(filteredBrands, {
+    initialPageSize: 10
+  });
 
   const handleAdd = () => {
     setFormData({ name: "", description: "", is_active: true });
@@ -308,7 +315,7 @@ export default function Brands() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBrands.map((brand) => (
+                brandsPagination.data.map((brand) => (
                 <TableRow key={brand.id}>
                   <TableCell className="font-medium">{brand.name}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -348,6 +355,18 @@ export default function Brands() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination */}
+          <div className="mt-4">
+            <DataTablePagination
+              currentPage={brandsPagination.currentPage}
+              totalPages={brandsPagination.totalPages}
+              pageSize={brandsPagination.pageSize}
+              totalItems={brandsPagination.totalItems}
+              onPageChange={brandsPagination.setPage}
+              onPageSizeChange={brandsPagination.setPageSize}
+            />
+          </div>
         </CardContent>
       </Card>
 

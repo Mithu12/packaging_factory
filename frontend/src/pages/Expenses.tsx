@@ -159,7 +159,7 @@ export default function Expenses() {
   const loadExpenseCategories = async () => {
     try {
       const categories = await ApiService.getActiveExpenseCategories();
-      setExpenseCategories(categories);
+      setExpenseCategories(Array.isArray(categories) ? categories : []);
     } catch (err) {
       console.error('Failed to load expense categories:', err);
     }
@@ -418,7 +418,7 @@ export default function Expenses() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {expenseCategories?.map((category) => (
+                        {Array.isArray(expenseCategories) && expenseCategories.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
                           </SelectItem>
@@ -648,7 +648,7 @@ export default function Expenses() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all-categories">All Categories</SelectItem>
-                  {expenseCategories?.map((category) => (
+                  {Array.isArray(expenseCategories) && expenseCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id.toString()}>
                       {category.name}
                     </SelectItem>
@@ -904,7 +904,7 @@ export default function Expenses() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {expenseCategories?.map((category) => (
+                    {Array.isArray(expenseCategories) && expenseCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {category.name}
                       </SelectItem>
