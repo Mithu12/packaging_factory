@@ -1,17 +1,23 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RecordPaymentForm } from "@/components/forms/RecordPaymentForm"
-import { useFormatting } from "@/hooks/useFormatting"
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RecordPaymentForm } from "@/components/forms/RecordPaymentForm";
+import { useFormatting } from "@/hooks/useFormatting";
+import {
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   CreditCard,
   Calendar,
@@ -23,12 +29,18 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  X
-} from "lucide-react"
-import { toast } from "@/components/ui/sonner"
-import { PaymentApi } from "@/services/payment-api"
-import { ApiService } from "@/services/api"
-import { Invoice, Payment, PaymentStats, InvoiceQueryParams, PaymentQueryParams } from "@/services/types"
+  X,
+} from "lucide-react";
+import { toast } from "@/components/ui/sonner";
+import { PaymentApi } from "@/services/payment-api";
+import { ApiService } from "@/services/api";
+import {
+  Invoice,
+  Payment,
+  PaymentStats,
+  InvoiceQueryParams,
+  PaymentQueryParams,
+} from "@/services/types";
 import {
   Table,
   TableBody,
@@ -36,62 +48,59 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 
 export default function Payments() {
-  const navigate = useNavigate()
-  const { formatCurrency, formatDate } = useFormatting()
-  
+  const navigate = useNavigate();
+  const { formatCurrency, formatDate } = useFormatting();
+
   // Basic state
-  const [activeTab, setActiveTab] = useState("invoices")
-  const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false)
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
+  const [activeTab, setActiveTab] = useState("payments");
+  const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   // Search state (separate from filters for debouncing)
-  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState("")
-  const [paymentSearchTerm, setPaymentSearchTerm] = useState("")
-  
+  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState("");
+  const [paymentSearchTerm, setPaymentSearchTerm] = useState("");
+
   // Data state
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [stats, setStats] = useState<PaymentStats | null>(null)
-  const [suppliers, setSuppliers] = useState<{id: number, name: string}[]>([])
-  
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [stats, setStats] = useState<PaymentStats | null>(null);
+  const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>(
+    []
+  );
+
   // Pagination state
   const [invoicesPagination, setInvoicesPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
-    totalPages: 0
-  })
+    totalPages: 0,
+  });
   const [paymentsPagination, setPaymentsPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
-    totalPages: 0
-  })
-  
+    totalPages: 0,
+  });
+
   // Filter state
   const [invoiceFilters, setInvoiceFilters] = useState<InvoiceQueryParams>({
     page: 1,
@@ -102,9 +111,9 @@ export default function Payments() {
     due_date_from: undefined,
     due_date_to: undefined,
     sortBy: "created_at",
-    sortOrder: "desc"
-  })
-  
+    sortOrder: "desc",
+  });
+
   const [paymentFilters, setPaymentFilters] = useState<PaymentQueryParams>({
     page: 1,
     limit: 10,
@@ -113,134 +122,146 @@ export default function Payments() {
     start_date: undefined,
     end_date: undefined,
     sortBy: "payment_date",
-    sortOrder: "desc"
-  })
+    sortOrder: "desc",
+  });
 
   // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (activeTab === "invoices") {
-        setInvoiceFilters(prev => ({
+        setInvoiceFilters((prev) => ({
           ...prev,
           search: invoiceSearchTerm.trim() || undefined,
-          page: 1 // Reset to first page when search changes
-        }))
+          page: 1, // Reset to first page when search changes
+        }));
       } else {
-        setPaymentFilters(prev => ({
+        setPaymentFilters((prev) => ({
           ...prev,
           search: paymentSearchTerm.trim() || undefined,
-          page: 1 // Reset to first page when search changes
-        }))
+          page: 1, // Reset to first page when search changes
+        }));
       }
-    }, 500) // 500ms debounce
+    }, 500); // 500ms debounce
 
-    return () => clearTimeout(timeoutId)
-  }, [invoiceSearchTerm, paymentSearchTerm, activeTab])
+    return () => clearTimeout(timeoutId);
+  }, [invoiceSearchTerm, paymentSearchTerm, activeTab]);
 
   // Initial load flag
-  const [hasInitialLoad, setHasInitialLoad] = useState(false)
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   // Fetch suppliers on component mount
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
-        const suppliersData = await ApiService.getSuppliers({ status: 'active', limit: 100 })
-        setSuppliers(suppliersData.suppliers.map((supplier: any) => ({
-          id: supplier.id,
-          name: supplier.name
-        })))
+        const suppliersData = await ApiService.getSuppliers({
+          status: "active",
+          limit: 100,
+        });
+        setSuppliers(
+          suppliersData.suppliers.map((supplier: any) => ({
+            id: supplier.id,
+            name: supplier.name,
+          }))
+        );
       } catch (error) {
-        console.error('Error fetching suppliers:', error)
+        console.error("Error fetching suppliers:", error);
       }
-    }
-    
-    fetchSuppliers()
-  }, [])
+    };
+
+    fetchSuppliers();
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
       // Don't show loading for filter changes to prevent full page reload appearance
       if (!hasInitialLoad) {
-        setLoading(true)
+        setLoading(true);
       }
-      setError(null)
-      
+      setError(null);
+
       // Clean up filters to remove empty strings
       const cleanInvoiceFilters = {
         ...invoiceFilters,
-        search: invoiceFilters.search?.trim() || undefined
-      }
-      
+        search: invoiceFilters.search?.trim() || undefined,
+      };
+
       const cleanPaymentFilters = {
         ...paymentFilters,
-        search: paymentFilters.search?.trim() || undefined
-      }
-      
-      const [invoicesResponse, paymentsResponse, statsResponse] = await Promise.all([
-        PaymentApi.getInvoices(cleanInvoiceFilters),
-        PaymentApi.getPayments(cleanPaymentFilters),
-        PaymentApi.getPaymentStats()
-      ])
-      
-      setInvoices(invoicesResponse)
-      setPayments(paymentsResponse)
-      setStats(statsResponse)
-      
+        search: paymentFilters.search?.trim() || undefined,
+      };
+
+      const [invoicesResponse, paymentsResponse, statsResponse] =
+        await Promise.all([
+          PaymentApi.getInvoices(cleanInvoiceFilters),
+          PaymentApi.getPayments(cleanPaymentFilters),
+          PaymentApi.getPaymentStats(),
+        ]);
+
+      setInvoices(invoicesResponse);
+      setPayments(paymentsResponse);
+      setStats(statsResponse);
+
       // Update pagination info (assuming the API returns pagination metadata)
       // Note: You may need to adjust this based on your actual API response structure
-      setInvoicesPagination(prev => ({
+      setInvoicesPagination((prev) => ({
         ...prev,
         total: invoicesResponse.length, // This should come from API metadata
-        totalPages: Math.ceil(invoicesResponse.length / prev.limit)
-      }))
-      
-      setPaymentsPagination(prev => ({
+        totalPages: Math.ceil(invoicesResponse.length / prev.limit),
+      }));
+
+      setPaymentsPagination((prev) => ({
         ...prev,
         total: paymentsResponse.length, // This should come from API metadata
-        totalPages: Math.ceil(paymentsResponse.length / prev.limit)
-      }))
+        totalPages: Math.ceil(paymentsResponse.length / prev.limit),
+      }));
     } catch (err: any) {
-      console.error('Error fetching payment data:', err)
-      setError(err.message || 'Failed to load payment data')
-      toast.error('Failed to load payment data', {
-        description: 'Please try again later.'
-      })
+      console.error("Error fetching payment data:", err);
+      setError(err.message || "Failed to load payment data");
+      toast.error("Failed to load payment data", {
+        description: "Please try again later.",
+      });
     } finally {
       if (!hasInitialLoad) {
-        setLoading(false)
-        setHasInitialLoad(true)
+        setLoading(false);
+        setHasInitialLoad(true);
       }
     }
-  }, [invoiceFilters, paymentFilters, hasInitialLoad])
+  }, [invoiceFilters, paymentFilters, hasInitialLoad]);
 
   // Fetch data when filters change
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData();
+  }, [fetchData]);
 
   const handlePaymentRecorded = () => {
-    fetchData() // Refresh data after payment is recorded
-  }
+    fetchData(); // Refresh data after payment is recorded
+  };
 
   // Filter handlers
-  const handleInvoiceFilterChange = (key: keyof InvoiceQueryParams, value: any) => {
-    setInvoiceFilters(prev => ({
+  const handleInvoiceFilterChange = (
+    key: keyof InvoiceQueryParams,
+    value: any
+  ) => {
+    setInvoiceFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1 // Reset to first page when filters change
-    }))
-  }
+      page: 1, // Reset to first page when filters change
+    }));
+  };
 
-  const handlePaymentFilterChange = (key: keyof PaymentQueryParams, value: any) => {
-    setPaymentFilters(prev => ({
+  const handlePaymentFilterChange = (
+    key: keyof PaymentQueryParams,
+    value: any
+  ) => {
+    setPaymentFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1 // Reset to first page when filters change
-    }))
-  }
+      page: 1, // Reset to first page when filters change
+    }));
+  };
 
   const clearInvoiceFilters = () => {
-    setInvoiceSearchTerm("")
+    setInvoiceSearchTerm("");
     setInvoiceFilters({
       page: 1,
       limit: 10,
@@ -250,12 +271,12 @@ export default function Payments() {
       due_date_from: undefined,
       due_date_to: undefined,
       sortBy: "created_at",
-      sortOrder: "desc"
-    })
-  }
+      sortOrder: "desc",
+    });
+  };
 
   const clearPaymentFilters = () => {
-    setPaymentSearchTerm("")
+    setPaymentSearchTerm("");
     setPaymentFilters({
       page: 1,
       limit: 10,
@@ -264,35 +285,43 @@ export default function Payments() {
       start_date: undefined,
       end_date: undefined,
       sortBy: "payment_date",
-      sortOrder: "desc"
-    })
-  }
+      sortOrder: "desc",
+    });
+  };
 
   // Pagination handlers
   const handleInvoicePageChange = (page: number) => {
-    setInvoiceFilters(prev => ({ ...prev, page }))
-  }
+    setInvoiceFilters((prev) => ({ ...prev, page }));
+  };
 
   const handlePaymentPageChange = (page: number) => {
-    setPaymentFilters(prev => ({ ...prev, page }))
-  }
+    setPaymentFilters((prev) => ({ ...prev, page }));
+  };
 
   const handleInvoiceLimitChange = (limit: number) => {
-    setInvoiceFilters(prev => ({ ...prev, limit, page: 1 }))
-  }
+    setInvoiceFilters((prev) => ({ ...prev, limit, page: 1 }));
+  };
 
   const handlePaymentLimitChange = (limit: number) => {
-    setPaymentFilters(prev => ({ ...prev, limit, page: 1 }))
-  }
+    setPaymentFilters((prev) => ({ ...prev, limit, page: 1 }));
+  };
 
   // Memoized filter component to prevent unnecessary re-renders
   const FilterComponent = useMemo(() => {
-    const isInvoiceTab = activeTab === "invoices"
-    const currentSearchTerm = isInvoiceTab ? invoiceSearchTerm : paymentSearchTerm
-    const setCurrentSearchTerm = isInvoiceTab ? setInvoiceSearchTerm : setPaymentSearchTerm
-    const currentFilters = isInvoiceTab ? invoiceFilters : paymentFilters
-    const handleFilterChange = isInvoiceTab ? handleInvoiceFilterChange : handlePaymentFilterChange
-    const clearFilters = isInvoiceTab ? clearInvoiceFilters : clearPaymentFilters
+    const isInvoiceTab = activeTab === "invoices";
+    const currentSearchTerm = isInvoiceTab
+      ? invoiceSearchTerm
+      : paymentSearchTerm;
+    const setCurrentSearchTerm = isInvoiceTab
+      ? setInvoiceSearchTerm
+      : setPaymentSearchTerm;
+    const currentFilters = isInvoiceTab ? invoiceFilters : paymentFilters;
+    const handleFilterChange = isInvoiceTab
+      ? handleInvoiceFilterChange
+      : handlePaymentFilterChange;
+    const clearFilters = isInvoiceTab
+      ? clearInvoiceFilters
+      : clearPaymentFilters;
 
     return (
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
@@ -300,21 +329,28 @@ export default function Payments() {
           <div className="relative flex-1 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder={isInvoiceTab ? "Search invoices..." : "Search payments..."}
+              placeholder={
+                isInvoiceTab ? "Search invoices..." : "Search payments..."
+              }
               value={currentSearchTerm}
               onChange={(e) => setCurrentSearchTerm(e.target.value)}
               className="pl-10 w-full sm:w-80"
             />
           </div>
         </div>
-        
+
         {/* Always visible filter controls */}
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="flex gap-2 flex-wrap">
             {/* Status Filter */}
-            <Select 
-              value={currentFilters.status || "all"} 
-              onValueChange={(value) => handleFilterChange("status", value === "all" ? undefined : value)}
+            <Select
+              value={currentFilters.status || "all"}
+              onValueChange={(value) =>
+                handleFilterChange(
+                  "status",
+                  value === "all" ? undefined : value
+                )
+              }
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
@@ -342,9 +378,16 @@ export default function Payments() {
 
             {/* Payment Method Filter (only for payments) */}
             {!isInvoiceTab && (
-              <Select 
-                value={(currentFilters as PaymentQueryParams).payment_method || "all"} 
-                onValueChange={(value) => handlePaymentFilterChange("payment_method", value === "all" ? undefined : value)}
+              <Select
+                value={
+                  (currentFilters as PaymentQueryParams).payment_method || "all"
+                }
+                onValueChange={(value) =>
+                  handlePaymentFilterChange(
+                    "payment_method",
+                    value === "all" ? undefined : value
+                  )
+                }
               >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Method" />
@@ -360,58 +403,77 @@ export default function Payments() {
               </Select>
             )}
 
-              {/* Supplier Filter */}
-              <Select 
-                value={(isInvoiceTab ? invoiceFilters : paymentFilters).supplier_id?.toString() || "all"} 
-                onValueChange={(value) => isInvoiceTab 
-                  ? handleInvoiceFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))
-                  : handlePaymentFilterChange("supplier_id", value === "all" ? undefined : parseInt(value))
-                }
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Suppliers</SelectItem>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Supplier Filter */}
+            <Select
+              value={
+                (isInvoiceTab
+                  ? invoiceFilters
+                  : paymentFilters
+                ).supplier_id?.toString() || "all"
+              }
+              onValueChange={(value) =>
+                isInvoiceTab
+                  ? handleInvoiceFilterChange(
+                      "supplier_id",
+                      value === "all" ? undefined : parseInt(value)
+                    )
+                  : handlePaymentFilterChange(
+                      "supplier_id",
+                      value === "all" ? undefined : parseInt(value)
+                    )
+              }
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Supplier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Suppliers</SelectItem>
+                {suppliers.map((supplier) => (
+                  <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                    {supplier.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              {/* Sort By Filter */}
-              <Select 
-                value={currentFilters.sortBy || (isInvoiceTab ? "created_at" : "payment_date")} 
-                onValueChange={(value) => handleFilterChange("sortBy", value)}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Sort By" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isInvoiceTab ? (
-                    <>
-                      <SelectItem value="created_at">Created Date</SelectItem>
-                      <SelectItem value="invoice_date">Invoice Date</SelectItem>
-                      <SelectItem value="due_date">Due Date</SelectItem>
-                      <SelectItem value="total_amount">Amount</SelectItem>
-                      <SelectItem value="supplier_name">Supplier</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="payment_date">Payment Date</SelectItem>
-                      <SelectItem value="amount">Amount</SelectItem>
-                      <SelectItem value="payment_method">Method</SelectItem>
-                      <SelectItem value="supplier_name">Supplier</SelectItem>
-                      <SelectItem value="created_at">Created Date</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+            {/* Sort By Filter */}
+            <Select
+              value={
+                currentFilters.sortBy ||
+                (isInvoiceTab ? "created_at" : "payment_date")
+              }
+              onValueChange={(value) => handleFilterChange("sortBy", value)}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                {isInvoiceTab ? (
+                  <>
+                    <SelectItem value="created_at">Created Date</SelectItem>
+                    <SelectItem value="invoice_date">Invoice Date</SelectItem>
+                    <SelectItem value="due_date">Due Date</SelectItem>
+                    <SelectItem value="total_amount">Amount</SelectItem>
+                    <SelectItem value="supplier_name">Supplier</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="payment_date">Payment Date</SelectItem>
+                    <SelectItem value="amount">Amount</SelectItem>
+                    <SelectItem value="payment_method">Method</SelectItem>
+                    <SelectItem value="supplier_name">Supplier</SelectItem>
+                    <SelectItem value="created_at">Created Date</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
 
             {/* Advanced Filters Button */}
-            <Button variant="outline" size="sm" onClick={() => setShowAdvancedFilters(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(true)}
+            >
               <Filter className="h-4 w-4 mr-2" />
               More Filters
             </Button>
@@ -424,24 +486,39 @@ export default function Payments() {
           </div>
         </div>
       </div>
-    )
-  }, [activeTab, invoiceSearchTerm, paymentSearchTerm, invoiceFilters, paymentFilters, suppliers])
+    );
+  }, [
+    activeTab,
+    invoiceSearchTerm,
+    paymentSearchTerm,
+    invoiceFilters,
+    paymentFilters,
+    suppliers,
+  ]);
 
   // Advanced filters dialog component
   const AdvancedFiltersDialog = useMemo(() => {
-    const isInvoiceTab = activeTab === "invoices"
-    const currentInvoiceFilters = invoiceFilters
-    const currentPaymentFilters = paymentFilters
-    
-    const handleInvoiceAdvancedFilterChange = (key: keyof InvoiceQueryParams, value: any) => {
-      handleInvoiceFilterChange(key, value)
-    }
-    
-    const handlePaymentAdvancedFilterChange = (key: keyof PaymentQueryParams, value: any) => {
-      handlePaymentFilterChange(key, value)
-    }
-    
-    const clearFilters = isInvoiceTab ? clearInvoiceFilters : clearPaymentFilters
+    const isInvoiceTab = activeTab === "invoices";
+    const currentInvoiceFilters = invoiceFilters;
+    const currentPaymentFilters = paymentFilters;
+
+    const handleInvoiceAdvancedFilterChange = (
+      key: keyof InvoiceQueryParams,
+      value: any
+    ) => {
+      handleInvoiceFilterChange(key, value);
+    };
+
+    const handlePaymentAdvancedFilterChange = (
+      key: keyof PaymentQueryParams,
+      value: any
+    ) => {
+      handlePaymentFilterChange(key, value);
+    };
+
+    const clearFilters = isInvoiceTab
+      ? clearInvoiceFilters
+      : clearPaymentFilters;
 
     return (
       <Dialog open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
@@ -457,10 +534,20 @@ export default function Payments() {
               <Label htmlFor="startDate">Start Date</Label>
               <Input
                 type="date"
-                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).start_date || ""}
-                onChange={(e) => isInvoiceTab 
-                  ? handleInvoiceAdvancedFilterChange("start_date", e.target.value || undefined)
-                  : handlePaymentAdvancedFilterChange("start_date", e.target.value || undefined)
+                value={
+                  (isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters)
+                    .start_date || ""
+                }
+                onChange={(e) =>
+                  isInvoiceTab
+                    ? handleInvoiceAdvancedFilterChange(
+                        "start_date",
+                        e.target.value || undefined
+                      )
+                    : handlePaymentAdvancedFilterChange(
+                        "start_date",
+                        e.target.value || undefined
+                      )
                 }
               />
             </div>
@@ -468,10 +555,20 @@ export default function Payments() {
               <Label htmlFor="endDate">End Date</Label>
               <Input
                 type="date"
-                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).end_date || ""}
-                onChange={(e) => isInvoiceTab 
-                  ? handleInvoiceAdvancedFilterChange("end_date", e.target.value || undefined)
-                  : handlePaymentAdvancedFilterChange("end_date", e.target.value || undefined)
+                value={
+                  (isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters)
+                    .end_date || ""
+                }
+                onChange={(e) =>
+                  isInvoiceTab
+                    ? handleInvoiceAdvancedFilterChange(
+                        "end_date",
+                        e.target.value || undefined
+                      )
+                    : handlePaymentAdvancedFilterChange(
+                        "end_date",
+                        e.target.value || undefined
+                      )
                 }
               />
             </div>
@@ -484,7 +581,12 @@ export default function Payments() {
                   <Input
                     type="date"
                     value={currentInvoiceFilters.due_date_from || ""}
-                    onChange={(e) => handleInvoiceAdvancedFilterChange("due_date_from", e.target.value || undefined)}
+                    onChange={(e) =>
+                      handleInvoiceAdvancedFilterChange(
+                        "due_date_from",
+                        e.target.value || undefined
+                      )
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -492,7 +594,12 @@ export default function Payments() {
                   <Input
                     type="date"
                     value={currentInvoiceFilters.due_date_to || ""}
-                    onChange={(e) => handleInvoiceAdvancedFilterChange("due_date_to", e.target.value || undefined)}
+                    onChange={(e) =>
+                      handleInvoiceAdvancedFilterChange(
+                        "due_date_to",
+                        e.target.value || undefined
+                      )
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -500,7 +607,12 @@ export default function Payments() {
                   <Input
                     type="number"
                     value={currentInvoiceFilters.purchase_order_id || ""}
-                    onChange={(e) => handleInvoiceAdvancedFilterChange("purchase_order_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    onChange={(e) =>
+                      handleInvoiceAdvancedFilterChange(
+                        "purchase_order_id",
+                        e.target.value ? parseInt(e.target.value) : undefined
+                      )
+                    }
                     placeholder="Enter PO ID"
                   />
                 </div>
@@ -515,7 +627,12 @@ export default function Payments() {
                   <Input
                     type="number"
                     value={currentPaymentFilters.invoice_id || ""}
-                    onChange={(e) => handlePaymentAdvancedFilterChange("invoice_id", e.target.value ? parseInt(e.target.value) : undefined)}
+                    onChange={(e) =>
+                      handlePaymentAdvancedFilterChange(
+                        "invoice_id",
+                        e.target.value ? parseInt(e.target.value) : undefined
+                      )
+                    }
                     placeholder="Enter invoice ID"
                   />
                 </div>
@@ -525,11 +642,15 @@ export default function Payments() {
             {/* Sort Order */}
             <div className="space-y-2">
               <Label htmlFor="sortOrder">Sort Order</Label>
-              <Select 
-                value={(isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters).sortOrder || "desc"} 
-                onValueChange={(value) => isInvoiceTab 
-                  ? handleInvoiceAdvancedFilterChange("sortOrder", value)
-                  : handlePaymentAdvancedFilterChange("sortOrder", value)
+              <Select
+                value={
+                  (isInvoiceTab ? currentInvoiceFilters : currentPaymentFilters)
+                    .sortOrder || "desc"
+                }
+                onValueChange={(value) =>
+                  isInvoiceTab
+                    ? handleInvoiceAdvancedFilterChange("sortOrder", value)
+                    : handlePaymentAdvancedFilterChange("sortOrder", value)
                 }
               >
                 <SelectTrigger>
@@ -553,27 +674,33 @@ export default function Payments() {
           </div>
         </DialogContent>
       </Dialog>
-    )
-  }, [activeTab, showAdvancedFilters, invoiceFilters, paymentFilters, suppliers])
+    );
+  }, [
+    activeTab,
+    showAdvancedFilters,
+    invoiceFilters,
+    paymentFilters,
+    suppliers,
+  ]);
 
   // Pagination component
-  const PaginationComponent = ({ 
-    currentPage, 
-    totalPages, 
-    onPageChange, 
-    onLimitChange, 
+  const PaginationComponent = ({
+    currentPage,
+    totalPages,
+    onPageChange,
+    onLimitChange,
     currentLimit,
-    total 
+    total,
   }: {
-    currentPage: number
-    totalPages: number
-    onPageChange: (page: number) => void
-    onLimitChange: (limit: number) => void
-    currentLimit: number
-    total: number
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    onLimitChange: (limit: number) => void;
+    currentLimit: number;
+    total: number;
   }) => {
-    const startItem = (currentPage - 1) * currentLimit + 1
-    const endItem = Math.min(currentPage * currentLimit, total)
+    const startItem = (currentPage - 1) * currentLimit + 1;
+    const endItem = Math.min(currentPage * currentLimit, total);
 
     return (
       <div className="flex items-center justify-between px-2">
@@ -581,7 +708,10 @@ export default function Payments() {
           <p className="text-sm text-muted-foreground">
             Showing {startItem} to {endItem} of {total} results
           </p>
-          <Select value={currentLimit.toString()} onValueChange={(value) => onLimitChange(Number(value))}>
+          <Select
+            value={currentLimit.toString()}
+            onValueChange={(value) => onLimitChange(Number(value))}
+          >
             <SelectTrigger className="h-8 w-[70px]">
               <SelectValue />
             </SelectTrigger>
@@ -613,17 +743,17 @@ export default function Payments() {
           </Button>
           <div className="flex items-center space-x-1">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum
+              let pageNum;
               if (totalPages <= 5) {
-                pageNum = i + 1
+                pageNum = i + 1;
               } else if (currentPage <= 3) {
-                pageNum = i + 1
+                pageNum = i + 1;
               } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i
+                pageNum = totalPages - 4 + i;
               } else {
-                pageNum = currentPage - 2 + i
+                pageNum = currentPage - 2 + i;
               }
-              
+
               return (
                 <Button
                   key={pageNum}
@@ -634,7 +764,7 @@ export default function Payments() {
                 >
                   {pageNum}
                 </Button>
-              )
+              );
             })}
           </div>
           <Button
@@ -655,37 +785,49 @@ export default function Payments() {
           </Button>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "paid": return "bg-success text-white"
-      case "partial": return "bg-warning text-white"
-      case "pending": return "bg-status-pending text-white"
-      case "overdue": return "bg-destructive text-white"
-      case "completed": return "bg-success text-white"
-      case "active": return "bg-primary text-white"
-      case "utilised": return "bg-muted text-muted-foreground"
-      default: return "bg-muted"
+      case "paid":
+        return "bg-success text-white";
+      case "partial":
+        return "bg-warning text-white";
+      case "pending":
+        return "bg-status-pending text-white";
+      case "overdue":
+        return "bg-destructive text-white";
+      case "completed":
+        return "bg-success text-white";
+      case "active":
+        return "bg-primary text-white";
+      case "utilised":
+        return "bg-muted text-muted-foreground";
+      default:
+        return "bg-muted";
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "paid":
-      case "completed": return CheckCircle
-      case "overdue": return AlertCircle
+      case "completed":
+        return CheckCircle;
+      case "overdue":
+        return AlertCircle;
       case "pending":
-      case "partial": return Clock
-      default: return Clock
+      case "partial":
+        return Clock;
+      default:
+        return Clock;
     }
-  }
+  };
 
-  const totalOutstanding = stats?.total_outstanding_amount || 0
-  const overdueAmount = stats?.overdue_amount || 0
-  const totalPaid = stats?.total_paid_amount || 0
-  const advanceBalance = 0 // Not implemented yet
+  const totalOutstanding = stats?.total_outstanding_amount || 0;
+  const overdueAmount = stats?.overdue_amount || 0;
+  const totalPaid = stats?.total_paid_amount || 0;
+  const advanceBalance = 0; // Not implemented yet
 
   if (loading) {
     return (
@@ -693,7 +835,7 @@ export default function Payments() {
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading payment data...</span>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -708,7 +850,7 @@ export default function Payments() {
           Try Again
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -716,15 +858,22 @@ export default function Payments() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
-          <p className="text-muted-foreground">Track supplier invoices, payments, and outstanding balances</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            Payment Management
+          </h1>
+          <p className="text-muted-foreground">
+            Track supplier invoices, payments, and outstanding balances
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
             <Calendar className="w-4 h-4 mr-2" />
             Payment Schedule
           </Button>
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowRecordPaymentForm(true)}>
+          <Button
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setShowRecordPaymentForm(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Record Payment
           </Button>
@@ -735,38 +884,58 @@ export default function Payments() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding Amount</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Outstanding Amount
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{formatCurrency(totalOutstanding)}</div>
+            <div className="text-2xl font-bold text-warning">
+              {formatCurrency(totalOutstanding)}
+            </div>
             <p className="text-xs text-muted-foreground">Total unpaid</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Overdue Payments</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Overdue Payments
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(overdueAmount)}</div>
-            <p className="text-xs text-muted-foreground">Need immediate attention</p>
+            <div className="text-2xl font-bold text-destructive">
+              {formatCurrency(overdueAmount)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Need immediate attention
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Paid This Month</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Paid This Month
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{formatCurrency(totalPaid)}</div>
+            <div className="text-2xl font-bold text-success">
+              {formatCurrency(totalPaid)}
+            </div>
             <p className="text-xs text-success">+12% vs last month</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Advance Balance</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Advance Balance
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(advanceBalance)}</div>
-            <p className="text-xs text-muted-foreground">Available to utilize</p>
+            <div className="text-2xl font-bold">
+              {formatCurrency(advanceBalance)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Available to utilize
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -774,8 +943,8 @@ export default function Payments() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="invoices">Supplier Invoices</TabsTrigger>
           <TabsTrigger value="payments">Payment History</TabsTrigger>
+          <TabsTrigger value="invoices">Supplier Invoices</TabsTrigger>
         </TabsList>
 
         {/* Invoices Tab */}
@@ -801,9 +970,9 @@ export default function Payments() {
                 </TableHeader>
                 <TableBody>
                   {invoices.map((invoice) => {
-                    const StatusIcon = getStatusIcon(invoice.status)
-                    const isOverdue = invoice.status === "overdue"
-                    
+                    const StatusIcon = getStatusIcon(invoice.status);
+                    const isOverdue = invoice.status === "overdue";
+
                     return (
                       <TableRow key={invoice.id} className="hover:bg-accent/50">
                         <TableCell>
@@ -812,31 +981,61 @@ export default function Payments() {
                               <CreditCard className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <div className="font-medium">{invoice.invoice_number}</div>
-                              <div className="text-sm text-muted-foreground">PO: {invoice.po_number || 'N/A'}</div>
+                              <div className="font-medium">
+                                {invoice.invoice_number}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                PO: {invoice.po_number || "N/A"}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{invoice.supplier_name || 'Unknown Supplier'}</div>
-                          <div className="text-sm text-muted-foreground">{invoice.terms}</div>
+                          <div className="font-medium">
+                            {invoice.supplier_name || "Unknown Supplier"}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {invoice.terms}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="text-sm">Invoice: {new Date(invoice.invoice_date).toLocaleDateString()}</div>
-                            <div className={`text-sm ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                              Due: {new Date(invoice.due_date).toLocaleDateString()}
+                            <div className="text-sm">
+                              Invoice:{" "}
+                              {new Date(
+                                invoice.invoice_date
+                              ).toLocaleDateString()}
+                            </div>
+                            <div
+                              className={`text-sm ${
+                                isOverdue
+                                  ? "text-destructive font-medium"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              Due:{" "}
+                              {new Date(invoice.due_date).toLocaleDateString()}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{formatCurrency(invoice.total_amount)}</div>
+                          <div className="font-medium">
+                            {formatCurrency(invoice.total_amount)}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-success font-medium">{formatCurrency(invoice.paid_amount)}</div>
+                          <div className="text-success font-medium">
+                            {formatCurrency(invoice.paid_amount)}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <div className={`font-medium ${Number(invoice.outstanding_amount) > 0 ? "text-warning" : "text-muted-foreground"}`}>
+                          <div
+                            className={`font-medium ${
+                              Number(invoice.outstanding_amount) > 0
+                                ? "text-warning"
+                                : "text-muted-foreground"
+                            }`}
+                          >
                             {formatCurrency(invoice.outstanding_amount)}
                           </div>
                         </TableCell>
@@ -855,21 +1054,56 @@ export default function Payments() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover">
-                              <DropdownMenuItem onClick={() => navigate(`/view-invoice/${invoice.id}`)}>View Invoice</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setShowRecordPaymentForm(true)}>Record Payment</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/payment-history/${invoice.supplier_id}`)}>Payment History</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/send-reminder/${invoice.id}`)}>Send Reminder</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/generate-statement/${invoice.supplier_id}`)}>Generate Statement</DropdownMenuItem>
+                            <DropdownMenuContent
+                              align="end"
+                              className="bg-popover"
+                            >
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(`/view-invoice/${invoice.id}`)
+                                }
+                              >
+                                View Invoice
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setShowRecordPaymentForm(true)}
+                              >
+                                Record Payment
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(
+                                    `/payment-history/${invoice.supplier_id}`
+                                  )
+                                }
+                              >
+                                Payment History
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(`/send-reminder/${invoice.id}`)
+                                }
+                              >
+                                Send Reminder
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(
+                                    `/generate-statement/${invoice.supplier_id}`
+                                  )
+                                }
+                              >
+                                Generate Statement
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })}
                 </TableBody>
               </Table>
-              
+
               {/* Pagination for Invoices */}
               <div className="flex items-center justify-between border-t px-4 py-3">
                 <PaginationComponent
@@ -909,13 +1143,23 @@ export default function Payments() {
                 <TableBody>
                   {payments.map((payment) => (
                     <TableRow key={payment.id} className="hover:bg-accent/50">
-                      <TableCell className="font-medium">{payment.id}</TableCell>
-                      <TableCell>{payment.invoice_id || 'N/A'}</TableCell>
-                      <TableCell>{payment.supplier_name || 'Unknown Supplier'}</TableCell>
-                      <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
+                      <TableCell className="font-medium">
+                        {payment.id}
+                      </TableCell>
+                      <TableCell>{payment.invoice_id || "N/A"}</TableCell>
+                      <TableCell>
+                        {payment.supplier_name || "Unknown Supplier"}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(payment.payment_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(payment.amount)}
+                      </TableCell>
                       <TableCell>{payment.payment_method}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{payment.reference}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {payment.reference}
+                      </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(payment.status)}>
                           {payment.status}
@@ -925,7 +1169,7 @@ export default function Payments() {
                   ))}
                 </TableBody>
               </Table>
-              
+
               {/* Pagination for Payments */}
               <div className="flex items-center justify-between border-t px-4 py-3">
                 <PaginationComponent
@@ -940,17 +1184,16 @@ export default function Payments() {
             </CardContent>
           </Card>
         </TabsContent>
-
       </Tabs>
 
       {/* Advanced Filters Dialog */}
       {AdvancedFiltersDialog}
 
-      <RecordPaymentForm 
-        open={showRecordPaymentForm} 
+      <RecordPaymentForm
+        open={showRecordPaymentForm}
         onOpenChange={setShowRecordPaymentForm}
         onPaymentRecorded={handlePaymentRecorded}
       />
     </div>
-  )
+  );
 }
