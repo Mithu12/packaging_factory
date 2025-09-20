@@ -2,6 +2,8 @@ import express, { NextFunction, Request, Response } from 'express';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import Joi from 'joi';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import paymentApprovalRoutes from './paymentApproval.routes';
 import PaymentsController from "@/controllers/payments/payments.controller";
 
@@ -74,13 +76,25 @@ const validateQuery = (schema: Joi.ObjectSchema) => {
 // ==================== INVOICE ROUTES ====================
 
 // GET /api/payments/invoices - Get invoices with filtering and pagination
-router.get('/invoices', validateQuery(invoiceQuerySchema), expressAsyncHandler(PaymentsController.getInvoices));
+router.get('/invoices', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  validateQuery(invoiceQuerySchema), 
+  expressAsyncHandler(PaymentsController.getInvoices)
+);
 
 // GET /api/payments/invoices/stats - Get invoice statistics
-router.get('/invoices/stats', expressAsyncHandler(PaymentsController.getInvoiceStats));
+router.get('/invoices/stats', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  expressAsyncHandler(PaymentsController.getInvoiceStats)
+);
 
 // GET /api/payments/invoices/:id - Get specific invoice
-router.get('/invoices/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/invoices/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'GET /api/payments/invoices/:id'
   try {
     const id = parseInt(req.params.id);
@@ -105,7 +119,11 @@ router.get('/invoices/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/payments/invoices - Create new invoice
-router.post('/invoices', validateRequest(createInvoiceSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/invoices', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_CREATE),
+  validateRequest(createInvoiceSchema), 
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'POST /api/payments/invoices'
   try {
     MyLogger.info(action, { supplierId: req.body.supplier_id, totalAmount: req.body.total_amount })
@@ -119,7 +137,11 @@ router.post('/invoices', validateRequest(createInvoiceSchema), expressAsyncHandl
 }));
 
 // PUT /api/payments/invoices/:id - Update invoice
-router.put('/invoices/:id', validateRequest(updateInvoiceSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/invoices/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_UPDATE),
+  validateRequest(updateInvoiceSchema), 
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'PUT /api/payments/invoices/:id'
   try {
     const id = parseInt(req.params.id);
@@ -138,7 +160,10 @@ router.put('/invoices/:id', validateRequest(updateInvoiceSchema), expressAsyncHa
 }));
 
 // DELETE /api/payments/invoices/:id - Delete invoice
-router.delete('/invoices/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/invoices/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_DELETE),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'DELETE /api/payments/invoices/:id'
   try {
     const id = parseInt(req.params.id);
@@ -159,7 +184,11 @@ router.delete('/invoices/:id', expressAsyncHandler(async (req, res, next) => {
 // ==================== PAYMENT ROUTES ====================
 
 // GET /api/payments - Get payments with filtering and pagination
-router.get('/', validateQuery(paymentQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  validateQuery(paymentQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'GET /api/payments'
   try {
     MyLogger.info(action, { query: req.query })
@@ -173,7 +202,10 @@ router.get('/', validateQuery(paymentQuerySchema), expressAsyncHandler(async (re
 }));
 
 // GET /api/payments/stats - Get payment statistics
-router.get('/stats', expressAsyncHandler(async (req, res, next) => {
+router.get('/stats', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'GET /api/payments/stats'
   try {
     MyLogger.info(action)
@@ -187,7 +219,10 @@ router.get('/stats', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/payments/:id - Get specific payment
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'GET /api/payments/:id'
   try {
     const id = parseInt(req.params.id);
@@ -212,7 +247,11 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // POST /api/payments - Create new payment
-router.post('/', validateRequest(createPaymentSchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_CREATE),
+  validateRequest(createPaymentSchema), 
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'POST /api/payments'
   try {
     MyLogger.info(action, { supplierId: req.body.supplier_id, amount: req.body.amount })
@@ -226,7 +265,11 @@ router.post('/', validateRequest(createPaymentSchema), expressAsyncHandler(async
 }));
 
 // PUT /api/payments/:id - Update payment
-router.put('/:id', validateRequest(updatePaymentSchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_UPDATE),
+  validateRequest(updatePaymentSchema), 
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'PUT /api/payments/:id'
   try {
     const id = parseInt(req.params.id);
@@ -245,7 +288,10 @@ router.put('/:id', validateRequest(updatePaymentSchema), expressAsyncHandler(asy
 }));
 
 // DELETE /api/payments/:id - Delete payment
-router.delete('/:id', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PAYMENTS_DELETE),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'DELETE /api/payments/:id'
   try {
     const id = parseInt(req.params.id);

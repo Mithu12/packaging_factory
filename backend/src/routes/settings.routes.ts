@@ -4,12 +4,17 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
 import SettingsMediator from '@/mediators/settings/SettingsMediator';
 import { validateSettings } from '@/validation/settingsValidation';
 import { MyLogger } from '@/utils/new-logger';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 
 const router = express.Router();
 const settingsMediator = new SettingsMediator();
 
 // Get all settings
-router.get('/', expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.SETTINGS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Get All Settings API'
   MyLogger.info(action)
   
@@ -23,7 +28,10 @@ router.get('/', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Get settings by category
-router.get('/:category', expressAsyncHandler(async (req, res, next) => {
+router.get('/:category', 
+  authenticate,
+  requirePermission(PERMISSIONS.SETTINGS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Get Settings By Category API'
   const { category } = req.params;
   
@@ -39,7 +47,10 @@ router.get('/:category', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Get a specific setting
-router.get('/:category/:key', expressAsyncHandler(async (req, res, next) => {
+router.get('/:category/:key', 
+  authenticate,
+  requirePermission(PERMISSIONS.SETTINGS_READ),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Get Setting API'
   const { category, key } = req.params;
   
@@ -62,7 +73,10 @@ router.get('/:category/:key', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Create or update a setting
-router.post('/', expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.SETTINGS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Create/Update Setting API'
   MyLogger.info(action, req.body)
   
@@ -87,7 +101,10 @@ router.post('/', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Update multiple settings in a category
-router.put('/:category', expressAsyncHandler(async (req, res, next) => {
+router.put('/:category', 
+  authenticate,
+  requirePermission(PERMISSIONS.SETTINGS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Update Settings Category API'
   const { category } = req.params;
   
@@ -103,7 +120,10 @@ router.put('/:category', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Delete a setting
-router.delete('/:category/:key', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:category/:key', 
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Delete Setting API'
   const { category, key } = req.params;
   
@@ -119,7 +139,10 @@ router.delete('/:category/:key', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // Initialize default settings
-router.post('/initialize', expressAsyncHandler(async (req, res, next) => {
+router.post('/initialize', 
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res, next) => {
   let action = 'Initialize Default Settings API'
   MyLogger.info(action)
   

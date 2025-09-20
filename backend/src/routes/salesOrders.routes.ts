@@ -4,7 +4,8 @@ import {
     updateSalesOrderSchema,
     salesOrderQuerySchema
 } from '@/validation/posValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
+import { authenticate } from "@/middleware/auth";
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import SalesOrdersController from "@/controllers/salesOrders/salesOrders.controller";
@@ -69,7 +70,7 @@ const validateQuery = (schema: any) => {
 // GET /api/sales-orders - Get all sales orders with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view orders
+  requirePermission(PERMISSIONS.SALES_ORDERS_READ),
   validateQuery(salesOrderQuerySchema), 
   expressAsyncHandler(SalesOrdersController.getAllSalesOrders)
 );
@@ -77,14 +78,14 @@ router.get('/',
 // GET /api/sales-orders/stats - Get POS statistics
 router.get('/stats', 
   authenticate, 
-  managerAndAbove, // Only managers and above can view statistics
+  requirePermission(PERMISSIONS.SALES_ORDERS_READ),
   expressAsyncHandler(SalesOrdersController.getPOSStats)
 );
 
 // GET /api/sales-orders/search - Search sales orders
 router.get('/search', 
   authenticate, 
-  employeeAndAbove, // Employees and above can search orders
+  requirePermission(PERMISSIONS.SALES_ORDERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/sales-orders/search'
     try {
@@ -105,14 +106,14 @@ router.get('/search',
 // GET /api/sales-orders/:id - Get sales order by ID with details
 router.get('/:id', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view order details
+  requirePermission(PERMISSIONS.SALES_ORDERS_READ),
   expressAsyncHandler(SalesOrdersController.getSalesOrderById)
 );
 
 // POST /api/sales-orders - Create new sales order
 router.post('/', 
   authenticate, 
-  employeeAndAbove, // Only employees and above can create orders
+  requirePermission(PERMISSIONS.SALES_ORDERS_CREATE),
   validateRequest(createSalesOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/sales-orders'
@@ -138,7 +139,7 @@ router.post('/',
 // PUT /api/sales-orders/:id - Update sales order
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can modify orders
+  requirePermission(PERMISSIONS.SALES_ORDERS_UPDATE),
   validateRequest(updateSalesOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/sales-orders/:id'

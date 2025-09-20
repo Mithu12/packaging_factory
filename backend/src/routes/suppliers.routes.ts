@@ -6,6 +6,8 @@ import {
 } from '@/validation/supplierValidation';
 import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import SuppliersController from "@/controllers/suppliers/suppliers.controller";
 
 const router = express.Router();
@@ -62,30 +64,69 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/suppliers - Get all suppliers with pagination and filtering
-router.get('/', validateQuery(supplierQuerySchema), expressAsyncHandler(SuppliersController.getAllSuppliers));
+router.get('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  validateQuery(supplierQuerySchema), 
+  expressAsyncHandler(SuppliersController.getAllSuppliers)
+);
 
 // GET /api/suppliers/stats - Get supplier statistics
-router.get('/stats', expressAsyncHandler(SuppliersController.getSupplierStats));
+router.get('/stats', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  expressAsyncHandler(SuppliersController.getSupplierStats)
+);
 
 // GET /api/suppliers/categories - Get all supplier categories
-router.get('/categories', expressAsyncHandler(SuppliersController.getSupplierCategories));
+router.get('/categories', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_READ),
+  expressAsyncHandler(SuppliersController.getSupplierCategories)
+);
 
 // GET /api/suppliers/search - Search suppliers
-router.get('/search', expressAsyncHandler(SuppliersController.searchSuppliers));
+router.get('/search', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  expressAsyncHandler(SuppliersController.searchSuppliers)
+);
 
 // GET /api/suppliers/:id - Get supplier by ID
-router.get('/:id', expressAsyncHandler(SuppliersController.getSupplierById));
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  expressAsyncHandler(SuppliersController.getSupplierById)
+);
 
 // POST /api/suppliers - Create new supplier
-router.post('/', validateRequest(createSupplierSchema), expressAsyncHandler(SuppliersController.createSupplier));
+router.post('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_CREATE),
+  validateRequest(createSupplierSchema), 
+  expressAsyncHandler(SuppliersController.createSupplier)
+);
 
 // PUT /api/suppliers/:id - Update supplier
-router.put('/:id', validateRequest(updateSupplierSchema), expressAsyncHandler(SuppliersController.updateSupplier));
+router.put('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_UPDATE),
+  validateRequest(updateSupplierSchema), 
+  expressAsyncHandler(SuppliersController.updateSupplier)
+);
 
 // PATCH /api/suppliers/:id/toggle-status - Toggle supplier status
-router.patch('/:id/toggle-status', expressAsyncHandler(SuppliersController.toggleSupplierStatus));
+router.patch('/:id/toggle-status', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_UPDATE),
+  expressAsyncHandler(SuppliersController.toggleSupplierStatus)
+);
 
 // DELETE /api/suppliers/:id - Delete supplier
-router.delete('/:id', expressAsyncHandler(SuppliersController.deleteSupplier));
+router.delete('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_DELETE),
+  expressAsyncHandler(SuppliersController.deleteSupplier)
+);
 
 export default router;

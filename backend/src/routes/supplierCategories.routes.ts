@@ -3,7 +3,7 @@ import expressAsyncHandler from 'express-async-handler';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
 import { authenticate } from '@/middleware/auth';
-import { employeeAndAbove, managerAndAbove } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import { validateRequest } from '@/middleware/validation';
 import { 
   createSupplierCategorySchema, 
@@ -18,7 +18,7 @@ const router = express.Router();
 // GET /api/supplier-categories - Get all supplier categories with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view categories
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_READ),
   expressAsyncHandler(async (req, res) => {
     let action = 'GET /api/supplier-categories'
     try {
@@ -36,7 +36,7 @@ router.get('/',
 // GET /api/supplier-categories/names - Get simple list of category names (for backward compatibility)
 router.get('/names', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view category names
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_READ),
   expressAsyncHandler(async (req, res) => {
     let action = 'GET /api/supplier-categories/names'
     try {
@@ -54,7 +54,7 @@ router.get('/names',
 // GET /api/supplier-categories/:id - Get a single supplier category
 router.get('/:id', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view categories
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_READ),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/supplier-categories/:id'
     try {
@@ -72,7 +72,7 @@ router.get('/:id',
 // POST /api/supplier-categories - Create new supplier category
 router.post('/', 
   authenticate, 
-  managerAndAbove, // Only managers and above can create categories
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_CREATE),
   validateRequest(createSupplierCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/supplier-categories'
@@ -91,7 +91,7 @@ router.post('/',
 // PUT /api/supplier-categories/:id - Update supplier category
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update categories
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_UPDATE),
   validateRequest(updateSupplierCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/supplier-categories/:id'
@@ -110,7 +110,7 @@ router.put('/:id',
 // DELETE /api/supplier-categories/:id - Delete supplier category
 router.delete('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can delete categories
+  requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/supplier-categories/:id'
     try {

@@ -6,7 +6,8 @@ import {
     receiveGoodsSchema,
     purchaseOrderQuerySchema
 } from '@/validation/purchaseOrderValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
+import { authenticate } from "@/middleware/auth";
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import PurchaseOrdersController from "@/controllers/purchaseOrders/purchaseOrders.controller";
@@ -73,7 +74,7 @@ const validateQuery = (schema: any) => {
 // GET /api/purchase-orders - Get all purchase orders with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view purchase orders
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   validateQuery(purchaseOrderQuerySchema), 
   expressAsyncHandler(PurchaseOrdersController.getAllPurchaseOrders)
 );
@@ -81,14 +82,14 @@ router.get('/',
 // GET /api/purchase-orders/stats - Get purchase order statistics
 router.get('/stats', 
   authenticate, 
-  managerAndAbove, // Only managers and above can view purchase order statistics
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   expressAsyncHandler(PurchaseOrdersController.getPurchaseOrderStats)
 );
 
 // GET /api/purchase-orders/search - Search purchase orders
 router.get('/search', 
   authenticate, 
-  employeeAndAbove, // Employees and above can search purchase orders
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const { q, limit } = req.query;
     const purchaseOrders = await GetPurchaseOrderInfoMediator.searchPurchaseOrders(
@@ -101,7 +102,7 @@ router.get('/search',
 // GET /api/purchase-orders/:id - Get purchase order by ID
 router.get('/:id', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view purchase order details
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -114,7 +115,7 @@ router.get('/:id',
 // POST /api/purchase-orders - Create new purchase order
 router.post('/', 
   authenticate, 
-  managerAndAbove, // Only managers and above can create purchase orders
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_CREATE),
   validateRequest(createPurchaseOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
     const purchaseOrder = await AddPurchaseOrderMediator.createPurchaseOrder(req.body);
@@ -124,7 +125,7 @@ router.post('/',
 // PUT /api/purchase-orders/:id - Update purchase order
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update purchase orders
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(updatePurchaseOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
@@ -136,6 +137,7 @@ router.put('/:id',
 }));
 
 // PATCH /api/purchase-orders/:id/status - Update purchase order status
+// todo: l1 add authorization
 router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -148,7 +150,7 @@ router.patch('/:id/status', validateRequest(updatePurchaseOrderStatusSchema), ex
 // POST /api/purchase-orders/:id/receive - Receive goods for purchase order
 router.post('/:id/receive', 
   authenticate, 
-  employeeAndAbove, // Employees and above can receive goods
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(receiveGoodsSchema), 
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
@@ -162,7 +164,7 @@ router.post('/:id/receive',
 // DELETE /api/purchase-orders/:id - Delete purchase order
 router.delete('/:id', 
   authenticate, 
-  adminOnly, // Only admins can delete purchase orders
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -173,6 +175,7 @@ router.delete('/:id',
 }));
 
 // PATCH /api/purchase-orders/:id/cancel - Cancel purchase order
+// todo: l1 add authorization
 router.patch('/:id/cancel', expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -186,7 +189,7 @@ router.patch('/:id/cancel', expressAsyncHandler(async (req, res, next) => {
 // GET /api/purchase-orders/:id/pdf - Download purchase order as PDF
 router.get('/:id/pdf', 
   authenticate, 
-  employeeAndAbove, // Employees and above can generate purchase order PDFs
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/purchase-orders/:id/pdf'
     try {

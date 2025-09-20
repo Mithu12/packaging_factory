@@ -5,7 +5,8 @@ import {
     productQuerySchema,
     stockAdjustmentSchema
 } from '@/validation/productValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from "@/middleware/auth";
+import { authenticate } from "@/middleware/auth";
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
@@ -74,7 +75,7 @@ const validateQuery = (schema: any) => {
 // GET /api/products - Get all products with pagination and filtering
 router.get('/', 
   authenticate, 
-  employeeAndAbove, // Employees and above can view products
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
   validateQuery(productQuerySchema), 
   expressAsyncHandler(ProductsController.getAllProducts)
 );
@@ -82,27 +83,50 @@ router.get('/',
 // GET /api/products/stats - Get product statistics
 router.get('/stats', 
   authenticate, 
-  managerAndAbove, // Only managers and above can view product statistics
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
   expressAsyncHandler(ProductsController.getProductStats)
 );
 
 // GET /api/products/search - Search products
-router.get('/search', expressAsyncHandler(ProductsController.searchProducts));
+router.get('/search', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(ProductsController.searchProducts)
+);
 
 // GET /api/products/barcode/:barcode - Search product by barcode
-router.get('/barcode/:barcode', expressAsyncHandler(ProductsController.searchProductByBarcode));
+router.get('/barcode/:barcode', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(ProductsController.searchProductByBarcode)
+);
 
 // GET /api/products/low-stock - Get low stock products
-router.get('/low-stock', expressAsyncHandler(ProductsController.getLowStockProducts));
+router.get('/low-stock', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(ProductsController.getLowStockProducts)
+);
 
 // GET /api/products/category/:categoryId - Get products by category
-router.get('/category/:categoryId', expressAsyncHandler(ProductsController.getProductsByCategory));
+router.get('/category/:categoryId', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(ProductsController.getProductsByCategory)
+);
 
 // GET /api/products/supplier/:supplierId - Get products by supplier
-router.get('/supplier/:supplierId', expressAsyncHandler(ProductsController.getProductsBySupplier));
+router.get('/supplier/:supplierId', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(ProductsController.getProductsBySupplier)
+);
 
 // GET /api/products/:id - Get product by ID with details
-router.get('/:id', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/products/:id'
     try {
         const id = parseInt(req.params.id);
@@ -119,7 +143,7 @@ router.get('/:id', expressAsyncHandler(async (req, res, next) => {
 // POST /api/products - Create new product
 router.post('/', 
   authenticate, 
-  managerAndAbove, // Only managers and above can create products
+  requirePermission(PERMISSIONS.PRODUCTS_CREATE),
   validateRequest(createProductSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'Add Product'
@@ -135,7 +159,12 @@ router.post('/',
 }));
 
 // POST /api/products/with-image - Create new product with image
-router.post('/with-image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+router.post('/with-image', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_CREATE),
+  uploadProductImage, 
+  handleUploadError, 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/products/with-image'
     try {
         // Parse the JSON data from FormData
@@ -172,13 +201,18 @@ router.post('/with-image', uploadProductImage, handleUploadError, expressAsyncHa
 // PUT /api/products/:id - Update product
 router.put('/:id', 
   authenticate, 
-  managerAndAbove, // Only managers and above can update products
+  requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
   validateRequest(updateProductSchema), 
   expressAsyncHandler(ProductsController.updateProduct)
 );
 
 // PUT /api/products/:id/with-image - Update product with image
-router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+router.put('/:id/with-image', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
+  uploadProductImage, 
+  handleUploadError, 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/products/:id/with-image'
     try {
         const id = parseInt(req.params.id);
@@ -237,7 +271,12 @@ router.put('/:id/with-image', uploadProductImage, handleUploadError, expressAsyn
 }));
 
 // POST /api/products/:id/image - Update product image only
-router.post('/:id/image', uploadProductImage, handleUploadError, expressAsyncHandler(async (req, res, next) => {
+router.post('/:id/image', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
+  uploadProductImage, 
+  handleUploadError, 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/products/:id/image'
     try {
         const id = parseInt(req.params.id);
@@ -283,7 +322,10 @@ router.post('/:id/image', uploadProductImage, handleUploadError, expressAsyncHan
 }));
 
 // PATCH /api/products/:id/toggle-status - Toggle product status
-router.patch('/:id/toggle-status', expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/toggle-status', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/products/:id/toggle-status'
     try {
         const id = parseInt(req.params.id);
@@ -298,7 +340,11 @@ router.patch('/:id/toggle-status', expressAsyncHandler(async (req, res, next) =>
 }));
 
 // PATCH /api/products/:id/stock - Update product stock
-router.patch('/:id/stock', validateRequest(stockAdjustmentSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/stock', 
+  authenticate,
+  requirePermission(PERMISSIONS.INVENTORY_ADJUST),
+  validateRequest(stockAdjustmentSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/products/:id/stock'
     try {
         const id = parseInt(req.params.id);
@@ -335,7 +381,7 @@ router.patch('/:id/stock', validateRequest(stockAdjustmentSchema), expressAsyncH
 // DELETE /api/products/:id - Soft delete product (mark as discontinued)
 router.delete('/:id', 
   authenticate, 
-  adminOnly, // Only admins can delete products
+  requirePermission(PERMISSIONS.PRODUCTS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/products/:id'
     try {
@@ -372,7 +418,10 @@ router.delete('/:id',
 }));
 
 // DELETE /api/products/:id/hard - Hard delete product (permanent)
-router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id/hard', 
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/products/:id/hard'
     try {
         const id = parseInt(req.params.id);
@@ -407,7 +456,10 @@ router.delete('/:id/hard', expressAsyncHandler(async (req, res, next) => {
 }));
 
 // GET /api/products/:id/references - Check product references
-router.get('/:id/references', expressAsyncHandler(async (req, res, next) => {
+router.get('/:id/references', 
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/products/:id/references'
     try {
         const id = parseInt(req.params.id);

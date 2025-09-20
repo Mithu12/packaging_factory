@@ -232,9 +232,16 @@ export const PERMISSIONS = {
   // Finance
   PAYMENTS_CREATE: createPermissionCheck('Finance', 'create', 'payments'),
   PAYMENTS_READ: createPermissionCheck('Finance', 'read', 'payments'),
+  PAYMENTS_UPDATE: createPermissionCheck('Finance', 'update', 'payments'),
+  PAYMENTS_DELETE: createPermissionCheck('Finance', 'delete', 'payments'),
   PAYMENTS_APPROVE: createPermissionCheck('Finance', 'approve', 'payments'),
+  PAYMENTS_REJECT: createPermissionCheck('Finance', 'reject', 'payments'),
   VOUCHERS_CREATE: createPermissionCheck('Finance', 'create', 'vouchers'),
   VOUCHERS_APPROVE: createPermissionCheck('Finance', 'approve', 'vouchers'),
+  
+  // Settings
+  SETTINGS_READ: createPermissionCheck('System', 'read', 'settings'),
+  SETTINGS_UPDATE: createPermissionCheck('System', 'update', 'settings'),
   
   // Expenses
   EXPENSES_CREATE: createPermissionCheck('Finance', 'create', 'expenses'),
@@ -253,7 +260,10 @@ export const PERMISSIONS = {
   // Sales
   SALES_ORDERS_CREATE: createPermissionCheck('Sales', 'create', 'sales_orders'),
   SALES_ORDERS_READ: createPermissionCheck('Sales', 'read', 'sales_orders'),
+  SALES_ORDERS_UPDATE: createPermissionCheck('Sales', 'update', 'sales_orders'),
+  SALES_ORDERS_DELETE: createPermissionCheck('Sales', 'delete', 'sales_orders'),
   SALES_ORDERS_APPROVE: createPermissionCheck('Sales', 'approve', 'sales_orders'),
+  SALES_ORDERS_CANCEL: createPermissionCheck('Sales', 'update', 'sales_order_status'),
   
   // Customers
   CUSTOMERS_CREATE: createPermissionCheck('Sales', 'create', 'customers'),
@@ -264,15 +274,37 @@ export const PERMISSIONS = {
   // Purchase
   PURCHASE_ORDERS_CREATE: createPermissionCheck('Purchase', 'create', 'purchase_orders'),
   PURCHASE_ORDERS_READ: createPermissionCheck('Purchase', 'read', 'purchase_orders'),
+  PURCHASE_ORDERS_UPDATE: createPermissionCheck('Purchase', 'update', 'purchase_orders'),
+  PURCHASE_ORDERS_DELETE: createPermissionCheck('Purchase', 'delete', 'purchase_orders'),
   PURCHASE_ORDERS_APPROVE: createPermissionCheck('Purchase', 'approve', 'purchase_orders'),
+  PURCHASE_ORDERS_CANCEL: createPermissionCheck('Purchase', 'update', 'purchase_order_status'),
+  
+  // Suppliers
   SUPPLIERS_CREATE: createPermissionCheck('Purchase', 'create', 'suppliers'),
   SUPPLIERS_READ: createPermissionCheck('Purchase', 'read', 'suppliers'),
+  SUPPLIERS_UPDATE: createPermissionCheck('Purchase', 'update', 'suppliers'),
+  SUPPLIERS_DELETE: createPermissionCheck('Purchase', 'delete', 'suppliers'),
+  
+  // Supplier Categories
+  SUPPLIER_CATEGORIES_CREATE: createPermissionCheck('Purchase', 'create', 'supplier_categories'),
+  SUPPLIER_CATEGORIES_READ: createPermissionCheck('Purchase', 'read', 'supplier_categories'),
+  SUPPLIER_CATEGORIES_UPDATE: createPermissionCheck('Purchase', 'update', 'supplier_categories'),
+  SUPPLIER_CATEGORIES_DELETE: createPermissionCheck('Purchase', 'delete', 'supplier_categories'),
 
   // Inventory
   PRODUCTS_CREATE: createPermissionCheck('Inventory', 'create', 'products'),
   PRODUCTS_READ: createPermissionCheck('Inventory', 'read', 'products'),
+  PRODUCTS_UPDATE: createPermissionCheck('Inventory', 'update', 'products'),
+  PRODUCTS_DELETE: createPermissionCheck('Inventory', 'delete', 'products'),
   INVENTORY_TRACK: createPermissionCheck('Inventory', 'read', 'inventory'),
   INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
+  
+  // Stock Adjustments
+  STOCK_ADJUSTMENTS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_adjustments'),
+  STOCK_ADJUSTMENTS_READ: createPermissionCheck('Inventory', 'read', 'stock_adjustments'),
+  STOCK_ADJUSTMENTS_UPDATE: createPermissionCheck('Inventory', 'update', 'stock_adjustments'),
+  STOCK_ADJUSTMENTS_DELETE: createPermissionCheck('Inventory', 'delete', 'stock_adjustments'),
+  STOCK_ADJUSTMENTS_APPROVE: createPermissionCheck('Inventory', 'approve', 'stock_adjustments'),
   
   // Brands
   BRANDS_CREATE: createPermissionCheck('Inventory', 'create', 'brands'),
