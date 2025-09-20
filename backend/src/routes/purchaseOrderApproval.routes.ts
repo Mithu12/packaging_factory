@@ -3,6 +3,7 @@ import expressAsyncHandler from 'express-async-handler';
 import Joi from 'joi';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import { validateRequest } from '@/middleware/validation';
 import { ApprovalMediator } from '@/mediators/approval/ApprovalMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
@@ -40,6 +41,7 @@ const canApprove = (req: any, res: any, next: any) => {
 // POST /api/purchase-orders/:id/submit - Submit purchase order for approval
 router.post('/:id/submit',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_CREATE),
   validateRequest(submitPurchaseOrderSchema),
   expressAsyncHandler(async (req, res) => {
@@ -71,6 +73,7 @@ router.post('/:id/submit',
 // POST /api/purchase-orders/:id/approve - Approve or reject purchase order
 router.post('/:id/approve',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_APPROVE),
   validateRequest(approvePurchaseOrderSchema),
   expressAsyncHandler(async (req, res) => {

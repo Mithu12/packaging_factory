@@ -3,6 +3,7 @@ import expressAsyncHandler from 'express-async-handler';
 import Joi from 'joi';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import { validateRequest } from '@/middleware/validation';
 import { ApprovalMediator } from '@/mediators/approval/ApprovalMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
@@ -40,6 +41,7 @@ const canApprove = (req: any, res: any, next: any) => {
 // POST /api/payments/:id/submit - Submit payment for approval
 router.post('/:id/submit',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_CREATE),
   validateRequest(submitPaymentSchema),
   expressAsyncHandler(async (req, res) => {
@@ -71,6 +73,7 @@ router.post('/:id/submit',
 // POST /api/payments/:id/approve - Approve or reject payment
 router.post('/:id/approve',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_APPROVE),
   validateRequest(approvePaymentSchema),
   expressAsyncHandler(async (req, res) => {

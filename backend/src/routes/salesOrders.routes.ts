@@ -6,6 +6,7 @@ import {
 } from '@/validation/posValidation';
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import SalesOrdersController from "@/controllers/salesOrders/salesOrders.controller";
@@ -112,7 +113,8 @@ router.get('/:id',
 
 // POST /api/sales-orders - Create new sales order
 router.post('/', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SALES_ORDERS_CREATE),
   validateRequest(createSalesOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -138,7 +140,8 @@ router.post('/',
 
 // PUT /api/sales-orders/:id - Update sales order
 router.put('/:id', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SALES_ORDERS_UPDATE),
   validateRequest(updateSalesOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {

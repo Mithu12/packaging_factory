@@ -9,6 +9,7 @@ import {
 } from '@/validation/expenseValidation';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import { uploadExpenseReceipt, handleExpenseUploadError } from '@/middleware/expenseUpload';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
@@ -103,16 +104,18 @@ router.get('/:id',
 
 // POST /api/expenses - Create new expense
 router.post('/', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_CREATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_CREATE),
   validateRequest(createExpenseSchema), 
   expressAsyncHandler(ExpensesController.createExpense)
 );
 
 // POST /api/expenses/with-receipt - Create new expense with receipt image
 router.post('/with-receipt', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_CREATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_CREATE),
   uploadExpenseReceipt, 
   handleExpenseUploadError, 
   expressAsyncHandler(async (req, res, next) => {
@@ -189,16 +192,18 @@ router.post('/with-receipt',
 
 // PUT /api/expenses/:id - Update expense
 router.put('/:id', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE),
   validateRequest(updateExpenseSchema), 
   expressAsyncHandler(ExpensesController.updateExpense)
 );
 
 // PATCH /api/expenses/:id/approve - Approve expense
 router.patch('/:id/approve', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_APPROVE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_APPROVE),
   validateRequest(approveExpenseSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/approve'
@@ -216,8 +221,9 @@ router.patch('/:id/approve',
 
 // PATCH /api/expenses/:id/reject - Reject expense
 router.patch('/:id/reject', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_REJECT), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_REJECT),
   validateRequest(rejectExpenseSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/reject'
@@ -235,8 +241,9 @@ router.patch('/:id/reject',
 
 // PATCH /api/expenses/:id/pay - Mark expense as paid
 router.patch('/:id/pay', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE),
   validateRequest(payExpenseSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/pay'
@@ -254,8 +261,9 @@ router.patch('/:id/pay',
 
 // POST /api/expenses/:id/receipt - Update expense receipt image
 router.post('/:id/receipt', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE),
   uploadExpenseReceipt, 
   handleExpenseUploadError, 
   expressAsyncHandler(async (req, res, next) => {
@@ -335,9 +343,10 @@ router.post('/:id/receipt',
 }));
 
 // DELETE /api/expenses/:id - Delete expense
-router.delete('/:id', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSES_DELETE), 
+router.delete('/:id',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSES_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/expenses/:id'
     try {

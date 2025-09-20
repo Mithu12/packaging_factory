@@ -5,6 +5,7 @@ import { RoleMediator } from '@/mediators/rbac/RoleMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
 import { requireSystemAdmin } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import Joi from 'joi';
 
 const router = express.Router();
@@ -83,6 +84,7 @@ router.get('/:id',
 // POST /api/roles - Create new role
 router.post('/',
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   validateRequest(createRoleSchema),
   async (req, res) => {
@@ -108,6 +110,7 @@ router.post('/',
 // PUT /api/roles/:id - Update role
 router.put('/:id',
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   validateRequest(updateRoleSchema),
   async (req, res) => {
@@ -134,6 +137,7 @@ router.put('/:id',
 // DELETE /api/roles/:id - Delete role (soft delete)
 router.delete('/:id',
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   async (req, res) => {
     const action = 'DELETE /api/roles/:id';
@@ -245,6 +249,7 @@ router.get('/users/:userId/permissions',
 // POST /api/roles/users/assign-permissions - Assign permissions directly to user
 router.post('/users/assign-permissions',
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   validateRequest(assignPermissionsSchema),
   async (req, res) => {

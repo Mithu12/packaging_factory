@@ -4,6 +4,7 @@ import { MyLogger } from "@/utils/new-logger";
 import Joi from 'joi';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import paymentApprovalRoutes from './paymentApproval.routes';
 import PaymentsController from "@/controllers/payments/payments.controller";
 
@@ -121,6 +122,7 @@ router.get('/invoices/:id',
 // POST /api/payments/invoices - Create new invoice
 router.post('/invoices', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_CREATE),
   validateRequest(createInvoiceSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -139,6 +141,7 @@ router.post('/invoices',
 // PUT /api/payments/invoices/:id - Update invoice
 router.put('/invoices/:id', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_UPDATE),
   validateRequest(updateInvoiceSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -162,6 +165,7 @@ router.put('/invoices/:id',
 // DELETE /api/payments/invoices/:id - Delete invoice
 router.delete('/invoices/:id', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'DELETE /api/payments/invoices/:id'
@@ -249,6 +253,7 @@ router.get('/:id',
 // POST /api/payments - Create new payment
 router.post('/', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_CREATE),
   validateRequest(createPaymentSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -267,6 +272,7 @@ router.post('/',
 // PUT /api/payments/:id - Update payment
 router.put('/:id', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_UPDATE),
   validateRequest(updatePaymentSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -288,8 +294,9 @@ router.put('/:id',
 }));
 
 // DELETE /api/payments/:id - Delete payment
-router.delete('/:id', 
+router.delete('/:id',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PAYMENTS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'DELETE /api/payments/:id'

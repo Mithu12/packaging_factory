@@ -6,6 +6,7 @@ import { validateSettings } from '@/validation/settingsValidation';
 import { MyLogger } from '@/utils/new-logger';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 
 const router = express.Router();
 const settingsMediator = new SettingsMediator();
@@ -75,6 +76,7 @@ router.get('/:category/:key',
 // Create or update a setting
 router.post('/', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SETTINGS_UPDATE),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'Create/Update Setting API'
@@ -103,6 +105,7 @@ router.post('/',
 // Update multiple settings in a category
 router.put('/:category', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SETTINGS_UPDATE),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'Update Settings Category API'
@@ -122,6 +125,7 @@ router.put('/:category',
 // Delete a setting
 router.delete('/:category/:key', 
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'Delete Setting API'
@@ -141,6 +145,7 @@ router.delete('/:category/:key',
 // Initialize default settings
 router.post('/initialize', 
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   expressAsyncHandler(async (req, res, next) => {
   let action = 'Initialize Default Settings API'

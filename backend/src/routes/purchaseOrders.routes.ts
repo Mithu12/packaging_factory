@@ -8,6 +8,7 @@ import {
 } from '@/validation/purchaseOrderValidation';
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import PurchaseOrdersController from "@/controllers/purchaseOrders/purchaseOrders.controller";
@@ -114,7 +115,8 @@ router.get('/:id',
 
 // POST /api/purchase-orders - Create new purchase order
 router.post('/', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_CREATE),
   validateRequest(createPurchaseOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -124,7 +126,8 @@ router.post('/',
 
 // PUT /api/purchase-orders/:id - Update purchase order
 router.put('/:id', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(updatePurchaseOrderSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -139,6 +142,7 @@ router.put('/:id',
 // PATCH /api/purchase-orders/:id/status - Update purchase order status
 router.patch('/:id/status', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(updatePurchaseOrderStatusSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -152,7 +156,8 @@ router.patch('/:id/status',
 
 // POST /api/purchase-orders/:id/receive - Receive goods for purchase order
 router.post('/:id/receive', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(receiveGoodsSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -166,7 +171,8 @@ router.post('/:id/receive',
 
 // DELETE /api/purchase-orders/:id - Delete purchase order
 router.delete('/:id', 
-  authenticate, 
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
@@ -178,8 +184,9 @@ router.delete('/:id',
 }));
 
 // PATCH /api/purchase-orders/:id/cancel - Cancel purchase order
-router.patch('/:id/cancel', 
+router.patch('/:id/cancel',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_CANCEL),
   expressAsyncHandler(async (req, res, next) => {
     const id = parseInt(req.params.id);
