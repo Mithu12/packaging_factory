@@ -7,7 +7,8 @@ import {
     rejectExpenseSchema,
     payExpenseSchema
 } from '@/validation/expenseValidation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import { uploadExpenseReceipt, handleExpenseUploadError } from '@/middleware/expenseUpload';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
@@ -69,7 +70,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/expenses - Get expenses with filtering and pagination
-router.get('/', authenticate, employeeAndAbove, validateQuery(expenseQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_READ), 
+  validateQuery(expenseQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/expenses'
     try {
         MyLogger.info(action, { query: req.query })
@@ -83,16 +88,34 @@ router.get('/', authenticate, employeeAndAbove, validateQuery(expenseQuerySchema
 }));
 
 // GET /api/expenses/stats - Get expense statistics
-router.get('/stats', authenticate, employeeAndAbove, expressAsyncHandler(ExpensesController.getExpenseStats));
+router.get('/stats', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_READ), 
+  expressAsyncHandler(ExpensesController.getExpenseStats)
+);
 
 // GET /api/expenses/:id - Get expense by ID
-router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(ExpensesController.getExpenseById));
+router.get('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_READ), 
+  expressAsyncHandler(ExpensesController.getExpenseById)
+);
 
 // POST /api/expenses - Create new expense
-router.post('/', authenticate, employeeAndAbove, validateRequest(createExpenseSchema), expressAsyncHandler(ExpensesController.createExpense));
+router.post('/', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_CREATE), 
+  validateRequest(createExpenseSchema), 
+  expressAsyncHandler(ExpensesController.createExpense)
+);
 
 // POST /api/expenses/with-receipt - Create new expense with receipt image
-router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
+router.post('/with-receipt', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_CREATE), 
+  uploadExpenseReceipt, 
+  handleExpenseUploadError, 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expenses/with-receipt'
     let uploadedFile: Express.Multer.File | null = null;
     
@@ -165,10 +188,19 @@ router.post('/with-receipt', authenticate, employeeAndAbove, uploadExpenseReceip
 }));
 
 // PUT /api/expenses/:id - Update expense
-router.put('/:id', authenticate, employeeAndAbove, validateRequest(updateExpenseSchema), expressAsyncHandler(ExpensesController.updateExpense));
+router.put('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  validateRequest(updateExpenseSchema), 
+  expressAsyncHandler(ExpensesController.updateExpense)
+);
 
 // PATCH /api/expenses/:id/approve - Approve expense
-router.patch('/:id/approve', authenticate, managerAndAbove, validateRequest(approveExpenseSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/approve', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_APPROVE), 
+  validateRequest(approveExpenseSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/approve'
     try {
         const id = parseInt(req.params.id);
@@ -183,7 +215,11 @@ router.patch('/:id/approve', authenticate, managerAndAbove, validateRequest(appr
 }));
 
 // PATCH /api/expenses/:id/reject - Reject expense
-router.patch('/:id/reject', authenticate, managerAndAbove, validateRequest(rejectExpenseSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/reject', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_REJECT), 
+  validateRequest(rejectExpenseSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/reject'
     try {
         const id = parseInt(req.params.id);
@@ -198,7 +234,11 @@ router.patch('/:id/reject', authenticate, managerAndAbove, validateRequest(rejec
 }));
 
 // PATCH /api/expenses/:id/pay - Mark expense as paid
-router.patch('/:id/pay', authenticate, employeeAndAbove, validateRequest(payExpenseSchema), expressAsyncHandler(async (req, res, next) => {
+router.patch('/:id/pay', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  validateRequest(payExpenseSchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/expenses/:id/pay'
     try {
         const id = parseInt(req.params.id);
@@ -213,7 +253,12 @@ router.patch('/:id/pay', authenticate, employeeAndAbove, validateRequest(payExpe
 }));
 
 // POST /api/expenses/:id/receipt - Update expense receipt image
-router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt, handleExpenseUploadError, expressAsyncHandler(async (req, res, next) => {
+router.post('/:id/receipt', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_UPDATE), 
+  uploadExpenseReceipt, 
+  handleExpenseUploadError, 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expenses/:id/receipt'
     let uploadedFile: Express.Multer.File | null = null;
     
@@ -290,7 +335,10 @@ router.post('/:id/receipt', authenticate, employeeAndAbove, uploadExpenseReceipt
 }));
 
 // DELETE /api/expenses/:id - Delete expense
-router.delete('/:id', authenticate, adminOnly, expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_DELETE), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/expenses/:id'
     try {
         const id = parseInt(req.params.id);

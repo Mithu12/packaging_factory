@@ -2,7 +2,8 @@ import express from 'express';
 import expressAsyncHandler from 'express-async-handler';
 import { validateCreateOrigin, validateUpdateOrigin } from '@/validation/originValidation';
 import { validateRequest } from '@/middleware/validation';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import OriginsController from '@/controllers/origins/origins.controller';
 import {MyLogger} from "@/utils/new-logger";
 import {OriginMediator} from "@/mediators/origins/OriginMediator";
@@ -13,41 +14,39 @@ const router = express.Router();
 // Get all origins
 router.get('/',
   authenticate,
-  employeeAndAbove, // Employees and above can view origins
+  requirePermission(PERMISSIONS.ORIGINS_READ),
   expressAsyncHandler(OriginsController.getAllOrigins)
 );
 
-
 // Get origin statistics
 router.get('/stats',
-    authenticate,
-    managerAndAbove, // Only managers and above can view origin statistics
-    expressAsyncHandler(async (req, res, next) => {
-        let action = 'GET /api/origins/stats';
-        try {
-            MyLogger.info(action);
-            const stats = await OriginMediator.getOriginStats();
-            MyLogger.success(action, { stats });
-            serializeSuccessResponse(res, stats, 'SUCCESS');
-        } catch (error: any) {
-            MyLogger.error(action, error);
-            throw error;
-        }
-    })
+  authenticate,
+  requirePermission(PERMISSIONS.ORIGINS_READ),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/origins/stats';
+    try {
+        MyLogger.info(action);
+        const stats = await OriginMediator.getOriginStats();
+        MyLogger.success(action, { stats });
+        serializeSuccessResponse(res, stats, 'SUCCESS');
+    } catch (error: any) {
+        MyLogger.error(action, error);
+        throw error;
+    }
+  })
 );
-
 
 // Get origin by ID
 router.get('/:id',
   authenticate,
-  employeeAndAbove, // Employees and above can view origin details
+  requirePermission(PERMISSIONS.ORIGINS_READ),
   expressAsyncHandler(OriginsController.getOriginById)
 );
 
 // Create new origin
 router.post('/',
   authenticate,
-  managerAndAbove,
+  requirePermission(PERMISSIONS.ORIGINS_CREATE),
   validateRequest(validateCreateOrigin),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/origins';
@@ -70,7 +69,7 @@ router.post('/',
 // Update origin
 router.put('/:id',
   authenticate,
-  managerAndAbove,
+  requirePermission(PERMISSIONS.ORIGINS_UPDATE),
   validateRequest(validateUpdateOrigin),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/origins/:id';
@@ -98,7 +97,7 @@ router.put('/:id',
 // Delete origin (soft delete)
 router.delete('/:id',
   authenticate,
-  adminOnly, // Only admins can delete origins
+  requirePermission(PERMISSIONS.ORIGINS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/origins/:id';
     try {
@@ -125,7 +124,7 @@ router.delete('/:id',
 // Get origins by status
 router.get('/status/:status',
   authenticate,
-  employeeAndAbove, // Employees and above can view origins by status
+  requirePermission(PERMISSIONS.ORIGINS_READ),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/origins/status/:status';
     try {

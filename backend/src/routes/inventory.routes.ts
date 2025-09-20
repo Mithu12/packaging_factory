@@ -2,6 +2,8 @@ import express, {NextFunction, Request, Response} from 'express';
 import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
 import Joi from 'joi';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
 import InventoryController from "@/controllers/inventory/inventory.controller";
 
 const router = express.Router();
@@ -58,15 +60,33 @@ const validateQuery = (schema: Joi.ObjectSchema) => {
 };
 
 // GET /api/inventory - Get inventory items with filtering and pagination
-router.get('/', validateQuery(inventoryQuerySchema), expressAsyncHandler(InventoryController.getInventoryItems));
+router.get('/', 
+  authenticate,
+  requirePermission(PERMISSIONS.INVENTORY_TRACK),
+  validateQuery(inventoryQuerySchema), 
+  expressAsyncHandler(InventoryController.getInventoryItems)
+);
 
 // GET /api/inventory/stats - Get inventory statistics
-router.get('/stats', expressAsyncHandler(InventoryController.getInventoryStats));
+router.get('/stats', 
+  authenticate,
+  requirePermission(PERMISSIONS.INVENTORY_TRACK),
+  expressAsyncHandler(InventoryController.getInventoryStats)
+);
 
 // GET /api/inventory/movements - Get stock movements with filtering
-router.get('/movements', validateQuery(stockMovementQuerySchema), expressAsyncHandler(InventoryController.getStockMovements));
+router.get('/movements', 
+  authenticate,
+  requirePermission(PERMISSIONS.INVENTORY_TRACK),
+  validateQuery(stockMovementQuerySchema), 
+  expressAsyncHandler(InventoryController.getStockMovements)
+);
 
 // GET /api/inventory/:id - Get specific inventory item
-router.get('/:id', expressAsyncHandler(InventoryController.getInventoryItemById));
+router.get('/:id', 
+  authenticate,
+  requirePermission(PERMISSIONS.INVENTORY_TRACK),
+  expressAsyncHandler(InventoryController.getInventoryItemById)
+);
 
 export default router;

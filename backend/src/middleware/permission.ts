@@ -235,6 +235,20 @@ export const PERMISSIONS = {
   PAYMENTS_APPROVE: createPermissionCheck('Finance', 'approve', 'payments'),
   VOUCHERS_CREATE: createPermissionCheck('Finance', 'create', 'vouchers'),
   VOUCHERS_APPROVE: createPermissionCheck('Finance', 'approve', 'vouchers'),
+  
+  // Expenses
+  EXPENSES_CREATE: createPermissionCheck('Finance', 'create', 'expenses'),
+  EXPENSES_READ: createPermissionCheck('Finance', 'read', 'expenses'),
+  EXPENSES_UPDATE: createPermissionCheck('Finance', 'update', 'expenses'),
+  EXPENSES_DELETE: createPermissionCheck('Finance', 'delete', 'expenses'),
+  EXPENSES_APPROVE: createPermissionCheck('Finance', 'approve', 'expenses'),
+  EXPENSES_REJECT: createPermissionCheck('Finance', 'reject', 'expenses'),
+  
+  // Expense Categories
+  EXPENSE_CATEGORIES_CREATE: createPermissionCheck('Finance', 'create', 'expense_categories'),
+  EXPENSE_CATEGORIES_READ: createPermissionCheck('Finance', 'read', 'expense_categories'),
+  EXPENSE_CATEGORIES_UPDATE: createPermissionCheck('Finance', 'update', 'expense_categories'),
+  EXPENSE_CATEGORIES_DELETE: createPermissionCheck('Finance', 'delete', 'expense_categories'),
 
   // Sales
   SALES_ORDERS_CREATE: createPermissionCheck('Sales', 'create', 'sales_orders'),
@@ -271,6 +285,12 @@ export const PERMISSIONS = {
   CATEGORIES_READ: createPermissionCheck('Inventory', 'read', 'categories'),
   CATEGORIES_UPDATE: createPermissionCheck('Inventory', 'update', 'categories'),
   CATEGORIES_DELETE: createPermissionCheck('Inventory', 'delete', 'categories'),
+  
+  // Origins
+  ORIGINS_CREATE: createPermissionCheck('Inventory', 'create', 'origins'),
+  ORIGINS_READ: createPermissionCheck('Inventory', 'read', 'origins'),
+  ORIGINS_UPDATE: createPermissionCheck('Inventory', 'update', 'origins'),
+  ORIGINS_DELETE: createPermissionCheck('Inventory', 'delete', 'origins'),
 
   // Reports & Dashboard
   DASHBOARD_EXECUTIVE: createPermissionCheck('Dashboard', 'read', 'executive_dashboard'),

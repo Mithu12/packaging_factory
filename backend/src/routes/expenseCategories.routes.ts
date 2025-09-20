@@ -6,7 +6,8 @@ import {
 } from '@/validation/expenseValidation';
 import ExpenseCategoryMediator from '@/mediators/expenses/ExpenseCategoryMediator';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
-import { authenticate, employeeAndAbove, managerAndAbove, adminOnly } from '@/middleware/auth';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
 
@@ -64,7 +65,11 @@ const validateQuery = (schema: any) => {
 };
 
 // GET /api/expense-categories - Get expense categories with filtering and pagination
-router.get('/', authenticate, employeeAndAbove, validateQuery(expenseCategoryQuerySchema), expressAsyncHandler(async (req, res, next) => {
+router.get('/', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_READ), 
+  validateQuery(expenseCategoryQuerySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/expense-categories'
     try {
         MyLogger.info(action, { query: req.query })
@@ -78,7 +83,10 @@ router.get('/', authenticate, employeeAndAbove, validateQuery(expenseCategoryQue
 }));
 
 // GET /api/expense-categories/active - Get active expense categories (for dropdowns)
-router.get('/active', authenticate, employeeAndAbove, expressAsyncHandler(async (req, res, next) => {
+router.get('/active', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_READ), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/expense-categories/active'
     try {
         MyLogger.info(action)
@@ -92,7 +100,10 @@ router.get('/active', authenticate, employeeAndAbove, expressAsyncHandler(async 
 }));
 
 // GET /api/expense-categories/:id - Get expense category by ID
-router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(async (req, res, next) => {
+router.get('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_READ), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'GET /api/expense-categories/:id'
     try {
         const id = parseInt(req.params.id);
@@ -107,7 +118,11 @@ router.get('/:id', authenticate, employeeAndAbove, expressAsyncHandler(async (re
 }));
 
 // POST /api/expense-categories - Create new expense category
-router.post('/', authenticate, managerAndAbove, validateRequest(createExpenseCategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.post('/', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_CREATE), 
+  validateRequest(createExpenseCategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expense-categories'
     try {
         MyLogger.info(action, { name: req.body.name })
@@ -121,7 +136,11 @@ router.post('/', authenticate, managerAndAbove, validateRequest(createExpenseCat
 }));
 
 // PUT /api/expense-categories/:id - Update expense category
-router.put('/:id', authenticate, managerAndAbove, validateRequest(updateExpenseCategorySchema), expressAsyncHandler(async (req, res, next) => {
+router.put('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_UPDATE), 
+  validateRequest(updateExpenseCategorySchema), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/expense-categories/:id'
     try {
         const id = parseInt(req.params.id);
@@ -136,7 +155,10 @@ router.put('/:id', authenticate, managerAndAbove, validateRequest(updateExpenseC
 }));
 
 // DELETE /api/expense-categories/:id - Delete expense category
-router.delete('/:id', authenticate, adminOnly, expressAsyncHandler(async (req, res, next) => {
+router.delete('/:id', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_DELETE), 
+  expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/expense-categories/:id'
     try {
         const id = parseInt(req.params.id);
