@@ -1,33 +1,33 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
-import cookieParser from 'cookie-parser';
-import path from 'path';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import path from "path";
 
 // Import routes
-import authRoutes from './routes/auth.routes';
-import supplierRoutes from './routes/suppliers.routes';
-import supplierCategoryRoutes from './routes/supplierCategories.routes';
-import categoryRoutes from './routes/categories.routes';
-import brandRoutes from './routes/brands.routes';
-import originRoutes from './routes/origins.routes';
-import productRoutes from './routes/products.routes';
-import stockAdjustmentRoutes from './routes/stockAdjustments.routes';
-import purchaseOrderRoutes from './routes/purchaseOrders.routes';
-import inventoryRoutes from './routes/inventory.routes';
-import paymentRoutes from './routes/payments.routes';
-import settingsRoutes from './routes/settings.routes';
-import customerRoutes from './routes/customers.routes';
-import salesOrderRoutes from './routes/salesOrders.routes';
-import expenseRoutes from './routes/expenses.routes';
-import expenseCategoryRoutes from './routes/expenseCategories.routes';
-import roleRoutes from './routes/roles.routes';
-import { errorHandler } from './middleware/errorHandler';
-import {MyLogger} from './utils/new-logger';
-import { createDefaultAdminUser } from './database/migrate';
+import authRoutes from "./routes/auth.routes";
+import supplierRoutes from "./routes/suppliers.routes";
+import supplierCategoryRoutes from "./routes/supplierCategories.routes";
+import categoryRoutes from "./routes/categories.routes";
+import brandRoutes from "./routes/brands.routes";
+import originRoutes from "./routes/origins.routes";
+import productRoutes from "./routes/products.routes";
+import stockAdjustmentRoutes from "./routes/stockAdjustments.routes";
+import purchaseOrderRoutes from "./routes/purchaseOrders.routes";
+import inventoryRoutes from "./routes/inventory.routes";
+import paymentRoutes from "./routes/payments.routes";
+import settingsRoutes from "./routes/settings.routes";
+import customerRoutes from "./routes/customers.routes";
+import salesOrderRoutes from "./routes/salesOrders.routes";
+import expenseRoutes from "./routes/expenses.routes";
+import expenseCategoryRoutes from "./routes/expenseCategories.routes";
+import roleRoutes from "./routes/roles.routes";
+import { errorHandler } from "./middleware/errorHandler";
+import { MyLogger } from "./utils/new-logger";
+import { createDefaultAdminUser } from "./database/migrate";
 
 // Load environment variables
 dotenv.config();
@@ -41,99 +41,101 @@ const PORT = process.env.PORT || 3001;
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  max: 500, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
 });
 app.use(limiter);
 
 // CORS configuration
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
+const allowedOrigins = process.env.CORS_ORIGIN?.split(",") || [];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie']
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log("CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+    exposedHeaders: ["Set-Cookie"],
+  })
+);
 
 // Logging
-app.use(morgan('combined'));
+app.use(morgan("combined"));
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Cookie parsing middleware
 app.use(cookieParser());
 
 // Static file serving for uploaded images
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  let action = 'Health Check'
+app.get("/health", (req, res) => {
+  let action = "Health Check";
   try {
-    MyLogger.info(action, { ip: req.ip, userAgent: req.get('User-Agent') })
-    const healthData = { 
-      status: 'OK', 
+    MyLogger.info(action, { ip: req.ip, userAgent: req.get("User-Agent") });
+    const healthData = {
+      status: "OK",
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
     };
-    MyLogger.success(action, healthData)
+    MyLogger.success(action, healthData);
     res.status(200).json(healthData);
   } catch (error: any) {
-    MyLogger.error(action, error, { ip: req.ip })
-    res.status(500).json({ status: 'ERROR', message: 'Health check failed' });
+    MyLogger.error(action, error, { ip: req.ip });
+    res.status(500).json({ status: "ERROR", message: "Health check failed" });
   }
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/supplier-categories', supplierCategoryRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/brands', brandRoutes);
-app.use('/api/origins', originRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/stock-adjustments', stockAdjustmentRoutes);
-app.use('/api/purchase-orders', purchaseOrderRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/sales-orders', salesOrderRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/expense-categories', expenseCategoryRoutes);
-app.use('/api/roles', roleRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/suppliers", supplierRoutes);
+app.use("/api/supplier-categories", supplierCategoryRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/brands", brandRoutes);
+app.use("/api/origins", originRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/stock-adjustments", stockAdjustmentRoutes);
+app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/sales-orders", salesOrderRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/expense-categories", expenseCategoryRoutes);
+app.use("/api/roles", roleRoutes);
 
 // 404 handler
-app.use('*', (req, res) => {
-  let action = '404 Route Not Found'
+app.use("*", (req, res) => {
+  let action = "404 Route Not Found";
   try {
-    MyLogger.warn(action, { 
-      path: req.originalUrl, 
-      method: req.method, 
+    MyLogger.warn(action, {
+      path: req.originalUrl,
+      method: req.method,
       ip: req.ip,
-      userAgent: req.get('User-Agent')
+      userAgent: req.get("User-Agent"),
     });
-    res.status(404).json({ 
-      error: 'Route not found',
-      path: req.originalUrl 
+    res.status(404).json({
+      error: "Route not found",
+      path: req.originalUrl,
     });
   } catch (error: any) {
-    MyLogger.error(action, error, { path: req.originalUrl })
-    res.status(500).json({ error: 'Internal server error' });
+    MyLogger.error(action, error, { path: req.originalUrl });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -142,28 +144,28 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, async () => {
-  let action = 'Server Startup'
+  let action = "Server Startup";
   try {
     const serverInfo = {
       port: PORT,
       healthCheckUrl: `http://localhost:${PORT}/health`,
       apiBaseUrl: `http://localhost:${PORT}/api`,
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || "development",
     };
     MyLogger.success(action, serverInfo);
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-    
+
     // Create default admin user
     try {
       await createDefaultAdminUser();
     } catch (error) {
-      console.warn('⚠️  Could not create default admin user:', error);
-    } 
+      console.warn("⚠️  Could not create default admin user:", error);
+    }
   } catch (error: any) {
     MyLogger.error(action, error, { port: PORT });
-    console.error('Failed to start server:', error);
+    console.error("Failed to start server:", error);
   }
 });
 

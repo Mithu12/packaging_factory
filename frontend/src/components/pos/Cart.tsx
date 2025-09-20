@@ -61,11 +61,12 @@ interface CartItem {
   total: number;
   stock: number;
   discount?: number;
-  discountType?: 'percentage' | 'fixed';
+  discountType?: "percentage" | "fixed";
   isGift: boolean;
 }
 
 import { Customer } from "@/services/types";
+import { useFormatting } from "@/hooks/useFormatting";
 
 interface CartProps {
   cart: CartItem[];
@@ -75,7 +76,7 @@ interface CartProps {
   cashAmount: string;
   partialPaymentAmount?: string;
   overallDiscount: string;
-  overallDiscountType: 'percentage' | 'flat';
+  overallDiscountType: "percentage" | "flat";
   overallTax: string;
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveFromCart: (id: string) => void;
@@ -84,11 +85,18 @@ interface CartProps {
   onPaymentMethodChange: (method: string) => void;
   onCashAmountChange: (amount: string) => void;
   onPartialPaymentAmountChange?: (amount: string) => void;
-  onOverallDiscountChange: (discount: string, discountType: 'percentage' | 'flat') => void;
+  onOverallDiscountChange: (
+    discount: string,
+    discountType: "percentage" | "flat"
+  ) => void;
   onOverallTaxChange: (tax: string) => void;
   onProcessPayment: () => void;
   onAddCustomer: (customer: any) => Promise<Customer>;
-  onUpdateItemDiscount?: (id: string, discount: number, discountType: 'percentage' | 'fixed') => void;
+  onUpdateItemDiscount?: (
+    id: string,
+    discount: number,
+    discountType: "percentage" | "fixed"
+  ) => void;
   loading?: boolean;
 }
 
@@ -134,19 +142,19 @@ export function Cart({
   const subtotal = cart.reduce((sum, item) => {
     const itemSubtotal = item.price * item.quantity;
     let itemDiscount = 0;
-    
+
     if (item.discount && item.discount > 0) {
-      if (item.discountType === 'percentage') {
+      if (item.discountType === "percentage") {
         itemDiscount = (itemSubtotal * item.discount) / 100;
       } else {
         itemDiscount = item.discount;
       }
     }
-    
+
     return sum + (itemSubtotal - itemDiscount);
   }, 0);
   const discountAmount = overallDiscount
-    ? overallDiscountType === 'percentage'
+    ? overallDiscountType === "percentage"
       ? (subtotal * parseFloat(overallDiscount)) / 100
       : parseFloat(overallDiscount)
     : 0;
@@ -170,6 +178,7 @@ export function Cart({
   const [discountValue, setDiscountValue] = useState("");
   const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
   const [taxPercentage, setTaxPercentage] = useState("");
+  const { formatCurrency, formatDate } = useFormatting();
 
   const handleAddCustomer = async () => {
     if (!formData.name || !formData.phone) {
@@ -188,7 +197,7 @@ export function Cart({
         email: formData.email || undefined,
         customer_type: "regular",
       });
-      
+
       setFormData({ name: "", phone: "", email: "", address: "" });
       setIsAddDialogOpen(false);
       setValue(newCustomer.name);
@@ -398,15 +407,21 @@ export function Cart({
                       <td className="p-2">
                         <div>
                           <div className="font-medium text-sm flex items-center gap-2">
-                            {item.isGift && '🎁 '}{item.name}
+                            {item.isGift && "🎁 "}
+                            {item.name}
                             {item.isGift && (
-                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+                              <Badge
+                                variant="secondary"
+                                className="bg-yellow-100 text-yellow-800 text-xs"
+                              >
                                 GIFT
                               </Badge>
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {item.isGift ? "Free Gift Item" : `Stock: ${item.stock || 100}`}
+                            {item.isGift
+                              ? "Free Gift Item"
+                              : `Stock: ${item.stock || 100}`}
                           </div>
                         </div>
                       </td>
@@ -440,10 +455,10 @@ export function Cart({
                       <td className="p-2 text-sm">
                         {item.isGift ? (
                           <span className="text-muted-foreground line-through">
-                            {Number(item.price).toFixed(2)}
+                            {Number(item.price)}
                           </span>
                         ) : (
-                          Number(item.price).toFixed(2)
+                          Number(item.price)
                         )}
                       </td>
                       <td className="p-2">
@@ -455,7 +470,9 @@ export function Cart({
                               value="100"
                               readOnly
                             />
-                            <span className="text-xs text-yellow-600">% GIFT</span>
+                            <span className="text-xs text-yellow-600">
+                              % GIFT
+                            </span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
@@ -464,16 +481,25 @@ export function Cart({
                               type="number"
                               value={item.discount || 0}
                               onChange={(e) => {
-                                const discount = parseFloat(e.target.value) || 0;
-                                onUpdateItemDiscount?.(item.id, discount, item.discountType || 'percentage');
+                                const discount =
+                                  parseFloat(e.target.value) || 0;
+                                onUpdateItemDiscount?.(
+                                  item.id,
+                                  discount,
+                                  item.discountType || "percentage"
+                                );
                               }}
                               min="0"
                               step="0.01"
                             />
-                            <Select 
-                              value={item.discountType || 'percentage'}
+                            <Select
+                              value={item.discountType || "percentage"}
                               onValueChange={(value) => {
-                                onUpdateItemDiscount?.(item.id, item.discount || 0, value as 'percentage' | 'fixed');
+                                onUpdateItemDiscount?.(
+                                  item.id,
+                                  item.discount || 0,
+                                  value as "percentage" | "fixed"
+                                );
                               }}
                             >
                               <SelectTrigger className="w-15 h-6 text-xs">
@@ -489,21 +515,24 @@ export function Cart({
                       </td>
                       <td className="p-2 font-medium text-sm">
                         {item.isGift ? (
-                          <span className="text-green-600 font-semibold">FREE</span>
+                          <span className="text-green-600 font-semibold">
+                            FREE
+                          </span>
                         ) : (
                           (() => {
                             const itemSubtotal = item.price * item.quantity;
                             let itemDiscount = 0;
-                            
+
                             if (item.discount && item.discount > 0) {
-                              if (item.discountType === 'percentage') {
-                                itemDiscount = (itemSubtotal * item.discount) / 100;
+                              if (item.discountType === "percentage") {
+                                itemDiscount =
+                                  (itemSubtotal * item.discount) / 100;
                               } else {
                                 itemDiscount = item.discount;
                               }
                             }
-                            
-                            return Number(itemSubtotal - itemDiscount).toFixed(2);
+
+                            return Number(itemSubtotal - itemDiscount);
                           })()
                         )}
                       </td>
@@ -545,7 +574,8 @@ export function Cart({
                       <SquarePen />
                     </span>
                     <span className="ml-auto font-medium">
-                      {overallDiscount || "0.00"}{overallDiscountType === 'percentage' ? '%' : ''}
+                      {overallDiscount || "0.00"}
+                      {overallDiscountType === "percentage" ? "%" : ""}
                     </span>
                   </div>
                 </Button>
@@ -594,7 +624,10 @@ export function Cart({
                   </Button>
                   <Button
                     onClick={() => {
-                      onOverallDiscountChange(discountValue, discountType.toLowerCase() as 'percentage' | 'flat');
+                      onOverallDiscountChange(
+                        discountValue,
+                        discountType.toLowerCase() as "percentage" | "flat"
+                      );
                       setIsDiscountDialogOpen(false);
                     }}
                   >
@@ -668,24 +701,27 @@ export function Cart({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Subtotal:</span>
-            <span>${Number(subtotal).toFixed(2)}</span>
+            <span>{formatCurrency(subtotal)}</span>
           </div>
           {overallDiscount && parseFloat(overallDiscount) > 0 && (
             <div className="flex justify-between text-sm text-green-600">
-              <span>Discount ({overallDiscount}{overallDiscountType === 'percentage' ? '%' : ''}):</span>
-              <span>-${Number(discountAmount).toFixed(2)}</span>
+              <span>
+                Discount ({overallDiscount}
+                {overallDiscountType === "percentage" ? "%" : ""}):
+              </span>
+              <span>-{formatCurrency(discountAmount)}</span>
             </div>
           )}
           {overallTax && parseFloat(overallTax) > 0 && (
             <div className="flex justify-between text-sm">
               <span>Tax ({overallTax}%):</span>
-              <span>${Number(tax).toFixed(2)}</span>
+              <span>{formatCurrency(tax)}</span>
             </div>
           )}
           <Separator />
           <div className="flex justify-between font-bold text-lg">
             <span>Total:</span>
-            <span>${Number(total).toFixed(2)}</span>
+            <span>{formatCurrency(total)}</span>
           </div>
         </div>
 
@@ -713,7 +749,10 @@ export function Cart({
               variant={paymentMethod === "credit" ? "default" : "outline"}
               onClick={() => onPaymentMethodChange("credit")}
               className="flex items-center gap-2"
-              disabled={!selectedCustomer || selectedCustomer.customer_type === 'walk_in'}
+              disabled={
+                !selectedCustomer ||
+                selectedCustomer.customer_type === "walk_in"
+              }
             >
               <User className="w-4 h-4" />
               Credit
@@ -722,7 +761,10 @@ export function Cart({
               variant={paymentMethod === "partial" ? "default" : "outline"}
               onClick={() => onPaymentMethodChange("partial")}
               className="flex items-center gap-2"
-              disabled={!selectedCustomer || selectedCustomer.customer_type === 'walk_in'}
+              disabled={
+                !selectedCustomer ||
+                selectedCustomer.customer_type === "walk_in"
+              }
             >
               <Receipt className="w-4 h-4" />
               Partial
@@ -743,7 +785,8 @@ export function Cart({
               />
               {cashAmount && parseFloat(cashAmount) > total && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Change: ${Number(parseFloat(cashAmount) - Number(total)).toFixed(2)}
+                  Change:
+                  {formatCurrency(parseFloat(cashAmount) - Number(total))}
                 </p>
               )}
             </div>
@@ -753,34 +796,55 @@ export function Cart({
             <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
               <div className="flex justify-between text-sm">
                 <span>Current Due:</span>
-                <span className="font-medium">${Number(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+                <span className="font-medium">
+                  {formatCurrency(selectedCustomer.due_amount || 0)}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Credit Limit:</span>
-                <span className="font-medium">${Number(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+                <span className="font-medium">
+                  {formatCurrency(selectedCustomer.credit_limit || 0)(2)}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Available Credit:</span>
-                <span className="font-medium">${Math.max(0, (selectedCustomer.credit_limit || 0) - (selectedCustomer.due_amount || 0)).toFixed(2)}</span>
+                <span className="font-medium">
+                  {formatCurrency(
+                    Math.max(
+                      0,
+                      (selectedCustomer.credit_limit || 0) -
+                        (selectedCustomer.due_amount || 0)
+                    )
+                  )}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Order Total:</span>
-                <span className="font-medium">${total.toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(total)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-sm font-semibold">
                 <span>New Total Due:</span>
-                <span className={`${
-                  ((selectedCustomer.due_amount || 0) + total) > (selectedCustomer.credit_limit || 0) 
-                    ? 'text-red-600' 
-                    : 'text-blue-600'
-                }`}>
-                  ${((selectedCustomer.due_amount || 0) + total).toFixed(2)}
+                <span
+                  className={`${
+                    (selectedCustomer.due_amount || 0) + total >
+                    (selectedCustomer.credit_limit || 0)
+                      ? "text-red-600"
+                      : "text-blue-600"
+                  }`}
+                >
+                  {formatCurrency((selectedCustomer.due_amount || 0) + total)}
                 </span>
               </div>
-              {((selectedCustomer.due_amount || 0) + total) > (selectedCustomer.credit_limit || 0) && (
+              {(selectedCustomer.due_amount || 0) + total >
+                (selectedCustomer.credit_limit || 0) && (
                 <div className="text-xs text-red-600 mt-2">
-                  ⚠️ This order will exceed the credit limit by ${(((selectedCustomer.due_amount || 0) + total) - (selectedCustomer.credit_limit || 0)).toFixed(2)}
+                  ⚠️ This order will exceed the credit limit by
+                  {formatCurrency(
+                    (selectedCustomer.due_amount || 0) +
+                      total -
+                      (selectedCustomer.credit_limit || 0)
+                  )}
                 </div>
               )}
             </div>
@@ -791,18 +855,22 @@ export function Cart({
               <div className="p-3 bg-yellow-50 rounded-lg">
                 <div className="flex justify-between text-sm">
                   <span>Order Total:</span>
-                  <span className="font-medium">${total.toFixed(2)}</span>
+                  <span className="font-medium">{formatCurrency(total)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Current Due:</span>
-                  <span className="font-medium">${Number(selectedCustomer.due_amount || 0).toFixed(2)}</span>
+                  <span className="font-medium">
+                    {formatCurrency(selectedCustomer.due_amount || 0)(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Credit Limit:</span>
-                  <span className="font-medium">${Number(selectedCustomer.credit_limit || 0).toFixed(2)}</span>
+                  <span className="font-medium">
+                    {formatCurrency(selectedCustomer.credit_limit || 0)(2)}
+                  </span>
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="partial-amount">Payment Amount</Label>
                 <Input
@@ -812,29 +880,39 @@ export function Cart({
                   min="0"
                   max={total}
                   value={partialPaymentAmount || ""}
-                  onChange={(e) => onPartialPaymentAmountChange?.(e.target.value)}
+                  onChange={(e) =>
+                    onPartialPaymentAmountChange?.(e.target.value)
+                  }
                   placeholder="Enter payment amount"
                 />
-                {partialPaymentAmount && parseFloat(partialPaymentAmount) > 0 && (
-                  <div className="mt-2 p-2 bg-green-50 rounded text-sm">
-                    <div className="flex justify-between">
-                      <span>Payment:</span>
-                      <span className="font-medium">${parseFloat(partialPaymentAmount).toFixed(2)}</span>
+                {partialPaymentAmount &&
+                  parseFloat(partialPaymentAmount) > 0 && (
+                    <div className="mt-2 p-2 bg-green-50 rounded text-sm">
+                      <div className="flex justify-between">
+                        <span>Payment:</span>
+                        <span className="font-medium">
+                          {formatCurrency(partialPaymentAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Remaining Due:</span>
+                        <span className="font-medium">
+                          {formatCurrency(
+                            total - parseFloat(partialPaymentAmount)
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>New Customer Due:</span>
+                        <span className="font-medium">
+                          {formatCurrency(
+                            Number(selectedCustomer.due_amount || 0) +
+                              Number(total - parseFloat(partialPaymentAmount))
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Remaining Due:</span>
-                      <span className="font-medium">
-                        ${(total - parseFloat(partialPaymentAmount)).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>New Customer Due:</span>
-                      <span className="font-medium">
-                        ${(Number(selectedCustomer.due_amount || 0) + Number(total - parseFloat(partialPaymentAmount))).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           )}
@@ -846,14 +924,15 @@ export function Cart({
             size="lg"
           >
             <Receipt className="w-4 h-4 mr-2" />
-            {loading 
-              ? "Processing..." 
-              : paymentMethod === "credit" 
-                ? `Add to Credit ($${Number(total).toFixed(2)})` 
-                : paymentMethod === "partial"
-                  ? `Partial Payment ($${parseFloat(partialPaymentAmount || "0").toFixed(2)})`
-                  : `Process Payment ($${Number(total).toFixed(2)})`
-            }
+            {loading
+              ? "Processing..."
+              : paymentMethod === "credit"
+              ? `Add to Credit (${formatCurrency(total)})`
+              : paymentMethod === "partial"
+              ? `Partial Payment (${formatCurrency(
+                  partialPaymentAmount || "0"
+                )})`
+              : `Process Payment (${formatCurrency(total)})`}
           </Button>
         </div>
       </CardContent>

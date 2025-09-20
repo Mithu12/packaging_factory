@@ -1,31 +1,66 @@
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/hooks/use-toast"
-import { Users, Search, Plus, Edit, Eye, Phone, Mail, MapPin, Star, DollarSign, CreditCard } from "lucide-react"
-import { CustomerApi } from "@/services/api"
-import { Customer } from "@/services/types"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
+import {
+  Users,
+  Search,
+  Plus,
+  Edit,
+  Eye,
+  Phone,
+  Mail,
+  MapPin,
+  Star,
+  DollarSign,
+  CreditCard,
+} from "lucide-react";
+import { CustomerApi } from "@/services/api";
+import { Customer } from "@/services/types";
+import { useFormatting } from "@/hooks/useFormatting";
 
 export function CustomerManagement() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
-  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null)
-  const [paymentAmount, setPaymentAmount] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("cash")
-  const [loading, setLoading] = useState(false)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -35,10 +70,15 @@ export function CustomerManagement() {
     state: "",
     zip_code: "",
     country: "",
-    customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
+    customer_type: "regular" as
+      | "regular"
+      | "vip"
+      | "wholesale"
+      | "retail"
+      | "walk_in",
     credit_limit: "",
-    notes: ""
-  })
+    notes: "",
+  });
   const [editFormData, setEditFormData] = useState({
     name: "",
     phone: "",
@@ -48,51 +88,58 @@ export function CustomerManagement() {
     state: "",
     zip_code: "",
     country: "",
-    customer_type: "regular" as "regular" | "vip" | "wholesale" | "retail" | "walk_in" ,
+    customer_type: "regular" as
+      | "regular"
+      | "vip"
+      | "wholesale"
+      | "retail"
+      | "walk_in",
     credit_limit: "",
-    notes: ""
-  })
+    notes: "",
+  });
+  const { formatCurrency } = useFormatting();
 
   // Load customers on component mount
   useEffect(() => {
-    loadCustomers()
-  }, [])
+    loadCustomers();
+  }, []);
 
   const loadCustomers = async () => {
     try {
-      setLoading(true)
-      const response = await CustomerApi.getCustomers({ page: 1, limit: 100 })
-      setCustomers(response.customers || [])
+      setLoading(true);
+      const response = await CustomerApi.getCustomers({ page: 1, limit: 100 });
+      setCustomers(response.customers || []);
     } catch (error) {
-      console.error("Error loading customers:", error)
+      console.error("Error loading customers:", error);
       toast({
         title: "Error",
         description: "Failed to load customers",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.phone.includes(searchQuery) ||
-    customer.email.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredCustomers = customers.filter(
+    (customer) =>
+      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      customer.phone.includes(searchQuery) ||
+      customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleAddCustomer = async () => {
     if (!formData.name || !formData.phone) {
       toast({
         title: "Missing Fields",
         description: "Name and phone are required",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
-      setLoading(true)
+      setLoading(true);
       const newCustomer = await CustomerApi.createCustomer({
         name: formData.name,
         phone: formData.phone,
@@ -103,15 +150,17 @@ export function CustomerManagement() {
         zip_code: formData.zip_code || undefined,
         country: formData.country || undefined,
         customer_type: formData.customer_type,
-        credit_limit: formData.credit_limit ? parseFloat(formData.credit_limit) : undefined,
-        notes: formData.notes || undefined
-      })
+        credit_limit: formData.credit_limit
+          ? parseFloat(formData.credit_limit)
+          : undefined,
+        notes: formData.notes || undefined,
+      });
 
-      setCustomers(prev => [...prev, newCustomer])
-      setFormData({ 
-        name: "", 
-        phone: "", 
-        email: "", 
+      setCustomers((prev) => [...prev, newCustomer]);
+      setFormData({
+        name: "",
+        phone: "",
+        email: "",
         address: "",
         city: "",
         state: "",
@@ -119,29 +168,29 @@ export function CustomerManagement() {
         country: "",
         customer_type: "regular",
         credit_limit: "",
-        notes: ""
-      })
-      setIsAddDialogOpen(false)
-      toast({ title: "Customer added successfully" })
+        notes: "",
+      });
+      setIsAddDialogOpen(false);
+      toast({ title: "Customer added successfully" });
     } catch (error) {
-      console.error("Error adding customer:", error)
+      console.error("Error adding customer:", error);
       toast({
         title: "Error",
         description: "Failed to add customer",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleViewCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer)
-    setIsViewDialogOpen(true)
-  }
+    setSelectedCustomer(customer);
+    setIsViewDialogOpen(true);
+  };
 
   const handleEditCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer)
+    setSelectedCustomer(customer);
     setEditFormData({
       name: customer.name || "",
       phone: customer.phone || "",
@@ -153,115 +202,125 @@ export function CustomerManagement() {
       country: customer.country || "",
       customer_type: customer.customer_type || "regular",
       credit_limit: (customer.credit_limit || 0).toString(),
-      notes: customer.notes || ""
-    })
-    setIsEditDialogOpen(true)
-  }
+      notes: customer.notes || "",
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const handleUpdateCustomer = async () => {
     if (!selectedCustomer || !editFormData.name || !editFormData.phone) {
       toast({
         title: "Missing Fields",
         description: "Name and phone are required",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
-      setLoading(true)
-      const updatedCustomer = await CustomerApi.updateCustomer(selectedCustomer.id, {
-        name: editFormData.name,
-        phone: editFormData.phone,
-        email: editFormData.email || undefined,
-        address: editFormData.address || undefined,
-        city: editFormData.city || undefined,
-        state: editFormData.state || undefined,
-        zip_code: editFormData.zip_code || undefined,
-        country: editFormData.country || undefined,
-        customer_type: editFormData.customer_type,
-        credit_limit: editFormData.credit_limit ? parseFloat(editFormData.credit_limit) : undefined,
-        notes: editFormData.notes || undefined
-      })
+      setLoading(true);
+      const updatedCustomer = await CustomerApi.updateCustomer(
+        selectedCustomer.id,
+        {
+          name: editFormData.name,
+          phone: editFormData.phone,
+          email: editFormData.email || undefined,
+          address: editFormData.address || undefined,
+          city: editFormData.city || undefined,
+          state: editFormData.state || undefined,
+          zip_code: editFormData.zip_code || undefined,
+          country: editFormData.country || undefined,
+          customer_type: editFormData.customer_type,
+          credit_limit: editFormData.credit_limit
+            ? parseFloat(editFormData.credit_limit)
+            : undefined,
+          notes: editFormData.notes || undefined,
+        }
+      );
 
-      setCustomers(prev => prev.map(customer => 
-        customer.id === selectedCustomer.id ? updatedCustomer : customer
-      ))
-      setIsEditDialogOpen(false)
-      setSelectedCustomer(null)
-      toast({ title: "Customer updated successfully" })
+      setCustomers((prev) =>
+        prev.map((customer) =>
+          customer.id === selectedCustomer.id ? updatedCustomer : customer
+        )
+      );
+      setIsEditDialogOpen(false);
+      setSelectedCustomer(null);
+      toast({ title: "Customer updated successfully" });
     } catch (error) {
-      console.error("Error updating customer:", error)
+      console.error("Error updating customer:", error);
       toast({
         title: "Error",
         description: "Failed to update customer",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCollectPayment = (customer: Customer) => {
-    setPaymentCustomer(customer)
-    setPaymentAmount(customer.due_amount?.toString() || "")
-    setIsPaymentDialogOpen(true)
-  }
+    setPaymentCustomer(customer);
+    setPaymentAmount(customer.due_amount?.toString() || "");
+    setIsPaymentDialogOpen(true);
+  };
 
   const processPaymentCollection = async () => {
     if (!paymentCustomer || !paymentAmount || parseFloat(paymentAmount) <= 0) {
       toast({
         title: "Invalid Payment",
         description: "Please enter a valid payment amount",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     if (parseFloat(paymentAmount) > (paymentCustomer.due_amount || 0)) {
       toast({
         title: "Payment Exceeds Due Amount",
         description: "Payment amount cannot exceed the due amount",
-        variant: "destructive"
-      })
-      return
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
-      setLoading(true)
+      setLoading(true);
       // Here you would call the API to record the payment
       // For now, we'll just simulate the update
-      
-      const updatedCustomers = customers.map(customer => 
-        customer.id === paymentCustomer.id 
-          ? { 
-              ...customer, 
-              due_amount: (customer.due_amount || 0) - parseFloat(paymentAmount),
-              last_payment_date: new Date().toISOString()
+
+      const updatedCustomers = customers.map((customer) =>
+        customer.id === paymentCustomer.id
+          ? {
+              ...customer,
+              due_amount:
+                (customer.due_amount || 0) - parseFloat(paymentAmount),
+              last_payment_date: new Date().toISOString(),
             }
           : customer
-      )
-      
-      setCustomers(updatedCustomers)
-      setIsPaymentDialogOpen(false)
-      setPaymentAmount("")
-      setPaymentCustomer(null)
-      
+      );
+
+      setCustomers(updatedCustomers);
+      setIsPaymentDialogOpen(false);
+      setPaymentAmount("");
+      setPaymentCustomer(null);
+
       toast({
         title: "Payment Recorded",
-        description: `Payment of $${parseFloat(paymentAmount).toFixed(2)} recorded successfully`,
-      })
+        description: `Payment of ${formatCurrency(
+          paymentAmount
+        )} recorded successfully`,
+      });
     } catch (error) {
-      console.error("Error recording payment:", error)
+      console.error("Error recording payment:", error);
       toast({
         title: "Error",
         description: "Failed to record payment",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -290,7 +349,12 @@ export function CustomerManagement() {
                       <Input
                         id="name"
                         value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            name: e.target.value,
+                          }))
+                        }
                         placeholder="Enter customer name"
                       />
                     </div>
@@ -299,19 +363,29 @@ export function CustomerManagement() {
                       <Input
                         id="phone"
                         value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            phone: e.target.value,
+                          }))
+                        }
                         placeholder="+1234567890"
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
                       placeholder="customer@example.com"
                     />
                   </div>
@@ -321,7 +395,12 @@ export function CustomerManagement() {
                     <Input
                       id="address"
                       value={formData.address}
-                      onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          address: e.target.value,
+                        }))
+                      }
                       placeholder="Enter address"
                     />
                   </div>
@@ -332,7 +411,12 @@ export function CustomerManagement() {
                       <Input
                         id="city"
                         value={formData.city}
-                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            city: e.target.value,
+                          }))
+                        }
                         placeholder="Enter city"
                       />
                     </div>
@@ -341,7 +425,12 @@ export function CustomerManagement() {
                       <Input
                         id="state"
                         value={formData.state}
-                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            state: e.target.value,
+                          }))
+                        }
                         placeholder="Enter state"
                       />
                     </div>
@@ -350,7 +439,12 @@ export function CustomerManagement() {
                       <Input
                         id="zip"
                         value={formData.zip_code}
-                        onChange={(e) => setFormData(prev => ({ ...prev, zip_code: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            zip_code: e.target.value,
+                          }))
+                        }
                         placeholder="Enter ZIP code"
                       />
                     </div>
@@ -361,7 +455,12 @@ export function CustomerManagement() {
                     <Input
                       id="country"
                       value={formData.country}
-                      onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          country: e.target.value,
+                        }))
+                      }
                       placeholder="Enter country"
                     />
                   </div>
@@ -370,7 +469,12 @@ export function CustomerManagement() {
                     <Label htmlFor="type">Customer Type</Label>
                     <Select
                       value={formData.customer_type}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, customer_type: value as any }))}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          customer_type: value as any,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -393,7 +497,12 @@ export function CustomerManagement() {
                       step="0.01"
                       min="0"
                       value={formData.credit_limit}
-                      onChange={(e) => setFormData(prev => ({ ...prev, credit_limit: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          credit_limit: e.target.value,
+                        }))
+                      }
                       placeholder="0.00"
                     />
                   </div>
@@ -403,15 +512,23 @@ export function CustomerManagement() {
                     <Textarea
                       id="notes"
                       value={formData.notes}
-                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          notes: e.target.value,
+                        }))
+                      }
                       placeholder="Enter any additional notes"
                       rows={3}
                     />
                   </div>
                 </div>
-                
+
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button onClick={handleAddCustomer} disabled={loading}>
@@ -466,48 +583,67 @@ export function CustomerManagement() {
                   </TableCell>
                   <TableCell>
                     {(customer.due_amount || 0) > 0 ? (
-                      <Badge variant="destructive" className="flex items-center gap-1 w-fit">
-                        <DollarSign className="w-3 h-3" />
-                        ${Number(customer.due_amount || 0).toFixed(2)}
+                      <Badge
+                        variant="destructive"
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        {formatCurrency(customer.due_amount || 0)}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="flex items-center gap-1 w-fit text-green-600">
-                        <DollarSign className="w-3 h-3" />
-                        $0.00
+                      <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1 w-fit text-green-600"
+                      >
+                        {formatCurrency(0)}
                       </Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1 w-fit"
+                    >
                       <Star className="w-3 h-3" />
                       {customer.loyalty_points}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     {customer.total_purchases > 0 ? (
-                      <Badge variant="default" className="flex items-center gap-1 w-fit">
-                        <DollarSign className="w-3 h-3" />
-                        ${Number(customer.total_purchases).toFixed(2)}
+                      <Badge
+                        variant="default"
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        {formatCurrency(customer.total_purchases)}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                        <DollarSign className="w-3 h-3" />
-                        $0.00
+                      <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        {formatCurrency(0)}
                       </Badge>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleViewCustomer(customer)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewCustomer(customer)}
+                      >
                         <Eye className="w-3 h-3" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleEditCustomer(customer)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditCustomer(customer)}
+                      >
                         <Edit className="w-3 h-3" />
                       </Button>
                       {(customer.due_amount || 0) > 0 && (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
+                        <Button
+                          variant="default"
+                          size="sm"
                           onClick={() => handleCollectPayment(customer)}
                           className="bg-green-600 hover:bg-green-700"
                         >
@@ -553,7 +689,9 @@ export function CustomerManagement() {
                 <div>
                   <Label className="text-sm font-medium">Customer Type</Label>
                   <p className="flex items-center gap-2">
-                    <Badge variant="outline">{selectedCustomer.customer_type}</Badge>
+                    <Badge variant="outline">
+                      {selectedCustomer.customer_type}
+                    </Badge>
                   </p>
                 </div>
                 <div>
@@ -566,8 +704,7 @@ export function CustomerManagement() {
                 <div>
                   <Label className="text-sm font-medium">Total Purchases</Label>
                   <p className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    ${Number(selectedCustomer.total_purchases).toFixed(2)}
+                    {formatCurrency(selectedCustomer.total_purchases)}
                   </p>
                 </div>
               </div>
@@ -585,21 +722,34 @@ export function CustomerManagement() {
               <Separator />
 
               <div>
-                <Label className="text-lg font-medium">Customer Information</Label>
+                <Label className="text-lg font-medium">
+                  Customer Information
+                </Label>
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Status:</span>
-                    <Badge variant={selectedCustomer.status === 'active' ? 'default' : 'secondary'}>
+                    <span className="text-sm text-muted-foreground">
+                      Status:
+                    </span>
+                    <Badge
+                      variant={
+                        selectedCustomer.status === "active"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
                       {selectedCustomer.status}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Last Purchase:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Last Purchase:
+                    </span>
                     <span className="text-sm">
-                      {selectedCustomer.last_purchase_date 
-                        ? new Date(selectedCustomer.last_purchase_date).toLocaleDateString()
-                        : 'Never'
-                      }
+                      {selectedCustomer.last_purchase_date
+                        ? new Date(
+                            selectedCustomer.last_purchase_date
+                          ).toLocaleDateString()
+                        : "Never"}
                     </span>
                   </div>
                 </div>
@@ -622,7 +772,12 @@ export function CustomerManagement() {
                 <Input
                   id="edit-name"
                   value={editFormData.name}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
                   placeholder="Enter customer name"
                 />
               </div>
@@ -631,19 +786,29 @@ export function CustomerManagement() {
                 <Input
                   id="edit-phone"
                   value={editFormData.phone}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
                   placeholder="Enter phone number"
                 />
               </div>
             </div>
-            
+
             <div>
               <Label htmlFor="edit-email">Email</Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editFormData.email}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    email: e.target.value,
+                  }))
+                }
                 placeholder="Enter email address"
               />
             </div>
@@ -653,7 +818,12 @@ export function CustomerManagement() {
               <Input
                 id="edit-address"
                 value={editFormData.address}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    address: e.target.value,
+                  }))
+                }
                 placeholder="Enter address"
               />
             </div>
@@ -664,7 +834,12 @@ export function CustomerManagement() {
                 <Input
                   id="edit-city"
                   value={editFormData.city}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      city: e.target.value,
+                    }))
+                  }
                   placeholder="Enter city"
                 />
               </div>
@@ -673,7 +848,12 @@ export function CustomerManagement() {
                 <Input
                   id="edit-state"
                   value={editFormData.state}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, state: e.target.value }))}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      state: e.target.value,
+                    }))
+                  }
                   placeholder="Enter state"
                 />
               </div>
@@ -682,7 +862,12 @@ export function CustomerManagement() {
                 <Input
                   id="edit-zip"
                   value={editFormData.zip_code}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, zip_code: e.target.value }))}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      zip_code: e.target.value,
+                    }))
+                  }
                   placeholder="Enter ZIP code"
                 />
               </div>
@@ -693,7 +878,12 @@ export function CustomerManagement() {
               <Input
                 id="edit-country"
                 value={editFormData.country}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, country: e.target.value }))}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    country: e.target.value,
+                  }))
+                }
                 placeholder="Enter country"
               />
             </div>
@@ -702,7 +892,12 @@ export function CustomerManagement() {
               <Label htmlFor="edit-type">Customer Type</Label>
               <Select
                 value={editFormData.customer_type}
-                onValueChange={(value) => setEditFormData(prev => ({ ...prev, customer_type: value as any }))}
+                onValueChange={(value) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    customer_type: value as any,
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -725,7 +920,12 @@ export function CustomerManagement() {
                 step="0.01"
                 min="0"
                 value={editFormData.credit_limit}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, credit_limit: e.target.value }))}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    credit_limit: e.target.value,
+                  }))
+                }
                 placeholder="0.00"
               />
             </div>
@@ -735,15 +935,23 @@ export function CustomerManagement() {
               <Textarea
                 id="edit-notes"
                 value={editFormData.notes}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) =>
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    notes: e.target.value,
+                  }))
+                }
                 placeholder="Enter any additional notes"
                 rows={3}
               />
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleUpdateCustomer} disabled={loading}>
@@ -759,14 +967,14 @@ export function CustomerManagement() {
           <DialogHeader>
             <DialogTitle>Collect Payment</DialogTitle>
           </DialogHeader>
-          
+
           {paymentCustomer && (
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">{paymentCustomer.name}</span>
                   <Badge variant="destructive">
-                    Due: ${Number(paymentCustomer.due_amount || 0).toFixed(2)}
+                    Due: {formatCurrency(paymentCustomer.due_amount || 0)}
                   </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground">
@@ -812,12 +1020,17 @@ export function CustomerManagement() {
                 <div className="p-3 bg-green-50 rounded-lg">
                   <div className="flex justify-between text-sm">
                     <span>Payment Amount:</span>
-                    <span className="font-medium">${Number(parseFloat(paymentAmount)).toFixed(2)}</span>
+                    <span className="font-medium">
+                      {formatCurrency(parseFloat(paymentAmount))}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Remaining Due:</span>
                     <span className="font-medium">
-                      ${(Number(paymentCustomer.due_amount || 0) - Number(parseFloat(paymentAmount))).toFixed(2)}
+                      {formatCurrency(
+                        Number(paymentCustomer.due_amount || 0) -
+                          Number(parseFloat(paymentAmount))
+                      )}
                     </span>
                   </div>
                 </div>
@@ -826,12 +1039,17 @@ export function CustomerManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsPaymentDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={processPaymentCollection}
-              disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || loading}
+              disabled={
+                !paymentAmount || parseFloat(paymentAmount) <= 0 || loading
+              }
             >
               {loading ? "Processing..." : "Record Payment"}
             </Button>
@@ -839,5 +1057,5 @@ export function CustomerManagement() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
