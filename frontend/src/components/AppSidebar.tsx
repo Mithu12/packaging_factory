@@ -29,93 +29,88 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { hasPermission, Role } from "@/utils/rbac";
-import RoleGuard from "@/components/RoleGuard";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PermissionGuard, SystemAdminGuard } from "@/components/rbac/PermissionGuard";
+import { PERMISSIONS } from "@/types/rbac";
 
 const menuItems = [
   { 
     title: "Dashboard", 
     url: "/", 
     icon: BarChart3, 
-    module: "dashboard", 
-    action: "view" 
+    permission: null // Dashboard is accessible to all authenticated users
   },
   { 
     title: "POS Manager", 
     url: "/pos-manager", 
     icon: Calculator, 
-    module: "pos", 
-    action: "view" 
+    permission: PERMISSIONS.SALES_ORDERS_CREATE // POS requires sales order creation
   },
   { 
     title: "Suppliers", 
     url: "/suppliers", 
     icon: Users, 
-    module: "suppliers", 
-    action: "view" 
+    permission: PERMISSIONS.SUPPLIERS_READ
   },
   { 
     title: "Products", 
     url: "/products", 
     icon: Package, 
-    module: "products", 
-    action: "view" 
+    permission: PERMISSIONS.PRODUCTS_READ
   },
   { 
     title: "Categories", 
     url: "/categories", 
     icon: FolderTree, 
-    module: "categories", 
-    action: "view" 
+    permission: PERMISSIONS.CATEGORIES_READ
   },
   { 
     title: "Brands", 
     url: "/brands", 
     icon: Tag, 
-    module: "brands", 
-    action: "view" 
+    permission: PERMISSIONS.BRANDS_READ
   },
   { 
     title: "Origins", 
     url: "/origins", 
     icon: MapPin, 
-    module: "origins", 
-    action: "view" 
+    permission: PERMISSIONS.ORIGINS_READ
   },
   { 
     title: "Purchase Orders", 
     url: "/purchase-orders", 
     icon: ShoppingCart, 
-    module: "purchase_orders", 
-    action: "view" 
+    permission: PERMISSIONS.PURCHASE_ORDERS_READ
   },
   { 
     title: "Inventory", 
     url: "/inventory", 
     icon: Truck, 
-    module: "inventory", 
-    action: "view" 
+    permission: PERMISSIONS.INVENTORY_TRACK
   },
   { 
     title: "Payments", 
     url: "/payments", 
     icon: DollarSign, 
-    module: "payments", 
-    action: "view" 
+    permission: PERMISSIONS.PAYMENTS_READ
   },
   { 
     title: "Expenses", 
     url: "/expenses", 
     icon: Receipt, 
-    module: "expenses", 
-    action: "view" 
+    permission: PERMISSIONS.EXPENSES_READ
   },
   { 
     title: "Reports", 
     url: "/reports", 
-    icon: FileText, 
-    module: "reports", 
-    action: "view" 
+    icon: FileText,
+    permission: null // Reports might be accessible to all users
+  },
+  { 
+    title: "RBAC Demo", 
+    url: "/rbac-demo", 
+    icon: Shield,
+    permission: null // Demo accessible to all authenticated users
   },
 ];
 
@@ -125,6 +120,7 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
   const { user } = useAuth();
+  const { hasPermission, isLoading } = useRBAC();
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
@@ -137,9 +133,16 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
 
   // Filter menu items based on user permissions
-  const visibleMenuItems = menuItems.filter(item => 
-    hasPermission(user, item.module, item.action)
-  );
+  const visibleMenuItems = menuItems.filter(item => {
+    // If no permission required, show to all authenticated users
+    if (!item.permission) return true;
+    
+    // If RBAC is still loading, don't show permission-protected items yet
+    if (isLoading) return false;
+    
+    // Check if user has the required permission
+    return hasPermission(item.permission);
+  });
 
   return (
     <Sidebar collapsible="icon">
@@ -163,24 +166,51 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavCls(item.url)}>
-                      <item.icon className="h-4 w-4" />
-                      {!isCollapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {isLoading ? (
+                // Show loading skeleton while permissions are loading
+                <>
+                  <SidebarMenuItem>
+                    <div className="flex items-center space-x-2 p-2">
+                      <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      {!isCollapsed && <div className="w-20 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                    </div>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <div className="flex items-center space-x-2 p-2">
+                      <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      {!isCollapsed && <div className="w-24 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                    </div>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <div className="flex items-center space-x-2 p-2">
+                      <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      {!isCollapsed && <div className="w-16 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                    </div>
+                  </SidebarMenuItem>
+                </>
+              ) : (
+                visibleMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} className={getNavCls(item.url)}>
+                        <item.icon className="h-4 w-4" />
+                        {!isCollapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup className="mt-auto">
+          <SidebarGroupLabel className={isCollapsed ? "hidden" : "block"}>
+            Administration
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <RoleGuard module="users" action="view">
+              <PermissionGuard permission={PERMISSIONS.USERS_READ}>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -192,8 +222,9 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </RoleGuard>
-              <RoleGuard module="rbac" action="view">
+              </PermissionGuard>
+              
+              <SystemAdminGuard>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink to="/rbac" className={getNavCls("/rbac")}>
@@ -202,8 +233,9 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </RoleGuard>
-              <RoleGuard module="settings" action="view">
+              </SystemAdminGuard>
+              
+              <PermissionGuard permission={PERMISSIONS.SETTINGS_READ}>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink to="/settings" className={getNavCls("/settings")}>
@@ -212,7 +244,7 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </RoleGuard>
+              </PermissionGuard>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

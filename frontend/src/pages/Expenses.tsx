@@ -418,7 +418,7 @@ export default function Expenses() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {expenseCategories.map((category) => (
+                        {expenseCategories?.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
                           </SelectItem>
@@ -648,7 +648,7 @@ export default function Expenses() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all-categories">All Categories</SelectItem>
-                  {expenseCategories.map((category) => (
+                  {expenseCategories?.map((category) => (
                     <SelectItem key={category.id} value={category.id.toString()}>
                       {category.name}
                     </SelectItem>
@@ -904,7 +904,7 @@ export default function Expenses() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {expenseCategories.map((category) => (
+                    {expenseCategories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {category.name}
                       </SelectItem>

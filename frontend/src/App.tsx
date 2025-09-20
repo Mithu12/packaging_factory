@@ -48,6 +48,7 @@ import ExpenseDetails from "./pages/ExpenseDetails";
 import EditExpense from "./pages/EditExpense";
 import RoleManagement from "./pages/RoleManagement";
 import RBACDashboard from "./pages/RBACDashboard";
+import RBACDemo from "./pages/RBACDemo";
 
 const queryClient = new QueryClient();
 
@@ -418,6 +419,15 @@ const App = () => {
             }
           />
           
+          {/* RBAC Demo Route */}
+          <Route path="/rbac-demo" element={
+            <ProtectedRoute requiredRole="viewer">
+              <DashboardLayout>
+                <RBACDemo />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } />
+
           {/* Access Denied Route */}
           <Route path="/access-denied" element={<AccessDenied />} />
           

@@ -322,7 +322,7 @@ export default function EditExpense() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {expenseCategories.map((category) => (
+                    {expenseCategories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {category.name}
                       </SelectItem>
