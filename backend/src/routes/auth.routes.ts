@@ -12,6 +12,7 @@ import {
   validatePasswordResetConfirm
 } from '@/validation/authValidation';
 import { authRateLimit } from '@/middleware/auth';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from 'express-async-handler';
 import { createError } from '@/utils/responseHelper';
 
@@ -22,6 +23,7 @@ const router = express.Router();
 // Login
 router.post('/login', 
   authRateLimit(5, 15 * 60 * 1000), // 5 attempts per 15 minutes
+  auditMiddleware,
   validateAuth(validateLogin),
   expressAsyncHandler(async (req, res, next) => {
     const result = await AuthMediator.login(req.body);
@@ -57,6 +59,7 @@ router.post('/login',
 
 // Logout
 router.post('/logout',
+  auditMiddleware,
   expressAsyncHandler(async (req, res, next) => {
     // Clear the auth cookie
     res.clearCookie('authToken', {
@@ -75,6 +78,7 @@ router.post('/logout',
 
 // Register (only for admin or if no users exist)
 router.post('/register',
+  auditMiddleware,
   validateAuth(validateRegister),
   expressAsyncHandler(async (req, res, next) => {
     const result = await AuthMediator.register(req.body);
@@ -88,6 +92,7 @@ router.post('/register',
 
 // Password reset request
 router.post('/forgot-password',
+  auditMiddleware,
   validateAuth(validatePasswordResetRequest),
   expressAsyncHandler(async (req, res, next) => {
     await AuthMediator.generatePasswordResetToken(req.body.email);
@@ -100,6 +105,7 @@ router.post('/forgot-password',
 
 // Password reset confirm
 router.post('/reset-password',
+  auditMiddleware,
   validateAuth(validatePasswordResetConfirm),
   expressAsyncHandler(async (req, res, next) => {
     await AuthMediator.resetPasswordWithToken(req.body.token, req.body.new_password);
@@ -128,6 +134,7 @@ router.get('/profile',
 // Update current user profile
 router.put('/profile',
   authenticate,
+  auditMiddleware,
   validateAuth(validateUpdateProfile),
   expressAsyncHandler(async (req, res, next) => {
     const user = await AuthMediator.updateProfile(req.user!.user_id, req.body);
@@ -142,6 +149,7 @@ router.put('/profile',
 // Change password
 router.put('/change-password',
   authenticate,
+  auditMiddleware,
   validateAuth(validateChangePassword),
   expressAsyncHandler(async (req, res, next) => {
     await AuthMediator.changePassword(req.user!.user_id, req.body);
@@ -171,6 +179,7 @@ router.get('/users',
 // Update user role (admin only)
 router.put('/users/:id/role',
   authenticate,
+  auditMiddleware,
   adminOnly,
   validateAuth(validateUpdateUserRole),
   expressAsyncHandler(async (req, res, next) => {
@@ -191,6 +200,7 @@ router.put('/users/:id/role',
 // Update user profile (admin only)
 router.put('/users/:id',
   authenticate,
+  auditMiddleware,
   adminOnly,
   validateAuth(validateUpdateProfile),
   expressAsyncHandler(async (req, res, next) => {
@@ -211,6 +221,7 @@ router.put('/users/:id',
 // Deactivate user (admin only)
 router.delete('/users/:id',
   authenticate,
+  auditMiddleware,
   adminOnly,
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);
@@ -229,6 +240,7 @@ router.delete('/users/:id',
 // Reactivate user (admin only)
 router.patch('/users/:id/reactivate',
   authenticate,
+  auditMiddleware,
   adminOnly,
   expressAsyncHandler(async (req, res, next) => {
     const userId = parseInt(req.params.id);

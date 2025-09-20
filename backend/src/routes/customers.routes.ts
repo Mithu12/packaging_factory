@@ -6,6 +6,7 @@ import {
 } from '@/validation/posValidation';
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomersController from "@/controllers/customers/customers.controller";
@@ -105,6 +106,7 @@ router.get('/:id',
 // POST /api/customers - Create new customer
 router.post('/', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CUSTOMERS_CREATE),
   validateRequest(createCustomerSchema), 
   expressAsyncHandler(CustomersController.createCustomer)
@@ -113,6 +115,7 @@ router.post('/',
 // PUT /api/customers/:id - Update customer
 router.put('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
   validateRequest(updateCustomerSchema), 
   expressAsyncHandler(CustomersController.updateCustomer)
@@ -121,6 +124,7 @@ router.put('/:id',
 // PATCH /api/customers/:id/toggle-status - Toggle customer status
 router.patch('/:id/toggle-status', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/customers/:id/toggle-status'
@@ -139,6 +143,7 @@ router.patch('/:id/toggle-status',
 // PATCH /api/customers/:id/loyalty-points - Update customer loyalty points
 router.patch('/:id/loyalty-points', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/customers/:id/loyalty-points'
@@ -158,6 +163,7 @@ router.patch('/:id/loyalty-points',
 // DELETE /api/customers/:id - Soft delete customer (mark as inactive)
 router.delete('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CUSTOMERS_DELETE),
   expressAsyncHandler(CustomersController.deleteCustomer)
 );
@@ -165,6 +171,7 @@ router.delete('/:id',
 // DELETE /api/customers/:id/hard - Hard delete customer (permanent)
 router.delete('/:id/hard', 
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/customers/:id/hard'

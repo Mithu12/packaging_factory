@@ -4,6 +4,7 @@ import { validateCreateOrigin, validateUpdateOrigin } from '@/validation/originV
 import { validateRequest } from '@/middleware/validation';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import OriginsController from '@/controllers/origins/origins.controller';
 import {MyLogger} from "@/utils/new-logger";
 import {OriginMediator} from "@/mediators/origins/OriginMediator";
@@ -46,6 +47,7 @@ router.get('/:id',
 // Create new origin
 router.post('/',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.ORIGINS_CREATE),
   validateRequest(validateCreateOrigin),
   expressAsyncHandler(async (req, res, next) => {
@@ -69,6 +71,7 @@ router.post('/',
 // Update origin
 router.put('/:id',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.ORIGINS_UPDATE),
   validateRequest(validateUpdateOrigin),
   expressAsyncHandler(async (req, res, next) => {
@@ -97,6 +100,7 @@ router.put('/:id',
 // Delete origin (soft delete)
 router.delete('/:id',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.ORIGINS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/origins/:id';

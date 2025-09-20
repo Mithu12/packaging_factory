@@ -8,6 +8,7 @@ import ExpenseCategoryMediator from '@/mediators/expenses/ExpenseCategoryMediato
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from 'express-async-handler';
 import { MyLogger } from '@/utils/new-logger';
 
@@ -119,8 +120,9 @@ router.get('/:id',
 
 // POST /api/expense-categories - Create new expense category
 router.post('/', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_CREATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_CREATE),
   validateRequest(createExpenseCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'POST /api/expense-categories'
@@ -137,8 +139,9 @@ router.post('/',
 
 // PUT /api/expense-categories/:id - Update expense category
 router.put('/:id', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_UPDATE), 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_UPDATE),
   validateRequest(updateExpenseCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PUT /api/expense-categories/:id'
@@ -155,9 +158,10 @@ router.put('/:id',
 }));
 
 // DELETE /api/expense-categories/:id - Delete expense category
-router.delete('/:id', 
-  authenticate, 
-  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_DELETE), 
+router.delete('/:id',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.EXPENSE_CATEGORIES_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/expense-categories/:id'
     try {

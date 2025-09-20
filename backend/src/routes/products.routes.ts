@@ -7,6 +7,7 @@ import {
 } from '@/validation/productValidation';
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { uploadProductImage, handleUploadError } from "@/middleware/upload";
@@ -143,6 +144,7 @@ router.get('/:id',
 // POST /api/products - Create new product
 router.post('/', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_CREATE),
   validateRequest(createProductSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -161,6 +163,7 @@ router.post('/',
 // POST /api/products/with-image - Create new product with image
 router.post('/with-image', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_CREATE),
   uploadProductImage, 
   handleUploadError, 
@@ -201,6 +204,7 @@ router.post('/with-image',
 // PUT /api/products/:id - Update product
 router.put('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
   validateRequest(updateProductSchema), 
   expressAsyncHandler(ProductsController.updateProduct)
@@ -209,6 +213,7 @@ router.put('/:id',
 // PUT /api/products/:id/with-image - Update product with image
 router.put('/:id/with-image', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
   uploadProductImage, 
   handleUploadError, 
@@ -273,6 +278,7 @@ router.put('/:id/with-image',
 // POST /api/products/:id/image - Update product image only
 router.post('/:id/image', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
   uploadProductImage, 
   handleUploadError, 
@@ -324,6 +330,7 @@ router.post('/:id/image',
 // PATCH /api/products/:id/toggle-status - Toggle product status
 router.patch('/:id/toggle-status', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_UPDATE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/products/:id/toggle-status'
@@ -342,6 +349,7 @@ router.patch('/:id/toggle-status',
 // PATCH /api/products/:id/stock - Update product stock
 router.patch('/:id/stock', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_ADJUST),
   validateRequest(stockAdjustmentSchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -381,6 +389,7 @@ router.patch('/:id/stock',
 // DELETE /api/products/:id - Soft delete product (mark as discontinued)
 router.delete('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.PRODUCTS_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/products/:id'
@@ -420,6 +429,7 @@ router.delete('/:id',
 // DELETE /api/products/:id/hard - Hard delete product (permanent)
 router.delete('/:id/hard', 
   authenticate,
+  auditMiddleware,
   requireSystemAdmin(),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/products/:id/hard'

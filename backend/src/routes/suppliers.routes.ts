@@ -8,6 +8,7 @@ import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import SuppliersController from "@/controllers/suppliers/suppliers.controller";
 
 const router = express.Router();
@@ -100,31 +101,35 @@ router.get('/:id',
 );
 
 // POST /api/suppliers - Create new supplier
-router.post('/', 
+router.post('/',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIERS_CREATE),
   validateRequest(createSupplierSchema), 
   expressAsyncHandler(SuppliersController.createSupplier)
 );
 
 // PUT /api/suppliers/:id - Update supplier
-router.put('/:id', 
+router.put('/:id',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIERS_UPDATE),
   validateRequest(updateSupplierSchema), 
   expressAsyncHandler(SuppliersController.updateSupplier)
 );
 
 // PATCH /api/suppliers/:id/toggle-status - Toggle supplier status
-router.patch('/:id/toggle-status', 
+router.patch('/:id/toggle-status',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIERS_UPDATE),
   expressAsyncHandler(SuppliersController.toggleSupplierStatus)
 );
 
 // DELETE /api/suppliers/:id - Delete supplier
-router.delete('/:id', 
+router.delete('/:id',
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIERS_DELETE),
   expressAsyncHandler(SuppliersController.deleteSupplier)
 );

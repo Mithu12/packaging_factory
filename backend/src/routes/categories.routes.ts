@@ -9,6 +9,7 @@ import {
 } from '@/validation/categoryValidation';
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import expressAsyncHandler from "express-async-handler";
 import {MyLogger} from "@/utils/new-logger";
 import CategoriesController from "@/controllers/categories/categories.controller";
@@ -122,6 +123,7 @@ router.get('/:id',
 // POST /api/categories - Create new category
 router.post('/', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_CREATE),
   validateRequest(createCategorySchema), 
   expressAsyncHandler(CategoriesController.createCategory)
@@ -130,6 +132,7 @@ router.post('/',
 // PUT /api/categories/:id - Update category
 router.put('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_UPDATE),
   validateRequest(updateCategorySchema), 
   expressAsyncHandler(CategoriesController.updateCategory)
@@ -138,6 +141,7 @@ router.put('/:id',
 // DELETE /api/categories/:id - Delete category
 router.delete('/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_DELETE),
   expressAsyncHandler(CategoriesController.deleteCategory)
 );
@@ -155,6 +159,7 @@ router.get('/:categoryId/subcategories',
 // POST /api/subcategories - Create new subcategory
 router.post('/subcategories', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_CREATE),
   validateRequest(createSubcategorySchema), 
   expressAsyncHandler(CategoriesController.createSubcategory)
@@ -163,6 +168,7 @@ router.post('/subcategories',
 // PUT /api/subcategories/:id - Update subcategory
 router.put('/subcategories/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_UPDATE),
   validateRequest(updateSubcategorySchema), 
   expressAsyncHandler(CategoriesController.updateSubcategory)
@@ -171,6 +177,7 @@ router.put('/subcategories/:id',
 // DELETE /api/subcategories/:id - Delete subcategory
 router.delete('/subcategories/:id', 
   authenticate, 
+  auditMiddleware,
   requirePermission(PERMISSIONS.CATEGORIES_DELETE),
   expressAsyncHandler(CategoriesController.deleteSubcategory)
 );

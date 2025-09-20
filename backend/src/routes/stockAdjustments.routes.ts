@@ -9,6 +9,7 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 
 const router = express.Router();
 
@@ -122,6 +123,7 @@ router.get('/:id',
 // POST /api/stock-adjustments - Create new stock adjustment
 router.post('/', 
   authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_CREATE),
   validateRequest(createStockAdjustmentSchema), 
   expressAsyncHandler(async (req, res, next) => {

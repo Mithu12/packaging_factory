@@ -4,6 +4,7 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
+import { auditMiddleware } from '@/middleware/audit';
 import { validateRequest } from '@/middleware/validation';
 import { 
   createSupplierCategorySchema, 
@@ -70,8 +71,9 @@ router.get('/:id',
 );
 
 // POST /api/supplier-categories - Create new supplier category
-router.post('/', 
-  authenticate, 
+router.post('/',
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_CREATE),
   validateRequest(createSupplierCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -89,8 +91,9 @@ router.post('/',
 );
 
 // PUT /api/supplier-categories/:id - Update supplier category
-router.put('/:id', 
-  authenticate, 
+router.put('/:id',
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_UPDATE),
   validateRequest(updateSupplierCategorySchema), 
   expressAsyncHandler(async (req, res, next) => {
@@ -108,8 +111,9 @@ router.put('/:id',
 );
 
 // DELETE /api/supplier-categories/:id - Delete supplier category
-router.delete('/:id', 
-  authenticate, 
+router.delete('/:id',
+  authenticate,
+  auditMiddleware,
   requirePermission(PERMISSIONS.SUPPLIER_CATEGORIES_DELETE),
   expressAsyncHandler(async (req, res, next) => {
     let action = 'DELETE /api/supplier-categories/:id'
