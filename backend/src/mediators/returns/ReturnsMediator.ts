@@ -235,14 +235,31 @@ export class ReturnsMediator {
       const lineItemsResult = await client.query(lineItemsQuery, [data.original_order_id]);
       const originalLineItems = lineItemsResult.rows;
       
-      // 3. Validate return items
+      // 3. Validate return items and check for existing returns
+      const existingReturnsQuery = `
+        SELECT sri.original_line_item_id, SUM(sri.returned_quantity) as total_returned
+        FROM sales_returns sr
+        JOIN sales_return_items sri ON sr.id = sri.return_id
+        WHERE sr.original_order_id = $1 AND sr.return_status != 'rejected' AND sr.return_status != 'cancelled'
+        GROUP BY sri.original_line_item_id;
+      `;
+      const existingReturnsResult = await client.query(existingReturnsQuery, [data.original_order_id]);
+      const existingReturns = existingReturnsResult.rows.reduce((acc, row) => {
+        acc[row.original_line_item_id] = parseFloat(row.total_returned);
+        return acc;
+      }, {} as {[key: number]: number});
+
       for (const item of data.items) {
         const originalItem = originalLineItems.find(li => li.id === item.original_line_item_id);
         if (!originalItem) {
           throw new Error(`Original line item ${item.original_line_item_id} not found`);
         }
-        if (item.returned_quantity > originalItem.quantity) {
-          throw new Error(`Returned quantity exceeds original quantity for item ${originalItem.product_name}`);
+        
+        const alreadyReturned = existingReturns[item.original_line_item_id] || 0;
+        const totalWouldBeReturned = alreadyReturned + item.returned_quantity;
+        
+        if (totalWouldBeReturned > originalItem.quantity) {
+          throw new Error(`Total returned quantity (${totalWouldBeReturned}) would exceed original quantity (${originalItem.quantity}) for item ${originalItem.product_name}. Already returned: ${alreadyReturned}`);
         }
       }
       

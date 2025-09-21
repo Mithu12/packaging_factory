@@ -27,6 +27,8 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedReturnForView, setSelectedReturnForView] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [orderLineItems, setOrderLineItems] = useState<SalesOrderLineItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<{[key: number]: {selected: boolean, quantity: number, condition: string}}>({});
@@ -51,7 +53,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         ReturnsAPI.getReturnStats()
       ]);
         console.log({returnsResponse});
-      setReturns(returnsResponse?.data);
+      setReturns(returnsResponse?.data || []);
       setReturnStats(statsResponse);
     } catch (error) {
       console.error('Error loading returns data:', error);
@@ -266,6 +268,21 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
     }
   };
 
+  const handleViewReturn = async (returnId: number) => {
+    try {
+      const returnDetails = await ReturnsAPI.getReturnById(returnId);
+      setSelectedReturnForView(returnDetails);
+      setViewDialogOpen(true);
+    } catch (error: any) {
+      console.error('Error fetching return details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load return details",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
@@ -340,11 +357,30 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                     <SelectValue placeholder="Choose an order to return" />
                   </SelectTrigger>
                   <SelectContent>
-                    {salesOrders.filter(order => order.status === 'completed').map((order) => (
-                      <SelectItem key={order.id} value={order.id.toString()}>
-                        {order.order_number} - {order.customer_name || 'Walk-in'} - {formatCurrency(order.total_amount)}
-                      </SelectItem>
-                    ))}
+                    {(() => {
+                      const availableOrders = salesOrders.filter(order => order.status === 'completed');
+                      
+                      if (availableOrders.length === 0) {
+                        return (
+                          <SelectItem value="no-orders" disabled>
+                            No completed orders available
+                          </SelectItem>
+                        );
+                      }
+                      
+                      return availableOrders.map((order) => {
+                        const hasExistingReturn = returns?.some(returnItem => 
+                          returnItem.original_order_id === order.id
+                        );
+                        
+                        return (
+                          <SelectItem key={order.id} value={order.id.toString()}>
+                            {order.order_number} - {order.customer_name || 'Walk-in'} - {formatCurrency(order.total_amount)}
+                            {hasExistingReturn && <span className="text-orange-600 ml-2">(Has Returns)</span>}
+                          </SelectItem>
+                        );
+                      });
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
@@ -616,7 +652,11 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                       </Button>
                     )}
                     {(returnItem.return_status === 'completed' || returnItem.return_status === 'rejected') && (
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewReturn(returnItem.id)}
+                      >
                         View
                       </Button>
                     )}
@@ -627,6 +667,128 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
           </div>
         </CardContent>
       </Card>
+
+      {/* View Return Details Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Return Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this return request
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedReturnForView && (
+            <div className="space-y-6">
+              {/* Return Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Return Information</h3>
+                  <div className="space-y-1 text-sm">
+                    <p><span className="font-medium">Return Number:</span> {selectedReturnForView.return_number}</p>
+                    <p><span className="font-medium">Original Order:</span> {selectedReturnForView.original_order_number}</p>
+                    <p><span className="font-medium">Customer:</span> {selectedReturnForView.customer_name || 'Walk-in'}</p>
+                    <p><span className="font-medium">Return Date:</span> {new Date(selectedReturnForView.return_date).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Status:</span> 
+                      <Badge variant={getStatusBadgeVariant(selectedReturnForView.return_status)} className="ml-2 capitalize">
+                        {selectedReturnForView.return_status}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Financial Summary</h3>
+                  <div className="space-y-1 text-sm">
+                    <p><span className="font-medium">Subtotal Returned:</span> {formatCurrency(selectedReturnForView.subtotal_returned)}</p>
+                    <p><span className="font-medium">Tax Returned:</span> {formatCurrency(selectedReturnForView.tax_returned)}</p>
+                    <p><span className="font-medium">Processing Fee:</span> {formatCurrency(selectedReturnForView.processing_fee || 0)}</p>
+                    <p><span className="font-medium text-lg">Final Refund:</span> 
+                      <span className="text-lg font-bold ml-2">{formatCurrency(selectedReturnForView.final_refund_amount)}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Return Reason */}
+              <div>
+                <h3 className="font-semibold mb-2">Return Reason</h3>
+                <p className="text-sm bg-gray-50 p-3 rounded">
+                  {selectedReturnForView.reason?.replace(/_/g, ' ') || 'No reason provided'}
+                </p>
+                {selectedReturnForView.notes && (
+                  <div className="mt-2">
+                    <h4 className="font-medium text-sm">Additional Notes:</h4>
+                    <p className="text-sm bg-gray-50 p-3 rounded mt-1">{selectedReturnForView.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Return Items */}
+              {selectedReturnForView.items && selectedReturnForView.items.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Returned Items</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Original Qty</TableHead>
+                          <TableHead>Returned Qty</TableHead>
+                          <TableHead>Condition</TableHead>
+                          <TableHead>Unit Price</TableHead>
+                          <TableHead>Refund Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedReturnForView.items.map((item: any) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.product_name}</TableCell>
+                            <TableCell>{item.product_sku}</TableCell>
+                            <TableCell>{item.original_quantity}</TableCell>
+                            <TableCell>{item.returned_quantity}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">
+                                {item.item_condition}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{formatCurrency(item.original_unit_price)}</TableCell>
+                            <TableCell>{formatCurrency(item.line_refund_amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Information */}
+              <div>
+                <h3 className="font-semibold mb-2">Processing Information</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    {selectedReturnForView.approved_by && (
+                      <p><span className="font-medium">Approved By:</span> User ID {selectedReturnForView.approved_by}</p>
+                    )}
+                    {selectedReturnForView.rejected_by && (
+                      <p><span className="font-medium">Rejected By:</span> User ID {selectedReturnForView.rejected_by}</p>
+                    )}
+                    {selectedReturnForView.processed_by && (
+                      <p><span className="font-medium">Processed By:</span> User ID {selectedReturnForView.processed_by}</p>
+                    )}
+                  </div>
+                  <div>
+                    {selectedReturnForView.completed_at && (
+                      <p><span className="font-medium">Completed At:</span> {new Date(selectedReturnForView.completed_at).toLocaleString()}</p>
+                    )}
+                    <p><span className="font-medium">Last Updated:</span> {new Date(selectedReturnForView.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
