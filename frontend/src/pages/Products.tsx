@@ -9,8 +9,10 @@ import { DataTablePagination } from "@/components/DataTablePagination"
 import { useClientPagination } from "@/hooks/usePagination"
 import { useFormatting } from "@/hooks/useFormatting"
 import { useAuth } from "@/contexts/AuthContext"
-import { hasPermission } from "@/utils/rbac"
-import RoleGuard from "@/components/RoleGuard"
+import { useRBAC } from "@/contexts/RBACContext"
+import { PermissionGuard } from "@/components/rbac/PermissionGuard"
+import { PermissionButton } from "@/components/rbac/PermissionButton"
+import { PERMISSIONS } from "@/types/rbac"
 import { 
   Plus, 
   Search, 
@@ -41,6 +43,7 @@ export default function Products() {
   const navigate = useNavigate()
   const { formatCurrency, formatNumber, formatDate } = useFormatting()
   const { user } = useAuth()
+  const { hasPermission } = useRBAC()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
@@ -53,7 +56,7 @@ export default function Products() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    product.supplier_name?.toString().toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Use client-side pagination for filtered products
@@ -149,20 +152,30 @@ export default function Products() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Products</h1>
-          <p className="text-muted-foreground">Manage your product catalog and inventory levels</p>
+    <PermissionGuard permission={PERMISSIONS.PRODUCTS_READ} fallback={
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to view products.</p>
         </div>
-        <RoleGuard module="products" action="create">
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowAddForm(true)}>
+      </div>
+    }>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Products</h1>
+            <p className="text-muted-foreground">Manage your product catalog and inventory levels</p>
+          </div>
+          <PermissionButton
+            permission={PERMISSIONS.PRODUCTS_CREATE}
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setShowAddForm(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Product
-          </Button>
-        </RoleGuard>
-      </div>
+          </PermissionButton>
+        </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -321,21 +334,21 @@ export default function Products() {
                             <DropdownMenuItem onClick={() => navigate(`/products/${product.id}`)}>
                               View Details
                             </DropdownMenuItem>
-                            <RoleGuard module="products" action="update">
+                            {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
                               <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/edit`)}>
                                 Edit Product
                               </DropdownMenuItem>
-                            </RoleGuard>
-                            <RoleGuard module="products" action="adjust_stock">
+                            )}
+                            {hasPermission(PERMISSIONS.INVENTORY_ADJUST) && (
                               <DropdownMenuItem onClick={() => navigate(`/products/${product.id}/adjust-stock`)}>
                                 Adjust Stock
                               </DropdownMenuItem>
-                            </RoleGuard>
-                            {/*<RoleGuard module="products" action="delete">*/}
-                            {/*  <DropdownMenuItem className="text-destructive">*/}
-                            {/*    Deactivate*/}
-                            {/*  </DropdownMenuItem>*/}
-                            {/*</RoleGuard>*/}
+                            )}
+                            {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
+                              <DropdownMenuItem className="text-destructive">
+                                Deactivate
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -378,6 +391,7 @@ export default function Products() {
           }
         }}
       />
-    </div>
+      </div>
+    </PermissionGuard>
   )
 }

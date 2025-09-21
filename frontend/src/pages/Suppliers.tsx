@@ -29,6 +29,10 @@ import {
 } from "lucide-react"
 import { ApiService, Supplier, SupplierStats, ApiError } from "@/services/api"
 import { toast } from "@/components/ui/sonner"
+import { useRBAC } from "@/contexts/RBACContext"
+import { PermissionGuard } from "@/components/rbac/PermissionGuard"
+import { PermissionButton } from "@/components/rbac/PermissionButton"
+import { PERMISSIONS } from "@/types/rbac"
 import {
   Table,
   TableBody,
@@ -45,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export default function Suppliers() {
+  const { hasPermission } = useRBAC()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -157,6 +162,14 @@ export default function Suppliers() {
 
 
   return (
+    <PermissionGuard permission={PERMISSIONS.SUPPLIERS_READ} fallback={
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to view suppliers.</p>
+        </div>
+      </div>
+    }>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -164,10 +177,14 @@ export default function Suppliers() {
             <h1 className="text-3xl font-bold text-foreground">Suppliers</h1>
             <p className="text-muted-foreground">Manage your supplier relationships and vendor information</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowAddForm(true)}>
+          <PermissionButton
+            permission={PERMISSIONS.SUPPLIERS_CREATE}
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setShowAddForm(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Supplier
-          </Button>
+          </PermissionButton>
         </div>
 
         {/* Stats Cards */}
@@ -432,18 +449,22 @@ export default function Suppliers() {
                                 <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}/edit`}>
-                                  Edit Supplier
-                                </DropdownMenuItem>
+                                {hasPermission(PERMISSIONS.SUPPLIERS_UPDATE) && (
+                                  <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}/edit`}>
+                                    Edit Supplier
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}/orders`}>
                                   View Orders
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className={supplier.status === 'active' ? 'text-destructive' : 'text-success'}
-                                    onClick={() => handleToggleStatus(supplier.id)}
-                                >
-                                  {supplier.status === 'active' ? 'Deactivate' : 'Activate'}
-                                </DropdownMenuItem>
+                                {hasPermission(PERMISSIONS.SUPPLIERS_UPDATE) && (
+                                  <DropdownMenuItem
+                                      className={supplier.status === 'active' ? 'text-destructive' : 'text-success'}
+                                      onClick={() => handleToggleStatus(supplier.id)}
+                                  >
+                                    {supplier.status === 'active' ? 'Deactivate' : 'Activate'}
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -535,5 +556,6 @@ export default function Suppliers() {
             onSupplierAdded={handleSupplierAdded}
         />
       </div>
+    </PermissionGuard>
   )
 }

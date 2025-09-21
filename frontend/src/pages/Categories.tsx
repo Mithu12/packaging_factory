@@ -14,6 +14,10 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { Plus, Edit, Trash2, FolderPlus, Tag, Loader2, Search } from "lucide-react"
 import { ApiService, Category, Subcategory, CreateCategoryRequest, CreateSubcategoryRequest, UpdateCategoryRequest, UpdateSubcategoryRequest, ApiError } from "@/services/api"
+import { useRBAC } from "@/contexts/RBACContext"
+import { PermissionGuard } from "@/components/rbac/PermissionGuard"
+import { PermissionButton } from "@/components/rbac/PermissionButton"
+import { PERMISSIONS } from "@/types/rbac"
 
 // Remove duplicate types since we're importing from API service
 
@@ -33,6 +37,7 @@ type CategoryForm = z.infer<typeof categorySchema>
 type SubcategoryForm = z.infer<typeof subcategorySchema>
 
 const Categories = () => {
+  const { hasPermission } = useRBAC()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -380,21 +385,29 @@ const Categories = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Categories Management</h1>
-          <p className="text-muted-foreground">Manage your product categories and subcategories</p>
+    <PermissionGuard permission={PERMISSIONS.CATEGORIES_READ} fallback={
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to view categories.</p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Add Category
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
+      </div>
+    }>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Categories Management</h1>
+            <p className="text-muted-foreground">Manage your product categories and subcategories</p>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+              <DialogTrigger asChild>
+                <PermissionButton permission={PERMISSIONS.CATEGORIES_CREATE}>
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Add Category
+                </PermissionButton>
+              </DialogTrigger>
+              <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Category</DialogTitle>
                 <DialogDescription>Create a new product category</DialogDescription>
@@ -449,10 +462,10 @@ const Categories = () => {
 
           <Dialog open={isAddSubcategoryOpen} onOpenChange={setIsAddSubcategoryOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <PermissionButton permission={PERMISSIONS.CATEGORIES_CREATE} variant="outline">
                 <Tag className="h-4 w-4 mr-2" />
                 Add Subcategory
-              </Button>
+              </PermissionButton>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -560,34 +573,38 @@ const Categories = () => {
                   <CardTitle className="flex items-center gap-2">
                     <FolderPlus className="h-5 w-5" />
                     {category.name}
-                    <Badge variant="secondary">{category.subcategories?.length || 0} subcategories</Badge>
+                    <Badge variant="secondary">{(category as any).subcategories?.length || 0} subcategories</Badge>
                   </CardTitle>
                   {category.description && (
                     <CardDescription>{category.description}</CardDescription>
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => startEditCategory(category)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onDeleteCategory(category.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {hasPermission(PERMISSIONS.CATEGORIES_UPDATE) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => startEditCategory(category)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {hasPermission(PERMISSIONS.CATEGORIES_DELETE) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDeleteCategory(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {category.subcategories && category.subcategories.length > 0 ? (
+              {(category as any).subcategories && (category as any).subcategories.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {category.subcategories?.map(subcategory => (
+                  {(category as any).subcategories?.map((subcategory: any) => (
                     <div
                       key={subcategory.id}
                       className="p-3 border rounded-lg bg-muted/50 flex justify-between items-start"
@@ -604,20 +621,24 @@ const Categories = () => {
                         )}
                       </div>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEditSubcategory(subcategory, category.id)}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDeleteSubcategory(category.id, subcategory.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        {hasPermission(PERMISSIONS.CATEGORIES_UPDATE) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditSubcategory(subcategory, category.id)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {hasPermission(PERMISSIONS.CATEGORIES_DELETE) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDeleteSubcategory(category.id, subcategory.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -753,7 +774,8 @@ const Categories = () => {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </PermissionGuard>
   )
 }
 

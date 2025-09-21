@@ -40,6 +40,10 @@ import {
 } from "lucide-react";
 import { BrandApi, Brand as BackendBrand } from "@/services/brand-api";
 import { useFormatting } from "@/hooks/useFormatting";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PermissionGuard } from "@/components/rbac/PermissionGuard";
+import { PermissionButton } from "@/components/rbac/PermissionButton";
+import { PERMISSIONS } from "@/types/rbac";
 
 interface Brand {
   id: number;
@@ -51,6 +55,7 @@ interface Brand {
 }
 
 export default function Brands() {
+  const { hasPermission } = useRBAC();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -202,22 +207,33 @@ export default function Brands() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Brand Management
-          </h1>
-          <p className="text-muted-foreground">
-            Manage product brands and their information
-          </p>
+    <PermissionGuard permission={PERMISSIONS.BRANDS_READ} fallback={
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to view brands.</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Brand
-        </Button>
       </div>
+    }>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Brand Management
+            </h1>
+            <p className="text-muted-foreground">
+              Manage product brands and their information
+            </p>
+          </div>
+          <PermissionButton
+            permission={PERMISSIONS.BRANDS_CREATE}
+            onClick={handleAdd}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Brand
+          </PermissionButton>
+        </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -336,17 +352,21 @@ export default function Brands() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(brand)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(brand.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                        {hasPermission(PERMISSIONS.BRANDS_UPDATE) && (
+                          <DropdownMenuItem onClick={() => handleEdit(brand)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission(PERMISSIONS.BRANDS_DELETE) && (
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(brand.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -435,6 +455,7 @@ export default function Brands() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </PermissionGuard>
   );
 }
