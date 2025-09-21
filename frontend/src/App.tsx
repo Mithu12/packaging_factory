@@ -7,8 +7,8 @@ import { useFormatting } from "@/hooks/useFormatting";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ProtectedRoute as RBACProtectedRoute } from "@/components/rbac/ProtectedRoute";
+// import { ProtectedRoute } from "@/components/ProtectedRoute"/;
+import { ProtectedRoute as ProtectedRoute } from "@/components/rbac/ProtectedRoute";
 import { AccessDenied } from "@/pages/AccessDenied";
 import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
@@ -67,7 +67,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={
-            <ProtectedRoute requiredRole="viewer">
+            <ProtectedRoute >
               <DashboardLayout>
                 <Dashboard />
               </DashboardLayout>
@@ -77,7 +77,7 @@ const App = () => {
           <Route
             path="/pos-manager"
             element={
-              <ProtectedRoute requiredRole="employee">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <POSManager />
                 </DashboardLayout>
@@ -87,7 +87,7 @@ const App = () => {
           <Route
             path="/categories"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Categories />
                 </DashboardLayout>
@@ -97,7 +97,7 @@ const App = () => {
           <Route
             path="/profile"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Profile />
                 </DashboardLayout>
@@ -107,7 +107,7 @@ const App = () => {
           <Route
             path="/suppliers"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Suppliers />
                 </DashboardLayout>
@@ -117,7 +117,7 @@ const App = () => {
           <Route
             path="/suppliers/:id"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <SupplierDetails />
                 </DashboardLayout>
@@ -127,7 +127,7 @@ const App = () => {
           <Route
             path="/suppliers/:id/edit"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <EditSupplier />
                 </DashboardLayout>
@@ -137,7 +137,7 @@ const App = () => {
           <Route
             path="/suppliers/:id/orders"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <SupplierOrders />
                 </DashboardLayout>
@@ -147,7 +147,7 @@ const App = () => {
           <Route
             path="/products"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Products />
                 </DashboardLayout>
@@ -157,7 +157,7 @@ const App = () => {
           <Route
             path="/products/:id"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <ProductDetails />
                 </DashboardLayout>
@@ -167,7 +167,7 @@ const App = () => {
           <Route
             path="/products/:id/edit"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <EditProduct />
                 </DashboardLayout>
@@ -177,7 +177,7 @@ const App = () => {
           <Route
             path="/products/:id/adjust-stock"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <AdjustStock />
                 </DashboardLayout>
@@ -187,7 +187,7 @@ const App = () => {
           <Route
             path="/purchase-orders"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <PurchaseOrders />
                 </DashboardLayout>
@@ -197,7 +197,7 @@ const App = () => {
           <Route
             path="/purchase-orders/:id"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <PurchaseOrderDetails />
                 </DashboardLayout>
@@ -207,7 +207,7 @@ const App = () => {
           <Route
             path="/purchase-orders/:id/edit"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <EditPurchaseOrder />
                 </DashboardLayout>
@@ -217,7 +217,7 @@ const App = () => {
           <Route
             path="/purchase-orders/:id/receive"
             element={
-              <ProtectedRoute requiredRole="employee">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <ReceiveGoods />
                 </DashboardLayout>
@@ -227,7 +227,7 @@ const App = () => {
           <Route
             path="/inventory"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Inventory />
                 </DashboardLayout>
@@ -237,7 +237,7 @@ const App = () => {
           <Route
             path="/inventory/:id"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <InventoryDetails />
                 </DashboardLayout>
@@ -247,7 +247,7 @@ const App = () => {
           <Route
             path="/inventory/:id/edit"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <EditInventory />
                 </DashboardLayout>
@@ -257,7 +257,7 @@ const App = () => {
           <Route
             path="/inventory/:id/adjust"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <AdjustStock />
                 </DashboardLayout>
@@ -267,7 +267,7 @@ const App = () => {
           <Route
             path="/payments"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Payments />
                 </DashboardLayout>
@@ -277,7 +277,7 @@ const App = () => {
           <Route
             path="/view-invoice/:invoiceId"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <ViewInvoice />
                 </DashboardLayout>
@@ -287,7 +287,7 @@ const App = () => {
           <Route
             path="/payment-history/:supplierId?"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <PaymentHistory />
                 </DashboardLayout>
@@ -297,7 +297,7 @@ const App = () => {
           <Route
             path="/send-reminder/:invoiceId"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <SendReminder />
                 </DashboardLayout>
@@ -307,7 +307,7 @@ const App = () => {
           <Route
             path="/generate-statement/:supplierId?"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <GenerateStatement />
                 </DashboardLayout>
@@ -317,7 +317,7 @@ const App = () => {
           <Route
             path="/reports"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Reports />
                 </DashboardLayout>
@@ -327,7 +327,7 @@ const App = () => {
           <Route
             path="/settings"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Settings />
                 </DashboardLayout>
@@ -337,7 +337,7 @@ const App = () => {
           <Route
             path="/user-management"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <UserManagement />
                 </DashboardLayout>
@@ -347,7 +347,7 @@ const App = () => {
           <Route
             path="/brands"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Brands />
                 </DashboardLayout>
@@ -357,7 +357,7 @@ const App = () => {
           <Route
             path="/origins"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Origins />
                 </DashboardLayout>
@@ -369,7 +369,7 @@ const App = () => {
           <Route
             path="/expenses"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <Expenses />
                 </DashboardLayout>
@@ -379,7 +379,7 @@ const App = () => {
           <Route
             path="/expenses/:id"
             element={
-              <ProtectedRoute requiredRole="viewer">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <ExpenseDetails />
                 </DashboardLayout>
@@ -389,7 +389,7 @@ const App = () => {
           <Route
             path="/expenses/:id/edit"
             element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <EditExpense />
                 </DashboardLayout>
@@ -401,7 +401,7 @@ const App = () => {
           <Route
             path="/rbac"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <RBACDashboard />
                 </DashboardLayout>
@@ -411,7 +411,7 @@ const App = () => {
           <Route
             path="/roles"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute >
                 <DashboardLayout>
                   <RoleManagement />
                 </DashboardLayout>
@@ -421,7 +421,7 @@ const App = () => {
           
           {/* RBAC Demo Route */}
           <Route path="/rbac-demo" element={
-            <ProtectedRoute requiredRole="viewer">
+            <ProtectedRoute >
               <DashboardLayout>
                 <RBACDemo />
               </DashboardLayout>
