@@ -78,7 +78,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
           currentPage: page,
           pageSize: pageSize,
           totalItems: returnsResponse.totalItems || 0,
-          totalPages: returnsResponse.totalPages || Math.ceil((returnsResponse.total || 0) / pageSize)
+          totalPages: returnsResponse.totalPages || Math.ceil((returnsResponse.totalItems || 0) / pageSize)
         });
       } else {
         // Fallback for different response structure
