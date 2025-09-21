@@ -283,7 +283,7 @@ const UserManagement = () => {
         });
       } else {
         const reactivatedUser = await AuthApi.reactivateUser(userId);
-        setUsers(users.map(u => u.id === userId ? reactivatedUser : u));
+        setUsers(users.map(u => u.id === userId ? reactivatedUser as UserWithPermissions : u));
         toast({
           title: "User reactivated",
           description: "User has been reactivated successfully.",
@@ -300,16 +300,21 @@ const UserManagement = () => {
   };
 
   const getRoleBadgeVariant = (
-    role: string
+    roleName: string
   ): "default" | "destructive" | "secondary" | "outline" => {
-    const roleConfig = roles.find((r) => r.value === role.toLowerCase());
-    return (
-      (roleConfig?.color as
-        | "default"
-        | "destructive"
-        | "secondary"
-        | "outline") || "outline"
-    );
+    // Map role names to badge variants
+    const roleVariants: Record<string, "default" | "destructive" | "secondary" | "outline"> = {
+      'system_admin': 'destructive',
+      'executive': 'destructive',
+      'finance_manager': 'secondary',
+      'finance_staff': 'default',
+      'hr_manager': 'secondary',
+      'employee': 'outline',
+      'sales_manager': 'secondary',
+      'sales_executive': 'default',
+    };
+    
+    return roleVariants[roleName.toLowerCase()] || "outline";
   };
 
   return (
@@ -675,49 +680,39 @@ const UserManagement = () => {
 
         <PermissionGuard permission={PERMISSIONS.SYSTEM_ADMIN}>
           <TabsContent value="roles">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {roles.map((role) => (
-              <Card key={role.value}>
+              <Card key={role.id}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="h-5 w-5" />
-                    {role.label}
+                    {role.display_name}
                   </CardTitle>
                   <CardDescription>
-                    {role.value === "admin" &&
-                      "Full system access and user management"}
-                    {role.value === "manager" &&
-                      "Department management and reporting"}
-                    {role.value === "employee" &&
-                      "Standard access to assigned areas"}
+                    {role.description || `${role.display_name} role with level ${role.level} access`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Permissions:</p>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      {role.value === "admin" && (
-                        <>
-                          <li>• User management</li>
-                          <li>• System settings</li>
-                          <li>• All modules access</li>
-                        </>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getRoleBadgeVariant(role.name)}>
+                        Level {role.level}
+                      </Badge>
+                      {role.department && (
+                        <Badge variant="outline">
+                          {role.department}
+                        </Badge>
                       )}
-                      {role.value === "manager" && (
-                        <>
-                          <li>• Team management</li>
-                          <li>• Reports generation</li>
-                          <li>• Inventory oversight</li>
-                        </>
-                      )}
-                      {role.value === "employee" && (
-                        <>
-                          <li>• POS operations</li>
-                          <li>• Inventory updates</li>
-                          <li>• Basic reporting</li>
-                        </>
-                      )}
-                    </ul>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Role Details:</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• Role Name: {role.name}</li>
+                        <li>• Access Level: {role.level}</li>
+                        {role.department && <li>• Department: {role.department}</li>}
+                        <li>• Status: {role.is_active ? 'Active' : 'Inactive'}</li>
+                      </ul>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
