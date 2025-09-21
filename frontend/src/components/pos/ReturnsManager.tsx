@@ -25,6 +25,13 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
   const [returns, setReturns] = useState<SalesReturn[]>([]);
   const [returnStats, setReturnStats] = useState<ReturnStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0
+  });
   const [processing, setProcessing] = useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -45,15 +52,40 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
     loadReturnsData();
   }, []);
 
-  const loadReturnsData = async () => {
+  const loadReturnsData = async (page: number = pagination.currentPage, pageSize: number = pagination.pageSize) => {
     try {
-      setLoading(true);
+      if (page === 1 && pageSize === pagination.pageSize) {
+        setLoading(true);
+      } else {
+        setPaginationLoading(true);
+      }
       const [returnsResponse, statsResponse] = await Promise.all([
-        ReturnsAPI.getReturns({ page: 1, limit: 10, sortBy: 'return_date', sortOrder: 'desc' }),
+        ReturnsAPI.getReturns({ 
+          page, 
+          limit: pageSize, 
+          sortBy: 'return_date', 
+          sortOrder: 'desc' 
+        }),
         ReturnsAPI.getReturnStats()
       ]);
-        console.log({returnsResponse});
-      setReturns(returnsResponse?.data || []);
+      
+      console.log({returnsResponse});
+      
+      // Handle the response structure
+      if (returnsResponse?.data) {
+        setReturns(returnsResponse.data);
+        setPagination({
+          currentPage: page,
+          pageSize: pageSize,
+          totalItems: returnsResponse.totalItems || 0,
+          totalPages: returnsResponse.totalPages || Math.ceil((returnsResponse.total || 0) / pageSize)
+        });
+      } else {
+        // Fallback for different response structure
+        setReturns(Array.isArray(returnsResponse) ? returnsResponse : []);
+        setPagination(prev => ({ ...prev, currentPage: page, pageSize }));
+      }
+      
       setReturnStats(statsResponse);
     } catch (error) {
       console.error('Error loading returns data:', error);
@@ -64,6 +96,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
       });
     } finally {
       setLoading(false);
+      setPaginationLoading(false);
     }
   };
 
@@ -202,7 +235,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
       setOrderLineItems([]);
       setSelectedItems({});
       setCreateReturnData({ return_type: 'full', reason: 'defective_product', items: [] });
-      loadReturnsData();
+      loadReturnsData(pagination.currentPage, pagination.pageSize);
       onRefresh?.();
     } catch (error: any) {
       console.error('Error creating return:', error);
@@ -230,7 +263,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         description: `Return ${action} successfully`,
       });
       
-      loadReturnsData();
+      loadReturnsData(pagination.currentPage, pagination.pageSize);
     } catch (error: any) {
       console.error('Error processing return:', error);
       toast({
@@ -254,7 +287,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         description: "Return completed and inventory updated",
       });
       
-      loadReturnsData();
+      loadReturnsData(pagination.currentPage, pagination.pageSize);
       onRefresh?.();
     } catch (error: any) {
       console.error('Error completing return:', error);
@@ -281,6 +314,16 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         variant: "destructive",
       });
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      loadReturnsData(newPage, pagination.pageSize);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    loadReturnsData(1, newPageSize);
   };
 
   const getStatusIcon = (status: string) => {
@@ -591,8 +634,27 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
       {/* Recent Returns */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Returns</CardTitle>
-          <CardDescription>Latest return requests and their status</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Returns</CardTitle>
+              <CardDescription>Latest return requests and their status</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadReturnsData(pagination.currentPage, pagination.pageSize)}
+              disabled={loading || paginationLoading}
+            >
+              {(loading || paginationLoading) ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              Refresh
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -665,6 +727,109 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
               ))
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {pagination.totalItems > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t relative">
+              {paginationLoading && (
+                <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>
+                  Showing {((pagination.currentPage - 1) * pagination.pageSize) + 1} to{' '}
+                  {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)} of{' '}
+                  {pagination.totalItems} returns
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Show:</span>
+                  <Select
+                    value={pagination.pageSize.toString()}
+                    onValueChange={(value) => handlePageSizeChange(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Page Navigation */}
+                {pagination.totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={pagination.currentPage === 1 || paginationLoading}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    disabled={pagination.currentPage === 1 || paginationLoading}
+                  >
+                    Previous
+                  </Button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const pages = [];
+                      const start = Math.max(1, pagination.currentPage - 2);
+                      const end = Math.min(pagination.totalPages, pagination.currentPage + 2);
+                      
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <Button
+                            key={i}
+                            variant={i === pagination.currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(i)}
+                            disabled={paginationLoading}
+                            className="w-8 h-8 p-0"
+                          >
+                            {i}
+                          </Button>
+                        );
+                      }
+                      return pages;
+                    })()}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    disabled={pagination.currentPage === pagination.totalPages || paginationLoading}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    disabled={pagination.currentPage === pagination.totalPages || paginationLoading}
+                  >
+                    Last
+                  </Button>
+                </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

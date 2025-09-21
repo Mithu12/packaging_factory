@@ -138,7 +138,7 @@ export class ReturnsAPI {
   // Get all returns with pagination and filtering
   static async getReturns(params?: ReturnQueryParams): Promise<{
     data: SalesReturn[];
-    total: number;
+    totalItems: number;
     page: number;
     limit: number;
     totalPages: number;
