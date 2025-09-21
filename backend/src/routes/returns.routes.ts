@@ -4,7 +4,7 @@ import { authenticate } from '@/middleware/auth';
 import { requirePermission, PERMISSIONS } from '@/middleware/permission';
 import { auditMiddleware } from '@/middleware/audit';
 import { validateRequest } from '@/middleware/validation';
-import { ReturnsController } from '@/controllers/returns/returns.controller';
+import ReturnsController from '@/controllers/returns/returns.controller';
 import { 
   validateCreateReturn, 
   validateProcessReturn, 

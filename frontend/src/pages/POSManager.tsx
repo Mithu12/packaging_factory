@@ -23,6 +23,7 @@ import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
 import { Product, Customer, SalesOrder } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import { ReturnsManager } from "@/components/pos/ReturnsManager";
 
 interface CartItem {
   id: string;
@@ -699,139 +700,12 @@ export default function POSManager() {
         </TabsContent>
 
         <TabsContent value="returns" className="space-y-6">
-          <div className="space-y-6">
-            {/* Returns Header */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Returns & Refunds</h2>
-              <Button 
-                onClick={() => {/* TODO: Open create return dialog */}}
-                className="flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Process Return
-              </Button>
-            </div>
-
-            {/* Returns Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Returns</CardTitle>
-                  <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">45</div>
-                  <p className="text-xs text-muted-foreground">+12% from last month</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending Returns</CardTitle>
-                  <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">8</div>
-                  <p className="text-xs text-muted-foreground">Awaiting approval</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Refund Amount</CardTitle>
-                  <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">$4,567</div>
-                  <p className="text-xs text-muted-foreground">Total refunded this month</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Return Rate</CardTitle>
-                  <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">3.2%</div>
-                  <p className="text-xs text-muted-foreground">Of total sales</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Returns */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Returns</CardTitle>
-                <CardDescription>Latest return requests and their status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Sample return entries */}
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">RET001234</Badge>
-                        <span className="text-sm font-medium">Order #SO001567</span>
-                      </div>
-                      <p className="text-sm text-gray-500">Customer: John Doe • Reason: Defective product</p>
-                      <p className="text-xs text-gray-400">2 items • Refund: $125.50</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">Pending</Badge>
-                      <Button variant="outline" size="sm">
-                        Review
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">RET001235</Badge>
-                        <span className="text-sm font-medium">Order #SO001568</span>
-                      </div>
-                      <p className="text-sm text-gray-500">Customer: Jane Smith • Reason: Wrong product</p>
-                      <p className="text-xs text-gray-400">1 item • Refund: $89.99</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">RET001236</Badge>
-                        <span className="text-sm font-medium">Order #SO001569</span>
-                      </div>
-                      <p className="text-sm text-gray-500">Customer: Mike Johnson • Reason: Customer changed mind</p>
-                      <p className="text-xs text-gray-400">3 items • Refund: $267.25</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive">Rejected</Badge>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <ReturnsManager 
+            salesOrders={salesOrders} 
+            onRefresh={() => {
+              loadInitialData();
+            }}
+          />
         </TabsContent>
       </Tabs>
 

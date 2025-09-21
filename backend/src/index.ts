@@ -26,6 +26,7 @@ import expenseRoutes from "./routes/expenses.routes";
 import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
+import returnsRoutes from "./routes/returns.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import { createDefaultAdminUser } from "./database/migrate";
@@ -120,6 +121,7 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/returns", returnsRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

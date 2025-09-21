@@ -142,6 +142,12 @@ export async function addComprehensivePermissions(): Promise<void> {
       { name: 'pos.discounts', display_name: 'Apply POS Discounts', module: 'Sales', action: 'apply', resource: 'pos_discounts' },
       { name: 'pos.gifts', display_name: 'Process Gift Items in POS', module: 'Sales', action: 'create', resource: 'pos_gifts' },
       
+      // POS Returns
+      { name: 'pos_returns.create', display_name: 'Create POS Returns', module: 'Sales', action: 'create', resource: 'pos_returns' },
+      { name: 'pos_returns.read', display_name: 'View POS Returns', module: 'Sales', action: 'read', resource: 'pos_returns' },
+      { name: 'pos_returns.approve', display_name: 'Approve POS Returns', module: 'Sales', action: 'approve', resource: 'pos_returns' },
+      { name: 'pos_returns.complete', display_name: 'Complete POS Returns', module: 'Sales', action: 'process', resource: 'pos_returns' },
+      
       { name: 'sales_reports.view', display_name: 'View Sales Reports', module: 'Sales', action: 'read', resource: 'sales_reports' },
       { name: 'sales_reports.generate', display_name: 'Generate Sales Reports', module: 'Sales', action: 'create', resource: 'sales_reports' },
 

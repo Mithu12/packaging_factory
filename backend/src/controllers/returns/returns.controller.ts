@@ -15,7 +15,7 @@ export class ReturnsController {
         items_count: req.body.items?.length || 0
       });
       
-      const returnData = await ReturnsMediator.createReturn(req.body, req.user?.id);
+      const returnData = await ReturnsMediator.createReturn(req.body, req.user?.user_id);
       
       MyLogger.success(action, { 
         return_id: returnData.id, 
@@ -93,13 +93,13 @@ export class ReturnsController {
       MyLogger.info(action, { 
         return_id: returnId, 
         return_status: req.body.return_status,
-        authorized_by: req.user?.id
+        authorized_by: req.user?.user_id
       });
       
       const returnData = await ReturnsMediator.processReturn(
         returnId, 
         req.body, 
-        req.user?.id
+        req.user?.user_id
       );
       
       MyLogger.success(action, { 
@@ -120,9 +120,9 @@ export class ReturnsController {
     const action = 'ReturnsController.completeReturn';
     try {
       const returnId = parseInt(req.params.id);
-      MyLogger.info(action, { return_id: returnId, processed_by: req.user?.id });
+      MyLogger.info(action, { return_id: returnId, processed_by: req.user?.user_id });
       
-      const returnData = await ReturnsMediator.completeReturn(returnId, req.user?.id);
+      const returnData = await ReturnsMediator.completeReturn(returnId, req.user?.user_id);
       
       MyLogger.success(action, { 
         return_id: returnId,
@@ -151,7 +151,7 @@ export class ReturnsController {
       const transaction = await ReturnsMediator.processRefund(
         returnId, 
         req.body, 
-        req.user?.id
+        req.user?.user_id
       );
       
       MyLogger.success(action, { 
@@ -221,14 +221,14 @@ export class ReturnsController {
       MyLogger.info(action, { 
         return_id: returnId, 
         new_status: return_status,
-        updated_by: req.user?.id
+        updated_by: req.user?.user_id
       });
       
       const returnData = await ReturnsMediator.updateReturnStatus(
         returnId, 
         return_status, 
         notes, 
-        req.user?.id
+        req.user?.user_id
       );
       
       MyLogger.success(action, { 
@@ -286,3 +286,5 @@ export class ReturnsController {
     }
   }
 }
+
+export default ReturnsController;
