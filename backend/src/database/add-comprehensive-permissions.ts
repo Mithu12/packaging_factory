@@ -308,6 +308,8 @@ export async function addComprehensivePermissions(): Promise<void> {
       { name: 'reports.share', display_name: 'Share Reports', module: 'Reports', action: 'share', resource: 'reports' },
 
       // ==================== SYSTEM ADMINISTRATION ====================
+      { name: 'settings.read', display_name: 'View Settings', module: 'System', action: 'read', resource: 'settings' },
+      { name: 'settings.update', display_name: 'Update Settings', module: 'System', action: 'update', resource: 'settings' },
       { name: 'system.settings', display_name: 'Manage System Settings', module: 'System', action: 'manage', resource: 'system_settings' },
       { name: 'system.backup', display_name: 'Manage System Backups', module: 'System', action: 'create', resource: 'system_backups' },
       { name: 'system.restore', display_name: 'Restore System', module: 'System', action: 'restore', resource: 'system_restore' },
