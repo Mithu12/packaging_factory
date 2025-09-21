@@ -61,7 +61,11 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthApi } from "@/services/auth-api";
 import { User as BackendUser } from "@/services/auth-api";
 import { useFormatting } from "@/hooks/useFormatting";
-import { useAuth } from "@/contexts/AuthContext"
+import { useAuth } from "@/contexts/AuthContext";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PermissionGuard } from "@/components/rbac/PermissionGuard";
+import { PermissionButton } from "@/components/rbac/PermissionButton";
+import { PERMISSIONS } from "@/types/rbac";
 
 const userSchema = z.object({
   username: z.string().min(2, "Username must be at least 2 characters"),
@@ -88,6 +92,7 @@ const UserManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
+  const { hasPermission, isSystemAdmin } = useRBAC();
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -318,13 +323,14 @@ const UserManagement = () => {
           </p>
         </div>
 
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
+        <PermissionGuard permission={PERMISSIONS.USERS_CREATE}>
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>
@@ -516,13 +522,16 @@ const UserManagement = () => {
               </form>
             </Form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </PermissionGuard>
       </div>
 
       <Tabs defaultValue="users" className="w-full">
         <TabsList>
           <TabsTrigger value="users">All Users</TabsTrigger>
-          <TabsTrigger value="roles">Role Management</TabsTrigger>
+          <PermissionGuard permission={PERMISSIONS.SYSTEM_ADMIN}>
+            <TabsTrigger value="roles">Role Management</TabsTrigger>
+          </PermissionGuard>
         </TabsList>
 
         <TabsContent value="users">
@@ -615,31 +624,37 @@ const UserManagement = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
+                            <PermissionButton
+                              permission={PERMISSIONS.USERS_UPDATE}
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditUser(user)}
                               disabled={!user.is_active}
+                              hideIfNoPermission
                             >
                               <Edit className="h-4 w-4" />
-                            </Button>
+                            </PermissionButton>
                             {user.is_active ? (
-                              <Button
+                              <PermissionButton
+                                permission={PERMISSIONS.USERS_DELETE}
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDeleteUser(user.id)}
+                                hideIfNoPermission
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </PermissionButton>
                             ) : (
-                              <Button
+                              <PermissionButton
+                                permission={PERMISSIONS.USERS_UPDATE}
                                 variant="outline"
                                 size="sm"
                                 onClick={() => toggleUserStatus(user.id)}
                                 className="text-green-600 hover:text-green-700"
+                                hideIfNoPermission
                               >
                                 Reactivate
-                              </Button>
+                              </PermissionButton>
                             )}
                           </div>
                         </TableCell>
@@ -652,7 +667,8 @@ const UserManagement = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="roles">
+        <PermissionGuard permission={PERMISSIONS.SYSTEM_ADMIN}>
+          <TabsContent value="roles">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {roles.map((role) => (
               <Card key={role.value}>
@@ -701,7 +717,8 @@ const UserManagement = () => {
               </Card>
             ))}
           </div>
-        </TabsContent>
+          </TabsContent>
+        </PermissionGuard>
       </Tabs>
     </div>
   );
