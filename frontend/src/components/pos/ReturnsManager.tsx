@@ -7,11 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ReturnsAPI, SalesReturn, ReturnStats, CreateReturnRequest } from '@/services/returns-api';
-import { SalesOrder } from '@/services/types';
+import { SalesOrder, SalesOrderLineItem } from '@/services/types';
+import { SalesOrderApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useFormatting } from '@/hooks/useFormatting';
-import { Loader2, RotateCcw, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle, XCircle, Clock, AlertCircle, Package } from 'lucide-react';
 
 interface ReturnsManagerProps {
   salesOrders: SalesOrder[];
@@ -25,6 +28,8 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
   const [processing, setProcessing] = useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
+  const [orderLineItems, setOrderLineItems] = useState<SalesOrderLineItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: {selected: boolean, quantity: number, condition: string}}>({});
   const [createReturnData, setCreateReturnData] = useState<Partial<CreateReturnRequest>>({
     return_type: 'full',
     reason: 'defective_product',
@@ -45,9 +50,8 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         ReturnsAPI.getReturns({ page: 1, limit: 10, sortBy: 'return_date', sortOrder: 'desc' }),
         ReturnsAPI.getReturnStats()
       ]);
-      
-      setReturns(returnsResponse.returns);
-      setReturnStats(statsResponse);
+      setReturns(returnsResponse.data?.returns);
+      setReturnStats(statsResponse.data);
     } catch (error) {
       console.error('Error loading returns data:', error);
       toast({
@@ -60,11 +64,110 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
     }
   };
 
-  const handleCreateReturn = async () => {
-    if (!selectedOrder || !createReturnData.items?.length) {
+  const loadOrderLineItems = async (orderId: number) => {
+    try {
+      // Fetch the order details with line items from the API
+      const orderWithDetails = await SalesOrderApi.getSalesOrder(orderId);
+      
+      if (orderWithDetails && orderWithDetails.line_items) {
+        setOrderLineItems(orderWithDetails.line_items);
+        // Initialize selection state
+        const initialSelection: {[key: number]: {selected: boolean, quantity: number, condition: string}} = {};
+        orderWithDetails.line_items.forEach(item => {
+          initialSelection[item.id] = {
+            selected: false,
+            quantity: item.quantity,
+            condition: 'good'
+          };
+        });
+        setSelectedItems(initialSelection);
+      } else {
+        setOrderLineItems([]);
+        setSelectedItems({});
+      }
+    } catch (error) {
+      console.error('Error loading order line items:', error);
       toast({
         title: "Error",
-        description: "Please select an order and add items to return",
+        description: "Failed to load order items",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOrderSelection = async (orderId: string) => {
+    const order = salesOrders.find(o => o.id === parseInt(orderId));
+    setSelectedOrder(order || null);
+    if (order) {
+      await loadOrderLineItems(order.id);
+    } else {
+      setOrderLineItems([]);
+      setSelectedItems({});
+    }
+  };
+
+  const handleItemSelection = (itemId: number, checked: boolean) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        selected: checked
+      }
+    }));
+  };
+
+  const handleQuantityChange = (itemId: number, quantity: number) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        quantity: Math.max(0, quantity)
+      }
+    }));
+  };
+
+  const handleConditionChange = (itemId: number, condition: string) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        condition
+      }
+    }));
+  };
+
+  const handleCreateReturn = async () => {
+    if (!selectedOrder) {
+      toast({
+        title: "Error",
+        description: "Please select an order",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Build items array from selected items
+    const selectedItemsArray = Object.entries(selectedItems)
+      .filter(([_, itemData]) => itemData.selected && itemData.quantity > 0)
+      .map(([itemId, itemData]) => {
+        const lineItem = orderLineItems.find(item => item.id === parseInt(itemId));
+        if (!lineItem) return null;
+        
+        return {
+          original_line_item_id: lineItem.id,
+          product_id: lineItem.product_id,
+          returned_quantity: itemData.quantity,
+          item_condition: itemData.condition as 'good' | 'damaged' | 'defective' | 'expired' | 'other',
+          restockable: itemData.condition === 'good',
+          notes: ''
+        };
+      })
+      .filter(Boolean);
+
+    if (selectedItemsArray.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one item to return",
         variant: "destructive",
       });
       return;
@@ -81,7 +184,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         processing_fee: createReturnData.processing_fee || 0,
         notes: createReturnData.notes,
         return_location: createReturnData.return_location,
-        items: createReturnData.items!
+        items: selectedItemsArray as any[]
       };
 
       await ReturnsAPI.createReturn(returnRequest);
@@ -93,6 +196,8 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
       
       setCreateDialogOpen(false);
       setSelectedOrder(null);
+      setOrderLineItems([]);
+      setSelectedItems({});
       setCreateReturnData({ return_type: 'full', reason: 'defective_product', items: [] });
       loadReturnsData();
       onRefresh?.();
@@ -228,10 +333,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                 <Label htmlFor="order-select">Select Order</Label>
                 <Select 
                   value={selectedOrder?.id.toString() || ""} 
-                  onValueChange={(value) => {
-                    const order = salesOrders.find(o => o.id === parseInt(value));
-                    setSelectedOrder(order || null);
-                  }}
+                  onValueChange={handleOrderSelection}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose an order to return" />
@@ -248,6 +350,83 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
 
               {selectedOrder && (
                 <>
+                  {/* Order Items Selection */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Select Items to Return
+                    </Label>
+                    {orderLineItems.length > 0 ? (
+                      <div className="border rounded-lg max-h-60 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-12">Select</TableHead>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Original Qty</TableHead>
+                              <TableHead>Return Qty</TableHead>
+                              <TableHead>Condition</TableHead>
+                              <TableHead>Price</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {orderLineItems.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedItems[item.id]?.selected || false}
+                                    onCheckedChange={(checked) => handleItemSelection(item.id, checked as boolean)}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">{item.product_name}</div>
+                                    <div className="text-xs text-gray-500">SKU: {item.product_sku}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{item.quantity}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max={item.quantity}
+                                    value={selectedItems[item.id]?.quantity || 0}
+                                    onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 0)}
+                                    disabled={!selectedItems[item.id]?.selected}
+                                    className="w-20"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={selectedItems[item.id]?.condition || 'good'}
+                                    onValueChange={(value) => handleConditionChange(item.id, value)}
+                                    disabled={!selectedItems[item.id]?.selected}
+                                  >
+                                    <SelectTrigger className="w-32">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="good">Good</SelectItem>
+                                      <SelectItem value="damaged">Damaged</SelectItem>
+                                      <SelectItem value="defective">Defective</SelectItem>
+                                      <SelectItem value="expired">Expired</SelectItem>
+                                      <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell>{formatCurrency(item.unit_price)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        No items found for this order
+                      </div>
+                    )}
+                  </div>
+
                   {/* Return Type */}
                   <div className="space-y-2">
                     <Label htmlFor="return-type">Return Type</Label>
@@ -380,12 +559,12 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {returns.length === 0 ? (
+            {returns?.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500">No returns found</p>
               </div>
             ) : (
-              returns.map((returnItem) => (
+              returns?.map((returnItem) => (
                 <div key={returnItem.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

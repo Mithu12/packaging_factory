@@ -28,6 +28,7 @@ export const validateCreateReturn = Joi.object({
   items: Joi.array().min(1).items(
     Joi.object({
       original_line_item_id: Joi.number().integer().positive().required(),
+      product_id: Joi.number().integer().positive().required(),
       returned_quantity: Joi.number().positive().precision(2).required(),
       refund_unit_price: Joi.number().min(0).precision(2).optional(),
       item_condition: Joi.string().valid(
@@ -59,6 +60,7 @@ export const validateProcessReturn = Joi.object({
   inventory_actions: Joi.array().items(
     Joi.object({
       return_item_id: Joi.number().integer().positive().required(),
+      product_id: Joi.number().integer().positive().required(),
       adjustment_type: Joi.string().valid(
         'return_restock',
         'return_damaged',
