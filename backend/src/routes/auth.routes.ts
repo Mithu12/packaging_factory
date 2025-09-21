@@ -224,7 +224,7 @@ router.put('/change-password',
 
 // Admin routes
 
-// Get all users (admin only)
+// Get all users with RBAC data (admin only)
 router.get('/users',
   authenticate,
   adminOnly,
@@ -234,6 +234,75 @@ router.get('/users',
       success: true,
       message: 'Users retrieved successfully',
       data: users
+    });
+  })
+);
+
+// Create new user with RBAC role (admin only)
+router.post('/users',
+  authenticate,
+  auditMiddleware,
+  adminOnly,
+  expressAsyncHandler(async (req, res, next) => {
+    const { username, email, full_name, mobile_number, departments, role_id, password } = req.body;
+    
+    if (!username || !email || !full_name || !role_id || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required fields: username, email, full_name, role_id, password'
+      });
+      return;
+    }
+    
+    const user = await AuthMediator.createUser({
+      username,
+      email,
+      full_name,
+      mobile_number,
+      departments,
+      role_id: parseInt(role_id),
+      password
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      data: user
+    });
+  })
+);
+
+// Update user with RBAC role (admin only)
+router.put('/users/:id',
+  authenticate,
+  auditMiddleware,
+  adminOnly,
+  expressAsyncHandler(async (req, res, next) => {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+      return;
+    }
+    
+    const { username, email, full_name, mobile_number, departments, role_id } = req.body;
+    
+    const updateData: any = {};
+    if (username !== undefined) updateData.username = username;
+    if (email !== undefined) updateData.email = email;
+    if (full_name !== undefined) updateData.full_name = full_name;
+    if (mobile_number !== undefined) updateData.mobile_number = mobile_number;
+    if (departments !== undefined) updateData.departments = departments;
+    if (role_id !== undefined) updateData.role_id = parseInt(role_id);
+    
+    const user = await AuthMediator.updateUser(userId, updateData);
+    
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: user
     });
   })
 );

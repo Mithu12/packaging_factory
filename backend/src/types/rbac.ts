@@ -82,6 +82,26 @@ export interface UserWithRole {
   last_login?: string;
 }
 
+// User with comprehensive RBAC permissions
+export interface UserWithPermissions {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  mobile_number?: string;
+  departments?: string[];
+  role?: string; // Legacy role field
+  role_id?: number;
+  is_active: boolean;
+  last_login?: string;
+  created_at: string;
+  updated_at: string;
+  role_details?: Role;
+  role_permissions: Permission[];
+  direct_permissions: Permission[];
+  all_permissions: Permission[];
+}
+
 // Permission checking utilities
 export interface PermissionCheck {
   module: string;

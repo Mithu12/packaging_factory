@@ -60,6 +60,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { AuthApi } from "@/services/auth-api";
 import { User as BackendUser } from "@/services/auth-api";
+import { RBACApi } from "@/services/rbac-api";
+import { Role, UserWithPermissions } from "@/types/rbac";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRBAC } from "@/contexts/RBACContext";
@@ -73,14 +75,14 @@ const userSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
   mobile_number: z.string().optional(),
   departments: z.array(z.string()).optional(),
-  role: z.string().min(1, "Please select a role"),
+  role_id: z.number().min(1, "Please select a role"),
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
-// Use the backend User type
-type User = BackendUser;
+// Use RBAC-compatible user type
+type User = UserWithPermissions;
 
 const UserManagement = () => {
   const { toast } = useToast();
@@ -88,6 +90,7 @@ const UserManagement = () => {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -102,52 +105,46 @@ const UserManagement = () => {
       full_name: "",
       mobile_number: "",
       departments: [],
-      role: "",
+      role_id: 0,
       password: "",
     },
   });
 
-  // Fetch users from backend
-  const fetchUsers = async () => {
+  // Fetch users and roles from backend
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const usersData = await AuthApi.getAllUsers();
-      setUsers(usersData);
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-      setError('Failed to load users. Please try again.');
-      // Fallback to mock data if backend is not available
-      setUsers([
-        {
-          id: 1,
-          username: "admin",
-          email: "admin@erp.com",
-          full_name: "System Administrator",
-          mobile_number: "+1234567890",
-          departments: ["it", "operations"],
-          role: "admin",
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
+      
+      console.log('Loading users and roles with RBAC data...');
+      
+      const [usersData, rolesData] = await Promise.all([
+        RBACApi.getAllUsersWithRBAC(),
+        RBACApi.getAllRoles({ limit: 100 })
       ]);
+      
+      console.log('Users data:', usersData);
+      console.log('Roles data:', rolesData);
+      
+      setUsers(usersData || []);
+      setRoles(rolesData?.roles || []);
+    } catch (err) {
+      console.error('Failed to fetch users and roles:', err);
+      setError('Failed to load users and roles. Please try again.');
+      
+      // Set empty arrays as fallback
+      setUsers([]);
+      setRoles([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchData();
   }, []);
 
 
-  const roles = [
-    { value: "admin", label: "Admin", color: "destructive" },
-    { value: "manager", label: "Manager", color: "secondary" },
-    { value: "accounts", label: "Accounts", color: "default" },
-    { value: "employee", label: "Employee", color: "outline" },
-  ];
 
   const departments = [
     { value: "it", label: "IT" },
@@ -162,20 +159,18 @@ const UserManagement = () => {
   const onSubmit = async (data: UserFormData) => {
     try {
       setSubmitting(true);
+      console.log('Submitting user data:', data);
 
       if (selectedUser) {
-        // Update existing user profile
-        const updatedUser = await AuthApi.updateUserProfile(selectedUser.id, {
-          full_name: data.full_name,
+        // Update existing user with RBAC
+        const updatedUser = await RBACApi.updateUserWithRole(selectedUser.id, {
+          username: data.username,
           email: data.email,
+          full_name: data.full_name,
           mobile_number: data.mobile_number,
           departments: data.departments,
+          role_id: data.role_id,
         });
-
-        // Update role if changed
-        if (data.role !== selectedUser.role) {
-          await AuthApi.updateUserRole(selectedUser.id, data.role as 'admin' | 'manager' | 'employee' | 'viewer');
-        }
 
         setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
         toast({
@@ -183,18 +178,22 @@ const UserManagement = () => {
           description: `${data.full_name} has been updated successfully.`,
         });
       } else {
-        // Create new user
-        const newUser = await AuthApi.register({
+        // Create new user with RBAC role
+        if (!data.password) {
+          throw new Error('Password is required for new users');
+        }
+
+        const newUser = await RBACApi.createUserWithRole({
           username: data.username,
           email: data.email,
           full_name: data.full_name,
           mobile_number: data.mobile_number,
           departments: data.departments,
+          role_id: data.role_id,
           password: data.password,
-          role: data.role as 'admin' | 'manager' | 'employee' | 'viewer',
         });
 
-        setUsers([...users, newUser.user]);
+        setUsers([...users, newUser]);
         toast({
           title: "User created",
           description: `${data.full_name} has been added successfully.`,
@@ -223,7 +222,7 @@ const UserManagement = () => {
     form.setValue("full_name", user.full_name);
     form.setValue("mobile_number", user.mobile_number || "");
     form.setValue("departments", user.departments || []);
-    form.setValue("role", user.role);
+    form.setValue("role_id", user.role_id || 0);
     form.setValue("password", undefined); // Don't pre-fill password
     setIsAddUserOpen(true);
   };
@@ -476,13 +475,13 @@ const UserManagement = () => {
 
                 <FormField
                   control={form.control}
-                  name="role"
+                  name="role_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Role</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        defaultValue={field.value?.toString()}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -491,8 +490,15 @@ const UserManagement = () => {
                         </FormControl>
                         <SelectContent>
                           {roles.map((role) => (
-                            <SelectItem key={role.value} value={role.value}>
-                              {role.label}
+                            <SelectItem key={role.id} value={role.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <span>{role.display_name}</span>
+                                {role.department && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {role.department}
+                                  </Badge>
+                                )}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>

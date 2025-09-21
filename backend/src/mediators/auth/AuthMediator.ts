@@ -303,34 +303,6 @@ export class AuthMediator {
     }
   }
 
-  // Get all users (admin only)
-  static async getAllUsers(): Promise<User[]> {
-    const action = 'Get All Users';
-    const client = await pool.connect();
-    
-    try {
-      MyLogger.info(action);
-      
-      const usersResult = await client.query(
-        'SELECT * FROM users ORDER BY created_at DESC'
-      );
-      
-      const users = usersResult.rows.map(user => {
-        const { password_hash, password_reset_token, password_reset_expires, email_verification_token, ...userWithoutPassword } = user;
-        return userWithoutPassword;
-      });
-      
-      MyLogger.success(action, { count: users.length });
-      
-      return users;
-      
-    } catch (error) {
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
 
   // Update user role (admin only)
   static async updateUserRole(userId: number, role: UserRole): Promise<User> {
@@ -566,13 +538,13 @@ export class AuthMediator {
       });
       const allPermissions = Array.from(allPermissionsMap.values());
       
-      const userWithPermissions: UserWithPermissions = {
+      const userWithPermissions = {
         id: user.id,
         username: user.username,
         email: user.email,
-        first_name: user.full_name.split(' ')[0] || user.full_name,
-        last_name: user.full_name.split(' ').slice(1).join(' ') || '',
-        phone: user.mobile_number,
+        full_name: user.full_name,
+        mobile_number: user.mobile_number,
+        departments: user.departments || [],
         is_active: user.is_active,
         role: user.role,
         role_id: userRole?.id || user.role_id,
@@ -592,7 +564,7 @@ export class AuthMediator {
         totalPermissionsCount: allPermissions.length
       });
       
-      return userWithPermissions;
+      return userWithPermissions as UserWithPermissions;
       
     } catch (error) {
       MyLogger.error(action, error, { userId });
@@ -610,5 +582,294 @@ export class AuthMediator {
   // Check if user has any of the specified permissions (delegates to RoleMediator)
   static async hasAnyPermission(userId: number, checks: PermissionCheck[]): Promise<boolean> {
     return RoleMediator.hasAnyPermission(userId, checks);
+  }
+
+  // ==================== USER MANAGEMENT METHODS ====================
+
+  // Get all users with RBAC data
+  static async getAllUsers(): Promise<UserWithPermissions[]> {
+    const action = 'AuthMediator.getAllUsers';
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action);
+
+      const query = `
+        SELECT 
+          u.*,
+          r.id as role_id,
+          r.name as role_name,
+          r.display_name as role_display_name,
+          r.level as role_level,
+          r.department as role_department
+        FROM users u
+        LEFT JOIN roles r ON u.role_id = r.id
+        WHERE u.is_active = true
+        ORDER BY u.created_at DESC
+      `;
+
+      const result = await client.query(query);
+      const users = result.rows;
+
+      // Get permissions for each user
+      const usersWithPermissions: UserWithPermissions[] = [];
+      
+      for (const user of users) {
+        try {
+          // Get role permissions
+          const rolePermissionsQuery = `
+            SELECT p.* FROM permissions p
+            INNER JOIN role_permissions rp ON rp.permission_id = p.id
+            WHERE rp.role_id = $1
+          `;
+          const rolePermissionsResult = await client.query(rolePermissionsQuery, [user.role_id]);
+          const rolePermissions = rolePermissionsResult.rows;
+
+          // Get direct user permissions
+          const directPermissionsQuery = `
+            SELECT p.* FROM permissions p
+            INNER JOIN user_permissions up ON up.permission_id = p.id
+            WHERE up.user_id = $1
+              AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP)
+          `;
+          const directPermissionsResult = await client.query(directPermissionsQuery, [user.id]);
+          const directPermissions = directPermissionsResult.rows;
+
+          // Combine all permissions (remove duplicates)
+          const allPermissionsMap = new Map();
+          [...rolePermissions, ...directPermissions].forEach(permission => {
+            allPermissionsMap.set(permission.id, permission);
+          });
+          const allPermissions = Array.from(allPermissionsMap.values());
+
+          const userWithPermissions = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            full_name: user.full_name,
+            mobile_number: user.mobile_number,
+            departments: user.departments || [],
+            role: user.role_name || 'No Role', // Legacy role field
+            role_id: user.role_id,
+            is_active: user.is_active,
+            last_login: user.last_login?.toISOString(),
+            created_at: user.created_at.toISOString(),
+            updated_at: user.updated_at.toISOString(),
+            role_details: user.role_id ? {
+              id: user.role_id,
+              name: user.role_name,
+              display_name: user.role_display_name,
+              level: user.role_level,
+              department: user.role_department,
+              is_active: true,
+              created_at: user.created_at.toISOString(),
+              updated_at: user.updated_at.toISOString()
+            } : undefined,
+            role_permissions: rolePermissions,
+            direct_permissions: directPermissions,
+            all_permissions: allPermissions
+          };
+
+          usersWithPermissions.push(userWithPermissions as UserWithPermissions);
+        } catch (userError) {
+          MyLogger.error(`Error processing user ${user.id}`, userError);
+          // Continue with next user
+        }
+      }
+
+      MyLogger.success(action, { 
+        totalUsers: usersWithPermissions.length,
+        usersWithRoles: usersWithPermissions.filter(u => u.role_id).length
+      });
+
+      return usersWithPermissions;
+
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Create new user with RBAC role
+  static async createUser(userData: {
+    username: string;
+    email: string;
+    full_name: string;
+    mobile_number?: string;
+    departments?: string[];
+    role_id: number;
+    password: string;
+  }): Promise<UserWithPermissions> {
+    const action = 'AuthMediator.createUser';
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { username: userData.username, email: userData.email });
+
+      await client.query('BEGIN');
+
+      // Check if username or email already exists
+      const existingUserQuery = `
+        SELECT id FROM users 
+        WHERE username = $1 OR email = $2
+      `;
+      const existingUser = await client.query(existingUserQuery, [userData.username, userData.email]);
+      
+      if (existingUser.rows.length > 0) {
+        throw createError('Username or email already exists', 400);
+      }
+
+      // Verify role exists
+      const roleQuery = 'SELECT id FROM roles WHERE id = $1 AND is_active = true';
+      const roleResult = await client.query(roleQuery, [userData.role_id]);
+      
+      if (roleResult.rows.length === 0) {
+        throw createError('Invalid role specified', 400);
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(userData.password, this.BCRYPT_ROUNDS);
+
+      // Create user
+      const insertQuery = `
+        INSERT INTO users (
+          username, email, full_name, mobile_number, 
+          departments, role_id, password_hash, is_active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+        RETURNING *
+      `;
+      
+      const result = await client.query(insertQuery, [
+        userData.username,
+        userData.email,
+        userData.full_name,
+        userData.mobile_number,
+        userData.departments || [],
+        userData.role_id,
+        hashedPassword
+      ]);
+
+      const newUser = result.rows[0];
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, { 
+        userId: newUser.id, 
+        username: newUser.username,
+        roleId: userData.role_id
+      });
+
+      // Return user with permissions
+      return await this.getUserWithPermissions(newUser.id);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { username: userData.username });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Update user with RBAC role
+  static async updateUser(userId: number, userData: {
+    username?: string;
+    email?: string;
+    full_name?: string;
+    mobile_number?: string;
+    departments?: string[];
+    role_id?: number;
+  }): Promise<UserWithPermissions> {
+    const action = 'AuthMediator.updateUser';
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { userId, updates: Object.keys(userData) });
+
+      await client.query('BEGIN');
+
+      // Check if user exists
+      const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+      if (userCheck.rows.length === 0) {
+        throw createError('User not found', 404);
+      }
+
+      // If updating username or email, check for conflicts
+      if (userData.username || userData.email) {
+        const conflictQuery = `
+          SELECT id FROM users 
+          WHERE (username = $1 OR email = $2) AND id != $3
+        `;
+        const conflictResult = await client.query(conflictQuery, [
+          userData.username || '',
+          userData.email || '',
+          userId
+        ]);
+        
+        if (conflictResult.rows.length > 0) {
+          throw createError('Username or email already exists', 400);
+        }
+      }
+
+      // If updating role, verify it exists
+      if (userData.role_id) {
+        const roleQuery = 'SELECT id FROM roles WHERE id = $1 AND is_active = true';
+        const roleResult = await client.query(roleQuery, [userData.role_id]);
+        
+        if (roleResult.rows.length === 0) {
+          throw createError('Invalid role specified', 400);
+        }
+      }
+
+      // Build update query dynamically
+      const updateFields = [];
+      const updateValues = [];
+      let paramCount = 1;
+
+      Object.entries(userData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updateFields.push(`${key} = $${paramCount}`);
+          updateValues.push(value);
+          paramCount++;
+        }
+      });
+
+      if (updateFields.length === 0) {
+        throw createError('No fields to update', 400);
+      }
+
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      updateValues.push(userId);
+
+      const updateQuery = `
+        UPDATE users 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING *
+      `;
+
+      const result = await client.query(updateQuery, updateValues);
+      const updatedUser = result.rows[0];
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, { 
+        userId, 
+        updatedFields: Object.keys(userData),
+        newRoleId: userData.role_id
+      });
+
+      // Return user with updated permissions
+      return await this.getUserWithPermissions(userId);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { userId });
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }

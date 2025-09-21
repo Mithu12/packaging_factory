@@ -626,4 +626,48 @@ export class RBACApi {
     }
     return userPermissions.role_details;
   }
+
+  // ==================== USER MANAGEMENT WITH RBAC (/auth/users routes) ====================
+
+  /**
+   * Get all users with RBAC data
+   */
+  static async getAllUsersWithRBAC() {
+    return makeRequest<UserWithPermissions[]>('/auth/users');
+  }
+
+  /**
+   * Create new user with RBAC role
+   */
+  static async createUserWithRole(userData: {
+    username: string;
+    email: string;
+    full_name: string;
+    mobile_number?: string;
+    departments?: string[];
+    role_id: number;
+    password: string;
+  }) {
+    return makeRequest<UserWithPermissions>('/auth/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  /**
+   * Update user with RBAC role
+   */
+  static async updateUserWithRole(userId: number, userData: {
+    username?: string;
+    email?: string;
+    full_name?: string;
+    mobile_number?: string;
+    departments?: string[];
+    role_id?: number;
+  }) {
+    return makeRequest<UserWithPermissions>(`/auth/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
 }
