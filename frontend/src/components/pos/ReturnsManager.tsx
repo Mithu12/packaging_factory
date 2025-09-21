@@ -51,7 +51,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         ReturnsAPI.getReturnStats()
       ]);
         console.log({returnsResponse});
-      setReturns(returnsResponse?.returns);
+      setReturns(returnsResponse?.data);
       setReturnStats(statsResponse);
     } catch (error) {
       console.error('Error loading returns data:', error);

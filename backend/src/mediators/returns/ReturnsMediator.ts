@@ -249,25 +249,31 @@ export class ReturnsMediator {
       // 4. Generate return number
       const returnNumber = await this.generateReturnNumber(client);
       
-      // 5. Calculate return totals
+      // 5. Calculate return totals (excluding gift items)
       let subtotalReturned = 0;
       let taxReturned = 0;
       
       for (const item of data.items) {
         const originalItem = originalLineItems.find(li => li.id === item.original_line_item_id);
+        
+        // Skip gift items for refund calculations
+        if (originalItem.is_gift) {
+          continue;
+        }
+        
         const refundUnitPrice = item.refund_unit_price || originalItem.unit_price;
         const lineRefundAmount = refundUnitPrice * item.returned_quantity;
         subtotalReturned += lineRefundAmount;
         
         // Calculate proportional tax
-        const originalLineTotal = originalItem.line_total;
+        const originalLineTotal = Number(originalItem.line_total);
         const taxProportion = originalLineTotal > 0 ? lineRefundAmount / originalLineTotal : 0;
-        const originalTaxForLine = (originalOrder.tax_amount * originalItem.line_total) / originalOrder.subtotal;
+        const originalTaxForLine = (Number(originalOrder.tax_amount) * Number(originalItem.line_total)) / Number(originalOrder.subtotal);
         taxReturned += originalTaxForLine * taxProportion;
       }
       
       const processingFee = data.processing_fee || 0;
-      const totalRefundAmount = subtotalReturned + taxReturned;
+      const totalRefundAmount = Number(subtotalReturned) + Number(taxReturned);
       const finalRefundAmount = totalRefundAmount - processingFee;
       
       // 6. Insert return record
@@ -304,8 +310,10 @@ export class ReturnsMediator {
       const returnItems = [];
       for (const item of data.items) {
         const originalItem = originalLineItems.find(li => li.id === item.original_line_item_id);
-        const refundUnitPrice = item.refund_unit_price || originalItem.unit_price;
-        const lineRefundAmount = refundUnitPrice * item.returned_quantity;
+        
+        // For gift items, set refund amount to 0
+        const refundUnitPrice = originalItem.is_gift ? 0 : (item.refund_unit_price || originalItem.unit_price);
+        const lineRefundAmount = originalItem.is_gift ? 0 : (refundUnitPrice * item.returned_quantity);
         
         const insertItemQuery = `
           INSERT INTO sales_return_items (
@@ -680,7 +688,7 @@ export class ReturnsMediator {
           quantityToRestock = 0; // Don't restock non-restockable items
         }
 
-        const newStock = currentStock + quantityToRestock;
+        const newStock = Number(currentStock) + Number(quantityToRestock);
 
         // 4. Update product inventory
         if (quantityToRestock > 0) {
@@ -892,7 +900,7 @@ export class ReturnsMediator {
       const newRefundTransaction = result.rows[0];
 
       // Update sales_orders payment_status if fully refunded
-      const newTotalRefunded = totalRefundedSoFar + data.refund_amount;
+      const newTotalRefunded = Number(totalRefundedSoFar) + Number(data.refund_amount);
       if (newTotalRefunded >= salesReturn.final_refund_amount) {
         await client.query(`
           UPDATE sales_orders
