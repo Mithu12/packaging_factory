@@ -52,6 +52,18 @@ export interface RoleHierarchy {
   child_role?: Role;
 }
 
+export interface DepartmentStats {
+  department: string;
+  total_roles: number;
+  active_roles: number;
+  total_users: number;
+  active_users: number;
+  average_role_level: number;
+  min_role_level: number;
+  max_role_level: number;
+  unique_permissions: number;
+}
+
 // Enhanced User interface with role-based information
 export interface UserWithRole {
   id: number;

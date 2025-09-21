@@ -64,6 +64,35 @@ router.get('/roles/departments',
 );
 
 /**
+ * @route GET /api/rbac/departments/stats
+ * @desc Get department statistics
+ * @access System Admin
+ */
+router.get('/departments/stats',
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res) => {
+    const action = 'GET /api/rbac/departments/stats';
+    
+    try {
+      const departmentStats = await RoleMediator.getDepartmentStats();
+      
+      res.json({
+        success: true,
+        message: 'Department statistics retrieved successfully',
+        data: departmentStats
+      });
+      
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error retrieving department statistics'
+      });
+    }
+  })
+);
+
+/**
  * @route GET /api/rbac/roles/:id
  * @desc Get role details with permissions
  * @access System Admin

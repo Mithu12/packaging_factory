@@ -181,6 +181,23 @@ export class RBACApi {
     }>('/rbac/roles/departments');
   }
 
+  /**
+   * Get department statistics
+   */
+  static async getDepartmentStats() {
+    return makeRequest<Array<{
+      department: string;
+      total_roles: number;
+      active_roles: number;
+      total_users: number;
+      active_users: number;
+      average_role_level: number;
+      min_role_level: number;
+      max_role_level: number;
+      unique_permissions: number;
+    }>>('/rbac/departments/stats');
+  }
+
   // ==================== PERMISSION MANAGEMENT ====================
   
   /**

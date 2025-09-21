@@ -547,51 +547,6 @@ export class RoleMediator {
   }
 
   // ==================== ANALYTICS & REPORTING ====================
-  
-  static async getDepartmentStats(): Promise<DepartmentStats[]> {
-    const action = 'RoleMediator.getDepartmentStats';
-    const client = await pool.connect();
-    
-    try {
-      MyLogger.info(action);
-      
-      const query = `
-        SELECT 
-          r.department,
-          COUNT(DISTINCT u.id) as total_users,
-          COUNT(DISTINCT CASE WHEN u.is_active = true THEN u.id END) as active_users,
-          array_agg(DISTINCT jsonb_build_object(
-            'id', r.id, 
-            'name', r.name, 
-            'display_name', r.display_name,
-            'level', r.level
-          )) as roles
-        FROM roles r
-        LEFT JOIN users u ON u.role_id = r.id
-        WHERE r.is_active = true
-        GROUP BY r.department
-        ORDER BY r.department
-      `;
-      
-      const result = await client.query(query);
-      
-      const stats = result.rows.map(row => ({
-        department: row.department,
-        total_users: parseInt(row.total_users),
-        active_users: parseInt(row.active_users),
-        roles: row.roles.filter((role: any) => role.id !== null)
-      }));
-      
-      MyLogger.success(action, { departmentCount: stats.length });
-      return stats;
-      
-    } catch (error) {
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
 
   // ==================== HELPER METHODS ====================
   
@@ -943,6 +898,61 @@ export class RoleMediator {
       
     } catch (error) {
       MyLogger.error(action, error, { permissionCheck });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getDepartmentStats(): Promise<any[]> {
+    const action = 'RoleMediator.getDepartmentStats';
+    const client = await pool.connect();
+    
+    try {
+      MyLogger.info(action);
+      
+      const query = `
+        SELECT 
+          COALESCE(r.department, 'General') as department,
+          COUNT(r.id) as total_roles,
+          COUNT(r.id) FILTER (WHERE r.is_active = true) as active_roles,
+          COUNT(u.id) as total_users,
+          COUNT(u.id) FILTER (WHERE u.is_active = true) as active_users,
+          AVG(r.level) as average_role_level,
+          MIN(r.level) as min_role_level,
+          MAX(r.level) as max_role_level,
+          COUNT(DISTINCT rp.permission_id) as unique_permissions
+        FROM roles r
+        LEFT JOIN users u ON u.role_id = r.id
+        LEFT JOIN role_permissions rp ON rp.role_id = r.id
+        GROUP BY COALESCE(r.department, 'General')
+        ORDER BY total_roles DESC, department ASC
+      `;
+      
+      const result = await client.query(query);
+      
+      const departmentStats = result.rows.map(row => ({
+        department: row.department,
+        total_roles: parseInt(row.total_roles) || 0,
+        active_roles: parseInt(row.active_roles) || 0,
+        total_users: parseInt(row.total_users) || 0,
+        active_users: parseInt(row.active_users) || 0,
+        average_role_level: parseFloat(row.average_role_level) || 0,
+        min_role_level: parseInt(row.min_role_level) || 0,
+        max_role_level: parseInt(row.max_role_level) || 0,
+        unique_permissions: parseInt(row.unique_permissions) || 0
+      }));
+      
+      MyLogger.success(action, { 
+        departmentCount: departmentStats.length,
+        totalRoles: departmentStats.reduce((sum, dept) => sum + dept.total_roles, 0),
+        totalUsers: departmentStats.reduce((sum, dept) => sum + dept.total_users, 0)
+      });
+      
+      return departmentStats;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
       throw error;
     } finally {
       client.release();
