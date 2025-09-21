@@ -16,6 +16,7 @@ interface RoleDetailsDialogProps {
 export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onClose }) => {
   const [roleDetails, setRoleDetails] = useState<RoleWithPermissions | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('');
 
   useEffect(() => {
     loadRoleDetails();
@@ -28,6 +29,23 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
       const details = await RBACApi.getRoleById(role.id);
       console.log('Role details received:', details);
       setRoleDetails(details || null);
+      
+      // Set the first module as active tab when data loads
+      if (details?.permissions) {
+        const permissionsByModule = details.permissions.reduce((acc, permission) => {
+          if (!permission?.module) return acc;
+          if (!acc[permission.module]) {
+            acc[permission.module] = [];
+          }
+          acc[permission.module].push(permission);
+          return acc;
+        }, {} as Record<string, typeof details.permissions>);
+        
+        const moduleNames = Object.keys(permissionsByModule);
+        if (moduleNames.length > 0) {
+          setActiveTab(moduleNames[0]);
+        }
+      }
     } catch (error) {
       console.error('Error loading role details:', error);
       setRoleDetails(null);
@@ -61,8 +79,8 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
     return descriptions[level as keyof typeof descriptions] || 'Custom role level';
   };
 
-  const getActionBadgeColor = (action: string) => {
-    const colors: Record<string, string> = {
+  const getActionBadgeColor = (action: string): "outline" | "default" | "secondary" | "destructive" => {
+    const colors: Record<string, "outline" | "default" | "secondary" | "destructive"> = {
       'create': 'default',
       'read': 'secondary',
       'update': 'outline',
@@ -77,8 +95,8 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
     return colors[action] || 'outline';
   };
 
-  const getDepartmentBadgeColor = (department: string) => {
-    const colors: Record<string, string> = {
+  const getDepartmentBadgeColor = (department: string): "outline" | "default" | "secondary" | "destructive" => {
+    const colors: Record<string, "outline" | "default" | "secondary" | "destructive"> = {
       'IT': 'destructive',
       'Management': 'default',
       'Finance': 'default',
@@ -248,11 +266,11 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
               <p className="text-gray-500">No permissions assigned to this role</p>
             </div>
           ) : (
-            <Tabs value={moduleNames[0]} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
-                {moduleNames.slice(0, 6).map(module => (
-                  <TabsTrigger key={module} value={module} className="text-xs">
-                    {module.split(' ')[0]}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className={`grid w-full gap-1 ${moduleNames.length <= 3 ? 'grid-cols-3' : moduleNames.length <= 6 ? 'grid-cols-6' : 'grid-cols-8'}`}>
+                {moduleNames.map(module => (
+                  <TabsTrigger key={module} value={module} className="text-xs px-2 py-1">
+                    <span className="truncate">{module.split(' ')[0]}</span>
                     <span className="ml-1 text-xs bg-gray-200 rounded-full px-1">
                       {permissionsByModule[module].length}
                     </span>
