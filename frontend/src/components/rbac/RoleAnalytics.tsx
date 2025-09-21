@@ -23,15 +23,16 @@ export const RoleAnalytics: React.FC = () => {
       setLoading(true);
       console.log('Loading analytics data...');
       
-      const [rolesData, statsData] = await Promise.all([
-        RBACApi.getAllRoles(),
+      const [rolesResponse, statsData] = await Promise.all([
+        RBACApi.getAllRoles({ limit: 1000 }), // Get all roles for analytics
         RBACApi.getDepartmentStats()
       ]);
       
-      console.log('Analytics roles data:', rolesData);
+      console.log('Analytics roles response:', rolesResponse);
       console.log('Analytics stats data:', statsData);
       
-      setRoles(rolesData || []);
+      // Extract the roles array from the response object
+      setRoles(rolesResponse?.roles || []);
       setDepartmentStats(statsData || []);
     } catch (error) {
       console.error('Error loading analytics data:', error);
@@ -44,13 +45,18 @@ export const RoleAnalytics: React.FC = () => {
   };
 
   const getRoleDistributionData = () => {
-    const levelCounts = roles?.reduce((acc, role) => {
+    // Ensure roles is an array before using reduce
+    if (!Array.isArray(roles) || roles.length === 0) {
+      return [];
+    }
+
+    const levelCounts = roles.reduce((acc, role) => {
       const level = `Level ${role.level}`;
       acc[level] = (acc[level] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>) || {};
+    }, {} as Record<string, number>);
 
-    const totalRoles = roles?.length || 1; // Avoid division by zero
+    const totalRoles = roles.length;
     return Object.entries(levelCounts).map(([level, count]) => ({
       level,
       count,
@@ -65,7 +71,8 @@ export const RoleAnalytics: React.FC = () => {
       department: dept?.department || 'Unknown',
       total_users: dept?.total_users || 0,
       active_users: dept?.active_users || 0,
-      roles_count: dept?.roles?.length || 0,
+      roles_count: dept?.total_roles || 0, // Use total_roles from backend
+      active_roles: dept?.active_roles || 0, // Add active_roles
       utilization: (dept?.total_users || 0) > 0 ? Math.round(((dept?.active_users || 0) / (dept?.total_users || 1)) * 100) : 0
     }));
   };
@@ -89,12 +96,17 @@ export const RoleAnalytics: React.FC = () => {
   };
 
   const getRoleHierarchyData = () => {
+    // Ensure roles is an array before using filter
+    if (!Array.isArray(roles)) {
+      return [];
+    }
+
     const hierarchyData = [1, 2, 3, 4, 5, 6].map(level => {
-      const rolesAtLevel = roles?.filter(role => role.level === level);
+      const rolesAtLevel = roles.filter(role => role.level === level);
       return {
         level: `Level ${level}`,
-        roles: rolesAtLevel?.length,
-        departments: [...new Set(rolesAtLevel?.map(r => r.department))].length
+        roles: rolesAtLevel.length,
+        departments: [...new Set(rolesAtLevel.map(r => r.department).filter(Boolean))].length
       };
     });
     
@@ -102,13 +114,17 @@ export const RoleAnalytics: React.FC = () => {
   };
 
   const getTopMetrics = () => {
-    const totalUsers = departmentStats?.reduce((sum, dept) => sum + dept.total_users, 0);
-    const activeUsers = departmentStats?.reduce((sum, dept) => sum + dept.active_users, 0);
-    const totalDepartments = departmentStats?.length || 0;
-    const avgRolesPerDept = totalDepartments > 0 ? Math.round((roles?.length || 0) / totalDepartments) : 0;
+    // Ensure departmentStats and roles are arrays before using array methods
+    const safeRoles = Array.isArray(roles) ? roles : [];
+    const safeDepartmentStats = Array.isArray(departmentStats) ? departmentStats : [];
+    
+    const totalUsers = safeDepartmentStats.reduce((sum, dept) => sum + (dept.total_users || 0), 0);
+    const activeUsers = safeDepartmentStats.reduce((sum, dept) => sum + (dept.active_users || 0), 0);
+    const totalDepartments = safeDepartmentStats.length;
+    const avgRolesPerDept = totalDepartments > 0 ? Math.round(safeRoles.length / totalDepartments) : 0;
 
     return {
-      totalRoles: roles?.length,
+      totalRoles: safeRoles.length,
       totalUsers,
       activeUsers,
       totalDepartments,

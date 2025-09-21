@@ -44,7 +44,7 @@ const RoleManagement: React.FC = () => {
       console.log('Roles data received:', rolesData);
       console.log('Stats data received:', statsData);
       
-      setRoles(rolesData || []);
+      setRoles(rolesData?.roles || []);
       setDepartmentStats(statsData || []);
     } catch (error) {
       console.error('Error loading role data:', error);

@@ -302,7 +302,7 @@ export const checkMultiplePermissionsSchema = Joi.object({
 
 export const roleQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional().default(1),
-  limit: Joi.number().integer().min(1).max(100).optional().default(10),
+  limit: Joi.number().integer().min(1).max(1000).optional().default(10),
   search: Joi.string().max(100).optional(),
   department: Joi.string().max(100).optional(),
   level: Joi.number().integer().min(1).max(10).optional(),
@@ -313,7 +313,7 @@ export const roleQuerySchema = Joi.object({
 
 export const permissionQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional().default(1),
-  limit: Joi.number().integer().min(1).max(100).optional().default(10),
+  limit: Joi.number().integer().min(1).max(1000).optional().default(10),
   search: Joi.string().max(100).optional(),
   module: Joi.string().max(100).optional(),
   action: Joi.string().max(50).optional(),
@@ -324,7 +324,7 @@ export const permissionQuerySchema = Joi.object({
 
 export const userPermissionQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional().default(1),
-  limit: Joi.number().integer().min(1).max(100).optional().default(10),
+  limit: Joi.number().integer().min(1).max(1000).optional().default(10),
   include_expired: Joi.boolean().optional().default(false),
   module: Joi.string().max(100).optional(),
   action: Joi.string().max(50).optional(),
