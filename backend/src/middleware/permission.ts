@@ -265,6 +265,19 @@ export const PERMISSIONS = {
   SALES_ORDERS_APPROVE: createPermissionCheck('Sales', 'approve', 'sales_orders'),
   SALES_ORDERS_CANCEL: createPermissionCheck('Sales', 'update', 'sales_order_status'),
   
+  // POS
+  POS_ACCESS: createPermissionCheck('Sales', 'read', 'pos'),
+  POS_TRANSACTIONS: createPermissionCheck('Sales', 'create', 'pos_transactions'),
+  POS_REFUNDS: createPermissionCheck('Sales', 'create', 'pos_refunds'),
+  POS_DISCOUNTS: createPermissionCheck('Sales', 'apply', 'pos_discounts'),
+  POS_GIFTS: createPermissionCheck('Sales', 'create', 'pos_gifts'),
+  
+  // POS Returns
+  POS_RETURNS_CREATE: createPermissionCheck('Sales', 'create', 'pos_returns'),
+  POS_RETURNS_READ: createPermissionCheck('Sales', 'read', 'pos_returns'),
+  POS_RETURNS_APPROVE: createPermissionCheck('Sales', 'approve', 'pos_returns'),
+  POS_RETURNS_COMPLETE: createPermissionCheck('Sales', 'process', 'pos_returns'),
+  
   // Customers
   CUSTOMERS_CREATE: createPermissionCheck('Sales', 'create', 'customers'),
   CUSTOMERS_READ: createPermissionCheck('Sales', 'read', 'customers'),
