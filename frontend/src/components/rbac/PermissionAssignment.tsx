@@ -37,18 +37,35 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
   const loadData = async () => {
     try {
       setLoading(true);
-      const [roleData, permissionsData] = await Promise.all([
+      console.log('Loading permission assignment data for role:', role.id);
+      
+      const [roleData, permissionsResponse, groupedResponse] = await Promise.all([
         RBACApi.getRoleById(role.id),
-        RBACApi.getAllPermissions()
+        RBACApi.getAllPermissions({ limit: 1000 }), // Get all permissions for assignment
+        RBACApi.getPermissionsGrouped()
       ]);
       
+      console.log('Role data:', roleData);
+      console.log('Permissions response:', permissionsResponse);
+      console.log('Grouped response:', groupedResponse);
+      
       setRoleWithPermissions(roleData || null);
-      setAllPermissions(permissionsData?.permissions || []);
-      setGroupedPermissions(permissionsData?.grouped || {});
+      setAllPermissions(permissionsResponse?.permissions || []);
+      
+      // Transform grouped permissions to the expected format
+      const grouped: Record<string, Permission[]> = {};
+      if (groupedResponse?.modules) {
+        groupedResponse.modules.forEach(module => {
+          grouped[module.module] = module.permissions || [];
+        });
+      }
+      setGroupedPermissions(grouped);
       
       // Set currently assigned permissions
       const assignedIds = new Set((roleData?.permissions || []).map(p => p?.id).filter(Boolean));
       setSelectedPermissions(assignedIds);
+      
+      console.log('Assigned permission IDs:', Array.from(assignedIds));
     } catch (error) {
       console.error('Error loading permission data:', error);
       toast({
@@ -97,17 +114,33 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
       console.log('Saving role permissions for role:', role.id);
       console.log('Selected permissions:', Array.from(selectedPermissions));
       
-      const updateData = {
-        permission_ids: Array.from(selectedPermissions)
-      };
+      // Get currently assigned permissions
+      const currentPermissions = new Set((roleWithPermissions?.permissions || []).map(p => p.id));
+      const newPermissions = selectedPermissions;
       
-      await RBACApi.updateRole(role.id, updateData);
+      // Calculate permissions to add and remove
+      const toAdd = Array.from(newPermissions).filter(id => !currentPermissions.has(id));
+      const toRemove = Array.from(currentPermissions).filter(id => !newPermissions.has(id));
+      
+      console.log('Permissions to add:', toAdd);
+      console.log('Permissions to remove:', toRemove);
+      
+      // Remove permissions first, then add new ones
+      if (toRemove.length > 0) {
+        await RBACApi.removePermissionsFromRole(role.id, toRemove);
+      }
+      
+      if (toAdd.length > 0) {
+        await RBACApi.assignPermissionsToRole(role.id, toAdd);
+      }
       
       toast({
         title: "Success",
-        description: "Role permissions updated successfully",
+        description: `Role permissions updated successfully. Added ${toAdd.length}, removed ${toRemove.length} permissions.`,
       });
       
+      // Reload data to reflect changes
+      await loadData();
       onClose();
     } catch (error) {
       console.error('Error saving role permissions:', error);
@@ -373,6 +406,23 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button variant="outline" onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              Saving...
+            </>
+          ) : (
+            'Save Changes'
+          )}
+        </Button>
+      </div>
     </div>
   );
 };
