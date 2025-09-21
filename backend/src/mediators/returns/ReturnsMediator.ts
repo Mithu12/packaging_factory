@@ -15,6 +15,196 @@ import {
 
 export class ReturnsMediator {
 
+  // Get all returns with pagination and filtering
+  static async getAllReturns(query: ReturnQueryParams): Promise<any> {
+    const action = 'ReturnsMediator.getAllReturns';
+    MyLogger.info(action, { query });
+    const client = await pool.connect();
+    
+    try {
+      const {
+        page = 1,
+        pageSize = 10,
+        return_number,
+        original_order_id,
+        customer_id,
+        return_status,
+        start_date,
+        end_date,
+        sortBy = 'return_date',
+        sortOrder = 'desc'
+      } = query;
+
+      const offset = (page - 1) * pageSize;
+      const whereConditions: string[] = [];
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (return_number) {
+        whereConditions.push(`sr.return_number ILIKE $${paramIndex++}`);
+        queryParams.push(`%${return_number}%`);
+      }
+      if (original_order_id) {
+        whereConditions.push(`sr.original_order_id = $${paramIndex++}`);
+        queryParams.push(original_order_id);
+      }
+      if (customer_id) {
+        whereConditions.push(`sr.customer_id = $${paramIndex++}`);
+        queryParams.push(customer_id);
+      }
+      if (return_status) {
+        whereConditions.push(`sr.return_status = $${paramIndex++}`);
+        queryParams.push(return_status);
+      }
+      if (start_date) {
+        whereConditions.push(`sr.return_date >= $${paramIndex++}`);
+        queryParams.push(start_date);
+      }
+      if (end_date) {
+        whereConditions.push(`sr.return_date <= $${paramIndex++}`);
+        queryParams.push(end_date);
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Count total returns
+      const countQuery = `
+        SELECT COUNT(*) FROM sales_returns sr
+        ${whereClause};
+      `;
+      const countResult = await client.query(countQuery, queryParams);
+      const totalItems = parseInt(countResult.rows[0].count, 10);
+
+      // Fetch returns
+      const returnsQuery = `
+        SELECT
+          sr.*,
+          c.name AS customer_name,
+          so.order_number AS original_order_number
+        FROM sales_returns sr
+        LEFT JOIN customers c ON sr.customer_id = c.id
+        LEFT JOIN sales_orders so ON sr.original_order_id = so.id
+        ${whereClause}
+        ORDER BY sr.${sortBy} ${sortOrder}
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++};
+      `;
+      queryParams.push(pageSize, offset);
+
+      const returnsResult = await client.query(returnsQuery, queryParams);
+      const returns = returnsResult.rows;
+
+      MyLogger.success(action, { count: returns.length, totalItems });
+      return {
+        data: returns,
+        totalItems,
+        currentPage: page,
+        pageSize,
+        totalPages: Math.ceil(totalItems / pageSize)
+      };
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Get return by ID with full details
+  static async getReturnById(id: number): Promise<SalesReturnWithDetails> {
+    const action = 'ReturnsMediator.getReturnById';
+    MyLogger.info(action, { id });
+    const client = await pool.connect();
+    
+    try {
+      const returnQuery = `
+        SELECT
+          sr.*,
+          c.name AS customer_name,
+          so.order_number AS original_order_number
+        FROM sales_returns sr
+        LEFT JOIN customers c ON sr.customer_id = c.id
+        LEFT JOIN sales_orders so ON sr.original_order_id = so.id
+        WHERE sr.id = $1;
+      `;
+      const returnResult = await client.query(returnQuery, [id]);
+
+      if (returnResult.rows.length === 0) {
+        throw new Error(`Sales return with ID ${id} not found`);
+      }
+
+      const salesReturn = returnResult.rows[0];
+
+      // Get return items
+      const itemsQuery = `
+        SELECT * FROM sales_return_items WHERE return_id = $1;
+      `;
+      const itemsResult = await client.query(itemsQuery, [id]);
+      salesReturn.items = itemsResult.rows;
+
+      MyLogger.success(action, { salesReturnId: id });
+      return salesReturn;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Check return eligibility for an order
+  static async checkReturnEligibility(orderId: number): Promise<ReturnEligibilityCheck> {
+    const action = 'ReturnsMediator.checkReturnEligibility';
+    MyLogger.info(action, { orderId });
+    const client = await pool.connect();
+    
+    try {
+      const orderQuery = `
+        SELECT * FROM sales_orders WHERE id = $1;
+      `;
+      const orderResult = await client.query(orderQuery, [orderId]);
+
+      if (orderResult.rows.length === 0) {
+        return { eligible: false, reasons: ['Original order not found.'] };
+      }
+
+      const order = orderResult.rows[0];
+
+      // Check if order is already cancelled or fully refunded
+      if (order.status === 'cancelled') {
+        return { eligible: false, reasons: ['Order is cancelled and cannot be returned.'] };
+      }
+      if (order.payment_status === 'refunded') {
+        return { eligible: false, reasons: ['Order is already fully refunded.'] };
+      }
+
+      // Check return window (e.g., 30 days)
+      const returnWindowDays = 30;
+      const orderDate = new Date(order.order_date);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - orderDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > returnWindowDays) {
+        return { 
+          eligible: false, 
+          reasons: [`Return window of ${returnWindowDays} days has passed.`],
+          restrictions: {
+            max_return_days: returnWindowDays,
+            return_window_expired: true
+          }
+        };
+      }
+
+      MyLogger.success(action, { orderId, eligible: true });
+      return { eligible: true, reasons: ['Order is eligible for return.'] };
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // Create a new return
   static async createReturn(
     data: CreateReturnRequest, 
@@ -609,9 +799,127 @@ export class ReturnsMediator {
     throw new Error('Method not implemented yet');
   }
   
-  static async getReturnStats(params: any): Promise<ReturnStats> {
-    // Implementation for return statistics
-    throw new Error('Method not implemented yet');
+  static async getReturnStats(params: any = {}): Promise<ReturnStats> {
+    const action = 'ReturnsMediator.getReturnStats';
+    MyLogger.info(action, { params });
+    const client = await pool.connect();
+    
+    try {
+      // Build date filter conditions
+      let dateFilter = '';
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+      
+      if (params.date_from) {
+        dateFilter += ` AND sr.return_date >= $${paramIndex++}`;
+        queryParams.push(params.date_from);
+      }
+      
+      if (params.date_to) {
+        dateFilter += ` AND sr.return_date <= $${paramIndex++}`;
+        queryParams.push(params.date_to);
+      }
+      
+      if (params.return_status) {
+        dateFilter += ` AND sr.return_status = $${paramIndex++}`;
+        queryParams.push(params.return_status);
+      }
+      
+      // Get basic return statistics
+      const statsQuery = `
+        SELECT 
+          COUNT(sr.id) as total_returns,
+          COUNT(CASE WHEN sr.return_status = 'pending' THEN 1 END) as pending_returns,
+          COUNT(CASE WHEN sr.return_status = 'approved' THEN 1 END) as approved_returns,
+          COUNT(CASE WHEN sr.return_status = 'completed' THEN 1 END) as completed_returns,
+          COUNT(CASE WHEN sr.return_status = 'rejected' THEN 1 END) as rejected_returns,
+          COALESCE(SUM(sr.final_refund_amount), 0) as total_refund_amount,
+          COALESCE(AVG(sr.final_refund_amount), 0) as average_refund_amount
+        FROM sales_returns sr
+        WHERE 1=1 ${dateFilter}
+      `;
+      
+      const statsResult = await client.query(statsQuery, queryParams);
+      const stats = statsResult.rows[0];
+      
+      // Calculate return rate (returns vs total orders)
+      const orderCountQuery = `
+        SELECT COUNT(*) as total_orders
+        FROM sales_orders so
+        WHERE so.status = 'completed'
+        ${params.date_from ? `AND so.order_date >= $1` : ''}
+        ${params.date_to ? `AND so.order_date <= $${params.date_from ? '2' : '1'}` : ''}
+      `;
+      
+      const orderParams = [];
+      if (params.date_from) orderParams.push(params.date_from);
+      if (params.date_to) orderParams.push(params.date_to);
+      
+      const orderResult = await client.query(orderCountQuery, orderParams);
+      const totalOrders = parseInt(orderResult.rows[0].total_orders) || 1;
+      const returnRate = (parseInt(stats.total_returns) / totalOrders) * 100;
+      
+      // Get top return reasons
+      const reasonsQuery = `
+        SELECT 
+          sr.reason,
+          COUNT(*) as count,
+          ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM sales_returns WHERE 1=1 ${dateFilter})), 2) as percentage
+        FROM sales_returns sr
+        WHERE 1=1 ${dateFilter}
+        GROUP BY sr.reason
+        ORDER BY count DESC
+        LIMIT 5
+      `;
+      
+      const reasonsResult = await client.query(reasonsQuery, queryParams);
+      
+      // Get daily returns for the last 30 days
+      const dailyQuery = `
+        SELECT 
+          DATE(sr.return_date) as date,
+          COUNT(*) as count,
+          COALESCE(SUM(sr.final_refund_amount), 0) as amount
+        FROM sales_returns sr
+        WHERE sr.return_date >= CURRENT_DATE - INTERVAL '30 days'
+        ${dateFilter}
+        GROUP BY DATE(sr.return_date)
+        ORDER BY date DESC
+        LIMIT 30
+      `;
+      
+      const dailyResult = await client.query(dailyQuery, queryParams);
+      
+      const returnStats: ReturnStats = {
+        total_returns: parseInt(stats.total_returns),
+        pending_returns: parseInt(stats.pending_returns),
+        approved_returns: parseInt(stats.approved_returns),
+        completed_returns: parseInt(stats.completed_returns),
+        rejected_returns: parseInt(stats.rejected_returns),
+        total_refund_amount: parseFloat(stats.total_refund_amount),
+        average_refund_amount: parseFloat(stats.average_refund_amount),
+        return_rate_percentage: returnRate,
+        top_return_reasons: reasonsResult.rows.map(row => ({
+          reason: row.reason,
+          count: parseInt(row.count),
+          percentage: parseFloat(row.percentage)
+        })),
+        daily_returns: dailyResult.rows.map(row => ({
+          date: row.date,
+          count: parseInt(row.count),
+          amount: parseFloat(row.amount)
+        }))
+      };
+      
+      MyLogger.success(action, { returnStats });
+      return returnStats;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   
   static async updateReturnStatus(returnId: number, status: string, notes?: string, updatedBy?: number): Promise<SalesReturn> {
@@ -619,13 +927,69 @@ export class ReturnsMediator {
     throw new Error('Method not implemented yet');
   }
   
-  static async getReturnsByCustomer(customerId: number, params: any): Promise<SalesReturn[]> {
-    // Implementation for getting returns by customer
-    throw new Error('Method not implemented yet');
+  static async getReturnsByCustomer(customerId: number, params: any = {}): Promise<SalesReturn[]> {
+    const action = 'ReturnsMediator.getReturnsByCustomer';
+    MyLogger.info(action, { customerId, params });
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        SELECT 
+          sr.*,
+          so.order_number as original_order_number,
+          c.name as customer_name,
+          c.email as customer_email,
+          c.phone as customer_phone
+        FROM sales_returns sr
+        LEFT JOIN sales_orders so ON sr.original_order_id = so.id
+        LEFT JOIN customers c ON sr.customer_id = c.id
+        WHERE sr.customer_id = $1
+        ORDER BY sr.return_date DESC
+      `;
+      
+      const result = await client.query(query, [customerId]);
+      
+      MyLogger.success(action, { count: result.rows.length });
+      return result.rows;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   
   static async getReturnsByOrder(orderId: number): Promise<SalesReturn[]> {
-    // Implementation for getting returns by order
-    throw new Error('Method not implemented yet');
+    const action = 'ReturnsMediator.getReturnsByOrder';
+    MyLogger.info(action, { orderId });
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        SELECT 
+          sr.*,
+          so.order_number as original_order_number,
+          c.name as customer_name,
+          c.email as customer_email,
+          c.phone as customer_phone
+        FROM sales_returns sr
+        LEFT JOIN sales_orders so ON sr.original_order_id = so.id
+        LEFT JOIN customers c ON sr.customer_id = c.id
+        WHERE sr.original_order_id = $1
+        ORDER BY sr.return_date DESC
+      `;
+      
+      const result = await client.query(query, [orderId]);
+      
+      MyLogger.success(action, { count: result.rows.length });
+      return result.rows;
+      
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }

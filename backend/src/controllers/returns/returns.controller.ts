@@ -5,6 +5,106 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
 
 export class ReturnsController {
   
+  // Get all returns with pagination and filtering
+  static async getAllReturns(req: Request, res: Response) {
+    const action = 'ReturnsController.getAllReturns';
+    try {
+      MyLogger.info(action, { query: req.query });
+      
+      const returns = await ReturnsMediator.getAllReturns(req.query);
+      
+      MyLogger.success(action, { count: returns.data?.length || 0 });
+      serializeSuccessResponse(res, returns, 'Returns fetched successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  // Get return statistics
+  static async getReturnStats(req: Request, res: Response) {
+    const action = 'ReturnsController.getReturnStats';
+    try {
+      MyLogger.info(action, { query: req.query });
+      
+      const stats = await ReturnsMediator.getReturnStats(req.query);
+      
+      MyLogger.success(action, { stats });
+      serializeSuccessResponse(res, stats, 'Return statistics fetched successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  // Check return eligibility for an order
+  static async checkReturnEligibility(req: Request, res: Response) {
+    const action = 'ReturnsController.checkReturnEligibility';
+    try {
+      const orderId = parseInt(req.params.orderId);
+      MyLogger.info(action, { orderId });
+      
+      const eligibility = await ReturnsMediator.checkReturnEligibility(orderId);
+      
+      MyLogger.success(action, { orderId, eligible: eligibility.eligible });
+      serializeSuccessResponse(res, eligibility, 'Return eligibility checked successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  // Get returns by customer
+  static async getReturnsByCustomer(req: Request, res: Response) {
+    const action = 'ReturnsController.getReturnsByCustomer';
+    try {
+      const customerId = parseInt(req.params.customerId);
+      MyLogger.info(action, { customerId });
+      
+      const returns = await ReturnsMediator.getReturnsByCustomer(customerId, req.query);
+      
+      MyLogger.success(action, { customerId, count: returns.length });
+      serializeSuccessResponse(res, returns, 'Returns by customer fetched successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  // Get returns by original order
+  static async getReturnsByOrder(req: Request, res: Response) {
+    const action = 'ReturnsController.getReturnsByOrder';
+    try {
+      const orderId = parseInt(req.params.orderId);
+      MyLogger.info(action, { orderId });
+      
+      const returns = await ReturnsMediator.getReturnsByOrder(orderId);
+      
+      MyLogger.success(action, { orderId, count: returns.length });
+      serializeSuccessResponse(res, returns, 'Returns by order fetched successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  // Get return by ID with full details
+  static async getReturnById(req: Request, res: Response) {
+    const action = 'ReturnsController.getReturnById';
+    try {
+      const returnId = parseInt(req.params.id);
+      MyLogger.info(action, { returnId });
+      
+      const salesReturn = await ReturnsMediator.getReturnById(returnId);
+      
+      MyLogger.success(action, { returnId });
+      serializeSuccessResponse(res, salesReturn, 'Return fetched successfully');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+  
   // Create a new return
   static async createReturn(req: Request, res: Response) {
     const action = 'ReturnsController.createReturn';

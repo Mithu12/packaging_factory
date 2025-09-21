@@ -194,3 +194,16 @@ export interface InventoryImpact {
   adjustment_type: string;
   impact_assessment: 'positive' | 'neutral' | 'negative';
 }
+
+export interface ReturnQueryParams {
+  page?: number;
+  pageSize?: number;
+  return_number?: string;
+  original_order_id?: number;
+  customer_id?: number;
+  return_status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  start_date?: string;
+  end_date?: string;
+  sortBy?: 'return_date' | 'total_refund_amount' | 'return_number';
+  sortOrder?: 'asc' | 'desc';
+}

@@ -50,8 +50,9 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
         ReturnsAPI.getReturns({ page: 1, limit: 10, sortBy: 'return_date', sortOrder: 'desc' }),
         ReturnsAPI.getReturnStats()
       ]);
-      setReturns(returnsResponse.data?.returns);
-      setReturnStats(statsResponse.data);
+        console.log({returnsResponse});
+      setReturns(returnsResponse?.returns);
+      setReturnStats(statsResponse);
     } catch (error) {
       console.error('Error loading returns data:', error);
       toast({
