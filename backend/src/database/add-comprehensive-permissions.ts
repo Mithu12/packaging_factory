@@ -199,6 +199,11 @@ export async function addComprehensivePermissions(): Promise<void> {
       { name: 'brands.update', display_name: 'Update Brands', module: 'Inventory', action: 'update', resource: 'brands' },
       { name: 'brands.delete', display_name: 'Delete Brands', module: 'Inventory', action: 'delete', resource: 'brands' },
       
+      { name: 'origins.create', display_name: 'Create Origins', module: 'Inventory', action: 'create', resource: 'origins' },
+      { name: 'origins.read', display_name: 'View Origins', module: 'Inventory', action: 'read', resource: 'origins' },
+      { name: 'origins.update', display_name: 'Update Origins', module: 'Inventory', action: 'update', resource: 'origins' },
+      { name: 'origins.delete', display_name: 'Delete Origins', module: 'Inventory', action: 'delete', resource: 'origins' },
+      
       { name: 'inventory.track', display_name: 'Track Inventory', module: 'Inventory', action: 'read', resource: 'inventory' },
       { name: 'inventory.adjust', display_name: 'Adjust Inventory', module: 'Inventory', action: 'create', resource: 'inventory_adjustments' },
       { name: 'inventory.approve_adjustments', display_name: 'Approve Inventory Adjustments', module: 'Inventory', action: 'approve', resource: 'inventory_adjustments' },

@@ -44,8 +44,8 @@ export const requirePermission = (options: PermissionMiddlewareOptions) => {
         const message = options.required !== false 
           ? 'Insufficient permissions to access this resource'
           : 'Permission check failed';
-
-        return serializeErrorResponse(res, {}, '403', message);
+        res.status(403)
+        throw new Error(message)
       }
 
       // Permission granted

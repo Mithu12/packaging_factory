@@ -10,7 +10,7 @@ export const serializeSuccessResponse = (res: Response, data: any, message: stri
 
 export const serializeErrorResponse = (res: Response, data: any, code: string, message: string, ) => {
     return res.json({
-        success: true,
+        success: false,
         data,
         errorCode: code,
         message

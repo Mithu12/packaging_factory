@@ -3,6 +3,7 @@ import {MyLogger} from '@/utils/new-logger';
 import { addSequences } from './add-sequences';
 import {addApprovalSystem} from "@/database/add-approval-system";
 import {addAuditSystem} from "@/database/add-audit-system";
+import {addComprehensivePermissions} from "@/database/add-comprehensive-permissions";
 
 const createTables = async () => {
   let action = 'Create Database Tables'
@@ -833,7 +834,7 @@ CREATE TABLE IF NOT EXISTS customer_due_transactions (
       await addApprovalSystem()
 
 await addAuditSystem()
-    
+      await addComprehensivePermissions()
 
 
 
