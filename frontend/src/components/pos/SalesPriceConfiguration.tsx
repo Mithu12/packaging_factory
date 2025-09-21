@@ -21,28 +21,7 @@ interface PricingRule {
   isActive: boolean
 }
 
-const mockPricingRules: PricingRule[] = [
-  {
-    id: "1",
-    productName: "Laptop Computer",
-    basePrice: 999.99,
-    discount: 10,
-    finalPrice: 899.99,
-    taxOption: "standard",
-    promotionType: "seasonal",
-    isActive: true
-  },
-  {
-    id: "2",
-    productName: "Wireless Mouse",
-    basePrice: 29.99,
-    discount: 5,
-    finalPrice: 28.49,
-    taxOption: "standard",
-    promotionType: "bulk",
-    isActive: true
-  }
-]
+const mockPricingRules: PricingRule[] = []
 
 export function SalesPriceConfiguration() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>(mockPricingRules)
@@ -141,10 +120,10 @@ export function SalesPriceConfiguration() {
           </span>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setEditingRule(null)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Pricing Rule
-              </Button>
+              {/*<Button onClick={() => setEditingRule(null)}>*/}
+              {/*  <Plus className="w-4 h-4 mr-2" />*/}
+              {/*  Add Pricing Rule*/}
+              {/*</Button>*/}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>

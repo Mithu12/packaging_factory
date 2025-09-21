@@ -482,10 +482,10 @@ export default function POSManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">POS Manager</h1>
-        <Badge variant="secondary" className="text-sm">
-          <Clock className="w-4 h-4 mr-1" />
-          {new Date().toLocaleTimeString()}
-        </Badge>
+        {/*<Badge variant="secondary" className="text-sm">*/}
+        {/*  <Clock className="w-4 h-4 mr-1" />*/}
+        {/*  {new Date().toLocaleTimeString()}*/}
+        {/*</Badge>*/}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
