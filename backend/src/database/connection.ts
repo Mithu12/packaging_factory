@@ -1,6 +1,6 @@
 import {Pool} from 'pg';
 import dotenv from 'dotenv';
-import {MyLogger} from "../utils/new-logger";
+import {MyLogger} from "@/utils/new-logger";
 
 dotenv.config();
 

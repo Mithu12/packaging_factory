@@ -10,7 +10,6 @@
     "db:migrate": "npx tsx src/database/simple-migrator.ts migrate",
     "db:migrate:info": "npx tsx src/database/simple-migrator.ts info",
     "db:validate": "npx tsx src/database/validate-migrations.ts",
-    "db:seed": "tsx src/database/seed.ts",
     "db:migrate:flyway": "tsx src/database/flyway-manager.ts migrate",
     "db:migrate:legacy": "tsx src/database/migrate.ts"
   },

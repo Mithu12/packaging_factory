@@ -456,7 +456,7 @@ export default function PurchaseOrderDetails() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => navigate(`/payments?invoice=${invoice.id}`)}
+                          onClick={() => navigate(`/view-invoice/${invoice.id}`)}
                         >
                           View Details
                         </Button>

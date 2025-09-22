@@ -29,7 +29,6 @@ import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
-import { createDefaultAdminUser } from "./database/migrate";
 
 // Load environment variables
 dotenv.config();
@@ -161,12 +160,6 @@ app.listen(PORT, async () => {
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
 
-    // Create default admin user
-    try {
-      await createDefaultAdminUser();
-    } catch (error) {
-      console.warn("⚠️  Could not create default admin user:", error);
-    }
   } catch (error: any) {
     MyLogger.error(action, error, { port: PORT });
     console.error("Failed to start server:", error);

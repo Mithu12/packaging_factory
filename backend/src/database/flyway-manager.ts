@@ -55,8 +55,9 @@ export class FlywayManager {
           MyLogger.success(`Flyway ${command} completed successfully`);
           resolve();
         } else {
-          MyLogger.error(`Flyway ${command} failed with exit code ${code}`);
-          reject(new Error(`Flyway ${command} failed with exit code ${code}`));
+            let newError = new Error(`Flyway ${command} failed with exit code ${code}`)
+          MyLogger.error(`Flyway ${command} failed with exit code ${code}`, newError);
+          reject(newError);
         }
       });
 
