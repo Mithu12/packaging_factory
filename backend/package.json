@@ -7,8 +7,12 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
-    "db:migrate": "tsx src/database/migrate.ts",
-    "db:seed": "tsx src/database/seed.ts"
+    "db:migrate": "npx tsx src/database/simple-migrator.ts migrate",
+    "db:migrate:info": "npx tsx src/database/simple-migrator.ts info",
+    "db:validate": "npx tsx src/database/validate-migrations.ts",
+    "db:seed": "tsx src/database/seed.ts",
+    "db:migrate:flyway": "tsx src/database/flyway-manager.ts migrate",
+    "db:migrate:legacy": "tsx src/database/migrate.ts"
   },
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -40,6 +44,7 @@
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "@types/puppeteer": "^7.0.4",
+    "node-flywaydb": "^3.0.7",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.6.2",
     "typescript": "^5.3.3"
