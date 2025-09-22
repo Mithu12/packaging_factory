@@ -577,25 +577,6 @@ ALTER SEQUENCE public.expenses_id_seq OWNER TO postgres;
 ALTER SEQUENCE public.expenses_id_seq OWNED BY public.expenses.id;
 
 
---
--- Name: flyway_schema_history; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.flyway_schema_history (
-    installed_rank integer NOT NULL,
-    version character varying(50),
-    description character varying(200) NOT NULL,
-    type character varying(20) NOT NULL,
-    script character varying(1000) NOT NULL,
-    checksum integer,
-    installed_by character varying(100) NOT NULL,
-    installed_on timestamp without time zone DEFAULT now() NOT NULL,
-    execution_time integer NOT NULL,
-    success boolean NOT NULL
-);
-
-
-ALTER TABLE public.flyway_schema_history OWNER TO postgres;
 
 --
 -- Name: invoice_number_sequence; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -2566,11 +2547,6 @@ INSERT INTO public.expense_categories (id, name, description, color, is_active, 
 -- Data for Name: expenses; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-
-
---
--- Data for Name: flyway_schema_history; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 
 
@@ -5335,18 +5311,7 @@ ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_username_key UNIQUE (username);
 
 
---
--- Name: flyway_schema_history_pk; Type: INDEX; Schema: public; Owner: postgres
---
 
-CREATE UNIQUE INDEX flyway_schema_history_pk ON public.flyway_schema_history USING btree (installed_rank);
-
-
---
--- Name: flyway_schema_history_s_idx; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX flyway_schema_history_s_idx ON public.flyway_schema_history USING btree (success);
 
 
 --

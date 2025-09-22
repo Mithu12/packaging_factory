@@ -67,7 +67,8 @@ export class SimpleMigrator {
    * Parse migration file name to extract version and description
    */
   parseMigrationFile(filename: string): { version: string; description: string } | null {
-    const match = filename.match(/^V(\d+(?:\.\d+)*)__(.+)\.sql$/);
+    // Support both V1.1.1__description.sql and V1_description.sql formats
+    const match = filename.match(/^V(\d+(?:\.\d+)*|\d+)_+(.+)\.sql$/);
     if (!match) return null;
     
     return {
@@ -178,10 +179,10 @@ export class SimpleMigrator {
     try {
       // Initialize schema history table
       await this.initializeSchemaHistory();
-      
+
       // Get list of migration files
       const files = await fs.readdir(this.migrationsDir);
-      const migrationFiles = files.filter(f => f.match(/^V\d+(?:\.\d+)*__.*\.sql$/));
+      const migrationFiles = files.filter(f => f.match(/^V(\d+(?:\.\d+)*|\d+)_+.*\.sql$/));
       
       if (migrationFiles.length === 0) {
         MyLogger.info('No migration files found');
