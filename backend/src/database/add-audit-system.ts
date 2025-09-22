@@ -170,16 +170,3 @@ export async function addAuditSystem(): Promise<void> {
     client.release();
   }
 }
-
-// Run migration if called directly
-if (require.main === module) {
-  addAuditSystem()
-    .then(() => {
-      console.log('✅ Audit system migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Audit system migration failed:', error);
-      process.exit(1);
-    });
-}

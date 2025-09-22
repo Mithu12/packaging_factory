@@ -5,6 +5,7 @@ import {addApprovalSystem} from "@/database/add-approval-system";
 import {addAuditSystem} from "@/database/add-audit-system";
 import {addComprehensivePermissions} from "@/database/add-comprehensive-permissions";
 import { addRBACSystem } from './add-rbac-system';
+import { addCustomerCreditFields } from './add-customer-credit-fields';
 
 const createTables = async () => {
   let action = 'Create Database Tables'
@@ -830,6 +831,7 @@ CREATE TABLE IF NOT EXISTS customer_due_transactions (
       ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);
     `);
 
+await addCustomerCreditFields()
 
 
       await addApprovalSystem()

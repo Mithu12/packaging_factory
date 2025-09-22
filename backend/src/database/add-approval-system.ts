@@ -112,17 +112,4 @@ async function addApprovalSystem(): Promise<void> {
   }
 }
 
-// Only run if this file is executed directly
-if (require.main === module) {
-  addApprovalSystem()
-    .then(() => {
-      console.log('Approval system migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Approval system migration failed:', error);
-      process.exit(1);
-    });
-}
-
 export { addApprovalSystem };

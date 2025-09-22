@@ -376,15 +376,3 @@ export async function addComprehensivePermissions(): Promise<void> {
   }
 }
 
-// Run if called directly
-if (require.main === module) {
-  addComprehensivePermissions()
-    .then(() => {
-      console.log('✅ Comprehensive permissions migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Migration failed:', error);
-      process.exit(1);
-    });
-}

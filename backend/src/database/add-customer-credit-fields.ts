@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import pool from './connection';
 
-async function addCustomerCreditFields(): Promise<void> {
+export async function addCustomerCreditFields(): Promise<void> {
   const client = await pool.connect();
   
   try {
@@ -55,17 +55,5 @@ async function addCustomerCreditFields(): Promise<void> {
   }
 }
 
-// Only run if this file is executed directly
-if (require.main === module) {
-  addCustomerCreditFields()
-    .then(() => {
-      console.log('Migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    });
-}
 
-export { addCustomerCreditFields };
+

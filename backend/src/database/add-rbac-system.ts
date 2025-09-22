@@ -464,15 +464,3 @@ export async function addRBACSystem(): Promise<void> {
   }
 }
 
-// Run migration if called directly
-if (require.main === module) {
-  addRBACSystem()
-    .then(() => {
-      console.log('✅ RBAC system migration completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Migration failed:', error);
-      process.exit(1);
-    });
-}

@@ -229,16 +229,3 @@ export async function addPOSTables() {
     client.release();
   }
 }
-
-// Run the migration if this file is executed directly
-if (require.main === module) {
-  addPOSTables()
-    .then(() => {
-      console.log('✅ POS tables created successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Error creating POS tables:', error);
-      process.exit(1);
-    });
-}
