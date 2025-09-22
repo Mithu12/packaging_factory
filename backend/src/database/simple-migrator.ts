@@ -16,35 +16,44 @@ export class SimpleMigrator {
   async initializeSchemaHistory(): Promise<void> {
     const client = await pool.connect();
     try {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS flyway_schema_history (
-          installed_rank INTEGER NOT NULL,
-          version VARCHAR(50),
-          description VARCHAR(200) NOT NULL,
-          type VARCHAR(20) NOT NULL,
-          script VARCHAR(1000) NOT NULL,
-          checksum INTEGER,
-          installed_by VARCHAR(100) NOT NULL,
-          installed_on TIMESTAMP NOT NULL DEFAULT NOW(),
-          execution_time INTEGER NOT NULL,
-          success BOOLEAN NOT NULL
-        );
-      `);
-      
-      await client.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS flyway_schema_history_pk 
-        ON flyway_schema_history (installed_rank);
-      `);
-      
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS flyway_schema_history_s_idx 
-        ON flyway_schema_history (success);
-      `);
-      
+      await this.ensureSchemaHistoryExists(client);
       MyLogger.success('Flyway schema history table initialized');
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Ensure schema history table exists (can be called within a transaction)
+   */
+  private async ensureSchemaHistoryExists(client: any): Promise<void> {
+    // Ensure we're using the public schema
+    await client.query(`SET search_path TO public;`);
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.flyway_schema_history (
+        installed_rank INTEGER NOT NULL,
+        version VARCHAR(50),
+        description VARCHAR(200) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        script VARCHAR(1000) NOT NULL,
+        checksum INTEGER,
+        installed_by VARCHAR(100) NOT NULL,
+        installed_on TIMESTAMP NOT NULL DEFAULT NOW(),
+        execution_time INTEGER NOT NULL,
+        success BOOLEAN NOT NULL
+      );
+    `);
+    
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS flyway_schema_history_pk 
+      ON public.flyway_schema_history (installed_rank);
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS flyway_schema_history_s_idx 
+      ON public.flyway_schema_history (success);
+    `);
   }
 
   /**
@@ -54,7 +63,7 @@ export class SimpleMigrator {
     const client = await pool.connect();
     try {
       const result = await client.query(`
-        SELECT version FROM flyway_schema_history 
+        SELECT version FROM public.flyway_schema_history 
         WHERE success = true AND version IS NOT NULL
       `);
       return new Set(result.rows.map(row => row.version));
@@ -109,13 +118,14 @@ export class SimpleMigrator {
       
       const executionTime = Date.now() - startTime;
       
-      // Get next rank
-      const rankResult = await client.query('SELECT COALESCE(MAX(installed_rank), 0) + 1 AS next_rank FROM flyway_schema_history');
+      // Get next rank (create table if it doesn't exist)
+      await this.ensureSchemaHistoryExists(client);
+      const rankResult = await client.query('SELECT COALESCE(MAX(installed_rank), 0) + 1 AS next_rank FROM public.flyway_schema_history');
       const nextRank = rankResult.rows[0].next_rank;
       
       // Record the migration in history
       await client.query(`
-        INSERT INTO flyway_schema_history (
+        INSERT INTO public.flyway_schema_history (
           installed_rank, version, description, type, script, 
           checksum, installed_by, execution_time, success
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -140,11 +150,12 @@ export class SimpleMigrator {
       
       // Record failed migration
       try {
-        const rankResult = await client.query('SELECT COALESCE(MAX(installed_rank), 0) + 1 AS next_rank FROM flyway_schema_history');
+        await this.ensureSchemaHistoryExists(client);
+        const rankResult = await client.query('SELECT COALESCE(MAX(installed_rank), 0) + 1 AS next_rank FROM public.flyway_schema_history');
         const nextRank = rankResult.rows[0].next_rank;
         
         await client.query(`
-          INSERT INTO flyway_schema_history (
+          INSERT INTO public.flyway_schema_history (
             installed_rank, version, description, type, script, 
             checksum, installed_by, execution_time, success
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -265,7 +276,7 @@ export class SimpleMigrator {
       // Get migration history
       const result = await client.query(`
         SELECT version, description, installed_on, execution_time, success
-        FROM flyway_schema_history 
+        FROM public.flyway_schema_history 
         ORDER BY installed_rank
       `);
       
