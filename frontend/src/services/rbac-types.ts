@@ -92,7 +92,7 @@ export interface Progress {
 
 // Role constants for the frontend
 export const ROLE_NAMES = {
-  SYSTEM_ADMIN: 'system_admin',
+  SYSTEM_ADMIN: 'admin',
   EXECUTIVE: 'executive',
   FINANCE_MANAGER: 'finance_manager',
   FINANCE_STAFF: 'finance_staff',

@@ -89,6 +89,12 @@ const menuItems = [
     permission: PERMISSIONS.INVENTORY_TRACK
   },
   { 
+    title: "Distribution", 
+    url: "/distribution", 
+    icon: Truck, 
+    permission: PERMISSIONS.INVENTORY_READ
+  },
+  { 
     title: "Payments", 
     url: "/payments", 
     icon: DollarSign, 

@@ -309,8 +309,10 @@ export const PERMISSIONS = {
   PRODUCTS_READ: createPermissionCheck('Inventory', 'read', 'products'),
   PRODUCTS_UPDATE: createPermissionCheck('Inventory', 'update', 'products'),
   PRODUCTS_DELETE: createPermissionCheck('Inventory', 'delete', 'products'),
+  INVENTORY_READ: createPermissionCheck('Inventory', 'read', 'inventory'),
   INVENTORY_TRACK: createPermissionCheck('Inventory', 'read', 'inventory'),
   INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
+  INVENTORY_MANAGE: createPermissionCheck('Inventory', 'manage', 'inventory'),
   
   // Stock Adjustments
   STOCK_ADJUSTMENTS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_adjustments'),

@@ -169,7 +169,7 @@ export interface PermissionStats {
 
 // Constants for role names (to avoid typos)
 export const ROLE_NAMES = {
-  SYSTEM_ADMIN: 'system_admin',
+  SYSTEM_ADMIN: 'admin',
   EXECUTIVE: 'executive',
   FINANCE_MANAGER: 'finance_manager',
   FINANCE_STAFF: 'finance_staff',

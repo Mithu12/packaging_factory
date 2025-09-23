@@ -118,8 +118,10 @@ export const PERMISSIONS = {
   EXPENSE_CATEGORIES_DELETE: createPermissionCheck('Finance', 'delete', 'expense_categories'),
 
   // Inventory
-  INVENTORY_TRACK: createPermissionCheck('Inventory', 'track', 'inventory'),
-  INVENTORY_ADJUST: createPermissionCheck('Inventory', 'adjust', 'inventory'),
+  INVENTORY_READ: createPermissionCheck('Inventory', 'read', 'inventory'),
+  INVENTORY_TRACK: createPermissionCheck('Inventory', 'read', 'inventory'), // Alias for backward compatibility
+  INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
+  INVENTORY_MANAGE: createPermissionCheck('Inventory', 'manage', 'inventory'),
 
   // Products
   PRODUCTS_CREATE: createPermissionCheck('Inventory', 'create', 'products'),
@@ -221,8 +223,10 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.CATEGORIES_READ,
     PERMISSIONS.CATEGORIES_UPDATE,
     PERMISSIONS.CATEGORIES_DELETE,
+    PERMISSIONS.INVENTORY_READ,
     PERMISSIONS.INVENTORY_TRACK,
     PERMISSIONS.INVENTORY_ADJUST,
+    PERMISSIONS.INVENTORY_MANAGE,
   ],
   SALES: [
     PERMISSIONS.CUSTOMERS_CREATE,

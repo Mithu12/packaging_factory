@@ -63,14 +63,28 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
 
   // Helper function to create permission string
   const createPermissionString = (permission: PermissionCheck): string => {
+    if (!permission || typeof permission !== 'object') {
+      console.error('Invalid permission object:', permission);
+      return '';
+    }
+    if (!permission.module || !permission.action || !permission.resource) {
+      console.error('Permission object missing required fields:', permission);
+      return '';
+    }
     return `${permission.module}.${permission.action}.${permission.resource}`;
   };
 
   // Check if user has a specific permission
   const hasPermission = (permission: PermissionCheck): boolean => {
     if (!userPermissions || !permissions.length) return false;
+    if (!permission) {
+      console.error('Permission is undefined or null');
+      return false;
+    }
     
     const permissionString = createPermissionString(permission);
+    if (!permissionString) return false;
+    
     return permissions.some(p => 
       `${p.module}.${p.action}.${p.resource}` === permissionString
     );
@@ -93,7 +107,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
   // Check if user is system admin
   const isSystemAdmin = (): boolean => {
     return hasPermission(PERMISSIONS.SYSTEM_ADMIN) || 
-           userPermissions?.role_details?.name === 'system_admin' ||
+           userPermissions?.role_details?.name === 'admin' ||
            userPermissions?.role === 'admin';
   };
 

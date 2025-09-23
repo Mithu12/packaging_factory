@@ -62,10 +62,15 @@ export class SimpleMigrator {
   async getAppliedMigrations(): Promise<Set<string>> {
     const client = await pool.connect();
     try {
+      // First ensure the schema history table exists
+      await this.ensureSchemaHistoryExists(client);
+      
       const result = await client.query(`
-        SELECT version FROM public.flyway_schema_history 
+        SELECT version FROM flyway_schema_history 
         WHERE success = true AND version IS NOT NULL
       `);
+      
+      console.log('Applied migrations query result:', result.rows);
       return new Set(result.rows.map(row => row.version));
     } finally {
       client.release();
@@ -220,11 +225,14 @@ export class SimpleMigrator {
       
       // Get applied migrations
       const appliedMigrations = await this.getAppliedMigrations();
+      console.log({appliedMigrations});
       
       // Apply pending migrations
       let appliedCount = 0;
       for (const file of sortedFiles) {
+        console.log('Applying migration: '+file);
         const migration = this.parseMigrationFile(file);
+        console.log(migration);
         if (!migration) {
           MyLogger.warn(`Skipping invalid migration file: ${file}`);
           continue;

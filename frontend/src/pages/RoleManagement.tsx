@@ -360,7 +360,7 @@ const RoleManagement: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteRole(role)}
-                        disabled={role.name === 'system_admin'}
+                        disabled={role.name === 'admin'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

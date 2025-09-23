@@ -1,0 +1,1 @@
+update roles set name = 'admin' where name = 'system_admin';

@@ -29,7 +29,7 @@ users (id, username, email, role_id, ...)
 
 ```typescript
 export const ROLE_NAMES = {
-  SYSTEM_ADMIN: 'system_admin',
+  SYSTEM_ADMIN: 'admin',
   EXECUTIVE: 'executive', 
   FINANCE_MANAGER: 'finance_manager',
   FINANCE_STAFF: 'finance_staff',
@@ -474,7 +474,7 @@ router.get('/products', authenticate, requirePermission(PERMISSIONS.PRODUCTS_REA
 ```typescript
 // Test user with different roles
 const testUsers = {
-  admin: { role_id: 1 }, // system_admin
+  admin: { role_id: 1 }, // admin
   manager: { role_id: 2 }, // sales_manager  
   employee: { role_id: 3 } // employee
 };

@@ -304,7 +304,7 @@ const UserManagement = () => {
   ): "default" | "destructive" | "secondary" | "outline" => {
     // Map role names to badge variants
     const roleVariants: Record<string, "default" | "destructive" | "secondary" | "outline"> = {
-      'system_admin': 'destructive',
+      'admin': 'destructive',
       'executive': 'destructive',
       'finance_manager': 'secondary',
       'finance_staff': 'default',

@@ -49,6 +49,7 @@ import EditExpense from "./pages/EditExpense";
 import RoleManagement from "./pages/RoleManagement";
 import RBACDashboard from "./pages/RBACDashboard";
 import RBACDemo from "./pages/RBACDemo";
+import Distribution from "./pages/Distribution";
 
 const queryClient = new QueryClient();
 
@@ -360,6 +361,18 @@ const App = () => {
               <ProtectedRoute >
                 <DashboardLayout>
                   <Origins />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Distribution Route */}
+          <Route
+            path="/distribution"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <Distribution />
                 </DashboardLayout>
               </ProtectedRoute>
             }
