@@ -112,12 +112,12 @@ const menuItems = [
     icon: FileText,
     permission: null // Reports might be accessible to all users
   },
-  { 
-    title: "RBAC Demo", 
-    url: "/rbac-demo", 
-    icon: Shield,
-    permission: null // Demo accessible to all authenticated users
-  },
+  // { 
+  //   title: "RBAC Demo", 
+  //   url: "/rbac-demo", 
+  //   icon: Shield,
+  //   permission: null // Demo accessible to all authenticated users
+  // },
 ];
 
 export function AppSidebar() {
