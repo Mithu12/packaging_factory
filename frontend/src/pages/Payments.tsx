@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { RecordPaymentForm } from "@/components/forms/RecordPaymentForm";
 import { useFormatting } from "@/hooks/useFormatting";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PERMISSIONS } from "@/types/rbac";
 import {
   Plus,
   Search,
@@ -30,8 +32,11 @@ import {
   ChevronsLeft,
   ChevronsRight,
   X,
+  Eye,
+  Edit,
+  Upload,
 } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
+import { useToast } from "@/hooks/use-toast";
 import { PaymentApi } from "@/services/payment-api";
 import { ApiService } from "@/services/api";
 import {
@@ -67,6 +72,8 @@ import {
 export default function Payments() {
   const navigate = useNavigate();
   const { formatCurrency, formatDate } = useFormatting();
+  const { hasPermission } = useRBAC();
+  const { toast } = useToast();
 
   // Basic state
   const [activeTab, setActiveTab] = useState("payments");
@@ -217,8 +224,9 @@ export default function Payments() {
     } catch (err: any) {
       console.error("Error fetching payment data:", err);
       setError(err.message || "Failed to load payment data");
-      toast.error("Failed to load payment data", {
-        description: "Please try again later.",
+      toast({
+        title: "Error",
+        description: "Failed to load payment data. Please try again later.",
       });
     } finally {
       if (!hasInitialLoad) {
@@ -809,6 +817,76 @@ export default function Payments() {
     }
   };
 
+  // Payment approval handlers
+  const handleApprovePayment = async (paymentId: number) => {
+    try {
+      await PaymentApi.approvePayment(paymentId, { action: 'approve', notes: '' });
+      toast({
+        title: "Payment Approved",
+        description: "The payment has been approved successfully.",
+      });
+      // Refresh the payments list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error approving payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve payment. Please try again.",
+      });
+    }
+  };
+
+  const handleRejectPayment = async (paymentId: number) => {
+    try {
+      await PaymentApi.approvePayment(paymentId, { action: 'reject', notes: '' });
+      toast({
+        title: "Payment Rejected",
+        description: "The payment has been rejected.",
+      });
+      // Refresh the payments list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error rejecting payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject payment. Please try again.",
+      });
+    }
+  };
+
+  const handleSubmitForApproval = async (paymentId: number) => {
+    try {
+      await PaymentApi.submitPaymentForApproval(paymentId, '');
+      toast({
+        title: "Payment Submitted",
+        description: "The payment has been submitted for approval.",
+      });
+      // Refresh the payments list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit payment for approval. Please try again.",
+      });
+    }
+  };
+
+  const getApprovalStatusColor = (approvalStatus: string) => {
+    switch (approvalStatus) {
+      case "approved":
+        return "bg-success text-white";
+      case "rejected":
+        return "bg-destructive text-white";
+      case "submitted":
+        return "bg-warning text-white";
+      case "draft":
+        return "bg-muted text-muted-foreground";
+      default:
+        return "bg-muted";
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "paid":
@@ -1138,6 +1216,8 @@ export default function Payments() {
                     <TableHead>Method</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Approval</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1164,6 +1244,73 @@ export default function Payments() {
                         <Badge className={getStatusColor(payment.status)}>
                           {payment.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getApprovalStatusColor(payment.approval_status)}>
+                          {payment.approval_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-popover"
+                          >
+                            {/* Submit for Approval - only for draft status */}
+                            {payment.approval_status === 'draft' && hasPermission(PERMISSIONS.PAYMENTS_CREATE) && (
+                              <DropdownMenuItem
+                                onClick={() => handleSubmitForApproval(payment.id)}
+                                className="text-primary"
+                              >
+                                <Upload className="w-4 h-4 mr-2" />
+                                Submit for Approval
+                              </DropdownMenuItem>
+                            )}
+                            
+                            {/* Approve/Reject - only for submitted status */}
+                            {payment.approval_status === 'submitted' && hasPermission(PERMISSIONS.PAYMENTS_APPROVE) && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => handleApprovePayment(payment.id)}
+                                  className="text-success"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Approve Payment
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleRejectPayment(payment.id)}
+                                  className="text-destructive"
+                                >
+                                  <X className="w-4 h-4 mr-2" />
+                                  Reject Payment
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
+                            <DropdownMenuItem
+                              onClick={() => navigate(`/payment-details/${payment.id}`)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            
+                            {/* Edit - only for draft and submitted status */}
+                            {['draft', 'submitted'].includes(payment.approval_status) && hasPermission(PERMISSIONS.PAYMENTS_UPDATE) && (
+                              <DropdownMenuItem
+                                onClick={() => navigate(`/edit-payment/${payment.id}`)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit Payment
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}

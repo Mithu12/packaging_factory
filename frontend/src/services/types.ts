@@ -633,10 +633,16 @@ export interface Payment {
   payment_method: string;
   reference?: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  approval_status: 'draft' | 'submitted' | 'approved' | 'rejected';
   notes?: string;
   created_by?: string;
   created_at: string;
   updated_at: string;
+  submitted_at?: string;
+  submitted_by?: number;
+  approved_at?: string;
+  approved_by?: number;
+  approval_notes?: string;
   // Joined fields
   supplier_name?: string;
   supplier_code?: string;

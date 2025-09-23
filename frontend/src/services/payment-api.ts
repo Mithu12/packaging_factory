@@ -160,4 +160,20 @@ export class PaymentApi {
     const queryString = queryParams.toString();
     return makeRequest<Payment[]>(`${this.baseUrl}?${queryString}`);
   }
+
+  // Submit payment for approval
+  static async submitPaymentForApproval(paymentId: number, notes?: string) {
+    return makeRequest<{ message: string }>(`${this.baseUrl}/${paymentId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ notes: notes || '' }),
+    });
+  }
+
+  // Approve or reject payment
+  static async approvePayment(paymentId: number, data: { action: 'approve' | 'reject', notes?: string }) {
+    return makeRequest<{ message: string }>(`${this.baseUrl}/${paymentId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
