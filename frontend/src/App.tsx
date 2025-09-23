@@ -24,6 +24,7 @@ import Products from "./pages/Products";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import Inventory from "./pages/Inventory";
 import Payments from "./pages/Payments";
+import PaymentDetails from "./pages/PaymentDetails";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -273,6 +274,16 @@ const App = () => {
               <ProtectedRoute >
                 <DashboardLayout>
                   <Payments />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment-details/:id"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <PaymentDetails />
                 </DashboardLayout>
               </ProtectedRoute>
             }
