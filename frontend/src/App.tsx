@@ -50,6 +50,8 @@ import RoleManagement from "./pages/RoleManagement";
 import RBACDashboard from "./pages/RBACDashboard";
 import RBACDemo from "./pages/RBACDemo";
 import Distribution from "./pages/Distribution";
+import EditDistributionCenter from "./pages/EditDistributionCenter";
+import DistributionCenterDetails from "./pages/DistributionCenterDetails";
 
 const queryClient = new QueryClient();
 
@@ -366,13 +368,33 @@ const App = () => {
             }
           />
           
-          {/* Distribution Route */}
+          {/* Distribution Routes */}
           <Route
             path="/distribution"
             element={
               <ProtectedRoute >
                 <DashboardLayout>
                   <Distribution />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/distribution/centers/:id"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <DistributionCenterDetails />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/distribution/centers/:id/edit"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <EditDistributionCenter />
                 </DashboardLayout>
               </ProtectedRoute>
             }

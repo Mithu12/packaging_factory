@@ -251,7 +251,7 @@ export const distributionCenterQuerySchema = Joi.object({
 
 export const productLocationQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  limit: Joi.number().integer().min(1).max(1000).default(20),
   search: Joi.string().max(255).optional().allow(''),
   distribution_center_id: Joi.number().integer().positive().optional(),
   product_id: Joi.number().integer().positive().optional(),

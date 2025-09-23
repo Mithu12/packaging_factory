@@ -313,6 +313,11 @@ export const PERMISSIONS = {
   INVENTORY_TRACK: createPermissionCheck('Inventory', 'read', 'inventory'),
   INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
   INVENTORY_MANAGE: createPermissionCheck('Inventory', 'manage', 'inventory'),
+
+  // Warehouses
+  WAREHOUSES_CREATE: createPermissionCheck('Inventory', 'create', 'warehouses'),
+  WAREHOUSES_READ: createPermissionCheck('Inventory', 'read', 'warehouses'),
+  WAREHOUSES_UPDATE: createPermissionCheck('Inventory', 'update', 'warehouses'),
   
   // Stock Adjustments
   STOCK_ADJUSTMENTS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_adjustments'),

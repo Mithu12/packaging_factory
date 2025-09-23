@@ -10,6 +10,7 @@ import { useClientPagination } from "@/hooks/usePagination"
 import { useFormatting } from "@/hooks/useFormatting"
 import { useAuth } from "@/contexts/AuthContext"
 import { useRBAC } from "@/contexts/RBACContext"
+import { useToast } from "@/hooks/use-toast"
 import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 import { PermissionButton } from "@/components/rbac/PermissionButton"
 import { PERMISSIONS } from "@/types/rbac"
@@ -66,6 +67,7 @@ export default function Distribution() {
   const { formatCurrency, formatNumber, formatDate } = useFormatting()
   const { user } = useAuth()
   const { hasPermission } = useRBAC()
+  const { toast } = useToast()
   
   // State management
   const [searchTerm, setSearchTerm] = useState("")
@@ -174,6 +176,38 @@ export default function Distribution() {
     }
   }
 
+  const handleDeactivateCenter = async (center: DistributionCenter) => {
+    if (center.is_primary) {
+      toast({
+        title: "Cannot Deactivate",
+        description: "Cannot deactivate a primary distribution center. Set another center as primary first.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await DistributionApi.updateDistributionCenter(center.id, { status: 'inactive' })
+      
+      // Update local state
+      setCenters(prev => prev.map(c => 
+        c.id === center.id ? { ...c, status: 'inactive' } : c
+      ))
+      
+      toast({
+        title: "Center Deactivated",
+        description: `${center.name} has been deactivated.`,
+      })
+    } catch (error) {
+      console.error("Error deactivating center:", error)
+      toast({
+        title: "Error",
+        description: "Failed to deactivate center. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Calculate summary stats
   const summaryStats = {
     totalCenters: centers.length,
@@ -209,7 +243,7 @@ export default function Distribution() {
   }
 
   return (
-    <PermissionGuard permission={PERMISSIONS.INVENTORY_READ} fallback={
+    <PermissionGuard permission={PERMISSIONS.WAREHOUSES_READ} fallback={
       <div className="container mx-auto py-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Access Denied</h2>
@@ -225,7 +259,7 @@ export default function Distribution() {
             <p className="text-muted-foreground">Manage distribution centers, product locations, and stock transfers</p>
           </div>
           <PermissionButton
-            permission={PERMISSIONS.INVENTORY_MANAGE}
+            permission={PERMISSIONS.WAREHOUSES_CREATE}
             className="bg-primary hover:bg-primary/90"
             onClick={() => setShowCreateCenterForm(true)}
           >
@@ -427,10 +461,13 @@ export default function Distribution() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-popover">
+                                <DropdownMenuItem onClick={() => navigate(`/distribution/centers/${center.id}`)}>
+                                  View Details
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleViewCenter(center)}>
                                   View Products
                                 </DropdownMenuItem>
-                                {hasPermission(PERMISSIONS.INVENTORY_MANAGE) && (
+                                {hasPermission(PERMISSIONS.WAREHOUSES_UPDATE) && (
                                   <>
                                     <DropdownMenuItem onClick={() => navigate(`/distribution/centers/${center.id}/edit`)}>
                                       Edit Center
@@ -440,6 +477,12 @@ export default function Distribution() {
                                         Set as Primary
                                       </DropdownMenuItem>
                                     )}
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeactivateCenter(center)}
+                                      className="text-destructive"
+                                    >
+                                      Deactivate Center
+                                    </DropdownMenuItem>
                                   </>
                                 )}
                               </DropdownMenuContent>

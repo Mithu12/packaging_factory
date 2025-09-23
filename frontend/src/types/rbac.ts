@@ -123,6 +123,11 @@ export const PERMISSIONS = {
   INVENTORY_ADJUST: createPermissionCheck('Inventory', 'update', 'inventory'),
   INVENTORY_MANAGE: createPermissionCheck('Inventory', 'manage', 'inventory'),
 
+  // Warehouses
+  WAREHOUSES_CREATE: createPermissionCheck('Inventory', 'create', 'warehouses'),
+  WAREHOUSES_READ: createPermissionCheck('Inventory', 'read', 'warehouses'),
+  WAREHOUSES_UPDATE: createPermissionCheck('Inventory', 'update', 'warehouses'),
+
   // Products
   PRODUCTS_CREATE: createPermissionCheck('Inventory', 'create', 'products'),
   PRODUCTS_READ: createPermissionCheck('Inventory', 'read', 'products'),
@@ -227,6 +232,9 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.INVENTORY_TRACK,
     PERMISSIONS.INVENTORY_ADJUST,
     PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.WAREHOUSES_CREATE,
+    PERMISSIONS.WAREHOUSES_READ,
+    PERMISSIONS.WAREHOUSES_UPDATE,
   ],
   SALES: [
     PERMISSIONS.CUSTOMERS_CREATE,

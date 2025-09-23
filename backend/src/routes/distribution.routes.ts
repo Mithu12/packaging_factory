@@ -35,7 +35,7 @@ const router = express.Router();
 router.get('/centers',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.WAREHOUSES_READ),
   validateRequest(distributionCenterQuerySchema, 'query'),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/distribution/centers';
@@ -62,7 +62,7 @@ router.get('/centers',
 router.get('/centers/stats',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.WAREHOUSES_READ),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/distribution/centers/stats';
     try {
@@ -83,7 +83,7 @@ router.get('/centers/stats',
 router.get('/centers/:id',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.WAREHOUSES_READ),
   expressAsyncHandler(async (req, res) => {
     const action = 'GET /api/distribution/centers/:id';
     const centerId = parseInt(req.params.id);
@@ -113,7 +113,7 @@ router.get('/centers/:id',
 router.post('/centers',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.WAREHOUSES_CREATE),
   validateRequest(createDistributionCenterSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'POST /api/distribution/centers';
@@ -122,7 +122,7 @@ router.post('/centers',
       
       const center = await DistributionCenterMediator.createDistributionCenter(
         req.body,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 
@@ -143,7 +143,7 @@ router.post('/centers',
 router.put('/centers/:id',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.WAREHOUSES_UPDATE),
   validateRequest(updateDistributionCenterSchema),
   expressAsyncHandler(async (req, res) => {
     const action = 'PUT /api/distribution/centers/:id';
@@ -155,7 +155,7 @@ router.put('/centers/:id',
       const center = await DistributionCenterMediator.updateDistributionCenter(
         centerId,
         req.body,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 
@@ -184,7 +184,7 @@ router.delete('/centers/:id',
     try {
       MyLogger.info(action, { centerId });
       
-      await DistributionCenterMediator.deleteDistributionCenter(centerId, req.user!.id);
+      await DistributionCenterMediator.deleteDistributionCenter(centerId, req.user!.user_id);
       
       MyLogger.success(action, { centerId });
       serializeSuccessResponse(res, { message: 'Distribution center deactivated successfully' }, 'SUCCESS');
@@ -207,7 +207,7 @@ router.post('/centers/:id/set-primary',
     try {
       MyLogger.info(action, { centerId });
       
-      await DistributionCenterMediator.setPrimaryDistributionCenter(centerId, req.user!.id);
+      await DistributionCenterMediator.setPrimaryDistributionCenter(centerId, req.user!.user_id);
       
       MyLogger.success(action, { centerId });
       serializeSuccessResponse(res, { message: 'Primary distribution center updated successfully' }, 'SUCCESS');
@@ -339,7 +339,7 @@ router.post('/locations',
       
       const location = await ProductLocationMediator.createProductLocation(
         req.body,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 
@@ -375,7 +375,7 @@ router.put('/locations/:id',
       const location = await ProductLocationMediator.updateProductLocation(
         locationId,
         req.body,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 
@@ -411,11 +411,11 @@ router.post('/locations/:id/adjust-stock',
         });
       }
       
-      const location = await ProductLocationMediator.adjustStock(
+      const location =       await ProductLocationMediator.adjustStock(
         locationId,
         adjustment,
         reason,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 
@@ -494,7 +494,7 @@ router.post('/locations/bulk-create',
         product_id,
         center_ids,
         initial_stock,
-        req.user!.id
+        req.user!.user_id
       );
       
       MyLogger.success(action, { 

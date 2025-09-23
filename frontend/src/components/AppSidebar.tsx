@@ -88,12 +88,12 @@ const menuItems = [
     icon: Truck, 
     permission: PERMISSIONS.INVENTORY_TRACK
   },
-  { 
-    title: "Distribution", 
-    url: "/distribution", 
-    icon: Truck, 
-    permission: PERMISSIONS.INVENTORY_READ
-  },
+    {
+      title: "Distribution",
+      url: "/distribution",
+      icon: Truck,
+      permission: PERMISSIONS.WAREHOUSES_READ
+    },
   { 
     title: "Payments", 
     url: "/payments", 
