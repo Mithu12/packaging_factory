@@ -37,7 +37,7 @@ router.get('/centers',
   auditMiddleware,
   requirePermission(PERMISSIONS.WAREHOUSES_READ),
   validateRequest(distributionCenterQuerySchema, 'query'),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/centers';
     try {
       MyLogger.info(action, { query: req.query });
@@ -63,7 +63,7 @@ router.get('/centers/stats',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.WAREHOUSES_READ),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/centers/stats';
     try {
       MyLogger.info(action);
@@ -84,7 +84,7 @@ router.get('/centers/:id',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.WAREHOUSES_READ),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/centers/:id';
     const centerId = parseInt(req.params.id);
     
@@ -94,10 +94,8 @@ router.get('/centers/:id',
       const center = await DistributionCenterMediator.getDistributionCenterById(centerId);
       
       if (!center) {
-        return res.status(404).json({
-          success: false,
-          message: 'Distribution center not found'
-        });
+        res.status(404)
+        throw new Error('Distribution center not found')
       }
       
       MyLogger.success(action, { centerId, centerName: center.name });
@@ -115,7 +113,7 @@ router.post('/centers',
   auditMiddleware,
   requirePermission(PERMISSIONS.WAREHOUSES_CREATE),
   validateRequest(createDistributionCenterSchema),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/centers';
     try {
       MyLogger.info(action, { name: req.body.name, type: req.body.type });
@@ -145,7 +143,7 @@ router.put('/centers/:id',
   auditMiddleware,
   requirePermission(PERMISSIONS.WAREHOUSES_UPDATE),
   validateRequest(updateDistributionCenterSchema),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'PUT /api/distribution/centers/:id';
     const centerId = parseInt(req.params.id);
     
@@ -177,7 +175,7 @@ router.delete('/centers/:id',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_MANAGE),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'DELETE /api/distribution/centers/:id';
     const centerId = parseInt(req.params.id);
     
@@ -200,7 +198,7 @@ router.post('/centers/:id/set-primary',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_MANAGE),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/centers/:id/set-primary';
     const centerId = parseInt(req.params.id);
     
@@ -228,7 +226,7 @@ router.get('/locations',
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_READ),
   validateRequest(productLocationQuerySchema, 'query'),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations';
     try {
       MyLogger.info(action, { query: req.query });
@@ -254,7 +252,7 @@ router.get('/locations/allocation-view',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_READ),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/allocation-view';
     try {
       MyLogger.info(action);
@@ -275,7 +273,7 @@ router.get('/locations/:id',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_READ),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/:id';
     const locationId = parseInt(req.params.id);
     
@@ -285,10 +283,8 @@ router.get('/locations/:id',
       const location = await ProductLocationMediator.getProductLocationById(locationId);
       
       if (!location) {
-        return res.status(404).json({
-          success: false,
-          message: 'Product location not found'
-        });
+        res.status(404)
+        throw new Error('Product location not found');
       }
       
       MyLogger.success(action, { locationId, productName: location.product_name });
@@ -305,7 +301,7 @@ router.get('/locations/product/:productId',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_READ),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/product/:productId';
     const productId = parseInt(req.params.productId);
     
@@ -329,7 +325,7 @@ router.post('/locations',
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_MANAGE),
   validateRequest(createProductLocationSchema),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations';
     try {
       MyLogger.info(action, { 
@@ -365,7 +361,7 @@ router.put('/locations/:id',
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_ADJUST),
   validateRequest(updateProductLocationSchema),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'PUT /api/distribution/locations/:id';
     const locationId = parseInt(req.params.id);
     
@@ -396,7 +392,7 @@ router.post('/locations/:id/adjust-stock',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_ADJUST),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations/:id/adjust-stock';
     const locationId = parseInt(req.params.id);
     const { adjustment, reason } = req.body;
@@ -405,10 +401,8 @@ router.post('/locations/:id/adjust-stock',
       MyLogger.info(action, { locationId, adjustment, reason });
       
       if (typeof adjustment !== 'number' || !reason) {
-        return res.status(400).json({
-          success: false,
-          message: 'Adjustment amount and reason are required'
-        });
+        res.status(400)
+        throw new Error('Adjustment amount and reason are required')
       }
       
       const location =       await ProductLocationMediator.adjustStock(
@@ -438,7 +432,7 @@ router.post('/locations/allocate',
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_READ),
   validateRequest(productAllocationSchema),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations/allocate';
     try {
       MyLogger.info(action, { 
@@ -472,7 +466,7 @@ router.post('/locations/bulk-create',
   authenticate,
   auditMiddleware,
   requirePermission(PERMISSIONS.INVENTORY_MANAGE),
-  expressAsyncHandler(async (req, res) => {
+  expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations/bulk-create';
     const { product_id, center_ids, initial_stock = 0 } = req.body;
     
@@ -484,10 +478,8 @@ router.post('/locations/bulk-create',
       });
       
       if (!product_id || !Array.isArray(center_ids) || center_ids.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Product ID and center IDs array are required'
-        });
+        res.status(400)
+        throw new Error('Product ID and center IDs array are required')
       }
       
       const locations = await ProductLocationMediator.bulkCreateProductLocations(

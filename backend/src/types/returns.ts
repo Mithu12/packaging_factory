@@ -131,14 +131,14 @@ export interface ReturnQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  return_status?: string;
+  return_status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
   return_type?: string;
   reason?: string;
   customer_id?: number;
   processed_by?: number;
   date_from?: string;
   date_to?: string;
-  sortBy?: 'return_date' | 'return_number' | 'total_refund_amount' | 'return_status';
+  sortBy?: 'return_date' | 'return_number' | 'total_refund_amount';
   sortOrder?: 'asc' | 'desc';
 }
 
