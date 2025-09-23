@@ -350,7 +350,7 @@ router.patch('/:id/toggle-status',
 router.patch('/:id/stock', 
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_ADJUST),
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_CREATE),
   validateRequest(stockAdjustmentSchema), 
   expressAsyncHandler(async (req, res, next) => {
     let action = 'PATCH /api/products/:id/stock'

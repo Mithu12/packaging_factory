@@ -30,7 +30,7 @@ export class RolesController {
       
       const {
         page = 1,
-        limit = 10,
+        limit = 100,
         search,
         department,
         level,

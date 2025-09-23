@@ -6,7 +6,7 @@ import * as z from "zod"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, ArrowLeft, Save } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Plus, X } from "lucide-react"
 import {
   Form,
   FormControl,
@@ -38,6 +38,8 @@ const centerSchema = z.object({
   state: z.string().optional(),
   zip_code: z.string().optional(),
   country: z.string().default("USA"),
+  latitude: z.number().min(-90).max(90).optional().or(z.literal("")),
+  longitude: z.number().min(-180).max(180).optional().or(z.literal("")),
   contact_person: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Invalid email format").optional().or(z.literal("")),
@@ -57,6 +59,15 @@ export default function EditDistributionCenter() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [center, setCenter] = useState<DistributionCenter | null>(null)
+  const [facilities, setFacilities] = useState<string[]>([])
+  const [newFacility, setNewFacility] = useState("")
+  const [operatingHours, setOperatingHours] = useState<Record<string, { open: string; close: string }>>({
+    monday: { open: "08:00", close: "17:00" },
+    tuesday: { open: "08:00", close: "17:00" },
+    wednesday: { open: "08:00", close: "17:00" },
+    thursday: { open: "08:00", close: "17:00" },
+    friday: { open: "08:00", close: "17:00" },
+  })
 
   // Check permission
   if (!hasPermission(PERMISSIONS.WAREHOUSES_UPDATE)) {
@@ -104,6 +115,23 @@ export default function EditDistributionCenter() {
     { value: "maintenance", label: "Maintenance" },
   ]
 
+  const commonFacilities = [
+    "Loading Dock", "Climate Control", "Security System", "Fire Safety",
+    "Forklift Access", "24/7 Access", "Parking", "Office Space",
+    "Packaging Area", "Quality Control", "Returns Processing"
+  ]
+
+  const addFacility = (facility: string) => {
+    if (facility && !facilities.includes(facility)) {
+      setFacilities(prev => [...prev, facility])
+      setNewFacility("")
+    }
+  }
+
+  const removeFacility = (facility: string) => {
+    setFacilities(prev => prev.filter(f => f !== facility))
+  }
+
   useEffect(() => {
     const fetchCenter = async () => {
       if (!id) {
@@ -125,6 +153,8 @@ export default function EditDistributionCenter() {
           state: centerData.state || "",
           zip_code: centerData.zip_code || "",
           country: centerData.country || "USA",
+          latitude: centerData.latitude || ("" as any),
+          longitude: centerData.longitude || ("" as any),
           contact_person: centerData.contact_person || "",
           phone: centerData.phone || "",
           email: centerData.email || "",
@@ -133,6 +163,16 @@ export default function EditDistributionCenter() {
           notes: centerData.notes || "",
           status: centerData.status,
         })
+
+        // Populate facilities
+        if (centerData.facilities) {
+          setFacilities(centerData.facilities)
+        }
+
+        // Populate operating hours
+        if (centerData.operating_hours) {
+          setOperatingHours(centerData.operating_hours)
+        }
       } catch (error) {
         console.error("Error fetching distribution center:", error)
         toast({
@@ -168,6 +208,8 @@ export default function EditDistributionCenter() {
         email: data.email || undefined,
         notes: data.notes || undefined,
         status: data.status,
+        facilities: facilities.length > 0 ? facilities : undefined,
+        operating_hours: Object.keys(operatingHours).length > 0 ? operatingHours : undefined,
       }
 
       // Add numeric fields if provided
@@ -176,6 +218,12 @@ export default function EditDistributionCenter() {
       }
       if (data.capacity_weight && data.capacity_weight !== "") {
         updateData.capacity_weight = Number(data.capacity_weight)
+      }
+      if (data.latitude && data.latitude !== "") {
+        updateData.latitude = Number(data.latitude)
+      }
+      if (data.longitude && data.longitude !== "") {
+        updateData.longitude = Number(data.longitude)
       }
 
       await DistributionApi.updateDistributionCenter(center.id, updateData)
@@ -398,6 +446,50 @@ export default function EditDistributionCenter() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div /> {/* Empty column for spacing */}
+                
+                <FormField
+                  control={form.control}
+                  name="latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="40.7128" 
+                          type="number"
+                          step="any"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : "")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="-74.0060" 
+                          type="number"
+                          step="any"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : "")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               {/* Contact Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Contact Information</h3>
@@ -491,6 +583,134 @@ export default function EditDistributionCenter() {
                       </FormItem>
                     )}
                   />
+                </div>
+              </div>
+
+              {/* Facilities */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Facilities</h3>
+                
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {facilities.map((facility) => (
+                      <Badge 
+                        key={facility} 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => removeFacility(facility)}
+                      >
+                        {facility}
+                        <X className="w-3 h-3 ml-1" />
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add facility..."
+                      value={newFacility}
+                      onChange={(e) => setNewFacility(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFacility(newFacility))}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addFacility(newFacility)}
+                      disabled={!newFacility}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {commonFacilities.filter(f => !facilities.includes(f)).map((facility) => (
+                      <Badge 
+                        key={facility} 
+                        variant="outline" 
+                        className="cursor-pointer hover:bg-accent"
+                        onClick={() => addFacility(facility)}
+                      >
+                        + {facility}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Operating Hours */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Operating Hours</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(operatingHours).map(([day, hours]) => (
+                    <div key={day} className="space-y-2">
+                      <label className="text-sm font-medium capitalize">{day}</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="time"
+                          value={hours.open}
+                          onChange={(e) => setOperatingHours(prev => ({
+                            ...prev,
+                            [day]: { ...prev[day], open: e.target.value }
+                          }))}
+                          className="flex-1"
+                        />
+                        <span className="self-center text-muted-foreground">to</span>
+                        <Input
+                          type="time"
+                          value={hours.close}
+                          onChange={(e) => setOperatingHours(prev => ({
+                            ...prev,
+                            [day]: { ...prev[day], close: e.target.value }
+                          }))}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+                      const defaultHours = { open: "08:00", close: "17:00" }
+                      setOperatingHours(prev => {
+                        const updated = { ...prev }
+                        weekdays.forEach(day => {
+                          updated[day] = defaultHours
+                        })
+                        return updated
+                      })
+                    }}
+                  >
+                    Set Weekday Hours (8AM-5PM)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const weekend = ['saturday', 'sunday']
+                      setOperatingHours(prev => {
+                        const updated = { ...prev }
+                        weekend.forEach(day => {
+                          if (prev[day]) {
+                            delete updated[day]
+                          } else {
+                            updated[day] = { open: "09:00", close: "15:00" }
+                          }
+                        })
+                        return updated
+                      })
+                    }}
+                  >
+                    Toggle Weekend Hours
+                  </Button>
                 </div>
               </div>
 

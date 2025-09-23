@@ -302,7 +302,7 @@ export const checkMultiplePermissionsSchema = Joi.object({
 
 export const roleQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional().default(1),
-  limit: Joi.number().integer().min(1).max(1000).optional().default(10),
+  limit: Joi.number().integer().min(1).max(1000).optional().default(100),
   search: Joi.string().max(100).optional(),
   department: Joi.string().max(100).optional(),
   level: Joi.number().integer().min(1).max(10).optional(),
