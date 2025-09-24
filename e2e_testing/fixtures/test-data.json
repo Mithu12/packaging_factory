@@ -1,0 +1,79 @@
+{
+  "brands": [
+    {
+      "name": "Fixture Brand 1",
+      "description": "Brand from test fixtures",
+      "status": "active"
+    },
+    {
+      "name": "Fixture Brand 2",
+      "description": "Another brand from fixtures",
+      "status": "active"
+    },
+    {
+      "name": "Inactive Fixture Brand",
+      "description": "Inactive brand from fixtures",
+      "status": "inactive"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Fixture Category 1",
+      "description": "Category from test fixtures",
+      "status": "active",
+      "subcategories": [
+        {
+          "name": "Fixture Subcategory 1",
+          "description": "Subcategory from fixtures",
+          "status": "active"
+        },
+        {
+          "name": "Fixture Subcategory 2",
+          "description": "Another subcategory from fixtures",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "name": "Fixture Category 2",
+      "description": "Another category from fixtures",
+      "status": "active",
+      "subcategories": []
+    }
+  ],
+  "origins": [
+    {
+      "name": "Fixture Origin 1",
+      "description": "Origin from test fixtures",
+      "status": "active"
+    },
+    {
+      "name": "Fixture Origin 2",
+      "description": "Another origin from fixtures",
+      "status": "active"
+    },
+    {
+      "name": "Inactive Fixture Origin",
+      "description": "Inactive origin from fixtures",
+      "status": "inactive"
+    }
+  ],
+  "users": [
+    {
+      "email": "test.admin@example.com",
+      "password": "admin123",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "role": "admin",
+      "status": "active"
+    },
+    {
+      "email": "test.user@example.com",
+      "password": "user123",
+      "firstName": "Test",
+      "lastName": "User",
+      "role": "user",
+      "status": "active"
+    }
+  ]
+}
