@@ -61,6 +61,7 @@ import {
 } from "@/services/distribution-api"
 import { CreateDistributionCenterForm } from "@/components/distribution/CreateDistributionCenterForm"
 import { ProductLocationsList } from "@/components/distribution/ProductLocationsList"
+import { StockTransfersList } from "@/components/distribution/StockTransfersList"
 
 export default function Distribution() {
   const navigate = useNavigate()
@@ -84,6 +85,7 @@ export default function Distribution() {
   const [locations, setLocations] = useState<ProductLocation[]>([])
   const [selectedCenter, setSelectedCenter] = useState<DistributionCenter | null>(null)
   const [showLocationDetails, setShowLocationDetails] = useState(false)
+  
 
   // Filter centers based on search term
   const filteredCenters = centers.filter(center =>
@@ -516,16 +518,9 @@ export default function Distribution() {
 
           {/* Stock Transfers Tab */}
           <TabsContent value="transfers">
-            <Card>
-              <CardHeader>
-                <CardTitle>Stock Transfers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Stock transfers functionality coming soon...
-                </div>
-              </CardContent>
-            </Card>
+            <PermissionGuard permission={PERMISSIONS.STOCK_TRANSFERS_READ}>
+              <StockTransfersList />
+            </PermissionGuard>
           </TabsContent>
         </Tabs>
 

@@ -175,7 +175,7 @@ router.put('/centers/:id',
 router.delete('/centers/:id',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'DELETE /api/distribution/centers/:id';
     const centerId = parseInt(req.params.id);
@@ -198,7 +198,7 @@ router.delete('/centers/:id',
 router.post('/centers/:id/set-primary',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/centers/:id/set-primary';
     const centerId = parseInt(req.params.id);
@@ -225,7 +225,7 @@ router.post('/centers/:id/set-primary',
 router.get('/locations',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   validateRequest(productLocationQuerySchema, 'query'),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations';
@@ -252,7 +252,7 @@ router.get('/locations',
 router.get('/locations/allocation-view',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/allocation-view';
     try {
@@ -273,7 +273,7 @@ router.get('/locations/allocation-view',
 router.get('/locations/:id',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/:id';
     const locationId = parseInt(req.params.id);
@@ -301,7 +301,7 @@ router.get('/locations/:id',
 router.get('/locations/product/:productId',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/locations/product/:productId';
     const productId = parseInt(req.params.productId);
@@ -324,7 +324,7 @@ router.get('/locations/product/:productId',
 router.post('/locations',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   validateRequest(createProductLocationSchema),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations';
@@ -431,7 +431,7 @@ router.post('/locations/:id/adjust-stock',
 router.post('/locations/allocate',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   validateRequest(productAllocationSchema),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations/allocate';
@@ -466,7 +466,7 @@ router.post('/locations/allocate',
 router.post('/locations/bulk-create',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/locations/bulk-create';
     const { product_id, center_ids, initial_stock = 0 } = req.body;
@@ -514,7 +514,7 @@ router.post('/locations/bulk-create',
 router.get('/transfers',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   validateRequest(stockTransferQuerySchema, 'query'),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/transfers';
@@ -541,7 +541,7 @@ router.get('/transfers',
 router.get('/transfers/:id',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_READ),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_READ),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'GET /api/distribution/transfers/:id';
     const transferId = parseInt(req.params.id);
@@ -569,7 +569,7 @@ router.get('/transfers/:id',
 router.post('/transfers',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   validateRequest(createStockTransferSchema),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'POST /api/distribution/transfers';
@@ -609,7 +609,7 @@ router.post('/transfers',
 router.patch('/transfers/:id/status',
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  requirePermission(PERMISSIONS.STOCK_TRANSFERS_CREATE),
   expressAsyncHandler(async (req, res, next) => {
     const action = 'PATCH /api/distribution/transfers/:id/status';
     const transferId = parseInt(req.params.id);

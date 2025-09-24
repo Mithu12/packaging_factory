@@ -128,6 +128,11 @@ export const PERMISSIONS = {
   WAREHOUSES_READ: createPermissionCheck('Inventory', 'read', 'warehouses'),
   WAREHOUSES_UPDATE: createPermissionCheck('Inventory', 'update', 'warehouses'),
 
+  // Stock Transfers
+  STOCK_TRANSFERS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_transfers'),
+  STOCK_TRANSFERS_READ: createPermissionCheck('Inventory', 'read', 'stock_transfers'),
+  STOCK_TRANSFERS_APPROVE: createPermissionCheck('Inventory', 'approve', 'stock_transfers'),
+
   // Products
   PRODUCTS_CREATE: createPermissionCheck('Inventory', 'create', 'products'),
   PRODUCTS_READ: createPermissionCheck('Inventory', 'read', 'products'),
@@ -235,6 +240,9 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.WAREHOUSES_CREATE,
     PERMISSIONS.WAREHOUSES_READ,
     PERMISSIONS.WAREHOUSES_UPDATE,
+    PERMISSIONS.STOCK_TRANSFERS_CREATE,
+    PERMISSIONS.STOCK_TRANSFERS_READ,
+    PERMISSIONS.STOCK_TRANSFERS_APPROVE,
   ],
   SALES: [
     PERMISSIONS.CUSTOMERS_CREATE,

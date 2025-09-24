@@ -44,8 +44,8 @@ export class StockTransferMediator {
           p.sku as product_sku,
           dc_from.name as from_center_name,
           dc_to.name as to_center_name,
-          u_req.first_name || ' ' || u_req.last_name as requested_by_name,
-          u_app.first_name || ' ' || u_app.last_name as approved_by_name
+          u_req.full_name as requested_by_name,
+          u_app.full_name as approved_by_name
         FROM stock_transfers st
         JOIN products p ON st.product_id = p.id
         LEFT JOIN distribution_centers dc_from ON st.from_center_id = dc_from.id
@@ -161,8 +161,8 @@ export class StockTransferMediator {
           p.sku as product_sku,
           dc_from.name as from_center_name,
           dc_to.name as to_center_name,
-          u_req.first_name || ' ' || u_req.last_name as requested_by_name,
-          u_app.first_name || ' ' || u_app.last_name as approved_by_name
+          u_req.full_name as requested_by_name,
+          u_app.full_name as approved_by_name
         FROM stock_transfers st
         JOIN products p ON st.product_id = p.id
         LEFT JOIN distribution_centers dc_from ON st.from_center_id = dc_from.id
@@ -391,23 +391,48 @@ export class StockTransferMediator {
         quantity: transfer.quantity
       });
 
+      // Initialize the quantity that will actually be moved
+      let actualQuantity = transfer.quantity;
+
       // Remove stock from source location
       if (transfer.from_center_id) {
+        // First check current reserved and current stock
+        const checkStockQuery = `
+          SELECT current_stock, reserved_stock 
+          FROM product_locations 
+          WHERE product_id = $1 AND distribution_center_id = $2
+        `;
+        const stockResult = await client.query(checkStockQuery, [transfer.product_id, transfer.from_center_id]);
+        
+        if (stockResult.rows.length === 0) {
+          throw new Error('Source location not found for stock transfer');
+        }
+        
+        const { current_stock, reserved_stock } = stockResult.rows[0];
+        
+        // Ensure we don't go negative on either stock value
+        actualQuantity = Math.min(transfer.quantity, current_stock);
+        const reservedToRelease = Math.min(transfer.quantity, reserved_stock);
+        
         const removeStockQuery = `
           UPDATE product_locations 
           SET current_stock = current_stock - $1,
-              reserved_stock = reserved_stock - $1,
+              reserved_stock = reserved_stock - $2,
               last_movement_date = CURRENT_TIMESTAMP,
               updated_at = CURRENT_TIMESTAMP
-          WHERE product_id = $2 AND distribution_center_id = $3
+          WHERE product_id = $3 AND distribution_center_id = $4
         `;
         await client.query(removeStockQuery, [
-          transfer.quantity, 
+          actualQuantity,
+          reservedToRelease,
           transfer.product_id, 
           transfer.from_center_id
         ]);
       }
 
+      // Use the actual quantity that was moved
+      const quantityToAdd = actualQuantity;
+      
       // Add stock to destination location (create location if doesn't exist)
       const checkDestinationQuery = `
         SELECT id FROM product_locations 
@@ -429,7 +454,7 @@ export class StockTransferMediator {
         await client.query(createLocationQuery, [
           transfer.product_id,
           transfer.to_center_id,
-          transfer.quantity
+          quantityToAdd
         ]);
       } else {
         // Update existing location
@@ -441,7 +466,7 @@ export class StockTransferMediator {
           WHERE product_id = $2 AND distribution_center_id = $3
         `;
         await client.query(addStockQuery, [
-          transfer.quantity,
+          quantityToAdd,
           transfer.product_id,
           transfer.to_center_id
         ]);

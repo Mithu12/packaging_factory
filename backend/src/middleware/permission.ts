@@ -326,6 +326,11 @@ export const PERMISSIONS = {
   STOCK_ADJUSTMENTS_DELETE: createPermissionCheck('Inventory', 'delete', 'stock_adjustments'),
   STOCK_ADJUSTMENTS_APPROVE: createPermissionCheck('Inventory', 'approve', 'stock_adjustments'),
   
+  // Stock Transfers
+  STOCK_TRANSFERS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_transfers'),
+  STOCK_TRANSFERS_READ: createPermissionCheck('Inventory', 'read', 'stock_transfers'),
+  STOCK_TRANSFERS_APPROVE: createPermissionCheck('Inventory', 'approve', 'stock_transfers'),
+  
   // Brands
   BRANDS_CREATE: createPermissionCheck('Inventory', 'create', 'brands'),
   BRANDS_READ: createPermissionCheck('Inventory', 'read', 'brands'),

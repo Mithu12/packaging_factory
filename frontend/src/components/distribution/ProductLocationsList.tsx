@@ -501,12 +501,12 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
                               Adjust Stock
                             </DropdownMenuItem>
                           )}
-                          {hasPermission(PERMISSIONS.INVENTORY_MANAGE) && location.available_stock > 0 && (
+                          {hasPermission(PERMISSIONS.STOCK_TRANSFERS_CREATE) && location.available_stock > 0 && (
                             <DropdownMenuItem onClick={() => handleTransferProduct(location)}>
                               Transfer Product
                             </DropdownMenuItem>
                           )}
-                          {hasPermission(PERMISSIONS.INVENTORY_MANAGE) && (
+                          {hasPermission(PERMISSIONS.INVENTORY_ADJUST) && (
                             <DropdownMenuItem onClick={() => console.log('Edit location', location)}>
                               Edit Location
                             </DropdownMenuItem>
