@@ -21,7 +21,8 @@ import {
   Truck,
   Loader2,
   Package,
-  Building
+  Building,
+  Eye
 } from "lucide-react"
 import {
   Table,
@@ -67,6 +68,10 @@ export function StockTransfersList() {
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null)
   const [approvalNotes, setApprovalNotes] = useState("")
   const [approving, setApproving] = useState(false)
+
+  // Details dialog state
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
+  const [detailsTransfer, setDetailsTransfer] = useState<StockTransfer | null>(null)
 
   // Filter transfers based on search term
   const filteredTransfers = transfers.filter(transfer =>
@@ -149,6 +154,11 @@ export function StockTransfersList() {
     setApprovalAction(action)
     setApprovalNotes("")
     setShowApprovalDialog(true)
+  }
+
+  const handleViewDetails = (transfer: StockTransfer) => {
+    setDetailsTransfer(transfer)
+    setShowDetailsDialog(true)
   }
 
   const submitApproval = async () => {
@@ -382,7 +392,8 @@ export function StockTransfersList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-popover">
-                          <DropdownMenuItem onClick={() => console.log('View details', transfer)}>
+                          <DropdownMenuItem onClick={() => handleViewDetails(transfer)}>
+                            <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
                           
@@ -516,6 +527,205 @@ export function StockTransfersList() {
               {approvalAction === 'approve' ? 'Approve' : 'Reject'} Transfer
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Stock Transfer Details</DialogTitle>
+            <DialogDescription>
+              Complete information for transfer {detailsTransfer?.transfer_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {detailsTransfer && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Transfer Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Transfer #:</span>
+                      <span className="font-medium">{detailsTransfer.transfer_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge className={`${getStatusColor(detailsTransfer.status)}`}>
+                        {detailsTransfer.status.replace('_', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Priority:</span>
+                      <Badge className={`${getPriorityColor(detailsTransfer.priority)}`}>
+                        {detailsTransfer.priority.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Quantity:</span>
+                      <span className="font-medium">{formatNumber(detailsTransfer.quantity)}</span>
+                    </div>
+                    {detailsTransfer.unit_cost && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unit Cost:</span>
+                        <span className="font-medium">${formatNumber(detailsTransfer.unit_cost)}</span>
+                      </div>
+                    )}
+                    {detailsTransfer.total_cost && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Cost:</span>
+                        <span className="font-medium">${formatNumber(detailsTransfer.total_cost)}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Product Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Product:</span>
+                      <span className="font-medium">{detailsTransfer.product_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">SKU:</span>
+                      <span className="font-medium">{detailsTransfer.product_sku}</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Location Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Building className="w-4 h-4" />
+                    Source Location
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Center:</span>
+                      <span className="font-medium">{detailsTransfer.from_center_name || 'External'}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Building className="w-4 h-4" />
+                    Destination Location
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Center:</span>
+                      <span className="font-medium">{detailsTransfer.to_center_name}</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Tracking & Shipping */}
+              {(detailsTransfer.tracking_number || detailsTransfer.carrier || detailsTransfer.shipping_cost) && (
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Truck className="w-4 h-4" />
+                    Shipping Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {detailsTransfer.tracking_number && (
+                      <div>
+                        <span className="text-muted-foreground block">Tracking #:</span>
+                        <span className="font-medium">{detailsTransfer.tracking_number}</span>
+                      </div>
+                    )}
+                    {detailsTransfer.carrier && (
+                      <div>
+                        <span className="text-muted-foreground block">Carrier:</span>
+                        <span className="font-medium">{detailsTransfer.carrier}</span>
+                      </div>
+                    )}
+                    {detailsTransfer.shipping_cost && (
+                      <div>
+                        <span className="text-muted-foreground block">Shipping Cost:</span>
+                        <span className="font-medium">${formatNumber(detailsTransfer.shipping_cost)}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {/* Timeline */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Transfer Timeline
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 bg-accent/20 rounded">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Transfer Requested</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDate(detailsTransfer.request_date)} by {detailsTransfer.requested_by_name}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {detailsTransfer.approved_by_name && (
+                    <div className="flex items-center gap-3 p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Transfer Approved</div>
+                        <div className="text-xs text-muted-foreground">
+                          by {detailsTransfer.approved_by_name}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {detailsTransfer.shipped_date && (
+                    <div className="flex items-center gap-3 p-2 bg-purple-50 dark:bg-purple-900/20 rounded">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Transfer Shipped</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(detailsTransfer.shipped_date)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {detailsTransfer.received_date && (
+                    <div className="flex items-center gap-3 p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Transfer Received</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(detailsTransfer.received_date)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Notes */}
+              {detailsTransfer.notes && (
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3">Notes</h3>
+                  <p className="text-sm text-muted-foreground">{detailsTransfer.notes}</p>
+                </Card>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
