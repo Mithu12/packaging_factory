@@ -207,6 +207,52 @@ export interface ProductLocationQueryParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+export interface StockTransfer {
+  id: number;
+  transfer_number: string;
+  product_id: number;
+  from_center_id?: number;
+  to_center_id: number;
+  quantity: number;
+  unit_cost?: number;
+  total_cost?: number;
+  request_date: string;
+  shipped_date?: string;
+  received_date?: string;
+  status: 'pending' | 'approved' | 'shipped' | 'in_transit' | 'received' | 'cancelled';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  requested_by: number;
+  approved_by?: number;
+  shipped_by?: number;
+  received_by?: number;
+  tracking_number?: string;
+  carrier?: string;
+  shipping_cost?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  product_name?: string;
+  product_sku?: string;
+  from_center_name?: string;
+  to_center_name?: string;
+  requested_by_name?: string;
+  approved_by_name?: string;
+}
+
+export interface CreateStockTransferRequest {
+  product_id: number;
+  from_center_id?: number;
+  to_center_id: number;
+  quantity: number;
+  unit_cost?: number;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  tracking_number?: string;
+  carrier?: string;
+  shipping_cost?: number;
+  notes?: string;
+}
+
 export interface StockTransferQueryParams {
   page?: number;
   limit?: number;
@@ -352,6 +398,46 @@ export class DistributionApi {
         center_ids: centerIds,
         initial_stock: initialStock
       })
+    });
+  }
+
+  // =====================================================
+  // Stock Transfers
+  // =====================================================
+
+  static async getStockTransfers(params?: StockTransferQueryParams) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return makeRequest<{
+      transfers: StockTransfer[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`${this.baseUrl}/transfers${queryString ? `?${queryString}` : ''}`);
+  }
+
+  static async getStockTransfer(id: number) {
+    return makeRequest<StockTransfer>(`${this.baseUrl}/transfers/${id}`);
+  }
+
+  static async createStockTransfer(data: CreateStockTransferRequest) {
+    return makeRequest<StockTransfer>(`${this.baseUrl}/transfers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateStockTransferStatus(id: number, status: string, notes?: string) {
+    return makeRequest<StockTransfer>(`${this.baseUrl}/transfers/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
     });
   }
 }

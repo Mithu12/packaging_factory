@@ -47,7 +47,9 @@ import { useToast } from "@/hooks/use-toast"
 import { 
   DistributionApi,
   ProductLocation,
-  ProductLocationQueryParams
+  ProductLocationQueryParams,
+  DistributionCenter,
+  CreateStockTransferRequest
 } from "@/services/distribution-api"
 
 interface ProductLocationsListProps {
@@ -68,6 +70,15 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
   const [adjustmentAmount, setAdjustmentAmount] = useState("")
   const [adjustmentReason, setAdjustmentReason] = useState("")
   const [adjusting, setAdjusting] = useState(false)
+  
+  // Transfer state
+  const [showTransferDialog, setShowTransferDialog] = useState(false)
+  const [transferQuantity, setTransferQuantity] = useState("")
+  const [transferToCenter, setTransferToCenter] = useState("")
+  const [transferPriority, setTransferPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
+  const [transferNotes, setTransferNotes] = useState("")
+  const [transferring, setTransferring] = useState(false)
+  const [availableCenters, setAvailableCenters] = useState<DistributionCenter[]>([])
 
   // Filter locations based on search term
   const filteredLocations = locations.filter(location =>
@@ -194,6 +205,95 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
       })
     } finally {
       setAdjusting(false)
+    }
+  }
+
+  const handleTransferProduct = async (location: ProductLocation) => {
+    setSelectedLocation(location)
+    setTransferQuantity("")
+    setTransferToCenter("")
+    setTransferPriority('normal')
+    setTransferNotes("")
+    
+    try {
+      // Fetch available distribution centers (excluding current center)
+      const centersResult = await DistributionApi.getDistributionCenters({ limit: 100 })
+      const filtered = centersResult.centers.filter(center => 
+        center.id !== location.distribution_center_id && center.status === 'active'
+      )
+      setAvailableCenters(filtered)
+      setShowTransferDialog(true)
+    } catch (error) {
+      console.error("Error fetching centers:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load distribution centers",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const submitTransfer = async () => {
+    if (!selectedLocation || !transferQuantity || !transferToCenter) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide quantity and destination center",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setTransferring(true)
+      
+      const quantity = parseFloat(transferQuantity)
+      if (isNaN(quantity) || quantity <= 0) {
+        toast({
+          title: "Invalid Quantity",
+          description: "Please enter a valid quantity",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (quantity > selectedLocation.available_stock) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Only ${selectedLocation.available_stock} units available`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const transferRequest: CreateStockTransferRequest = {
+        product_id: selectedLocation.product_id,
+        from_center_id: selectedLocation.distribution_center_id,
+        to_center_id: parseInt(transferToCenter),
+        quantity,
+        priority: transferPriority,
+        notes: transferNotes || undefined
+      }
+
+      const transfer = await DistributionApi.createStockTransfer(transferRequest)
+
+      toast({
+        title: "Transfer Created",
+        description: `Transfer ${transfer.transfer_number} created successfully`,
+      })
+
+      // Refresh locations
+      fetchLocations()
+      setShowTransferDialog(false)
+      setSelectedLocation(null)
+    } catch (error: any) {
+      console.error("Error creating transfer:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create transfer. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setTransferring(false)
     }
   }
 
@@ -401,6 +501,11 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
                               Adjust Stock
                             </DropdownMenuItem>
                           )}
+                          {hasPermission(PERMISSIONS.INVENTORY_MANAGE) && location.available_stock > 0 && (
+                            <DropdownMenuItem onClick={() => handleTransferProduct(location)}>
+                              Transfer Product
+                            </DropdownMenuItem>
+                          )}
                           {hasPermission(PERMISSIONS.INVENTORY_MANAGE) && (
                             <DropdownMenuItem onClick={() => console.log('Edit location', location)}>
                               Edit Location
@@ -523,6 +628,104 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
             >
               {adjusting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Apply Adjustment
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Product Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transfer Product</DialogTitle>
+            <DialogDescription>
+              Transfer {selectedLocation?.product_name} from {selectedLocation?.center_name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="quantity" className="text-sm font-medium">
+                Quantity *
+              </label>
+              <Input
+                id="quantity"
+                type="number"
+                placeholder="0"
+                value={transferQuantity}
+                onChange={(e) => setTransferQuantity(e.target.value)}
+                className="mt-1"
+                max={selectedLocation?.available_stock}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Available: {selectedLocation?.available_stock || 0} units
+              </p>
+            </div>
+            
+            <div>
+              <label htmlFor="toCenter" className="text-sm font-medium">
+                Destination Center *
+              </label>
+              <select
+                id="toCenter"
+                value={transferToCenter}
+                onChange={(e) => setTransferToCenter(e.target.value)}
+                className="mt-1 w-full p-2 border border-input bg-background rounded-md"
+              >
+                <option value="">Select destination center</option>
+                {availableCenters.map(center => (
+                  <option key={center.id} value={center.id}>
+                    {center.name} ({center.type.replace('_', ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="priority" className="text-sm font-medium">
+                Priority
+              </label>
+              <select
+                id="priority"
+                value={transferPriority}
+                onChange={(e) => setTransferPriority(e.target.value as any)}
+                className="mt-1 w-full p-2 border border-input bg-background rounded-md"
+              >
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="notes" className="text-sm font-medium">
+                Notes
+              </label>
+              <Input
+                id="notes"
+                placeholder="Optional notes about this transfer"
+                value={transferNotes}
+                onChange={(e) => setTransferNotes(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowTransferDialog(false)}
+              disabled={transferring}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitTransfer}
+              disabled={transferring || !transferQuantity || !transferToCenter}
+            >
+              {transferring && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Transfer
             </Button>
           </div>
         </DialogContent>

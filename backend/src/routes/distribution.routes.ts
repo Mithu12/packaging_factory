@@ -24,6 +24,7 @@ import {
 // Mediators
 import { DistributionCenterMediator } from '@/mediators/distribution/DistributionCenterMediator';
 import { ProductLocationMediator } from '@/mediators/distribution/ProductLocationMediator';
+import { StockTransferMediator } from '@/mediators/distribution/StockTransferMediator';
 
 const router = express.Router();
 
@@ -500,6 +501,144 @@ router.post('/locations/bulk-create',
         productId: product_id,
         centerIds: center_ids
       });
+      throw error;
+    }
+  })
+);
+
+// =====================================================
+// Stock Transfers Routes
+// =====================================================
+
+// GET /api/distribution/transfers - Get all stock transfers
+router.get('/transfers',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.INVENTORY_READ),
+  validateRequest(stockTransferQuerySchema, 'query'),
+  expressAsyncHandler(async (req, res, next) => {
+    const action = 'GET /api/distribution/transfers';
+    try {
+      MyLogger.info(action, { query: req.query });
+      
+      const result = await StockTransferMediator.getStockTransfers(req.query as any);
+      
+      MyLogger.success(action, { 
+        transfersCount: result.transfers.length,
+        total: result.total,
+        page: result.page
+      });
+      
+      serializeSuccessResponse(res, result, 'SUCCESS');
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  })
+);
+
+// GET /api/distribution/transfers/:id - Get specific stock transfer
+router.get('/transfers/:id',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.INVENTORY_READ),
+  expressAsyncHandler(async (req, res, next) => {
+    const action = 'GET /api/distribution/transfers/:id';
+    const transferId = parseInt(req.params.id);
+    
+    try {
+      MyLogger.info(action, { transferId });
+      
+      const transfer = await StockTransferMediator.getStockTransferById(transferId);
+      
+      if (!transfer) {
+        res.status(404);
+        throw new Error('Stock transfer not found');
+      }
+      
+      MyLogger.success(action, { transferId, transferNumber: transfer.transfer_number });
+      serializeSuccessResponse(res, transfer, 'SUCCESS');
+    } catch (error: any) {
+      MyLogger.error(action, error, { transferId });
+      throw error;
+    }
+  })
+);
+
+// POST /api/distribution/transfers - Create new stock transfer
+router.post('/transfers',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  validateRequest(createStockTransferSchema),
+  expressAsyncHandler(async (req, res, next) => {
+    const action = 'POST /api/distribution/transfers';
+    try {
+      MyLogger.info(action, { 
+        productId: req.body.product_id,
+        fromCenter: req.body.from_center_id,
+        toCenter: req.body.to_center_id,
+        quantity: req.body.quantity
+      });
+      
+      const transfer = await StockTransferMediator.createStockTransfer(
+        req.body,
+        req.user!.user_id
+      );
+      
+      MyLogger.success(action, { 
+        transferId: transfer.id,
+        transferNumber: transfer.transfer_number,
+        productId: req.body.product_id,
+        quantity: req.body.quantity
+      });
+      
+      serializeSuccessResponse(res, transfer, 'CREATED');
+    } catch (error: any) {
+      MyLogger.error(action, error, { 
+        productId: req.body.product_id,
+        fromCenter: req.body.from_center_id,
+        toCenter: req.body.to_center_id
+      });
+      throw error;
+    }
+  })
+);
+
+// PATCH /api/distribution/transfers/:id/status - Update transfer status
+router.patch('/transfers/:id/status',
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.INVENTORY_MANAGE),
+  expressAsyncHandler(async (req, res, next) => {
+    const action = 'PATCH /api/distribution/transfers/:id/status';
+    const transferId = parseInt(req.params.id);
+    const { status, notes } = req.body;
+    
+    try {
+      MyLogger.info(action, { transferId, status, notes });
+      
+      if (!['approved', 'shipped', 'received', 'cancelled'].includes(status)) {
+        res.status(400);
+        throw new Error('Invalid status. Must be: approved, shipped, received, or cancelled');
+      }
+      
+      const transfer = await StockTransferMediator.updateStockTransferStatus(
+        transferId,
+        status,
+        req.user!.user_id,
+        notes
+      );
+      
+      MyLogger.success(action, { 
+        transferId,
+        newStatus: status,
+        transferNumber: transfer.transfer_number
+      });
+      
+      serializeSuccessResponse(res, transfer, 'SUCCESS');
+    } catch (error: any) {
+      MyLogger.error(action, error, { transferId, status });
       throw error;
     }
   })
