@@ -1,14 +1,14 @@
-// Main API service that combines all modules
-export { SupplierApi } from './supplier-api';
-export { default as SupplierCategoryApi } from './supplier-category-api';
-export { CategoryApi } from './category-api';
-export { BrandApi } from './brand-api';
-export { OriginApi } from './origin-api';
-export { ProductApi } from './product-api';
-export { StockAdjustmentApi } from './stock-adjustment-api';
-export { PurchaseOrderApi } from './purchase-order-api';
-export { CustomerApi } from './customer-api';
-export { SalesOrderApi } from './sales-order-api';
+﻿// Main API service that combines all modules
+export { SupplierApi } from '../modules/inventory/services/supplier-api';
+export { default as SupplierCategoryApi } from '../modules/inventory/services/supplier-category-api';
+export { CategoryApi } from '../modules/inventory/services/category-api';
+export { BrandApi } from '../modules/inventory/services/brand-api';
+export { OriginApi } from '../modules/inventory/services/origin-api';
+export { ProductApi } from '../modules/inventory/services/product-api';
+export { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
+export { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
+export { CustomerApi } from '../modules/sales/services/customer-api';
+export { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 export { ExpenseApi } from './expense-api';
 export { ExpenseCategoryApi } from './expense-category-api';
 
@@ -18,16 +18,16 @@ export { ApiError } from './types';
 export { makeRequest } from './api-utils';
 
 // Legacy ApiService class for backward compatibility
-import { SupplierApi } from './supplier-api';
-import SupplierCategoryApi from './supplier-category-api';
-import { CategoryApi } from './category-api';
-import { BrandApi } from './brand-api';
-import { OriginApi } from './origin-api';
-import { ProductApi } from './product-api';
-import { StockAdjustmentApi } from './stock-adjustment-api';
-import { PurchaseOrderApi } from './purchase-order-api';
-import { CustomerApi } from './customer-api';
-import { SalesOrderApi } from './sales-order-api';
+import { SupplierApi } from '../modules/inventory/services/supplier-api';
+import SupplierCategoryApi from '../modules/inventory/services/supplier-category-api';
+import { CategoryApi } from '../modules/inventory/services/category-api';
+import { BrandApi } from '../modules/inventory/services/brand-api';
+import { OriginApi } from '../modules/inventory/services/origin-api';
+import { ProductApi } from '../modules/inventory/services/product-api';
+import { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
+import { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
+import { CustomerApi } from '../modules/sales/services/customer-api';
+import { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 import { ExpenseApi } from './expense-api';
 import { ExpenseCategoryApi } from './expense-category-api';
 
