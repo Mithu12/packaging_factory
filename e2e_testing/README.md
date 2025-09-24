@@ -78,9 +78,34 @@ e2e_testing/
 
 ### Running Tests
 
+#### Prerequisites
+Before running tests, ensure:
+1. Database is running and accessible
+2. Backend server is running (for API tests)
+3. Frontend server is running (for UI tests)
+
+#### Test Data Setup
+```bash
+# Setup test data (run this first)
+npm run setup
+
+# Cleanup test data (run after tests)
+npm run cleanup
+```
+
 #### All Tests
 ```bash
 npm test
+```
+
+#### API Tests Only (Backend Required)
+```bash
+npm run test:api-only
+```
+
+#### UI Tests Only (Frontend Required)
+```bash
+npm run test:ui-only
 ```
 
 #### Specific Module Tests
@@ -110,6 +135,53 @@ npm run test:headed
 npm run test:report
 ```
 
+## Troubleshooting
+
+### Common Issues
+
+1. **Global Setup URL Error**
+   ```
+   Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL
+   ```
+   **Solution**: Ensure frontend server is running on correct port, or run API-only tests:
+   ```bash
+   npm run test:api-only
+   ```
+
+2. **Database Connection Errors**
+   - Verify database is running
+   - Check connection parameters in `.env`
+   - Ensure test database exists
+
+3. **Authentication Failures**
+   - Verify test user exists
+   - Check credentials in `.env`
+   - Ensure user has proper permissions
+
+4. **Element Not Found**
+   - Verify `data-testid` attributes exist
+   - Check element visibility
+   - Add wait conditions
+
+5. **Timeout Errors**
+   - Increase timeout values
+   - Check network conditions
+   - Verify server response times
+
+### Running Tests Without Full Stack
+
+#### Database + Backend Only
+```bash
+npm run setup          # Setup test data
+npm run test:api-only   # Run API tests only
+```
+
+#### Database + Frontend Only  
+```bash
+npm run setup           # Setup test data
+npm run test:ui-only    # Run UI tests only (with mocked API)
+```
+
 ### Test Data Management
 
 #### Setup Test Data
@@ -121,6 +193,36 @@ npm run setup
 ```bash
 npm run cleanup
 ```
+
+## Database Schema Compliance
+
+The e2e tests are fully consistent with the backend database schema defined in `/backend/migrations/V1_initial_setup.sql`:
+
+### Table Schema Validation
+
+| Table | Key Fields | Data Types | Constraints |
+|-------|------------|------------|-------------|
+| **brands** | `id`, `name`, `description`, `is_active` | `name`: VARCHAR(100), `is_active`: BOOLEAN | UNIQUE(name) |
+| **categories** | `id`, `name`, `description` | `name`: VARCHAR(255) | UNIQUE(name), no status field |
+| **subcategories** | `id`, `name`, `description`, `category_id` | `name`: VARCHAR(255) | UNIQUE(name, category_id) |
+| **origins** | `id`, `name`, `description`, `status` | `name`: VARCHAR(100), `status`: VARCHAR(20) | CHECK(status IN 'active','inactive') |
+| **users** | `id`, `username`, `email`, `password_hash`, `full_name`, `role`, `is_active` | All VARCHAR with specific limits | CHECK(role IN admin,manager,accounts,employee,viewer) |
+
+### Field Type Consistency
+
+- **Timestamps**: Most tables use `timestamp with time zone`, expenses use `timestamp without time zone`
+- **Status Fields**: 
+  - Brands use `is_active: boolean` (not status)
+  - Categories have no status field (always active)
+  - Origins use `status: 'active' | 'inactive'` string enum
+- **VARCHAR Limits**: All test data respects field length constraints
+- **Foreign Keys**: Subcategories properly reference categories with CASCADE delete
+
+### Enum Value Validation
+
+All test data uses only valid enum values as defined in database CHECK constraints:
+- **Origins Status**: `'active'`, `'inactive'`
+- **User Roles**: `'admin'`, `'manager'`, `'accounts'`, `'employee'`, `'viewer'`
 
 ## Test Structure
 

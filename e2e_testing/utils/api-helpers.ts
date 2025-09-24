@@ -136,11 +136,24 @@ export class PageHelper {
   constructor(private page: Page) {}
 
   async login(email: string, password: string): Promise<void> {
-    await this.page.goto('/login');
-    await this.page.fill('[data-testid="email"]', email);
-    await this.page.fill('[data-testid="password"]', password);
-    await this.page.click('[data-testid="login-button"]');
-    await this.page.waitForURL('/dashboard');
+    try {
+      await this.page.goto('/login', { timeout: 10000 });
+      
+      // Check if login form exists
+      const emailField = this.page.locator('[data-testid="email"]');
+      const passwordField = this.page.locator('[data-testid="password"]');
+      const loginButton = this.page.locator('[data-testid="login-button"]');
+      
+      await emailField.waitFor({ timeout: 5000 });
+      await emailField.fill(email);
+      await passwordField.fill(password);
+      await loginButton.click();
+      
+      await this.page.waitForURL('/dashboard', { timeout: 10000 });
+    } catch (error) {
+      console.log('Login failed:', error.message);
+      throw new Error(`Login failed: ${error.message}`);
+    }
   }
 
   async logout(): Promise<void> {

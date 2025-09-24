@@ -10,6 +10,8 @@
     "test:brands": "playwright test tests/brands",
     "test:categories": "playwright test tests/categories",
     "test:origins": "playwright test tests/origins",
+    "test:api-only": "playwright test --grep=\"API Tests\"",
+    "test:ui-only": "playwright test --grep=\"UI Tests\"",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
     "test:codegen": "playwright codegen",

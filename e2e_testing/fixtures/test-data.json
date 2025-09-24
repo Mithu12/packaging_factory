@@ -60,20 +60,20 @@
   ],
   "users": [
     {
+      "username": "testadmin",
       "email": "test.admin@example.com",
-      "password": "admin123",
-      "firstName": "Test",
-      "lastName": "Admin",
+      "password_hash": "$2b$10$test.hash.for.admin",
+      "full_name": "Test Admin",
       "role": "admin",
-      "status": "active"
+      "is_active": true
     },
     {
+      "username": "testuser",
       "email": "test.user@example.com",
-      "password": "user123",
-      "firstName": "Test",
-      "lastName": "User",
-      "role": "user",
-      "status": "active"
+      "password_hash": "$2b$10$test.hash.for.user",
+      "full_name": "Test User",
+      "role": "employee",
+      "is_active": true
     }
   ]
 }

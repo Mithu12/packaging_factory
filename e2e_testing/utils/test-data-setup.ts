@@ -16,21 +16,21 @@ export async function createTestUser(): Promise<string> {
   try {
     // Create test user if doesn't exist
     const userResult = await client.query(`
-      INSERT INTO users (email, password, first_name, last_name, role, status, created_at, updated_at)
+      INSERT INTO users (username, email, password_hash, full_name, role, is_active, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       ON CONFLICT (email) DO UPDATE SET
-        password = EXCLUDED.password,
+        password_hash = EXCLUDED.password_hash,
         role = EXCLUDED.role,
-        status = EXCLUDED.status,
+        is_active = EXCLUDED.is_active,
         updated_at = NOW()
       RETURNING id, email
     `, [
+      process.env.TEST_USER_EMAIL || 'testuser',
       process.env.TEST_USER_EMAIL || 'test@example.com',
       '$2b$10$example.hash.for.testing', // In real setup, hash the password
-      'Test',
-      'User',
+      'Test User',
       process.env.TEST_USER_ROLE || 'admin',
-      'active'
+      true
     ]);
 
     const userId = userResult.rows[0].id;

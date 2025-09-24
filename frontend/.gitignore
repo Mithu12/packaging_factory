@@ -7,10 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
 *.local
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -22,4 +31,31 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env
+
+# Vite
+.vite/
+
+# Coverage directory
+coverage/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Testing
+test-results/
+playwright-report/
