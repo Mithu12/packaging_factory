@@ -93,34 +93,35 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
     initialPageSize: 20
   })
 
+  // Fetch locations function (moved outside useEffect for reusability)
+  const fetchLocations = async () => {
+    try {
+      setLoading(true)
+      
+      const params: ProductLocationQueryParams = {
+        limit: 1000, // Get all locations for now
+      }
+      
+      if (distributionCenterId) {
+        params.distribution_center_id = distributionCenterId
+      }
+      
+      const result = await DistributionApi.getProductLocations(params)
+      setLocations(result.locations)
+    } catch (error) {
+      console.error("Error loading product locations:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load product locations",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Fetch data on component mount or when distributionCenterId changes
   useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        setLoading(true)
-        
-        const params: ProductLocationQueryParams = {
-          limit: 1000, // Get all locations for now
-        }
-        
-        if (distributionCenterId) {
-          params.distribution_center_id = distributionCenterId
-        }
-        
-        const result = await DistributionApi.getProductLocations(params)
-        setLocations(result.locations)
-      } catch (error) {
-        console.error("Error loading product locations:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load product locations",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchLocations()
   }, [distributionCenterId, toast])
 
@@ -480,8 +481,8 @@ export function ProductLocationsList({ distributionCenterId }: ProductLocationsL
                     </TableCell>
                     
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <TrendIcon className={`w-4 h-4 ${trendInfo.color}`} title={trendInfo.tooltip} />
+                      <div className="flex items-center gap-1" title={trendInfo.tooltip}>
+                        <TrendIcon className={`w-4 h-4 ${trendInfo.color}`} />
                       </div>
                     </TableCell>
                     
