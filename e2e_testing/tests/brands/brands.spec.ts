@@ -47,7 +47,7 @@ test.describe('Brands Module E2E Tests', () => {
       const brand = response.data[0];
       expect(brand).toHaveProperty('id');
       expect(brand).toHaveProperty('name');
-      expect(brand).toHaveProperty('status');
+      expect(brand).toHaveProperty('is_active');
       expect(brand).toHaveProperty('product_count');
     });
 
@@ -62,7 +62,7 @@ test.describe('Brands Module E2E Tests', () => {
       expect(response.success).toBe(true);
       expect(response.data.name).toBe(brandData.name);
       expect(response.data.description).toBe(brandData.description);
-      expect(response.data.status).toBe('active');
+      expect(response.data.is_active).toBe(true);
       expect(response.data.id).toBeDefined();
     });
 
@@ -73,7 +73,7 @@ test.describe('Brands Module E2E Tests', () => {
       expect(response.success).toBe(true);
       expect(response.data.id).toBe(testBrandId);
       expect(response.data.name).toBeDefined();
-      expect(response.data.status).toBeDefined();
+      expect(response.data.is_active).toBeDefined();
     });
 
     test('should update a brand', async () => {
@@ -120,6 +120,33 @@ test.describe('Brands Module E2E Tests', () => {
       const data = await response.json();
       expect(data.success).toBe(false);
       expect(data.error).toBeDefined();
+    });
+
+    test('should get brands by status', async ({ request }) => {
+      const response = await request.get('/api/brands/status/active', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      
+      expect(response.status()).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.data).toBeInstanceOf(Array);
+      
+      // Verify all returned brands are active
+      data.data.forEach((brand: any) => {
+        expect(brand.is_active).toBe(true);
+      });
+    });
+
+    test('should handle invalid brand status', async ({ request }) => {
+      const response = await request.get('/api/brands/status/invalid', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      
+      expect(response.status()).toBe(400);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.message).toContain('Invalid status');
     });
 
     test('should require authentication', async ({ request }) => {
@@ -215,13 +242,18 @@ test.describe('Brands Module E2E Tests', () => {
       await page.click('[data-testid="status-filter"]');
       await page.click('[data-testid="status-active"]');
       
+      // Wait for filtering
+      await page.waitForTimeout(500);
+      
       // Verify only active brands are shown
       const brandRows = page.locator('[data-testid="brand-row"]');
       const count = await brandRows.count();
       
-      for (let i = 0; i < count; i++) {
-        const statusBadge = brandRows.nth(i).locator('[data-testid="brand-status"]');
-        await expect(statusBadge).toContainText('Active');
+      if (count > 0) {
+        for (let i = 0; i < count; i++) {
+          const statusBadge = brandRows.nth(i).locator('[data-testid="brand-status"]');
+          await expect(statusBadge).toContainText('Active');
+        }
       }
     });
 

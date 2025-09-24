@@ -52,21 +52,20 @@ export async function createTestData(): Promise<void> {
   try {
     // Create test brands
     await client.query(`
-      INSERT INTO brands (name, description, status, created_at, updated_at)
+      INSERT INTO brands (name, description, is_active, created_at, updated_at)
       VALUES 
-        ('Test Brand 1', 'Test brand for E2E testing', 'active', NOW(), NOW()),
-        ('Test Brand 2', 'Another test brand', 'active', NOW(), NOW()),
-        ('Inactive Test Brand', 'Inactive test brand', 'inactive', NOW(), NOW())
+        ('Test Brand 1', 'Test brand for E2E testing', true, NOW(), NOW()),
+        ('Test Brand 2', 'Another test brand', true, NOW(), NOW()),
+        ('Inactive Test Brand', 'Inactive test brand', false, NOW(), NOW())
       ON CONFLICT (name) DO NOTHING
     `);
 
     // Create test categories
     await client.query(`
-      INSERT INTO categories (name, description, status, created_at, updated_at)
+      INSERT INTO categories (name, description, created_at, updated_at)
       VALUES 
-        ('Test Category 1', 'Test category for E2E testing', 'active', NOW(), NOW()),
-        ('Test Category 2', 'Another test category', 'active', NOW(), NOW()),
-        ('Inactive Test Category', 'Inactive test category', 'inactive', NOW(), NOW())
+        ('Test Category 1', 'Test category for E2E testing', NOW(), NOW()),
+        ('Test Category 2', 'Another test category', NOW(), NOW())
       ON CONFLICT (name) DO NOTHING
     `);
 
@@ -78,10 +77,10 @@ export async function createTestData(): Promise<void> {
     if (categoryResult.rows.length > 0) {
       const categoryId = categoryResult.rows[0].id;
       await client.query(`
-        INSERT INTO subcategories (name, description, category_id, status, created_at, updated_at)
+        INSERT INTO subcategories (name, description, category_id, created_at, updated_at)
         VALUES 
-          ('Test Subcategory 1', 'Test subcategory for E2E testing', $1, 'active', NOW(), NOW()),
-          ('Test Subcategory 2', 'Another test subcategory', $1, 'active', NOW(), NOW())
+          ('Test Subcategory 1', 'Test subcategory for E2E testing', $1, NOW(), NOW()),
+          ('Test Subcategory 2', 'Another test subcategory', $1, NOW(), NOW())
         ON CONFLICT (name, category_id) DO NOTHING
       `, [categoryId]);
     }

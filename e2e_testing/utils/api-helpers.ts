@@ -13,7 +13,7 @@ export class ApiHelper {
   }
 
   // Brand API helpers
-  async createBrand(token: string, brandData: { name: string; description?: string }): Promise<any> {
+  async createBrand(token: string, brandData: { name: string; description?: string; is_active?: boolean }): Promise<any> {
     const response = await this.request.post('/brands', {
       headers: { 'Authorization': `Bearer ${token}` },
       data: brandData
@@ -35,7 +35,7 @@ export class ApiHelper {
     return response.json();
   }
 
-  async updateBrand(token: string, id: number, brandData: { name?: string; description?: string }): Promise<any> {
+  async updateBrand(token: string, id: number, brandData: { name?: string; description?: string; is_active?: boolean }): Promise<any> {
     const response = await this.request.put(`/brands/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` },
       data: brandData
@@ -94,7 +94,7 @@ export class ApiHelper {
   }
 
   // Origin API helpers
-  async createOrigin(token: string, originData: { name: string; description?: string }): Promise<any> {
+  async createOrigin(token: string, originData: { name: string; description?: string; status?: 'active' | 'inactive' }): Promise<any> {
     const response = await this.request.post('/origins', {
       headers: { 'Authorization': `Bearer ${token}` },
       data: originData
@@ -116,7 +116,7 @@ export class ApiHelper {
     return response.json();
   }
 
-  async updateOrigin(token: string, id: number, originData: { name?: string; description?: string }): Promise<any> {
+  async updateOrigin(token: string, id: number, originData: { name?: string; description?: string; status?: 'active' | 'inactive' }): Promise<any> {
     const response = await this.request.put(`/origins/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` },
       data: originData

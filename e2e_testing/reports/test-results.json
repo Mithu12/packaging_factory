@@ -151,19 +151,19 @@
   "suites": [],
   "errors": [
     {
-      "message": "error: column \"status\" of relation \"brands\" does not exist",
-      "stack": "error: column \"status\" of relation \"brands\" does not exist\n    at /home/m22/projects/slf/er/erp-system/e2e_testing/node_modules/pg/lib/client.js:545:17\n    at createTestData (/home/m22/projects/slf/er/erp-system/e2e_testing/utils/test-data-setup.ts:54:5)\n    at globalSetup (/home/m22/projects/slf/er/erp-system/e2e_testing/config/global-setup.ts:9:5)",
+      "message": "error: column \"password\" of relation \"users\" does not exist",
+      "stack": "error: column \"password\" of relation \"users\" does not exist\n    at /home/m22/projects/slf/er/erp-system/e2e_testing/node_modules/pg/lib/client.js:545:17\n    at createTestUser (/home/m22/projects/slf/er/erp-system/e2e_testing/utils/test-data-setup.ts:18:24)\n    at globalSetup (/home/m22/projects/slf/er/erp-system/e2e_testing/config/global-setup.ts:13:23)",
       "location": {
         "file": "/home/m22/projects/slf/er/erp-system/e2e_testing/utils/test-data-setup.ts",
-        "column": 5,
-        "line": 54
+        "column": 24,
+        "line": 18
       },
-      "snippet": "\u001b[90m   at \u001b[39m../utils/test-data-setup.ts:54\n\n\u001b[0m \u001b[90m 52 |\u001b[39m   \u001b[36mtry\u001b[39m {\n \u001b[90m 53 |\u001b[39m     \u001b[90m// Create test brands\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 54 |\u001b[39m     \u001b[36mawait\u001b[39m client\u001b[33m.\u001b[39mquery(\u001b[32m`\u001b[39m\n \u001b[90m    |\u001b[39m     \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 55 |\u001b[39m \u001b[32m      INSERT INTO brands (name, description, status, created_at, updated_at)\u001b[39m\n \u001b[90m 56 |\u001b[39m \u001b[32m      VALUES \u001b[39m\n \u001b[90m 57 |\u001b[39m \u001b[32m        ('Test Brand 1', 'Test brand for E2E testing', 'active', NOW(), NOW()),\u001b[39m\u001b[0m"
+      "snippet": "\u001b[90m   at \u001b[39m../utils/test-data-setup.ts:18\n\n\u001b[0m \u001b[90m 16 |\u001b[39m   \u001b[36mtry\u001b[39m {\n \u001b[90m 17 |\u001b[39m     \u001b[90m// Create test user if doesn't exist\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 18 |\u001b[39m     \u001b[36mconst\u001b[39m userResult \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m client\u001b[33m.\u001b[39mquery(\u001b[32m`\u001b[39m\n \u001b[90m    |\u001b[39m                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 19 |\u001b[39m \u001b[32m      INSERT INTO users (email, password, first_name, last_name, role, status, created_at, updated_at)\u001b[39m\n \u001b[90m 20 |\u001b[39m \u001b[32m      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())\u001b[39m\n \u001b[90m 21 |\u001b[39m \u001b[32m      ON CONFLICT (email) DO UPDATE SET\u001b[39m\u001b[0m"
     }
   ],
   "stats": {
-    "startTime": "2025-09-24T21:32:18.351Z",
-    "duration": 2877.337,
+    "startTime": "2025-09-24T21:38:17.835Z",
+    "duration": 2857.8320000000003,
     "expected": 0,
     "skipped": 0,
     "unexpected": 0,

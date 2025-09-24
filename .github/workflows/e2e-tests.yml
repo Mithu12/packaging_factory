@@ -68,7 +68,7 @@ jobs:
         DB_USER: postgres
         DB_PASSWORD: postgres
         JWT_SECRET: test-secret
-        PORT: 5000
+        PORT: 9000
       run: |
         npm run build
         npm start &
@@ -86,9 +86,9 @@ jobs:
     - name: Start Frontend Server
       working-directory: ./frontend
       env:
-        VITE_API_URL: http://localhost:5000/api
+        VITE_API_URL: http://localhost:9000/api
       run: |
-        npm run preview -- --port 3000 &
+        npm run preview -- --port 8080 &
         sleep 10
 
     # Setup E2E Tests
@@ -108,8 +108,8 @@ jobs:
         DB_NAME: erp_system_test
         DB_USER: postgres
         DB_PASSWORD: postgres
-        API_BASE_URL: http://localhost:5000/api
-        BASE_URL: http://localhost:3000
+        API_BASE_URL: http://localhost:9000/api
+        BASE_URL: http://localhost:8080
         TEST_USER_EMAIL: test@example.com
         TEST_USER_PASSWORD: testpassword
       run: npm run setup
@@ -123,8 +123,8 @@ jobs:
         DB_NAME: erp_system_test
         DB_USER: postgres
         DB_PASSWORD: postgres
-        API_BASE_URL: http://localhost:5000/api
-        BASE_URL: http://localhost:3000
+        API_BASE_URL: http://localhost:9000/api
+        BASE_URL: http://localhost:8080
         TEST_USER_EMAIL: test@example.com
         TEST_USER_PASSWORD: testpassword
         CI: true
