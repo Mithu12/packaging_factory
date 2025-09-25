@@ -44,7 +44,6 @@ export const updateProductSchema = Joi.object({
   max_stock_level: Joi.number().min(0).optional().allow(null),
   supplier_id: Joi.number().integer().positive().optional(),
   status: Joi.string().valid('active', 'inactive', 'discontinued', 'out_of_stock').optional(),
-  barcode: Joi.string().max(50).required(),
   weight: Joi.number().positive().precision(2).optional().allow(null),
   dimensions: Joi.string().max(100).optional().allow(null, ''),
   tax_rate: Joi.number().min(0).max(100).precision(2).optional().allow(null),
