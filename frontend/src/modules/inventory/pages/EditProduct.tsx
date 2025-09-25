@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { useFormatting } from "@/hooks/useFormatting"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError, Origin } from "@/services/api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
@@ -55,6 +56,7 @@ export default function EditProduct() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { formatCurrency } = useFormatting();
 
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -323,6 +325,12 @@ export default function EditProduct() {
       setSaving(false)
     }
   }
+
+  const costPriceValue = parseFloat(formData.cost_price || "")
+  const sellingPriceValue = parseFloat(formData.selling_price || "")
+  const hasPricingValues = Number.isFinite(costPriceValue) && Number.isFinite(sellingPriceValue)
+  const profitValue = hasPricingValues ? sellingPriceValue - costPriceValue : 0
+  const profitPercentage = hasPricingValues && costPriceValue !== 0 ? (profitValue / costPriceValue) * 100 : 0
 
   const units = [
     { value: "pcs", label: "Pieces" },
@@ -627,14 +635,13 @@ export default function EditProduct() {
                   </div>
                 </div>
                 
-                {formData.cost_price && formData.selling_price && (
+                {hasPricingValues && (
                   <div className="p-3 bg-accent/20 rounded-lg">
                     <div className="text-sm text-muted-foreground">
                       Profit Margin
                     </div>
                     <div className="text-lg font-medium text-success">
-                      ${Number(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
-                      ({(((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseFloat(formData.cost_price)) * 100).toFixed(1)}%)
+                      {formatCurrency(profitValue)} ({profitPercentage.toFixed(1)}%)
                     </div>
                   </div>
                 )}

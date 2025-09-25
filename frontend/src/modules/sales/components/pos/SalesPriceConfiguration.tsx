@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useFormatting } from "@/hooks/useFormatting"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { DollarSign, Edit, Trash2, Plus, Percent, Tag } from "lucide-react"
@@ -25,6 +26,7 @@ const mockPricingRules: PricingRule[] = []
 
 export function SalesPriceConfiguration() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>(mockPricingRules)
+  const { formatCurrency, getCurrencySymbol } = useFormatting()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<PricingRule | null>(null)
   const [formData, setFormData] = useState({
@@ -141,7 +143,7 @@ export function SalesPriceConfiguration() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="basePrice">Base Price ($)</Label>
+                    <Label htmlFor="basePrice">Base Price ({getCurrencySymbol()})</Label>
                     <Input
                       id="basePrice"
                       type="number"
@@ -194,7 +196,7 @@ export function SalesPriceConfiguration() {
                 </div>
                 {formData.basePrice && formData.discount && (
                   <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-sm font-medium">Final Price: ${Number(calculateFinalPrice(parseFloat(formData.basePrice), parseFloat(formData.discount))).toFixed(2)}</p>
+                    <p className="text-sm font-medium">Final Price: {formatCurrency(calculateFinalPrice(parseFloat(formData.basePrice), parseFloat(formData.discount)))}</p>
                   </div>
                 )}
                 <div className="flex gap-2 pt-4">
@@ -225,14 +227,14 @@ export function SalesPriceConfiguration() {
             {pricingRules.map((rule) => (
               <TableRow key={rule.id}>
                 <TableCell className="font-medium">{rule.productName}</TableCell>
-                <TableCell>${Number(rule.basePrice).toFixed(2)}</TableCell>
+                <TableCell>{formatCurrency(rule.basePrice)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Percent className="w-3 h-3" />
                     {rule.discount}%
                   </div>
                 </TableCell>
-                <TableCell className="font-bold">${Number(rule.finalPrice).toFixed(2)}</TableCell>
+                <TableCell className="font-bold">{formatCurrency(rule.finalPrice)}</TableCell>
                 <TableCell>
                   <Badge variant={rule.promotionType === "none" ? "secondary" : "default"}>
                     <Tag className="w-3 h-3 mr-1" />

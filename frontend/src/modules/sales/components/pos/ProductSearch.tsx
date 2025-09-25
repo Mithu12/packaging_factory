@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus } from "lucide-react"
 import { Product } from "@/services/types"
+import { useFormatting } from "@/hooks/useFormatting"
 
 interface ProductSearchProps {
   products: Product[]
@@ -13,6 +14,7 @@ interface ProductSearchProps {
 
 export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const { formatCurrency } = useFormatting()
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,7 +68,7 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
                       )}
                     </div>
                     <h4 className={`font-medium text-sm mb-1 ${isOutOfStock ? 'text-gray-500' : ''}`}>{product.name}</h4>
-                    <p className={`text-xs mb-1 ${isOutOfStock ? 'text-gray-400' : 'text-muted-foreground'}`}>Price: R{product.selling_price}</p>
+                    <p className={`text-xs mb-1 ${isOutOfStock ? 'text-gray-400' : 'text-muted-foreground'}`}>Price: {formatCurrency(product.selling_price)}</p>
                     <p className={`text-xs ${isOutOfStock ? 'text-gray-400' : 'text-muted-foreground'}`}>SKU: {product.sku || 'N/A'}</p>
                   </div>
                   <div className={`w-12 h-12 rounded flex items-center justify-center ${

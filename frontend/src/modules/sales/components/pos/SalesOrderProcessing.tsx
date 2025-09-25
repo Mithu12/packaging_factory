@@ -354,7 +354,7 @@ export function SalesOrderProcessing() {
                           <SelectContent>
                             {products.map((product) => (
                               <SelectItem key={product.id} value={product.id.toString()}>
-                                {product.name} - ${product.selling_price}
+                                {product.name} - {formatCurrency(product.selling_price)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -400,11 +400,11 @@ export function SalesOrderProcessing() {
                             <div className="flex-1">
                               <p className="font-medium">{item.productName}</p>
                               <p className="text-sm text-muted-foreground">
-                                ${item.price} × {item.quantity} {item.discount > 0 && `(${item.discount}% discount)`}
+                                {formatCurrency(item.price)} x {item.quantity} {item.discount > 0 && `(${item.discount}% discount)`}
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="font-bold">${Number(item.total).toFixed(2)}</span>
+                              <span className="font-bold">{formatCurrency(item.total)}</span>
                               <Button variant="destructive" size="sm" onClick={() => removeItemFromOrder(item.id)}>
                                 ×
                               </Button>
@@ -413,10 +413,10 @@ export function SalesOrderProcessing() {
                         ))}
                         <div className="border-t pt-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-lg font-bold">Total: ${Number(calculateOrderTotal(newOrder.items).total).toFixed(2)}</span>
+                            <span className="text-lg font-bold">Total: {formatCurrency(calculateOrderTotal(newOrder.items).total)}</span>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Calculator className="w-4 h-4" />
-                              Subtotal: ${Number(calculateOrderTotal(newOrder.items).subtotal).toFixed(2)} + Tax: ${Number(calculateOrderTotal(newOrder.items).tax).toFixed(2)}
+                              Subtotal: {formatCurrency(calculateOrderTotal(newOrder.items).subtotal)} + Tax: {formatCurrency(calculateOrderTotal(newOrder.items).tax)}
                             </div>
                           </div>
                         </div>

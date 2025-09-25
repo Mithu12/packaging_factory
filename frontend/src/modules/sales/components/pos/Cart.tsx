@@ -803,7 +803,7 @@ export function Cart({
               <div className="flex justify-between text-sm">
                 <span>Credit Limit:</span>
                 <span className="font-medium">
-                  {formatCurrency(selectedCustomer.credit_limit || 0)(2)}
+                  {formatCurrency(selectedCustomer.credit_limit || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -860,13 +860,13 @@ export function Cart({
                 <div className="flex justify-between text-sm">
                   <span>Current Due:</span>
                   <span className="font-medium">
-                    {formatCurrency(selectedCustomer.due_amount || 0)(2)}
+                    {formatCurrency(selectedCustomer.due_amount || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Credit Limit:</span>
                   <span className="font-medium">
-                    {formatCurrency(selectedCustomer.credit_limit || 0)(2)}
+                    {formatCurrency(selectedCustomer.credit_limit || 0)}
                   </span>
                 </div>
               </div>

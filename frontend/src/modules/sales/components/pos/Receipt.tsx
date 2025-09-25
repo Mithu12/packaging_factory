@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
+import { useFormatting } from '@/hooks/useFormatting';
 
 interface CartItem {
   id: string;
@@ -52,7 +53,8 @@ export function Receipt({
   orderDate,
   notes
 }: ReceiptProps) {
-  
+  const { formatCurrency } = useFormatting();
+
   const generateReceiptPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -153,19 +155,19 @@ export function Receipt({
       
       if (item.isGift) {
         // Show crossed out price for gifts
-        doc.text(`$${Number(item.price).toFixed(2)}`, margin + 90, yPosition - 5);
+        doc.text(`${formatCurrency(item.price)}`, margin + 90, yPosition - 5);
         doc.line(margin + 90, yPosition - 7, margin + 115, yPosition - 7); // Strike through
         doc.text('FREE', pageWidth - margin - 20, yPosition - 5, { align: 'right' });
       } else {
-        doc.text(`$${Number(item.price).toFixed(2)}`, margin + 90, yPosition - 5);
-        doc.text(`$${Number(itemTotal).toFixed(2)}`, pageWidth - margin - 20, yPosition - 5, { align: 'right' });
+        doc.text(`${formatCurrency(item.price)}`, margin + 90, yPosition - 5);
+        doc.text(`${formatCurrency(itemTotal)}`, pageWidth - margin - 20, yPosition - 5, { align: 'right' });
       }
       
       // Show discount if applicable (gifts show as 100% discount)
       if (item.isGift) {
         yPosition = addText(`  Gift Item (100% discount)`, margin + 10, yPosition, { fontSize: 8 });
       } else if (itemDiscount > 0) {
-        yPosition = addText(`  Discount: -$${Number(itemDiscount).toFixed(2)}`, margin + 10, yPosition, { fontSize: 8 });
+        yPosition = addText(`  Discount: -${formatCurrency(itemDiscount)}`, margin + 10, yPosition, { fontSize: 8 });
       }
     });
 
@@ -176,35 +178,35 @@ export function Receipt({
     yPosition += 5;
 
     // Totals
-    yPosition = addRightText(`Subtotal: $${Number(subtotal).toFixed(2)}`, yPosition);
+    yPosition = addRightText(`Subtotal: ${formatCurrency(subtotal)}`, yPosition);
     
     if (overallDiscount > 0) {
       const discountText = overallDiscountType === 'percentage' 
-        ? `Discount (${overallDiscount}%): -$${Number((subtotal * overallDiscount) / 100).toFixed(2)}`
-        : `Discount: -$${Number(overallDiscount).toFixed(2)}`;
+        ? `Discount (${overallDiscount}%): -${formatCurrency((subtotal * overallDiscount) / 100)}`
+        : `Discount: -${formatCurrency(overallDiscount)}`;
       yPosition = addRightText(discountText, yPosition);
     }
     
-    yPosition = addRightText(`Tax: $${Number(tax).toFixed(2)}`, yPosition);
+    yPosition = addRightText(`Tax: ${formatCurrency(tax)}`, yPosition);
     
     // Total line
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    yPosition = addRightText(`TOTAL: $${Number(total).toFixed(2)}`, yPosition);
+    yPosition = addRightText(`TOTAL: ${formatCurrency(total)}`, yPosition);
     
     yPosition += 5;
 
     // Payment details
     if (paymentMethod === 'cash' && cashReceived) {
-      yPosition = addRightText(`Cash Received: $${Number(cashReceived).toFixed(2)}`, yPosition);
+      yPosition = addRightText(`Cash Received: ${formatCurrency(cashReceived)}`, yPosition);
       if (changeGiven && changeGiven > 0) {
-        yPosition = addRightText(`Change: $${Number(changeGiven).toFixed(2)}`, yPosition);
+        yPosition = addRightText(`Change: ${formatCurrency(changeGiven)}`, yPosition);
       }
     } else if (paymentMethod === 'partial' && cashReceived) {
-      yPosition = addRightText(`Amount Paid: $${Number(cashReceived).toFixed(2)}`, yPosition);
+      yPosition = addRightText(`Amount Paid: ${formatCurrency(cashReceived)}`, yPosition);
       const remainingDue = total - cashReceived;
       if (remainingDue > 0) {
-        yPosition = addRightText(`Remaining Due: $${Number(remainingDue).toFixed(2)}`, yPosition);
+        yPosition = addRightText(`Remaining Due: ${formatCurrency(remainingDue)}`, yPosition);
       }
     }
 
