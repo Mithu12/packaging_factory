@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError, Origin } from "@/services/api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
+import { getImagePath } from "@/utils/image.utils"
 import { Brand } from "@/modules/inventory/services/brand-api"
 import {
     ArrowLeft,
@@ -21,6 +22,8 @@ import {
     Image,
     Camera,
 } from "lucide-react";
+const PLACEHOLDER_IMAGE = "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400";
+
 interface EditProductFormData {
   name: string
   sku: string
@@ -88,8 +91,7 @@ export default function EditProduct() {
     warranty_period: "",
     service_time: "",
     notes: "",
-      currentImage:
-          "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400",
+      currentImage: PLACEHOLDER_IMAGE,
   })
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -174,7 +176,7 @@ export default function EditProduct() {
           warranty_period: productData.warranty_period?.toString() || "",
           service_time: productData.service_time?.toString() || "",
           notes: productData.notes || "",
-          currentImage: ''
+          currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE
         })
 
         // Fetch subcategories for the selected category
@@ -371,12 +373,12 @@ export default function EditProduct() {
                     <Label>Current Image</Label>
                     <div className="mt-2">
                       <img
-                        src={formData.currentImage}
-                        alt={formData.name}
+                        src={formData.currentImage || PLACEHOLDER_IMAGE}
+                        alt={formData.name || "Current product image"}
                         className="w-full h-48 object-cover rounded-lg border"
                         onError={(e) => {
-                          e.currentTarget.src =
-                            "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
+                          e.currentTarget.onerror = null
+                          e.currentTarget.src = PLACEHOLDER_IMAGE
                         }}
                       />
                     </div>
@@ -828,3 +830,4 @@ export default function EditProduct() {
     </div>
   );
 }
+
