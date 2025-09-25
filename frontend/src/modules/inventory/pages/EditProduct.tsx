@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -336,13 +336,13 @@ export default function EditProduct() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="edit-product-page">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(`/products/${id}`)}
+          onClick={() => navigate(`/products/${id}`)} data-testid="edit-product-back-button"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -352,7 +352,7 @@ export default function EditProduct() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" data-testid="edit-product-form">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Information */}
           <div className="lg:col-span-2 space-y-6">
@@ -477,6 +477,7 @@ export default function EditProduct() {
                   <div>
                     <Label htmlFor="barcode">Barcode</Label>
                     <Input
+                      disabled
                       id="barcode"
                       value={formData.barcode}
                       onChange={(e) =>
@@ -712,7 +713,7 @@ export default function EditProduct() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="edit-product-sidebar">
             {/* Stock Settings */}
             <Card>
               <CardHeader>
@@ -798,7 +799,7 @@ export default function EditProduct() {
             {/* Action Buttons */}
             <Card>
               <CardContent className="pt-6 space-y-3">
-                <Button type="submit" className="w-full" disabled={saving}>
+                <Button type="submit" className="w-full" disabled={saving} data-testid="save-product-button">
                   {saving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -815,7 +816,7 @@ export default function EditProduct() {
                   type="button"
                   variant="outline"
                   className="w-full"
-                  onClick={() => navigate(`/products/${id}`)}
+                  onClick={() => navigate(`/products/${id}`)} data-testid="cancel-edit-product-button"
                 >
                   Cancel
                 </Button>

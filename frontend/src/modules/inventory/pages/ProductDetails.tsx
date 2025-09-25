@@ -212,7 +212,7 @@ export default function ProductDetails() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">{error || "Product not found"}</p>
-          <Button onClick={() => navigate("/products")}>
+          <Button onClick={() => navigate("/products")} data-testid="back-to-products-button">
             Back to Products
           </Button>
         </div>
@@ -236,10 +236,10 @@ export default function ProductDetails() {
   const StockIcon = stockInfo.icon
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="product-details-page">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/products")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/products")} data-testid="back-to-products-button">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -247,11 +247,11 @@ export default function ProductDetails() {
           <p className="text-muted-foreground" data-testid="product-sku">SKU: {product.sku} � {product.category.name} ? {product.subcategory?.name || 'No subcategory'} {product.brand && `� ${product.brand.name}`}</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => navigate(`/products/${id}/edit`)}>
+          <Button onClick={() => navigate(`/products/${id}/edit`)} data-testid="product-edit-button">
             <Edit className="w-4 h-4 mr-2" />
             Edit Product
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/products/${id}/adjust-stock`)}>
+          <Button variant="outline" onClick={() => navigate(`/products/${id}/adjust-stock`)} data-testid="product-adjust-stock-button">
             <Warehouse className="w-4 h-4 mr-2" />
             Adjust Stock
           </Button>
@@ -558,7 +558,7 @@ export default function ProductDetails() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6" data-testid="product-details-page">
           {/* Stock Status */}
           <Card>
             <CardHeader>
@@ -642,7 +642,7 @@ export default function ProductDetails() {
                 <p className="font-medium">{product.supplier.name}</p>
                 <p className="text-sm text-muted-foreground">Supplier Code: {product.supplier.supplier_code}</p>
                 <p className="text-sm text-muted-foreground">Average Lead Time: 5-7 days</p>
-                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => navigate(`/suppliers/${product.supplier.id}`)}>
+                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => navigate(`/suppliers/${product.supplier.id}`)} data-testid="view-supplier-details-button">
                   View Supplier Details
                 </Button>
               </div>
@@ -678,7 +678,3 @@ export default function ProductDetails() {
     </div>
   )
 }
-
-
-
-

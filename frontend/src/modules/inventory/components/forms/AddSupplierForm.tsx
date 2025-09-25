@@ -38,7 +38,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     city: "",
     state: "",
     zipCode: "",
-    country: "",
+    country: "Bangladesh",
     category: "",
     taxId: "",
     paymentTerms: "",
@@ -306,10 +306,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="us">United States</SelectItem>
-                    <SelectItem value="ca">Canada</SelectItem>
-                    <SelectItem value="mx">Mexico</SelectItem>
-                    <SelectItem value="uk">United Kingdom</SelectItem>
+                    <SelectItem value="Bangladesh">Bangladesh</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
