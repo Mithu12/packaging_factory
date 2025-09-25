@@ -24,6 +24,7 @@ import {
   Loader2
 } from "lucide-react"
 import { ApiService, Product, ProductStats, ApiError } from "@/services/api"
+import { toast } from "@/components/ui/sonner"
 import {
   Table,
   TableBody,
@@ -107,6 +108,46 @@ export default function Products() {
     }
   }
 
+  const handleToggleProductStatus = async (productId: number) => {
+    const targetProduct = products.find(product => product.id === productId);
+    if (!targetProduct) {
+      toast.error("Product not found");
+      return;
+    }
+
+    try {
+      const updatedProduct = await ApiService.toggleProductStatus(productId);
+
+      setProducts(prev =>
+        prev.map(product =>
+          product.id === productId ? { ...product, status: updatedProduct.status } : product
+        )
+      );
+
+      try {
+        const statsResult = await ApiService.getProductStats();
+        setStats(statsResult);
+      } catch (statsError) {
+        console.error("Failed to refresh product stats:", statsError);
+      }
+
+      toast.success(
+        updatedProduct.status === "active"
+          ? "Product activated successfully"
+          : "Product deactivated successfully"
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error("Failed to update product status", {
+          description: err.message
+        });
+      } else {
+        toast.error("Failed to update product status", {
+          description: "Please try again later."
+        });
+      }
+    }
+  }
   // Get unique categories from products
   const categories = products.reduce((acc, product) => {
     if (product.category_name) {
@@ -345,8 +386,11 @@ export default function Products() {
                               </DropdownMenuItem>
                             )}
                             {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
-                              <DropdownMenuItem className="text-destructive">
-                                Deactivate
+                              <DropdownMenuItem
+                                className={product.status === "active" ? "text-destructive" : "text-success"}
+                                onClick={() => handleToggleProductStatus(product.id)}
+                              >
+                                {product.status === "active" ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -395,3 +439,4 @@ export default function Products() {
     </PermissionGuard>
   )
 }
+

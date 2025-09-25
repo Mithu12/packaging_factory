@@ -737,6 +737,7 @@ export function AddProductForm({
                   <Label htmlFor="barcode">Barcode</Label>
                   <div className="flex gap-2">
                     <Input
+                      required
                       id="barcode"
                       value={formData.barcode}
                       onChange={(e) =>

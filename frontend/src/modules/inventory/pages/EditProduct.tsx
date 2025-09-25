@@ -477,6 +477,7 @@ export default function EditProduct() {
                   <div>
                     <Label htmlFor="barcode">Barcode</Label>
                     <Input
+                      disabled
                       id="barcode"
                       value={formData.barcode}
                       onChange={(e) =>
