@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Package,
+  ChevronDown,
   Users,
   ShoppingCart,
   BarChart3,
@@ -27,9 +29,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRBAC } from "@/contexts/RBACContext";
 import { PermissionGuard, SystemAdminGuard } from "@/components/rbac/PermissionGuard";
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
@@ -43,13 +47,14 @@ type MenuItem = {
 
 type MenuSection = {
   title: string;
+  icon: LucideIcon;
   items: MenuItem[];
 };
-
 
 const menuSections: MenuSection[] = [
   {
     title: "Overview",
+    icon: BarChart3,
     items: [
       {
         title: "Dashboard",
@@ -67,6 +72,7 @@ const menuSections: MenuSection[] = [
   },
   {
     title: "Sales & POS",
+    icon: Calculator,
     items: [
       {
         title: "POS Manager",
@@ -84,6 +90,7 @@ const menuSections: MenuSection[] = [
   },
   {
     title: "Catalog",
+    icon: FolderTree,
     items: [
       {
         title: "Products",
@@ -113,6 +120,7 @@ const menuSections: MenuSection[] = [
   },
   {
     title: "Procurement & Inventory",
+    icon: Truck,
     items: [
       {
         title: "Suppliers",
@@ -142,6 +150,7 @@ const menuSections: MenuSection[] = [
   },
   {
     title: "Finance & Expenses",
+    icon: DollarSign,
     items: [
       {
         title: "Expenses",
@@ -153,6 +162,7 @@ const menuSections: MenuSection[] = [
   },
   // {
   //   title: "RBAC Demo",
+  //   icon: Shield,
   //   items: [
   //     {
   //       title: "RBAC Demo",
@@ -170,13 +180,51 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
-  const { user } = useAuth();
   const { hasPermission, isLoading } = useRBAC();
 
-  const isActive = (path: string) => {
-    if (path === "/") return currentPath === "/";
-    return currentPath.startsWith(path);
-  };
+  const matchesPath = useCallback(
+    (path: string) => {
+      if (path === "/") return currentPath === "/";
+      return currentPath.startsWith(path);
+    },
+    [currentPath]
+  );
+
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    const initialState: Record<string, boolean> = {};
+    menuSections.forEach((section) => {
+      const sectionHasActiveItem = section.items.some((item) => matchesPath(item.url));
+      initialState[section.title] = !sectionHasActiveItem;
+    });
+    return initialState;
+  });
+
+  const toggleSection = useCallback((title: string) => {
+    setCollapsedSections((previous) => ({
+      ...previous,
+      [title]: !previous[title],
+    }));
+  }, []);
+
+  useEffect(() => {
+    setCollapsedSections((previous) => {
+      let updated = previous;
+
+      menuSections.forEach((section) => {
+        const sectionHasActiveItem = section.items.some((item) => matchesPath(item.url));
+        if (sectionHasActiveItem && previous[section.title]) {
+          if (updated === previous) {
+            updated = { ...previous };
+          }
+          updated[section.title] = false;
+        }
+      });
+
+      return updated;
+    });
+  }, [currentPath, matchesPath]);
+
+  const isActive = matchesPath;
 
   const getNavCls = (path: string) =>
     isActive(path)
@@ -250,27 +298,63 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ) : (
-          visibleMenuSections.map((section) => (
-            <SidebarGroup key={section.title}>
-              <SidebarGroupLabel className={isCollapsed ? "hidden" : "block"}>
-                {section.title}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {section.items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <NavLink to={item.url} className={getNavCls(item.url)}>
-                          <item.icon className="h-4 w-4" />
-                          {!isCollapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+          visibleMenuSections.map((section) => {
+            const sectionId = `section-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+            const isSectionCollapsed =
+              collapsedSections[section.title] ?? false;
+            const hasActiveItem = section.items.some((item) =>
+              isActive(item.url)
+            );
+
+            return (
+              <SidebarGroup key={section.title} className="px-2 py-1">
+                <SidebarMenu className="gap-1">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      data-active={hasActiveItem}
+                      className={`text-sidebar-foreground/80 ${isCollapsed ? "justify-center" : "uppercase tracking-[0.12em] text-xs font-semibold"}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section.title)}
+                        aria-expanded={!isSectionCollapsed}
+                        aria-controls={sectionId}
+                        className="flex w-full items-center"
+                      >
+                        <section.icon className="h-4 w-4 shrink-0" />
+                        {!isCollapsed && (
+                          <>
+                            <span className="flex-1">{section.title}</span>
+                            <ChevronDown
+                              className={`ml-2 h-3.5 w-3.5 text-sidebar-foreground/60 transition-transform ${isSectionCollapsed ? "" : "rotate-180"}`}
+                            />
+                          </>
+                        )}
+                      </button>
+                    </SidebarMenuButton>
+                    {!isSectionCollapsed && (
+                      <SidebarMenuSub id={sectionId} className="mt-1 mx-0 border-l-0 pl-3">
+                        {section.items.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(item.url)}
+                              className="gap-2"
+                            >
+                              <NavLink to={item.url}>
+                                <span>{item.title}</span>
+                              </NavLink>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
                 </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))
+              </SidebarGroup>
+            );
+          })
         )}
 
         <SidebarGroup className="mt-auto">
@@ -321,3 +405,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
