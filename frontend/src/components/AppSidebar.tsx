@@ -16,6 +16,7 @@ import {
   Receipt,
   Shield,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import {
   Sidebar,
@@ -31,94 +32,138 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRBAC } from "@/contexts/RBACContext";
 import { PermissionGuard, SystemAdminGuard } from "@/components/rbac/PermissionGuard";
-import { PERMISSIONS } from "@/types/rbac";
+import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
 
-const menuItems = [
-  { 
-    title: "Dashboard", 
-    url: "/", 
-    icon: BarChart3, 
-    permission: null // Dashboard is accessible to all authenticated users
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  permission: PermissionCheck | null;
+};
+
+type MenuSection = {
+  title: string;
+  items: MenuItem[];
+};
+
+
+const menuSections: MenuSection[] = [
+  {
+    title: "Overview",
+    items: [
+      {
+        title: "Dashboard",
+        url: "/",
+        icon: BarChart3,
+        permission: null, // Dashboard is accessible to all authenticated users
+      },
+      {
+        title: "Reports",
+        url: "/reports",
+        icon: FileText,
+        permission: null, // Reports might be accessible to all users
+      },
+    ],
   },
-  { 
-    title: "POS Manager", 
-    url: "/pos-manager", 
-    icon: Calculator, 
-    permission: PERMISSIONS.SALES_ORDERS_CREATE // POS requires sales order creation
+  {
+    title: "Sales & POS",
+    items: [
+      {
+        title: "POS Manager",
+        url: "/pos-manager",
+        icon: Calculator,
+        permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
+      },
+      {
+        title: "Payments",
+        url: "/payments",
+        icon: DollarSign,
+        permission: PERMISSIONS.PAYMENTS_READ,
+      },
+    ],
   },
-  { 
-    title: "Suppliers", 
-    url: "/suppliers", 
-    icon: Users, 
-    permission: PERMISSIONS.SUPPLIERS_READ
+  {
+    title: "Catalog",
+    items: [
+      {
+        title: "Products",
+        url: "/products",
+        icon: Package,
+        permission: PERMISSIONS.PRODUCTS_READ,
+      },
+      {
+        title: "Categories",
+        url: "/categories",
+        icon: FolderTree,
+        permission: PERMISSIONS.CATEGORIES_READ,
+      },
+      {
+        title: "Brands",
+        url: "/brands",
+        icon: Tag,
+        permission: PERMISSIONS.BRANDS_READ,
+      },
+      {
+        title: "Origins",
+        url: "/origins",
+        icon: MapPin,
+        permission: PERMISSIONS.ORIGINS_READ,
+      },
+    ],
   },
-  { 
-    title: "Products", 
-    url: "/products", 
-    icon: Package, 
-    permission: PERMISSIONS.PRODUCTS_READ
+  {
+    title: "Procurement & Inventory",
+    items: [
+      {
+        title: "Suppliers",
+        url: "/suppliers",
+        icon: Users,
+        permission: PERMISSIONS.SUPPLIERS_READ,
+      },
+      {
+        title: "Purchase Orders",
+        url: "/purchase-orders",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.PURCHASE_ORDERS_READ,
+      },
+      {
+        title: "Inventory",
+        url: "/inventory",
+        icon: Truck,
+        permission: PERMISSIONS.INVENTORY_TRACK,
+      },
+      {
+        title: "Distribution",
+        url: "/distribution",
+        icon: Truck,
+        permission: PERMISSIONS.WAREHOUSES_READ,
+      },
+    ],
   },
-  { 
-    title: "Categories", 
-    url: "/categories", 
-    icon: FolderTree, 
-    permission: PERMISSIONS.CATEGORIES_READ
+  {
+    title: "Finance & Expenses",
+    items: [
+      {
+        title: "Expenses",
+        url: "/expenses",
+        icon: Receipt,
+        permission: PERMISSIONS.EXPENSES_READ,
+      },
+    ],
   },
-  { 
-    title: "Brands", 
-    url: "/brands", 
-    icon: Tag, 
-    permission: PERMISSIONS.BRANDS_READ
-  },
-  { 
-    title: "Origins", 
-    url: "/origins", 
-    icon: MapPin, 
-    permission: PERMISSIONS.ORIGINS_READ
-  },
-  { 
-    title: "Purchase Orders", 
-    url: "/purchase-orders", 
-    icon: ShoppingCart, 
-    permission: PERMISSIONS.PURCHASE_ORDERS_READ
-  },
-  { 
-    title: "Inventory", 
-    url: "/inventory", 
-    icon: Truck, 
-    permission: PERMISSIONS.INVENTORY_TRACK
-  },
-    {
-      title: "Distribution",
-      url: "/distribution",
-      icon: Truck,
-      permission: PERMISSIONS.WAREHOUSES_READ
-    },
-  { 
-    title: "Payments", 
-    url: "/payments", 
-    icon: DollarSign, 
-    permission: PERMISSIONS.PAYMENTS_READ
-  },
-  { 
-    title: "Expenses", 
-    url: "/expenses", 
-    icon: Receipt, 
-    permission: PERMISSIONS.EXPENSES_READ
-  },
-  { 
-    title: "Reports", 
-    url: "/reports", 
-    icon: FileText,
-    permission: null // Reports might be accessible to all users
-  },
-  // { 
-  //   title: "RBAC Demo", 
-  //   url: "/rbac-demo", 
-  //   icon: Shield,
-  //   permission: null // Demo accessible to all authenticated users
+  // {
+  //   title: "RBAC Demo",
+  //   items: [
+  //     {
+  //       title: "RBAC Demo",
+  //       url: "/rbac-demo",
+  //       icon: Shield,
+  //       permission: null, // Demo accessible to all authenticated users
+  //     },
+  //   ],
   // },
 ];
+
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -139,16 +184,21 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
 
   // Filter menu items based on user permissions
-  const visibleMenuItems = menuItems.filter(item => {
-    // If no permission required, show to all authenticated users
-    if (!item.permission) return true;
-    
-    // If RBAC is still loading, don't show permission-protected items yet
-    if (isLoading) return false;
-    
-    // Check if user has the required permission
-    return hasPermission(item.permission);
-  });
+  const visibleMenuSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        // If no permission required, show to all authenticated users
+        if (!item.permission) return true;
+
+        // If RBAC is still loading, don't show permission-protected items yet
+        if (isLoading) return false;
+
+        // Check if user has the required permission
+        return hasPermission(item.permission);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -166,49 +216,62 @@ export function AppSidebar() {
           )}
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className={isCollapsed ? "hidden" : "block"}>
-            Main Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {isLoading ? (
-                // Show loading skeleton while permissions are loading
+        {isLoading ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <>
                   <SidebarMenuItem>
                     <div className="flex items-center space-x-2 p-2">
                       <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
-                      {!isCollapsed && <div className="w-20 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                      {!isCollapsed && (
+                        <div className="w-20 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      )}
                     </div>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <div className="flex items-center space-x-2 p-2">
                       <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
-                      {!isCollapsed && <div className="w-24 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                      {!isCollapsed && (
+                        <div className="w-24 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      )}
                     </div>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <div className="flex items-center space-x-2 p-2">
                       <div className="w-4 h-4 bg-gray-300 rounded animate-pulse"></div>
-                      {!isCollapsed && <div className="w-16 h-4 bg-gray-300 rounded animate-pulse"></div>}
+                      {!isCollapsed && (
+                        <div className="w-16 h-4 bg-gray-300 rounded animate-pulse"></div>
+                      )}
                     </div>
                   </SidebarMenuItem>
                 </>
-              ) : (
-                visibleMenuItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.url} className={getNavCls(item.url)}>
-                        <item.icon className="h-4 w-4" />
-                        {!isCollapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          visibleMenuSections.map((section) => (
+            <SidebarGroup key={section.title}>
+              <SidebarGroupLabel className={isCollapsed ? "hidden" : "block"}>
+                {section.title}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {section.items.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <NavLink to={item.url} className={getNavCls(item.url)}>
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        )}
 
         <SidebarGroup className="mt-auto">
           <SidebarGroupLabel className={isCollapsed ? "hidden" : "block"}>
