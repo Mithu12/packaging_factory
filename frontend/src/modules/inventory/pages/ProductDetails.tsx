@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -243,8 +243,8 @@ export default function ProductDetails() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
-          <p className="text-muted-foreground">SKU: {product.sku} • {product.category.name} → {product.subcategory?.name || 'No subcategory'} {product.brand && `• ${product.brand.name}`}</p>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="product-title">{product.name}</h1>
+          <p className="text-muted-foreground" data-testid="product-sku">SKU: {product.sku} � {product.category.name} ? {product.subcategory?.name || 'No subcategory'} {product.brand && `� ${product.brand.name}`}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate(`/products/${id}/edit`)}>
@@ -387,7 +387,7 @@ export default function ProductDetails() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="font-medium">{product.category.name} → {product.subcategory?.name || 'No subcategory'}</p>
+                  <p className="font-medium">{product.category.name} ? {product.subcategory?.name || 'No subcategory'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Brand</label>
@@ -678,3 +678,7 @@ export default function ProductDetails() {
     </div>
   )
 }
+
+
+
+
