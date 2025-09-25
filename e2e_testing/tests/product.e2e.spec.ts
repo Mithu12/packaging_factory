@@ -27,9 +27,9 @@ test.describe.serial('Product management flows', () => {
     const productDescription = 'Automated test product for Playwright coverage';
 
     await page.goto('/products');
-    await expect(page.getByRole('button', { name: 'Add Product' })).toBeVisible();
+    const addProductButton = page.getByTestId('add-product-button');
+    await expect(addProductButton).toBeVisible();
 
-    const addProductButton = page.getByRole('button', { name: 'Add Product' }).first();
     await addProductButton.click();
 
     const modal = page.getByRole('dialog', { name: 'Add New Product' });
@@ -60,10 +60,10 @@ test.describe.serial('Product management flows', () => {
     await modal.getByRole('button', { name: 'Add Product', exact: true }).click();
     await expect(modal).toBeHidden();
 
-    const searchBox = page.getByPlaceholder('Search products...');
+    const searchBox = page.getByTestId('product-search-input');
     await searchBox.fill(productName);
 
-    const productRow = page.locator('table tbody tr', { hasText: productName });
+    const productRow = page.getByTestId('product-row').filter({ hasText: productName });
     await expect(productRow).toBeVisible();
     await expect(productRow).toContainText(SUPPLIER_NAME);
     await expect(productRow).toContainText(CATEGORY_NAME);
@@ -73,10 +73,10 @@ test.describe.serial('Product management flows', () => {
     test.skip(productName === '', 'Product must be created in previous test');
 
     await page.goto('/products');
-    const searchBox = page.getByPlaceholder('Search products...');
+    const searchBox = page.getByTestId('product-search-input');
     await searchBox.fill(productName);
 
-    const productRow = page.locator('table tbody tr', { hasText: productName });
+    const productRow = page.getByTestId('product-row').filter({ hasText: productName });
     await expect(productRow).toBeVisible();
 
     const actionButton = productRow.locator('button').last();
@@ -94,11 +94,10 @@ test.describe.serial('Product management flows', () => {
     }
     await expect(page.getByText(SUPPLIER_NAME)).toBeVisible();
 
-    const supplierButton = page.getByRole('button', { name: 'View Supplier Details' });
+    const supplierButton = page.getByTestId('view-supplier-details-button');
     await supplierButton.click();
 
     await expect(page).toHaveURL(/\/suppliers\/\d+$/);
     await expect(page.getByRole('heading', { name: SUPPLIER_NAME })).toBeVisible();
   });
 });
-

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -393,7 +393,7 @@ export function AddProductForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="add-product-modal">
         <DialogHeader>
           <DialogTitle>Add New Product</DialogTitle>
           <DialogDescription>
@@ -402,7 +402,7 @@ export function AddProductForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-testid="add-product-form">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Product Image */}
             <div className="space-y-4">
@@ -473,7 +473,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
                   <Input
-                    id="name"
+                    id="name" data-testid="add-product-name"
                     value={formData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Enter product name"
@@ -512,7 +512,7 @@ export function AddProductForm({
                     value={formData.category_id}
                     onValueChange={handleCategoryChange}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -536,7 +536,7 @@ export function AddProductForm({
                       handleInputChange("subcategory_id", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-subcategory">
                       <SelectValue placeholder="Select sub category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -562,7 +562,7 @@ export function AddProductForm({
                       handleInputChange("brand_id", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-brand">
                       <SelectValue placeholder="Select brand" />
                     </SelectTrigger>
                     <SelectContent>
@@ -582,7 +582,7 @@ export function AddProductForm({
                       handleInputChange("origin_id", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-origin">
                       <SelectValue placeholder="Select origin" />
                     </SelectTrigger>
                     <SelectContent>
@@ -625,7 +625,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="costPrice">Cost Price *</Label>
                   <Input
-                    id="costPrice"
+                    id="costPrice" data-testid="add-product-cost-price"
                     type="number"
                     step="0.01"
                     value={formData.cost_price}
@@ -640,7 +640,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="sellingPrice">Selling Price</Label>
                   <Input
-                    id="sellingPrice"
+                    id="sellingPrice" data-testid="add-product-selling-price"
                     type="number"
                     step="0.01"
                     value={formData.selling_price}
@@ -656,7 +656,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="currentStock">Current Stock *</Label>
                   <Input
-                    id="currentStock"
+                    id="currentStock" data-testid="add-product-current-stock"
                     type="number"
                     value={formData.current_stock}
                     onChange={(e) =>
@@ -670,7 +670,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="minStock">Minimum Stock *</Label>
                   <Input
-                    id="minStock"
+                    id="minStock" data-testid="add-product-min-stock"
                     type="number"
                     value={formData.min_stock_level}
                     onChange={(e) =>
@@ -684,7 +684,7 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
-                    id="reorderPoint"
+                    id="reorderPoint" data-testid="add-product-reorder-point"
                     type="number"
                     value={formData.reorder_point}
                     onChange={(e) =>
@@ -717,7 +717,7 @@ export function AddProductForm({
                       handleInputChange("supplier_id", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-supplier">
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
                     <SelectContent>
@@ -762,7 +762,7 @@ export function AddProductForm({
                       onClick={generateRandomBarcode}
                       title="Generate random barcode"
                     >
-                      🎲
+                      {"\uD83C\uDFB2"}
                     </Button>
                   </div>
                 </div>
@@ -775,7 +775,7 @@ export function AddProductForm({
                       handleInputChange("status", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="add-product-status">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -867,7 +867,7 @@ export function AddProductForm({
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
-                  id="description"
+                  id="description" data-testid="add-product-description"
                   value={formData.description}
                   onChange={(e) =>
                     handleInputChange("description", e.target.value)
@@ -898,7 +898,7 @@ export function AddProductForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} data-testid="submit-add-product">
               {isSubmitting ? "Adding..." : "Add Product"}
             </Button>
           </DialogFooter>
