@@ -9,16 +9,6 @@ import path from "path";
 
 // Import routes
 import authRoutes from "./routes/auth.routes";
-import supplierRoutes from "./modules/inventory/routes/suppliers.routes";
-import supplierCategoryRoutes from "./routes/supplierCategories.routes";
-import categoryRoutes from "./routes/categories.routes";
-import brandRoutes from "./routes/brands.routes";
-import originRoutes from "./routes/origins.routes";
-import productRoutes from "./routes/products.routes";
-import stockAdjustmentRoutes from "./routes/stockAdjustments.routes";
-import purchaseOrderRoutes from "./routes/purchaseOrders.routes";
-// inventoryRoutes is loaded below with a dev/prod fallback
-import paymentRoutes from "./routes/payments.routes";
 import settingsRoutes from "./routes/settings.routes";
 import customerRoutes from "./routes/customers.routes";
 import salesOrderRoutes from "./routes/salesOrders.routes";
@@ -27,7 +17,6 @@ import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
-import distributionRoutes from "./routes/distribution.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
@@ -120,11 +109,7 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
-app.use("/api/supplier-categories", supplierCategoryRoutes); // move to inventory
-app.use("/api/brands", brandRoutes); // move to inventory
-app.use("/api/origins", originRoutes); // move to inventory
 app.use("/api", inventoryRoutes);
-app.use("/api/payments", paymentRoutes); // move to inventory
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
@@ -133,7 +118,6 @@ app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/returns", returnsRoutes);
-app.use("/api/distribution", distributionRoutes); // move to inventory
 
 // 404 handler
 app.use("*", (req, res) => {
