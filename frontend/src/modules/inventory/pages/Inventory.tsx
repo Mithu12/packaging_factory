@@ -1,23 +1,23 @@
-﻿import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { DataTablePagination } from "@/components/DataTablePagination"
-import { useClientPagination } from "@/hooks/usePagination"
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+﻿import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { DataTablePagination } from "@/components/DataTablePagination";
+import { useClientPagination } from "@/hooks/usePagination";
+import {
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   Warehouse,
   AlertTriangle,
   TrendingUp,
   Package,
   BarChart3,
-  Loader2
-} from "lucide-react"
+  Loader2,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,105 +25,134 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { toast } from "@/components/ui/sonner"
-import { InventoryApi } from "@/modules/inventory/services/inventory-api"
-import { InventoryItem, InventoryStats, StockMovement } from "@/services/types"
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/sonner";
+import { InventoryApi } from "@/modules/inventory/services/inventory-api";
+import { InventoryItem, InventoryStats, StockMovement } from "@/services/types";
 
 export default function Inventory() {
-  const navigate = useNavigate()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("overview")
-  
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
+
   // State for real data
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
-  const [movements, setMovements] = useState<StockMovement[]>([])
-  const [stats, setStats] = useState<InventoryStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [stats, setStats] = useState<InventoryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch data on component mount
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      
-      const [inventoryResponse, movementsResponse, statsResponse] = await Promise.all([
-        InventoryApi.getInventoryItems({ limit: 100 }),
-        InventoryApi.getStockMovements({ limit: 50 }),
-        InventoryApi.getInventoryStats()
-      ])
-      
-      setInventoryItems(inventoryResponse)
-      setMovements(movementsResponse)
-      setStats(statsResponse)
-    } catch (err: any) {
-      console.error('Error fetching inventory data:', err)
-      setError(err.message || 'Failed to load inventory data')
-      toast.error('Failed to load inventory data', {
-        description: 'Please try again later.'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+      setLoading(true);
+      setError(null);
 
-  const filteredItems = inventoryItems.filter(item =>
-    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.product_sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+      const [inventoryResponse, movementsResponse, statsResponse] =
+        await Promise.all([
+          InventoryApi.getInventoryItems({ limit: 100 }),
+          InventoryApi.getStockMovements({ limit: 50 }),
+          InventoryApi.getInventoryStats(),
+        ]);
+
+      setInventoryItems(inventoryResponse);
+      setMovements(movementsResponse);
+      setStats(statsResponse);
+    } catch (err: any) {
+      console.error("Error fetching inventory data:", err);
+      setError(err.message || "Failed to load inventory data");
+      toast.error("Failed to load inventory data", {
+        description: "Please try again later.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredItems = inventoryItems.filter(
+    (item) =>
+      item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.product_sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Use client-side pagination for filtered inventory items
   const inventoryPagination = useClientPagination(filteredItems, {
-    initialPageSize: 15
-  })
+    initialPageSize: 15,
+  });
 
   const getStockStatus = (current: number, min: number, max?: number) => {
-    if (current <= min * 0.5) return { status: "critical", color: "text-destructive", bgColor: "bg-destructive/10" }
-    if (current <= min) return { status: "low", color: "text-warning", bgColor: "bg-warning/10" }
-    if (max && current >= max * 0.9) return { status: "overstock", color: "text-warning", bgColor: "bg-warning/10" }
-    return { status: "optimal", color: "text-success", bgColor: "bg-success/10" }
-  }
+    if (current <= min * 0.5)
+      return {
+        status: "critical",
+        color: "text-destructive",
+        bgColor: "bg-destructive/10",
+      };
+    if (current <= min)
+      return { status: "low", color: "text-warning", bgColor: "bg-warning/10" };
+    if (max && current >= max * 0.9)
+      return {
+        status: "overstock",
+        color: "text-warning",
+        bgColor: "bg-warning/10",
+      };
+    return {
+      status: "optimal",
+      color: "text-success",
+      bgColor: "bg-success/10",
+    };
+  };
 
   const getMovementTypeColor = (type: string) => {
     switch (type) {
-      case "increase": return "text-success"
-      case "decrease": return "text-destructive"
-      case "set": return "text-warning"
-      default: return "text-muted-foreground"
+      case "increase":
+        return "text-success";
+      case "decrease":
+        return "text-destructive";
+      case "set":
+        return "text-warning";
+      default:
+        return "text-muted-foreground";
     }
-  }
+  };
 
   // Use stats from API or calculate from items
-  const totalInventoryValue = stats?.total_inventory_value || inventoryItems.reduce((sum, item) => sum + item.total_value, 0)
-  const lowStockItems = stats?.low_stock_items || inventoryItems.filter(item => item.current_stock <= item.min_stock_level).length
-  const criticalStockItems = stats?.critical_stock_items || inventoryItems.filter(item => item.current_stock <= item.min_stock_level * 0.5).length
+  const totalInventoryValue =
+    stats?.total_inventory_value ||
+    inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
+  const lowStockItems =
+    stats?.low_stock_items ||
+    inventoryItems.filter((item) => item.current_stock <= item.min_stock_level)
+      .length;
+  const criticalStockItems =
+    stats?.critical_stock_items ||
+    inventoryItems.filter(
+      (item) => item.current_stock <= item.min_stock_level * 0.5
+    ).length;
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
-            <p className="text-muted-foreground">Track stock levels, movements, and perform adjustments</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              Inventory Management
+            </h1>
+            <p className="text-muted-foreground">
+              Track stock levels, movements, and perform adjustments
+            </p>
           </div>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -133,7 +162,7 @@ export default function Inventory() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -141,20 +170,22 @@ export default function Inventory() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
-            <p className="text-muted-foreground">Track stock levels, movements, and perform adjustments</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              Inventory Management
+            </h1>
+            <p className="text-muted-foreground">
+              Track stock levels, movements, and perform adjustments
+            </p>
           </div>
         </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={fetchData}>
-              Try Again
-            </Button>
+            <Button onClick={fetchData}>Try Again</Button>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -162,8 +193,12 @@ export default function Inventory() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
-          <p className="text-muted-foreground">Track stock levels, movements, and perform adjustments</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            Inventory Management
+          </h1>
+          <p className="text-muted-foreground">
+            Track stock levels, movements, and perform adjustments
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
@@ -181,34 +216,48 @@ export default function Inventory() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Inventory Value</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Inventory Value
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalInventoryValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ${totalInventoryValue.toLocaleString()}
+            </div>
             <p className="text-xs text-success">+5.2% this month</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock Items</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Low Stock Items
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{lowStockItems}</div>
+            <div className="text-2xl font-bold text-warning">
+              {lowStockItems}
+            </div>
             <p className="text-xs text-muted-foreground">Need reordering</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Critical Stock</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Critical Stock
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{criticalStockItems}</div>
+            <div className="text-2xl font-bold text-destructive">
+              {criticalStockItems}
+            </div>
             <p className="text-xs text-muted-foreground">Immediate attention</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-card to-accent/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Stock Locations</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Stock Locations
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">8</div>
@@ -261,8 +310,12 @@ export default function Inventory() {
                 </TableHeader>
                 <TableBody>
                   {inventoryPagination.data.map((item) => {
-                    const stockInfo = getStockStatus(item.current_stock, item.min_stock_level, item.max_stock_level)
-                    
+                    const stockInfo = getStockStatus(
+                      item.current_stock,
+                      item.min_stock_level,
+                      item.max_stock_level
+                    );
+
                     return (
                       <TableRow key={item.id} className="hover:bg-accent/50">
                         <TableCell>
@@ -271,52 +324,80 @@ export default function Inventory() {
                               <Package className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <div className="font-medium">{item.product_name}</div>
-                              <div className="text-sm text-muted-foreground">SKU: {item.product_sku}</div>
+                              <div className="font-medium">
+                                {item.product_name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                SKU: {item.product_sku}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Warehouse className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">{item.location || 'Main Warehouse'}</span>
+                            <span className="text-sm">
+                              {item.location || "Main Warehouse"}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{item.current_stock}</span>
-                              <span className="text-muted-foreground text-sm">{item.unit_of_measure}</span>
+                              <span className="font-medium">
+                                {item.current_stock}
+                              </span>
+                              <span className="text-muted-foreground text-sm">
+                                {item.unit_of_measure}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{item.available_stock || item.current_stock} available</span>
-                              {item.reserved_stock && item.reserved_stock > 0 && (
-                                <>
-                                  <span>•</span>
-                                  <span>{item.reserved_stock} reserved</span>
-                                </>
-                              )}
+                              <span>
+                                {item.available_stock || item.current_stock}{" "}
+                                available
+                              </span>
+                              {item.reserved_stock &&
+                                item.reserved_stock > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{item.reserved_stock} reserved</span>
+                                  </>
+                                )}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Min: {item.min_stock_level} {item.max_stock_level && `• Max: ${item.max_stock_level}`}
+                              Min: {item.min_stock_level}{" "}
+                              {item.max_stock_level &&
+                                `• Max: ${item.max_stock_level}`}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${stockInfo.bgColor} ${stockInfo.color}`}>
-                            {stockInfo.status === "critical" && <AlertTriangle className="w-3 h-3" />}
+                          <div
+                            className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${stockInfo.bgColor} ${stockInfo.color}`}
+                          >
+                            {stockInfo.status === "critical" && (
+                              <AlertTriangle className="w-3 h-3" />
+                            )}
                             {stockInfo.status}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">${item.total_value.toLocaleString()}</div>
-                            <div className="text-xs text-muted-foreground">${item.cost_price} per unit</div>
+                            <div className="font-medium">
+                              ${item.total_value.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              ${item.cost_price} per unit
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm text-muted-foreground">
-                            {item.last_movement_date ? new Date(item.last_movement_date).toLocaleDateString() : 'No movements'}
+                            {item.last_movement_date
+                              ? new Date(
+                                  item.last_movement_date
+                                ).toLocaleDateString()
+                              : "No movements"}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -326,7 +407,7 @@ export default function Inventory() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover">
+                            {/* <DropdownMenuContent align="end" className="bg-popover">
                               <DropdownMenuItem onClick={() => navigate(`/inventory/${item.id}`)}>
                                 View Details
                               </DropdownMenuItem>
@@ -339,15 +420,15 @@ export default function Inventory() {
                               <DropdownMenuItem>Reserve Stock</DropdownMenuItem>
                               <DropdownMenuItem>Transfer Location</DropdownMenuItem>
                               <DropdownMenuItem>Create PO</DropdownMenuItem>
-                            </DropdownMenuContent>
+                            </DropdownMenuContent> */}
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })}
                 </TableBody>
               </Table>
-              
+
               {/* Pagination */}
               <div className="mt-4">
                 <DataTablePagination
@@ -385,21 +466,43 @@ export default function Inventory() {
                 <TableBody>
                   {movements.map((movement) => (
                     <TableRow key={movement.id} className="hover:bg-accent/50">
-                      <TableCell className="text-sm">{new Date(movement.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">{movement.product_name}</TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(movement.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {movement.product_name}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getMovementTypeColor(movement.movement_type)}>
+                        <Badge
+                          variant="outline"
+                          className={getMovementTypeColor(
+                            movement.movement_type
+                          )}
+                        >
                           {movement.movement_type}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className={movement.quantity > 0 ? "text-success" : "text-destructive"}>
-                          {movement.quantity > 0 ? "+" : ""}{movement.quantity}
+                        <span
+                          className={
+                            movement.quantity > 0
+                              ? "text-success"
+                              : "text-destructive"
+                          }
+                        >
+                          {movement.quantity > 0 ? "+" : ""}
+                          {movement.quantity}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{movement.reason}</TableCell>
-                      <TableCell className="text-sm">{movement.user_name || 'System'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{movement.reference || '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {movement.reason}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {movement.user_name || "System"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {movement.reference || "-"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -407,8 +510,7 @@ export default function Inventory() {
             </CardContent>
           </Card>
         </TabsContent>
-
       </Tabs>
     </div>
-  )
+  );
 }
