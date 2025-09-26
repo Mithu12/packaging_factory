@@ -1,27 +1,29 @@
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Plus } from "lucide-react"
-import { Product } from "@/services/types"
-import { useFormatting } from "@/hooks/useFormatting"
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Search, Plus } from "lucide-react";
+import { Product } from "@/services/types";
+import { useFormatting } from "@/hooks/useFormatting";
+import { getImagePath } from "@/utils/image.utils";
 
 interface ProductSearchProps {
-  products: Product[]
-  onAddToCart: (product: Product) => void
+  products: Product[];
+  onAddToCart: (product: Product) => void;
 }
 
 export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const { formatCurrency } = useFormatting()
+  const [searchQuery, setSearchQuery] = useState("");
+  const { formatCurrency } = useFormatting();
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Card>
@@ -46,37 +48,77 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
           {filteredProducts.map((product) => {
             const isOutOfStock = product.current_stock <= 0;
             return (
-              <div 
-                key={product.id} 
+              <div
+                key={product.id}
                 className={`border rounded-lg p-3 transition-shadow ${
-                  isOutOfStock 
-                    ? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-60' 
-                    : 'bg-white border cursor-pointer hover:shadow-md'
-                }`} 
+                  isOutOfStock
+                    ? "bg-gray-50 border-gray-200 cursor-not-allowed opacity-60"
+                    : "bg-white border cursor-pointer hover:shadow-md"
+                }`}
                 onClick={() => !isOutOfStock && onAddToCart(product)}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={product.current_stock > 10 ? "default" : product.current_stock > 0 ? "secondary" : "destructive"} className="text-xs px-1 py-0">
+                      <Badge
+                        variant={
+                          product.current_stock > 10
+                            ? "default"
+                            : product.current_stock > 0
+                            ? "secondary"
+                            : "destructive"
+                        }
+                        className="text-xs px-1 py-0"
+                      >
                         QTY: {product.current_stock}
                       </Badge>
                       {isOutOfStock && (
-                        <Badge variant="destructive" className="text-xs px-1 py-0">
+                        <Badge
+                          variant="destructive"
+                          className="text-xs px-1 py-0"
+                        >
                           OUT OF STOCK
                         </Badge>
                       )}
                     </div>
-                    <h4 className={`font-medium text-sm mb-1 ${isOutOfStock ? 'text-gray-500' : ''}`}>{product.name}</h4>
-                    <p className={`text-xs mb-1 ${isOutOfStock ? 'text-gray-400' : 'text-muted-foreground'}`}>Price: {formatCurrency(product.selling_price)}</p>
-                    <p className={`text-xs ${isOutOfStock ? 'text-gray-400' : 'text-muted-foreground'}`}>SKU: {product.sku || 'N/A'}</p>
+                    <h4
+                      className={`font-medium text-sm mb-1 ${
+                        isOutOfStock ? "text-gray-500" : ""
+                      }`}
+                    >
+                      {product.name}
+                    </h4>
+                    <p
+                      className={`text-xs mb-1 ${
+                        isOutOfStock ? "text-gray-400" : "text-muted-foreground"
+                      }`}
+                    >
+                      Price: {formatCurrency(product.selling_price)}
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        isOutOfStock ? "text-gray-400" : "text-muted-foreground"
+                      }`}
+                    >
+                      SKU: {product.sku || "N/A"}
+                    </p>
                   </div>
-                  <div className={`w-12 h-12 rounded flex items-center justify-center ${
-                    isOutOfStock ? 'bg-gray-100' : 'bg-gray-100'
-                  }`}>
-                    <div className={`w-8 h-8 rounded ${
-                      isOutOfStock ? 'bg-gray-200' : 'bg-gray-200'
-                    }`}></div>
+                  <div
+                    className={`w-12 h-12 rounded flex items-center justify-center ${
+                      isOutOfStock ? "bg-gray-100" : "bg-gray-100"
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded ${
+                        isOutOfStock ? "bg-gray-200" : "bg-gray-200"
+                      }`}
+                    >
+                      <img
+                        src={getImagePath(product.image_url)}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -85,5 +127,5 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
