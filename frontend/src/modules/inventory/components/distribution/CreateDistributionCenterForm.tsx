@@ -86,7 +86,7 @@ export function CreateDistributionCenterForm({
       city: "",
       state: "",
       zip_code: "",
-      country: "USA",
+      country: "Bangladesh",
       contact_person: "",
       phone: "",
       email: "",
@@ -305,7 +305,7 @@ export function CreateDistributionCenterForm({
                     <FormItem>
                       <FormLabel>City</FormLabel>
                       <FormControl>
-                        <Input placeholder="New York" {...field} />
+                        <Input placeholder="Dhaka" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -349,7 +349,7 @@ export function CreateDistributionCenterForm({
                     <FormItem>
                       <FormLabel>Country</FormLabel>
                       <FormControl>
-                        <Input placeholder="USA" {...field} />
+                        <Input placeholder="Bangladesh" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
