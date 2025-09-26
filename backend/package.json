@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build:packages": "npm --prefix packages/inventory run build",
-    "build": "npm run build:packages && tsc && tsc-alias",
+    "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "db:migrate": "npx tsx src/database/simple-migrator.ts migrate",
     "db:migrate:info": "npx tsx src/database/simple-migrator.ts info",
