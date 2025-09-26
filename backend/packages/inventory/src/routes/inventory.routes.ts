@@ -5,6 +5,11 @@ import Joi from "joi";
 import { authenticate } from "@/middleware/auth";
 import { requirePermission, PERMISSIONS } from "@/middleware/permission";
 import InventoryController from "../controllers/inventory.controller";
+import suppliersRoutes from "./suppliers.routes";
+import categoriesRoutes from "./categories.routes";
+import productsRoutes from "./products.routes";
+import purchaseOrdersRoutes from "./purchaseOrders.routes";
+import stockAdjustmentsRoutes from "./stockAdjustments.routes";
 
 const router = express.Router();
 
@@ -116,5 +121,12 @@ router.get(
   requirePermission(PERMISSIONS.INVENTORY_TRACK),
   expressAsyncHandler(InventoryController.getInventoryItemById)
 );
+
+// Mount sub-routes
+router.use("/suppliers", suppliersRoutes);
+router.use("/categories", categoriesRoutes);
+router.use("/products", productsRoutes);
+router.use("/purchase-orders", purchaseOrdersRoutes);
+router.use("/stock-adjustments", stockAdjustmentsRoutes);
 
 export default router;

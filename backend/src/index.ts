@@ -9,7 +9,7 @@ import path from "path";
 
 // Import routes
 import authRoutes from "./routes/auth.routes";
-import supplierRoutes from "./routes/suppliers.routes";
+import supplierRoutes from "../packages/inventory/src/routes/suppliers.routes";
 import supplierCategoryRoutes from "./routes/supplierCategories.routes";
 import categoryRoutes from "./routes/categories.routes";
 import brandRoutes from "./routes/brands.routes";
@@ -38,18 +38,19 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Prefer package src in dev (tsx watch), fall back to dist in prod
+// Temporarily disabled due to TypeScript configuration issues
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const inventoryRoutes = (() => {
-  try {
-    // Dev: use TS sources
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("../packages/inventory/src").default;
-  } catch (_) {
-    // Build/Prod: use compiled dist
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("../packages/inventory/dist").default;
-  }
-})();
+// const inventoryRoutes = (() => {
+//   try {
+//     // Dev: use TS sources
+//     // eslint-disable-next-line @typescript-eslint/no-var-requires
+//     return require("../packages/inventory/src").default;
+//   } catch (_) {
+//     // Build/Prod: use compiled dist
+//     // eslint-disable-next-line @typescript-eslint/no-var-requires
+//     return require("../packages/inventory/dist").default;
+//   }
+// })();
 
 // Security middleware
 // app.use(helmet());
@@ -126,7 +127,7 @@ app.use("/api/origins", originRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stock-adjustments", stockAdjustmentRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
-app.use("/api/inventory", inventoryRoutes);
+// app.use("/api/inventory", inventoryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
