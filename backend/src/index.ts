@@ -9,7 +9,7 @@ import path from "path";
 
 // Import routes
 import authRoutes from "./routes/auth.routes";
-import supplierRoutes from "../packages/inventory/src/routes/suppliers.routes";
+import supplierRoutes from "./modules/inventory/routes/suppliers.routes";
 import supplierCategoryRoutes from "./routes/supplierCategories.routes";
 import categoryRoutes from "./routes/categories.routes";
 import brandRoutes from "./routes/brands.routes";
@@ -30,6 +30,7 @@ import returnsRoutes from "./routes/returns.routes";
 import distributionRoutes from "./routes/distribution.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
+import inventoryRoutes from "./modules/inventory";
 
 // Load environment variables
 dotenv.config();
@@ -119,16 +120,11 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
-app.use("/api/suppliers", supplierRoutes);
-app.use("/api/supplier-categories", supplierCategoryRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/brands", brandRoutes);
-app.use("/api/origins", originRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/stock-adjustments", stockAdjustmentRoutes);
-app.use("/api/purchase-orders", purchaseOrderRoutes);
-// app.use("/api/inventory", inventoryRoutes);
-app.use("/api/payments", paymentRoutes);
+app.use("/api/supplier-categories", supplierCategoryRoutes); // move to inventory
+app.use("/api/brands", brandRoutes); // move to inventory
+app.use("/api/origins", originRoutes); // move to inventory
+app.use("/api", inventoryRoutes);
+app.use("/api/payments", paymentRoutes); // move to inventory
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
@@ -137,7 +133,7 @@ app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/returns", returnsRoutes);
-app.use("/api/distribution", distributionRoutes);
+app.use("/api/distribution", distributionRoutes); // move to inventory
 
 // 404 handler
 app.use("*", (req, res) => {

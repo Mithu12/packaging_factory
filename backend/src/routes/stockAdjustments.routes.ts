@@ -1,1 +1,1 @@
-export { default } from "../../packages/inventory/src/routes/stockAdjustments.routes";
+export { default } from "../modules/inventory/routes/stockAdjustments.routes";

@@ -1,1 +1,1 @@
-export { default } from "../../packages/inventory/src/routes/categories.routes";
+export { default } from "../modules/inventory/routes/categories.routes";

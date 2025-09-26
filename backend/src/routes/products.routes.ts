@@ -1,1 +1,1 @@
-export { default } from "../../packages/inventory/src/routes/products.routes";
+export { default } from "../modules/inventory/routes/products.routes";
