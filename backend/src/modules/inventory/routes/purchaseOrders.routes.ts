@@ -16,11 +16,11 @@ import { auditMiddleware } from "@/middleware/audit";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import PurchaseOrdersController from "../controllers/purchaseOrders.controller";
-import GetPurchaseOrderInfoMediator from "@/mediators/purchaseOrders/GetPurchaseOrderInfo.mediator";
+import GetPurchaseOrderInfoMediator from "../mediators/purchaseOrders/GetPurchaseOrderInfo.mediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
-import AddPurchaseOrderMediator from "@/mediators/purchaseOrders/AddPurchaseOrder.mediator";
-import UpdatePurchaseOrderInfoMediator from "@/mediators/purchaseOrders/UpdatePurchaseOrderInfo.mediator";
-import DeletePurchaseOrderMediator from "@/mediators/purchaseOrders/DeletePurchaseOrder.mediator";
+import AddPurchaseOrderMediator from "../mediators/purchaseOrders/AddPurchaseOrder.mediator";
+import UpdatePurchaseOrderInfoMediator from "../mediators/purchaseOrders/UpdatePurchaseOrderInfo.mediator";
+import DeletePurchaseOrderMediator from "../mediators/purchaseOrders/DeletePurchaseOrder.mediator";
 import { PDFGenerator } from "@/services/pdf-generator";
 
 const router = express.Router();

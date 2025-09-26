@@ -1,23 +1,24 @@
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 import {
   StockTransfer,
   CreateStockTransferRequest,
   UpdateStockTransferRequest,
-  StockTransferQueryParams
-} from '@/types/distribution';
+  StockTransferQueryParams,
+} from "@/types/distribution";
 
 export class StockTransferMediator {
-
-  static async getStockTransfers(params: StockTransferQueryParams = {}): Promise<{
+  static async getStockTransfers(
+    params: StockTransferQueryParams = {}
+  ): Promise<{
     transfers: StockTransfer[];
     total: number;
     page: number;
     totalPages: number;
   }> {
-    const action = 'Get Stock Transfers';
+    const action = "Get Stock Transfers";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { params });
 
@@ -30,8 +31,8 @@ export class StockTransferMediator {
         to_center_id,
         status,
         priority,
-        sortBy = 'created_at',
-        sortOrder = 'desc'
+        sortBy = "created_at",
+        sortOrder = "desc",
       } = params;
 
       const offset = (page - 1) * limit;
@@ -102,20 +103,30 @@ export class StockTransferMediator {
       }
 
       // Add sorting
-      const validSortColumns = ['created_at', 'request_date', 'quantity', 'status', 'priority', 'product_name'];
-      const validSortOrders = ['asc', 'desc'];
-      
-      const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
-      const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
-      
+      const validSortColumns = [
+        "created_at",
+        "request_date",
+        "quantity",
+        "status",
+        "priority",
+        "product_name",
+      ];
+      const validSortOrders = ["asc", "desc"];
+
+      const finalSortBy = validSortColumns.includes(sortBy)
+        ? sortBy
+        : "created_at";
+      const finalSortOrder = validSortOrders.includes(sortOrder)
+        ? sortOrder
+        : "desc";
+
       query += ` ORDER BY ${finalSortBy} ${finalSortOrder}`;
 
       // Get total count
-      const countQuery = query.replace(
-        /SELECT[\s\S]*?FROM/,
-        'SELECT COUNT(*) FROM'
-      ).replace(/ORDER BY.*$/, '');
-      
+      const countQuery = query
+        .replace(/SELECT[\s\S]*?FROM/, "SELECT COUNT(*) FROM")
+        .replace(/ORDER BY.*$/, "");
+
       const countResult = await client.query(countQuery, queryParams);
       const total = parseInt(countResult.rows[0].count);
       const totalPages = Math.ceil(total / limit);
@@ -126,18 +137,18 @@ export class StockTransferMediator {
 
       const result = await client.query(query, queryParams);
 
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         transfersCount: result.rows.length,
         total,
         page,
-        totalPages
+        totalPages,
       });
 
       return {
         transfers: result.rows,
         total,
         page,
-        totalPages
+        totalPages,
       };
     } catch (error: any) {
       MyLogger.error(action, error, { params });
@@ -148,9 +159,9 @@ export class StockTransferMediator {
   }
 
   static async getStockTransferById(id: number): Promise<StockTransfer | null> {
-    const action = 'Get Stock Transfer By ID';
+    const action = "Get Stock Transfer By ID";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { transferId: id });
 
@@ -179,9 +190,9 @@ export class StockTransferMediator {
         return null;
       }
 
-      MyLogger.success(action, { 
-        transferId: id, 
-        transferNumber: result.rows[0].transfer_number 
+      MyLogger.success(action, {
+        transferId: id,
+        transferNumber: result.rows[0].transfer_number,
       });
 
       return result.rows[0];
@@ -197,11 +208,11 @@ export class StockTransferMediator {
     data: CreateStockTransferRequest,
     requestedBy: number
   ): Promise<StockTransfer> {
-    const action = 'Create Stock Transfer';
+    const action = "Create Stock Transfer";
     const client = await pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { ...data, requestedBy });
 
       // Generate transfer number
@@ -231,12 +242,12 @@ export class StockTransferMediator {
         data.quantity,
         data.unit_cost || null,
         totalCost,
-        data.priority || 'normal',
+        data.priority || "normal",
         data.tracking_number || null,
         data.carrier || null,
         data.shipping_cost || null,
         data.notes || null,
-        requestedBy
+        requestedBy,
       ];
 
       const result = await client.query(insertQuery, values);
@@ -249,10 +260,16 @@ export class StockTransferMediator {
           FROM product_locations 
           WHERE product_id = $1 AND distribution_center_id = $2
         `;
-        const stockResult = await client.query(stockCheckQuery, [data.product_id, data.from_center_id]);
-        
-        if (stockResult.rows.length === 0 || stockResult.rows[0].available_stock < data.quantity) {
-          throw new Error('Insufficient stock available for transfer');
+        const stockResult = await client.query(stockCheckQuery, [
+          data.product_id,
+          data.from_center_id,
+        ]);
+
+        if (
+          stockResult.rows.length === 0 ||
+          stockResult.rows[0].available_stock < data.quantity
+        ) {
+          throw new Error("Insufficient stock available for transfer");
         }
 
         // Reserve stock at source location
@@ -262,22 +279,26 @@ export class StockTransferMediator {
               updated_at = CURRENT_TIMESTAMP
           WHERE product_id = $2 AND distribution_center_id = $3
         `;
-        await client.query(reserveStockQuery, [data.quantity, data.product_id, data.from_center_id]);
+        await client.query(reserveStockQuery, [
+          data.quantity,
+          data.product_id,
+          data.from_center_id,
+        ]);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         transferId: transfer.id,
         transferNumber: transfer.transfer_number,
         productId: data.product_id,
-        quantity: data.quantity
+        quantity: data.quantity,
       });
 
       // Return the transfer with joined data
-      return await this.getStockTransferById(transfer.id) as StockTransfer;
+      return (await this.getStockTransferById(transfer.id)) as StockTransfer;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { ...data, requestedBy });
       throw error;
     } finally {
@@ -291,17 +312,17 @@ export class StockTransferMediator {
     userId: number,
     notes?: string
   ): Promise<StockTransfer> {
-    const action = 'Update Stock Transfer Status';
+    const action = "Update Stock Transfer Status";
     const client = await pool.connect();
-    
+
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { transferId: id, status, userId });
 
       // Get current transfer data
       const currentTransfer = await this.getStockTransferById(id);
       if (!currentTransfer) {
-        throw new Error('Stock transfer not found');
+        throw new Error("Stock transfer not found");
       }
 
       let updateQuery = `
@@ -313,17 +334,17 @@ export class StockTransferMediator {
 
       // Add status-specific fields
       switch (status) {
-        case 'approved':
+        case "approved":
           updateQuery += `, approved_by = $${paramIndex.toString()}`;
           values.push(userId);
           paramIndex++;
           break;
-        case 'shipped':
+        case "shipped":
           updateQuery += `, shipped_by = $${paramIndex.toString()}, shipped_date = CURRENT_TIMESTAMP`;
           values.push(userId);
           paramIndex++;
           break;
-        case 'received':
+        case "received":
           updateQuery += `, received_by = $${paramIndex.toString()}, received_date = CURRENT_TIMESTAMP`;
           values.push(userId);
           paramIndex++;
@@ -343,10 +364,10 @@ export class StockTransferMediator {
       const transfer = result.rows[0];
 
       // Handle stock movements based on status
-      if (status === 'received' && currentTransfer.from_center_id) {
+      if (status === "received" && currentTransfer.from_center_id) {
         // Move stock from source to destination
         await this.processStockMovement(client, currentTransfer);
-      } else if (status === 'cancelled' && currentTransfer.from_center_id) {
+      } else if (status === "cancelled" && currentTransfer.from_center_id) {
         // Release reserved stock
         const releaseStockQuery = `
           UPDATE product_locations 
@@ -355,23 +376,23 @@ export class StockTransferMediator {
           WHERE product_id = $2 AND distribution_center_id = $3
         `;
         await client.query(releaseStockQuery, [
-          currentTransfer.quantity, 
-          currentTransfer.product_id, 
-          currentTransfer.from_center_id
+          currentTransfer.quantity,
+          currentTransfer.product_id,
+          currentTransfer.from_center_id,
         ]);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         transferId: id,
         newStatus: status,
-        transferNumber: transfer.transfer_number
+        transferNumber: transfer.transfer_number,
       });
 
-      return await this.getStockTransferById(id) as StockTransfer;
+      return (await this.getStockTransferById(id)) as StockTransfer;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { transferId: id, status, userId });
       throw error;
     } finally {
@@ -379,16 +400,19 @@ export class StockTransferMediator {
     }
   }
 
-  private static async processStockMovement(client: any, transfer: StockTransfer): Promise<void> {
-    const action = 'Process Stock Movement';
-    
+  private static async processStockMovement(
+    client: any,
+    transfer: StockTransfer
+  ): Promise<void> {
+    const action = "Process Stock Movement";
+
     try {
-      MyLogger.info(action, { 
+      MyLogger.info(action, {
         transferId: transfer.id,
         productId: transfer.product_id,
         fromCenter: transfer.from_center_id,
         toCenter: transfer.to_center_id,
-        quantity: transfer.quantity
+        quantity: transfer.quantity,
       });
 
       // Initialize the quantity that will actually be moved
@@ -402,18 +426,21 @@ export class StockTransferMediator {
           FROM product_locations 
           WHERE product_id = $1 AND distribution_center_id = $2
         `;
-        const stockResult = await client.query(checkStockQuery, [transfer.product_id, transfer.from_center_id]);
-        
+        const stockResult = await client.query(checkStockQuery, [
+          transfer.product_id,
+          transfer.from_center_id,
+        ]);
+
         if (stockResult.rows.length === 0) {
-          throw new Error('Source location not found for stock transfer');
+          throw new Error("Source location not found for stock transfer");
         }
-        
+
         const { current_stock, reserved_stock } = stockResult.rows[0];
-        
+
         // Ensure we don't go negative on either stock value
         actualQuantity = Math.min(transfer.quantity, current_stock);
         const reservedToRelease = Math.min(transfer.quantity, reserved_stock);
-        
+
         const removeStockQuery = `
           UPDATE product_locations 
           SET current_stock = current_stock - $1,
@@ -425,22 +452,22 @@ export class StockTransferMediator {
         await client.query(removeStockQuery, [
           actualQuantity,
           reservedToRelease,
-          transfer.product_id, 
-          transfer.from_center_id
+          transfer.product_id,
+          transfer.from_center_id,
         ]);
       }
 
       // Use the actual quantity that was moved
       const quantityToAdd = actualQuantity;
-      
+
       // Add stock to destination location (create location if doesn't exist)
       const checkDestinationQuery = `
         SELECT id FROM product_locations 
         WHERE product_id = $1 AND distribution_center_id = $2
       `;
       const destResult = await client.query(checkDestinationQuery, [
-        transfer.product_id, 
-        transfer.to_center_id
+        transfer.product_id,
+        transfer.to_center_id,
       ]);
 
       if (destResult.rows.length === 0) {
@@ -454,7 +481,7 @@ export class StockTransferMediator {
         await client.query(createLocationQuery, [
           transfer.product_id,
           transfer.to_center_id,
-          quantityToAdd
+          quantityToAdd,
         ]);
       } else {
         // Update existing location
@@ -468,13 +495,13 @@ export class StockTransferMediator {
         await client.query(addStockQuery, [
           quantityToAdd,
           transfer.product_id,
-          transfer.to_center_id
+          transfer.to_center_id,
         ]);
       }
 
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         transferId: transfer.id,
-        stockMoved: transfer.quantity
+        stockMoved: transfer.quantity,
       });
     } catch (error: any) {
       MyLogger.error(action, error, { transferId: transfer.id });

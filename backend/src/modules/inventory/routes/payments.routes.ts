@@ -10,7 +10,7 @@ import {
 } from "@/middleware/permission";
 import { auditMiddleware } from "@/middleware/audit";
 import paymentApprovalRoutes from "@/routes/paymentApproval.routes";
-import PaymentsController from "@/controllers/payments/payments.controller";
+import PaymentsController from "@/modules/inventory/controllers/payments.controller";
 
 const router = express.Router();
 
@@ -24,8 +24,8 @@ import {
   paymentQuerySchema,
 } from "@/validation/paymentValidation";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
-import { InvoiceMediator } from "@/mediators/payments/InvoiceMediator";
-import { PaymentMediator } from "@/mediators/payments/PaymentMediator";
+import { InvoiceMediator } from "@/modules/inventory/mediators/payments/InvoiceMediator";
+import { PaymentMediator } from "@/modules/inventory/mediators/payments/PaymentMediator";
 
 // Validation middleware
 const validateRequest = (schema: Joi.ObjectSchema) => {

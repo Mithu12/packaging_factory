@@ -1,5 +1,5 @@
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 import {
   ProductLocation,
   CreateProductLocationRequest,
@@ -7,20 +7,21 @@ import {
   ProductLocationQueryParams,
   ProductAllocationView,
   AllocationRequest,
-  AllocationResult
-} from '@/types/distribution';
+  AllocationResult,
+} from "@/types/distribution";
 
 export class ProductLocationMediator {
-
-  static async getProductLocations(params: ProductLocationQueryParams = {}): Promise<{
+  static async getProductLocations(
+    params: ProductLocationQueryParams = {}
+  ): Promise<{
     locations: ProductLocation[];
     total: number;
     page: number;
     totalPages: number;
   }> {
-    const action = 'Get Product Locations';
+    const action = "Get Product Locations";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { params });
 
@@ -32,8 +33,8 @@ export class ProductLocationMediator {
         product_id,
         status,
         stock_status,
-        sortBy = 'product_name',
-        sortOrder = 'asc'
+        sortBy = "product_name",
+        sortOrder = "asc",
       } = params;
 
       const offset = (page - 1) * limit;
@@ -86,13 +87,13 @@ export class ProductLocationMediator {
 
       if (stock_status) {
         switch (stock_status) {
-          case 'out_of_stock':
+          case "out_of_stock":
             query += ` AND pl.available_stock <= 0`;
             break;
-          case 'low_stock':
+          case "low_stock":
             query += ` AND pl.available_stock > 0 AND pl.current_stock <= pl.min_stock_level`;
             break;
-          case 'in_stock':
+          case "in_stock":
             query += ` AND pl.available_stock > pl.min_stock_level`;
             break;
         }
@@ -104,10 +105,18 @@ export class ProductLocationMediator {
       const total = parseInt(countResult.rows[0].total);
 
       // Add sorting and pagination
-      const validSortColumns = ['product_name', 'center_name', 'current_stock', 'available_stock', 'updated_at'];
-      const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'product_name';
-      const safeSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
-      
+      const validSortColumns = [
+        "product_name",
+        "center_name",
+        "current_stock",
+        "available_stock",
+        "updated_at",
+      ];
+      const safeSortBy = validSortColumns.includes(sortBy)
+        ? sortBy
+        : "product_name";
+      const safeSortOrder = sortOrder === "desc" ? "DESC" : "ASC";
+
       query += ` ORDER BY ${safeSortBy} ${safeSortOrder}`;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       queryParams.push(limit, offset);
@@ -115,18 +124,18 @@ export class ProductLocationMediator {
       const result = await client.query(query, queryParams);
       const totalPages = Math.ceil(total / limit);
 
-      MyLogger.success(action, { 
-        locationsCount: result.rows.length, 
-        total, 
-        page, 
-        totalPages 
+      MyLogger.success(action, {
+        locationsCount: result.rows.length,
+        total,
+        page,
+        totalPages,
       });
 
       return {
         locations: result.rows,
         total,
         page,
-        totalPages
+        totalPages,
       };
     } catch (error: any) {
       MyLogger.error(action, error, { params });
@@ -136,10 +145,12 @@ export class ProductLocationMediator {
     }
   }
 
-  static async getProductLocationById(id: number): Promise<ProductLocation | null> {
-    const action = 'Get Product Location By ID';
+  static async getProductLocationById(
+    id: number
+  ): Promise<ProductLocation | null> {
+    const action = "Get Product Location By ID";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id });
 
@@ -157,13 +168,16 @@ export class ProductLocationMediator {
       `;
 
       const result = await client.query(query, [id]);
-      
+
       if (result.rows.length === 0) {
-        MyLogger.warn(action, { id, message: 'Product location not found' });
+        MyLogger.warn(action, { id, message: "Product location not found" });
         return null;
       }
 
-      MyLogger.success(action, { id, productName: result.rows[0].product_name });
+      MyLogger.success(action, {
+        id,
+        productName: result.rows[0].product_name,
+      });
       return result.rows[0];
     } catch (error: any) {
       MyLogger.error(action, error, { id });
@@ -173,10 +187,12 @@ export class ProductLocationMediator {
     }
   }
 
-  static async getProductLocationsByProduct(productId: number): Promise<ProductLocation[]> {
-    const action = 'Get Product Locations By Product';
+  static async getProductLocationsByProduct(
+    productId: number
+  ): Promise<ProductLocation[]> {
+    const action = "Get Product Locations By Product";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { productId });
 
@@ -198,9 +214,9 @@ export class ProductLocationMediator {
 
       const result = await client.query(query, [productId]);
 
-      MyLogger.success(action, { 
-        productId, 
-        locationsFound: result.rows.length 
+      MyLogger.success(action, {
+        productId,
+        locationsFound: result.rows.length,
       });
 
       return result.rows;
@@ -216,31 +232,35 @@ export class ProductLocationMediator {
     data: CreateProductLocationRequest,
     createdBy: number
   ): Promise<ProductLocation> {
-    const action = 'Create Product Location';
+    const action = "Create Product Location";
     const client = await pool.connect();
-    
+
     try {
-      MyLogger.info(action, { 
-        productId: data.product_id, 
-        centerId: data.distribution_center_id 
+      MyLogger.info(action, {
+        productId: data.product_id,
+        centerId: data.distribution_center_id,
       });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Check if product exists
-      const productQuery = 'SELECT name FROM products WHERE id = $1';
+      const productQuery = "SELECT name FROM products WHERE id = $1";
       const productResult = await client.query(productQuery, [data.product_id]);
-      
+
       if (productResult.rows.length === 0) {
-        throw new Error('Product not found');
+        throw new Error("Product not found");
       }
 
       // Check if distribution center exists
-      const centerQuery = 'SELECT name FROM distribution_centers WHERE id = $1 AND status = $2';
-      const centerResult = await client.query(centerQuery, [data.distribution_center_id, 'active']);
-      
+      const centerQuery =
+        "SELECT name FROM distribution_centers WHERE id = $1 AND status = $2";
+      const centerResult = await client.query(centerQuery, [
+        data.distribution_center_id,
+        "active",
+      ]);
+
       if (centerResult.rows.length === 0) {
-        throw new Error('Distribution center not found or inactive');
+        throw new Error("Distribution center not found or inactive");
       }
 
       // Check if location already exists
@@ -249,12 +269,14 @@ export class ProductLocationMediator {
         WHERE product_id = $1 AND distribution_center_id = $2
       `;
       const existingResult = await client.query(existingQuery, [
-        data.product_id, 
-        data.distribution_center_id
+        data.product_id,
+        data.distribution_center_id,
       ]);
-      
+
       if (existingResult.rows.length > 0) {
-        throw new Error('Product location already exists for this distribution center');
+        throw new Error(
+          "Product location already exists for this distribution center"
+        );
       }
 
       const insertQuery = `
@@ -273,24 +295,24 @@ export class ProductLocationMediator {
         data.min_stock_level || 0,
         data.max_stock_level,
         data.reorder_point,
-        data.location_in_warehouse
+        data.location_in_warehouse,
       ]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const location = result.rows[0];
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         locationId: location.id,
         productName: productResult.rows[0].name,
-        centerName: centerResult.rows[0].name
+        centerName: centerResult.rows[0].name,
       });
 
       return location;
     } catch (error: any) {
-      await client.query('ROLLBACK');
-      MyLogger.error(action, error, { 
-        productId: data.product_id, 
-        centerId: data.distribution_center_id 
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, {
+        productId: data.product_id,
+        centerId: data.distribution_center_id,
       });
       throw error;
     } finally {
@@ -303,20 +325,20 @@ export class ProductLocationMediator {
     data: UpdateProductLocationRequest,
     updatedBy: number
   ): Promise<ProductLocation> {
-    const action = 'Update Product Location';
+    const action = "Update Product Location";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id, updates: Object.keys(data) });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Check if location exists
-      const existingQuery = 'SELECT * FROM product_locations WHERE id = $1';
+      const existingQuery = "SELECT * FROM product_locations WHERE id = $1";
       const existingResult = await client.query(existingQuery, [id]);
-      
+
       if (existingResult.rows.length === 0) {
-        throw new Error('Product location not found');
+        throw new Error("Product location not found");
       }
 
       // Build dynamic update query
@@ -325,12 +347,12 @@ export class ProductLocationMediator {
       let paramIndex = 1;
 
       const fieldMap = {
-        current_stock: 'current_stock',
-        min_stock_level: 'min_stock_level',
-        max_stock_level: 'max_stock_level',
-        reorder_point: 'reorder_point',
-        location_in_warehouse: 'location_in_warehouse',
-        status: 'status'
+        current_stock: "current_stock",
+        min_stock_level: "min_stock_level",
+        max_stock_level: "max_stock_level",
+        reorder_point: "reorder_point",
+        location_in_warehouse: "location_in_warehouse",
+        status: "status",
       };
 
       Object.entries(fieldMap).forEach(([key, dbField]) => {
@@ -342,7 +364,7 @@ export class ProductLocationMediator {
       });
 
       if (updateFields.length === 0) {
-        throw new Error('No fields to update');
+        throw new Error("No fields to update");
       }
 
       updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -350,24 +372,24 @@ export class ProductLocationMediator {
 
       const updateQuery = `
         UPDATE product_locations 
-        SET ${updateFields.join(', ')}
+        SET ${updateFields.join(", ")}
         WHERE id = $${paramIndex}
         RETURNING *
       `;
       updateValues.push(id);
 
       const result = await client.query(updateQuery, updateValues);
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const location = result.rows[0];
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         locationId: location.id,
-        updatedFields: Object.keys(data)
+        updatedFields: Object.keys(data),
       });
 
       return location;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { id, updates: Object.keys(data) });
       throw error;
     } finally {
@@ -381,27 +403,27 @@ export class ProductLocationMediator {
     reason: string,
     adjustedBy: number
   ): Promise<ProductLocation> {
-    const action = 'Adjust Product Location Stock';
+    const action = "Adjust Product Location Stock";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id, adjustment, reason });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Get current location data
-      const locationQuery = 'SELECT * FROM product_locations WHERE id = $1';
+      const locationQuery = "SELECT * FROM product_locations WHERE id = $1";
       const locationResult = await client.query(locationQuery, [id]);
-      
+
       if (locationResult.rows.length === 0) {
-        throw new Error('Product location not found');
+        throw new Error("Product location not found");
       }
 
       const location = locationResult.rows[0];
       const newStock = parseFloat(location.current_stock) + adjustment;
 
       if (newStock < 0) {
-        throw new Error('Adjustment would result in negative stock');
+        throw new Error("Adjustment would result in negative stock");
       }
 
       // Update stock
@@ -422,30 +444,30 @@ export class ProductLocationMediator {
         `;
         await client.query(adjustmentQuery, [
           location.product_id,
-          adjustment > 0 ? 'increase' : 'decrease',
+          adjustment > 0 ? "increase" : "decrease",
           Math.abs(adjustment),
           reason,
           adjustedBy,
-          location.distribution_center_id
+          location.distribution_center_id,
         ]);
       } catch (adjError) {
         // Stock adjustments table might not have distribution_center_id column yet
-        MyLogger.warn('Stock adjustment logging failed', adjError);
+        MyLogger.warn("Stock adjustment logging failed", adjError);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const updatedLocation = updateResult.rows[0];
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         locationId: id,
         oldStock: location.current_stock,
         newStock: updatedLocation.current_stock,
-        adjustment
+        adjustment,
       });
 
       return updatedLocation;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { id, adjustment, reason });
       throw error;
     } finally {
@@ -454,9 +476,9 @@ export class ProductLocationMediator {
   }
 
   static async getProductAllocationView(): Promise<ProductAllocationView[]> {
-    const action = 'Get Product Allocation View';
+    const action = "Get Product Allocation View";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action);
 
@@ -473,15 +495,17 @@ export class ProductLocationMediator {
     }
   }
 
-  static async allocateProduct(request: AllocationRequest): Promise<AllocationResult> {
-    const action = 'Allocate Product';
+  static async allocateProduct(
+    request: AllocationRequest
+  ): Promise<AllocationResult> {
+    const action = "Allocate Product";
     const client = await pool.connect();
-    
+
     try {
-      MyLogger.info(action, { 
-        productId: request.product_id, 
+      MyLogger.info(action, {
+        productId: request.product_id,
         quantity: request.quantity,
-        priority: request.priority 
+        priority: request.priority,
       });
 
       // Get all available locations for the product
@@ -508,13 +532,13 @@ export class ProductLocationMediator {
 
       const result = await client.query(query, [
         request.product_id,
-        request.priority || 'normal',
+        request.priority || "normal",
         request.delivery_location?.latitude,
-        request.delivery_location?.longitude
+        request.delivery_location?.longitude,
       ]);
 
       const availableLocations = result.rows;
-      const allocations: AllocationResult['allocations'] = [];
+      const allocations: AllocationResult["allocations"] = [];
       let totalAllocated = 0;
       let remainingQuantity = request.quantity;
       const reasons: string[] = [];
@@ -524,10 +548,16 @@ export class ProductLocationMediator {
         if (remainingQuantity <= 0) break;
 
         // Check if this location is preferred
-        const isPreferred = request.preferred_center_ids?.includes(location.distribution_center_id);
-        
+        const isPreferred = request.preferred_center_ids?.includes(
+          location.distribution_center_id
+        );
+
         // Skip non-preferred locations if preferences exist and there's remaining quantity
-        if (request.preferred_center_ids && !isPreferred && totalAllocated === 0) {
+        if (
+          request.preferred_center_ids &&
+          !isPreferred &&
+          totalAllocated === 0
+        ) {
           continue;
         }
 
@@ -541,7 +571,7 @@ export class ProductLocationMediator {
             quantity: quantityToAllocate,
             available_stock: availableHere,
             distance_score: location.distance || 0,
-            confidence: isPreferred ? 1.0 : 0.8
+            confidence: isPreferred ? 1.0 : 0.8,
           });
 
           totalAllocated += quantityToAllocate;
@@ -551,18 +581,24 @@ export class ProductLocationMediator {
 
       // Determine reasons
       if (totalAllocated === 0) {
-        reasons.push('No stock available at any distribution center');
+        reasons.push("No stock available at any distribution center");
       } else if (totalAllocated < request.quantity) {
-        reasons.push(`Insufficient total stock: only ${totalAllocated} of ${request.quantity} available`);
+        reasons.push(
+          `Insufficient total stock: only ${totalAllocated} of ${request.quantity} available`
+        );
       }
 
       if (request.preferred_center_ids && allocations.length > 0) {
-        const preferredAllocated = allocations.filter(a => 
-          request.preferred_center_ids?.includes(a.distribution_center_id)
-        ).reduce((sum, a) => sum + a.quantity, 0);
-        
+        const preferredAllocated = allocations
+          .filter((a) =>
+            request.preferred_center_ids?.includes(a.distribution_center_id)
+          )
+          .reduce((sum, a) => sum + a.quantity, 0);
+
         if (preferredAllocated < totalAllocated) {
-          reasons.push('Some allocation from non-preferred distribution centers');
+          reasons.push(
+            "Some allocation from non-preferred distribution centers"
+          );
         }
       }
 
@@ -572,22 +608,22 @@ export class ProductLocationMediator {
         total_allocated: totalAllocated,
         total_requested: request.quantity,
         is_fully_allocated: totalAllocated >= request.quantity,
-        reasons
+        reasons,
       };
 
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         productId: request.product_id,
         requested: request.quantity,
         allocated: totalAllocated,
         locationsUsed: allocations.length,
-        fullyAllocated: allocationResult.is_fully_allocated
+        fullyAllocated: allocationResult.is_fully_allocated,
       });
 
       return allocationResult;
     } catch (error: any) {
-      MyLogger.error(action, error, { 
-        productId: request.product_id, 
-        quantity: request.quantity 
+      MyLogger.error(action, error, {
+        productId: request.product_id,
+        quantity: request.quantity,
       });
       throw error;
     } finally {
@@ -601,20 +637,20 @@ export class ProductLocationMediator {
     initialStock: number = 0,
     createdBy: number
   ): Promise<ProductLocation[]> {
-    const action = 'Bulk Create Product Locations';
+    const action = "Bulk Create Product Locations";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { productId, centerIds, initialStock });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Verify product exists
-      const productQuery = 'SELECT name FROM products WHERE id = $1';
+      const productQuery = "SELECT name FROM products WHERE id = $1";
       const productResult = await client.query(productQuery, [productId]);
-      
+
       if (productResult.rows.length === 0) {
-        throw new Error('Product not found');
+        throw new Error("Product not found");
       }
 
       // Verify centers exist and are active
@@ -623,9 +659,11 @@ export class ProductLocationMediator {
         WHERE id = ANY($1) AND status = 'active'
       `;
       const centersResult = await client.query(centersQuery, [centerIds]);
-      
+
       if (centersResult.rows.length !== centerIds.length) {
-        throw new Error('One or more distribution centers not found or inactive');
+        throw new Error(
+          "One or more distribution centers not found or inactive"
+        );
       }
 
       // Check for existing locations
@@ -633,11 +671,20 @@ export class ProductLocationMediator {
         SELECT distribution_center_id FROM product_locations 
         WHERE product_id = $1 AND distribution_center_id = ANY($2)
       `;
-      const existingResult = await client.query(existingQuery, [productId, centerIds]);
-      
+      const existingResult = await client.query(existingQuery, [
+        productId,
+        centerIds,
+      ]);
+
       if (existingResult.rows.length > 0) {
-        const existingCenterIds = existingResult.rows.map(row => row.distribution_center_id);
-        throw new Error(`Product locations already exist for centers: ${existingCenterIds.join(', ')}`);
+        const existingCenterIds = existingResult.rows.map(
+          (row) => row.distribution_center_id
+        );
+        throw new Error(
+          `Product locations already exist for centers: ${existingCenterIds.join(
+            ", "
+          )}`
+        );
       }
 
       // Create locations
@@ -646,20 +693,24 @@ export class ProductLocationMediator {
         SELECT $1, unnest($2::int[]), $3
         RETURNING *
       `;
-      
-      const result = await client.query(insertQuery, [productId, centerIds, initialStock]);
 
-      await client.query('COMMIT');
+      const result = await client.query(insertQuery, [
+        productId,
+        centerIds,
+        initialStock,
+      ]);
 
-      MyLogger.success(action, { 
+      await client.query("COMMIT");
+
+      MyLogger.success(action, {
         productId,
         locationsCreated: result.rows.length,
-        productName: productResult.rows[0].name
+        productName: productResult.rows[0].name,
       });
 
       return result.rows;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { productId, centerIds, initialStock });
       throw error;
     } finally {

@@ -1,24 +1,25 @@
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 import {
   DistributionCenter,
   CreateDistributionCenterRequest,
   UpdateDistributionCenterRequest,
   DistributionCenterQueryParams,
-  DistributionCenterStats
-} from '@/types/distribution';
+  DistributionCenterStats,
+} from "@/types/distribution";
 
 export class DistributionCenterMediator {
-
-  static async getDistributionCenters(params: DistributionCenterQueryParams = {}): Promise<{
+  static async getDistributionCenters(
+    params: DistributionCenterQueryParams = {}
+  ): Promise<{
     centers: DistributionCenter[];
     total: number;
     page: number;
     totalPages: number;
   }> {
-    const action = 'Get Distribution Centers';
+    const action = "Get Distribution Centers";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { params });
 
@@ -30,8 +31,8 @@ export class DistributionCenterMediator {
         status,
         city,
         state,
-        sortBy = 'name',
-        sortOrder = 'asc'
+        sortBy = "name",
+        sortOrder = "asc",
       } = params;
 
       const offset = (page - 1) * limit;
@@ -91,10 +92,17 @@ export class DistributionCenterMediator {
       const total = parseInt(countResult.rows[0].total);
 
       // Add sorting and pagination
-      const validSortColumns = ['name', 'type', 'city', 'state', 'created_at', 'updated_at'];
-      const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'name';
-      const safeSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
-      
+      const validSortColumns = [
+        "name",
+        "type",
+        "city",
+        "state",
+        "created_at",
+        "updated_at",
+      ];
+      const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : "name";
+      const safeSortOrder = sortOrder === "desc" ? "DESC" : "ASC";
+
       query += ` ORDER BY dc.${safeSortBy} ${safeSortOrder}`;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       queryParams.push(limit, offset);
@@ -102,18 +110,18 @@ export class DistributionCenterMediator {
       const result = await client.query(query, queryParams);
       const totalPages = Math.ceil(total / limit);
 
-      MyLogger.success(action, { 
-        centersCount: result.rows.length, 
-        total, 
-        page, 
-        totalPages 
+      MyLogger.success(action, {
+        centersCount: result.rows.length,
+        total,
+        page,
+        totalPages,
       });
 
       return {
         centers: result.rows,
         total,
         page,
-        totalPages
+        totalPages,
       };
     } catch (error: any) {
       MyLogger.error(action, error, { params });
@@ -123,10 +131,12 @@ export class DistributionCenterMediator {
     }
   }
 
-  static async getDistributionCenterById(id: number): Promise<DistributionCenter | null> {
-    const action = 'Get Distribution Center By ID';
+  static async getDistributionCenterById(
+    id: number
+  ): Promise<DistributionCenter | null> {
+    const action = "Get Distribution Center By ID";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id });
 
@@ -140,9 +150,9 @@ export class DistributionCenterMediator {
       `;
 
       const result = await client.query(query, [id]);
-      
+
       if (result.rows.length === 0) {
-        MyLogger.warn(action, { id, message: 'Distribution center not found' });
+        MyLogger.warn(action, { id, message: "Distribution center not found" });
         return null;
       }
 
@@ -160,20 +170,21 @@ export class DistributionCenterMediator {
     data: CreateDistributionCenterRequest,
     createdBy: number
   ): Promise<DistributionCenter> {
-    const action = 'Create Distribution Center';
+    const action = "Create Distribution Center";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { name: data.name, type: data.type });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Check if name already exists
-      const existingQuery = 'SELECT id FROM distribution_centers WHERE name = $1';
+      const existingQuery =
+        "SELECT id FROM distribution_centers WHERE name = $1";
       const existingResult = await client.query(existingQuery, [data.name]);
-      
+
       if (existingResult.rows.length > 0) {
-        throw new Error('Distribution center with this name already exists');
+        throw new Error("Distribution center with this name already exists");
       }
 
       const insertQuery = `
@@ -189,12 +200,12 @@ export class DistributionCenterMediator {
 
       const result = await client.query(insertQuery, [
         data.name,
-        data.type || 'warehouse',
+        data.type || "warehouse",
         data.address,
         data.city,
         data.state,
         data.zip_code,
-        data.country || 'USA',
+        data.country || "USA",
         data.latitude,
         data.longitude,
         data.contact_person,
@@ -205,21 +216,21 @@ export class DistributionCenterMediator {
         data.operating_hours ? JSON.stringify(data.operating_hours) : null,
         data.facilities ? JSON.stringify(data.facilities) : null,
         data.manager_id,
-        data.notes
+        data.notes,
       ]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const center = result.rows[0];
-      MyLogger.success(action, { 
-        centerId: center.id, 
+      MyLogger.success(action, {
+        centerId: center.id,
         centerName: center.name,
-        code: center.code 
+        code: center.code,
       });
 
       return center;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { name: data.name });
       throw error;
     } finally {
@@ -232,29 +243,30 @@ export class DistributionCenterMediator {
     data: UpdateDistributionCenterRequest,
     updatedBy: number
   ): Promise<DistributionCenter> {
-    const action = 'Update Distribution Center';
+    const action = "Update Distribution Center";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id, updates: Object.keys(data) });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Check if center exists
-      const existingQuery = 'SELECT * FROM distribution_centers WHERE id = $1';
+      const existingQuery = "SELECT * FROM distribution_centers WHERE id = $1";
       const existingResult = await client.query(existingQuery, [id]);
-      
+
       if (existingResult.rows.length === 0) {
-        throw new Error('Distribution center not found');
+        throw new Error("Distribution center not found");
       }
 
       // Check if name is being changed and already exists
       if (data.name && data.name !== existingResult.rows[0].name) {
-        const nameQuery = 'SELECT id FROM distribution_centers WHERE name = $1 AND id != $2';
+        const nameQuery =
+          "SELECT id FROM distribution_centers WHERE name = $1 AND id != $2";
         const nameResult = await client.query(nameQuery, [data.name, id]);
-        
+
         if (nameResult.rows.length > 0) {
-          throw new Error('Distribution center with this name already exists');
+          throw new Error("Distribution center with this name already exists");
         }
       }
 
@@ -264,24 +276,24 @@ export class DistributionCenterMediator {
       let paramIndex = 1;
 
       const fieldMap = {
-        name: 'name',
-        type: 'type',
-        address: 'address',
-        city: 'city',
-        state: 'state',
-        zip_code: 'zip_code',
-        country: 'country',
-        latitude: 'latitude',
-        longitude: 'longitude',
-        contact_person: 'contact_person',
-        phone: 'phone',
-        email: 'email',
-        capacity_volume: 'capacity_volume',
-        capacity_weight: 'capacity_weight',
-        manager_id: 'manager_id',
-        status: 'status',
-        is_primary: 'is_primary',
-        notes: 'notes'
+        name: "name",
+        type: "type",
+        address: "address",
+        city: "city",
+        state: "state",
+        zip_code: "zip_code",
+        country: "country",
+        latitude: "latitude",
+        longitude: "longitude",
+        contact_person: "contact_person",
+        phone: "phone",
+        email: "email",
+        capacity_volume: "capacity_volume",
+        capacity_weight: "capacity_weight",
+        manager_id: "manager_id",
+        status: "status",
+        is_primary: "is_primary",
+        notes: "notes",
       };
 
       Object.entries(fieldMap).forEach(([key, dbField]) => {
@@ -295,43 +307,47 @@ export class DistributionCenterMediator {
       // Handle JSON fields separately
       if (data.operating_hours !== undefined) {
         updateFields.push(`operating_hours = $${paramIndex}`);
-        updateValues.push(data.operating_hours ? JSON.stringify(data.operating_hours) : null);
+        updateValues.push(
+          data.operating_hours ? JSON.stringify(data.operating_hours) : null
+        );
         paramIndex++;
       }
 
       if (data.facilities !== undefined) {
         updateFields.push(`facilities = $${paramIndex}`);
-        updateValues.push(data.facilities ? JSON.stringify(data.facilities) : null);
+        updateValues.push(
+          data.facilities ? JSON.stringify(data.facilities) : null
+        );
         paramIndex++;
       }
 
       if (updateFields.length === 0) {
-        throw new Error('No fields to update');
+        throw new Error("No fields to update");
       }
 
       updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
       const updateQuery = `
         UPDATE distribution_centers 
-        SET ${updateFields.join(', ')}
+        SET ${updateFields.join(", ")}
         WHERE id = $${paramIndex}
         RETURNING *
       `;
       updateValues.push(id);
 
       const result = await client.query(updateQuery, updateValues);
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       const center = result.rows[0];
-      MyLogger.success(action, { 
-        centerId: center.id, 
+      MyLogger.success(action, {
+        centerId: center.id,
         centerName: center.name,
-        updatedFields: Object.keys(data)
+        updatedFields: Object.keys(data),
       });
 
       return center;
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { id, updates: Object.keys(data) });
       throw error;
     } finally {
@@ -339,36 +355,43 @@ export class DistributionCenterMediator {
     }
   }
 
-  static async deleteDistributionCenter(id: number, deletedBy: number): Promise<void> {
-    const action = 'Delete Distribution Center';
+  static async deleteDistributionCenter(
+    id: number,
+    deletedBy: number
+  ): Promise<void> {
+    const action = "Delete Distribution Center";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Check if center exists
-      const existingQuery = 'SELECT name, is_primary FROM distribution_centers WHERE id = $1';
+      const existingQuery =
+        "SELECT name, is_primary FROM distribution_centers WHERE id = $1";
       const existingResult = await client.query(existingQuery, [id]);
-      
+
       if (existingResult.rows.length === 0) {
-        throw new Error('Distribution center not found');
+        throw new Error("Distribution center not found");
       }
 
       const center = existingResult.rows[0];
 
       // Prevent deletion of primary center
       if (center.is_primary) {
-        throw new Error('Cannot delete the primary distribution center');
+        throw new Error("Cannot delete the primary distribution center");
       }
 
       // Check for existing stock
-      const stockQuery = 'SELECT COUNT(*) as count FROM product_locations WHERE distribution_center_id = $1 AND current_stock > 0';
+      const stockQuery =
+        "SELECT COUNT(*) as count FROM product_locations WHERE distribution_center_id = $1 AND current_stock > 0";
       const stockResult = await client.query(stockQuery, [id]);
-      
+
       if (parseInt(stockResult.rows[0].count) > 0) {
-        throw new Error('Cannot delete distribution center with existing stock. Transfer stock first.');
+        throw new Error(
+          "Cannot delete distribution center with existing stock. Transfer stock first."
+        );
       }
 
       // Check for pending transfers
@@ -379,9 +402,11 @@ export class DistributionCenterMediator {
         AND status IN ('pending', 'approved', 'shipped', 'in_transit')
       `;
       const transferResult = await client.query(transferQuery, [id]);
-      
+
       if (parseInt(transferResult.rows[0].count) > 0) {
-        throw new Error('Cannot delete distribution center with pending transfers');
+        throw new Error(
+          "Cannot delete distribution center with pending transfers"
+        );
       }
 
       // Soft delete - mark as inactive
@@ -392,11 +417,11 @@ export class DistributionCenterMediator {
       `;
       await client.query(deleteQuery, [id]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       MyLogger.success(action, { id, centerName: center.name });
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { id });
       throw error;
     } finally {
@@ -404,10 +429,12 @@ export class DistributionCenterMediator {
     }
   }
 
-  static async getDistributionCenterStats(): Promise<DistributionCenterStats[]> {
-    const action = 'Get Distribution Center Stats';
+  static async getDistributionCenterStats(): Promise<
+    DistributionCenterStats[]
+  > {
+    const action = "Get Distribution Center Stats";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action);
 
@@ -428,29 +455,35 @@ export class DistributionCenterMediator {
     }
   }
 
-  static async setPrimaryDistributionCenter(id: number, updatedBy: number): Promise<void> {
-    const action = 'Set Primary Distribution Center';
+  static async setPrimaryDistributionCenter(
+    id: number,
+    updatedBy: number
+  ): Promise<void> {
+    const action = "Set Primary Distribution Center";
     const client = await pool.connect();
-    
+
     try {
       MyLogger.info(action, { id });
 
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Verify center exists and is active
-      const existingQuery = 'SELECT name, status FROM distribution_centers WHERE id = $1';
+      const existingQuery =
+        "SELECT name, status FROM distribution_centers WHERE id = $1";
       const existingResult = await client.query(existingQuery, [id]);
-      
+
       if (existingResult.rows.length === 0) {
-        throw new Error('Distribution center not found');
+        throw new Error("Distribution center not found");
       }
 
-      if (existingResult.rows[0].status !== 'active') {
-        throw new Error('Only active distribution centers can be set as primary');
+      if (existingResult.rows[0].status !== "active") {
+        throw new Error(
+          "Only active distribution centers can be set as primary"
+        );
       }
 
       // Remove primary flag from all centers
-      await client.query('UPDATE distribution_centers SET is_primary = false');
+      await client.query("UPDATE distribution_centers SET is_primary = false");
 
       // Set the specified center as primary
       const updateQuery = `
@@ -460,14 +493,14 @@ export class DistributionCenterMediator {
       `;
       await client.query(updateQuery, [id]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
-      MyLogger.success(action, { 
-        id, 
-        centerName: existingResult.rows[0].name 
+      MyLogger.success(action, {
+        id,
+        centerName: existingResult.rows[0].name,
       });
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { id });
       throw error;
     } finally {
