@@ -109,6 +109,27 @@ export function AddProductForm({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<
+    Partial<Record<keyof ProductFormData, boolean>>
+  >({});
+
+  const clearFieldError = (field: keyof ProductFormData) => {
+    setValidationErrors((prev) => {
+      if (!prev[field]) {
+        return prev;
+      }
+      const { [field]: _omit, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const hasFieldError = (field: keyof ProductFormData) =>
+    Boolean(validationErrors[field]);
+
+  const getFieldErrorClass = (field: keyof ProductFormData) =>
+    hasFieldError(field)
+      ? "border-destructive focus-visible:ring-destructive"
+      : "";
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,6 +195,10 @@ export function AddProductForm({
       subcategory_id: "",
     }));
 
+    if (categoryId) {
+      clearFieldError("category_id");
+    }
+
     // Regenerate SKU if product name exists
     if (formData.name.trim()) {
       const categoryName = categories.find(
@@ -214,14 +239,32 @@ export function AddProductForm({
     try {
       console.log(formData);
       // Validation
-      if (
-        !formData.name ||
-        !formData.sku ||
-        !formData.cost_price ||
-        !formData.selling_price ||
-        !formData.category_id ||
-        !formData.supplier_id
-      ) {
+      const requiredFields: Array<keyof ProductFormData> = [
+        "name",
+        "sku",
+        "cost_price",
+        "selling_price",
+        "category_id",
+        "supplier_id",
+        "current_stock",
+        "min_stock_level",
+      ];
+
+      const newValidationErrors = requiredFields.reduce((acc, field) => {
+        const value = formData[field];
+        const isMissing =
+          typeof value === "string" ? value.trim() === "" : !value;
+
+        if (isMissing) {
+          acc[field] = true;
+        }
+
+        return acc;
+      }, {} as Partial<Record<keyof ProductFormData, boolean>>);
+
+      setValidationErrors(newValidationErrors);
+
+      if (Object.keys(newValidationErrors).length > 0) {
         toast.error("Please fill in all required fields");
         setIsSubmitting(false);
         return;
@@ -308,6 +351,7 @@ export function AddProductForm({
       });
       setSelectedImage(null);
       setImagePreview("");
+      setValidationErrors({});
 
       onProductAdded?.();
       onOpenChange(false);
@@ -328,6 +372,10 @@ export function AddProductForm({
 
   const handleInputChange = (field: keyof ProductFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    if (value.trim()) {
+      clearFieldError(field);
+    }
 
     // Auto-generate SKU when product name changes
     if (field === "name" && value.trim()) {
@@ -393,7 +441,10 @@ export function AddProductForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="add-product-modal">
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        data-testid="add-product-modal"
+      >
         <DialogHeader>
           <DialogTitle>Add New Product</DialogTitle>
           <DialogDescription>
@@ -402,7 +453,11 @@ export function AddProductForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4" data-testid="add-product-form">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          data-testid="add-product-form"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Product Image */}
             <div className="space-y-4">
@@ -473,11 +528,14 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
                   <Input
-                    id="name" data-testid="add-product-name"
+                    id="name"
+                    data-testid="add-product-name"
                     value={formData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Enter product name"
                     required
+                    className={getFieldErrorClass("name")}
+                    aria-invalid={hasFieldError("name")}
                   />
                 </div>
 
@@ -490,7 +548,8 @@ export function AddProductForm({
                       onChange={(e) => handleInputChange("sku", e.target.value)}
                       placeholder="e.g., PRD-001"
                       required
-                      className="flex-1"
+                      className={`flex-1 ${getFieldErrorClass("sku")}`}
+                      aria-invalid={hasFieldError("sku")}
                     />
                     <Button
                       type="button"
@@ -512,7 +571,11 @@ export function AddProductForm({
                     value={formData.category_id}
                     onValueChange={handleCategoryChange}
                   >
-                    <SelectTrigger data-testid="add-product-category">
+                    <SelectTrigger
+                      data-testid="add-product-category"
+                      className={getFieldErrorClass("category_id")}
+                      aria-invalid={hasFieldError("category_id")}
+                    >
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -625,7 +688,8 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="costPrice">Cost Price *</Label>
                   <Input
-                    id="costPrice" data-testid="add-product-cost-price"
+                    id="costPrice"
+                    data-testid="add-product-cost-price"
                     type="number"
                     step="0.01"
                     value={formData.cost_price}
@@ -634,13 +698,16 @@ export function AddProductForm({
                     }
                     placeholder="0.00"
                     required
+                    className={getFieldErrorClass("cost_price")}
+                    aria-invalid={hasFieldError("cost_price")}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="sellingPrice">Selling Price</Label>
                   <Input
-                    id="sellingPrice" data-testid="add-product-selling-price"
+                    id="sellingPrice"
+                    data-testid="add-product-selling-price"
                     type="number"
                     step="0.01"
                     value={formData.selling_price}
@@ -648,6 +715,8 @@ export function AddProductForm({
                       handleInputChange("selling_price", e.target.value)
                     }
                     placeholder="0.00"
+                    className={getFieldErrorClass("selling_price")}
+                    aria-invalid={hasFieldError("selling_price")}
                   />
                 </div>
               </div>
@@ -656,7 +725,8 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="currentStock">Current Stock *</Label>
                   <Input
-                    id="currentStock" data-testid="add-product-current-stock"
+                    id="currentStock"
+                    data-testid="add-product-current-stock"
                     type="number"
                     value={formData.current_stock}
                     onChange={(e) =>
@@ -664,13 +734,16 @@ export function AddProductForm({
                     }
                     placeholder="0"
                     required
+                    className={getFieldErrorClass("current_stock")}
+                    aria-invalid={hasFieldError("current_stock")}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="minStock">Minimum Stock *</Label>
                   <Input
-                    id="minStock" data-testid="add-product-min-stock"
+                    id="minStock"
+                    data-testid="add-product-min-stock"
                     type="number"
                     value={formData.min_stock_level}
                     onChange={(e) =>
@@ -678,13 +751,16 @@ export function AddProductForm({
                     }
                     placeholder="0"
                     required
+                    className={getFieldErrorClass("min_stock_level")}
+                    aria-invalid={hasFieldError("min_stock_level")}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
-                    id="reorderPoint" data-testid="add-product-reorder-point"
+                    id="reorderPoint"
+                    data-testid="add-product-reorder-point"
                     type="number"
                     value={formData.reorder_point}
                     onChange={(e) =>
@@ -717,7 +793,11 @@ export function AddProductForm({
                       handleInputChange("supplier_id", value)
                     }
                   >
-                    <SelectTrigger data-testid="add-product-supplier">
+                    <SelectTrigger
+                      data-testid="add-product-supplier"
+                      className={getFieldErrorClass("supplier_id")}
+                      aria-invalid={hasFieldError("supplier_id")}
+                    >
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
                     <SelectContent>
@@ -868,7 +948,8 @@ export function AddProductForm({
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
-                  id="description" data-testid="add-product-description"
+                  id="description"
+                  data-testid="add-product-description"
                   value={formData.description}
                   onChange={(e) =>
                     handleInputChange("description", e.target.value)
@@ -899,7 +980,11 @@ export function AddProductForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} data-testid="submit-add-product">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              data-testid="submit-add-product"
+            >
               {isSubmitting ? "Adding..." : "Add Product"}
             </Button>
           </DialogFooter>
