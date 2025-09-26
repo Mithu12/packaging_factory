@@ -1,4 +1,4 @@
-﻿import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -44,7 +44,17 @@ import POSManager from "@/modules/sales/pages/POSManager";
 import UserManagement from "./pages/UserManagement";
 import Brands from "@/modules/inventory/pages/Brands";
 import Origins from "@/modules/inventory/pages/Origins";
-import Expenses from "./pages/Expenses";
+import Expenses from "./pages/Expenses";import AccountGroups from "@/modules/accounts/pages/AccountGroups";
+import ChartOfAccounts from "@/modules/accounts/pages/ChartOfAccounts";
+import CostCenters from "@/modules/accounts/pages/CostCenters";
+import PaymentVouchers from "@/modules/accounts/pages/PaymentVouchers";
+import ReceiptVouchers from "@/modules/accounts/pages/ReceiptVouchers";
+import JournalVouchers from "@/modules/accounts/pages/JournalVouchers";
+import BalanceTransfer from "@/modules/accounts/pages/BalanceTransfer";
+import GeneralLedger from "@/modules/accounts/pages/GeneralLedger";
+import CostCenterLedger from "@/modules/accounts/pages/CostCenterLedger";
+import IncomeStatement from "@/modules/accounts/pages/IncomeStatement";
+import BalanceSheet from "@/modules/accounts/pages/BalanceSheet";
 import ExpenseDetails from "./pages/ExpenseDetails";
 import EditExpense from "./pages/EditExpense";
 import RoleManagement from "./pages/RoleManagement";
@@ -442,7 +452,118 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          
+
+          {/* Finance Routes */}
+          <Route
+            path="/finance/account-groups"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <AccountGroups />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/chart-of-accounts"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <ChartOfAccounts />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/cost-centers"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <CostCenters />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/vouchers/payment"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <PaymentVouchers />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/vouchers/receipt"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <ReceiptVouchers />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/vouchers/journal"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <JournalVouchers />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/balance-transfer"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <BalanceTransfer />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/ledger/general"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <GeneralLedger />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/ledger/cost-centers"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <CostCenterLedger />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/statements/income"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <IncomeStatement />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/statements/balance-sheet"
+            element={
+              <ProtectedRoute >
+                <DashboardLayout>
+                  <BalanceSheet />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
           {/* RBAC Management Routes */}
           <Route
             path="/rbac"
@@ -489,4 +610,13 @@ const App = () => {
 };
 
 export default App;
+
+
+
+
+
+
+
+
+
 

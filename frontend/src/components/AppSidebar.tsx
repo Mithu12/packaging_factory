@@ -16,6 +16,16 @@ import {
   Tag,
   MapPin,
   Receipt,
+  Layers,
+  GitBranch,
+  Building2,
+  Wallet,
+  Banknote,
+  NotebookPen,
+  ArrowLeftRight,
+  Notebook,
+  LineChart,
+  Scale,
   Shield,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -157,6 +167,72 @@ const menuSections: MenuSection[] = [
         url: "/expenses",
         icon: Receipt,
         permission: PERMISSIONS.EXPENSES_READ,
+      },
+      {
+        title: "Account Groups",
+        url: "/finance/account-groups",
+        icon: Layers,
+        permission: null,
+      },
+      {
+        title: "Chart of Accounts",
+        url: "/finance/chart-of-accounts",
+        icon: GitBranch,
+        permission: null,
+      },
+      {
+        title: "Cost Centers",
+        url: "/finance/cost-centers",
+        icon: Building2,
+        permission: null,
+      },
+      {
+        title: "Payment Vouchers",
+        url: "/finance/vouchers/payment",
+        icon: Wallet,
+        permission: null,
+      },
+      {
+        title: "Receipt Vouchers",
+        url: "/finance/vouchers/receipt",
+        icon: Banknote,
+        permission: null,
+      },
+      {
+        title: "Journal Vouchers",
+        url: "/finance/vouchers/journal",
+        icon: NotebookPen,
+        permission: null,
+      },
+      {
+        title: "Balance Transfer",
+        url: "/finance/balance-transfer",
+        icon: ArrowLeftRight,
+        permission: null,
+      },
+      {
+        title: "General Ledger",
+        url: "/finance/ledger/general",
+        icon: Notebook,
+        permission: null,
+      },
+      {
+        title: "Cost Center Ledger",
+        url: "/finance/ledger/cost-centers",
+        icon: Building2,
+        permission: null,
+      },
+      {
+        title: "Income Statement",
+        url: "/finance/statements/income",
+        icon: LineChart,
+        permission: null,
+      },
+      {
+        title: "Balance Sheet",
+        url: "/finance/statements/balance-sheet",
+        icon: Scale,
+        permission: null,
       },
     ],
   },
@@ -405,4 +481,6 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+
 
