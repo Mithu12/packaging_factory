@@ -1,0 +1,40 @@
+# Build artifacts
+backend/dist/
+frontend/dist/
+**/node_modules/**
+**/.cache/**
+**/coverage/**
+**/.next/**
+
+# Logs and reports
+**/*.log
+.e2e/
+e2e_testing/playwright-report/
+e2e_testing/test-results/
+
+# Maps and bundles
+**/*.map
+frontend/public/*
+!frontend/public/robots.txt
+!frontend/public/favicon.ico
+!frontend/public/placeholder.svg
+
+# Uploads and binaries
+backend/uploads/
+uploads/
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.svg
+**/*.pdf
+**/*.zip
+
+# Git and editor
+.git/
+.vscode/
+.idea/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

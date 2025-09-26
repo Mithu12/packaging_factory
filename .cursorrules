@@ -1,0 +1,83 @@
+## Purpose
+
+Shared rules for Cursor agents and contributors to keep edits consistent across this repo.
+
+## Golden Rules
+
+- Preserve existing indentation characters (tabs vs spaces) and width. Do not reformat unrelated code.
+- Make the smallest viable change. Keep edits scoped to the task at hand.
+- Prefer readability and explicitness over cleverness. Avoid deep nesting.
+- Do not introduce linter or type errors. If introduced, fix before finishing.
+- Never commit generated artifacts (build outputs, reports, caches).
+
+## Editing & Tooling
+
+- Use structured diffs for edits and avoid dumping large code in chat.
+- Add all required imports and keep import ordering consistent with nearby files.
+- Follow existing file/module boundaries; don’t move code across layers without reason.
+- When adding code, mirror nearby styles (naming, error handling, async patterns).
+- Avoid broad refactors during feature/fix tasks.
+
+## TypeScript/JavaScript Style
+
+- Strongly type exported/public APIs; avoid `any`.
+- Use meaningful names: functions as verbs, variables as descriptive nouns.
+- Prefer early returns and guard clauses. Handle errors and edge-cases first.
+- Only comment to explain “why,” not “how.” Place comments above code blocks.
+- Keep lines reasonably short; wrap long expressions across lines.
+
+## Backend (Node/Express, `backend/`)
+
+- Respect existing layers: `routes` -> `controllers` -> `mediators/services` -> `database`.
+- Reuse shared types in `backend/src/types/` and utilities in `backend/src/utils/`.
+- RBAC and audit follow existing patterns; check guides at repo root (e.g., `RBAC_IMPLEMENTATION_GUIDE.md`, `AUDIT_SYSTEM_FIX_SUMMARY.md`).
+- Don’t modify `dist/`; only change `src/` and rebuild.
+- When adding endpoints:
+  - Validate inputs in `validation/` (yup pattern as used).
+  - Enforce auth + RBAC middleware consistently.
+  - Return typed, consistent JSON shapes.
+
+## Frontend (React/Vite, `frontend/`)
+
+- Use functional components with hooks. Keep state minimal and colocated.
+- Strong TypeScript: type props, component state, and service responses.
+- Follow existing `services/` for API calls and centralized error handling.
+- Keep UI consistent with existing component library and Tailwind config.
+- No inline business logic in JSX; extract helpers/hooks where needed.
+
+## Database & Migrations (`backend/migrations/`)
+
+- Use Flyway naming `V{n}_{snake_case_description}.sql` and update docs if needed.
+- Never edit applied migrations; add a new one.
+- Validate migrations with provided scripts/config; ensure idempotence for views/indexes.
+
+## Testing & Quality
+
+- Prefer e2e coverage where it exists (`e2e_testing/` via Playwright). Keep selectors stable.
+- Add or update tests when changing behavior.
+- Run lints and type checks locally before concluding changes.
+
+## Operational Notes
+
+- Dotenv: use `env.example` as reference for new variables; update both backend and frontend if applicable.
+- Don’t log secrets. Centralize logging using existing utilities.
+- When adding dependencies, justify necessity and prefer lightweight options.
+
+## PR Checklist (for agents and humans)
+
+- Scope is tight and related to the task.
+- Code compiles; no new lints or type errors.
+- API contracts are typed end-to-end.
+- RBAC and audit hooks applied where relevant.
+- Migrations added (not edited) if schema changes.
+- Tests updated or added if behavior changed.
+- Docs and `env.example` updated if needed.
+
+## Files to Avoid in Context
+
+- Ignore build outputs, caches, large binaries, and uploads (see `.cursorignore`).
+
+## Communication
+
+- Summarize changes succinctly with impact. Use code references for existing code snippets and standard fenced blocks for new code.
+- If blocked by missing context, ask a focused question pointing to the exact uncertainty.
