@@ -17,7 +17,7 @@ import originRoutes from "./routes/origins.routes";
 import productRoutes from "./routes/products.routes";
 import stockAdjustmentRoutes from "./routes/stockAdjustments.routes";
 import purchaseOrderRoutes from "./routes/purchaseOrders.routes";
-import inventoryRoutes from "./routes/inventory.routes";
+// inventoryRoutes is loaded below with a dev/prod fallback
 import paymentRoutes from "./routes/payments.routes";
 import settingsRoutes from "./routes/settings.routes";
 import customerRoutes from "./routes/customers.routes";
@@ -36,6 +36,20 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Prefer package src in dev (tsx watch), fall back to dist in prod
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const inventoryRoutes = (() => {
+  try {
+    // Dev: use TS sources
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("../packages/inventory/src").default;
+  } catch (_) {
+    // Build/Prod: use compiled dist
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("../packages/inventory/dist").default;
+  }
+})();
 
 // Security middleware
 // app.use(helmet());
@@ -161,7 +175,6 @@ app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-
   } catch (error: any) {
     MyLogger.error(action, error, { port: PORT });
     console.error("Failed to start server:", error);
