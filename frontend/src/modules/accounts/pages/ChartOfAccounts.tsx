@@ -73,7 +73,7 @@ interface TreeNodeProps {
 }
 
 const TreeNode = ({ node, depth, onSelect, selectedId }: TreeNodeProps) => {
-  const isSelected = selectedId === node.id
+  const isSelected = selectedId === node.id.toString()
   const paddingLeft = depth * 16
 
   return (
@@ -99,7 +99,7 @@ const TreeNode = ({ node, depth, onSelect, selectedId }: TreeNodeProps) => {
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
-              <span>{node.group}</span>
+              <span>{node.groupName || node.category}</span>
               <span className="text-muted-foreground/40">|</span>
               <span>
                 Balance: {node.balance.toLocaleString(undefined, { style: "currency", currency: node.currency })}
@@ -122,18 +122,18 @@ const TreeNode = ({ node, depth, onSelect, selectedId }: TreeNodeProps) => {
   )
 }
 
-const flattenAccounts = (nodes: AccountNode[]): AccountNode[] => {
+const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 }
 
-const flattenGroupNodes = (nodes: AccountGroupNode[]): AccountGroupNode[] => {
+const flattenGroupNodes = (nodes: AccountGroup[]): AccountGroup[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenGroupNodes(node.children) : [])])
 }
 
 const filterAccountTree = (
-  nodes: AccountNode[],
-  predicate: (node: AccountNode) => boolean
-): AccountNode[] => {
+  nodes: ChartOfAccount[],
+  predicate: (node: ChartOfAccount) => boolean
+): ChartOfAccount[] => {
   return nodes
     .map((node) => {
       const filteredChildren = node.children ? filterAccountTree(node.children, predicate) : []
@@ -148,42 +148,10 @@ const filterAccountTree = (
         children: filteredChildren,
       }
     })
-    .filter((node): node is AccountNode => node !== null)
+    .filter((node): node is ChartOfAccount => node !== null)
 }
 
-type NewAccountFormState = {
-  name: string
-  code: string
-  type: AccountNodeType
-  category: AccountCategory
-  parentId: string
-  currency: string
-  openingBalance: string
-  isActive: boolean
-  notes: string
-  costCenters: string[]
-}
 
-const emptyAccountForm: NewAccountFormState = {
-  name: "",
-  code: "",
-  type: "Posting",
-  category: "Assets",
-  parentId: "",
-  currency: "USD",
-  openingBalance: "",
-  isActive: true,
-  notes: "",
-  costCenters: [],
-}
-
-const cloneAccountTree = (nodes: AccountNode[]): AccountNode[] => {
-  return nodes.map((node) => ({
-    ...node,
-    costCenters: node.costCenters ? [...node.costCenters] : undefined,
-    children: node.children ? cloneAccountTree(node.children) : undefined,
-  }))
-}
 
 type AddAccountResult = {
   added: boolean
@@ -228,25 +196,59 @@ const sortAccountTree = (nodes: AccountNode[]): AccountNode[] => {
     })
 }
 
-const initialFlattenedAccounts = flattenAccounts(chartOfAccounts)
-const initialSelectedAccountId =
-  initialFlattenedAccounts.find((node) => node.type === "Posting")?.id ??
-  initialFlattenedAccounts[0]?.id ??
-  null
 
 export default function ChartOfAccounts() {
-  const [accountTree, setAccountTree] = useState<AccountNode[]>(() => cloneAccountTree(chartOfAccounts))
+  const [accountTree, setAccountTree] = useState<ChartOfAccount[]>([])
+  const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
   const flattened = useMemo(() => flattenAccounts(accountTree), [accountTree])
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(initialSelectedAccountId)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const selectedAccount = useMemo(
-    () => (selectedAccountId ? flattened.find((node) => node.id === selectedAccountId) ?? null : null),
+    () => (selectedAccountId ? flattened.find((node) => node.id.toString() === selectedAccountId) ?? null : null),
     [flattened, selectedAccountId]
   )
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState<AccountNodeType | "All">("All")
   const [selectedCategory, setSelectedCategory] = useState<AccountCategory | "All">("All")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newAccountForm, setNewAccountForm] = useState<NewAccountFormState>(emptyAccountForm)
+  const [formData, setFormData] = useState<CreateChartOfAccountRequest>({
+    name: "",
+    code: "",
+    type: "Posting",
+    category: "Assets",
+    notes: "",
+  })
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [accountsData, groupsData] = await Promise.all([
+        ChartOfAccountsApiService.getChartOfAccountsTree(),
+        AccountGroupsApiService.getAccountGroupsTree()
+      ])
+      setAccountTree(accountsData)
+      setAccountGroups(groupsData)
+      
+      // Set initial selected account
+      const flattenedAccounts = flattenAccounts(accountsData)
+      const initialSelected = flattenedAccounts.find((node) => node.type === "Posting")?.id ?? 
+                             flattenedAccounts[0]?.id ?? null
+      setSelectedAccountId(initialSelected?.toString() || null)
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      toast.error("Failed to load chart of accounts", {
+        description: "Please try refreshing the page.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (flattened.length === 0) {
@@ -255,174 +257,139 @@ export default function ChartOfAccounts() {
     }
 
     if (selectedAccountId) {
-      const exists = flattened.some((account) => account.id === selectedAccountId)
+      const exists = flattened.some((account) => account.id.toString() === selectedAccountId)
       if (!exists) {
         const fallback = flattened.find((account) => account.type === "Posting") ?? flattened[0]
-        setSelectedAccountId(fallback?.id ?? null)
+        setSelectedAccountId(fallback?.id.toString() ?? null)
       }
     } else {
       const fallback = flattened.find((account) => account.type === "Posting") ?? flattened[0]
-      setSelectedAccountId(fallback?.id ?? null)
+      setSelectedAccountId(fallback?.id.toString() ?? null)
     }
   }, [flattened, selectedAccountId])
 
   const availableParentOptions = useMemo(
     () =>
       flattened.filter(
-        (account) => account.type === "Control" && account.group === newAccountForm.category
+        (account) => account.type === "Control" && account.category === formData.category
       ),
-    [flattened, newAccountForm.category]
+    [flattened, formData.category]
+  )
+
+  const availableGroupOptions = useMemo(
+    () => {
+      const flatGroups = accountGroups.flatMap(group => [group, ...(group.children || [])])
+      return flatGroups.filter(group => group.category === formData.category)
+    },
+    [accountGroups, formData.category]
   )
 
   const handleCreateDialogChange = (open: boolean) => {
     setIsCreateDialogOpen(open)
     if (open) {
-      const fallbackCategory = selectedAccount?.group ?? "Assets"
+      const fallbackCategory = selectedAccount?.category ?? "Assets"
       const fallbackParent =
         selectedAccount?.type === "Control"
           ? selectedAccount.id
           : flattened.find(
-              (account) => account.group === fallbackCategory && account.type === "Control"
+              (account) => account.category === fallbackCategory && account.type === "Control"
             )?.id ?? ""
 
-      setNewAccountForm({
+      setFormData({
         name: "",
         code: "",
         type: "Posting",
         category: fallbackCategory,
-        parentId: fallbackParent,
+        parentId: typeof fallbackParent === 'string' ? parseInt(fallbackParent) : fallbackParent,
         currency: selectedAccount?.currency ?? "USD",
-        openingBalance: "",
-        isActive: true,
         notes: "",
-        costCenters: [],
       })
     } else {
-      setNewAccountForm(emptyAccountForm)
+      setFormData({
+        name: "",
+        code: "",
+        type: "Posting",
+        category: "Assets",
+        notes: "",
+      })
+    }
+  }
+
+  const handleCreateAccount = async () => {
+    try {
+      setIsCreating(true)
+      await ChartOfAccountsApiService.createChartOfAccount(formData)
+      toast.success("Account created successfully")
+      setIsCreateDialogOpen(false)
+      loadData() // Refresh data
+    } catch (error: any) {
+      console.error('Failed to create account:', error)
+      toast.error("Failed to create account", {
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsCreating(false)
     }
   }
 
   const handleAccountTypeChange = (value: AccountNodeType) => {
-    setNewAccountForm((previous) => ({
+    setFormData((previous) => ({
       ...previous,
       type: value,
-      costCenters: value === "Control" ? [] : previous.costCenters,
     }))
   }
 
   const handleAccountCategoryChange = (value: AccountCategory) => {
-    setNewAccountForm((previous) => {
+    setFormData((previous) => {
       const parentStillValid =
-        previous.parentId !== "" &&
+        previous.parentId &&
         flattened.some(
           (account) =>
             account.id === previous.parentId &&
             account.type === "Control" &&
-            account.group === value
+            account.category === value
         )
-
-      const fallbackParent =
-        parentStillValid
-          ? previous.parentId
-          : flattened.find(
-              (account) => account.type === "Control" && account.group === value
-            )?.id ?? ""
 
       return {
         ...previous,
         category: value,
-        parentId: fallbackParent,
+        parentId: parentStillValid ? previous.parentId : undefined,
+        groupId: undefined, // Reset group when category changes
       }
     })
   }
 
-  const handleCostCenterToggle = (id: string, checked: boolean) => {
-    setNewAccountForm((previous) => {
-      const next = new Set(previous.costCenters)
-      if (checked) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
-      return { ...previous, costCenters: Array.from(next) }
-    })
-  }
 
   const handleCreateAccountSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const trimmedName = newAccountForm.name.trim()
-    const trimmedCode = newAccountForm.code.trim()
+    const trimmedName = formData.name.trim()
+    const trimmedCode = formData.code.trim()
 
     if (!trimmedName || !trimmedCode) {
       toast.error("Account name and code are required")
       return
     }
 
-    if (flattened.some((account) => account.code === trimmedCode)) {
-      toast.error("An account with this code already exists")
-      return
-    }
+    // Code uniqueness will be validated by the backend
 
-    const newAccountId = `acct-${Date.now()}`
-    const openingBalance = Number(newAccountForm.openingBalance) || 0
-
-    const newAccount: AccountNode = {
-      id: newAccountId,
-      name: trimmedName,
-      code: trimmedCode,
-      type: newAccountForm.type,
-      group: newAccountForm.category,
-      balance: openingBalance,
-      currency: newAccountForm.currency || "USD",
-      status: newAccountForm.isActive ? "Active" : "Inactive",
-      notes: newAccountForm.notes.trim() ? newAccountForm.notes.trim() : undefined,
-    }
-
-    if (newAccountForm.type === "Control") {
-      newAccount.children = []
-    } else if (newAccountForm.costCenters.length > 0) {
-      newAccount.costCenters = newAccountForm.costCenters
-    }
-
-    const parentId = newAccountForm.parentId || null
-
-    if (parentId) {
-      newAccount.parentId = parentId
-    }
-
-    setAccountTree((previous) => {
-      const result = addAccountToTree(previous, parentId, newAccount)
-      const fallbackAccount = parentId ? { ...newAccount, parentId: undefined } : newAccount
-      const nextTree = result.added ? result.nodes : [...result.nodes, fallbackAccount]
-      return sortAccountTree(nextTree)
-    })
-
-    setSelectedAccountId(newAccountId)
-    setIsCreateDialogOpen(false)
-    setNewAccountForm(emptyAccountForm)
-    toast.success("Account added", {
-      description: `${trimmedName} (${trimmedCode}) is now available in the chart.`,
-    })
+    handleCreateAccount()
   }
   const metrics = useMemo(() => {
     const total = flattened.length
     const posting = flattened.filter((node) => node.type === "Posting").length
     const active = flattened.filter((node) => node.status === "Active").length
-    const costCenterSet = new Set<string>()
-    flattened.forEach((node) => node.costCenters?.forEach((id) => costCenterSet.add(id)))
     return {
       total,
       posting,
       active,
-      costCenters: costCenterSet.size,
     }
   }, [flattened])
 
   const filteredTree = useMemo(() => {
-    const predicate = (node: AccountNode) => {
+    const predicate = (node: ChartOfAccount) => {
       const matchesType = selectedType === "All" || node.type === selectedType
-      const matchesCategory = selectedCategory === "All" || node.group === selectedCategory
+      const matchesCategory = selectedCategory === "All" || node.category === selectedCategory
       const matchesSearch =
         searchTerm.trim().length === 0 ||
         node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -488,8 +455,8 @@ export default function ChartOfAccounts() {
                   <Label htmlFor="new-account-name">Account name</Label>
                   <Input
                     id="new-account-name"
-                    value={newAccountForm.name}
-                    onChange={(event) => setNewAccountForm((previous) => ({ ...previous, name: event.target.value }))}
+                    value={formData.name}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, name: event.target.value }))}
                     required
                   />
                 </div>
@@ -497,15 +464,15 @@ export default function ChartOfAccounts() {
                   <Label htmlFor="new-account-code">Account code</Label>
                   <Input
                     id="new-account-code"
-                    value={newAccountForm.code}
-                    onChange={(event) => setNewAccountForm((previous) => ({ ...previous, code: event.target.value }))}
+                    value={formData.code}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, code: event.target.value }))}
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-account-type">Account type</Label>
                   <Select
-                    value={newAccountForm.type}
+                    value={formData.type}
                     onValueChange={(value) => handleAccountTypeChange(value as AccountNodeType)}
                   >
                     <SelectTrigger id="new-account-type">
@@ -523,7 +490,7 @@ export default function ChartOfAccounts() {
                 <div className="space-y-2">
                   <Label htmlFor="new-account-category">Category</Label>
                   <Select
-                    value={newAccountForm.category}
+                    value={formData.category}
                     onValueChange={(value) => handleAccountCategoryChange(value as AccountCategory)}
                   >
                     <SelectTrigger id="new-account-category">
@@ -541,16 +508,16 @@ export default function ChartOfAccounts() {
                 <div className="space-y-2">
                   <Label htmlFor="new-account-parent">Parent account</Label>
                   <Select
-                    value={newAccountForm.parentId}
-                    onValueChange={(value) => setNewAccountForm((previous) => ({ ...previous, parentId: value }))}
+                    value={formData.parentId?.toString() || "none"}
+                    onValueChange={(value) => setFormData((previous) => ({ ...previous, parentId: value === "none" ? undefined : parseInt(value) }))}
                   >
                     <SelectTrigger id="new-account-parent">
                       <SelectValue placeholder="Top-level (no parent)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Top-level (no parent)</SelectItem>
+                      <SelectItem value="none">Top-level (no parent)</SelectItem>
                       {availableParentOptions.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
+                        <SelectItem key={account.id} value={account.id.toString()}>
                           {account.code} - {account.name}
                         </SelectItem>
                       ))}
@@ -566,34 +533,28 @@ export default function ChartOfAccounts() {
                   <Label htmlFor="new-account-currency">Currency</Label>
                   <Input
                     id="new-account-currency"
-                    value={newAccountForm.currency}
-                    onChange={(event) => setNewAccountForm((previous) => ({ ...previous, currency: event.target.value }))}
+                    value={formData.currency || "USD"}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, currency: event.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="new-account-opening">Opening balance</Label>
-                  <Input
-                    id="new-account-opening"
-                    type="number"
-                    step="0.01"
-                    value={newAccountForm.openingBalance}
-                    onChange={(event) => setNewAccountForm((previous) => ({ ...previous, openingBalance: event.target.value }))}
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <div>
-                    <Label htmlFor="new-account-active">Active</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Inactive accounts remain in the hierarchy but cannot be posted to.
-                    </p>
-                  </div>
-                  <Switch
-                    id="new-account-active"
-                    checked={newAccountForm.isActive}
-                    onCheckedChange={(checked) =>
-                      setNewAccountForm((previous) => ({ ...previous, isActive: Boolean(checked) }))
-                    }
-                  />
+                  <Label htmlFor="new-account-group">Account Group</Label>
+                  <Select
+                    value={formData.groupId?.toString() || "none"}
+                    onValueChange={(value) => setFormData((previous) => ({ ...previous, groupId: value === "none" ? undefined : parseInt(value) }))}
+                  >
+                    <SelectTrigger id="new-account-group">
+                      <SelectValue placeholder="Select account group (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No group</SelectItem>
+                      {availableGroupOptions.map((group) => (
+                        <SelectItem key={group.id} value={group.id.toString()}>
+                          {group.name} ({group.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
@@ -601,38 +562,25 @@ export default function ChartOfAccounts() {
                 <Textarea
                   id="new-account-notes"
                   rows={3}
-                  value={newAccountForm.notes}
-                  onChange={(event) => setNewAccountForm((previous) => ({ ...previous, notes: event.target.value }))}
+                  value={formData.notes || ""}
+                  onChange={(event) => setFormData((previous) => ({ ...previous, notes: event.target.value }))}
                   placeholder="Optional guidance for this account"
                 />
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Cost centers</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Tag posting accounts to default cost centers. Control accounts cannot be tagged.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {costCenters.map((center) => (
-                    <label key={center.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={newAccountForm.costCenters.includes(center.id)}
-                        onCheckedChange={(checked) => handleCostCenterToggle(center.id, checked === true)}
-                        disabled={newAccountForm.type === "Control"}
-                      />
-                      <span>{center.name}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => handleCreateDialogChange(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Create account</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create account"
+                  )}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -740,13 +688,18 @@ export default function ChartOfAccounts() {
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[620px] pr-4">
-              {filteredTree.length > 0 ? (
+              {isLoading ? (
+                <div className="flex h-32 flex-col items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                  Loading chart of accounts...
+                </div>
+              ) : filteredTree.length > 0 ? (
                 filteredTree.map((node) => (
                   <TreeNode
                     key={node.id}
                     node={node}
                     depth={0}
-                    onSelect={(node) => setSelectedAccountId(node.id)}
+                    onSelect={(node) => setSelectedAccountId(node.id.toString())}
                     selectedId={selectedAccountId}
                   />
                 ))

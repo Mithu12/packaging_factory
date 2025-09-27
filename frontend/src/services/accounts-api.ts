@@ -21,7 +21,7 @@ export interface AccountGroup {
   status: AccountStatus;
   createdAt: string;
   updatedAt: string;
-  children?: AccountGroup[];
+  children: AccountGroup[];
 }
 
 export interface CreateAccountGroupRequest {
