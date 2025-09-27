@@ -378,3 +378,105 @@ export interface CostCenterQueryParams {
   sortBy?: 'id' | 'name' | 'code' | 'type' | 'department' | 'budget' | 'actualSpend' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
 }
+
+// =====================================================
+// VOUCHER TYPES
+// =====================================================
+
+export enum VoucherType {
+  PAYMENT = 'Payment',
+  RECEIPT = 'Receipt',
+  JOURNAL = 'Journal',
+  CONTRA = 'Contra'
+}
+
+export enum VoucherStatus {
+  DRAFT = 'Draft',
+  PENDING_APPROVAL = 'Pending Approval',
+  POSTED = 'Posted',
+  VOID = 'Void'
+}
+
+export interface Voucher {
+  id: number;
+  voucherNo: string;
+  type: VoucherType;
+  date: string;
+  reference?: string;
+  payee?: string;
+  amount: number;
+  currency: string;
+  status: VoucherStatus;
+  narration: string;
+  costCenterId?: number;
+  attachments?: number;
+  createdBy: number;
+  approvedBy?: number;
+  createdAt: string;
+  updatedAt: string;
+  lines: VoucherLine[];
+}
+
+export interface VoucherLine {
+  id: number;
+  voucherId: number;
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVoucherRequest {
+  type: VoucherType;
+  date: string;
+  reference?: string;
+  payee?: string;
+  narration: string;
+  costCenterId?: number;
+  lines: CreateVoucherLineRequest[];
+}
+
+export interface CreateVoucherLineRequest {
+  accountId: number;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+}
+
+export interface UpdateVoucherRequest {
+  date?: string;
+  reference?: string;
+  payee?: string;
+  narration?: string;
+  costCenterId?: number;
+  status?: VoucherStatus;
+  lines?: UpdateVoucherLineRequest[];
+}
+
+export interface UpdateVoucherLineRequest {
+  id?: number;
+  accountId: number;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+}
+
+export interface VoucherQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: VoucherType;
+  status?: VoucherStatus;
+  costCenterId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'id' | 'voucherNo' | 'date' | 'amount' | 'status' | 'created_at';
+  sortOrder?: 'asc' | 'desc';
+}

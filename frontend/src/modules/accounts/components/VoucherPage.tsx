@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   Plus,
   Search,
@@ -48,16 +48,20 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/sonner"
-import { vouchers, costCenters, chartOfAccounts } from "@/modules/accounts/data/mockData"
-import type {
-  Voucher,
-  VoucherLine,
+import { 
+  VouchersApiService,
+  CostCentersApiService,
+  ChartOfAccountsApiService,
   VoucherStatus,
   VoucherType,
-  AccountNode,
-} from "@/modules/accounts/types"
+  type Voucher,
+  type VoucherLine,
+  type CreateVoucherRequest,
+  type ChartOfAccount,
+  type CostCenter
+} from "@/services/accounts-api"
 
-const statusFilters: Array<"All" | VoucherStatus> = ["All", "Draft", "Pending Approval", "Posted", "Void"]
+const statusFilters: Array<"All" | VoucherStatus> = ["All", VoucherStatus.DRAFT, VoucherStatus.PENDING_APPROVAL, VoucherStatus.POSTED, VoucherStatus.VOID]
 const dateFilters = [
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
@@ -71,12 +75,17 @@ const formatCurrency = (value: number, currency = "USD") =>
     currency,
   })
 
-const flattenAccounts = (nodes: AccountNode[]): AccountNode[] => {
+const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 }
 
-interface DraftLine extends Pick<VoucherLine, "accountCode" | "debit" | "credit" | "costCenterId"> {
+interface DraftLine {
   id: string
+  accountId: number
+  accountCode: string
+  debit: number
+  credit: number
+  costCenterId?: number
 }
 
 interface VoucherPageProps {
@@ -100,8 +109,19 @@ export function VoucherPage({
   showCounterparty = true,
   narrationLabel = "Narration",
 }: VoucherPageProps) {
-  const allPostingAccounts = useMemo(() => flattenAccounts(chartOfAccounts).filter((node) => node.type === "Posting"), [])
-  const data = useMemo(() => vouchers.filter((voucher) => voucher.type === type), [type])
+  // State for data
+  const [vouchers, setVouchers] = useState<Voucher[]>([])
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [chartOfAccounts, setChartOfAccounts] = useState<ChartOfAccount[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const allPostingAccounts = useMemo(() => 
+    flattenAccounts(chartOfAccounts).filter((node) => node.category !== "Group"), 
+    [chartOfAccounts]
+  )
+  
+  const data = useMemo(() => vouchers.filter((voucher) => voucher.type === type), [vouchers, type])
 
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"All" | VoucherStatus>("All")
@@ -121,9 +141,36 @@ export function VoucherPage({
   })
 
   const [lines, setLines] = useState<DraftLine[]>([
-    { id: "line-1", accountCode: "", debit: 0, credit: 0, costCenterId: "" },
-    { id: "line-2", accountCode: "", debit: 0, credit: 0, costCenterId: "" },
+    { id: "line-1", accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
+    { id: "line-2", accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
   ])
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        const [vouchersResponse, costCentersResponse, accountsResponse] = await Promise.all([
+          VouchersApiService.getVouchers({ type, limit: 1000 }),
+          CostCentersApiService.getCostCenters({ limit: 1000 }),
+          ChartOfAccountsApiService.getChartOfAccountsTree()
+        ])
+        
+        setVouchers(vouchersResponse.data)
+        setCostCenters(costCentersResponse.data)
+        setChartOfAccounts(accountsResponse)
+      } catch (error) {
+        console.error('Failed to load data:', error)
+        toast.error("Failed to load data", {
+          description: "Please refresh the page to try again.",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [type])
 
   const metrics = useMemo(() => {
     const totalAmount = data.reduce((sum, voucher) => sum + voucher.amount, 0)
@@ -144,7 +191,7 @@ export function VoucherPage({
     return data
       .filter((voucher) => {
         const matchesStatus = statusFilter === "All" || voucher.status === statusFilter
-        const matchesCostCenter = costCenterFilter === "All" || voucher.costCenterId === costCenterFilter
+        const matchesCostCenter = costCenterFilter === "All" || voucher.costCenterId?.toString() === costCenterFilter
         const matchesSearch =
           searchTerm.trim().length === 0 ||
           voucher.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,17 +219,30 @@ export function VoucherPage({
   const handleAddLine = () => {
     setLines((prev) => [
       ...prev,
-      { id: `line-${prev.length + 1}`, accountCode: "", debit: 0, credit: 0, costCenterId: "" },
+      { id: `line-${prev.length + 1}`, accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
     ])
   }
 
-  const handleLineChange = (id: string, key: keyof DraftLine, value: string) => {
+  const handleLineChange = (id: string, key: keyof DraftLine, value: string | number) => {
     setLines((prev) =>
       prev.map((line) => {
         if (line.id !== id) return line
         if (key === "debit" || key === "credit") {
           const numericValue = Number(value)
           return { ...line, [key]: Number.isNaN(numericValue) ? 0 : numericValue }
+        }
+        if (key === "accountId") {
+          const accountId = Number(value)
+          const account = allPostingAccounts.find(acc => acc.id === accountId)
+          return { 
+            ...line, 
+            accountId,
+            accountCode: account ? account.code : ""
+          }
+        }
+        if (key === "costCenterId") {
+          const costCenterId = value === "" ? undefined : Number(value)
+          return { ...line, costCenterId }
         }
         return { ...line, [key]: value }
       })
@@ -193,7 +253,7 @@ export function VoucherPage({
     setLines((prev) => prev.filter((line) => line.id !== id))
   }
 
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const debitTotal = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
     const creditTotal = lines.reduce((sum, line) => sum + (line.credit || 0), 0)
@@ -205,22 +265,65 @@ export function VoucherPage({
       return
     }
 
-    toast.success(`${primaryActionLabel} captured`, {
-      description: "The voucher is saved as a draft and awaits approval.",
-    })
-    setIsDialogOpen(false)
-    setFormState({
-      date: new Date().toISOString().slice(0, 10),
-      reference: "",
-      counterparty: "",
-      amount: "",
-      costCenterId: "",
-      narration: "",
-    })
-    setLines([
-      { id: "line-1", accountCode: "", debit: 0, credit: 0, costCenterId: "" },
-      { id: "line-2", accountCode: "", debit: 0, credit: 0, costCenterId: "" },
-    ])
+    // Validate that all lines have accounts selected
+    const invalidLines = lines.filter(line => !line.accountId || line.accountId === 0)
+    if (invalidLines.length > 0) {
+      toast.error("Invalid voucher lines", {
+        description: "All lines must have an account selected.",
+      })
+      return
+    }
+
+    try {
+      setIsCreating(true)
+      
+      const voucherData: CreateVoucherRequest = {
+        type,
+        date: formState.date,
+        reference: formState.reference || undefined,
+        payee: formState.counterparty || undefined,
+        narration: formState.narration,
+        costCenterId: formState.costCenterId ? parseInt(formState.costCenterId) : undefined,
+        lines: lines.map(line => ({
+          accountId: line.accountId,
+          debit: line.debit,
+          credit: line.credit,
+          costCenterId: line.costCenterId,
+        }))
+      }
+
+      await VouchersApiService.createVoucher(voucherData)
+      
+      toast.success(`${primaryActionLabel} created successfully`, {
+        description: "The voucher is saved as a draft and awaits approval.",
+      })
+      
+      setIsDialogOpen(false)
+      setFormState({
+        date: new Date().toISOString().slice(0, 10),
+        reference: "",
+        counterparty: "",
+        amount: "",
+        costCenterId: "",
+        narration: "",
+      })
+      setLines([
+        { id: "line-1", accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
+        { id: "line-2", accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
+      ])
+
+      // Reload vouchers
+      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000 })
+      setVouchers(vouchersResponse.data)
+      
+    } catch (error: any) {
+      console.error('Failed to create voucher:', error)
+      toast.error("Failed to create voucher", {
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -299,7 +402,7 @@ export function VoucherPage({
                     </SelectTrigger>
                     <SelectContent>
                       {costCenters.map((center) => (
-                        <SelectItem key={center.id} value={center.id}>
+                        <SelectItem key={center.id} value={center.id.toString()}>
                           {center.name}
                         </SelectItem>
                       ))}
@@ -335,15 +438,15 @@ export function VoucherPage({
                     {lines.map((line) => (
                       <div key={line.id} className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_40px]">
                         <Select
-                          value={line.accountCode}
-                          onValueChange={(value) => handleLineChange(line.id, "accountCode", value)}
+                          value={line.accountId ? line.accountId.toString() : ""}
+                          onValueChange={(value) => handleLineChange(line.id, "accountId", value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select account" />
                           </SelectTrigger>
                           <SelectContent>
                             {allPostingAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.code}>
+                              <SelectItem key={account.id} value={account.id.toString()}>
                                 {account.code} {account.name}
                               </SelectItem>
                             ))}
@@ -366,7 +469,7 @@ export function VoucherPage({
                           onChange={(event) => handleLineChange(line.id, "credit", event.target.value)}
                         />
                         <Select
-                          value={line.costCenterId ?? ""}
+                          value={line.costCenterId ? line.costCenterId.toString() : ""}
                           onValueChange={(value) => handleLineChange(line.id, "costCenterId", value)}
                         >
                           <SelectTrigger>
@@ -375,14 +478,14 @@ export function VoucherPage({
                           <SelectContent>
                             <SelectItem value="">None</SelectItem>
                             {costCenters.map((center) => (
-                              <SelectItem key={center.id} value={center.id}>
+                              <SelectItem key={center.id} value={center.id.toString()}>
                                 {center.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveLine(line.id)}>
-                          ×
+                          ï¿½
                         </Button>
                       </div>
                     ))}
@@ -404,7 +507,9 @@ export function VoucherPage({
                 <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Save voucher</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? "Creating..." : "Save voucher"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -487,7 +592,7 @@ export function VoucherPage({
                 <SelectContent>
                   <SelectItem value="All">All cost centers</SelectItem>
                   {costCenters.map((center) => (
-                    <SelectItem key={center.id} value={center.id}>
+                    <SelectItem key={center.id} value={center.id.toString()}>
                       {center.name}
                     </SelectItem>
                   ))}
@@ -537,10 +642,16 @@ export function VoucherPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredVouchers.length > 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
+                      Loading vouchers...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredVouchers.length > 0 ? (
                   filteredVouchers.map((voucher) => {
                     const costCenterName = voucher.costCenterId
-                      ? costCenters.find((center) => center.id === voucher.costCenterId)?.name ?? ""
+                      ? costCenters.find((center) => center.id.toString() === voucher.costCenterId?.toString())?.name ?? ""
                       : ""
                     return (
                       <TableRow key={voucher.id}>

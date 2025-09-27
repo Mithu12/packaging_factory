@@ -442,5 +442,185 @@ export const accountGroupsQueryKeys = {
   detail: (id: number) => [...accountGroupsQueryKeys.all, 'detail', id] as const,
 };
 
+// =====================================================
+// VOUCHER TYPES
+// =====================================================
+
+export enum VoucherType {
+  PAYMENT = 'Payment',
+  RECEIPT = 'Receipt',
+  JOURNAL = 'Journal',
+  CONTRA = 'Contra'
+}
+
+export enum VoucherStatus {
+  DRAFT = 'Draft',
+  PENDING_APPROVAL = 'Pending Approval',
+  POSTED = 'Posted',
+  VOID = 'Void'
+}
+
+export interface Voucher {
+  id: number;
+  voucherNo: string;
+  type: VoucherType;
+  date: string;
+  reference?: string;
+  payee?: string;
+  amount: number;
+  currency: string;
+  status: VoucherStatus;
+  narration: string;
+  costCenterId?: number;
+  attachments?: number;
+  createdBy: number;
+  approvedBy?: number;
+  createdAt: string;
+  updatedAt: string;
+  lines: VoucherLine[];
+}
+
+export interface VoucherLine {
+  id: number;
+  voucherId: number;
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVoucherRequest {
+  type: VoucherType;
+  date: string;
+  reference?: string;
+  payee?: string;
+  narration: string;
+  costCenterId?: number;
+  lines: CreateVoucherLineRequest[];
+}
+
+export interface CreateVoucherLineRequest {
+  accountId: number;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+}
+
+export interface UpdateVoucherRequest {
+  date?: string;
+  reference?: string;
+  payee?: string;
+  narration?: string;
+  costCenterId?: number;
+  status?: VoucherStatus;
+  lines?: UpdateVoucherLineRequest[];
+}
+
+export interface UpdateVoucherLineRequest {
+  id?: number;
+  accountId: number;
+  debit: number;
+  credit: number;
+  costCenterId?: number;
+  description?: string;
+}
+
+export interface VoucherQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: VoucherType;
+  status?: VoucherStatus;
+  costCenterId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'id' | 'voucherNo' | 'date' | 'amount' | 'status' | 'created_at';
+  sortOrder?: 'asc' | 'desc';
+}
+
+// =====================================================
+// VOUCHERS API SERVICE
+// =====================================================
+
+export class VouchersApiService {
+  private static readonly BASE_URL = '/api/accounts/vouchers';
+
+  // Get all vouchers with pagination and filtering
+  static async getVouchers(params?: VoucherQueryParams): Promise<PaginatedResponse<Voucher>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.costCenterId) queryParams.append('costCenterId', params.costCenterId.toString());
+    if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+
+    const url = queryParams.toString() ? `${this.BASE_URL}?${queryParams.toString()}` : this.BASE_URL;
+    return makeRequest<PaginatedResponse<Voucher>>(url, { method: 'GET' });
+  }
+
+  // Get voucher statistics
+  static async getVoucherStats(type?: VoucherType): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (type) queryParams.append('type', type);
+    
+    const url = queryParams.toString() ? `${this.BASE_URL}/stats?${queryParams.toString()}` : `${this.BASE_URL}/stats`;
+    return makeRequest<any>(url, { method: 'GET' });
+  }
+
+  // Get single voucher by ID
+  static async getVoucherById(id: number): Promise<Voucher> {
+    return makeRequest<Voucher>(`${this.BASE_URL}/${id}`, { method: 'GET' });
+  }
+
+  // Create new voucher
+  static async createVoucher(data: CreateVoucherRequest): Promise<Voucher> {
+    return makeRequest<Voucher>(this.BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update voucher
+  static async updateVoucher(id: number, data: UpdateVoucherRequest): Promise<Voucher> {
+    return makeRequest<Voucher>(`${this.BASE_URL}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Approve voucher
+  static async approveVoucher(id: number): Promise<Voucher> {
+    return makeRequest<Voucher>(`${this.BASE_URL}/${id}/approve`, {
+      method: 'PUT',
+    });
+  }
+
+  // Void voucher
+  static async voidVoucher(id: number): Promise<Voucher> {
+    return makeRequest<Voucher>(`${this.BASE_URL}/${id}/void`, {
+      method: 'PUT',
+    });
+  }
+
+  // Delete voucher
+  static async deleteVoucher(id: number): Promise<void> {
+    return makeRequest<void>(`${this.BASE_URL}/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
 // Export default service for convenience
 export default AccountGroupsApiService;
