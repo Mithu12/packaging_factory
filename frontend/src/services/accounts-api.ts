@@ -28,7 +28,7 @@ export interface CreateAccountGroupRequest {
   name: string;
   code: string;
   category: AccountCategory;
-  parentId?: number;
+    parentId?: string;
   description?: string;
   status?: AccountStatus;
 }

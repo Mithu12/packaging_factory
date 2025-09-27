@@ -12,7 +12,7 @@ import distributionRoutes from "@/modules/inventory/routes/distribution.routes";
 import express from "express";
 
 const router = express.Router();
-// Mount sub-routes
+// Mount inventory-module-routes
 router.use("/inventory", inventoryRouter);
 router.use("/suppliers", suppliersRoutes);
 router.use("/categories", categoriesRoutes);

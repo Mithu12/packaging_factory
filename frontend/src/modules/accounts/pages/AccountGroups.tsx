@@ -32,6 +32,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/components/ui/sonner"
 import { AccountGroupsApiService, type AccountGroup, type AccountCategory, type CreateAccountGroupRequest } from "@/services/accounts-api"
+import {atob} from "node:buffer";
 
 const accountCategories: AccountCategory[] = [
   "Assets",
@@ -109,7 +110,7 @@ export default function AccountGroups() {
     category: "Assets",
     description: "",
   })
-
+    console.log(formData)
   // Load account groups on component mount
   useEffect(() => {
     loadAccountGroups()
@@ -270,14 +271,16 @@ export default function AccountGroups() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="group-parent">Parent group (optional)</Label>
-                    <Select>
+                    <Select 
+                    value={formData.parentId?.toString()}
+                      onValueChange={(value) => setFormData({...formData, parentId: value.toString()})}>
                       <SelectTrigger id="group-parent">
                         <SelectValue placeholder="Top-level group" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Top-level group</SelectItem>
                         {allGroups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
+                          <SelectItem key={group.id} value={group.id.toString()}>
                             {group.code} � {group.name}
                           </SelectItem>
                         ))}
