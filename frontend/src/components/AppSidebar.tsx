@@ -27,6 +27,9 @@ import {
   LineChart,
   Scale,
   Shield,
+  Calendar,
+  Activity,
+  AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -45,7 +48,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useRBAC } from "@/contexts/RBACContext";
-import { PermissionGuard, SystemAdminGuard } from "@/components/rbac/PermissionGuard";
+import {
+  PermissionGuard,
+  SystemAdminGuard,
+} from "@/components/rbac/PermissionGuard";
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
 
 type MenuItem = {
@@ -159,6 +165,48 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
+    title: "Factory Operations",
+    icon: Building2,
+    items: [
+      {
+        title: "Factory Dashboard",
+        url: "/factory",
+        icon: BarChart3,
+        permission: null,
+      },
+      {
+        title: "Order Acceptance",
+        url: "/factory/orders",
+        icon: Package,
+        permission: null,
+      },
+      {
+        title: "Work Order Planning",
+        url: "/factory/work-orders",
+        icon: Calendar,
+        permission: null,
+      },
+      {
+        title: "Production Execution",
+        url: "/factory/production",
+        icon: Activity,
+        permission: null,
+      },
+      {
+        title: "Wastage Tracking",
+        url: "/factory/wastage",
+        icon: AlertTriangle,
+        permission: null,
+      },
+      {
+        title: "Factory Expenses",
+        url: "/factory/expenses",
+        icon: Receipt,
+        permission: null,
+      },
+    ],
+  },
+  {
     title: "Finance & Expenses",
     icon: DollarSign,
     items: [
@@ -250,7 +298,6 @@ const menuSections: MenuSection[] = [
   // },
 ];
 
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
@@ -266,10 +313,14 @@ export function AppSidebar() {
     [currentPath]
   );
 
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >(() => {
     const initialState: Record<string, boolean> = {};
     menuSections.forEach((section) => {
-      const sectionHasActiveItem = section.items.some((item) => matchesPath(item.url));
+      const sectionHasActiveItem = section.items.some((item) =>
+        matchesPath(item.url)
+      );
       initialState[section.title] = !sectionHasActiveItem;
     });
     return initialState;
@@ -287,7 +338,9 @@ export function AppSidebar() {
       let updated = previous;
 
       menuSections.forEach((section) => {
-        const sectionHasActiveItem = section.items.some((item) => matchesPath(item.url));
+        const sectionHasActiveItem = section.items.some((item) =>
+          matchesPath(item.url)
+        );
         if (sectionHasActiveItem && previous[section.title]) {
           if (updated === previous) {
             updated = { ...previous };
@@ -375,7 +428,9 @@ export function AppSidebar() {
           </SidebarGroup>
         ) : (
           visibleMenuSections.map((section) => {
-            const sectionId = `section-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+            const sectionId = `section-${section.title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}`;
             const isSectionCollapsed =
               collapsedSections[section.title] ?? false;
             const hasActiveItem = section.items.some((item) =>
@@ -389,7 +444,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       data-active={hasActiveItem}
-                      className={`text-sidebar-foreground/80 ${isCollapsed ? "justify-center" : "uppercase tracking-[0.12em] text-xs font-semibold"}`}
+                      className={`text-sidebar-foreground/80 ${
+                        isCollapsed
+                          ? "justify-center"
+                          : "uppercase tracking-[0.12em] text-xs font-semibold"
+                      }`}
                     >
                       <button
                         type="button"
@@ -403,14 +462,19 @@ export function AppSidebar() {
                           <>
                             <span className="flex-1">{section.title}</span>
                             <ChevronDown
-                              className={`ml-2 h-3.5 w-3.5 text-sidebar-foreground/60 transition-transform ${isSectionCollapsed ? "" : "rotate-180"}`}
+                              className={`ml-2 h-3.5 w-3.5 text-sidebar-foreground/60 transition-transform ${
+                                isSectionCollapsed ? "" : "rotate-180"
+                              }`}
                             />
                           </>
                         )}
                       </button>
                     </SidebarMenuButton>
                     {!isSectionCollapsed && (
-                      <SidebarMenuSub id={sectionId} className="mt-1 mx-0 border-l-0 pl-3">
+                      <SidebarMenuSub
+                        id={sectionId}
+                        className="mt-1 mx-0 border-l-0 pl-3"
+                      >
                         {section.items.map((item) => (
                           <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton
@@ -452,7 +516,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </PermissionGuard>
-              
+
               <SystemAdminGuard>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
@@ -463,7 +527,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SystemAdminGuard>
-              
+
               <PermissionGuard permission={PERMISSIONS.SETTINGS_READ}>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
@@ -481,6 +545,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-
-
