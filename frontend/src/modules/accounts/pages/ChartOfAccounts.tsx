@@ -70,23 +70,27 @@ interface TreeNodeProps {
   depth: number
   onSelect: (node: ChartOfAccount) => void
   selectedId?: string
+  onEdit?: (node: ChartOfAccount) => void
+  onToggleStatus?: (node: ChartOfAccount) => void
 }
 
-const TreeNode = ({ node, depth, onSelect, selectedId }: TreeNodeProps) => {
+const TreeNode = ({ node, depth, onSelect, selectedId, onEdit, onToggleStatus }: TreeNodeProps) => {
   const isSelected = selectedId === node.id.toString()
   const paddingLeft = depth * 16
 
   return (
     <div className="mb-1">
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onSelect(node)}
-        onKeyDown={(event) => event.key === "Enter" && onSelect(node)}
-        className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 transition hover:bg-muted ${isSelected ? "border-primary bg-primary/10" : "border-border/60"}`}
+        className={`flex items-center justify-between rounded-lg border px-3 py-2 transition hover:bg-muted ${isSelected ? "border-primary bg-primary/10" : "border-border/60"}`}
         style={{ marginLeft: paddingLeft }}
       >
-        <div className="flex items-center gap-3">
+        <div 
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelect(node)}
+          onKeyDown={(event) => event.key === "Enter" && onSelect(node)}
+          className="flex cursor-pointer items-center gap-3 flex-1"
+        >
           <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
@@ -109,12 +113,38 @@ const TreeNode = ({ node, depth, onSelect, selectedId }: TreeNodeProps) => {
             </div>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                <EllipsisVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit?.(node)}>Edit</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive" 
+                onClick={() => onToggleStatus?.(node)}
+              >
+                {node.status === 'Active' ? 'Deactivate' : 'Activate'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
       </div>
       {node.children && node.children.length > 0 ? (
         <div className="mt-1 border-l border-border/50 pl-2">
           {node.children.map((child) => (
-            <TreeNode key={child.id} node={child} depth={depth + 1} onSelect={onSelect} selectedId={selectedId} />
+            <TreeNode 
+              key={child.id} 
+              node={child} 
+              depth={depth + 1} 
+              onSelect={onSelect} 
+              selectedId={selectedId}
+              onEdit={onEdit}
+              onToggleStatus={onToggleStatus}
+            />
           ))}
         </div>
       ) : null}
@@ -175,6 +205,8 @@ export default function ChartOfAccounts() {
     category: "Assets",
     notes: "",
   })
+  const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   // Load data on component mount
   useEffect(() => {
@@ -286,6 +318,76 @@ export default function ChartOfAccounts() {
     } finally {
       setIsCreating(false)
     }
+  }
+
+  const handleEditAccount = () => {
+    if (!selectedAccount) return
+    setEditingAccount(selectedAccount)
+    setFormData({
+      name: selectedAccount.name,
+      code: selectedAccount.code,
+      type: selectedAccount.type,
+      category: selectedAccount.category,
+      parentId: selectedAccount.parentId,
+      groupId: selectedAccount.groupId,
+      currency: selectedAccount.currency,
+      notes: selectedAccount.notes || "",
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateAccount = async () => {
+    if (!editingAccount) return
+    try {
+      setIsCreating(true)
+      await ChartOfAccountsApiService.updateChartOfAccount(editingAccount.id, formData)
+      toast.success("Account updated successfully")
+      setIsEditDialogOpen(false)
+      setEditingAccount(null)
+      loadData() // Refresh data
+    } catch (error: any) {
+      console.error('Failed to update account:', error)
+      toast.error("Failed to update account", {
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleToggleAccountStatus = async (account?: ChartOfAccount) => {
+    const accountToToggle = account || selectedAccount
+    if (!accountToToggle) return
+    try {
+      if (accountToToggle.status === 'Active') {
+        await ChartOfAccountsApiService.deactivateChartOfAccount(accountToToggle.id)
+        toast.success("Account deactivated successfully")
+      } else {
+        await ChartOfAccountsApiService.activateChartOfAccount(accountToToggle.id)
+        toast.success("Account activated successfully")
+      }
+      loadData() // Refresh data
+    } catch (error: any) {
+      console.error('Failed to toggle account status:', error)
+      toast.error("Failed to update account status", {
+        description: error.message || "Please try again.",
+      })
+    }
+  }
+
+  const handleEditAccountFromTree = (account: ChartOfAccount) => {
+    setEditingAccount(account)
+    setFormData({
+      name: account.name,
+      code: account.code,
+      type: account.type,
+      category: account.category,
+      parentId: account.parentId,
+      groupId: account.groupId,
+      currency: account.currency,
+      notes: account.notes || "",
+    })
+    setIsEditDialogOpen(true)
   }
 
   const handleAccountTypeChange = (value: AccountNodeType) => {
@@ -526,6 +628,152 @@ export default function ChartOfAccounts() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Account Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Edit account</DialogTitle>
+              <DialogDescription>
+                Update the account details and configuration.
+              </DialogDescription>
+            </DialogHeader>
+            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleUpdateAccount(); }}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-name">Account name</Label>
+                  <Input
+                    id="edit-account-name"
+                    value={formData.name}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, name: event.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-code">Account code</Label>
+                  <Input
+                    id="edit-account-code"
+                    value={formData.code}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, code: event.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-type">Account type</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => handleAccountTypeChange(value as AccountNodeType)}
+                  >
+                    <SelectTrigger id="edit-account-type">
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accountTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-category">Category</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => handleAccountCategoryChange(value as AccountCategory)}
+                  >
+                    <SelectTrigger id="edit-account-category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accountCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-parent">Parent account</Label>
+                  <Select
+                    value={formData.parentId?.toString() || "none"}
+                    onValueChange={(value) => setFormData((previous) => ({ ...previous, parentId: value === "none" ? undefined : parseInt(value) }))}
+                  >
+                    <SelectTrigger id="edit-account-parent">
+                      <SelectValue placeholder="Top-level (no parent)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Top-level (no parent)</SelectItem>
+                      {availableParentOptions.filter(account => account.id !== editingAccount?.id).map((account) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          {account.code} - {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableParentOptions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No control accounts are available in this category yet. The account will be at the top level.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-currency">Currency</Label>
+                  <Input
+                    id="edit-account-currency"
+                    value={formData.currency || "USD"}
+                    onChange={(event) => setFormData((previous) => ({ ...previous, currency: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-account-group">Account Group</Label>
+                  <Select
+                    value={formData.groupId?.toString() || "none"}
+                    onValueChange={(value) => setFormData((previous) => ({ ...previous, groupId: value === "none" ? undefined : parseInt(value) }))}
+                  >
+                    <SelectTrigger id="edit-account-group">
+                      <SelectValue placeholder="Select account group (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No group</SelectItem>
+                      {availableGroupOptions.map((group) => (
+                        <SelectItem key={group.id} value={group.id.toString()}>
+                          {group.name} ({group.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-account-notes">Notes</Label>
+                <Textarea
+                  id="edit-account-notes"
+                  rows={3}
+                  value={formData.notes || ""}
+                  onChange={(event) => setFormData((previous) => ({ ...previous, notes: event.target.value }))}
+                  placeholder="Optional guidance for this account"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update account"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -642,6 +890,8 @@ export default function ChartOfAccounts() {
                     depth={0}
                     onSelect={(node) => setSelectedAccountId(node.id.toString())}
                     selectedId={selectedAccountId}
+                    onEdit={handleEditAccountFromTree}
+                    onToggleStatus={handleToggleAccountStatus}
                   />
                 ))
               ) : (
@@ -670,10 +920,14 @@ export default function ChartOfAccounts() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit account</DropdownMenuItem>
-                <DropdownMenuItem>Move to a different group</DropdownMenuItem>
-                <DropdownMenuItem>Manage cost centers</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditAccount}>Edit account</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info("Cost centers feature coming soon")}>Manage cost centers</DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive" 
+                  onClick={() => handleToggleAccountStatus()}
+                >
+                  {selectedAccount?.status === 'Active' ? 'Deactivate' : 'Activate'}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </CardHeader>
