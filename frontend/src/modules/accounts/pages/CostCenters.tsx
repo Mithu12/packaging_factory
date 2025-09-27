@@ -75,6 +75,8 @@ export default function CostCenters() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
   const [departmentFilter, setDepartmentFilter] = useState<string | "All">("All")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingCostCenter, setEditingCostCenter] = useState<CostCenter | null>(null)
   const [formData, setFormData] = useState<CreateCostCenterRequest>({
     name: "",
     code: "",
@@ -146,6 +148,49 @@ export default function CostCenters() {
       toast.error("Failed to update cost center status", {
         description: error.message || "Please try again.",
       })
+    }
+  }
+
+  const handleEditCostCenter = (costCenter: CostCenter) => {
+    setEditingCostCenter(costCenter)
+    setFormData({
+      name: costCenter.name,
+      code: costCenter.code,
+      type: costCenter.type,
+      department: costCenter.department,
+      owner: costCenter.owner,
+      budget: costCenter.budget,
+      description: costCenter.description || "",
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateCostCenter = async () => {
+    if (!editingCostCenter) return
+    
+    try {
+      setIsCreating(true)
+      await CostCentersApiService.updateCostCenter(editingCostCenter.id, formData)
+      toast.success("Cost center updated successfully")
+      setIsEditDialogOpen(false)
+      setEditingCostCenter(null)
+      setFormData({
+        name: "",
+        code: "",
+        type: "Department",
+        department: "",
+        owner: "",
+        budget: 0,
+        description: "",
+      })
+      loadCostCenters()
+    } catch (error: any) {
+      console.error('Failed to update cost center:', error)
+      toast.error("Failed to update cost center", {
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -305,6 +350,116 @@ export default function CostCenters() {
                     </>
                   ) : (
                     "Create cost center"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Cost Center Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit cost center</DialogTitle>
+              <DialogDescription>
+                Update the details for this cost center.
+              </DialogDescription>
+            </DialogHeader>
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleUpdateCostCenter(); }}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-center-name">Name</Label>
+                  <Input 
+                    id="edit-center-name" 
+                    placeholder="Factory C" 
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-center-code">Code</Label>
+                  <Input 
+                    id="edit-center-code" 
+                    placeholder="CC-FC" 
+                    value={formData.code}
+                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-center-type">Type</Label>
+                  <Select 
+                    value={formData.type} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as CostCenterType }))}
+                  >
+                    <SelectTrigger id="edit-center-type">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {costCenterTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-center-department">Department</Label>
+                  <Input 
+                    id="edit-center-department" 
+                    placeholder="Manufacturing" 
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-center-owner">Owner</Label>
+                  <Input 
+                    id="edit-center-owner" 
+                    placeholder="Name and title" 
+                    value={formData.owner}
+                    onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-budget">Annual budget</Label>
+                  <Input 
+                    id="edit-budget" 
+                    type="number" 
+                    min="0" 
+                    placeholder="500000" 
+                    value={formData.budget || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-center-description">Description</Label>
+                <Textarea 
+                  id="edit-center-description" 
+                  placeholder="Explain how this cost center will be used" 
+                  rows={3}
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update cost center"
                   )}
                 </Button>
               </DialogFooter>
@@ -520,7 +675,7 @@ export default function CostCenters() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => toast.info("Ledger view coming soon")}>View ledger</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.info("Edit functionality coming soon")}>Edit details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditCostCenter(center)}>Edit details</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => toast.info("Approvers feature coming soon")}>Assign approvers</DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-destructive" 
