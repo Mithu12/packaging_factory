@@ -16,7 +16,7 @@ export interface AccountGroup {
   name: string;
   code: string;
   category: AccountCategory;
-  parentId?: number;
+  parentId?: string;
   description?: string;
   status: AccountStatus;
   createdAt: string;
@@ -37,7 +37,7 @@ export interface UpdateAccountGroupRequest {
   name?: string;
   code?: string;
   category?: AccountCategory;
-  parentId?: number;
+  parentId?: string;
   description?: string;
   status?: AccountStatus;
 }
@@ -48,7 +48,7 @@ export interface AccountGroupQueryParams {
   search?: string;
   category?: AccountCategory;
   status?: AccountStatus;
-  parentId?: number;
+  parentId?: string;
   sortBy?: 'id' | 'name' | 'code' | 'category' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
 }

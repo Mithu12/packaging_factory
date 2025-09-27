@@ -46,7 +46,11 @@ const flattenGroups = (nodes: AccountGroup[]): AccountGroup[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenGroups(node.children) : [])])
 }
 
-const renderGroupTree = (nodes: AccountGroup[], depth = 0) => {
+const renderGroupTree = (nodes: AccountGroup[], depth = 0, handlers?: {
+  onEdit: (group: AccountGroup) => void;
+  onAddChild: (group: AccountGroup) => void;
+  onToggleStatus: (group: AccountGroup) => void;
+}) => {
   return nodes.map((node) => (
     <div
       key={node.id}
@@ -81,15 +85,24 @@ const renderGroupTree = (nodes: AccountGroup[], depth = 0) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit group</DropdownMenuItem>
-            <DropdownMenuItem>Add child group</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Inactivate</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handlers?.onEdit(node)}>
+              Edit group
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handlers?.onAddChild(node)}>
+              Add child group
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-destructive" 
+              onClick={() => handlers?.onToggleStatus(node)}
+            >
+              {node.status === "Active" ? "Deactivate" : "Activate"}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
       {node.children && node.children.length > 0 ? (
         <div className="border-t border-border/60 bg-muted/40 p-2">
-          {renderGroupTree(node.children, depth + 1)}
+          {renderGroupTree(node.children, depth + 1, handlers)}
         </div>
       ) : null}
     </div>
@@ -104,13 +117,14 @@ export default function AccountGroups() {
   const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<AccountGroup | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [formData, setFormData] = useState<CreateAccountGroupRequest>({
     name: "",
     code: "",
     category: "Assets",
     description: "",
   })
-    console.log(formData)
   // Load account groups on component mount
   useEffect(() => {
     loadAccountGroups()
@@ -205,6 +219,81 @@ export default function AccountGroups() {
     loadAccountGroups()
   }
 
+  const handleEditGroup = (group: AccountGroup) => {
+    setEditingGroup(group)
+    setFormData({
+      name: group.name,
+      code: group.code,
+      category: group.category,
+      parentId: group.parentId,
+      description: group.description || "",
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleAddChildGroup = (parentGroup: AccountGroup) => {
+    setFormData({
+      name: "",
+      code: "",
+      category: parentGroup.category,
+      parentId: parentGroup.id.toString(),
+      description: "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleToggleStatus = async (group: AccountGroup) => {
+    try {
+      if (group.status === "Active") {
+        await AccountGroupsApiService.deactivateAccountGroup(group.id)
+        toast.success("Account group deactivated", {
+          description: `${group.name} has been deactivated.`,
+        })
+      } else {
+        await AccountGroupsApiService.activateAccountGroup(group.id)
+        toast.success("Account group activated", {
+          description: `${group.name} has been activated.`,
+        })
+      }
+      await loadAccountGroups()
+    } catch (error) {
+      console.error('Failed to toggle group status:', error)
+      toast.error("Failed to update group status", {
+        description: "Please try again.",
+      })
+    }
+  }
+
+  const handleUpdateGroup = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    
+    if (!editingGroup) return
+
+    try {
+      setIsCreating(true)
+      await AccountGroupsApiService.updateAccountGroup(editingGroup.id, formData)
+      toast.success("Account group updated", {
+        description: "The account group has been updated successfully.",
+      })
+      setIsEditDialogOpen(false)
+      setEditingGroup(null)
+      setFormData({
+        name: "",
+        code: "",
+        category: "Assets",
+        description: "",
+      })
+      await loadAccountGroups()
+    } catch (error) {
+      console.error('Failed to update account group:', error)
+      toast.error("Failed to update account group", {
+        description: "Please check your input and try again.",
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -272,18 +361,24 @@ export default function AccountGroups() {
                   <div className="space-y-2">
                     <Label htmlFor="group-parent">Parent group (optional)</Label>
                     <Select 
-                    value={formData.parentId?.toString()}
-                      onValueChange={(value) => setFormData({...formData, parentId: value.toString()})}>
+                      value={formData.parentId?.toString() || "none"}
+                      onValueChange={(value) => setFormData({
+                        ...formData, 
+                        parentId: value === "none" ? undefined : parseInt(value).toString()
+                      })}
+                    >
                       <SelectTrigger id="group-parent">
                         <SelectValue placeholder="Top-level group" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Top-level group</SelectItem>
-                        {allGroups.map((group) => (
-                          <SelectItem key={group.id} value={group.id.toString()}>
-                            {group.code} � {group.name}
-                          </SelectItem>
-                        ))}
+                        {allGroups
+                          .filter(group => group.category === formData.category)
+                          .map((group) => (
+                            <SelectItem key={group.id} value={group.id.toString()}>
+                              {group.code} • {group.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -319,6 +414,109 @@ export default function AccountGroups() {
                       </>
                     ) : (
                       "Save group"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Edit account group</DialogTitle>
+                <DialogDescription>
+                  Update the account group details. Changes will be reflected in the chart of accounts.
+                </DialogDescription>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={handleUpdateGroup}>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-group-name">Group name</Label>
+                    <Input 
+                      id="edit-group-name" 
+                      placeholder="e.g. Prepaid Expenses" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-group-code">Group code</Label>
+                    <Input 
+                      id="edit-group-code" 
+                      placeholder="e.g. 1150" 
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-group-category">Category</Label>
+                    <Select 
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({...formData, category: value as AccountCategory})}
+                    >
+                      <SelectTrigger id="edit-group-category">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accountCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-group-parent">Parent group (optional)</Label>
+                    <Select 
+                      value={formData.parentId?.toString() || "none"}
+                      onValueChange={(value) => setFormData({
+                        ...formData, 
+                        parentId: value === "none" ? undefined : parseInt(value).toString()
+                      })}
+                    >
+                      <SelectTrigger id="edit-group-parent">
+                        <SelectValue placeholder="Top-level group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Top-level group</SelectItem>
+                        {allGroups
+                          .filter(group => group.category === formData.category && group.id !== editingGroup?.id)
+                          .map((group) => (
+                            <SelectItem key={group.id} value={group.id.toString()}>
+                              {group.code} • {group.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-group-description">Description</Label>
+                    <Textarea
+                      id="edit-group-description"
+                      placeholder="Provide context about how this group should be used"
+                      value={formData.description || ""}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update group"
                     )}
                   </Button>
                 </DialogFooter>
@@ -413,7 +611,11 @@ export default function AccountGroups() {
               </div>
             ) : filteredTree.length > 0 ? (
               <div className="space-y-2">
-                {renderGroupTree(filteredTree)}
+                {renderGroupTree(filteredTree, 0, {
+                  onEdit: handleEditGroup,
+                  onAddChild: handleAddChildGroup,
+                  onToggleStatus: handleToggleStatus,
+                })}
               </div>
             ) : (
               <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
