@@ -117,7 +117,7 @@ export function VoucherPage({
   const [isCreating, setIsCreating] = useState(false)
 
   const allPostingAccounts = useMemo(() => 
-    flattenAccounts(chartOfAccounts).filter((node) => node.category !== "Group"), 
+    flattenAccounts(chartOfAccounts).filter((node) => node.type !== "Control"), 
     [chartOfAccounts]
   )
   

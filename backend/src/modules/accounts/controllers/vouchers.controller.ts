@@ -16,10 +16,10 @@ export const getAllVouchers = async (req: Request, res: Response) => {
     const result = await GetVoucherInfoMediator.getVoucherList(query);
 
     MyLogger.success("GET /api/accounts/vouchers", {
-      total: result.pagination.total,
-      page: result.pagination.page,
-      limit: result.pagination.limit,
-      totalPages: result.pagination.totalPages
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages
     });
 
   serializeSuccessResponse(res, result, "SUCCESS")
@@ -68,7 +68,7 @@ export const getVoucherById = async (req: Request, res: Response) => {
 export const createVoucher = async (req: Request, res: Response) => {
   try {
     const voucherData: CreateVoucherRequest = req.body;
-    const createdBy = req.user?.id || 1; // Get from authenticated user
+    const createdBy = req.user?.user_id || 1; // Get from authenticated user
     MyLogger.info("POST /api/accounts/vouchers", { voucherData, createdBy });
 
     const voucher = await AddVoucherMediator.createVoucher(voucherData, createdBy);
@@ -80,7 +80,7 @@ export const createVoucher = async (req: Request, res: Response) => {
       amount: voucher.amount
     });
 
-    serializeSuccessResponse(res, voucher, "SUCCESS", 201);
+    serializeSuccessResponse(res, voucher, "SUCCESS");
   } catch (error) {
     throw error;
   }
@@ -91,7 +91,7 @@ export const updateVoucher = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updateData: UpdateVoucherRequest = req.body;
-    const updatedBy = req.user?.id || 1; // Get from authenticated user
+    const updatedBy = req.user?.user_id || 1; // Get from authenticated user
     MyLogger.info("PUT /api/accounts/vouchers/:id", { voucherId: id, updateData, updatedBy });
 
     const voucher = await UpdateVoucherInfoMediator.updateVoucher(
@@ -116,7 +116,7 @@ export const updateVoucher = async (req: Request, res: Response) => {
 export const approveVoucher = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const approvedBy = req.user?.id || 1; // Get from authenticated user
+    const approvedBy = req.user?.user_id || 1; // Get from authenticated user
     MyLogger.info("PUT /api/accounts/vouchers/:id/approve", { voucherId: id, approvedBy });
 
     const voucher = await UpdateVoucherInfoMediator.approveVoucher(parseInt(id), approvedBy);
@@ -137,7 +137,7 @@ export const approveVoucher = async (req: Request, res: Response) => {
 export const voidVoucher = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const voidedBy = req.user?.id || 1; // Get from authenticated user
+    const voidedBy = req.user?.user_id || 1; // Get from authenticated user
     MyLogger.info("PUT /api/accounts/vouchers/:id/void", { voucherId: id, voidedBy });
 
     const voucher = await UpdateVoucherInfoMediator.voidVoucher(parseInt(id), voidedBy);
@@ -158,7 +158,7 @@ export const voidVoucher = async (req: Request, res: Response) => {
 export const deleteVoucher = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deletedBy = req.user?.id || 1; // Get from authenticated user
+    const deletedBy = req.user?.user_id || 1; // Get from authenticated user
     MyLogger.info("DELETE /api/accounts/vouchers/:id", { voucherId: id, deletedBy });
 
     await DeleteVoucherMediator.deleteVoucher(parseInt(id), deletedBy);

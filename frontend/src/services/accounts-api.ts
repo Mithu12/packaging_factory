@@ -10,6 +10,7 @@ import { makeRequest } from './api-utils';
 
 export type AccountCategory = 'Assets' | 'Liabilities' | 'Equity' | 'Revenue' | 'Expenses';
 export type AccountStatus = 'Active' | 'Inactive';
+export type AccountNodeType = 'Control' | 'Posting';
 
 export interface AccountGroup {
   id: number;
@@ -64,8 +65,6 @@ export interface AccountGroupStats {
 // =====================================================
 // Chart of Accounts Types
 // =====================================================
-
-export type AccountNodeType = 'Control' | 'Posting';
 
 export interface ChartOfAccount {
   id: number;
@@ -549,7 +548,7 @@ export interface VoucherQueryParams {
 // =====================================================
 
 export class VouchersApiService {
-  private static readonly BASE_URL = '/api/accounts/vouchers';
+  private static readonly BASE_URL = '/accounts/vouchers';
 
   // Get all vouchers with pagination and filtering
   static async getVouchers(params?: VoucherQueryParams): Promise<PaginatedResponse<Voucher>> {
