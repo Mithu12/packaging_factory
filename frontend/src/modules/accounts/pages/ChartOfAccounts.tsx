@@ -148,53 +148,9 @@ const filterAccountTree = (
         children: filteredChildren,
       }
     })
-    .filter((node): node is ChartOfAccount => node !== null)
+    .filter((node) => node !== null)
 }
 
-
-
-type AddAccountResult = {
-  added: boolean
-  nodes: AccountNode[]
-}
-
-const addAccountToTree = (nodes: AccountNode[], parentId: string | null, account: AccountNode): AddAccountResult => {
-  if (!parentId) {
-    return { added: true, nodes: [...nodes, account] }
-  }
-
-  let added = false
-  const updatedNodes = nodes.map((node) => {
-    if (node.id === parentId) {
-      added = true
-      const children = node.children ? [...node.children, account] : [account]
-      return { ...node, children }
-    }
-
-    if (node.children) {
-      const result = addAccountToTree(node.children, parentId, account)
-      if (result.added) {
-        added = true
-        return { ...node, children: result.nodes }
-      }
-    }
-
-    return node
-  })
-
-  return { added, nodes: updatedNodes }
-}
-
-const sortAccountTree = (nodes: AccountNode[]): AccountNode[] => {
-  return [...nodes]
-    .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
-    .map((node) => {
-      if (node.children) {
-        return { ...node, children: sortAccountTree(node.children) }
-      }
-      return node
-    })
-}
 
 
 export default function ChartOfAccounts() {
@@ -401,28 +357,13 @@ export default function ChartOfAccounts() {
   }, [accountTree, searchTerm, selectedType, selectedCategory])
 
   const relatedLines = useMemo(() => {
-    if (!selectedAccount) return []
-    return vouchers
-      .flatMap((voucher) =>
-        voucher.lines
-          .filter((line) => line.accountCode === selectedAccount.code)
-          .map((line) => ({
-            voucherNo: voucher.voucherNo,
-            type: voucher.type,
-            date: voucher.date,
-            costCenterId: line.costCenterId,
-            narration: line.narration ?? voucher.narration,
-            debit: line.debit,
-            credit: line.credit,
-          }))
-      )
+    // Voucher data will be implemented later
+    return []
   }, [selectedAccount])
 
   const costCenterNames = useMemo(() => {
-    if (!selectedAccount?.costCenters) return []
-    return selectedAccount.costCenters
-      .map((id) => costCenters.find((center) => center.id === id)?.name ?? id)
-      .filter(Boolean)
+    // Cost centers will be implemented later
+    return []
   }, [selectedAccount])
 
   const allGroupOptions = useMemo(() => flattenGroupNodes(accountGroups), [])
@@ -624,8 +565,8 @@ export default function ChartOfAccounts() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{metrics.costCenters}</p>
-            <p className="text-xs text-muted-foreground">Unique cost centers mapped to accounts</p>
+            <p className="text-2xl font-semibold">0</p>
+            <p className="text-xs text-muted-foreground">Cost centers (coming soon)</p>
           </CardContent>
         </Card>
       </div>
@@ -748,7 +689,7 @@ export default function ChartOfAccounts() {
                     <Badge variant="outline" className="capitalize">
                       {selectedAccount.type.toLowerCase()} account
                     </Badge>
-                    <Badge variant="outline">{selectedAccount.group}</Badge>
+                    <Badge variant="outline">{selectedAccount.groupName || selectedAccount.category}</Badge>
                     <Badge className="bg-emerald-500 hover:bg-emerald-500">
                       {selectedAccount.status}
                     </Badge>
@@ -862,11 +803,7 @@ export default function ChartOfAccounts() {
                                 })
                               : "-"}
                           </span>
-                          <span>{
-                            line.costCenterId
-                              ? costCenters.find((cc) => cc.id === line.costCenterId)?.name ?? "-"
-                              : "-"
-                          }</span>
+                          <span>-</span>
                         </div>
                       ))
                     ) : (
