@@ -5,6 +5,25 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Factory,
   Package,
   Clock,
@@ -17,6 +36,7 @@ import {
   Activity,
   Zap,
   Target,
+  Plus,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 
@@ -66,6 +86,15 @@ export default function FactoryDashboard() {
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [isNewWorkOrderOpen, setIsNewWorkOrderOpen] = useState(false);
+  const [newWorkOrder, setNewWorkOrder] = useState({
+    orderNumber: "",
+    product: "",
+    quantity: "",
+    deadline: "",
+    priority: "medium" as "low" | "medium" | "high" | "urgent",
+    description: "",
+  });
 
   useEffect(() => {
     // Mock data - in real app, fetch from API
@@ -136,6 +165,60 @@ export default function FactoryDashboard() {
     ]);
   }, []);
 
+  const handleNewWorkOrderSubmit = () => {
+    if (
+      !newWorkOrder.orderNumber ||
+      !newWorkOrder.product ||
+      !newWorkOrder.quantity ||
+      !newWorkOrder.deadline
+    ) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    const workOrderId = `WO-${String(workOrders.length + 1).padStart(3, "0")}`;
+    const newWorkOrderData: WorkOrder = {
+      id: workOrderId,
+      orderNumber: newWorkOrder.orderNumber,
+      product: newWorkOrder.product,
+      quantity: parseInt(newWorkOrder.quantity),
+      deadline: newWorkOrder.deadline,
+      status: "pending",
+      priority: newWorkOrder.priority,
+      progress: 0,
+    };
+
+    setWorkOrders((prev) => [newWorkOrderData, ...prev]);
+
+    // Add to recent activity
+    const newActivity: RecentActivity = {
+      id: String(recentActivity.length + 1),
+      type: "wo_created",
+      description: `Work Order ${workOrderId} created for ${newWorkOrder.product}`,
+      timestamp: new Date().toISOString(),
+      user: "Current User",
+    };
+    setRecentActivity((prev) => [newActivity, ...prev]);
+
+    // Update stats
+    setStats((prev) => ({
+      ...prev,
+      totalOrders: prev.totalOrders + 1,
+      activeWorkOrders: prev.activeWorkOrders + 1,
+    }));
+
+    // Reset form and close modal
+    setNewWorkOrder({
+      orderNumber: "",
+      product: "",
+      quantity: "",
+      deadline: "",
+      priority: "medium",
+      description: "",
+    });
+    setIsNewWorkOrderOpen(false);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -198,10 +281,148 @@ export default function FactoryDashboard() {
             <Calendar className="h-4 w-4 mr-2" />
             View Calendar
           </Button>
-          <Button>
-            <Package className="h-4 w-4 mr-2" />
-            New Work Order
-          </Button>
+          <Dialog
+            open={isNewWorkOrderOpen}
+            onOpenChange={setIsNewWorkOrderOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Work Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New Work Order</DialogTitle>
+                <DialogDescription>
+                  Add a new work order to the production queue.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="orderNumber" className="text-right">
+                    Order Number *
+                  </Label>
+                  <Input
+                    id="orderNumber"
+                    value={newWorkOrder.orderNumber}
+                    onChange={(e) =>
+                      setNewWorkOrder((prev) => ({
+                        ...prev,
+                        orderNumber: e.target.value,
+                      }))
+                    }
+                    className="col-span-3"
+                    placeholder="ORD-2024-XXX"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="product" className="text-right">
+                    Product *
+                  </Label>
+                  <Input
+                    id="product"
+                    value={newWorkOrder.product}
+                    onChange={(e) =>
+                      setNewWorkOrder((prev) => ({
+                        ...prev,
+                        product: e.target.value,
+                      }))
+                    }
+                    className="col-span-3"
+                    placeholder="Product name"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="quantity" className="text-right">
+                    Quantity *
+                  </Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={newWorkOrder.quantity}
+                    onChange={(e) =>
+                      setNewWorkOrder((prev) => ({
+                        ...prev,
+                        quantity: e.target.value,
+                      }))
+                    }
+                    className="col-span-3"
+                    placeholder="100"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="deadline" className="text-right">
+                    Deadline *
+                  </Label>
+                  <Input
+                    id="deadline"
+                    type="date"
+                    value={newWorkOrder.deadline}
+                    onChange={(e) =>
+                      setNewWorkOrder((prev) => ({
+                        ...prev,
+                        deadline: e.target.value,
+                      }))
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="priority" className="text-right">
+                    Priority
+                  </Label>
+                  <Select
+                    value={newWorkOrder.priority}
+                    onValueChange={(
+                      value: "low" | "medium" | "high" | "urgent"
+                    ) =>
+                      setNewWorkOrder((prev) => ({ ...prev, priority: value }))
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="description" className="text-right">
+                    Description
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={newWorkOrder.description}
+                    onChange={(e) =>
+                      setNewWorkOrder((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    className="col-span-3"
+                    placeholder="Additional notes..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsNewWorkOrderOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleNewWorkOrderSubmit}>
+                  Create Work Order
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
