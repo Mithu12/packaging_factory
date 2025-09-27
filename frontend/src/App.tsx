@@ -67,6 +67,7 @@ import DistributionCenterDetails from "@/modules/inventory/pages/DistributionCen
 
 // Factory Module Imports
 import FactoryDashboard from "@/modules/factory/pages/FactoryDashboard";
+import CustomerOrderManagement from "@/modules/factory/pages/CustomerOrderManagement";
 import OrderAcceptance from "@/modules/factory/pages/OrderAcceptance";
 import WorkOrderPlanning from "@/modules/factory/pages/WorkOrderPlanning";
 import ProductionExecution from "@/modules/factory/pages/ProductionExecution";
@@ -449,6 +450,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <FactoryDashboard />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/customer-orders"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <CustomerOrderManagement />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

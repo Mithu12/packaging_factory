@@ -180,6 +180,12 @@ const menuSections: MenuSection[] = [
         permission: null,
       },
       {
+        title: "Customer Orders",
+        url: "/factory/customer-orders",
+        icon: ShoppingCart,
+        permission: null,
+      },
+      {
         title: "Order Acceptance",
         url: "/factory/orders",
         icon: Package,
