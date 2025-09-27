@@ -150,7 +150,7 @@ export interface MaterialShortage {
   supplierId?: string;
   supplierName?: string;
   leadTimeDays: number;
-  suggestedAction: "purchase" | "substitute" | "delay" | "split";
+  suggestedAction: "purchase" | "substitute" | "delay" | "split" | "po_created";
   notes?: string;
 }
 

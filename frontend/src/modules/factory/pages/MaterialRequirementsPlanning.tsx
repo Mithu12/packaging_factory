@@ -66,6 +66,9 @@ export default function MaterialRequirementsPlanning() {
   const [showShortageDialog, setShowShortageDialog] = useState(false);
   const [selectedShortage, setSelectedShortage] =
     useState<MaterialShortage | null>(null);
+  const [isGeneratingPOs, setIsGeneratingPOs] = useState(false);
+  const [generatedPOs, setGeneratedPOs] = useState<string[]>([]);
+  const [showPODialog, setShowPODialog] = useState(false);
 
   useEffect(() => {
     // Mock data - in real app, fetch from API
@@ -244,8 +247,31 @@ export default function MaterialRequirementsPlanning() {
     setShowShortageDialog(true);
   };
 
-  const handleGeneratePurchaseOrders = () => {
-    console.log("Generating purchase orders for shortages");
+  const handleGeneratePurchaseOrders = async () => {
+    setIsGeneratingPOs(true);
+
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Generate mock purchase orders for shortages
+    const newPOs = shortages.map((shortage, index) => {
+      const poNumber = `PO-${new Date().getFullYear()}-${String(
+        index + 1
+      ).padStart(4, "0")}`;
+      return poNumber;
+    });
+
+    setGeneratedPOs(newPOs);
+    setIsGeneratingPOs(false);
+    setShowPODialog(true);
+
+    // Update shortages to show they have pending POs
+    setShortages((prev) =>
+      prev.map((shortage) => ({
+        ...shortage,
+        suggestedAction: "po_created" as const,
+      }))
+    );
   };
 
   const handleRunMRP = () => {
@@ -271,9 +297,21 @@ export default function MaterialRequirementsPlanning() {
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
-          <Button onClick={handleGeneratePurchaseOrders}>
-            <Plus className="h-4 w-4 mr-2" />
-            Generate POs
+          <Button
+            onClick={handleGeneratePurchaseOrders}
+            disabled={isGeneratingPOs || shortages.length === 0}
+          >
+            {isGeneratingPOs ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Generate POs
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -552,8 +590,17 @@ export default function MaterialRequirementsPlanning() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Suggested Action</span>
-                          <Badge variant="outline">
-                            {shortage.suggestedAction.toUpperCase()}
+                          <Badge
+                            variant="outline"
+                            className={
+                              shortage.suggestedAction === "po_created"
+                                ? "bg-green-100 text-green-800"
+                                : ""
+                            }
+                          >
+                            {shortage.suggestedAction === "po_created"
+                              ? "PO CREATED"
+                              : shortage.suggestedAction.toUpperCase()}
                           </Badge>
                         </div>
                       </div>
@@ -576,7 +623,17 @@ export default function MaterialRequirementsPlanning() {
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
                         </Button>
-                        <Button size="sm">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            // Create a single PO for this shortage
+                            const poNumber = `PO-${new Date().getFullYear()}-${String(
+                              Date.now()
+                            ).slice(-4)}`;
+                            setGeneratedPOs([poNumber]);
+                            setShowPODialog(true);
+                          }}
+                        >
                           <Plus className="h-4 w-4 mr-2" />
                           Create PO
                         </Button>
@@ -855,6 +912,85 @@ export default function MaterialRequirementsPlanning() {
               </Card>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Purchase Orders Dialog */}
+      <Dialog open={showPODialog} onOpenChange={setShowPODialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Purchase Orders Generated</DialogTitle>
+            <DialogDescription>
+              Successfully generated {generatedPOs.length} purchase orders for
+              material shortages
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                <span className="text-green-800 font-medium">
+                  Purchase Orders Created Successfully
+                </span>
+              </div>
+              <p className="text-green-700 text-sm mt-1">
+                {generatedPOs.length} purchase orders have been generated and
+                are ready for approval.
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Purchase Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {generatedPOs.map((poNumber, index) => (
+                    <div
+                      key={poNumber}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center">
+                        <Package className="h-4 w-4 text-blue-600 mr-2" />
+                        <span className="font-medium">{poNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="bg-yellow-100 text-yellow-800"
+                        >
+                          Pending Approval
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate("/purchase-orders")}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowPODialog(false)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowPODialog(false);
+                  navigate("/purchase-orders");
+                }}
+              >
+                View All Purchase Orders
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
