@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ import { Progress } from "@/components/ui/progress";
 import { BillOfMaterials, BOMStats } from "../types/bom";
 
 export default function BOMList() {
+  const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [boms, setBoms] = useState<BillOfMaterials[]>([]);
   const [stats, setStats] = useState<BOMStats>({
@@ -65,6 +67,19 @@ export default function BOMList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showBOMDialog, setShowBOMDialog] = useState(false);
   const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
+
+  const handleCreateBOM = () => {
+    navigate("/factory/bom/new");
+  };
+
+  const handleEditBOM = (bomId: string) => {
+    navigate(`/factory/bom/${bomId}/edit`);
+  };
+
+  const handleViewBOM = (bom: BillOfMaterials) => {
+    setSelectedBOM(bom);
+    setShowBOMDialog(true);
+  };
 
   useEffect(() => {
     // Mock data - in real app, fetch from API
@@ -175,16 +190,6 @@ export default function BOMList() {
       : "bg-gray-100 text-gray-800";
   };
 
-  const handleViewBOM = (bom: BillOfMaterials) => {
-    setSelectedBOM(bom);
-    setShowBOMDialog(true);
-  };
-
-  const handleEditBOM = (bom: BillOfMaterials) => {
-    // Navigate to BOM editor
-    console.log("Edit BOM:", bom.id);
-  };
-
   const handleCopyBOM = (bom: BillOfMaterials) => {
     // Copy BOM functionality
     console.log("Copy BOM:", bom.id);
@@ -214,7 +219,7 @@ export default function BOMList() {
             <Download className="h-4 w-4 mr-2" />
             Export BOM
           </Button>
-          <Button>
+          <Button onClick={handleCreateBOM}>
             <Plus className="h-4 w-4 mr-2" />
             Create BOM
           </Button>
@@ -391,7 +396,7 @@ export default function BOMList() {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleEditBOM(bom)}
+                              onClick={() => handleEditBOM(bom.id)}
                             >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit BOM
@@ -490,7 +495,7 @@ export default function BOMList() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEditBOM(bom)}
+                            onClick={() => handleEditBOM(bom.id)}
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit

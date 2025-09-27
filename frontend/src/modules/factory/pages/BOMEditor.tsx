@@ -199,6 +199,10 @@ export default function BOMEditor() {
     setComponents((prev) => prev.filter((comp) => comp.id !== componentId));
   };
 
+  const handleCancel = () => {
+    navigate("/factory/bom");
+  };
+
   const handleSave = () => {
     const totalCost = components.reduce((sum, comp) => sum + comp.totalCost, 0);
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { MaterialCostAnalysis, MaterialCostBreakdown } from "../types/bom";
+import type { MaterialCostAnalysis, MaterialCostBreakdown } from "../types/bom";
 
 interface CostVariance {
   workOrderId: string;
@@ -77,6 +78,7 @@ interface CostCenter {
 }
 
 export default function MaterialCostAnalysis() {
+  const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [costAnalyses, setCostAnalyses] = useState<MaterialCostAnalysis[]>([]);
   const [costVariances, setCostVariances] = useState<CostVariance[]>([]);
@@ -236,6 +238,19 @@ export default function MaterialCostAnalysis() {
       },
     ]);
   }, []);
+
+  const handleViewWorkOrder = (workOrderId: string) => {
+    navigate(`/factory/work-orders`);
+  };
+
+  const handleViewBOM = (bomId: string) => {
+    navigate(`/factory/bom/${bomId}/edit`);
+  };
+
+  const handleExportReport = () => {
+    // In a real app, this would export the cost analysis report
+    console.log("Exporting cost analysis report");
+  };
 
   const filteredCostAnalyses = costAnalyses.filter((analysis) => {
     const matchesSearch =

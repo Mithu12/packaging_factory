@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ interface AllocationStats {
 }
 
 export default function MaterialAllocation() {
+  const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [allocations, setAllocations] = useState<MaterialAllocation[]>([]);
   const [consumptions, setConsumptions] = useState<MaterialConsumption[]>([]);
@@ -177,6 +179,14 @@ export default function MaterialAllocation() {
       allocationEfficiency: 88,
     });
   }, []);
+
+  const handleViewWorkOrder = (workOrderId: string) => {
+    navigate(`/factory/work-orders`);
+  };
+
+  const handleViewMaterial = (materialId: string) => {
+    navigate(`/factory/materials`);
+  };
 
   const filteredAllocations = allocations.filter((alloc) => {
     const matchesSearch =

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ import {
 } from "../types/bom";
 
 export default function MaterialRequirementsPlanning() {
+  const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
   const [shortages, setShortages] = useState<MaterialShortage[]>([]);
@@ -184,6 +186,14 @@ export default function MaterialRequirementsPlanning() {
       costVariance: -5.2,
     });
   }, []);
+
+  const handleViewBOM = (bomId: string) => {
+    navigate(`/factory/bom/${bomId}/edit`);
+  };
+
+  const handleViewMaterial = (materialId: string) => {
+    navigate(`/factory/materials`);
+  };
 
   const filteredRequirements = requirements.filter((req) => {
     const matchesSearch =
