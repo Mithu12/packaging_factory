@@ -123,6 +123,62 @@ export interface ChartOfAccountQueryParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+// =====================================================
+// Cost Center Types
+// =====================================================
+
+export type CostCenterType = 'Department' | 'Project' | 'Location';
+export type CostCenterStatus = 'Active' | 'Inactive';
+
+export interface CostCenter {
+  id: number;
+  name: string;
+  code: string;
+  type: CostCenterType;
+  department: string;
+  owner: string;
+  budget: number;
+  actualSpend: number;
+  variance: number;
+  status: CostCenterStatus;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCostCenterRequest {
+  name: string;
+  code: string;
+  type: CostCenterType;
+  department: string;
+  owner: string;
+  budget?: number;
+  status?: CostCenterStatus;
+  description?: string;
+}
+
+export interface UpdateCostCenterRequest {
+  name?: string;
+  code?: string;
+  type?: CostCenterType;
+  department?: string;
+  owner?: string;
+  budget?: number;
+  status?: CostCenterStatus;
+  description?: string;
+}
+
+export interface CostCenterQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: CostCenterType;
+  status?: CostCenterStatus;
+  department?: string;
+  sortBy?: 'id' | 'name' | 'code' | 'type' | 'department' | 'budget' | 'actualSpend' | 'created_at' | 'updated_at';
+  sortOrder?: 'asc' | 'desc';
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -284,6 +340,88 @@ export class ChartOfAccountsApiService {
 
   // Activate chart of account
   static async activateChartOfAccount(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}/activate`, {
+      method: 'PUT',
+    });
+  }
+}
+
+// =====================================================
+// Cost Centers API Service
+// =====================================================
+
+export class CostCentersApiService {
+  private static readonly BASE_URL = '/api/accounts/cost-centers';
+
+  // Get all cost centers with pagination and filtering
+  static async getCostCenters(params?: CostCenterQueryParams): Promise<PaginatedResponse<CostCenter>> {
+    const queryString = params ? '?' + new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = String(value);
+        }
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString() : '';
+    
+    return makeRequest<PaginatedResponse<CostCenter>>(`${this.BASE_URL}${queryString}`);
+  }
+
+  // Get cost center statistics
+  static async getCostCenterStats(): Promise<any> {
+    return makeRequest<any>(`${this.BASE_URL}/stats`);
+  }
+
+  // Search cost centers
+  static async searchCostCenters(query: string): Promise<CostCenter[]> {
+    return makeRequest<CostCenter[]>(`${this.BASE_URL}/search?q=${encodeURIComponent(query)}`);
+  }
+
+  // Get cost center by ID
+  static async getCostCenterById(id: number): Promise<CostCenter> {
+    return makeRequest<CostCenter>(`${this.BASE_URL}/${id}`);
+  }
+
+  // Create new cost center
+  static async createCostCenter(data: CreateCostCenterRequest): Promise<CostCenter> {
+    return makeRequest<CostCenter>(this.BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update cost center
+  static async updateCostCenter(id: number, data: UpdateCostCenterRequest): Promise<CostCenter> {
+    return makeRequest<CostCenter>(`${this.BASE_URL}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update actual spend
+  static async updateActualSpend(id: number, actualSpend: number): Promise<CostCenter> {
+    return makeRequest<CostCenter>(`${this.BASE_URL}/${id}/actual-spend`, {
+      method: 'PUT',
+      body: JSON.stringify({ actualSpend }),
+    });
+  }
+
+  // Delete cost center
+  static async deleteCostCenter(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Deactivate cost center (soft delete)
+  static async deactivateCostCenter(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}/deactivate`, {
+      method: 'PUT',
+    });
+  }
+
+  // Activate cost center
+  static async activateCostCenter(id: number): Promise<void> {
     await makeRequest<void>(`${this.BASE_URL}/${id}/activate`, {
       method: 'PUT',
     });

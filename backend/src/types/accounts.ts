@@ -322,3 +322,59 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+// =====================================================
+// Cost Center Types
+// =====================================================
+
+export type CostCenterType = 'Department' | 'Project' | 'Location';
+export type CostCenterStatus = 'Active' | 'Inactive';
+
+export interface CostCenter {
+  id: number;
+  name: string;
+  code: string;
+  type: CostCenterType;
+  department: string;
+  owner: string;
+  budget: number;
+  actualSpend: number;
+  variance: number;
+  status: CostCenterStatus;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCostCenterRequest {
+  name: string;
+  code: string;
+  type: CostCenterType;
+  department: string;
+  owner: string;
+  budget?: number;
+  status?: CostCenterStatus;
+  description?: string;
+}
+
+export interface UpdateCostCenterRequest {
+  name?: string;
+  code?: string;
+  type?: CostCenterType;
+  department?: string;
+  owner?: string;
+  budget?: number;
+  status?: CostCenterStatus;
+  description?: string;
+}
+
+export interface CostCenterQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: CostCenterType;
+  status?: CostCenterStatus;
+  department?: string;
+  sortBy?: 'id' | 'name' | 'code' | 'type' | 'department' | 'budget' | 'actualSpend' | 'created_at' | 'updated_at';
+  sortOrder?: 'asc' | 'desc';
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   Plus,
   Search,
@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   EllipsisVertical,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,8 +49,13 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/sonner"
-import { costCenters } from "@/modules/accounts/data/mockData"
-import type { CostCenter, CostCenterType } from "@/modules/accounts/types"
+import { 
+  CostCentersApiService,
+  type CostCenter, 
+  type CostCenterType,
+  type CostCenterStatus,
+  type CreateCostCenterRequest 
+} from "@/services/accounts-api"
 
 const costCenterTypes: CostCenterType[] = ["Department", "Project", "Location"]
 
@@ -61,12 +67,87 @@ const formatCurrency = (value: number) =>
   })
 
 export default function CostCenters() {
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<CostCenterType | "All">("All")
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
   const [departmentFilter, setDepartmentFilter] = useState<string | "All">("All")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [autoAllocate, setAutoAllocate] = useState(true)
+  const [formData, setFormData] = useState<CreateCostCenterRequest>({
+    name: "",
+    code: "",
+    type: "Department",
+    department: "",
+    owner: "",
+    budget: 0,
+    description: "",
+  })
+
+  // Load data on component mount
+  useEffect(() => {
+    loadCostCenters()
+  }, [])
+
+  const loadCostCenters = async () => {
+    try {
+      setIsLoading(true)
+      const response = await CostCentersApiService.getCostCenters({ limit: 1000 }) // Get all for now
+      setCostCenters(response.data)
+    } catch (error) {
+      console.error('Failed to load cost centers:', error)
+      toast.error("Failed to load cost centers", {
+        description: "Please try refreshing the page.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateCostCenter = async () => {
+    try {
+      setIsCreating(true)
+      await CostCentersApiService.createCostCenter(formData)
+      toast.success("Cost center created successfully")
+      setIsDialogOpen(false)
+      setFormData({
+        name: "",
+        code: "",
+        type: "Department",
+        department: "",
+        owner: "",
+        budget: 0,
+        description: "",
+      })
+      loadCostCenters() // Refresh data
+    } catch (error: any) {
+      console.error('Failed to create cost center:', error)
+      toast.error("Failed to create cost center", {
+        description: error.message || "Please try again.",
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleToggleStatus = async (costCenter: CostCenter) => {
+    try {
+      if (costCenter.status === 'Active') {
+        await CostCentersApiService.deactivateCostCenter(costCenter.id)
+        toast.success("Cost center deactivated successfully")
+      } else {
+        await CostCentersApiService.activateCostCenter(costCenter.id)
+        toast.success("Cost center activated successfully")
+      }
+      loadCostCenters() // Refresh data
+    } catch (error: any) {
+      console.error('Failed to toggle cost center status:', error)
+      toast.error("Failed to update cost center status", {
+        description: error.message || "Please try again.",
+      })
+    }
+  }
 
   const metrics = useMemo(() => {
     const totalBudget = costCenters.reduce((sum, center) => sum + center.budget, 0)
