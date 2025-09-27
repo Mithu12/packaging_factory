@@ -204,6 +204,12 @@ export const PERMISSIONS = {
 
   // System Admin
   SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
+
+    // Account Groups
+  ACCOUNTS_READ: createPermissionCheck('Finance', 'create', 'accounts'),
+  ACCOUNTS_CREATE: createPermissionCheck('Finance', 'read', 'accounts'),
+  ACCOUNTS_UPDATE: createPermissionCheck('Finance', 'update', 'accounts'),
+  ACCOUNTS_DELETE: createPermissionCheck('Finance', 'delete', 'accounts'),
 } as const;
 
 // Permission groups for easier management

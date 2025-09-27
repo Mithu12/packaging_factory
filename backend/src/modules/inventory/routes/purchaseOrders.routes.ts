@@ -18,10 +18,10 @@ import { MyLogger } from "@/utils/new-logger";
 import PurchaseOrdersController from "../controllers/purchaseOrders.controller";
 import GetPurchaseOrderInfoMediator from "../mediators/purchaseOrders/GetPurchaseOrderInfo.mediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
-import AddPurchaseOrderMediator from "../mediators/purchaseOrders/AddPurchaseOrder.mediator";
 import UpdatePurchaseOrderInfoMediator from "../mediators/purchaseOrders/UpdatePurchaseOrderInfo.mediator";
 import DeletePurchaseOrderMediator from "../mediators/purchaseOrders/DeletePurchaseOrder.mediator";
 import { PDFGenerator } from "@/services/pdf-generator";
+import purchaseOrdersController from "../controllers/purchaseOrders.controller";
 
 const router = express.Router();
 
@@ -114,15 +114,7 @@ router.get(
   "/search",
   authenticate,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
-  expressAsyncHandler(async (req, res, next) => {
-    const { q, limit } = req.query;
-    const purchaseOrders =
-      await GetPurchaseOrderInfoMediator.searchPurchaseOrders(
-        q as string,
-        limit ? parseInt(limit as string) : 10
-      );
-    serializeSuccessResponse(res, purchaseOrders, "SUCCESS");
-  })
+  expressAsyncHandler(PurchaseOrdersController.searchPurchaseOrders)
 );
 
 router.get(
@@ -146,12 +138,7 @@ router.post(
   auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_CREATE),
   validateRequest(createPurchaseOrderSchema),
-  expressAsyncHandler(async (req, res, next) => {
-    const purchaseOrder = await AddPurchaseOrderMediator.createPurchaseOrder(
-      req.body
-    );
-    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
-  })
+  expressAsyncHandler(purchaseOrdersController.createPurchaseOrder)
 );
 
 router.put(

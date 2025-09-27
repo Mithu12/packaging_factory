@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { Plus, Search, Layers, FolderTree, RefreshCw, EllipsisVertical } from "lucide-react"
+import { useMemo, useState, useEffect } from "react"
+import { Plus, Search, Layers, FolderTree, RefreshCw, EllipsisVertical, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,8 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/components/ui/sonner"
-import { accountGroups } from "@/modules/accounts/data/mockData"
-import type { AccountCategory, AccountGroupNode } from "@/modules/accounts/types"
+import { AccountGroupsApiService, type AccountGroup, type AccountCategory, type CreateAccountGroupRequest } from "@/services/accounts-api"
 
 const accountCategories: AccountCategory[] = [
   "Assets",
@@ -42,11 +41,11 @@ const accountCategories: AccountCategory[] = [
   "Expenses",
 ]
 
-const flattenGroups = (nodes: AccountGroupNode[]): AccountGroupNode[] => {
+const flattenGroups = (nodes: AccountGroup[]): AccountGroup[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenGroups(node.children) : [])])
 }
 
-const renderGroupTree = (nodes: AccountGroupNode[], depth = 0) => {
+const renderGroupTree = (nodes: AccountGroup[], depth = 0) => {
   return nodes.map((node) => (
     <div
       key={node.id}
@@ -58,7 +57,7 @@ const renderGroupTree = (nodes: AccountGroupNode[], depth = 0) => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FolderTree className="h-4 w-4" />
             <span>{node.code}</span>
-            <span className="text-border">•</span>
+            <span className="text-border">ï¿½</span>
             <span>{node.category}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -71,7 +70,7 @@ const renderGroupTree = (nodes: AccountGroupNode[], depth = 0) => {
             <p className="text-sm text-muted-foreground">{node.description}</p>
           ) : null}
           <div className="text-xs text-muted-foreground/80">
-            Last updated {new Date(node.updatedAt).toLocaleDateString()} • Created {new Date(node.createdAt).toLocaleDateString()}
+            Last updated {new Date(node.updatedAt).toLocaleDateString()} â€¢ Created {new Date(node.createdAt).toLocaleDateString()}
           </div>
         </div>
         <DropdownMenu>
@@ -101,8 +100,37 @@ export default function AccountGroups() {
   const [selectedCategory, setSelectedCategory] = useState<AccountCategory | "All">("All")
   const [showInactive, setShowInactive] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+  const [formData, setFormData] = useState<CreateAccountGroupRequest>({
+    name: "",
+    code: "",
+    category: "Assets",
+    description: "",
+  })
 
-  const allGroups = useMemo(() => flattenGroups(accountGroups), [])
+  // Load account groups on component mount
+  useEffect(() => {
+    loadAccountGroups()
+  }, [])
+
+  const loadAccountGroups = async () => {
+    try {
+      setIsLoading(true)
+      const data = await AccountGroupsApiService.getAccountGroupsTree()
+      setAccountGroups(data)
+    } catch (error) {
+      console.error('Failed to load account groups:', error)
+      toast.error("Failed to load account groups", {
+        description: "Please try refreshing the page.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const allGroups = useMemo(() => flattenGroups(accountGroups), [accountGroups])
 
   const metrics = useMemo(() => {
     const total = allGroups.length
@@ -116,7 +144,7 @@ export default function AccountGroups() {
   }, [allGroups])
 
   const filteredTree = useMemo(() => {
-    const filterNodes = (nodes: AccountGroupNode[]): AccountGroupNode[] => {
+    const filterNodes = (nodes: AccountGroup[]): AccountGroup[] => {
       return nodes
         .map((node) => {
           const matchesCategory = selectedCategory === "All" || node.category === selectedCategory
@@ -138,18 +166,42 @@ export default function AccountGroups() {
             children: filteredChildren,
           }
         })
-        .filter((node): node is AccountGroupNode => node !== null)
+        .filter((node): node is AccountGroup => node !== null)
     }
 
     return filterNodes(accountGroups)
-  }, [searchTerm, selectedCategory, showInactive])
+  }, [searchTerm, selectedCategory, showInactive, accountGroups])
 
-  const handleCreateGroup = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateGroup = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    toast.success("Account group saved", {
-      description: "New account group will be added once approvals are completed.",
-    })
-    setIsDialogOpen(false)
+    
+    try {
+      setIsCreating(true)
+      await AccountGroupsApiService.createAccountGroup(formData)
+      toast.success("Account group created", {
+        description: "The new account group has been added successfully.",
+      })
+      setIsDialogOpen(false)
+      setFormData({
+        name: "",
+        code: "",
+        category: "Assets",
+        description: "",
+      })
+      // Reload the account groups
+      await loadAccountGroups()
+    } catch (error) {
+      console.error('Failed to create account group:', error)
+      toast.error("Failed to create account group", {
+        description: "Please check your input and try again.",
+      })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    loadAccountGroups()
   }
 
   return (
@@ -180,15 +232,30 @@ export default function AccountGroups() {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="group-name">Group name</Label>
-                    <Input id="group-name" placeholder="e.g. Prepaid Expenses" required />
+                    <Input 
+                      id="group-name" 
+                      placeholder="e.g. Prepaid Expenses" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="group-code">Group code</Label>
-                    <Input id="group-code" placeholder="e.g. 1150" required />
+                    <Input 
+                      id="group-code" 
+                      placeholder="e.g. 1150" 
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="group-category">Category</Label>
-                    <Select defaultValue="Assets">
+                    <Select 
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({...formData, category: value as AccountCategory})}
+                    >
                       <SelectTrigger id="group-category">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
@@ -211,7 +278,7 @@ export default function AccountGroups() {
                         <SelectItem value="none">Top-level group</SelectItem>
                         {allGroups.map((group) => (
                           <SelectItem key={group.id} value={group.id}>
-                            {group.code} · {group.name}
+                            {group.code} ï¿½ {group.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -222,6 +289,8 @@ export default function AccountGroups() {
                     <Textarea
                       id="group-description"
                       placeholder="Provide context about how this group should be used"
+                      value={formData.description || ""}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
                       rows={3}
                     />
                   </div>
@@ -239,8 +308,15 @@ export default function AccountGroups() {
                   <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    Save group
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Save group"
+                    )}
                   </Button>
                 </DialogFooter>
               </form>
@@ -287,6 +363,9 @@ export default function AccountGroups() {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <CardTitle>Group catalogue</CardTitle>
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
               <div className="relative md:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -324,7 +403,12 @@ export default function AccountGroups() {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[520px] pr-4">
-            {filteredTree.length > 0 ? (
+            {isLoading ? (
+              <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="font-medium">Loading account groups...</p>
+              </div>
+            ) : filteredTree.length > 0 ? (
               <div className="space-y-2">
                 {renderGroupTree(filteredTree)}
               </div>

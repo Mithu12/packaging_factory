@@ -20,6 +20,7 @@ import returnsRoutes from "./routes/returns.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
+import accountsRoutes from "./modules/accounts";
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +111,7 @@ app.get("/health", (req, res) => {
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api", inventoryRoutes);
+app.use("/api/accounts", accountsRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);

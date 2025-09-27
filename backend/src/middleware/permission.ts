@@ -358,7 +358,13 @@ export const PERMISSIONS = {
   // Self Service
   PROFILE_READ: createPermissionCheck('Self Service', 'read', 'own_profile'),
   PROFILE_UPDATE: createPermissionCheck('Self Service', 'update', 'own_profile'),
-  PAYSLIP_READ: createPermissionCheck('Self Service', 'read', 'own_payslip')
+  PAYSLIP_READ: createPermissionCheck('Self Service', 'read', 'own_payslip'),
+
+  // Account Groups
+  ACCOUNTS_READ: createPermissionCheck('Finance', 'create', 'accounts'),
+  ACCOUNTS_CREATE: createPermissionCheck('Finance', 'read', 'accounts'),
+  ACCOUNTS_UPDATE: createPermissionCheck('Finance', 'update', 'accounts'),
+  ACCOUNTS_DELETE: createPermissionCheck('Finance', 'delete', 'accounts'),
 };
 
 // Export permission middleware functions
