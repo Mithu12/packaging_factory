@@ -30,6 +30,11 @@ import {
   Calendar,
   Activity,
   AlertTriangle,
+  Wrench,
+  ClipboardList,
+  TrendingUp,
+  Package2,
+  Calculator as CalculatorIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -202,6 +207,30 @@ const menuSections: MenuSection[] = [
         title: "Factory Expenses",
         url: "/factory/expenses",
         icon: Receipt,
+        permission: null,
+      },
+      {
+        title: "Bill of Materials",
+        url: "/factory/bom",
+        icon: ClipboardList,
+        permission: null,
+      },
+      {
+        title: "Material Requirements",
+        url: "/factory/mrp",
+        icon: TrendingUp,
+        permission: null,
+      },
+      {
+        title: "Material Allocation",
+        url: "/factory/materials",
+        icon: Package2,
+        permission: null,
+      },
+      {
+        title: "Material Cost Analysis",
+        url: "/factory/material-costs",
+        icon: CalculatorIcon,
         permission: null,
       },
     ],

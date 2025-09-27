@@ -73,6 +73,14 @@ import ProductionExecution from "@/modules/factory/pages/ProductionExecution";
 import WastageTracking from "@/modules/factory/pages/WastageTracking";
 import FactoryExpenses from "@/modules/factory/pages/FactoryExpenses";
 
+// BOM and Material Management Imports
+import BOMList from "@/modules/factory/pages/BOMList";
+import BOMEditor from "@/modules/factory/pages/BOMEditor";
+import MaterialRequirementsPlanning from "@/modules/factory/pages/MaterialRequirementsPlanning";
+import MaterialAllocation from "@/modules/factory/pages/MaterialAllocation";
+import EnhancedWorkOrderPlanning from "@/modules/factory/pages/EnhancedWorkOrderPlanning";
+import MaterialCostAnalysis from "@/modules/factory/pages/MaterialCostAnalysis";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -490,6 +498,68 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <FactoryExpenses />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* BOM and Material Management Routes */}
+                <Route
+                  path="/factory/bom"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <BOMList />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/bom/new"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <BOMEditor />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/bom/:id/edit"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <BOMEditor />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/mrp"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <MaterialRequirementsPlanning />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/materials"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <MaterialAllocation />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/material-costs"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <MaterialCostAnalysis />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
