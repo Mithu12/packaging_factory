@@ -87,11 +87,7 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
         updateFields.push(`budget = $${paramIndex}`);
         updateValues.push(data.budget);
         paramIndex++;
-        
-        // Recalculate variance when budget changes
-        updateFields.push(`variance = $${paramIndex} - actual_spend`);
-        updateValues.push(data.budget);
-        paramIndex++;
+        // Note: variance will be automatically recalculated as it's a generated column
       }
 
       if (data.status !== undefined) {
@@ -168,7 +164,7 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
 
       // Check if cost center exists
       const existingResult = await client.query(
-        "SELECT budget FROM cost_centers WHERE id = $1",
+        "SELECT id FROM cost_centers WHERE id = $1",
         [id]
       );
 
@@ -176,13 +172,10 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
         throw createError("Cost center not found", 404);
       }
 
-      const budget = existingResult.rows[0].budget;
-      const variance = budget - actualSpend;
-
       const result = await client.query(
         `UPDATE cost_centers 
-         SET actual_spend = $1, variance = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3
+         SET actual_spend = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
          RETURNING 
            id,
            name,
@@ -197,7 +190,7 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
            description,
            created_at as "createdAt",
            updated_at as "updatedAt"`,
-        [actualSpend, variance, id]
+        [actualSpend, id]
       );
 
       await client.query('COMMIT');
@@ -207,7 +200,7 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
       MyLogger.success(action, {
         costCenterId: id,
         actualSpend,
-        variance,
+        variance: costCenter.variance,
       });
 
       return costCenter;

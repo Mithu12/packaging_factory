@@ -39,7 +39,7 @@ export const updateCostCenterSchema = Joi.object({
 // Schema for query parameters
 export const getCostCentersQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().max(255).trim().allow(''),
   type: Joi.string().valid('Department', 'Project', 'Location'),
   status: Joi.string().valid('Active', 'Inactive'),

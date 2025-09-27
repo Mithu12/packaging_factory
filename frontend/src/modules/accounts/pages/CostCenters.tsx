@@ -185,16 +185,9 @@ export default function CostCenters() {
 
       return matchesSearch && matchesType && matchesStatus && matchesDepartment
     })
-  }, [searchTerm, typeFilter, statusFilter, departmentFilter])
+  }, [costCenters, searchTerm, typeFilter, statusFilter, departmentFilter])
 
-  const handleCreateCostCenter = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    toast.success("Cost center draft created", {
-      description: "Submit for approval to activate budgeting controls.",
-    })
-    setIsDialogOpen(false)
-  }
-
+    console.log(filteredCenters)
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -218,19 +211,34 @@ export default function CostCenters() {
                 Define a new reporting dimension to track spending and profitability across your organization.
               </DialogDescription>
             </DialogHeader>
-            <form className="space-y-4" onSubmit={handleCreateCostCenter}>
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleCreateCostCenter(); }}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="center-name">Name</Label>
-                  <Input id="center-name" placeholder="Factory C" required />
+                  <Input 
+                    id="center-name" 
+                    placeholder="Factory C" 
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="center-code">Code</Label>
-                  <Input id="center-code" placeholder="CC-FC" required />
+                  <Input 
+                    id="center-code" 
+                    placeholder="CC-FC" 
+                    value={formData.code}
+                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="center-type">Type</Label>
-                  <Select defaultValue="Location">
+                  <Select 
+                    value={formData.type} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as CostCenterType }))}
+                  >
                     <SelectTrigger id="center-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -245,35 +253,60 @@ export default function CostCenters() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="center-department">Department</Label>
-                  <Input id="center-department" placeholder="Manufacturing" />
+                  <Input 
+                    id="center-department" 
+                    placeholder="Manufacturing" 
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="center-owner">Owner</Label>
-                  <Input id="center-owner" placeholder="Name and title" />
+                  <Input 
+                    id="center-owner" 
+                    placeholder="Name and title" 
+                    value={formData.owner}
+                    onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="budget">Annual budget</Label>
-                  <Input id="budget" type="number" min="0" placeholder="500000" />
+                  <Input 
+                    id="budget" 
+                    type="number" 
+                    min="0" 
+                    placeholder="500000" 
+                    value={formData.budget || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="center-description">Description</Label>
-                <Textarea id="center-description" placeholder="Explain how this cost center will be used" rows={3} />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-                <div>
-                  <Label className="text-sm font-medium">Auto allocate expenses</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Automatically suggest this cost center on related vouchers.
-                  </p>
-                </div>
-                <Switch checked={autoAllocate} onCheckedChange={setAutoAllocate} />
+                <Textarea 
+                  id="center-description" 
+                  placeholder="Explain how this cost center will be used" 
+                  rows={3}
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
               </div>
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Save draft</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create cost center"
+                  )}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -407,9 +440,18 @@ export default function CostCenters() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCenters.length > 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32">
+                      <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                        Loading cost centers...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredCenters.length > 0 ? (
                   filteredCenters.map((center) => {
-                    const utilization = Math.min(100, Math.round((center.actualSpend / center.budget) * 100))
+                    const utilization = center.budget > 0 ? Math.min(100, Math.round((center.actualSpend / center.budget) * 100)) : 0
                     const isOverBudget = center.variance < 0
                     return (
                       <TableRow key={center.id} className={isOverBudget ? "bg-rose-50/40" : undefined}>
@@ -438,11 +480,9 @@ export default function CostCenters() {
                         <TableCell>
                           <div className="space-y-1">
                             <p className="text-sm font-medium">{center.owner}</p>
-                            {center.endDate ? (
-                              <p className="text-xs text-muted-foreground">Ended {new Date(center.endDate).toLocaleDateString()}</p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Started {new Date(center.startDate).toLocaleDateString()}</p>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Created {new Date(center.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -479,10 +519,15 @@ export default function CostCenters() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View ledger</DropdownMenuItem>
-                              <DropdownMenuItem>Edit details</DropdownMenuItem>
-                              <DropdownMenuItem>Assign approvers</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast.info("Ledger view coming soon")}>View ledger</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast.info("Edit functionality coming soon")}>Edit details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast.info("Approvers feature coming soon")}>Assign approvers</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive" 
+                                onClick={() => handleToggleStatus(center)}
+                              >
+                                {center.status === 'Active' ? 'Deactivate' : 'Activate'}
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -491,8 +536,17 @@ export default function CostCenters() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center text-sm text-muted-foreground">
-                      No cost centers match your filters. Adjust the search criteria or create a new center.
+                    <TableCell colSpan={6} className="h-32">
+                      <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
+                        <Building className="h-8 w-8 mb-2" />
+                        <p className="font-medium">No cost centers found</p>
+                        <p>
+                          {costCenters.length === 0 
+                            ? "Create your first cost center to start tracking expenses."
+                            : "No cost centers match your filters. Adjust the search criteria."
+                          }
+                        </p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}

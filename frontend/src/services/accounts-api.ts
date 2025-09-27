@@ -351,7 +351,7 @@ export class ChartOfAccountsApiService {
 // =====================================================
 
 export class CostCentersApiService {
-  private static readonly BASE_URL = '/api/accounts/cost-centers';
+  private static readonly BASE_URL = '/accounts/cost-centers';
 
   // Get all cost centers with pagination and filtering
   static async getCostCenters(params?: CostCenterQueryParams): Promise<PaginatedResponse<CostCenter>> {

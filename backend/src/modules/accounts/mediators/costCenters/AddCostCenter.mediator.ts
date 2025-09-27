@@ -31,7 +31,7 @@ class AddCostCenterMediator implements MediatorInterface {
         throw createError("Cost center code already exists", 400);
       }
 
-      // Insert new cost center
+      // Insert new cost center (excluding variance as it's a generated column)
       const insertQuery = `
         INSERT INTO cost_centers (
           name, 
@@ -41,10 +41,9 @@ class AddCostCenterMediator implements MediatorInterface {
           owner, 
           budget,
           actual_spend,
-          variance,
           status,
           description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING 
           id,
           name,
@@ -63,7 +62,6 @@ class AddCostCenterMediator implements MediatorInterface {
 
       const budget = data.budget || 0;
       const actualSpend = 0; // Initial actual spend is 0
-      const variance = budget - actualSpend;
 
       const result = await client.query(insertQuery, [
         data.name,
@@ -73,7 +71,6 @@ class AddCostCenterMediator implements MediatorInterface {
         data.owner,
         budget,
         actualSpend,
-        variance,
         data.status || 'Active',
         data.description || null,
       ]);
