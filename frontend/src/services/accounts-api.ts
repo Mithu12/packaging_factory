@@ -61,6 +61,68 @@ export interface AccountGroupStats {
   groupsWithChildren: number;
 }
 
+// =====================================================
+// Chart of Accounts Types
+// =====================================================
+
+export type AccountNodeType = 'Control' | 'Posting';
+
+export interface ChartOfAccount {
+  id: number;
+  name: string;
+  code: string;
+  type: AccountNodeType;
+  category: AccountCategory;
+  parentId?: number;
+  groupId?: number;
+  balance: number;
+  currency: string;
+  status: AccountStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  children?: ChartOfAccount[];
+  groupName?: string;
+  parentName?: string;
+}
+
+export interface CreateChartOfAccountRequest {
+  name: string;
+  code: string;
+  type: AccountNodeType;
+  category: AccountCategory;
+  parentId?: number;
+  groupId?: number;
+  currency?: string;
+  status?: AccountStatus;
+  notes?: string;
+}
+
+export interface UpdateChartOfAccountRequest {
+  name?: string;
+  code?: string;
+  type?: AccountNodeType;
+  category?: AccountCategory;
+  parentId?: number;
+  groupId?: number;
+  currency?: string;
+  status?: AccountStatus;
+  notes?: string;
+}
+
+export interface ChartOfAccountQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: AccountCategory;
+  type?: AccountNodeType;
+  status?: AccountStatus;
+  groupId?: number;
+  parentId?: number;
+  sortBy?: 'id' | 'name' | 'code' | 'category' | 'type' | 'balance' | 'created_at' | 'updated_at';
+  sortOrder?: 'asc' | 'desc';
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -153,6 +215,75 @@ export class AccountGroupsApiService {
 
   // Activate account group
   static async activateAccountGroup(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}/activate`, {
+      method: 'PUT',
+    });
+  }
+}
+
+// =====================================================
+// Chart of Accounts API Service
+// =====================================================
+
+export class ChartOfAccountsApiService {
+  private static readonly BASE_URL = '/accounts/chart-of-accounts';
+
+  // Get all chart of accounts with pagination and filtering
+  static async getChartOfAccounts(params?: ChartOfAccountQueryParams): Promise<PaginatedResponse<ChartOfAccount>> {
+    const queryString = params ? '?' + new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = String(value);
+        }
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString() : '';
+    
+    return makeRequest<PaginatedResponse<ChartOfAccount>>(`${this.BASE_URL}${queryString}`);
+  }
+
+  // Get hierarchical chart of accounts tree
+  static async getChartOfAccountsTree(): Promise<ChartOfAccount[]> {
+    return makeRequest<ChartOfAccount[]>(`${this.BASE_URL}/tree`);
+  }
+
+  // Get chart of account by ID
+  static async getChartOfAccountById(id: number): Promise<ChartOfAccount> {
+    return makeRequest<ChartOfAccount>(`${this.BASE_URL}/${id}`);
+  }
+
+  // Create new chart of account
+  static async createChartOfAccount(data: CreateChartOfAccountRequest): Promise<ChartOfAccount> {
+    return makeRequest<ChartOfAccount>(this.BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update chart of account
+  static async updateChartOfAccount(id: number, data: UpdateChartOfAccountRequest): Promise<ChartOfAccount> {
+    return makeRequest<ChartOfAccount>(`${this.BASE_URL}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete chart of account
+  static async deleteChartOfAccount(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Deactivate chart of account (soft delete)
+  static async deactivateChartOfAccount(id: number): Promise<void> {
+    await makeRequest<void>(`${this.BASE_URL}/${id}/deactivate`, {
+      method: 'PUT',
+    });
+  }
+
+  // Activate chart of account
+  static async activateChartOfAccount(id: number): Promise<void> {
     await makeRequest<void>(`${this.BASE_URL}/${id}/activate`, {
       method: 'PUT',
     });

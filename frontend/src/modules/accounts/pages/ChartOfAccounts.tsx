@@ -11,6 +11,7 @@ import {
   Users,
   ArrowUpRight,
   EllipsisVertical,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,13 +46,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/sonner"
-import { accountGroups, chartOfAccounts, costCenters, vouchers } from "@/modules/accounts/data/mockData"
-import type {
-  AccountCategory,
-  AccountGroupNode,
-  AccountNode,
-  AccountNodeType,
-} from "@/modules/accounts/types"
+import { 
+  ChartOfAccountsApiService, 
+  AccountGroupsApiService,
+  type ChartOfAccount, 
+  type AccountGroup,
+  type AccountCategory, 
+  type AccountNodeType,
+  type CreateChartOfAccountRequest 
+} from "@/services/accounts-api"
 
 const accountTypes: AccountNodeType[] = ["Control", "Posting"]
 const accountCategories: AccountCategory[] = [
@@ -63,9 +66,9 @@ const accountCategories: AccountCategory[] = [
 ]
 
 interface TreeNodeProps {
-  node: AccountNode
+  node: ChartOfAccount
   depth: number
-  onSelect: (node: AccountNode) => void
+  onSelect: (node: ChartOfAccount) => void
   selectedId?: string
 }
 
