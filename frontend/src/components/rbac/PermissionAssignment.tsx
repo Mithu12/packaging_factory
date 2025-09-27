@@ -271,14 +271,14 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
 
       {/* Permission Assignment by Module */}
       <Tabs value={selectedModule || modules[0]} onValueChange={setSelectedModule}>
-        <TabsList className="grid w-full grid-cols-6 lg:grid-cols-13">
+        <TabsList className="grid w-full h-full bg-white grid-cols-6 lg:grid-cols-13">
           {modules.map(module => {
             const stats = getModuleStats(module);
             return (
-              <TabsTrigger key={module} value={module} className="text-xs relative">
+              <TabsTrigger key={module} value={module} className="text-xs relative border-2 border-gray-100">
                 {module.split(' ')[0]}
                 {stats.assigned > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  <span className="absolute top-2 right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
                     {stats.assigned}
                   </span>
                 )}
