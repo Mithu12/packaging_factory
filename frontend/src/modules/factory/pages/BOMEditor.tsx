@@ -531,36 +531,46 @@ export default function BOMEditor() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="component">Component</Label>
-              <Select
-                value={selectedProduct?.id || ""}
-                onValueChange={(value) => {
-                  const product = products.find((p) => p.id === value);
-                  setSelectedProduct(product || null);
-                  if (product) {
-                    setNewComponent((prev) => ({
-                      ...prev,
-                      componentId: product.id,
-                      unitOfMeasure: product.unitOfMeasure,
-                    }));
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a component" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{product.name}</span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {product.sku}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select
+                  value={selectedProduct?.id || ""}
+                  onValueChange={(value) => {
+                    const product = products.find((p) => p.id === value);
+                    setSelectedProduct(product || null);
+                    if (product) {
+                      setNewComponent((prev) => ({
+                        ...prev,
+                        componentId: product.id,
+                        unitOfMeasure: product.unitOfMeasure,
+                      }));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select a component" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{product.name}</span>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            {product.sku}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/factory/raw-materials")}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add New
+                </Button>
+              </div>
             </div>
 
             {selectedProduct && (

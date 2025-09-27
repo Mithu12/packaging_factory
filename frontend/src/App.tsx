@@ -80,6 +80,7 @@ import MaterialRequirementsPlanning from "@/modules/factory/pages/MaterialRequir
 import MaterialAllocation from "@/modules/factory/pages/MaterialAllocation";
 import EnhancedWorkOrderPlanning from "@/modules/factory/pages/EnhancedWorkOrderPlanning";
 import MaterialCostAnalysis from "@/modules/factory/pages/MaterialCostAnalysis";
+import RawMaterialsManagement from "@/modules/factory/pages/RawMaterialsManagement";
 
 const queryClient = new QueryClient();
 
@@ -560,6 +561,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <MaterialCostAnalysis />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/raw-materials"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <RawMaterialsManagement />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
