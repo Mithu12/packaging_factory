@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   EllipsisVertical,
   Loader2,
+  FileText,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -49,12 +50,27 @@ import { toast } from "@/components/ui/sonner"
 import { 
   ChartOfAccountsApiService, 
   AccountGroupsApiService,
+  VouchersApiService,
+  CostCentersApiService,
   type ChartOfAccount, 
   type AccountGroup,
   type AccountCategory, 
   type AccountNodeType,
-  type CreateChartOfAccountRequest 
+  type CreateChartOfAccountRequest,
+  type Voucher,
+  type VoucherLine,
+  type CostCenter
 } from "@/services/accounts-api"
+import { useFormatting } from "@/hooks/useFormatting"
+
+// Extended type for voucher lines with voucher context
+type ExtendedVoucherLine = VoucherLine & {
+  voucherNo: string
+  voucherType: string
+  voucherDate: string
+  voucherStatus: string
+  voucherAmount: number
+}
 
 const accountTypes: AccountNodeType[] = ["Control", "Posting"]
 const accountCategories: AccountCategory[] = [
@@ -186,6 +202,8 @@ const filterAccountTree = (
 export default function ChartOfAccounts() {
   const [accountTree, setAccountTree] = useState<ChartOfAccount[]>([])
   const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([])
+  const [vouchers, setVouchers] = useState<Voucher[]>([])
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const flattened = useMemo(() => flattenAccounts(accountTree), [accountTree])
@@ -207,7 +225,7 @@ export default function ChartOfAccounts() {
   })
   const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-
+  const { formatDate } = useFormatting()
   // Load data on component mount
   useEffect(() => {
     loadData()
@@ -216,12 +234,16 @@ export default function ChartOfAccounts() {
   const loadData = async () => {
     try {
       setIsLoading(true)
-      const [accountsData, groupsData] = await Promise.all([
+      const [accountsData, groupsData, vouchersResult, costCentersResult] = await Promise.all([
         ChartOfAccountsApiService.getChartOfAccountsTree(),
-        AccountGroupsApiService.getAccountGroupsTree()
+        AccountGroupsApiService.getAccountGroupsTree(),
+        VouchersApiService.getVouchers({ limit: 1000 }),
+        CostCentersApiService.getCostCenters({ limit: 1000 })
       ])
       setAccountTree(accountsData)
       setAccountGroups(groupsData)
+      setVouchers(vouchersResult.data)
+      setCostCenters(costCentersResult.data)
       
       // Set initial selected account
       const flattenedAccounts = flattenAccounts(accountsData)
@@ -459,14 +481,74 @@ export default function ChartOfAccounts() {
   }, [accountTree, searchTerm, selectedType, selectedCategory])
 
   const relatedLines = useMemo(() => {
-    // Voucher data will be implemented later
-    return []
-  }, [selectedAccount])
+    if (!selectedAccount) return []
+    
+    // Get all voucher lines that reference this account
+    const accountLines: ExtendedVoucherLine[] = []
+    
+    vouchers.forEach(voucher => {
+      voucher.lines.forEach(line => {
+        if (line.accountId === selectedAccount.id) {
+          accountLines.push({
+            ...line,
+            // Add voucher context
+            voucherNo: voucher.voucherNo,
+            voucherType: voucher.type,
+            voucherDate: voucher.date,
+            voucherStatus: voucher.status,
+            voucherAmount: voucher.amount
+          })
+        }
+      })
+    })
+    
+    // Sort by most recent first
+    return accountLines.sort((a, b) => 
+      new Date(b.voucherDate).getTime() - new Date(a.voucherDate).getTime()
+    ).slice(0, 10) // Show last 10 transactions
+  }, [selectedAccount, vouchers])
 
   const costCenterNames = useMemo(() => {
-    // Cost centers will be implemented later
-    return []
-  }, [selectedAccount])
+    if (!selectedAccount) return []
+    
+    // Get all cost centers that use this account as their default account
+    const relatedCostCenters = costCenters.filter(center => 
+      center.defaultAccountId === selectedAccount.id
+    )
+    
+    // Also get cost centers that have transactions with this account
+    const costCenterIds = new Set<number>()
+    
+    // Add cost centers from default account relationship
+    relatedCostCenters.forEach(center => costCenterIds.add(center.id))
+    
+    // Add cost centers from voucher lines
+    vouchers.forEach(voucher => {
+      voucher.lines.forEach(line => {
+        if (line.accountId === selectedAccount.id && line.costCenterId) {
+          costCenterIds.add(line.costCenterId)
+        }
+      })
+      
+      // Also check voucher-level cost center
+      if (voucher.costCenterId && voucher.lines.some(line => line.accountId === selectedAccount.id)) {
+        costCenterIds.add(voucher.costCenterId)
+      }
+    })
+    
+    // Get cost center details
+    return Array.from(costCenterIds)
+      .map(id => costCenters.find(center => center.id === id))
+      .filter(center => center !== undefined)
+      .map(center => ({
+        id: center!.id,
+        name: center!.name,
+        code: center!.code,
+        type: center!.type,
+        isDefault: center!.defaultAccountId === selectedAccount.id
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [selectedAccount, costCenters, vouchers])
 
   const allGroupOptions = useMemo(() => flattenGroupNodes(accountGroups), [])
   return (
@@ -976,9 +1058,14 @@ export default function ChartOfAccounts() {
                       <p className="text-2xl font-semibold">{costCenterNames.length}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {costCenterNames.length > 0 ? (
-                          costCenterNames.map((name) => (
-                            <Badge key={name} variant="secondary">
-                              {name}
+                          costCenterNames.map((center) => (
+                            <Badge 
+                              key={center.id} 
+                              variant={center.isDefault ? "default" : "secondary"}
+                              className={center.isDefault ? "bg-blue-500 hover:bg-blue-600" : ""}
+                            >
+                              {center.code} - {center.name}
+                              {center.isDefault && " (Default)"}
                             </Badge>
                           ))
                         ) : (
@@ -1033,36 +1120,45 @@ export default function ChartOfAccounts() {
                       <span>Cost center</span>
                     </div>
                     {relatedLines.length > 0 ? (
-                      relatedLines.slice(0, 5).map((line, index) => (
-                        <div
-                          key={`${line.voucherNo}-${index}`}
-                          className="grid grid-cols-6 items-center px-4 py-2 text-sm"
-                        >
-                          <span>{new Date(line.date).toLocaleDateString()}</span>
-                          <span className="font-medium">{line.voucherNo}</span>
-                          <span>{line.type}</span>
-                          <span className={line.debit > 0 ? "text-emerald-600" : "text-muted-foreground"}>
-                            {line.debit > 0
-                              ? line.debit.toLocaleString(undefined, {
-                                  style: "currency",
-                                  currency: selectedAccount.currency,
-                                })
-                              : "-"}
-                          </span>
-                          <span className={line.credit > 0 ? "text-rose-600" : "text-muted-foreground"}>
-                            {line.credit > 0
-                              ? line.credit.toLocaleString(undefined, {
-                                  style: "currency",
-                                  currency: selectedAccount.currency,
-                                })
-                              : "-"}
-                          </span>
-                          <span>-</span>
-                        </div>
-                      ))
+                      relatedLines.slice(0, 5).map((line, index) => {
+                        const costCenter = line.costCenterId ? 
+                          costCenters.find(c => c.id === line.costCenterId) : null
+                        
+                        return (
+                          <div
+                            key={`${line.voucherNo}-${index}`}
+                            className="grid grid-cols-6 items-center px-4 py-2 text-sm"
+                          >
+                            <span>{formatDate(line.voucherDate)}</span>
+                            <span className="font-medium">{line.voucherNo}</span>
+                            <span>{line.voucherType}</span>
+                            <span className={line.debit > 0 ? "text-emerald-600" : "text-muted-foreground"}>
+                              {line.debit > 0
+                                ? line.debit.toLocaleString(undefined, {
+                                    style: "currency",
+                                    currency: selectedAccount.currency,
+                                  })
+                                : "-"}
+                            </span>
+                            <span className={line.credit > 0 ? "text-rose-600" : "text-muted-foreground"}>
+                              {line.credit > 0
+                                ? line.credit.toLocaleString(undefined, {
+                                    style: "currency",
+                                    currency: selectedAccount.currency,
+                                  })
+                                : "-"}
+                            </span>
+                            <span className="text-xs">
+                              {costCenter ? `${costCenter.code}` : "-"}
+                            </span>
+                          </div>
+                        )
+                      })
                     ) : (
                       <div className="flex h-32 flex-col items-center justify-center text-sm text-muted-foreground">
-                        No vouchers found for this account in the sample data.
+                        <FileText className="h-8 w-8 mb-2" />
+                        <p>No transactions found</p>
+                        <p className="text-xs">This account has no voucher entries yet.</p>
                       </div>
                     )}
                   </div>
