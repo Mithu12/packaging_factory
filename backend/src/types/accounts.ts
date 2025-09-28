@@ -378,4 +378,30 @@ export interface IncomeStatementResponse {
   };
 }
 
+export interface BalanceSheetSection {
+  label: string;
+  amount: number;
+  category: "Assets" | "Liabilities" | "Equity";
+  children?: BalanceSheetSection[];
+}
+
+export interface BalanceSheetQueryParams {
+  asOfDate?: string;
+  costCenterId?: number;
+  format?: 'consolidated' | 'entity';
+}
+
+export interface BalanceSheetResponse {
+  assets: BalanceSheetSection[];
+  liabilities: BalanceSheetSection[];
+  equity: BalanceSheetSection[];
+  asOfDate: string;
+  totals: {
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+    balanceCheck: boolean; // Assets = Liabilities + Equity
+  };
+}
+
 

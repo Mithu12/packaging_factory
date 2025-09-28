@@ -752,6 +752,32 @@ export interface IncomeStatementResponse {
   };
 }
 
+export interface BalanceSheetSection {
+  label: string;
+  amount: number;
+  category: "Assets" | "Liabilities" | "Equity";
+  children?: BalanceSheetSection[];
+}
+
+export interface BalanceSheetQueryParams {
+  asOfDate?: string;
+  costCenterId?: number;
+  format?: 'consolidated' | 'entity';
+}
+
+export interface BalanceSheetResponse {
+  assets: BalanceSheetSection[];
+  liabilities: BalanceSheetSection[];
+  equity: BalanceSheetSection[];
+  asOfDate: string;
+  totals: {
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+    balanceCheck: boolean;
+  };
+}
+
 export class ReportsApiService {
   private static readonly BASE_URL = '/accounts/reports';
 
@@ -762,12 +788,21 @@ export class ReportsApiService {
     
     return makeRequest<IncomeStatementResponse>(url, { method: 'GET' });
   }
+
+  // Get balance sheet
+  static async getBalanceSheet(params?: BalanceSheetQueryParams): Promise<BalanceSheetResponse> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}/balance-sheet?${queryString}` : `${this.BASE_URL}/balance-sheet`;
+    
+    return makeRequest<BalanceSheetResponse>(url, { method: 'GET' });
+  }
 }
 
 // Query keys for React Query
 export const reportsQueryKeys = {
   all: ['reports'] as const,
-  incomeStatement: (params?: IncomeStatementQueryParams) => ['reports', 'income-statement', params] as const
+  incomeStatement: (params?: IncomeStatementQueryParams) => ['reports', 'income-statement', params] as const,
+  balanceSheet: (params?: BalanceSheetQueryParams) => ['reports', 'balance-sheet', params] as const
 };
 
 // Export default service for convenience
