@@ -41,6 +41,7 @@ import {
   type LedgerEntry,
   type CostCenter
 } from "@/services/accounts-api"
+import { useFormatting } from "@/hooks/useFormatting"
 
 const dateFilters = [
   { value: "30", label: "Last 30 days" },
@@ -49,15 +50,10 @@ const dateFilters = [
   { value: "all", label: "All time" },
 ]
 
-const formatCurrency = (value: number, currency = "USD") =>
-  value.toLocaleString(undefined, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  })
 
 export default function CostCenterLedger() {
   const [searchParams] = useSearchParams()
+  const { formatCurrency } = useFormatting()
   
   // State for data
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
@@ -144,8 +140,8 @@ export default function CostCenterLedger() {
   }, [ledgerEntries, voucherFilter, searchTerm])
 
   const metrics = useMemo(() => {
-    const totalDebit = filteredLines.reduce((sum, entry) => sum + (entry.debit ?? 0), 0)
-    const totalCredit = filteredLines.reduce((sum, entry) => sum + (entry.credit ?? 0), 0)
+    const totalDebit = filteredLines.reduce((sum, entry) => sum + Number(entry.debit ?? 0), 0)
+    const totalCredit = filteredLines.reduce((sum, entry) => sum + Number(entry.credit ?? 0), 0)
     const net = totalDebit - totalCredit
     return {
       totalDebit,
@@ -156,7 +152,7 @@ export default function CostCenterLedger() {
 
   const utilization = useMemo(() => {
     if (!selectedCostCenter) return 0
-    if (selectedCostCenter.budget === 0) return 0
+    if (Number(selectedCostCenter.budget) === 0) return 0
     return Math.min(100, Math.round((selectedCostCenter.actualSpend / selectedCostCenter.budget) * 100))
   }, [selectedCostCenter])
 
@@ -245,7 +241,7 @@ export default function CostCenterLedger() {
               <Building className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{formatCurrency(selectedCostCenter.budget)}</p>
+              <p className="text-2xl font-semibold">{formatCurrency(Number(selectedCostCenter.budget))}</p>
               <p className="text-xs text-muted-foreground">Annual allocation</p>
             </CardContent>
           </Card>
@@ -255,12 +251,12 @@ export default function CostCenterLedger() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold">{formatCurrency(selectedCostCenter.actualSpend)}</p>
+              <p className="text-2xl font-semibold">{formatCurrency(Number(selectedCostCenter.actualSpend))}</p>
               <div className="mt-3 space-y-2">
                 <Progress value={utilization} className="h-2" />
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>{utilization}% utilised</span>
-                  <span>Variance {formatCurrency(selectedCostCenter.variance)}</span>
+                  <span>Variance {formatCurrency(Number(selectedCostCenter.variance))}</span>
                 </div>
               </div>
             </CardContent>
@@ -271,7 +267,7 @@ export default function CostCenterLedger() {
               <ArrowDownUp className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold text-emerald-600">{formatCurrency(metrics.totalDebit)}</p>
+              <p className="text-2xl font-semibold text-emerald-600">{formatCurrency(Number(metrics.totalDebit))}</p>
               <p className="text-xs text-muted-foreground">Expenses and allocations</p>
             </CardContent>
           </Card>
@@ -281,7 +277,7 @@ export default function CostCenterLedger() {
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-semibold text-rose-600">{formatCurrency(metrics.totalCredit)}</p>
+              <p className="text-2xl font-semibold text-rose-600">{formatCurrency(Number(metrics.totalCredit))}</p>
               <p className="text-xs text-muted-foreground">Recoveries or reallocations</p>
             </CardContent>
           </Card>
@@ -346,10 +342,10 @@ export default function CostCenterLedger() {
                         {entry.description}
                       </TableCell>
                       <TableCell className="text-right text-emerald-600">
-                        {entry.debit > 0 ? formatCurrency(entry.debit) : "-"}
+                        {entry.debit > 0 ? formatCurrency(Number(entry.debit)) : "-"}
                       </TableCell>
                       <TableCell className="text-right text-rose-600">
-                        {entry.credit > 0 ? formatCurrency(entry.credit) : "-"}
+                        {entry.credit > 0 ? formatCurrency(Number(entry.credit)) : "-"}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {entry.created_by}

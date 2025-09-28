@@ -40,6 +40,7 @@ import {
   type CostCenter,
   type LedgerStats
 } from "@/services/accounts-api"
+import { useFormatting } from "@/hooks/useFormatting"
 
 const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
@@ -78,6 +79,7 @@ export default function GeneralLedger() {
   const postingAccounts = useMemo(() => flattenAccounts(chartOfAccounts).filter((node) => node.type === "Posting"), [chartOfAccounts])
   const accountMeta = useMemo(() => postingAccounts.find((account) => account.code === accountCode), [postingAccounts, accountCode])
 
+  const { formatCurrency } = useFormatting()
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
@@ -164,8 +166,8 @@ export default function GeneralLedger() {
     }
     
     // Fallback calculation if stats not available
-    const debitTotal = filteredEntries.reduce((sum, entry) => sum + entry.debit, 0)
-    const creditTotal = filteredEntries.reduce((sum, entry) => sum + entry.credit, 0)
+    const debitTotal = filteredEntries.reduce((sum, entry) => sum + Number(entry.debit), 0)
+    const creditTotal = filteredEntries.reduce((sum, entry) => sum + Number(entry.credit), 0)
     const closing = filteredEntries.length > 0 ? filteredEntries[filteredEntries.length - 1].balance : 0
 
     return {
@@ -288,7 +290,7 @@ export default function GeneralLedger() {
             <CardTitle className="text-sm font-medium">Opening balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{formatCurrency(ledgerSummary.opening)}</p>
+            <p className="text-2xl font-semibold">{formatCurrency(Number(ledgerSummary.opening))}</p>
             <p className="text-xs text-muted-foreground">Balance prior to the selected period</p>
           </CardContent>
         </Card>
@@ -297,7 +299,7 @@ export default function GeneralLedger() {
             <CardTitle className="text-sm font-medium">Debits</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold text-emerald-600">{formatCurrency(ledgerSummary.debitTotal)}</p>
+            <p className="text-2xl font-semibold text-emerald-600">{formatCurrency(Number(ledgerSummary.debitTotal))}</p>
             <p className="text-xs text-muted-foreground">Total positive movement</p>
           </CardContent>
         </Card>
@@ -306,7 +308,7 @@ export default function GeneralLedger() {
             <CardTitle className="text-sm font-medium">Credits</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold text-rose-600">{formatCurrency(ledgerSummary.creditTotal)}</p>
+            <p className="text-2xl font-semibold text-rose-600">{formatCurrency(Number(ledgerSummary.creditTotal))}</p>
             <p className="text-xs text-muted-foreground">Total negative movement</p>
           </CardContent>
         </Card>
@@ -315,7 +317,7 @@ export default function GeneralLedger() {
             <CardTitle className="text-sm font-medium">Closing balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{formatCurrency(ledgerSummary.closing)}</p>
+            <p className="text-2xl font-semibold">{formatCurrency(Number(ledgerSummary.closing))}</p>
             <p className="text-xs text-muted-foreground">After applied debits and credits</p>
           </CardContent>
         </Card>
@@ -379,13 +381,13 @@ export default function GeneralLedger() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right text-emerald-600">
-                          {entry.debit > 0 ? formatCurrency(entry.debit) : "-"}
+                          {entry.debit > 0 ? formatCurrency(Number(entry.debit)) : "-"}
                         </TableCell>
                         <TableCell className="text-right text-rose-600">
-                          {entry.credit > 0 ? formatCurrency(entry.credit) : "-"}
+                          {entry.credit > 0 ? formatCurrency(Number(entry.credit)) : "-"}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(entry.balance)}
+                          {formatCurrency(Number(entry.balance))}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
                           {entry.created_by}
