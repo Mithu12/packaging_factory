@@ -5,6 +5,7 @@ import { requirePermission } from '@/middleware/permission';
 import { validateQuery } from '@/middleware/validation';
 import { PERMISSIONS } from '@/middleware/permission';
 import { getLedgerEntriesQuerySchema } from '../validation/ledgerValidation';
+import expressAsyncHandler from 'express-async-handler';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get(
   "/",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
   validateQuery(getLedgerEntriesQuerySchema),
-  LedgerController.getAllLedgerEntries
+  expressAsyncHandler(LedgerController.getAllLedgerEntries)
 );
 
 // GET /api/accounts/ledger/stats - Get ledger statistics
@@ -24,7 +25,7 @@ router.get(
   "/stats",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
   validateQuery(getLedgerEntriesQuerySchema),
-  LedgerController.getLedgerStats
+  expressAsyncHandler(LedgerController.getLedgerStats)
 );
 
 // GET /api/accounts/ledger/cost-center/:id - Get ledger entries for specific cost center
@@ -32,7 +33,7 @@ router.get(
   "/cost-center/:id",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
   validateQuery(getLedgerEntriesQuerySchema),
-  LedgerController.getCostCenterLedgerEntries
+  expressAsyncHandler(LedgerController.getCostCenterLedgerEntries)
 );
 
 export default router;

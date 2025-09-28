@@ -171,6 +171,12 @@ MyLogger.info('Voucher Line Added', { lineResult:lineResult.rows });
         });
       }
 
+      // Generate ledger entries if voucher is posted
+      if (voucher.status === VoucherStatus.POSTED) {
+        MyLogger.info('Generating Ledger Entries', { voucherId: voucher.id });
+        await this.generateLedgerEntries(client, voucher, lines, createdBy);
+      }
+
       // Update cost center actual spend if voucher is posted and has cost center
       if (voucher.status === VoucherStatus.POSTED && voucher.costCenterId) {
         MyLogger.info('Updating Cost Center Actual Spend', { voucher:voucher });
@@ -202,6 +208,97 @@ MyLogger.info('Voucher Line Added', { lineResult:lineResult.rows });
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  // Generate ledger entries for posted voucher
+  private async generateLedgerEntries(client: any, voucher: any, lines: any[], createdBy: number): Promise<void> {
+    const action = 'Generate Ledger Entries';
+    
+    try {
+      MyLogger.info(action, { voucherId: voucher.id, linesCount: lines.length });
+
+      // Get current account balances for running balance calculation
+      const accountBalances = new Map<number, number>();
+      
+      for (const line of lines) {
+        // Get current account balance
+        const balanceQuery = `
+          SELECT COALESCE(
+            (SELECT balance FROM ledger_entries 
+             WHERE account_id = $1 
+             ORDER BY created_at DESC, id DESC 
+             LIMIT 1), 
+            0
+          ) as current_balance
+        `;
+        
+        const balanceResult = await client.query(balanceQuery, [line.accountId]);
+        let currentBalance = parseFloat(balanceResult.rows[0].current_balance || 0);
+        
+        // Calculate new balance (debit increases, credit decreases for most accounts)
+        const movement = line.debit - line.credit;
+        const newBalance = currentBalance + movement;
+        
+        // Store for potential use in other lines
+        accountBalances.set(line.accountId, newBalance);
+
+        // Insert ledger entry
+        const ledgerEntryQuery = `
+          INSERT INTO ledger_entries (
+            date,
+            voucher_id,
+            voucher_no,
+            type,
+            account_id,
+            description,
+            debit,
+            credit,
+            balance,
+            cost_center_id,
+            created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
+
+        await client.query(ledgerEntryQuery, [
+          voucher.date,
+          voucher.id,
+          voucher.voucherNo,
+          voucher.type,
+          line.accountId,
+          line.description || voucher.narration,
+          line.debit,
+          line.credit,
+          newBalance,
+          line.costCenterId || voucher.costCenterId || null,
+          createdBy
+        ]);
+
+        MyLogger.info('Ledger Entry Created', { 
+          accountId: line.accountId, 
+          debit: line.debit, 
+          credit: line.credit, 
+          newBalance 
+        });
+      }
+
+      // Update account balances in chart_of_accounts table
+      for (const [accountId, balance] of accountBalances) {
+        await client.query(
+          'UPDATE chart_of_accounts SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [balance, accountId]
+        );
+      }
+
+      MyLogger.success(action, { 
+        voucherId: voucher.id, 
+        entriesCreated: lines.length,
+        accountsUpdated: accountBalances.size
+      });
+
+    } catch (error: any) {
+      MyLogger.error(action, error, { voucherId: voucher.id });
+      throw error;
     }
   }
 }

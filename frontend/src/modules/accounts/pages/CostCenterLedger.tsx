@@ -108,10 +108,13 @@ export default function CostCenterLedger() {
       if (!selectedCostCenterId) return
 
       try {
-          const params = {
+          const params: any = {
             voucherType: voucherFilter,
-            search: searchTerm || undefined,
             limit: 1000
+        }
+        
+        if (searchTerm && searchTerm.trim()) {
+          params.search = searchTerm.trim()
         }
 
         const entriesResult = await LedgerApiService.getCostCenterLedgerEntries(

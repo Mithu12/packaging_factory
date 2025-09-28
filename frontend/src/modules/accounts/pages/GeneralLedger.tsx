@@ -85,7 +85,7 @@ export default function GeneralLedger() {
         setIsLoading(true)
         const [accountsResult, costCentersResult] = await Promise.all([
           ChartOfAccountsApiService.getChartOfAccountsTree(),
-          CostCentersApiService.getAllCostCenters({ limit: 1000 })
+          CostCentersApiService.getCostCenters({ limit: 1000 })
         ])
         
         setChartOfAccounts(accountsResult)
@@ -114,19 +114,26 @@ export default function GeneralLedger() {
       if (!accountCode) return
 
       try {
-        const params = {
+        const params: any = {
           accountCode,
-          voucherType: voucherFilter !== "All" && voucherFilter !== "Opening Balance" ? voucherFilter : undefined,
-          search: searchTerm || undefined,
           sortBy: sortBy.includes('date') ? 'date' : sortBy.includes('amount') ? 'amount' : 'date',
           sortOrder: sortBy.includes('desc') ? 'desc' : 'asc',
           limit: 1000
+        }
+        
+        if (voucherFilter !== "All" && voucherFilter !== "Opening Balance") {
+          params.voucherType = voucherFilter
+        }
+        
+        if (searchTerm && searchTerm.trim()) {
+          params.search = searchTerm.trim()
         }
 
         const [entriesResult, statsResult] = await Promise.all([
           LedgerApiService.getLedgerEntries(params),
           LedgerApiService.getLedgerStats(params)
         ])
+
 
         setLedgerEntries(entriesResult.data)
         setLedgerStats(statsResult)

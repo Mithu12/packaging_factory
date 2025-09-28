@@ -208,7 +208,7 @@ export interface VoucherLine {
   debit: number;
   credit: number;
   costCenterId?: number;
-  narration?: string;
+  description?: string;
   accountCode?: string;
   accountName?: string;
   costCenterName?: string;
@@ -254,7 +254,7 @@ export interface CreateVoucherLineRequest {
   debit: number;
   credit: number;
   costCenterId?: number;
-  narration?: string;
+  description?: string;
 }
 
 export interface UpdateVoucherRequest {

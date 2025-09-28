@@ -98,14 +98,15 @@ export class GetLedgerInfoMediator {
         values.push(dateTo);
       }
       
-      if (search) {
+      if (search && search.trim() && search !== 'undefined') {
+        const searchTerm = search.trim();
         conditions.push(`(
           v.voucher_no ILIKE $${paramIndex++} OR 
           le.description ILIKE $${paramIndex++} OR 
           coa.name ILIKE $${paramIndex++} OR
           v.narration ILIKE $${paramIndex++}
         )`);
-        values.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -149,7 +150,7 @@ export class GetLedgerInfoMediator {
         ${orderByClause}
         LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `;
-
+console.log(query, values),
       values.push(limit, offset);
 
       // Count query
