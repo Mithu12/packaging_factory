@@ -712,5 +712,63 @@ export const ledgerQueryKeys = {
   costCenter: (costCenterId: number, filters: LedgerQueryParams) => [...ledgerQueryKeys.all, 'costCenter', costCenterId, { filters }] as const,
 };
 
+// =====================================================
+// FINANCIAL REPORTS API SERVICE
+// =====================================================
+
+export interface IncomeStatementSection {
+  label: string;
+  amount: number;
+  children?: IncomeStatementSection[];
+}
+
+export interface FinancialMetric {
+  label: string;
+  amount: number;
+  change?: number;
+  trend?: "up" | "down" | "flat";
+}
+
+export interface IncomeStatementQueryParams {
+  dateFrom?: string;
+  dateTo?: string;
+  costCenterId?: number;
+  scenario?: 'actual' | 'budget' | 'forecast';
+}
+
+export interface IncomeStatementResponse {
+  sections: IncomeStatementSection[];
+  highlights: FinancialMetric[];
+  period: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  totals: {
+    revenue: number;
+    expenses: number;
+    grossProfit: number;
+    netIncome: number;
+  };
+}
+
+export class ReportsApiService {
+  private static readonly BASE_URL = '/accounts/reports';
+
+  // Get income statement
+  static async getIncomeStatement(params?: IncomeStatementQueryParams): Promise<IncomeStatementResponse> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}/income-statement?${queryString}` : `${this.BASE_URL}/income-statement`;
+    
+    return makeRequest<IncomeStatementResponse>(url, { method: 'GET' });
+  }
+}
+
+// Query keys for React Query
+export const reportsQueryKeys = {
+  all: ['reports'] as const,
+  incomeStatement: (params?: IncomeStatementQueryParams) => ['reports', 'income-statement', params] as const
+};
+
 // Export default service for convenience
 export default AccountGroupsApiService;

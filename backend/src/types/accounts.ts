@@ -338,4 +338,44 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+// =====================================================
+// Financial Reports
+// =====================================================
+
+export interface IncomeStatementSection {
+  label: string;
+  amount: number;
+  children?: IncomeStatementSection[];
+}
+
+export interface FinancialMetric {
+  label: string;
+  amount: number;
+  change?: number;
+  trend?: "up" | "down" | "flat";
+}
+
+export interface IncomeStatementQueryParams {
+  dateFrom?: string;
+  dateTo?: string;
+  costCenterId?: number;
+  scenario?: 'actual' | 'budget' | 'forecast';
+}
+
+export interface IncomeStatementResponse {
+  sections: IncomeStatementSection[];
+  highlights: FinancialMetric[];
+  period: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  totals: {
+    revenue: number;
+    expenses: number;
+    grossProfit: number;
+    netIncome: number;
+  };
+}
+
 
