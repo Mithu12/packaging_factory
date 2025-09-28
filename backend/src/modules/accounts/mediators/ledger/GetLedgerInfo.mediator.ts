@@ -83,7 +83,7 @@ export class GetLedgerInfoMediator {
         values.push(costCenterId);
       }
       
-      if (voucherType) {
+      if (voucherType && voucherType !== 'All') {
         conditions.push(`v.type = $${paramIndex++}`);
         values.push(voucherType);
       }
@@ -101,12 +101,11 @@ export class GetLedgerInfoMediator {
       if (search) {
         conditions.push(`(
           v.voucher_no ILIKE $${paramIndex++} OR 
-          le.description ILIKE $${paramIndex} OR 
-          coa.name ILIKE $${paramIndex} OR
-          v.narration ILIKE $${paramIndex}
+          le.description ILIKE $${paramIndex++} OR 
+          coa.name ILIKE $${paramIndex++} OR
+          v.narration ILIKE $${paramIndex++}
         )`);
         values.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-        paramIndex++;
       }
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -165,8 +164,7 @@ export class GetLedgerInfoMediator {
       `;
 
       const countValues = values.slice(0, -2); // Remove limit and offset
-      console.log(query, values),
-      console.log(countQuery, countValues)
+      
       const [entriesResult, countResult] = await Promise.all([
         pool.query(query, values),
         pool.query(countQuery, countValues)
@@ -233,7 +231,7 @@ export class GetLedgerInfoMediator {
         values.push(costCenterId);
       }
       
-      if (voucherType) {
+      if (voucherType && voucherType !== 'All') {
         conditions.push(`v.type = $${paramIndex++}`);
         values.push(voucherType);
       }
