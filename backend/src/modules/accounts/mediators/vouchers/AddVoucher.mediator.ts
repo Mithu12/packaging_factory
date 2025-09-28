@@ -56,7 +56,7 @@ class AddVoucherMediator implements MediatorInterface {
           WHERE id = ANY($1) AND status = 'Active'
         `;
         const costCentersResult = await client.query(costCentersQuery, [costCenterIds]);
-        
+        MyLogger.info(action, { costCentersResult:costCentersResult.rows, costCenterIds });
         if (costCentersResult.rows.length !== costCenterIds.length) {
           throw createError("One or more cost centers not found or inactive", 400);
         }

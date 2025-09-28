@@ -20,6 +20,7 @@ import {
   getVouchersQuerySchema,
 } from "../validation/voucherValidation";
 import { MyLogger } from "@/utils/new-logger";
+import expressAsyncHandler from "express-async-handler";
 
 const router = Router();
 
@@ -31,21 +32,21 @@ router.get(
   "/",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
   validateQuery(getVouchersQuerySchema),
-  getAllVouchers
+  expressAsyncHandler(getAllVouchers)
 );
 
 // GET /api/accounts/vouchers/stats - Get voucher statistics
 router.get(
   "/stats",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
-  getVoucherStats
+  expressAsyncHandler(getVoucherStats)
 );
 
 // GET /api/accounts/vouchers/:id - Get single voucher by ID
 router.get(
   "/:id",
   requirePermission(PERMISSIONS.ACCOUNTS_READ),
-  getVoucherById
+  expressAsyncHandler(getVoucherById)
 );
 
 // POST /api/accounts/vouchers - Create new voucher
@@ -53,7 +54,7 @@ router.post(
   "/",
   requirePermission(PERMISSIONS.ACCOUNTS_CREATE),
   validateRequest(createVoucherSchema),
-  createVoucher
+  expressAsyncHandler(createVoucher)
 );
 
 // PUT /api/accounts/vouchers/:id - Update voucher
@@ -61,28 +62,28 @@ router.put(
   "/:id",
   requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
   validateRequest(updateVoucherSchema),
-  updateVoucher
+  expressAsyncHandler(updateVoucher)
 );
 
 // PUT /api/accounts/vouchers/:id/approve - Approve voucher
 router.put(
   "/:id/approve",
   requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
-  approveVoucher
+  expressAsyncHandler(approveVoucher)
 );
 
 // PUT /api/accounts/vouchers/:id/void - Void voucher
 router.put(
   "/:id/void",
   requirePermission(PERMISSIONS.ACCOUNTS_DELETE),
-  voidVoucher
+  expressAsyncHandler(voidVoucher)
 );
 
 // DELETE /api/accounts/vouchers/:id - Delete voucher
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.ACCOUNTS_DELETE),
-  deleteVoucher
+  expressAsyncHandler(deleteVoucher)    
 );
 
 export default router;

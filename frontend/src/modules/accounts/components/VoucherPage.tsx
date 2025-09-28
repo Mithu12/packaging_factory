@@ -136,7 +136,7 @@ export function VoucherPage({
     reference: "",
     counterparty: "",
     amount: "",
-    costCenterId: "",
+    costCenterId: "none",
     narration: "",
   })
 
@@ -232,7 +232,7 @@ export function VoucherPage({
           return { ...line, [key]: Number.isNaN(numericValue) ? 0 : numericValue }
         }
         if (key === "accountId") {
-          const accountId = Number(value)
+          const accountId = value === "none" ? 0 : Number(value)
           const account = allPostingAccounts.find(acc => acc.id === accountId)
           return { 
             ...line, 
@@ -241,7 +241,7 @@ export function VoucherPage({
           }
         }
         if (key === "costCenterId") {
-          const costCenterId = value === "" ? undefined : Number(value)
+          const costCenterId = value === "none" ? undefined : Number(value)
           return { ...line, costCenterId }
         }
         return { ...line, [key]: value }
@@ -283,7 +283,7 @@ export function VoucherPage({
         reference: formState.reference || undefined,
         payee: formState.counterparty || undefined,
         narration: formState.narration,
-        costCenterId: formState.costCenterId ? parseInt(formState.costCenterId) : undefined,
+        costCenterId: formState.costCenterId && formState.costCenterId !== "none" ? parseInt(formState.costCenterId) : undefined,
         lines: lines.map(line => ({
           accountId: line.accountId,
           debit: line.debit,
@@ -304,7 +304,7 @@ export function VoucherPage({
         reference: "",
         counterparty: "",
         amount: "",
-        costCenterId: "",
+        costCenterId: "none",
         narration: "",
       })
       setLines([
@@ -401,6 +401,7 @@ export function VoucherPage({
                       <SelectValue placeholder="Optional cost center" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
                       {costCenters.map((center) => (
                         <SelectItem key={center.id} value={center.id.toString()}>
                           {center.name}
@@ -438,13 +439,14 @@ export function VoucherPage({
                     {lines.map((line) => (
                       <div key={line.id} className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_40px]">
                         <Select
-                          value={line.accountId ? line.accountId.toString() : ""}
+                          value={line.accountId ? line.accountId.toString() : "none"}
                           onValueChange={(value) => handleLineChange(line.id, "accountId", value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select account" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="none">Select account</SelectItem>
                             {allPostingAccounts.map((account) => (
                               <SelectItem key={account.id} value={account.id.toString()}>
                                 {account.code} {account.name}
@@ -469,14 +471,14 @@ export function VoucherPage({
                           onChange={(event) => handleLineChange(line.id, "credit", event.target.value)}
                         />
                         <Select
-                          value={line.costCenterId ? line.costCenterId.toString() : ""}
+                          value={line.costCenterId ? line.costCenterId.toString() : "none"}
                           onValueChange={(value) => handleLineChange(line.id, "costCenterId", value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Cost center" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
                             {costCenters.map((center) => (
                               <SelectItem key={center.id} value={center.id.toString()}>
                                 {center.name}
