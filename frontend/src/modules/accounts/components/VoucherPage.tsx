@@ -187,9 +187,9 @@ export function VoucherPage({
   }, [type])
 
   const metrics = useMemo(() => {
-    const totalAmount = data.reduce((sum, voucher) => sum + voucher.amount, 0)
-    const posted = data.filter((voucher) => voucher.status === "Posted").length
-    const pending = data.filter((voucher) => voucher.status === "Pending Approval").length
+    const totalAmount = data.reduce((sum, voucher) => sum + Number(voucher.amount), 0)
+    const posted = data.filter((voucher) => voucher.status === VoucherStatus.POSTED).length
+    const pending = data.filter((voucher) => voucher.status !== VoucherStatus.POSTED && voucher.status !== VoucherStatus.VOID).length
     const attachments = data.reduce((sum, voucher) => sum + (voucher.attachments ?? 0), 0)
 
     return {
@@ -204,7 +204,7 @@ export function VoucherPage({
   const filteredVouchers = useMemo(() => {
     return data
       .filter((voucher) => {
-        const matchesStatus = statusFilter === "All" || voucher.status === statusFilter
+        const matchesStatus = statusFilter === "All" || voucher.status == statusFilter
         const matchesCostCenter = costCenterFilter === "All" || voucher.costCenterId?.toString() === costCenterFilter
         const matchesSearch =
           searchTerm.trim().length === 0 ||

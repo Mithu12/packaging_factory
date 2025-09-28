@@ -64,15 +64,13 @@ class AddVoucherMediator implements MediatorInterface {
 
       // Generate voucher number
       const voucherNoQuery = `
-        SELECT COALESCE(MAX(CAST(SUBSTRING(voucher_no FROM '[0-9]+$') AS INTEGER)), 0) + 1 as next_number
-        FROM vouchers 
-        WHERE type = $1 AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        SELECT generate_voucher_number($1) as next_number
       `;
       const voucherNoResult = await client.query(voucherNoQuery, [data.type]);
       const nextNumber = voucherNoResult.rows[0].next_number;
       const year = new Date().getFullYear();
-      const voucherNo = `${data.type.substring(0, 3).toUpperCase()}${year}${String(nextNumber).padStart(4, '0')}`;
-
+      const voucherNo = `${String(nextNumber).padStart(4, '0')}`;
+MyLogger.info('Voucher No', { voucherNo:voucherNo });
       // Calculate total amount
       const amount = Math.max(totalDebits, totalCredits);
 
@@ -110,7 +108,7 @@ class AddVoucherMediator implements MediatorInterface {
           created_at as "createdAt",
           updated_at as "updatedAt"
       `;
-
+MyLogger.info('Insert Voucher Query', { insertVoucherQuery:insertVoucherQuery });
       const voucherResult = await client.query(insertVoucherQuery, [
         voucherNo,
         data.type,
@@ -125,7 +123,7 @@ class AddVoucherMediator implements MediatorInterface {
         0, // Default attachments count
         createdBy
       ]);
-
+MyLogger.info('Voucher Added', { voucherResult:voucherResult.rows });
       const voucher = voucherResult.rows[0];
 
       // Insert voucher lines
@@ -160,12 +158,12 @@ class AddVoucherMediator implements MediatorInterface {
           lineData.costCenterId || null,
           lineData.description || null
         ]);
-
+MyLogger.info('Voucher Line Added', { lineResult:lineResult.rows });
         const line = lineResult.rows[0];
         
         // Get account details
         const account = accountsResult.rows.find(acc => acc.id === lineData.accountId);
-        
+        MyLogger.info('Account Details', { account:account });
         lines.push({
           ...line,
           accountCode: account.code,
@@ -175,6 +173,7 @@ class AddVoucherMediator implements MediatorInterface {
 
       // Update cost center actual spend if voucher is posted and has cost center
       if (voucher.status === VoucherStatus.POSTED && voucher.costCenterId) {
+        MyLogger.info('Updating Cost Center Actual Spend', { voucher:voucher });
         await client.query(
           'UPDATE cost_centers SET actual_spend = actual_spend + $1 WHERE id = $2',
           [amount, voucher.costCenterId]
@@ -182,12 +181,12 @@ class AddVoucherMediator implements MediatorInterface {
       }
 
       await client.query('COMMIT');
-
+      MyLogger.info('Voucher Committed', { voucher:voucher });
       const result: Voucher = {
         ...voucher,
         lines
       };
-
+      MyLogger.info('Voucher Result', { result:result });
       MyLogger.success(action, {
         voucherId: voucher.id,
         voucherNo: voucher.voucherNo,
@@ -195,7 +194,7 @@ class AddVoucherMediator implements MediatorInterface {
         amount: voucher.amount,
         linesCount: lines.length
       });
-
+      MyLogger.info('Voucher Success', { result:result });
       return result;
     } catch (error: any) {
       await client.query('ROLLBACK');
