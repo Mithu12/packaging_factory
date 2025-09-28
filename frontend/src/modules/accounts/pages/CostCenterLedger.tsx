@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Building,
   TrendingUp,
@@ -56,6 +57,8 @@ const formatCurrency = (value: number, currency = "USD") =>
   })
 
 export default function CostCenterLedger() {
+  const [searchParams] = useSearchParams()
+  
   // State for data
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
@@ -77,11 +80,15 @@ export default function CostCenterLedger() {
     const loadData = async () => {
       try {
         setIsLoading(true)
-        const costCentersResult = await CostCentersApiService.getAllCostCenters({ limit: 1000 })
+        const costCentersResult = await CostCentersApiService.getCostCenters({ limit: 1000 })
         setCostCenters(costCentersResult.data)
         
-        // Set default cost center
-        if (costCentersResult.data.length > 0 && !selectedCostCenterId) {
+        // Check for URL parameter first
+        const urlCostCenterId = searchParams.get('costCenterId')
+        if (urlCostCenterId && costCentersResult.data.some(c => c.id.toString() === urlCostCenterId)) {
+          setSelectedCostCenterId(urlCostCenterId)
+        } else if (costCentersResult.data.length > 0 && !selectedCostCenterId) {
+          // Set default cost center if no URL parameter
           setSelectedCostCenterId(costCentersResult.data[0].id.toString())
         }
       } catch (error) {
@@ -93,7 +100,7 @@ export default function CostCenterLedger() {
     }
 
     loadData()
-  }, [])
+  }, [searchParams])
 
   // Load ledger entries when filters change
   useEffect(() => {
@@ -102,7 +109,7 @@ export default function CostCenterLedger() {
 
       try {
         const params = {
-          voucherType: voucherFilter !== "All" ? voucherFilter : undefined,
+          voucherType: voucherFilter,
           search: searchTerm || undefined,
           limit: 1000
         }

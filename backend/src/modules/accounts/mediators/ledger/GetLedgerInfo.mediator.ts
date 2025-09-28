@@ -165,7 +165,8 @@ export class GetLedgerInfoMediator {
       `;
 
       const countValues = values.slice(0, -2); // Remove limit and offset
-
+      console.log(query, values),
+      console.log(countQuery, countValues)
       const [entriesResult, countResult] = await Promise.all([
         pool.query(query, values),
         pool.query(countQuery, countValues)

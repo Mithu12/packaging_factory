@@ -651,6 +651,16 @@ const App = () => {
                   }
                 />
                 <Route
+                  path="/finance/cost-center-ledger"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <CostCenterLedger />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/finance/vouchers/payment"
                   element={
                     <ProtectedRoute>

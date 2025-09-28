@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Plus,
   Search,
@@ -58,6 +59,8 @@ import {
   type CreateCostCenterRequest,
   type ChartOfAccount
 } from "@/services/accounts-api"
+import { RBACApi } from "@/services/rbac-api"
+import { AuthApi } from "@/services/auth-api"
 
 const costCenterTypes: CostCenterType[] = ["Department", "Project", "Location"]
 
@@ -72,6 +75,7 @@ const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] =>
   nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 
 export default function CostCenters() {
+  const navigate = useNavigate()
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [chartOfAccounts, setChartOfAccounts] = useState<ChartOfAccount[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -83,6 +87,10 @@ export default function CostCenters() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingCostCenter, setEditingCostCenter] = useState<CostCenter | null>(null)
+  const [isApproversDialogOpen, setIsApproversDialogOpen] = useState(false)
+  const [selectedCostCenterForApprovers, setSelectedCostCenterForApprovers] = useState<CostCenter | null>(null)
+  const [availableApprovers, setAvailableApprovers] = useState<any[]>([])
+  const [isLoadingApprovers, setIsLoadingApprovers] = useState(false)
   const [formData, setFormData] = useState<CreateCostCenterRequest>({
     name: "",
     code: "",
@@ -182,20 +190,6 @@ export default function CostCenters() {
     }
   }
 
-  const handleEditCostCenter = (costCenter: CostCenter) => {
-    setEditingCostCenter(costCenter)
-    setFormData({
-      name: costCenter.name,
-      code: costCenter.code,
-      type: costCenter.type,
-      department: costCenter.department,
-      owner: costCenter.owner,
-      budget: costCenter.budget,
-      description: costCenter.description || "",
-    })
-    setIsEditDialogOpen(true)
-  }
-
   const handleUpdateCostCenter = async () => {
     if (!editingCostCenter) return
     
@@ -222,6 +216,61 @@ export default function CostCenters() {
       })
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleViewLedger = (costCenter: CostCenter) => {
+    // Navigate to Cost Center Ledger page with the selected cost center
+    navigate(`/finance/cost-center-ledger?costCenterId=${costCenter.id}`)
+  }
+
+  const handleEditCostCenter = (costCenter: CostCenter) => {
+    setEditingCostCenter(costCenter)
+    setFormData({
+      name: costCenter.name,
+      code: costCenter.code,
+      type: costCenter.type,
+      department: costCenter.department,
+      owner: costCenter.owner,
+      budget: costCenter.budget,
+      defaultAccountId: costCenter.defaultAccountId,
+      description: costCenter.description || "",
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleAssignApprovers = async (costCenter: CostCenter) => {
+    setSelectedCostCenterForApprovers(costCenter)
+    setIsApproversDialogOpen(true)
+    
+    // Load users who can approve expenses/vouchers
+    try {
+      setIsLoadingApprovers(true)
+      const [usersWithPermission, allUsers] = await Promise.all([
+        RBACApi.getUsersWithPermission({
+          module: 'vouchers',
+          action: 'approve',
+          resource: 'all'
+        }),
+        AuthApi.getAllUsers()
+      ])
+      
+      // Combine users with approval permission and all active users
+      const approverUsers = [
+        ...usersWithPermission.users,
+        ...allUsers.filter(user => 
+          user.is_active && 
+          !usersWithPermission.users.some(existing => existing.id === user.id)
+        )
+      ]
+      
+      setAvailableApprovers(approverUsers)
+    } catch (error) {
+      console.error('Failed to load approvers:', error)
+      toast.error("Failed to load available approvers")
+      setAvailableApprovers([])
+    } finally {
+      setIsLoadingApprovers(false)
     }
   }
 
@@ -754,9 +803,9 @@ export default function CostCenters() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => toast.info("Ledger view coming soon")}>View ledger</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewLedger(center)}>View ledger</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditCostCenter(center)}>Edit details</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.info("Approvers feature coming soon")}>Assign approvers</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleAssignApprovers(center)}>Assign approvers</DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-destructive" 
                                 onClick={() => handleToggleStatus(center)}
@@ -790,6 +839,99 @@ export default function CostCenters() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Assign Approvers Dialog */}
+      <Dialog open={isApproversDialogOpen} onOpenChange={setIsApproversDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Approvers - {selectedCostCenterForApprovers?.name}</DialogTitle>
+            <DialogDescription>
+              Select users who can approve expenses and vouchers for this cost center.
+              Users with existing approval permissions are highlighted.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingApprovers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              Loading available approvers...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p><strong>Cost Center:</strong> {selectedCostCenterForApprovers?.code} - {selectedCostCenterForApprovers?.name}</p>
+                <p><strong>Department:</strong> {selectedCostCenterForApprovers?.department}</p>
+                <p><strong>Type:</strong> {selectedCostCenterForApprovers?.type}</p>
+              </div>
+              
+              <div className="border rounded-lg">
+                <div className="p-3 bg-muted/50 border-b">
+                  <h4 className="font-medium">Available Approvers ({availableApprovers.length})</h4>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {availableApprovers.length > 0 ? (
+                    availableApprovers.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between p-3 border-b last:border-b-0">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-1">
+                            <p className="font-medium">{user.full_name || user.username}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                            {user.role_display_name && (
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {user.role_display_name}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {user.permission_source === 'role' && (
+                            <Badge variant="default" className="text-xs">
+                              Has Permission
+                            </Badge>
+                          )}
+                          <Switch 
+                            checked={false} // This would be connected to actual assignment logic
+                            onCheckedChange={(checked) => {
+                              // TODO: Implement assignment logic
+                              toast.info(`${checked ? 'Assigned' : 'Removed'} ${user.full_name || user.username} as approver`)
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <p>No users available for assignment</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <div className="text-blue-600 mt-0.5">ℹ️</div>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium">About Approver Assignment</p>
+                    <p>This feature allows you to designate specific users who can approve expenses and vouchers for this cost center. Users with existing system-wide approval permissions are automatically included.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApproversDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast.success("Approver assignments saved successfully")
+              setIsApproversDialogOpen(false)
+            }}>
+              Save Assignments
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

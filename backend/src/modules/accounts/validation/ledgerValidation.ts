@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { VoucherType } from '@/types/accounts';
 
 // Ledger entry query validation schema
 export const getLedgerEntriesQuerySchema = Joi.object({
@@ -7,7 +8,7 @@ export const getLedgerEntriesQuerySchema = Joi.object({
   accountCode: Joi.string().max(20).optional(),
   accountId: Joi.number().integer().positive().optional(),
   costCenterId: Joi.number().integer().positive().optional(),
-  voucherType: Joi.string().valid('Payment', 'Receipt', 'Journal', 'Balance Transfer').optional(),
+  voucherType: Joi.string().valid(VoucherType.PAYMENT, VoucherType.RECEIPT, VoucherType.JOURNAL, VoucherType.BALANCE_TRANSFER, 'All').optional().allow(''),
   dateFrom: Joi.date().iso().optional(),
   dateTo: Joi.date().iso().optional(),
   search: Joi.string().max(255).optional().allow(''),
