@@ -85,11 +85,15 @@ class GetCostCenterInfoMediator implements MediatorInterface {
           cc.budget,
           cc.actual_spend as "actualSpend",
           cc.variance,
+          cc.default_account_id as "defaultAccountId",
           cc.status,
           cc.description,
           cc.created_at as "createdAt",
-          cc.updated_at as "updatedAt"
+          cc.updated_at as "updatedAt",
+          coa.code as "defaultAccountCode",
+          coa.name as "defaultAccountName"
         FROM cost_centers cc
+        LEFT JOIN chart_of_accounts coa ON cc.default_account_id = coa.id
         ${whereClause}
         ORDER BY ${sortBy === 'actualSpend' ? 'cc.actual_spend' : `cc.${sortBy}`} ${sortOrder.toUpperCase()}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

@@ -51,10 +51,12 @@ import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/sonner"
 import { 
   CostCentersApiService,
+  ChartOfAccountsApiService,
   type CostCenter, 
   type CostCenterType,
   type CostCenterStatus,
-  type CreateCostCenterRequest 
+  type CreateCostCenterRequest,
+  type ChartOfAccount
 } from "@/services/accounts-api"
 
 const costCenterTypes: CostCenterType[] = ["Department", "Project", "Location"]
@@ -66,8 +68,12 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   })
 
+const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] =>
+  nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
+
 export default function CostCenters() {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [chartOfAccounts, setChartOfAccounts] = useState<ChartOfAccount[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -84,13 +90,38 @@ export default function CostCenters() {
     department: "",
     owner: "",
     budget: 0,
+    defaultAccountId: undefined,
     description: "",
   })
 
+  const allPostingAccounts = useMemo(() => 
+    flattenAccounts(chartOfAccounts).filter((node) => node.type === "Posting"), 
+    [chartOfAccounts]
+  )
+
   // Load data on component mount
   useEffect(() => {
-    loadCostCenters()
+    loadData()
   }, [])
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [costCentersResult, accountsResult] = await Promise.all([
+        CostCentersApiService.getCostCenters({ limit: 1000 }),
+        ChartOfAccountsApiService.getChartOfAccountsTree()
+      ])
+      setCostCenters(costCentersResult.data)
+      setChartOfAccounts(accountsResult)
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      toast.error("Failed to load data", {
+        description: "Please try refreshing the page.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const loadCostCenters = async () => {
     try {
@@ -327,6 +358,25 @@ export default function CostCenters() {
                     onChange={(e) => setFormData(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="default-account">Default expense account</Label>
+                  <Select 
+                    value={formData.defaultAccountId ? formData.defaultAccountId.toString() : "none"} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, defaultAccountId: value === "none" ? undefined : parseInt(value) }))}
+                  >
+                    <SelectTrigger id="default-account">
+                      <SelectValue placeholder="Select default account (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No default account</SelectItem>
+                      {allPostingAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          {account.code} - {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="center-description">Description</Label>
@@ -436,6 +486,25 @@ export default function CostCenters() {
                     value={formData.budget || ""}
                     onChange={(e) => setFormData(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-default-account">Default expense account</Label>
+                  <Select 
+                    value={formData.defaultAccountId ? formData.defaultAccountId.toString() : "none"} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, defaultAccountId: value === "none" ? undefined : parseInt(value) }))}
+                  >
+                    <SelectTrigger id="edit-default-account">
+                      <SelectValue placeholder="Select default account (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No default account</SelectItem>
+                      {allPostingAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          {account.code} - {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
@@ -588,6 +657,7 @@ export default function CostCenters() {
                 <TableRow>
                   <TableHead className="w-[260px]">Cost center</TableHead>
                   <TableHead>Owner</TableHead>
+                  <TableHead>Default account</TableHead>
                   <TableHead>Budget vs actual</TableHead>
                   <TableHead className="text-right">Variance</TableHead>
                   <TableHead className="text-right">Status</TableHead>
@@ -597,7 +667,7 @@ export default function CostCenters() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32">
+                    <TableCell colSpan={7} className="h-32">
                       <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
                         <Loader2 className="h-6 w-6 animate-spin mb-2" />
                         Loading cost centers...
@@ -639,6 +709,16 @@ export default function CostCenters() {
                               Created {new Date(center.createdAt).toLocaleDateString()}
                             </p>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {center.defaultAccountCode ? (
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium">{center.defaultAccountCode}</p>
+                              <p className="text-xs text-muted-foreground">{center.defaultAccountName}</p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No default account</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-2">
@@ -691,7 +771,7 @@ export default function CostCenters() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32">
+                    <TableCell colSpan={7} className="h-32">
                       <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
                         <Building className="h-8 w-8 mb-2" />
                         <p className="font-medium">No cost centers found</p>

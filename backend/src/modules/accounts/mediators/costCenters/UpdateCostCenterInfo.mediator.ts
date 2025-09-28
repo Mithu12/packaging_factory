@@ -90,6 +90,12 @@ class UpdateCostCenterInfoMediator implements MediatorInterface {
         // Note: variance will be automatically recalculated as it's a generated column
       }
 
+      if (data.defaultAccountId !== undefined) {
+        updateFields.push(`default_account_id = $${paramIndex}`);
+        updateValues.push(data.defaultAccountId);
+        paramIndex++;
+      }
+
       if (data.status !== undefined) {
         updateFields.push(`status = $${paramIndex}`);
         updateValues.push(data.status);

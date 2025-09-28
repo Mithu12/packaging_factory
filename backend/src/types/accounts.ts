@@ -148,11 +148,14 @@ export interface CostCenter {
   budget: number;
   actualSpend: number;
   variance: number;
+  defaultAccountId?: number;
   startDate?: Date;
   endDate?: Date;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
+  defaultAccountCode?: string;
+  defaultAccountName?: string;
 }
 
 export interface CreateCostCenterRequest {
@@ -163,6 +166,7 @@ export interface CreateCostCenterRequest {
   type: CostCenterType;
   status?: AccountStatus;
   budget?: number;
+  defaultAccountId?: number;
   startDate?: Date;
   endDate?: Date;
   description?: string;
@@ -176,6 +180,7 @@ export interface UpdateCostCenterRequest {
   type?: CostCenterType;
   status?: AccountStatus;
   budget?: number;
+  defaultAccountId?: number;
   startDate?: Date;
   endDate?: Date;
   description?: string;

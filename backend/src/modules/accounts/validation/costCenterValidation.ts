@@ -10,6 +10,7 @@ const costCenterBaseSchema = {
   budget: Joi.number().min(0).precision(2),
   status: Joi.string().valid('Active', 'Inactive'),
   description: Joi.string().max(1000).trim().allow('', null),
+  defaultAccountId: Joi.number().integer().positive().optional(),
 };
 
 // Schema for creating a new cost center
@@ -17,6 +18,7 @@ export const createCostCenterSchema = Joi.object({
   name: costCenterBaseSchema.name.required(),
   code: costCenterBaseSchema.code.required(),
   type: costCenterBaseSchema.type.required(),
+  defaultAccountId: costCenterBaseSchema.defaultAccountId,
   department: costCenterBaseSchema.department.required(),
   owner: costCenterBaseSchema.owner.required(),
   budget: costCenterBaseSchema.budget.default(0),
@@ -29,6 +31,7 @@ export const updateCostCenterSchema = Joi.object({
   name: costCenterBaseSchema.name,
   code: costCenterBaseSchema.code,
   type: costCenterBaseSchema.type,
+  defaultAccountId: costCenterBaseSchema.defaultAccountId,
   department: costCenterBaseSchema.department,
   owner: costCenterBaseSchema.owner,
   budget: costCenterBaseSchema.budget,

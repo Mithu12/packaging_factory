@@ -139,10 +139,13 @@ export interface CostCenter {
   budget: number;
   actualSpend: number;
   variance: number;
+  defaultAccountId?: number;
   status: CostCenterStatus;
   description?: string;
   createdAt: string;
   updatedAt: string;
+  defaultAccountCode?: string;
+  defaultAccountName?: string;
 }
 
 export interface CreateCostCenterRequest {
@@ -152,6 +155,7 @@ export interface CreateCostCenterRequest {
   department: string;
   owner: string;
   budget?: number;
+  defaultAccountId?: number;
   status?: CostCenterStatus;
   description?: string;
 }
@@ -163,6 +167,7 @@ export interface UpdateCostCenterRequest {
   department?: string;
   owner?: string;
   budget?: number;
+  defaultAccountId?: number;
   status?: CostCenterStatus;
   description?: string;
 }

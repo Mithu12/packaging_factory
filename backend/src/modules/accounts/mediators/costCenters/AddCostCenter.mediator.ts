@@ -36,14 +36,15 @@ class AddCostCenterMediator implements MediatorInterface {
         INSERT INTO cost_centers (
           name, 
           code, 
-          type,
+          type, 
           department, 
           owner, 
           budget,
           actual_spend,
+          default_account_id,
           status,
           description
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING 
           id,
           name,
@@ -54,6 +55,7 @@ class AddCostCenterMediator implements MediatorInterface {
           budget,
           actual_spend as "actualSpend",
           variance,
+          default_account_id as "defaultAccountId",
           status,
           description,
           created_at as "createdAt",
@@ -71,6 +73,7 @@ class AddCostCenterMediator implements MediatorInterface {
         data.owner,
         budget,
         actualSpend,
+        data.defaultAccountId || null,
         data.status || 'Active',
         data.description || null,
       ]);
