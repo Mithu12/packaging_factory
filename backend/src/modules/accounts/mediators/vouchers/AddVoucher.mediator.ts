@@ -118,7 +118,7 @@ class AddVoucherMediator implements MediatorInterface {
         data.reference || null,
         data.payee || null,
         amount,
-        'USD', // Default currency
+        'BDT', // Default currency
         VoucherStatus.DRAFT,
         data.narration,
         data.costCenterId || null,

@@ -145,30 +145,42 @@ export function VoucherPage({
     { id: "line-2", accountId: 0, accountCode: "", debit: 0, credit: 0, costCenterId: undefined },
   ])
 
+  // Load data function
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      const [vouchersResponse, costCentersResponse, accountsResponse] = await Promise.all([
+        VouchersApiService.getVouchers({ type, limit: 1000 }),
+        CostCentersApiService.getCostCenters({ limit: 1000 }),
+        ChartOfAccountsApiService.getChartOfAccountsTree()
+      ])
+      
+      setVouchers(vouchersResponse.data)
+      setCostCenters(costCentersResponse.data)
+      setChartOfAccounts(accountsResponse)
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      toast.error("Failed to load data", {
+        description: "Please refresh the page to try again.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Load vouchers only (for refresh after actions)
+  const loadVouchers = async () => {
+    try {
+      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000 })
+      setVouchers(vouchersResponse.data)
+    } catch (error) {
+      console.error('Failed to load vouchers:', error)
+      toast.error("Failed to refresh vouchers")
+    }
+  }
+
   // Load data on component mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true)
-        const [vouchersResponse, costCentersResponse, accountsResponse] = await Promise.all([
-          VouchersApiService.getVouchers({ type, limit: 1000 }),
-          CostCentersApiService.getCostCenters({ limit: 1000 }),
-          ChartOfAccountsApiService.getChartOfAccountsTree()
-        ])
-        
-        setVouchers(vouchersResponse.data)
-        setCostCenters(costCentersResponse.data)
-        setChartOfAccounts(accountsResponse)
-      } catch (error) {
-        console.error('Failed to load data:', error)
-        toast.error("Failed to load data", {
-          description: "Please refresh the page to try again.",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     loadData()
   }, [type])
 
@@ -253,6 +265,85 @@ export function VoucherPage({
     setLines((prev) => prev.filter((line) => line.id !== id))
   }
 
+  // Voucher action handlers
+  const handleViewVoucher = (voucher: Voucher) => {
+    // TODO: Implement voucher view modal/page
+    toast.info(`View voucher ${voucher.voucherNo}`, {
+      description: "Voucher view functionality coming soon"
+    })
+  }
+
+  const handleEditVoucher = (voucher: Voucher) => {
+    if (voucher.status !== VoucherStatus.DRAFT) {
+      toast.error("Only draft vouchers can be edited")
+      return
+    }
+    // TODO: Implement edit functionality
+    toast.info(`Edit voucher ${voucher.voucherNo}`, {
+      description: "Voucher edit functionality coming soon"
+    })
+  }
+
+  const handleCloneVoucher = (voucher: Voucher) => {
+    // Pre-fill form with voucher data
+    setFormState({
+      date: new Date().toISOString().slice(0, 10),
+      reference: `Copy of ${voucher.reference || voucher.voucherNo}`,
+      counterparty: voucher.payee || "",
+      amount: voucher.amount.toString(),
+      costCenterId: voucher.costCenterId ? voucher.costCenterId.toString() : "none",
+      narration: voucher.narration,
+    })
+    
+    // Pre-fill lines
+    const clonedLines = voucher.lines.map((line, index) => ({
+      id: `line-${index + 1}`,
+      accountId: line.accountId,
+      accountCode: line.accountCode || "",
+      debit: line.debit,
+      credit: line.credit,
+      costCenterId: line.costCenterId,
+    }))
+    setLines(clonedLines)
+    
+    setIsDialogOpen(true)
+    toast.success(`Cloned voucher ${voucher.voucherNo}`, {
+      description: "Form pre-filled with voucher data"
+    })
+  }
+
+  const handleApproveVoucher = async (voucher: Voucher) => {
+    if (voucher.status !== VoucherStatus.PENDING_APPROVAL) {
+      toast.error("Only pending vouchers can be approved")
+      return
+    }
+
+    try {
+      await VouchersApiService.approveVoucher(voucher.id)
+      toast.success(`Voucher ${voucher.voucherNo} approved successfully`)
+      loadVouchers() // Refresh the list
+    } catch (error) {
+      console.error('Error approving voucher:', error)
+      toast.error('Failed to approve voucher')
+    }
+  }
+
+  const handleVoidVoucher = async (voucher: Voucher) => {
+    if (voucher.status === VoucherStatus.VOID) {
+      toast.error("Voucher is already voided")
+      return
+    }
+
+    try {
+      await VouchersApiService.voidVoucher(voucher.id)
+      toast.success(`Voucher ${voucher.voucherNo} voided successfully`)
+      loadVouchers() // Refresh the list
+    } catch (error) {
+      console.error('Error voiding voucher:', error)
+      toast.error('Failed to void voucher')
+    }
+  }
+
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const debitTotal = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
@@ -299,6 +390,7 @@ export function VoucherPage({
       })
       
       setIsDialogOpen(false)
+      loadVouchers() // Refresh the voucher list
       setFormState({
         date: new Date().toISOString().slice(0, 10),
         reference: "",
@@ -711,13 +803,31 @@ export function VoucherPage({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewVoucher(voucher)}>
                                 View voucher
                                 <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
                               </DropdownMenuItem>
-                              <DropdownMenuItem>Edit draft</DropdownMenuItem>
-                              <DropdownMenuItem>Clone voucher</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Void</DropdownMenuItem>
+                              {voucher.status === VoucherStatus.DRAFT && (
+                                <DropdownMenuItem onClick={() => handleEditVoucher(voucher)}>
+                                  Edit draft
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleCloneVoucher(voucher)}>
+                                Clone voucher
+                              </DropdownMenuItem>
+                              {voucher.status === VoucherStatus.PENDING_APPROVAL && (
+                                <DropdownMenuItem onClick={() => handleApproveVoucher(voucher)}>
+                                  Approve
+                                </DropdownMenuItem>
+                              )}
+                              {voucher.status !== VoucherStatus.VOID && (
+                                <DropdownMenuItem 
+                                  className="text-destructive" 
+                                  onClick={() => handleVoidVoucher(voucher)}
+                                >
+                                  Void
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
