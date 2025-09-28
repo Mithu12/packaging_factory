@@ -148,7 +148,7 @@ export default function GeneralLedger() {
 
   const filteredEntries = useMemo(() => {
     return ledgerEntries.filter((entry) => {
-      const matchesCostCenter = costCenterFilter === "All" || entry.costCenterName === costCenterFilter
+      const matchesCostCenter = costCenterFilter === "All" || entry.cost_center_name === costCenterFilter
       return matchesCostCenter
     })
   }, [ledgerEntries, costCenterFilter])
@@ -364,17 +364,17 @@ export default function GeneralLedger() {
                         <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium">{entry.voucherNo}</span>
+                            <span className="font-medium">{entry.voucher_no}</span>
                             <Badge variant="outline" className="mt-1 w-fit text-xs">
-                              {entry.voucherType}
+                              {entry.voucher_type}
                             </Badge>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 text-sm">
                             <span>{entry.description}</span>
-                            {entry.costCenterName ? (
-                              <span className="text-xs text-muted-foreground">Cost center: {entry.costCenterName}</span>
+                            {entry.cost_center_name ? (
+                              <span className="text-xs text-muted-foreground">Cost center: {entry.cost_center_name}</span>
                             ) : null}
                           </div>
                         </TableCell>
@@ -388,7 +388,7 @@ export default function GeneralLedger() {
                           {formatCurrency(entry.balance)}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
-                          {entry.createdBy}
+                          {entry.created_by}
                         </TableCell>
                       </TableRow>
                     ))

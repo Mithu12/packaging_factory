@@ -452,21 +452,21 @@ export const accountGroupsQueryKeys = {
 
 export interface LedgerEntry {
   id: number;
-  voucherId: number;
-  voucherNo: string;
-  voucherType: string;
+  voucher_id: number;
+  voucher_no: string;
+  voucher_type: string;
   date: string;
-  accountId: number;
-  accountCode: string;
-  accountName: string;
+  account_id: number;
+  account_code: string;
+  account_name: string;
   debit: number;
   credit: number;
   balance: number;
-  costCenterId?: number;
-  costCenterName?: string;
+  cost_center_id?: number;
+  cost_center_name?: string;
   description: string;
-  createdBy: string;
-  createdAt: string;
+  created_by: string;
+  created_at: string;
 }
 
 export interface LedgerQueryParams {

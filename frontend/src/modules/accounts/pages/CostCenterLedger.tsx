@@ -133,11 +133,11 @@ export default function CostCenterLedger() {
 
   const filteredLines = useMemo(() => {
     return ledgerEntries.filter((entry) => {
-      const matchesVoucher = voucherFilter === "All" || entry.voucherType === voucherFilter
+      const matchesVoucher = voucherFilter === "All" || entry.voucher_type === voucherFilter
       const matchesSearch =
         searchTerm.trim().length === 0 ||
-        entry.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.accountName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.voucher_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.account_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         entry.description.toLowerCase().includes(searchTerm.toLowerCase())
       return matchesVoucher && matchesSearch
     })
@@ -331,15 +331,15 @@ export default function CostCenterLedger() {
                       <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{entry.voucherNo}</span>
+                            <span className="font-medium">{entry.voucher_no}</span>
                           <Badge variant="outline" className="mt-1 w-fit text-xs">
-                            {entry.voucherType}
+                            {entry.voucher_type}
                           </Badge>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{entry.accountCode} {entry.accountName}</div>
+                          <div>{entry.account_code} {entry.account_name}</div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -352,7 +352,7 @@ export default function CostCenterLedger() {
                         {entry.credit > 0 ? formatCurrency(entry.credit) : "-"}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
-                        {entry.createdBy}
+                        {entry.created_by}
                       </TableCell>
                     </TableRow>
                   ))
