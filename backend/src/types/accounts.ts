@@ -387,7 +387,7 @@ export enum VoucherType {
   PAYMENT = 'Payment',
   RECEIPT = 'Receipt',
   JOURNAL = 'Journal',
-  CONTRA = 'Contra'
+  BALANCE_TRANSFER = 'Balance Transfer'
 }
 
 export enum VoucherStatus {

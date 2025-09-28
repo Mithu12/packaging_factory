@@ -442,6 +442,51 @@ export const accountGroupsQueryKeys = {
 };
 
 // =====================================================
+// LEDGER TYPES
+// =====================================================
+
+export interface LedgerEntry {
+  id: number;
+  voucherId: number;
+  voucherNo: string;
+  voucherType: string;
+  date: string;
+  accountId: number;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  costCenterId?: number;
+  costCenterName?: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface LedgerQueryParams {
+  page?: number;
+  limit?: number;
+  accountCode?: string;
+  accountId?: number;
+  costCenterId?: number;
+  voucherType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export interface LedgerStats {
+  totalEntries: number;
+  totalDebit: number;
+  totalCredit: number;
+  openingBalance: number;
+  closingBalance: number;
+}
+
+// =====================================================
 // VOUCHER TYPES
 // =====================================================
 
@@ -449,7 +494,7 @@ export enum VoucherType {
   PAYMENT = 'Payment',
   RECEIPT = 'Receipt',
   JOURNAL = 'Journal',
-  CONTRA = 'Contra'
+  BALANCE_TRANSFER = 'Balance Transfer'
 }
 
 export enum VoucherStatus {
@@ -620,6 +665,47 @@ export class VouchersApiService {
     });
   }
 }
+
+// =====================================================
+// LEDGER API SERVICE
+// =====================================================
+
+export class LedgerApiService {
+  private static readonly BASE_URL = '/accounts/ledger';
+
+  // Get all ledger entries with pagination and filtering
+  static async getLedgerEntries(params?: LedgerQueryParams): Promise<PaginatedResponse<LedgerEntry>> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}?${queryString}` : this.BASE_URL;
+    
+    return makeRequest<PaginatedResponse<LedgerEntry>>(url, { method: 'GET' });
+  }
+
+  // Get ledger statistics
+  static async getLedgerStats(params?: LedgerQueryParams): Promise<LedgerStats> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}/stats?${queryString}` : `${this.BASE_URL}/stats`;
+    
+    return makeRequest<LedgerStats>(url, { method: 'GET' });
+  }
+
+  // Get ledger entries for a specific cost center
+  static async getCostCenterLedgerEntries(costCenterId: number, params?: LedgerQueryParams): Promise<PaginatedResponse<LedgerEntry>> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}/cost-center/${costCenterId}?${queryString}` : `${this.BASE_URL}/cost-center/${costCenterId}`;
+    
+    return makeRequest<PaginatedResponse<LedgerEntry>>(url, { method: 'GET' });
+  }
+}
+
+// Query keys for React Query
+export const ledgerQueryKeys = {
+  all: ['ledger'] as const,
+  lists: () => [...ledgerQueryKeys.all, 'list'] as const,
+  list: (filters: LedgerQueryParams) => [...ledgerQueryKeys.lists(), { filters }] as const,
+  stats: (filters: LedgerQueryParams) => [...ledgerQueryKeys.all, 'stats', { filters }] as const,
+  costCenter: (costCenterId: number, filters: LedgerQueryParams) => [...ledgerQueryKeys.all, 'costCenter', costCenterId, { filters }] as const,
+};
 
 // Export default service for convenience
 export default AccountGroupsApiService;

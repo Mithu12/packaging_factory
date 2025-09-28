@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   Building,
   TrendingUp,
@@ -9,6 +9,7 @@ import {
   Filter,
   Download,
   ChevronDown,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,8 +32,14 @@ import {
 } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { costCenters, vouchers, chartOfAccounts } from "@/modules/accounts/data/mockData"
-import type { VoucherType } from "@/modules/accounts/types"
+import { toast } from "@/components/ui/sonner"
+import { 
+  LedgerApiService,
+  CostCentersApiService,
+  VoucherType,
+  type LedgerEntry,
+  type CostCenter
+} from "@/services/accounts-api"
 
 const dateFilters = [
   { value: "30", label: "Last 30 days" },
@@ -49,73 +56,93 @@ const formatCurrency = (value: number, currency = "USD") =>
   })
 
 export default function CostCenterLedger() {
-  const [selectedCostCenterId, setSelectedCostCenterId] = useState(costCenters[0]?.id ?? "")
+  // State for data
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Filter states
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState("")
   const [voucherFilter, setVoucherFilter] = useState<"All" | VoucherType>("All")
   const [dateFilter, setDateFilter] = useState("90")
   const [searchTerm, setSearchTerm] = useState("")
 
   const selectedCostCenter = useMemo(
-    () => costCenters.find((center) => center.id === selectedCostCenterId) ?? costCenters[0],
-    [selectedCostCenterId]
+    () => costCenters.find((center) => center.id.toString() === selectedCostCenterId),
+    [costCenters, selectedCostCenterId]
   )
 
-  const allAccountMap = useMemo(() => {
-    const map = new Map<string, string>()
-    const stack = [...chartOfAccounts]
-    while (stack.length > 0) {
-      const node = stack.pop()
-      if (!node) break
-      map.set(node.code, node.name)
-      if (node.children) {
-        stack.push(...node.children)
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        const costCentersResult = await CostCentersApiService.getAllCostCenters({ limit: 1000 })
+        setCostCenters(costCentersResult.data)
+        
+        // Set default cost center
+        if (costCentersResult.data.length > 0 && !selectedCostCenterId) {
+          setSelectedCostCenterId(costCentersResult.data[0].id.toString())
+        }
+      } catch (error) {
+        console.error('Error loading cost centers:', error)
+        toast.error('Failed to load cost centers')
+      } finally {
+        setIsLoading(false)
       }
     }
-    return map
+
+    loadData()
   }, [])
 
-  const ledgerLines = useMemo(() => {
-    if (!selectedCostCenter) return []
-    return vouchers.flatMap((voucher) =>
-      voucher.lines
-        .filter((line) => line.costCenterId === selectedCostCenter.id)
-        .map((line) => ({
-          voucherId: voucher.id,
-          voucherNo: voucher.voucherNo,
-          type: voucher.type,
-          status: voucher.status,
-          date: voucher.date,
-          accountCode: line.accountCode,
-          accountName: allAccountMap.get(line.accountCode) ?? line.accountCode,
-          debit: line.debit,
-          credit: line.credit,
-          narration: line.narration ?? voucher.narration,
-          preparedBy: voucher.preparedBy,
-        }))
-    )
-  }, [selectedCostCenter, allAccountMap])
+  // Load ledger entries when filters change
+  useEffect(() => {
+    const loadLedgerEntries = async () => {
+      if (!selectedCostCenterId) return
+
+      try {
+        const params = {
+          voucherType: voucherFilter !== "All" ? voucherFilter : undefined,
+          search: searchTerm || undefined,
+          limit: 1000
+        }
+
+        const entriesResult = await LedgerApiService.getCostCenterLedgerEntries(
+          parseInt(selectedCostCenterId), 
+          params
+        )
+        setLedgerEntries(entriesResult.data)
+      } catch (error) {
+        console.error('Error loading ledger entries:', error)
+        toast.error('Failed to load ledger entries')
+      }
+    }
+
+    loadLedgerEntries()
+  }, [selectedCostCenterId, voucherFilter, searchTerm])
 
   const filteredLines = useMemo(() => {
-    return ledgerLines.filter((line) => {
-      const matchesVoucher = voucherFilter === "All" || line.type === voucherFilter
+    return ledgerEntries.filter((entry) => {
+      const matchesVoucher = voucherFilter === "All" || entry.voucherType === voucherFilter
       const matchesSearch =
         searchTerm.trim().length === 0 ||
-        line.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        line.accountName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        line.narration.toLowerCase().includes(searchTerm.toLowerCase())
+        entry.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.accountName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        entry.description.toLowerCase().includes(searchTerm.toLowerCase())
       return matchesVoucher && matchesSearch
     })
-  }, [ledgerLines, voucherFilter, searchTerm])
+  }, [ledgerEntries, voucherFilter, searchTerm])
 
   const metrics = useMemo(() => {
-    const totalDebit = ledgerLines.reduce((sum, line) => sum + (line.debit ?? 0), 0)
-    const totalCredit = ledgerLines.reduce((sum, line) => sum + (line.credit ?? 0), 0)
+    const totalDebit = filteredLines.reduce((sum, entry) => sum + (entry.debit ?? 0), 0)
+    const totalCredit = filteredLines.reduce((sum, entry) => sum + (entry.credit ?? 0), 0)
     const net = totalDebit - totalCredit
     return {
       totalDebit,
       totalCredit,
       net,
     }
-  }, [ledgerLines])
+  }, [filteredLines])
 
   const utilization = useMemo(() => {
     if (!selectedCostCenter) return 0
@@ -153,7 +180,7 @@ export default function CostCenterLedger() {
               </SelectTrigger>
               <SelectContent>
                 {costCenters.map((center) => (
-                  <SelectItem key={center.id} value={center.id}>
+                  <SelectItem key={center.id} value={center.id.toString()}>
                     {center.name}
                   </SelectItem>
                 ))}
@@ -165,10 +192,10 @@ export default function CostCenterLedger() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All voucher types</SelectItem>
-                <SelectItem value="Payment">Payment</SelectItem>
-                <SelectItem value="Receipt">Receipt</SelectItem>
-                <SelectItem value="Journal">Journal</SelectItem>
-                <SelectItem value="Balance Transfer">Balance transfer</SelectItem>
+                <SelectItem value={VoucherType.PAYMENT}>Payment</SelectItem>
+                <SelectItem value={VoucherType.RECEIPT}>Receipt</SelectItem>
+                <SelectItem value={VoucherType.JOURNAL}>Journal</SelectItem>
+                <SelectItem value={VoucherType.BALANCE_TRANSFER}>Balance Transfer</SelectItem>
               </SelectContent>
             </Select>
             <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -279,34 +306,43 @@ export default function CostCenterLedger() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLines.length > 0 ? (
-                  filteredLines.map((line, index) => (
-                    <TableRow key={`${line.voucherId}-${index}`}>
-                      <TableCell>{new Date(line.date).toLocaleDateString()}</TableCell>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-32 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm text-muted-foreground">Loading cost center entries...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredLines.length > 0 ? (
+                  filteredLines.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{line.voucherNo}</span>
+                          <span className="font-medium">{entry.voucherNo}</span>
                           <Badge variant="outline" className="mt-1 w-fit text-xs">
-                            {line.type}
+                            {entry.voucherType}
                           </Badge>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{line.accountCode} {line.accountName}</div>
+                          <div>{entry.accountCode} {entry.accountName}</div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {line.narration}
+                        {entry.description}
                       </TableCell>
                       <TableCell className="text-right text-emerald-600">
-                        {line.debit > 0 ? formatCurrency(line.debit) : "-"}
+                        {entry.debit > 0 ? formatCurrency(entry.debit) : "-"}
                       </TableCell>
                       <TableCell className="text-right text-rose-600">
-                        {line.credit > 0 ? formatCurrency(line.credit) : "-"}
+                        {entry.credit > 0 ? formatCurrency(entry.credit) : "-"}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
-                        {line.preparedBy}
+                        {entry.createdBy}
                       </TableCell>
                     </TableRow>
                   ))

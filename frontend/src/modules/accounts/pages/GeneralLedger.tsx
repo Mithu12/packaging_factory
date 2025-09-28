@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   Download,
   Search,
@@ -7,6 +7,7 @@ import {
   NotebookPen,
   ArrowUpRight,
   PlusSquare,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,10 +29,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ledgerEntries, chartOfAccounts, voucherTypes, costCenters } from "@/modules/accounts/data/mockData"
-import type { AccountNode, LedgerEntry, VoucherType } from "@/modules/accounts/types"
+import { toast } from "@/components/ui/sonner"
+import { 
+  LedgerApiService,
+  ChartOfAccountsApiService,
+  CostCentersApiService,
+  VoucherType,
+  type LedgerEntry,
+  type ChartOfAccount,
+  type CostCenter,
+  type LedgerStats
+} from "@/services/accounts-api"
 
-const flattenAccounts = (nodes: AccountNode[]): AccountNode[] => {
+const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 }
 
@@ -50,61 +60,114 @@ const formatCurrency = (value: number, currency = "USD") =>
   })
 
 export default function GeneralLedger() {
-  const postingAccounts = useMemo(() => flattenAccounts(chartOfAccounts).filter((node) => node.type === "Posting"), [])
-  const defaultAccount = postingAccounts.find((account) => account.code === "1110") ?? postingAccounts[0]
+  // State for data
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
+  const [chartOfAccounts, setChartOfAccounts] = useState<ChartOfAccount[]>([])
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [ledgerStats, setLedgerStats] = useState<LedgerStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const [accountCode, setAccountCode] = useState(defaultAccount?.code ?? "")
+  // Filter states
+  const [accountCode, setAccountCode] = useState("")
   const [voucherFilter, setVoucherFilter] = useState<"All" | VoucherType | "Opening Balance">("All")
   const [costCenterFilter, setCostCenterFilter] = useState<string | "All">("All")
   const [dateFilter, setDateFilter] = useState("30")
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("date-desc")
 
+  const postingAccounts = useMemo(() => flattenAccounts(chartOfAccounts).filter((node) => node.type === "Posting"), [chartOfAccounts])
   const accountMeta = useMemo(() => postingAccounts.find((account) => account.code === accountCode), [postingAccounts, accountCode])
 
-  const filteredEntries = useMemo(() => {
-    const entriesForAccount = ledgerEntries.filter((entry) => !accountCode || entry.accountCode === accountCode)
-
-    return entriesForAccount
-      .filter((entry) => {
-        const matchesVoucher = voucherFilter === "All" || entry.type === voucherFilter
-        const matchesCostCenter = costCenterFilter === "All" || entry.costCenterName === costCenterFilter
-        const matchesSearch =
-          searchTerm.trim().length === 0 ||
-          entry.voucherNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          entry.createdBy.toLowerCase().includes(searchTerm.toLowerCase())
-
-        return matchesVoucher && matchesCostCenter && matchesSearch
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case "date-asc":
-            return new Date(a.date).getTime() - new Date(b.date).getTime()
-          case "amount-desc":
-            return b.debit + b.credit - (a.debit + a.credit)
-          case "amount-asc":
-            return a.debit + a.credit - (b.debit + b.credit)
-          case "date-desc":
-          default:
-            return new Date(b.date).getTime() - new Date(a.date).getTime()
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        const [accountsResult, costCentersResult] = await Promise.all([
+          ChartOfAccountsApiService.getChartOfAccountsTree(),
+          CostCentersApiService.getAllCostCenters({ limit: 1000 })
+        ])
+        
+        setChartOfAccounts(accountsResult)
+        setCostCenters(costCentersResult.data)
+        
+        // Set default account if available
+        const flatAccounts = flattenAccounts(accountsResult).filter((node) => node.type === "Posting")
+        const defaultAccount = flatAccounts.find((account) => account.code === "1110") ?? flatAccounts[0]
+        if (defaultAccount && !accountCode) {
+          setAccountCode(defaultAccount.code)
         }
-      })
-  }, [accountCode, voucherFilter, costCenterFilter, searchTerm, sortBy])
+      } catch (error) {
+        console.error('Error loading data:', error)
+        toast.error('Failed to load accounts and cost centers')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
+  // Load ledger entries when filters change
+  useEffect(() => {
+    const loadLedgerEntries = async () => {
+      if (!accountCode) return
+
+      try {
+        const params = {
+          accountCode,
+          voucherType: voucherFilter !== "All" && voucherFilter !== "Opening Balance" ? voucherFilter : undefined,
+          search: searchTerm || undefined,
+          sortBy: sortBy.includes('date') ? 'date' : sortBy.includes('amount') ? 'amount' : 'date',
+          sortOrder: sortBy.includes('desc') ? 'desc' : 'asc',
+          limit: 1000
+        }
+
+        const [entriesResult, statsResult] = await Promise.all([
+          LedgerApiService.getLedgerEntries(params),
+          LedgerApiService.getLedgerStats(params)
+        ])
+
+        setLedgerEntries(entriesResult.data)
+        setLedgerStats(statsResult)
+      } catch (error) {
+        console.error('Error loading ledger entries:', error)
+        toast.error('Failed to load ledger entries')
+      }
+    }
+
+    loadLedgerEntries()
+  }, [accountCode, voucherFilter, searchTerm, sortBy])
+
+  const filteredEntries = useMemo(() => {
+    return ledgerEntries.filter((entry) => {
+      const matchesCostCenter = costCenterFilter === "All" || entry.costCenterName === costCenterFilter
+      return matchesCostCenter
+    })
+  }, [ledgerEntries, costCenterFilter])
 
   const ledgerSummary = useMemo(() => {
-    const opening = filteredEntries.find((entry) => entry.type === "Opening Balance")
+    if (ledgerStats) {
+      return {
+        opening: ledgerStats.openingBalance,
+        debitTotal: ledgerStats.totalDebit,
+        creditTotal: ledgerStats.totalCredit,
+        closing: ledgerStats.closingBalance,
+      }
+    }
+    
+    // Fallback calculation if stats not available
     const debitTotal = filteredEntries.reduce((sum, entry) => sum + entry.debit, 0)
     const creditTotal = filteredEntries.reduce((sum, entry) => sum + entry.credit, 0)
     const closing = filteredEntries.length > 0 ? filteredEntries[filteredEntries.length - 1].balance : 0
 
     return {
-      opening: opening?.balance ?? 0,
+      opening: 0,
       debitTotal,
       creditTotal,
       closing,
     }
-  }, [filteredEntries])
+  }, [ledgerStats, filteredEntries])
 
   return (
     <div className="space-y-6">
@@ -149,11 +212,10 @@ export default function GeneralLedger() {
               <SelectContent>
                 <SelectItem value="All">All voucher types</SelectItem>
                 <SelectItem value="Opening Balance">Opening balance</SelectItem>
-                {voucherTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
+                <SelectItem value={VoucherType.PAYMENT}>Payment</SelectItem>
+                <SelectItem value={VoucherType.RECEIPT}>Receipt</SelectItem>
+                <SelectItem value={VoucherType.JOURNAL}>Journal</SelectItem>
+                <SelectItem value={VoucherType.BALANCE_TRANSFER}>Balance Transfer</SelectItem>
               </SelectContent>
             </Select>
             <Select value={costCenterFilter} onValueChange={(value) => setCostCenterFilter(value)}>
@@ -261,7 +323,7 @@ export default function GeneralLedger() {
                 {accountMeta.code} {accountMeta.name}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Cost centers tagged: {accountMeta.costCenters?.length ?? 0}
+                Account type: {accountMeta.type} • Category: {accountMeta.category}
               </p>
             </div>
           </CardHeader>
@@ -280,7 +342,16 @@ export default function GeneralLedger() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.length > 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-32 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">Loading ledger entries...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredEntries.length > 0 ? (
                     filteredEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
@@ -288,7 +359,7 @@ export default function GeneralLedger() {
                           <div className="flex flex-col">
                             <span className="font-medium">{entry.voucherNo}</span>
                             <Badge variant="outline" className="mt-1 w-fit text-xs">
-                              {entry.type}
+                              {entry.voucherType}
                             </Badge>
                           </div>
                         </TableCell>
