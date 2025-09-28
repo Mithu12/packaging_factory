@@ -130,6 +130,8 @@ export function VoucherPage({
   const [sortBy, setSortBy] = useState("date-desc")
   const [includeAttachments, setIncludeAttachments] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null)
 
   const [formState, setFormState] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -267,10 +269,8 @@ export function VoucherPage({
 
   // Voucher action handlers
   const handleViewVoucher = (voucher: Voucher) => {
-    // TODO: Implement voucher view modal/page
-    toast.info(`View voucher ${voucher.voucherNo}`, {
-      description: "Voucher view functionality coming soon"
-    })
+    setSelectedVoucher(voucher)
+    setIsViewDialogOpen(true)
   }
 
   const handleEditVoucher = (voucher: Voucher) => {
@@ -312,9 +312,25 @@ export function VoucherPage({
     })
   }
 
+  const handleSubmitForApproval = async (voucher: Voucher) => {
+    if (voucher.status !== VoucherStatus.DRAFT) {
+      toast.error("Only draft vouchers can be submitted for approval")
+      return
+    }
+
+    try {
+      await VouchersApiService.updateVoucher(voucher.id, { status: VoucherStatus.PENDING_APPROVAL })
+      toast.success(`Voucher ${voucher.voucherNo} submitted for approval`)
+      loadVouchers() // Refresh the list
+    } catch (error) {
+      console.error('Error submitting voucher for approval:', error)
+      toast.error('Failed to submit voucher for approval')
+    }
+  }
+
   const handleApproveVoucher = async (voucher: Voucher) => {
     if (voucher.status !== VoucherStatus.PENDING_APPROVAL) {
-      toast.error("Only pending vouchers can be approved")
+      toast.error(`Only pending vouchers can be approved. Current status: ${voucher.status}`)
       return
     }
 
@@ -608,6 +624,166 @@ export function VoucherPage({
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* View Voucher Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Voucher Details - {selectedVoucher?.voucherNo}</DialogTitle>
+              <DialogDescription>
+                View complete voucher information and transaction details.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedVoucher && (
+              <div className="space-y-6">
+                {/* Voucher Header */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Voucher Number</Label>
+                    <div className="text-sm">{selectedVoucher.voucherNo}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Date</Label>
+                    <div className="text-sm">{new Date(selectedVoucher.date).toLocaleDateString()}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Status</Label>
+                    <Badge
+                      variant={selectedVoucher.status === "Posted" ? "default" : selectedVoucher.status === "Pending Approval" ? "secondary" : "outline"}
+                      className={selectedVoucher.status === "Posted" ? "bg-emerald-500 hover:bg-emerald-500" : undefined}
+                    >
+                      {selectedVoucher.status}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Reference</Label>
+                    <div className="text-sm">{selectedVoucher.reference || "No reference"}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Amount</Label>
+                    <div className="text-sm font-medium">{formatCurrency(selectedVoucher.amount, selectedVoucher.currency)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Type</Label>
+                    <div className="text-sm">{type}</div>
+                  </div>
+                  {selectedVoucher.payee && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{counterpartyLabel}</Label>
+                      <div className="text-sm">{selectedVoucher.payee}</div>
+                    </div>
+                  )}
+                  {selectedVoucher.costCenterId && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Cost Center</Label>
+                      <div className="text-sm">
+                        {costCenters.find(c => c.id.toString() === selectedVoucher.costCenterId?.toString())?.name || "Unknown"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Narration */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Narration</Label>
+                  <div className="text-sm p-3 bg-muted rounded-md">{selectedVoucher.narration}</div>
+                </div>
+
+                {/* Voucher Lines */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Transaction Lines</Label>
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Account</TableHead>
+                          <TableHead className="text-right">Debit</TableHead>
+                          <TableHead className="text-right">Credit</TableHead>
+                          <TableHead>Cost Center</TableHead>
+                          <TableHead>Description</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedVoucher.lines.map((line) => (
+                          <TableRow key={line.id}>
+                            <TableCell>
+                              <div className="font-medium">{line.accountCode} {line.accountName}</div>
+                            </TableCell>
+                            <TableCell className="text-right text-emerald-600">
+                              {line.debit > 0 ? formatCurrency(line.debit) : "-"}
+                            </TableCell>
+                            <TableCell className="text-right text-rose-600">
+                              {line.credit > 0 ? formatCurrency(line.credit) : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {line.costCenterId ? 
+                                costCenters.find(c => c.id === line.costCenterId)?.name || "Unknown" : 
+                                "-"
+                              }
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {line.description || "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="flex justify-end space-x-8 pt-4 border-t">
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Total Debits</div>
+                    <div className="font-medium text-emerald-600">
+                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => sum + line.debit, 0))}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Total Credits</div>
+                    <div className="font-medium text-rose-600">
+                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => sum + line.credit, 0))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-between pt-4 border-t">
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleCloneVoucher(selectedVoucher)}>
+                      Clone Voucher
+                    </Button>
+                    {selectedVoucher.status === VoucherStatus.PENDING_APPROVAL && (
+                      <Button onClick={() => {
+                        handleApproveVoucher(selectedVoucher)
+                        setIsViewDialogOpen(false)
+                      }}>
+                        Approve
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedVoucher.status !== VoucherStatus.VOID && (
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => {
+                          handleVoidVoucher(selectedVoucher)
+                          setIsViewDialogOpen(false)
+                        }}
+                      >
+                        Void
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -808,9 +984,14 @@ export function VoucherPage({
                                 <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
                               </DropdownMenuItem>
                               {voucher.status === VoucherStatus.DRAFT && (
-                                <DropdownMenuItem onClick={() => handleEditVoucher(voucher)}>
-                                  Edit draft
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => handleEditVoucher(voucher)}>
+                                    Edit draft
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleSubmitForApproval(voucher)}>
+                                    Submit for approval
+                                  </DropdownMenuItem>
+                                </>
                               )}
                               <DropdownMenuItem onClick={() => handleCloneVoucher(voucher)}>
                                 Clone voucher
