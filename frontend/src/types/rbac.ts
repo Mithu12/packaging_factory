@@ -205,12 +205,61 @@ export const PERMISSIONS = {
   // System Admin
   SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
 
-    // Account Groups
-  ACCOUNTS_READ: createPermissionCheck('Finance', 'create', 'accounts'),
-  ACCOUNTS_CREATE: createPermissionCheck('Finance', 'read', 'accounts'),
-  ACCOUNTS_UPDATE: createPermissionCheck('Finance', 'update', 'accounts'),
-  ACCOUNTS_DELETE: createPermissionCheck('Finance', 'delete', 'accounts'),
+
+  // ---- Accounts: Master Data ----
+ACCOUNT_GROUPS_CREATE: createPermissionCheck('Finance', 'create', 'account_groups'),
+ACCOUNT_GROUPS_READ:   createPermissionCheck('Finance', 'read',   'account_groups'),
+ACCOUNT_GROUPS_UPDATE: createPermissionCheck('Finance', 'update', 'account_groups'),
+ACCOUNT_GROUPS_DELETE: createPermissionCheck('Finance', 'delete', 'account_groups'),
+
+CHART_OF_ACCOUNTS_CREATE: createPermissionCheck('Finance', 'create', 'chart_of_accounts'),
+CHART_OF_ACCOUNTS_READ:   createPermissionCheck('Finance', 'read',   'chart_of_accounts'),
+CHART_OF_ACCOUNTS_UPDATE: createPermissionCheck('Finance', 'update', 'chart_of_accounts'),
+CHART_OF_ACCOUNTS_DELETE: createPermissionCheck('Finance', 'delete', 'chart_of_accounts'),
+
+COST_CENTERS_CREATE: createPermissionCheck('Finance', 'create', 'cost_centers'),
+COST_CENTERS_READ:   createPermissionCheck('Finance', 'read',   'cost_centers'),
+COST_CENTERS_UPDATE: createPermissionCheck('Finance', 'update', 'cost_centers'),
+COST_CENTERS_DELETE: createPermissionCheck('Finance', 'delete', 'cost_centers'),
+
+// ---- Accounts: Vouchers ----
+PAYMENT_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'payment_vouchers'),
+PAYMENT_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'payment_vouchers'),
+PAYMENT_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'payment_vouchers'),
+PAYMENT_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'payment_vouchers'),
+PAYMENT_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'payment_vouchers'),
+PAYMENT_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'payment_vouchers'),
+
+RECEIPT_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'receipt_vouchers'),
+RECEIPT_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'receipt_vouchers'),
+RECEIPT_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'receipt_vouchers'),
+RECEIPT_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'receipt_vouchers'),
+RECEIPT_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'receipt_vouchers'),
+RECEIPT_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'receipt_vouchers'),
+
+JOURNAL_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'journal_vouchers'),
+JOURNAL_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'journal_vouchers'),
+JOURNAL_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'journal_vouchers'),
+JOURNAL_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'journal_vouchers'),
+JOURNAL_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'journal_vouchers'),
+JOURNAL_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'journal_vouchers'),
+
+// ---- Accounts: Balance Transfer ----
+BALANCE_TRANSFERS_CREATE:  createPermissionCheck('Finance', 'create',  'balance_transfers'),
+BALANCE_TRANSFERS_READ:    createPermissionCheck('Finance', 'read',    'balance_transfers'),
+BALANCE_TRANSFERS_UPDATE:  createPermissionCheck('Finance', 'update',  'balance_transfers'),
+BALANCE_TRANSFERS_DELETE:  createPermissionCheck('Finance', 'delete',  'balance_transfers'),
+BALANCE_TRANSFERS_APPROVE: createPermissionCheck('Finance', 'approve', 'balance_transfers'),
+
+// ---- Accounts: Reports (read-only) ----
+GENERAL_LEDGER_READ:       createPermissionCheck('Finance', 'read', 'general_ledger'),
+COST_CENTER_LEDGER_READ:   createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
+INCOME_STATEMENT_READ:     createPermissionCheck('Finance', 'read', 'income_statement'),
+BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_sheet'),
+
 } as const;
+
+
 
 // Permission groups for easier management
 export const PERMISSION_GROUPS = {
