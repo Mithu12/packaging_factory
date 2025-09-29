@@ -5,6 +5,7 @@
 -- Date: 2024-01-01
 -- =====================================================
 
+drop TABLE IF EXISTS vouchers;
 -- Create vouchers table
 CREATE TABLE IF NOT EXISTS vouchers (
     id SERIAL PRIMARY KEY,
@@ -24,7 +25,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
+drop TABLE IF EXISTS voucher_lines;
 -- Create voucher_lines table
 CREATE TABLE IF NOT EXISTS voucher_lines (
     id SERIAL PRIMARY KEY,
