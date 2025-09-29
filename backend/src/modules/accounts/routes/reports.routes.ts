@@ -12,7 +12,7 @@ router.use(authenticate);
 // GET /api/accounts/reports/income-statement - Get income statement
 router.get(
   "/income-statement",
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.INCOME_STATEMENT_READ),
   validateQuery(getIncomeStatementQuerySchema),
   ReportsController.getIncomeStatement
 );
@@ -20,7 +20,7 @@ router.get(
 // GET /api/accounts/reports/balance-sheet - Get balance sheet
 router.get(
   "/balance-sheet",
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.BALANCE_SHEET_READ),
   validateQuery(getBalanceSheetQuerySchema),
   ReportsController.getBalanceSheet
 );

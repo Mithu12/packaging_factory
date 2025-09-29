@@ -222,34 +222,14 @@ COST_CENTERS_READ:   createPermissionCheck('Finance', 'read',   'cost_centers'),
 COST_CENTERS_UPDATE: createPermissionCheck('Finance', 'update', 'cost_centers'),
 COST_CENTERS_DELETE: createPermissionCheck('Finance', 'delete', 'cost_centers'),
 
-// ---- Accounts: Vouchers ----
-PAYMENT_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'payment_vouchers'),
-PAYMENT_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'payment_vouchers'),
-PAYMENT_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'payment_vouchers'),
-PAYMENT_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'payment_vouchers'),
-PAYMENT_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'payment_vouchers'),
-PAYMENT_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'payment_vouchers'),
 
-RECEIPT_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'receipt_vouchers'),
-RECEIPT_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'receipt_vouchers'),
-RECEIPT_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'receipt_vouchers'),
-RECEIPT_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'receipt_vouchers'),
-RECEIPT_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'receipt_vouchers'),
-RECEIPT_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'receipt_vouchers'),
-
-JOURNAL_VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'journal_vouchers'),
-JOURNAL_VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'journal_vouchers'),
-JOURNAL_VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'journal_vouchers'),
-JOURNAL_VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'journal_vouchers'),
-JOURNAL_VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'journal_vouchers'),
-JOURNAL_VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'journal_vouchers'),
-
-// ---- Accounts: Balance Transfer ----
-BALANCE_TRANSFERS_CREATE:  createPermissionCheck('Finance', 'create',  'balance_transfers'),
-BALANCE_TRANSFERS_READ:    createPermissionCheck('Finance', 'read',    'balance_transfers'),
-BALANCE_TRANSFERS_UPDATE:  createPermissionCheck('Finance', 'update',  'balance_transfers'),
-BALANCE_TRANSFERS_DELETE:  createPermissionCheck('Finance', 'delete',  'balance_transfers'),
-BALANCE_TRANSFERS_APPROVE: createPermissionCheck('Finance', 'approve', 'balance_transfers'),
+  // ---- Accounts: Vouchers ----
+  VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'vouchers'),
+  VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'vouchers'),
+  VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'vouchers'),
+  VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'vouchers'),
+  VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'vouchers'),
+  VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'vouchers'),
 
 // ---- Accounts: Reports (read-only) ----
 GENERAL_LEDGER_READ:       createPermissionCheck('Finance', 'read', 'general_ledger'),

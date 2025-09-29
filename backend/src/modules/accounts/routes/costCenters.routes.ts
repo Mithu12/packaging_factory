@@ -94,7 +94,7 @@ const validateQuery = (schema: any) => {
 router.get(
   "/",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.COST_CENTERS_READ),
   validateQuery(getCostCentersQuerySchema),
   expressAsyncHandler(CostCentersController.getAllCostCenters)
 );
@@ -107,7 +107,7 @@ router.get(
 router.get(
   "/stats",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.COST_CENTERS_READ),
   expressAsyncHandler(CostCentersController.getCostCenterStats)
 );
 
@@ -119,7 +119,7 @@ router.get(
 router.get(
   "/search",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.COST_CENTERS_READ),
   validateQuery(Joi.object({
     q: Joi.string().required().min(1).max(255)
   })),
@@ -134,7 +134,7 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.COST_CENTERS_READ),
   expressAsyncHandler(CostCentersController.getCostCenterById)
 );
 
@@ -147,7 +147,7 @@ router.post(
   "/",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_CREATE),
+  requirePermission(PERMISSIONS.COST_CENTERS_CREATE),
   validateRequest(createCostCenterSchema),
   expressAsyncHandler(CostCentersController.createCostCenter)
 );
@@ -161,7 +161,7 @@ router.put(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.COST_CENTERS_UPDATE),
   validateRequest(updateCostCenterSchema),
   expressAsyncHandler(CostCentersController.updateCostCenter)
 );
@@ -175,7 +175,7 @@ router.put(
   "/:id/actual-spend",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.COST_CENTERS_UPDATE),
   validateRequest(Joi.object({
     actualSpend: Joi.number().min(0).precision(2).required()
   })),
@@ -191,7 +191,7 @@ router.delete(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_DELETE),
+  requirePermission(PERMISSIONS.COST_CENTERS_DELETE),
   expressAsyncHandler(CostCentersController.deleteCostCenter)
 );
 
@@ -204,7 +204,7 @@ router.put(
   "/:id/deactivate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.COST_CENTERS_UPDATE),
   expressAsyncHandler(CostCentersController.deactivateCostCenter)
 );
 
@@ -217,7 +217,7 @@ router.put(
   "/:id/activate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.COST_CENTERS_UPDATE),
   expressAsyncHandler(CostCentersController.activateCostCenter)
 );
 

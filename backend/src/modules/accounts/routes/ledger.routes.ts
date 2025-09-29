@@ -15,7 +15,7 @@ router.use(authenticate);
 // GET /api/accounts/ledger - Get all ledger entries with pagination and filtering
 router.get(
   "/",
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.GENERAL_LEDGER_READ),
   validateQuery(getLedgerEntriesQuerySchema),
   expressAsyncHandler(LedgerController.getAllLedgerEntries)
 );
@@ -23,7 +23,7 @@ router.get(
 // GET /api/accounts/ledger/stats - Get ledger statistics
 router.get(
   "/stats",
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.GENERAL_LEDGER_READ),
   validateQuery(getLedgerEntriesQuerySchema),
   expressAsyncHandler(LedgerController.getLedgerStats)
 );
@@ -31,7 +31,7 @@ router.get(
 // GET /api/accounts/ledger/cost-center/:id - Get ledger entries for specific cost center
 router.get(
   "/cost-center/:id",
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.COST_CENTER_LEDGER_READ),
   validateQuery(getLedgerEntriesQuerySchema),
   expressAsyncHandler(LedgerController.getCostCenterLedgerEntries)
 );

@@ -93,7 +93,7 @@ const validateQuery = (schema: any) => {
 router.get(
   "/",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_READ),
   validateQuery(getChartOfAccountsQuerySchema),
   expressAsyncHandler(ChartOfAccountsController.getAllChartOfAccounts)
 );
@@ -106,7 +106,7 @@ router.get(
 router.get(
   "/tree",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_READ),
   expressAsyncHandler(ChartOfAccountsController.getChartOfAccountsTree)
 );
 
@@ -118,7 +118,7 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_READ),
   expressAsyncHandler(ChartOfAccountsController.getChartOfAccountById)
 );
 
@@ -131,7 +131,7 @@ router.post(
   "/",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_CREATE),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_CREATE),
   validateRequest(createChartOfAccountSchema),
   expressAsyncHandler(ChartOfAccountsController.createChartOfAccount)
 );
@@ -145,7 +145,7 @@ router.put(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_UPDATE),
   validateRequest(updateChartOfAccountSchema),
   expressAsyncHandler(ChartOfAccountsController.updateChartOfAccount)
 );
@@ -159,7 +159,7 @@ router.delete(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_DELETE),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_DELETE),
   expressAsyncHandler(ChartOfAccountsController.deleteChartOfAccount)
 );
 
@@ -172,7 +172,7 @@ router.put(
   "/:id/deactivate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_UPDATE),
   expressAsyncHandler(ChartOfAccountsController.deactivateChartOfAccount)
 );
 
@@ -185,7 +185,7 @@ router.put(
   "/:id/activate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_UPDATE),
   expressAsyncHandler(ChartOfAccountsController.activateChartOfAccount)
 );
 

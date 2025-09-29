@@ -93,7 +93,7 @@ const validateQuery = (schema: any) => {
 router.get(
   "/",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   validateQuery(getAccountGroupsQuerySchema),
   expressAsyncHandler(AccountGroupsController.getAllAccountGroups)
 );
@@ -106,7 +106,7 @@ router.get(
 router.get(
   "/tree",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   expressAsyncHandler(AccountGroupsController.getAccountGroupsTree)
 );
 
@@ -118,7 +118,7 @@ router.get(
 router.get(
   "/stats",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   expressAsyncHandler(AccountGroupsController.getAccountGroupStats)
 );
 
@@ -130,7 +130,7 @@ router.get(
 router.get(
   "/search",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   expressAsyncHandler(AccountGroupsController.searchAccountGroups)
 );
 
@@ -142,7 +142,7 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  requirePermission(PERMISSIONS.ACCOUNTS_READ),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   expressAsyncHandler(AccountGroupsController.getAccountGroupById)
 );
 
@@ -155,7 +155,7 @@ router.post(
   "/",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_CREATE),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_READ),
   validateRequest(createAccountGroupSchema),
   expressAsyncHandler(AccountGroupsController.createAccountGroup)
 );
@@ -169,7 +169,7 @@ router.put(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_UPDATE),
   validateRequest(updateAccountGroupSchema),
   expressAsyncHandler(AccountGroupsController.updateAccountGroup)
 );
@@ -183,7 +183,7 @@ router.delete(
   "/:id",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_DELETE),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_DELETE),
   expressAsyncHandler(AccountGroupsController.deleteAccountGroup)
 );
 
@@ -196,7 +196,7 @@ router.put(
   "/:id/deactivate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_UPDATE),
   expressAsyncHandler(AccountGroupsController.deactivateAccountGroup)
 );
 
@@ -209,7 +209,7 @@ router.put(
   "/:id/activate",
   authenticate,
   auditMiddleware,
-  requirePermission(PERMISSIONS.ACCOUNTS_UPDATE),
+  requirePermission(PERMISSIONS.ACCOUNT_GROUPS_UPDATE),
   expressAsyncHandler(AccountGroupsController.activateAccountGroup)
 );
 
