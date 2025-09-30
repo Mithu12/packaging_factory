@@ -18,6 +18,9 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/sonner"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DateRange } from "react-day-picker"
+import { format } from "date-fns"
 import { 
   ReportsApiService,
   CostCentersApiService,
@@ -28,16 +31,10 @@ import {
 } from "@/services/accounts-api"
 import { useFormatting } from "@/hooks/useFormatting"
 
-const periods = [
-  { value: "2024-Q2", label: "Q2 2024" },
-  { value: "2024-YTD", label: "2024 YTD" },
-  { value: "2023-FY", label: "FY 2023" },
-]
-
 const currencies = [
+  { value: "BDT", label: "BDT" },
   { value: "USD", label: "USD" },
   { value: "EUR", label: "EUR" },
-  { value: "PKR", label: "PKR" },
 ]
 
 const renderSection = (section: IncomeStatementSection, depth = 0, formatCurrency: (value: number) => string) => {
@@ -74,8 +71,11 @@ export default function IncomeStatement() {
   const [isLoading, setIsLoading] = useState(true)
   
   // Filter states
-  const [period, setPeriod] = useState(periods[0]?.value ?? "2024-Q2")
-  const [currency, setCurrency] = useState(currencies[0]?.value ?? "USD")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().getFullYear(), 0, 1), // Start of current year
+    to: new Date() // Today
+  })
+  const [currency, setCurrency] = useState(currencies[0]?.value ?? "BDT")
   const [scenario, setScenario] = useState<'actual' | 'budget' | 'forecast'>("actual")
   const [costCenterFilter, setCostCenterFilter] = useState<string>("all")
 
@@ -103,34 +103,14 @@ export default function IncomeStatement() {
   // Load income statement when filters change
   useEffect(() => {
     const loadIncomeStatement = async () => {
+      if (!dateRange?.from || !dateRange?.to) return
+      
       try {
         setIsLoading(true)
-        
-        // Convert period to date range
-        const currentYear = new Date().getFullYear()
-        let dateFrom: string, dateTo: string
-        
-        switch (period) {
-          case "2024-Q2":
-            dateFrom = "2024-04-01"
-            dateTo = "2024-06-30"
-            break
-          case "2024-YTD":
-            dateFrom = "2024-01-01"
-            dateTo = new Date().toISOString().split('T')[0]
-            break
-          case "2023-FY":
-            dateFrom = "2023-01-01"
-            dateTo = "2023-12-31"
-            break
-          default:
-            dateFrom = `${currentYear}-01-01`
-            dateTo = `${currentYear}-12-31`
-        }
 
         const params: any = {
-          dateFrom,
-          dateTo,
+          dateFrom: format(dateRange.from, 'yyyy-MM-dd'),
+          dateTo: format(dateRange.to, 'yyyy-MM-dd'),
           scenario
         }
 
@@ -149,7 +129,7 @@ export default function IncomeStatement() {
     }
 
     loadIncomeStatement()
-  }, [period, scenario, costCenterFilter])
+  }, [dateRange, scenario, costCenterFilter])
 
   const totals = useMemo(() => {
     if (!incomeStatementData) {
@@ -194,19 +174,13 @@ export default function IncomeStatement() {
 
       <Card>
         <CardHeader className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-4">
-            <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger>
-                <SelectValue placeholder="Period" />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-3 md:grid-cols-3">
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+              placeholder="Select period"
+              className="md:col-span-1"
+            />
             <Select value={scenario} onValueChange={(value) => setScenario(value as 'actual' | 'budget' | 'forecast')}>
               <SelectTrigger>
                 <SelectValue placeholder="Scenario" />
@@ -308,7 +282,12 @@ export default function IncomeStatement() {
               Drill into top line revenue, cost of goods sold, and expense categories.
             </p>
           </div>
-          <Badge variant="outline">Period {period}</Badge>
+          <Badge variant="outline">
+            {dateRange?.from && dateRange?.to 
+              ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}`
+              : 'Select period'
+            }
+          </Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? (

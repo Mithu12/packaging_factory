@@ -9,6 +9,9 @@ import {
   PlusSquare,
   Loader2,
 } from "lucide-react"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DateRange } from "react-day-picker"
+import { format } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -46,13 +49,6 @@ const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 }
 
-const dateFilters = [
-  { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
-  { value: "180", label: "Last 6 months" },
-  { value: "365", label: "Last 12 months" },
-  { value: "all", label: "All time" },
-]
 
 const formatCurrency = (value: number, currency = "USD") =>
   value.toLocaleString(undefined, {
@@ -72,7 +68,10 @@ export default function GeneralLedger() {
   const [accountCode, setAccountCode] = useState("")
   const [voucherFilter, setVoucherFilter] = useState<"All" | VoucherType | "Opening Balance">("All")
   const [costCenterFilter, setCostCenterFilter] = useState<string | "All">("All")
-  const [dateFilter, setDateFilter] = useState("30")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), // Start of last month
+    to: new Date() // Today
+  })
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("date-desc")
 
@@ -123,6 +122,14 @@ export default function GeneralLedger() {
           limit: 1000
         }
         
+        if (dateRange?.from) {
+          params.dateFrom = format(dateRange.from, 'yyyy-MM-dd')
+        }
+        
+        if (dateRange?.to) {
+          params.dateTo = format(dateRange.to, 'yyyy-MM-dd')
+        }
+        
         if (voucherFilter !== "All" && voucherFilter !== "Opening Balance") {
           params.voucherType = voucherFilter
         }
@@ -146,7 +153,7 @@ export default function GeneralLedger() {
     }
 
     loadLedgerEntries()
-  }, [accountCode, voucherFilter, searchTerm, sortBy])
+  }, [accountCode, voucherFilter, searchTerm, sortBy, dateRange])
 
   const filteredEntries = useMemo(() => {
     return ledgerEntries.filter((entry) => {
@@ -240,18 +247,12 @@ export default function GeneralLedger() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Period" />
-              </SelectTrigger>
-              <SelectContent>
-                {dateFilters.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+              placeholder="Select date range"
+              className="md:w-80"
+            />
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">

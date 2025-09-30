@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/sonner"
+import { DatePicker } from "@/components/ui/date-picker"
+import { format } from "date-fns"
 import { 
   ReportsApiService,
   CostCentersApiService,
@@ -28,18 +30,13 @@ import {
 } from "@/services/accounts-api"
 import { useFormatting } from "@/hooks/useFormatting"
 
-const periods = [
-  { value: "2024-06-30", label: "30 Jun 2024" },
-  { value: "2024-03-31", label: "31 Mar 2024" },
-  { value: "2023-12-31", label: "31 Dec 2023" },
-]
-
 const formats = [
   { value: "consolidated", label: "Consolidated" },
   { value: "entity", label: "Entity only" },
 ]
 
 const currencies = [
+  { value: "BDT", label: "BDT" },
   { value: "USD", label: "USD" },
   { value: "EUR", label: "EUR" },
 ]
@@ -73,9 +70,9 @@ export default function BalanceSheet() {
   const [isLoading, setIsLoading] = useState(true)
   
   // Filter states
-  const [period, setPeriod] = useState(periods[0]?.value ?? "2024-06-30")
-  const [format, setFormat] = useState<'consolidated' | 'entity'>("consolidated")
-  const [currency, setCurrency] = useState(currencies[0]?.value ?? "USD")
+  const [asOfDate, setAsOfDate] = useState<Date | undefined>(new Date()) // Default to today
+  const [reportFormat, setReportFormat] = useState<'consolidated' | 'entity'>("consolidated")
+  const [currency, setCurrency] = useState(currencies[0]?.value ?? "BDT")
   const [costCenterFilter, setCostCenterFilter] = useState<string>("all")
 
   // Load initial data
@@ -102,12 +99,14 @@ export default function BalanceSheet() {
   // Load balance sheet when filters change
   useEffect(() => {
     const loadBalanceSheet = async () => {
+      if (!asOfDate) return
+      
       try {
         setIsLoading(true)
 
         const params: any = {
-          asOfDate: period,
-          format
+          asOfDate: format(asOfDate, 'yyyy-MM-dd'),
+          format: reportFormat
         }
 
         if (costCenterFilter !== "all") {
@@ -125,7 +124,7 @@ export default function BalanceSheet() {
     }
 
     loadBalanceSheet()
-  }, [period, format, costCenterFilter])
+  }, [asOfDate, reportFormat, costCenterFilter])
 
   const { assets, liabilities, equity } = useMemo(() => {
     if (!balanceSheetData) {
@@ -177,20 +176,14 @@ export default function BalanceSheet() {
 
       <Card>
         <CardHeader className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-4">
-            <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger>
-                <SelectValue placeholder="As of Date" />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={format} onValueChange={(value) => setFormat(value as 'consolidated' | 'entity')}>
+          <div className="grid gap-3 md:grid-cols-3">
+            <DatePicker
+              date={asOfDate}
+              onDateChange={setAsOfDate}
+              placeholder="Select as-of date"
+              className="md:col-span-1"
+            />
+            <Select value={reportFormat} onValueChange={(value) => setReportFormat(value as 'consolidated' | 'entity')}>
               <SelectTrigger>
                 <SelectValue placeholder="Presentation" />
               </SelectTrigger>
