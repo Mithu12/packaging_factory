@@ -38,6 +38,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
+import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 
 export default function PurchaseOrders() {
   const navigate = useNavigate()
@@ -212,6 +214,8 @@ export default function PurchaseOrders() {
 
   const totalValue = stats?.total_value || 0
 
+  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -220,10 +224,13 @@ export default function PurchaseOrders() {
           <h1 className="text-3xl font-bold text-foreground">Purchase Orders</h1>
           <p className="text-muted-foreground">Create and manage purchase orders for your suppliers</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
+        <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_CREATE}>
+          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Create Purchase Order
-        </Button>
+          </Button>
+        </PermissionGuard>
+        
       </div>
 
       {/* Stats Cards */}
@@ -403,9 +410,12 @@ export default function PurchaseOrders() {
                         <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}`)}>
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}/edit`)}>
+                       
+                          <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}/edit`)}>
                           Edit Order
                         </DropdownMenuItem>
+                     
+                       
                         {(order.status === "approved" || order.status === "partially_received") && (
                           <DropdownMenuItem onClick={() => navigate(`/purchase-orders/${order.id}/receive`)}>
                             Receive Goods
@@ -417,7 +427,8 @@ export default function PurchaseOrders() {
                             Submit for Approval
                           </DropdownMenuItem>
                         )}
-                        {order.status === "pending" && (
+                        <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_APPROVE}>
+                          {order.status === "pending"  && (
                           <>
                             <DropdownMenuItem className="text-success" onClick={() => handleStatusChange(order.id, "approved")}>
                               Approve
@@ -427,14 +438,19 @@ export default function PurchaseOrders() {
                             </DropdownMenuItem>
                           </>
                         )}
+                        </PermissionGuard>
+                       
                         {/* {order.status === "approved" && (
                           <DropdownMenuItem onClick={() => handleStatusChange(order.id, "received")}>
                             Mark as Received
                           </DropdownMenuItem>
                         )} */}
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
-                          Cancel Order
-                        </DropdownMenuItem>
+                         <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_CANCEL}>
+                           <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
+                              Cancel Order
+                            </DropdownMenuItem>
+                         </PermissionGuard>
+                        
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
