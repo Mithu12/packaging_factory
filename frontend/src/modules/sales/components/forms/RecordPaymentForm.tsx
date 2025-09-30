@@ -107,6 +107,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
         invoice_id: formData.invoice ? parseInt(formData.invoice) : undefined,
         supplier_id: parseInt(formData.supplier),
         amount: parseFloat(formData.amount),
+        outstanding_amount:parseFloat(formData.outstanding_amount),
         payment_date: formData.paymentDate,
         payment_method: formData.paymentMethod,
         reference: formData.reference || undefined,
@@ -223,10 +224,9 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
               <Label htmlFor="amount">Outstanding Amount *</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
+                type="number"     
                 value={formData.outstanding_amount}
-                onChange={(e) => handleInputChange("amount", e.target.value)}
+                onChange={(e) => handleInputChange("outstanding_amount", e.target.value)}
                 placeholder="0.00"
                 required
               />
@@ -238,7 +238,6 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
               <Input
                 id="amount"
                 type="number"
-                step="0.01"
                 value={formData.amount}
                 onChange={(e) => handleInputChange("amount", e.target.value)}
                 placeholder="0.00"

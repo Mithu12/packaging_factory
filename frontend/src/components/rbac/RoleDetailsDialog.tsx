@@ -267,7 +267,7 @@ export const RoleDetailsDialog: React.FC<RoleDetailsDialogProps> = ({ role, onCl
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full gap-1 ${moduleNames.length <= 3 ? 'grid-cols-3' : moduleNames.length <= 6 ? 'grid-cols-6' : 'grid-cols-8'}`}>
+              <TabsList className={`grid w-full h-full gap-1 ${moduleNames.length <= 3 ? 'grid-cols-3' : moduleNames.length <= 6 ? 'grid-cols-6' : 'grid-cols-8'}`}>
                 {moduleNames.map(module => (
                   <TabsTrigger key={module} value={module} className="text-xs px-2 py-1">
                     <span className="truncate">{module.split(' ')[0]}</span>

@@ -423,7 +423,7 @@ const RoleManagement: React.FC = () => {
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Role Details - {selectedRole?.display_name}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 h-full overflow-hidden">
             {selectedRole && (
               <RoleDetailsDialog
                 role={selectedRole}

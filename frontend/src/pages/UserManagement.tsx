@@ -412,7 +412,7 @@ const UserManagement = () => {
                   )}
                 />
 
-                <FormField
+                {/* <FormField
                   control={form.control}
                   name="departments"
                   render={({ field }) => (
@@ -456,7 +456,7 @@ const UserManagement = () => {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                /> */}
 
                 {!selectedUser && (
                   <FormField
