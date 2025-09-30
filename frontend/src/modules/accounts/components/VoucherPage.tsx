@@ -183,7 +183,7 @@ export function VoucherPage({
   // Load data on component mount
   useEffect(() => {
     loadData()
-  }, [type])
+  }, [type, dateRange])
 
   const metrics = useMemo(() => {
     const totalAmount = data.reduce((sum, voucher) => sum + Number(voucher.amount), 0)
