@@ -32,6 +32,7 @@ import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-ap
 import { SupplierApi } from "@/modules/inventory/services/supplier-api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { CreatePurchaseOrderRequest, Supplier, Product } from "@/services/types"
+import { useFormatting } from "@/hooks/useFormatting"
 
 interface PurchaseOrderItem {
   id: string
@@ -68,6 +69,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
   const [products, setProducts] = useState<Product[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  const { formatCurrency } = useFormatting()
 
   // Fetch suppliers and products when component mounts
   useEffect(() => {
@@ -367,7 +370,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
                         />
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">${Number(item.total).toFixed(2)}</span>
+                        <span className="font-medium">{formatCurrency(item.total)}</span>
                       </TableCell>
                       <TableCell>
                         <Button
@@ -388,7 +391,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
             
             <div className="flex justify-end">
               <div className="text-lg font-semibold">
-                Total: ${Number(totalAmount).toFixed(2)}
+                Total: {formatCurrency(totalAmount)}
               </div>
             </div>
           </div>
