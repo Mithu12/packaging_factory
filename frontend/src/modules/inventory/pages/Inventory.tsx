@@ -407,20 +407,20 @@ export default function Inventory() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            {/* <DropdownMenuContent align="end" className="bg-popover">
+                             <DropdownMenuContent align="end" className="bg-popover">
                               <DropdownMenuItem onClick={() => navigate(`/inventory/${item.id}`)}>
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/products/${item.id}/edit`)}>
                                 Edit Product
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/products/${item.id}/adjust`)}>
+                              {/* <DropdownMenuItem onClick={() => navigate(`/products/${item.id}/adjust`)}>
                                 Adjust Stock
                               </DropdownMenuItem>
                               <DropdownMenuItem>Reserve Stock</DropdownMenuItem>
                               <DropdownMenuItem>Transfer Location</DropdownMenuItem>
-                              <DropdownMenuItem>Create PO</DropdownMenuItem>
-                            </DropdownMenuContent> */}
+                              <DropdownMenuItem>Create PO</DropdownMenuItem> */}
+                            </DropdownMenuContent> 
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>

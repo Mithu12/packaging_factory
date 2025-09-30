@@ -10,22 +10,37 @@ export const createSupplierSchema = Joi.object({
     "string.min": "Contact person name must be at least 2 characters long",
     "string.max": "Contact person name cannot exceed 255 characters",
   }),
-  phone: Joi.string()
+  // phone: Joi.string()
+  //   .pattern(/^[\+]?[1-9][\d]{0,15}$/)
+  //   .optional()
+  //   .messages({
+  //     "string.pattern.base": "Please provide a valid phone number",
+  //   }),
+  phone: Joi.alternatives().try(
+  Joi.string()
     .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-    .optional()
     .messages({
       "string.pattern.base": "Please provide a valid phone number",
     }),
+  Joi.number()
+).optional(),
   email: Joi.string().email().optional().allow("").messages({
     "string.email": "Please provide a valid email address",
   }),
-  whatsapp_number: Joi.string()
-    .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-    .optional()
-    .allow("")
-    .messages({
-      "string.pattern.base": "Please provide a valid WhatsApp number",
-    }),
+  // whatsapp_number: Joi.string()
+  //   .pattern(/^[\+]?[1-9][\d]{0,15}$/)
+  // .optional()
+  //   .allow("")
+  //   .messages({
+  //     "string.pattern.base": "Please provide a valid WhatsApp number",
+  //   }),
+  whatsapp_number: Joi.alternatives().try(
+  Joi.string(),
+  Joi.number()
+  ).optional().allow("").messages({
+    "string.base": "WhatsApp number must be a string",
+    "number.base": "WhatsApp number must be a number",
+  }),
   website: Joi.string().uri().optional().messages({
     "string.uri": "Please provide a valid website URL",
   }),
