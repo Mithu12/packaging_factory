@@ -55,19 +55,15 @@ import {
   VoucherStatus,
   VoucherType,
   type Voucher,
-  type VoucherLine,
   type CreateVoucherRequest,
   type ChartOfAccount,
   type CostCenter
-} from "@/services/accounts-api"
+} from "@/services/accounts-api";
+import { DateRange } from "react-day-picker"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 
 const statusFilters: Array<"All" | VoucherStatus> = ["All", VoucherStatus.DRAFT, VoucherStatus.PENDING_APPROVAL, VoucherStatus.POSTED, VoucherStatus.VOID]
-const dateFilters = [
-  { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
-  { value: "365", label: "Last 12 months" },
-  { value: "all", label: "All time" },
-]
+
 
 const formatCurrency = (value: number, currency = "USD") =>
   value.toLocaleString(undefined, {
@@ -126,12 +122,15 @@ export function VoucherPage({
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"All" | VoucherStatus>("All")
   const [costCenterFilter, setCostCenterFilter] = useState<string | "All">("All")
-  const [dateFilter, setDateFilter] = useState("30")
   const [sortBy, setSortBy] = useState("date-desc")
   const [includeAttachments, setIncludeAttachments] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null)
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null) 
+   const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), // Start of last month
+    to: new Date() // Today
+  })
 
   const [formState, setFormState] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -152,7 +151,7 @@ export function VoucherPage({
     try {
       setIsLoading(true)
       const [vouchersResponse, costCentersResponse, accountsResponse] = await Promise.all([
-        VouchersApiService.getVouchers({ type, limit: 1000 }),
+        VouchersApiService.getVouchers({ type, limit: 1000, dateFrom: dateRange?.from?.toISOString(), dateTo: dateRange?.to?.toISOString() }),
         CostCentersApiService.getCostCenters({ limit: 1000 }),
         ChartOfAccountsApiService.getChartOfAccountsTree()
       ])
@@ -173,7 +172,7 @@ export function VoucherPage({
   // Load vouchers only (for refresh after actions)
   const loadVouchers = async () => {
     try {
-      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000 })
+      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000, dateFrom: dateRange?.from?.toISOString(), dateTo: dateRange?.to?.toISOString() })
       setVouchers(vouchersResponse.data)
     } catch (error) {
       console.error('Failed to load vouchers:', error)
@@ -421,7 +420,7 @@ export function VoucherPage({
       ])
 
       // Reload vouchers
-      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000 })
+      const vouchersResponse = await VouchersApiService.getVouchers({ type, limit: 1000, dateFrom: dateRange?.from?.toISOString(), dateTo: dateRange?.to?.toISOString() })
       setVouchers(vouchersResponse.data)
       
     } catch (error: any) {
@@ -868,18 +867,12 @@ export function VoucherPage({
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="md:w-44">
-                  <SelectValue placeholder="Period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dateFilters.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DateRangePicker
+                date={dateRange}
+                onDateChange={setDateRange}
+                placeholder="Select date range"
+                className="md:col-span-1"
+              />
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="md:w-40">
                   <SelectValue placeholder="Sort by" />
