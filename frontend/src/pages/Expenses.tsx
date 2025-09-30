@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
 import { useFormatting } from '@/hooks/useFormatting';
 import { ApiService, Expense, ExpenseCategory, ApiError } from '@/services/api';
+import { AccountsIntegrationBadge } from '@/components/AccountsIntegrationBadge';
 import {
   Plus,
   Search,
@@ -734,6 +735,7 @@ export default function Expenses() {
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Accounting</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -751,6 +753,13 @@ export default function Expenses() {
                       <TableCell>{formatDate(expense.expense_date)}</TableCell>
                       <TableCell>{getStatusBadge(expense.status)}</TableCell>
                       <TableCell>{expense.vendor_name || '-'}</TableCell>
+                      <TableCell>
+                        <AccountsIntegrationBadge 
+                          expenseId={expense.id} 
+                          expenseStatus={expense.status}
+                          showDetails={true}
+                        />
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

@@ -57,6 +57,7 @@ import {
   PermissionGuard,
   SystemAdminGuard,
 } from "@/components/rbac/PermissionGuard";
+import { ModuleStatusIndicator } from '@/components/ModuleStatusIndicator';
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
 
 type MenuItem = {
@@ -583,6 +584,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      {/* Module Status Footer */}
+      <div className="p-4 border-t">
+        <ModuleStatusIndicator showDetails={true} className="w-full justify-center" />
+      </div>
     </Sidebar>
   );
 }

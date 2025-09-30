@@ -139,6 +139,20 @@ class ExpensesController {
         }
     }
 
+    async getAccountsIntegrationStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+        let action = 'GET /api/expenses/:id/accounts-integration';
+        try {
+            const id = parseInt(req.params.id);
+            MyLogger.info(action, { expenseId: id });
+            const status = await ExpenseMediator.getAccountsIntegrationStatus(id);
+            MyLogger.success(action, { expenseId: id, status });
+            serializeSuccessResponse(res, status, 'SUCCESS');
+        } catch (error) {
+            MyLogger.error(action, error, { expenseId: req.params.id });
+            throw error;
+        }
+    }
+
     // Additional filtering methods can be added when mediator methods are available
 }
 

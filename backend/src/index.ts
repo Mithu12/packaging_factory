@@ -22,6 +22,10 @@ import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
 import accountsRoutes from "./modules/accounts";
 
+// Import module initializers
+import { initializeAccountsModule } from "./modules/accounts/moduleInit";
+import { initializeExpensesModule } from "./modules/expenses/moduleInit";
+
 // Load environment variables
 dotenv.config();
 
@@ -144,10 +148,37 @@ app.use("*", (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Initialize modules with loose coupling
+const initializeModules = async (): Promise<void> => {
+  let action = "Module Initialization";
+  try {
+    MyLogger.info(action, { message: "Starting module initialization" });
+
+    // Initialize accounts module first (since expenses may depend on it)
+    initializeAccountsModule();
+
+    // Initialize expenses module (will automatically set up accounts integration if available)
+    initializeExpensesModule();
+
+    MyLogger.success(action, { 
+      message: "All modules initialized successfully",
+      availableModules: ['accounts', 'expenses']
+    });
+
+  } catch (error: any) {
+    MyLogger.error(action, error);
+    // Don't throw - server should still start even if module initialization fails
+    console.warn("Module initialization failed, but server will continue:", error.message);
+  }
+};
+
 // Start server
 app.listen(PORT, async () => {
   let action = "Server Startup";
   try {
+    // Initialize modules after server starts
+    await initializeModules();
+
     const serverInfo = {
       port: PORT,
       healthCheckUrl: `http://localhost:${PORT}/health`,

@@ -1,6 +1,8 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { accountsIntegrationService, ExpenseAccountingData } from '@/services/accountsIntegrationService';
 import {
   Expense,
   CreateExpenseRequest,
@@ -54,6 +56,9 @@ class ExpenseMediator {
 
       const result = await client.query(insertQuery, values);
       const expense = result.rows[0];
+
+      // Emit expense created event for potential integration
+      await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_CREATED, expense, createdBy);
 
       MyLogger.success(action, { expenseId: expense.id, expenseNumber: expense.expense_number });
       return expense;
@@ -368,6 +373,9 @@ class ExpenseMediator {
       const result = await client.query(updateQuery, values);
       const expense = result.rows[0];
 
+      // Emit expense updated event for potential integration
+      await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_UPDATED, expense, null);
+
       MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number });
       return expense;
 
@@ -410,6 +418,9 @@ class ExpenseMediator {
         );
       }
 
+      // Emit expense approved event for potential accounting integration
+      await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_APPROVED, expense, approvedBy);
+
       MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number });
       return expense;
 
@@ -449,6 +460,9 @@ class ExpenseMediator {
         'UPDATE expenses SET notes = COALESCE(notes, \'\') || $1 WHERE id = $2',
         [`\n\nRejection Reason: ${reason}`, id]
       );
+
+      // Emit expense rejected event
+      await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_REJECTED, expense, rejectedBy);
 
       MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number });
       return expense;
@@ -492,6 +506,9 @@ class ExpenseMediator {
         );
       }
 
+      // Emit expense paid event
+      await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_PAID, expense, paidBy);
+
       MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number });
       return expense;
 
@@ -525,6 +542,12 @@ class ExpenseMediator {
       }
 
       const result = await client.query('DELETE FROM expenses WHERE id = $1', [id]);
+
+      // Emit expense deleted event
+      await eventBus.emit(EVENT_NAMES.EXPENSE_DELETED, { 
+        expenseId: id,
+        deletedBy: null // We don't track who deleted it in this method
+      });
 
       MyLogger.success(action, { expenseId: id });
 
@@ -676,6 +699,114 @@ class ExpenseMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Helper method to emit expense events with proper data formatting
+   * This enables loose coupling with other modules like accounts
+   */
+  private async emitExpenseEvent(eventName: string, expense: any, userId?: number | null): Promise<void> {
+    let action = 'Emit Expense Event';
+    try {
+      MyLogger.info(action, { expenseId: expense.id, categoryId: expense.category_id });
+      // Get category name for the expense
+      let categoryName = expense.category_name;
+      if (!categoryName && expense.category_id) {
+        const client = await pool.connect();
+        try {
+          const categoryResult = await client.query(
+            'SELECT name FROM expense_categories WHERE id = $1',
+            [expense.category_id]
+          );
+          categoryName = categoryResult.rows[0]?.name || 'Unknown';
+          MyLogger.success(action, { expenseId: expense.id, categoryName });
+        } finally {
+          client.release();
+        }
+      }
+
+      // Format expense data for integration
+      const expenseData: ExpenseAccountingData = {
+        expenseId: expense.id,
+        expenseNumber: expense.expense_number,
+        title: expense.title,
+        amount: parseFloat(expense.amount),
+        currency: expense.currency || 'BDT',
+        expenseDate: expense.expense_date,
+        categoryName: categoryName || 'General',
+        vendorName: expense.vendor_name,
+        department: expense.department,
+        project: expense.project,
+        notes: expense.notes,
+        createdBy: expense.created_by
+      };
+
+      // Emit the event
+      await eventBus.emit(eventName, {
+        expenseData,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+
+      MyLogger.info('Expense Event Emitted', { 
+        event: eventName, 
+        expenseId: expense.id,
+        expenseNumber: expense.expense_number 
+      });
+
+    } catch (error) {
+      MyLogger.error('Emit Expense Event', error, { 
+        event: eventName, 
+        expenseId: expense.id 
+      });
+      // Don't throw - event emission failures shouldn't break the main operation
+    }
+  }
+
+  /**
+   * Get accounts integration status for an expense
+   * This provides visibility into whether accounting integration is available
+   */
+  async getAccountsIntegrationStatus(expenseId: number): Promise<{
+    available: boolean;
+    canIntegrate: boolean;
+    voucherInfo?: { voucherId: number; voucherNo: string } | null;
+  }> {
+    try {
+      const expense = await this.getExpenseById(expenseId);
+      
+      const status = accountsIntegrationService.getAccountsModuleStatus();
+      const expenseData: ExpenseAccountingData = {
+        expenseId: expense.id,
+        expenseNumber: expense.expense_number,
+        title: expense.title,
+        amount: parseFloat(expense.amount.toString()),
+        currency: expense.currency,
+        expenseDate: expense.expense_date,
+        categoryName: expense.category_name || 'General',
+        vendorName: expense.vendor_name,
+        department: expense.department,
+        project: expense.project,
+        notes: expense.notes,
+        createdBy: expense.created_by
+      };
+
+      const canIntegrate = accountsIntegrationService.canIntegrateExpense(expenseData);
+
+      return {
+        available: status.available,
+        canIntegrate,
+        voucherInfo: null // TODO: Add voucher lookup if needed
+      };
+
+    } catch (error) {
+      MyLogger.error('Get Accounts Integration Status', error, { expenseId });
+      return {
+        available: false,
+        canIntegrate: false,
+        voucherInfo: null
+      };
     }
   }
 }

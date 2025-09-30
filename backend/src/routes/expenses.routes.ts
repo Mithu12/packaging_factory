@@ -259,6 +259,24 @@ router.patch('/:id/pay',
     }
 }));
 
+// GET /api/expenses/:id/accounts-integration - Get accounts integration status
+router.get('/:id/accounts-integration', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_READ), 
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'GET /api/expenses/:id/accounts-integration'
+    try {
+        const id = parseInt(req.params.id);
+        MyLogger.info(action, { expenseId: id })
+        const status = await ExpenseMediator.getAccountsIntegrationStatus(id);
+        MyLogger.success(action, { expenseId: id, status })
+        serializeSuccessResponse(res, status, 'SUCCESS')
+    } catch (error) {
+        MyLogger.error(action, error)
+        next(error)
+    }
+}));
+
 // POST /api/expenses/:id/receipt - Update expense receipt image
 router.post('/:id/receipt', 
   authenticate,
