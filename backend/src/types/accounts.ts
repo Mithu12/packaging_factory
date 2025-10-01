@@ -261,6 +261,7 @@ export interface UpdateVoucherRequest {
   type?: VoucherType;
   date?: Date;
   reference?: string;
+  status?: string;
   payee?: string;
   amount?: number;
   currency?: string;
