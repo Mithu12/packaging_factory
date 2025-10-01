@@ -1,0 +1,333 @@
+// =====================================================
+// Customer Orders API Service
+// =====================================================
+
+import { makeRequest } from '@/services/api-utils';
+
+// =====================================================
+// Types (matching backend types)
+// =====================================================
+
+export type FactoryCustomerOrderStatus = 
+  | 'pending' 
+  | 'quoted' 
+  | 'approved' 
+  | 'rejected' 
+  | 'in_production' 
+  | 'completed' 
+  | 'shipped' 
+  | 'cancelled';
+
+export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface FactoryCustomerOrder {
+  id: string;
+  order_number: string;
+  factory_customer_id: string;
+  factory_customer_name: string;
+  factory_customer_email: string;
+  factory_customer_phone?: string;
+  order_date: string;
+  required_date: string;
+  status: FactoryCustomerOrderStatus;
+  priority: OrderPriority;
+  total_value: number;
+  currency: string;
+  sales_person: string;
+  notes?: string;
+  billing_address?: Address;
+  shipping_address?: Address;
+  line_items: FactoryCustomerOrderLineItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FactoryCustomerOrderLineItem {
+  id: string;
+  order_id: string;
+  factory_product_id: string;
+  factory_product_name: string;
+  factory_product_sku: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+}
+
+export interface FactoryCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  billing_address?: Address;
+  shipping_address?: Address;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FactoryProduct {
+  id: string;
+  name: string;
+  sku: string;
+  description?: string;
+  unit_price: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Request/Response Types
+export interface CreateCustomerOrderRequest {
+  factory_customer_id: string;
+  factory_customer_name: string;
+  factory_customer_email: string;
+  factory_customer_phone?: string;
+  order_date: string;
+  required_date: string;
+  priority: OrderPriority;
+  currency: string;
+  sales_person: string;
+  notes?: string;
+  billing_address?: Address;
+  shipping_address?: Address;
+  line_items: CreateOrderLineItemRequest[];
+}
+
+export interface CreateOrderLineItemRequest {
+  factory_product_id: string;
+  factory_product_name: string;
+  factory_product_sku: string;
+  quantity: number;
+  unit_price: number;
+  notes?: string;
+}
+
+export interface UpdateCustomerOrderRequest {
+  factory_customer_name?: string;
+  factory_customer_email?: string;
+  factory_customer_phone?: string;
+  order_date?: string;
+  required_date?: string;
+  priority?: OrderPriority;
+  currency?: string;
+  sales_person?: string;
+  notes?: string;
+  billing_address?: Address;
+  shipping_address?: Address;
+  line_items?: UpdateOrderLineItemRequest[];
+}
+
+export interface UpdateOrderLineItemRequest {
+  id?: string;
+  factory_product_id: string;
+  factory_product_name: string;
+  factory_product_sku: string;
+  quantity: number;
+  unit_price: number;
+  notes?: string;
+}
+
+export interface OrderQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: FactoryCustomerOrderStatus;
+  priority?: OrderPriority;
+  factory_customer_id?: string;
+  sales_person?: string;
+  order_date_from?: string;
+  order_date_to?: string;
+  required_date_from?: string;
+  required_date_to?: string;
+  sort_by?: 'order_date' | 'required_date' | 'total_value' | 'status' | 'priority' | 'created_at';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface OrderStats {
+  total_orders: number;
+  pending_orders: number;
+  quoted_orders: number;
+  approved_orders: number;
+  in_production_orders: number;
+  completed_orders: number;
+  total_value: number;
+  average_order_value: number;
+  on_time_delivery: number;
+}
+
+export interface ApproveOrderRequest {
+  approved: boolean;
+  notes?: string;
+}
+
+export interface UpdateOrderStatusRequest {
+  status: FactoryCustomerOrderStatus;
+  notes?: string;
+}
+
+export interface BulkUpdateOrderStatusRequest {
+  orderIds: string[];
+  status: FactoryCustomerOrderStatus;
+  notes?: string;
+}
+
+export interface ExportOrdersRequest {
+  format?: 'csv' | 'json';
+  status?: FactoryCustomerOrderStatus;
+  priority?: OrderPriority;
+  order_date_from?: string;
+  order_date_to?: string;
+}
+
+export interface PaginatedResponse<T> {
+  orders: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// =====================================================
+// Customer Orders API Service
+// =====================================================
+
+export class CustomerOrdersApiService {
+  private static readonly BASE_URL = '/factory/customer-orders';
+
+  // Get all customer orders with pagination and filtering
+  static async getCustomerOrders(params?: OrderQueryParams): Promise<PaginatedResponse<FactoryCustomerOrder>> {
+    const queryString = params ? '?' + new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = String(value);
+        }
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString() : '';
+    
+    return makeRequest<PaginatedResponse<FactoryCustomerOrder>>(`${this.BASE_URL}${queryString}`);
+  }
+
+  // Get customer order by ID
+  static async getCustomerOrderById(id: string): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}`);
+  }
+
+  // Get order statistics
+  static async getOrderStats(): Promise<OrderStats> {
+    return makeRequest<OrderStats>(`${this.BASE_URL}/stats`);
+  }
+
+  // Create new customer order
+  static async createCustomerOrder(data: CreateCustomerOrderRequest): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(this.BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update customer order
+  static async updateCustomerOrder(id: string, data: UpdateCustomerOrderRequest): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Approve/reject customer order
+  static async approveCustomerOrder(id: string, approved: boolean, notes?: string): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approved, notes }),
+    });
+  }
+
+  // Update order status
+  static async updateOrderStatus(id: string, status: FactoryCustomerOrderStatus, notes?: string): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, notes }),
+    });
+  }
+
+  // Bulk update order status
+  static async bulkUpdateOrderStatus(orderIds: string[], status: FactoryCustomerOrderStatus, notes?: string): Promise<{ updatedOrders: FactoryCustomerOrder[] }> {
+    return makeRequest<{ updatedOrders: FactoryCustomerOrder[] }>(`${this.BASE_URL}/bulk/status`, {
+      method: 'POST',
+      body: JSON.stringify({ orderIds, status, notes }),
+    });
+  }
+
+  // Export customer orders
+  static async exportCustomerOrders(params?: ExportOrdersRequest): Promise<string | FactoryCustomerOrder[]> {
+    const queryString = params ? '?' + new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = String(value);
+        }
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString() : '';
+    
+    const format = params?.format || 'csv';
+    
+    if (format === 'csv') {
+      // For CSV, we expect a string response
+      return makeRequest<string>(`${this.BASE_URL}/export${queryString}`);
+    } else {
+      // For JSON, we expect an array of orders
+      return makeRequest<FactoryCustomerOrder[]>(`${this.BASE_URL}/export${queryString}`);
+    }
+  }
+
+  // Delete customer order
+  static async deleteCustomerOrder(id: string, force?: boolean): Promise<{ deleted: boolean }> {
+    const queryString = force ? '?force=true' : '';
+    return makeRequest<{ deleted: boolean }>(`${this.BASE_URL}/${id}${queryString}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Bulk delete customer orders
+  static async bulkDeleteCustomerOrders(orderIds: string[], force?: boolean): Promise<{ deletedOrders: FactoryCustomerOrder[] }> {
+    return makeRequest<{ deletedOrders: FactoryCustomerOrder[] }>(`${this.BASE_URL}/bulk`, {
+      method: 'DELETE',
+      body: JSON.stringify({ orderIds, force }),
+    });
+  }
+
+  // Search customers (for order creation)
+  static async searchCustomers(query: string): Promise<FactoryCustomer[]> {
+    return makeRequest<FactoryCustomer[]>(`/factory/customers/search?q=${encodeURIComponent(query)}`);
+  }
+
+  // Search products (for order creation)
+  static async searchProducts(query: string): Promise<FactoryProduct[]> {
+    return makeRequest<FactoryProduct[]>(`/factory/products/search?q=${encodeURIComponent(query)}`);
+  }
+}
+
+// =====================================================
+// React Query Keys (Optional - for better integration)
+// =====================================================
+
+export const customerOrdersQueryKeys = {
+  all: ['customer-orders'] as const,
+  lists: () => [...customerOrdersQueryKeys.all, 'list'] as const,
+  list: (params?: OrderQueryParams) => [...customerOrdersQueryKeys.lists(), params] as const,
+  stats: () => [...customerOrdersQueryKeys.all, 'stats'] as const,
+  detail: (id: string) => [...customerOrdersQueryKeys.all, 'detail', id] as const,
+};
+
+export default CustomerOrdersApiService;

@@ -84,15 +84,15 @@ class CustomerOrdersController {
     const action = "POST /api/factory/customer-orders";
     try {
       const orderData: CreateCustomerOrderRequest = req.body;
-      const userId = req.user?.id || 'system'; // Assuming user info is in req.user
+      const userId = req.user?.user_id || 'system'; // Assuming user info is in req.user
       
       MyLogger.info(action, { 
-        customerId: orderData.customer_id,
+        customerId: orderData.factory_customer_id,
         lineItemsCount: orderData.line_items.length,
         userId 
       });
 
-      const newOrder = await AddCustomerOrderMediator.createCustomerOrder(orderData, userId);
+      const newOrder = await AddCustomerOrderMediator.createCustomerOrder(orderData, userId.toString());
       
       MyLogger.success(action, { 
         orderId: newOrder.id,
@@ -100,7 +100,7 @@ class CustomerOrdersController {
         totalValue: newOrder.total_value
       });
       
-      serializeSuccessResponse(res, newOrder, "Customer order created successfully", 201);
+      serializeSuccessResponse(res, newOrder, "Customer order created successfully");
     } catch (error: any) {
       MyLogger.error(action, error, { customerId: req.body.customer_id });
       next(error);
@@ -116,7 +116,7 @@ class CustomerOrdersController {
     try {
       const { id } = req.params;
       const updateData: UpdateCustomerOrderRequest = req.body;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       MyLogger.info(action, { 
         orderId: id,
@@ -124,7 +124,7 @@ class CustomerOrdersController {
         userId 
       });
 
-      const updatedOrder = await UpdateCustomerOrderInfoMediator.updateCustomerOrder(id, updateData, userId);
+      const updatedOrder = await UpdateCustomerOrderInfoMediator.updateCustomerOrder(id, updateData, userId.toString());
       
       MyLogger.success(action, { 
         orderId: id,
@@ -147,7 +147,7 @@ class CustomerOrdersController {
     try {
       const { id } = req.params;
       const { approved, notes } = req.body;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       const approvalData: ApproveOrderRequest = {
         order_id: id,
@@ -161,7 +161,7 @@ class CustomerOrdersController {
         userId 
       });
 
-      const updatedOrder = await UpdateCustomerOrderInfoMediator.approveOrder(approvalData, userId);
+      const updatedOrder = await UpdateCustomerOrderInfoMediator.approveOrder(approvalData, userId.toString());
       
       MyLogger.success(action, { 
         orderId: id,
@@ -185,7 +185,7 @@ class CustomerOrdersController {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       const statusData: UpdateOrderStatusRequest = {
         order_id: id,
@@ -199,7 +199,7 @@ class CustomerOrdersController {
         userId 
       });
 
-      const updatedOrder = await UpdateCustomerOrderInfoMediator.updateOrderStatus(statusData, userId);
+      const updatedOrder = await UpdateCustomerOrderInfoMediator.updateOrderStatus(statusData, userId.toString());
       
       MyLogger.success(action, { 
         orderId: id,
@@ -221,7 +221,7 @@ class CustomerOrdersController {
     const action = "POST /api/factory/customer-orders/bulk/status";
     try {
       const { order_ids, status, notes } = req.body;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       MyLogger.info(action, { 
         orderCount: order_ids.length,
@@ -229,7 +229,7 @@ class CustomerOrdersController {
         userId 
       });
 
-      const result = await UpdateCustomerOrderInfoMediator.bulkUpdateOrderStatus(order_ids, status, userId, notes);
+      const result = await UpdateCustomerOrderInfoMediator.bulkUpdateOrderStatus(order_ids, status, userId.toString(), notes);
       
       MyLogger.success(action, { 
         totalOrders: order_ids.length,
@@ -253,7 +253,7 @@ class CustomerOrdersController {
     try {
       const { id } = req.params;
       const { soft_delete = true } = req.query;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       MyLogger.info(action, { 
         orderId: id,
@@ -262,10 +262,10 @@ class CustomerOrdersController {
       });
 
       let result: boolean;
-      if (soft_delete === 'false' || soft_delete === false) {
-        result = await DeleteCustomerOrderMediator.deleteCustomerOrder(id, userId);
+      if (soft_delete === 'false' || !soft_delete) {
+        result = await DeleteCustomerOrderMediator.deleteCustomerOrder(id, userId.toString());
       } else {
-        result = await DeleteCustomerOrderMediator.softDeleteCustomerOrder(id, userId);
+        result = await DeleteCustomerOrderMediator.softDeleteCustomerOrder(id, userId.toString());
       }
       
       MyLogger.success(action, { 
@@ -289,7 +289,7 @@ class CustomerOrdersController {
     const action = "DELETE /api/factory/customer-orders/bulk";
     try {
       const { order_ids, soft_delete = true } = req.body;
-      const userId = req.user?.id || 'system';
+      const userId = req.user?.user_id || 'system';
       
       MyLogger.info(action, { 
         orderCount: order_ids.length,
@@ -297,7 +297,7 @@ class CustomerOrdersController {
         userId 
       });
 
-      const result = await DeleteCustomerOrderMediator.bulkDeleteCustomerOrders(order_ids, userId, soft_delete);
+      const result = await DeleteCustomerOrderMediator.bulkDeleteCustomerOrders(order_ids, userId.toString(), soft_delete);
       
       MyLogger.success(action, { 
         totalOrders: order_ids.length,

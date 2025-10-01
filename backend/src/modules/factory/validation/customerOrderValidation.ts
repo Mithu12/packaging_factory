@@ -24,7 +24,7 @@ const orderLineItemSchema = Joi.object({
 
 // Create customer order validation schema
 export const createCustomerOrderSchema = Joi.object({
-  customer_id: Joi.string().uuid().required(),
+  factory_customer_id: Joi.string().uuid().required(),
   required_date: Joi.date().iso().greater('now').required(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').required(),
   notes: Joi.string().max(2000).optional().allow(''),
@@ -77,11 +77,11 @@ export const orderQuerySchema = Joi.object({
   search: Joi.string().max(255).optional().allow(''),
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
-  customer_id: Joi.string().uuid().optional(),
+  factory_customer_id: Joi.string().uuid().optional(),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
   sales_person: Joi.string().max(255).optional(),
-  sort_by: Joi.string().valid('order_date', 'required_date', 'total_value', 'customer_name').optional().default('order_date'),
+  sort_by: Joi.string().valid('order_date', 'required_date', 'total_value', 'factory_customer_name').optional().default('order_date'),
   sort_order: Joi.string().valid('asc', 'desc').optional().default('desc'),
 }).custom((value, helpers) => {
   // Validate date range
@@ -125,7 +125,7 @@ export const exportOrdersSchema = Joi.object({
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
-  customer_id: Joi.string().uuid().optional(),
+  factory_customer_id: Joi.string().uuid().optional(),
 }).custom((value, helpers) => {
   // Validate date range
   if (value.date_from && value.date_to && new Date(value.date_from) > new Date(value.date_to)) {

@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from "express";
+import express from "express";
 import {
   createCustomerOrderSchema,
   updateCustomerOrderSchema,
@@ -12,16 +12,15 @@ import {
 import { authenticate } from "@/middleware/auth";
 import {
   requirePermission,
-  requireSystemAdmin,
   PERMISSIONS,
 } from "@/middleware/permission";
-import { auditMiddleware } from "@/middleware/audit";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
+import { auditMiddleware } from "@/middleware/audit";
 
 const router = express.Router();
-
+router.use(authenticate);
 const validateRequest = (schema: any) => {
   return (
     req: express.Request,
@@ -38,12 +37,8 @@ const validateRequest = (schema: any) => {
           method: req.method,
           validationErrors: error.details,
         });
-        return res.status(400).json({
-          error: {
-            message: "Validation error",
-            details: error.details.map((detail: any) => detail.message),
-          },
-        });
+        res.status(400)
+        throw new Error("Validation error");
       }
       req.body = value;
       next();
@@ -73,12 +68,8 @@ const validateQuery = (schema: any) => {
           method: req.method,
           validationErrors: error.details,
         });
-        return res.status(400).json({
-          error: {
-            message: "Query validation error",
-            details: error.details.map((detail: any) => detail.message),
-          },
-        });
+        res.status(400)
+        throw new Error("Query validation error");
       }
       req.query = value;
       next();
@@ -108,12 +99,8 @@ const validateParams = (schema: any) => {
           method: req.method,
           validationErrors: error.details,
         });
-        return res.status(400).json({
-          error: {
-            message: "Parameter validation error",
-            details: error.details.map((detail: any) => detail.message),
-          },
-        });
+        res.status(400)
+        throw new Error("Parameter validation error");
       }
       req.params = value;
       next();
@@ -131,13 +118,9 @@ const validateParams = (schema: any) => {
 router.get(
   "/",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_READ), // TODO: Add factory permissions
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
   validateQuery(orderQuerySchema),
-  auditMiddleware({
-    action: "view",
-    resource: "customer_orders",
-    details: "Retrieved customer orders list"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getAllCustomerOrders)
 );
 
@@ -145,12 +128,8 @@ router.get(
 router.get(
   "/stats",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
-  auditMiddleware({
-    action: "view",
-    resource: "customer_orders",
-    details: "Retrieved customer order statistics"
-  }),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getOrderStats)
 );
 
@@ -158,13 +137,9 @@ router.get(
 router.get(
   "/export",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
   validateQuery(exportOrdersSchema),
-  auditMiddleware({
-    action: "export",
-    resource: "customer_orders",
-    details: "Exported customer orders"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.exportCustomerOrders)
 );
 
@@ -172,13 +147,9 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
   validateParams(orderIdSchema),
-  auditMiddleware({
-    action: "view",
-    resource: "customer_orders",
-    details: "Retrieved customer order details"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getCustomerOrderById)
 );
 
@@ -186,13 +157,9 @@ router.get(
 router.post(
   "/",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_CREATE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_CREATE),
   validateRequest(createCustomerOrderSchema),
-  auditMiddleware({
-    action: "create",
-    resource: "customer_orders",
-    details: "Created new customer order"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.createCustomerOrder)
 );
 
@@ -200,14 +167,10 @@ router.post(
 router.put(
   "/:id",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
   validateParams(orderIdSchema),
   validateRequest(updateCustomerOrderSchema),
-  auditMiddleware({
-    action: "update",
-    resource: "customer_orders",
-    details: "Updated customer order"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.updateCustomerOrder)
 );
 
@@ -215,14 +178,10 @@ router.put(
 router.post(
   "/:id/approve",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_APPROVE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_APPROVE),
   validateParams(orderIdSchema),
   validateRequest(approveOrderSchema),
-  auditMiddleware({
-    action: "approve",
-    resource: "customer_orders",
-    details: "Approved/rejected customer order"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.approveCustomerOrder)
 );
 
@@ -230,14 +189,10 @@ router.post(
 router.post(
   "/:id/status",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
   validateParams(orderIdSchema),
   validateRequest(updateOrderStatusSchema),
-  auditMiddleware({
-    action: "update",
-    resource: "customer_orders",
-    details: "Updated customer order status"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.updateOrderStatus)
 );
 
@@ -245,13 +200,9 @@ router.post(
 router.post(
   "/bulk/status",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
   validateRequest(bulkUpdateOrderStatusSchema),
-  auditMiddleware({
-    action: "bulk_update",
-    resource: "customer_orders",
-    details: "Bulk updated customer order statuses"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.bulkUpdateOrderStatus)
 );
 
@@ -259,13 +210,9 @@ router.post(
 router.delete(
   "/:id",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_DELETE),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_DELETE),
   validateParams(orderIdSchema),
-  auditMiddleware({
-    action: "delete",
-    resource: "customer_orders",
-    details: "Deleted customer order"
-  }),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.deleteCustomerOrder)
 );
 
@@ -273,12 +220,8 @@ router.delete(
 router.delete(
   "/bulk",
   authenticate,
-  // requirePermission(PERMISSIONS.FACTORY_ORDERS_DELETE),
-  auditMiddleware({
-    action: "bulk_delete",
-    resource: "customer_orders",
-    details: "Bulk deleted customer orders"
-  }),
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_DELETE),
+  auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.bulkDeleteCustomerOrders)
 );
 

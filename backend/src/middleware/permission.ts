@@ -388,6 +388,13 @@ export const PERMISSIONS = {
   COST_CENTER_LEDGER_READ:   createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
   INCOME_STATEMENT_READ:     createPermissionCheck('Finance', 'read', 'income_statement'),
   BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_sheet'),
+
+  // ---- Factory: Customer Orders ----
+  FACTORY_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'factory_customer_orders'),
+  FACTORY_ORDERS_READ: createPermissionCheck('Factory', 'read', 'factory_customer_orders'),
+  FACTORY_ORDERS_UPDATE: createPermissionCheck('Factory', 'update', 'factory_customer_orders'),
+  FACTORY_ORDERS_DELETE: createPermissionCheck('Factory', 'delete', 'factory_customer_orders'),
+  FACTORY_ORDERS_APPROVE: createPermissionCheck('Factory', 'approve', 'factory_customer_orders')
 };
 
 // Export permission middleware functions
