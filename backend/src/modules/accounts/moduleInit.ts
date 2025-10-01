@@ -21,6 +21,12 @@ export const initializeAccountsModule = (): void => {
       addChartOfAccountMediator: AddChartOfAccountMediator,
     };
 
+    MyLogger.info('Accounts Module Services', {
+      services: Object.keys(accountsServices),
+      voucherMediatorAvailable: !!AddVoucherMediator,
+      chartOfAccountsMediatorAvailable: !!GetChartOfAccountInfoMediator
+    });
+
     moduleRegistry.registerModule(MODULE_NAMES.ACCOUNTS, accountsServices);
 
     MyLogger.success('Accounts Module Initialization', {

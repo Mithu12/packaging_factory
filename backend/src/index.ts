@@ -17,6 +17,7 @@ import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
+import testIntegrationRoutes from "./routes/test-integration.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
@@ -124,6 +125,7 @@ app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/returns", returnsRoutes);
+app.use("/api/test-integration", testIntegrationRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {
@@ -155,9 +157,11 @@ const initializeModules = async (): Promise<void> => {
     MyLogger.info(action, { message: "Starting module initialization" });
 
     // Initialize accounts module first (since expenses may depend on it)
+    console.log("🔧 Initializing accounts module...");
     initializeAccountsModule();
 
     // Initialize expenses module (will automatically set up accounts integration if available)
+    console.log("🔧 Initializing expenses module...");
     initializeExpensesModule();
 
     MyLogger.success(action, { 
@@ -165,8 +169,11 @@ const initializeModules = async (): Promise<void> => {
       availableModules: ['accounts', 'expenses']
     });
 
+    console.log("✅ Module initialization completed successfully");
+
   } catch (error: any) {
     MyLogger.error(action, error);
+    console.error("❌ Module initialization failed:", error.message);
     // Don't throw - server should still start even if module initialization fails
     console.warn("Module initialization failed, but server will continue:", error.message);
   }

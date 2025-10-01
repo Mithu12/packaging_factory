@@ -3,7 +3,7 @@ import { registerExpenseAccountingListeners } from '@/services/accountsIntegrati
 import { MyLogger } from '@/utils/new-logger';
 
 // Import mediators
-import ExpenseMediator from '@/mediators/expenses/ExpenseMediator';
+import ExpenseMediator from '../../mediators/expenses/ExpenseMediator';
 
 /**
  * Initialize the expenses module and set up optional accounts integration

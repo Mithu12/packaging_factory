@@ -25,6 +25,7 @@ export const createPaymentSchema = Joi.object({
   invoice_id: Joi.number().integer().positive().optional().allow(null),
   supplier_id: Joi.number().integer().positive().required(),
   amount: Joi.number().positive().precision(2).required(),
+  outstanding_amount: Joi.number().positive().precision(2).optional(),
   payment_date: Joi.date().iso().required(),
   payment_method: Joi.string().max(50).required(),
   reference: Joi.string().max(100).optional().allow(null, ''),

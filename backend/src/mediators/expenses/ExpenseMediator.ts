@@ -419,7 +419,16 @@ class ExpenseMediator {
       }
 
       // Emit expense approved event for potential accounting integration
+      MyLogger.info(action, { 
+        message: 'About to emit expense approved event',
+        expenseId: expense.id,
+        approvedBy 
+      });
       await this.emitExpenseEvent(EVENT_NAMES.EXPENSE_APPROVED, expense, approvedBy);
+      MyLogger.info(action, { 
+        message: 'Expense approved event emitted',
+        expenseId: expense.id 
+      });
 
       MyLogger.success(action, { expenseId: id, expenseNumber: expense.expense_number });
       return expense;

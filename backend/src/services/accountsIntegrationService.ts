@@ -58,14 +58,28 @@ class AccountsIntegrationService {
       if (!accountsServices?.voucherMediator) {
         MyLogger.warn(action, { 
           message: 'Voucher mediator not available in accounts services',
-          expenseId: expenseData.expenseId 
+          expenseId: expenseData.expenseId,
+          availableServices: accountsServices ? Object.keys(accountsServices) : []
         });
         return null;
       }
 
       // Get default expense account from accounts module
+      MyLogger.info(action, { 
+        message: 'Getting default accounts',
+        categoryName: expenseData.categoryName,
+        expenseId: expenseData.expenseId
+      });
+      
       const expenseAccount = await this.getDefaultExpenseAccount(expenseData.categoryName);
       const cashAccount = await this.getDefaultCashAccount();
+
+      MyLogger.info(action, { 
+        message: 'Retrieved accounts',
+        expenseId: expenseData.expenseId,
+        expenseAccount: expenseAccount ? { id: expenseAccount.id, name: expenseAccount.name, code: expenseAccount.code } : null,
+        cashAccount: cashAccount ? { id: cashAccount.id, name: cashAccount.name, code: cashAccount.code } : null
+      });
 
       if (!expenseAccount || !cashAccount) {
         MyLogger.warn(action, { 
@@ -108,6 +122,11 @@ class AccountsIntegrationService {
       };
 
       // Create the voucher
+      MyLogger.info(action, { 
+        message: 'Creating voucher with data',
+        voucherData,
+        expenseId: expenseData.expenseId
+      });
       const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, expenseData.createdBy);
 
       MyLogger.success(action, { 
@@ -143,6 +162,11 @@ class AccountsIntegrationService {
       const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
       if (!accountsServices?.chartOfAccountsMediator) return null;
 
+      MyLogger.info('Get Default Expense Account', { 
+        categoryName,
+        searching: 'Expenses category accounts'
+      });
+
       // Try to find an expense account that matches the category
       // This is a simplified approach - in practice, you might have a mapping table
       const accounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
@@ -152,16 +176,33 @@ class AccountsIntegrationService {
         limit: 1
       });
 
+      MyLogger.info('Get Default Expense Account', { 
+        categoryName,
+        foundAccounts: accounts.data?.length || 0,
+        accounts: accounts.data?.map((acc: { id: any; name: any; code: any; }) => ({ id: acc.id, name: acc.name, code: acc.code }))
+      });
+
       if (accounts.data && accounts.data.length > 0) {
         return accounts.data[0];
       }
 
       // Fallback to general expense account
+      MyLogger.info('Get Default Expense Account', { 
+        categoryName,
+        message: 'No specific category account found, trying general expense account'
+      });
+
       const generalExpenseAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
         category: 'Expenses',
         status: 'Active',
         search: 'General',
         limit: 1
+      });
+
+      MyLogger.info('Get Default Expense Account', { 
+        categoryName,
+        generalAccounts: generalExpenseAccounts.data?.length || 0,
+        accounts: generalExpenseAccounts.data?.map((acc: { id: any; name: any; code: any; }) => ({ id: acc.id, name: acc.name, code: acc.code }))
       });
 
       return generalExpenseAccounts.data?.[0] || null;
@@ -182,11 +223,20 @@ class AccountsIntegrationService {
       const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
       if (!accountsServices?.chartOfAccountsMediator) return null;
 
+      MyLogger.info('Get Default Cash Account', { 
+        searching: 'Assets category cash accounts'
+      });
+
       const cashAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
         category: 'Assets',
         status: 'Active',
         search: 'Cash',
         limit: 1
+      });
+
+      MyLogger.info('Get Default Cash Account', { 
+        foundAccounts: cashAccounts.data?.length || 0,
+        accounts: cashAccounts.data?.map((acc: { id: any; name: any; code: any; }) => ({ id: acc.id, name: acc.name, code: acc.code }))
       });
 
       return cashAccounts.data?.[0] || null;
@@ -203,8 +253,8 @@ class AccountsIntegrationService {
   canIntegrateExpense(expenseData: ExpenseAccountingData): boolean {
     return this.isAccountsAvailable() && 
            expenseData.amount > 0 && 
-           expenseData.expenseDate && 
-           expenseData.title;
+           (!!expenseData.expenseDate) &&
+           (!!expenseData.title);
   }
 
   /**

@@ -226,9 +226,10 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
                 id="amount"
                 type="number"     
                 value={formData.outstanding_amount}
-                onChange={(e) => handleInputChange("outstanding_amount", e.target.value)}
+                onChange={(e) => {}}
                 placeholder="0.00"
                 required
+                disabled
               />
             </div>
 

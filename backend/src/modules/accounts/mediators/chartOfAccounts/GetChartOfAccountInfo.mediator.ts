@@ -92,7 +92,7 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
       const total = parseInt(countResult.rows[0].count);
 
       // Get chart of accounts with joins
-      const accountsQuery = `
+        const accountsQuery = `
         SELECT 
           coa.id,
           coa.name,
@@ -113,7 +113,9 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
         LEFT JOIN account_groups ag ON coa.group_id = ag.id
         LEFT JOIN chart_of_accounts parent ON coa.parent_id = parent.id
         ${whereClause}
-        ORDER BY ${sortBy === 'parentId' ? 'coa.parent_id' : sortBy === 'groupId' ? 'coa.group_id' : `coa.${sortBy}`} ${sortOrder.toUpperCase()}
+        ORDER BY ${
+                         // @ts-ignore
+            sortBy === 'parentId' ? 'coa.parent_id' : sortBy === 'groupId' ? 'coa.group_id' : `coa.${sortBy}`} ${sortOrder.toUpperCase()}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
