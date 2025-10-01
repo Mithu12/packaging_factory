@@ -6,6 +6,7 @@ import AddVoucherMediator from './mediators/vouchers/AddVoucher.mediator';
 import GetVoucherInfoMediator from './mediators/vouchers/GetVoucherInfo.mediator';
 import GetChartOfAccountInfoMediator from './mediators/chartOfAccounts/GetChartOfAccountInfo.mediator';
 import AddChartOfAccountMediator from './mediators/chartOfAccounts/AddChartOfAccount.mediator';
+import UpdateVoucherInfoMediator from './mediators/vouchers/UpdateVoucherInfo.mediator';
 
 /**
  * Initialize the accounts module and register it with the module registry
@@ -17,6 +18,7 @@ export const initializeAccountsModule = (): void => {
     const accountsServices = {
       voucherMediator: AddVoucherMediator,
       getVoucherMediator: GetVoucherInfoMediator,
+      updateVoucherMediator: UpdateVoucherInfoMediator,
       chartOfAccountsMediator: GetChartOfAccountInfoMediator,
       addChartOfAccountMediator: AddChartOfAccountMediator,
     };
@@ -24,6 +26,7 @@ export const initializeAccountsModule = (): void => {
     MyLogger.info('Accounts Module Services', {
       services: Object.keys(accountsServices),
       voucherMediatorAvailable: !!AddVoucherMediator,
+      updateVoucherMediatorAvailable: !!UpdateVoucherInfoMediator,
       chartOfAccountsMediatorAvailable: !!GetChartOfAccountInfoMediator
     });
 

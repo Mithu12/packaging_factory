@@ -40,7 +40,7 @@ class AccountsIntegrationService {
    * Create accounting voucher for an expense
    * Only works if accounts module is available
    */
-  async createExpenseVoucher(expenseData: ExpenseAccountingData): Promise<VoucherCreationResult | null> {
+  async createExpenseVoucher(expenseData: ExpenseAccountingData, userId: number): Promise<VoucherCreationResult | null> {
     const action = 'Create Expense Voucher';
     
     if (!this.isAccountsAvailable()) {
@@ -128,7 +128,7 @@ class AccountsIntegrationService {
         expenseId: expenseData.expenseId
       });
       const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, expenseData.createdBy);
-
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
       MyLogger.success(action, { 
         expenseId: expenseData.expenseId,
         voucherId: voucher.id,
@@ -295,7 +295,7 @@ export const registerExpenseAccountingListeners = (): void => {
     try {
       const expenseData = payload.expenseData as ExpenseAccountingData;
       if (expenseData && accountsIntegrationService.canIntegrateExpense(expenseData)) {
-        const result = await accountsIntegrationService.createExpenseVoucher(expenseData);
+        const result = await accountsIntegrationService.createExpenseVoucher(expenseData,  payload.userId);
         if (result?.success) {
           MyLogger.success('Expense Accounting Integration', {
             expenseId: expenseData.expenseId,
