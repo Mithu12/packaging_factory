@@ -65,6 +65,7 @@ export const MODULE_NAMES = {
   ACCOUNTS: 'accounts',
   EXPENSES: 'expenses',
   INVENTORY: 'inventory',
+  FACTORY: 'factory',
 } as const;
 
 export type ModuleName = typeof MODULE_NAMES[keyof typeof MODULE_NAMES];

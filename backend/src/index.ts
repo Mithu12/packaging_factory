@@ -21,10 +21,12 @@ import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
 import accountsRoutes from "./modules/accounts";
+import factoryRoutes from "./modules/factory";
 
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
 import { initializeExpensesModule } from "./modules/expenses/moduleInit";
+import { initializeFactoryModule } from "./modules/factory/moduleInit";
 
 // Load environment variables
 dotenv.config();
@@ -116,6 +118,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api", inventoryRoutes);
 app.use("/api/accounts", accountsRoutes);
+app.use("/api/factory", factoryRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
@@ -162,9 +165,13 @@ const initializeModules = async (): Promise<void> => {
     console.log("🔧 Initializing expenses module...");
     initializeExpensesModule();
 
+    // Initialize factory module
+    console.log("🔧 Initializing factory module...");
+    initializeFactoryModule();
+
     MyLogger.success(action, { 
       message: "All modules initialized successfully",
-      availableModules: ['accounts', 'expenses']
+      availableModules: ['accounts', 'expenses', 'factory']
     });
 
     console.log("✅ Module initialization completed successfully");
