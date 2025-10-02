@@ -53,35 +53,41 @@ CREATE TABLE public.cost_centers (
 );
 
 -- Vouchers Table
-CREATE TABLE public.vouchers (
+CREATE TABLE IF NOT EXISTS vouchers (
     id SERIAL PRIMARY KEY,
-    voucher_no VARCHAR(50) UNIQUE NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('Payment', 'Receipt', 'Journal', 'Balance Transfer')),
+    voucher_no VARCHAR(50) NOT NULL UNIQUE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('Payment', 'Receipt', 'Journal', 'Contra')),
     date DATE NOT NULL,
     reference VARCHAR(255),
     payee VARCHAR(255),
-    prepared_by INTEGER NOT NULL REFERENCES users(id),
-    approved_by INTEGER REFERENCES users(id),
-    status VARCHAR(20) DEFAULT 'Draft' CHECK (status IN ('Draft', 'Pending Approval', 'Posted', 'Void')),
-    amount DECIMAL(15,2) NOT NULL,
-    currency VARCHAR(3) DEFAULT 'USD',
-    cost_center_id INTEGER REFERENCES cost_centers(id),
+    amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Pending Approval', 'Posted', 'Void')),
     narration TEXT NOT NULL,
+    cost_center_id INTEGER REFERENCES cost_centers(id),
     attachments INTEGER DEFAULT 0,
+    created_by INTEGER NOT NULL,
+    approved_by INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Voucher Lines Table
-CREATE TABLE public.voucher_lines (
+CREATE TABLE IF NOT EXISTS voucher_lines (
     id SERIAL PRIMARY KEY,
     voucher_id INTEGER NOT NULL REFERENCES vouchers(id) ON DELETE CASCADE,
     account_id INTEGER NOT NULL REFERENCES chart_of_accounts(id),
-    debit DECIMAL(15,2) DEFAULT 0,
-    credit DECIMAL(15,2) DEFAULT 0,
+    debit DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    credit DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     cost_center_id INTEGER REFERENCES cost_centers(id),
-    narration TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure either debit or credit is non-zero, but not both
+    CONSTRAINT check_debit_credit CHECK (
+        (debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0)
+    )
 );
 
 -- Ledger Entries Table
@@ -106,26 +112,26 @@ CREATE TABLE public.ledger_entries (
 -- =====================================================
 
 -- Account Groups indexes
-CREATE INDEX idx_account_groups_category ON account_groups(category);
-CREATE INDEX idx_account_groups_parent_id ON account_groups(parent_id);
-CREATE INDEX idx_account_groups_status ON account_groups(status);
+-- CREATE INDEX idx_account_groups_category ON account_groups(category);
+-- CREATE INDEX idx_account_groups_parent_id ON account_groups(parent_id);
+-- CREATE INDEX idx_account_groups_status ON account_groups(status);
 
 -- Chart of Accounts indexes
-CREATE INDEX idx_chart_of_accounts_category ON chart_of_accounts(category);
-CREATE INDEX idx_chart_of_accounts_type ON chart_of_accounts(type);
-CREATE INDEX idx_chart_of_accounts_parent_id ON chart_of_accounts(parent_id);
-CREATE INDEX idx_chart_of_accounts_group_id ON chart_of_accounts(group_id);
+-- CREATE INDEX idx_chart_of_accounts_category ON chart_of_accounts(category);
+-- CREATE INDEX idx_chart_of_accounts_type ON chart_of_accounts(type);
+-- CREATE INDEX idx_chart_of_accounts_parent_id ON chart_of_accounts(parent_id);
+-- CREATE INDEX idx_chart_of_accounts_group_id ON chart_of_accounts(group_id);
 
 -- Vouchers indexes
-CREATE INDEX idx_vouchers_date ON vouchers(date);
-CREATE INDEX idx_vouchers_type ON vouchers(type);
-CREATE INDEX idx_vouchers_status ON vouchers(status);
-CREATE INDEX idx_vouchers_prepared_by ON vouchers(prepared_by);
+-- CREATE INDEX idx_vouchers_date ON vouchers(date);
+-- CREATE INDEX idx_vouchers_type ON vouchers(type);
+-- CREATE INDEX idx_vouchers_status ON vouchers(status);
+-- CREATE INDEX idx_vouchers_prepared_by ON vouchers(prepared_by);
 
 -- Ledger entries indexes
-CREATE INDEX idx_ledger_entries_account_date ON ledger_entries(account_id, date);
-CREATE INDEX idx_ledger_entries_date ON ledger_entries(date);
-CREATE INDEX idx_ledger_entries_voucher_id ON ledger_entries(voucher_id);
+-- CREATE INDEX idx_ledger_entries_account_date ON ledger_entries(account_id, date);
+-- CREATE INDEX idx_ledger_entries_date ON ledger_entries(date);
+-- CREATE INDEX idx_ledger_entries_voucher_id ON ledger_entries(voucher_id);
 
 -- =====================================================
 -- Sequences and Functions

@@ -139,7 +139,12 @@ class CustomerOrdersController {
       const statusData: UpdateOrderStatusRequest = req.body;
       const userId = (req as any).user?.user_id || '1'; // Get from authenticated user
       
-      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(statusData, userId);
+      const updateRequest = {
+        order_id: orderId,
+        status: statusData.status,
+        notes: statusData.notes
+      };
+      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(updateRequest, userId);
       MyLogger.success(action, { 
         orderId, 
         newStatus: statusData.status 

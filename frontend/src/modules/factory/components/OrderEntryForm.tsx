@@ -36,14 +36,16 @@ import {
   CreateCustomerOrderRequest,
   OrderPriority,
   CreateOrderLineItemRequest,
+  CustomerOrdersApiService,
+  FactoryCustomer,
+  FactoryProduct,
 } from "../services/customer-orders-api";
 import { useFormatting } from "@/hooks/useFormatting";
+import { useAuth } from "@/hooks/useAuth";
 
 // Form validation schema
 const orderFormSchema = z.object({
-  factory_customer_name: z.string().min(1, "Customer name is required"),
-  factory_customer_email: z.string().email("Valid email is required"),
-  factory_customer_phone: z.string().optional(),
+  factory_customer_id: z.string().min(1, "Customer is required"),
   order_date: z.string().min(1, "Order date is required"),
   required_date: z.string().min(1, "Required date is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
@@ -51,8 +53,7 @@ const orderFormSchema = z.object({
   sales_person: z.string().min(1, "Sales person is required"),
   notes: z.string().optional(),
   line_items: z.array(z.object({
-    factory_product_name: z.string().min(1, "Product name is required"),
-    factory_product_sku: z.string().min(1, "Product SKU is required"),
+    factory_product_id: z.string().min(1, "Product is required"),
     quantity: z.number().min(1, "Quantity must be at least 1"),
     unit_price: z.number().min(0, "Unit price must be positive"),
     notes: z.string().optional(),
@@ -75,24 +76,26 @@ export default function OrderEntryForm({
   onSubmit,
 }: OrderEntryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
+  const [products, setProducts] = useState<FactoryProduct[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const { formatCurrency } = useFormatting();
+  const { user } = useAuth();
   
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
-      factory_customer_name: "",
-      factory_customer_email: "",
-      factory_customer_phone: "",
+      factory_customer_id: "",
       order_date: new Date().toISOString().split('T')[0],
       required_date: "",
       priority: "medium",
       currency: "BDT",
-      sales_person: "",
+      sales_person: user?.full_name || user?.username || "",
       notes: "",
       line_items: [
         {
-          factory_product_name: "",
-          factory_product_sku: "",
+          factory_product_id: "",
           quantity: 1,
           unit_price: 0,
           notes: "",
@@ -106,14 +109,52 @@ export default function OrderEntryForm({
     name: "line_items",
   });
 
+  // Load customers and products
+  const loadCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      const data = await CustomerOrdersApiService.getAllCustomers();
+      setCustomers(data);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const data = await CustomerOrdersApiService.getAllProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Load data when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadCustomers();
+      loadProducts();
+    }
+  }, [open]);
+
+  // Update sales person when user changes
+  useEffect(() => {
+    if (user && !order) {
+      form.setValue('sales_person', user.full_name || user.username || '');
+    }
+  }, [user, order, form]);
+
   // Reset form when order changes
   useEffect(() => {
     if (order) {
       // Editing existing order
       form.reset({
-        factory_customer_name: order.factory_customer_name,
-        factory_customer_email: order.factory_customer_email,
-        factory_customer_phone: order.factory_customer_phone || "",
+        factory_customer_id: order.factory_customer_id,
         order_date: order.order_date.split('T')[0],
         required_date: order.required_date.split('T')[0],
         priority: order.priority,
@@ -121,8 +162,7 @@ export default function OrderEntryForm({
         sales_person: order.sales_person,
         notes: order.notes || "",
         line_items: order.line_items.map(item => ({
-          factory_product_name: item.factory_product_name,
-          factory_product_sku: item.factory_product_sku,
+          factory_product_id: item.factory_product_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
           notes: item.notes || "",
@@ -131,19 +171,16 @@ export default function OrderEntryForm({
     } else {
       // Creating new order
       form.reset({
-        factory_customer_name: "",
-        factory_customer_email: "",
-        factory_customer_phone: "",
+        factory_customer_id: "",
         order_date: new Date().toISOString().split('T')[0],
         required_date: "",
         priority: "medium",
         currency: "BDT",
-        sales_person: "",
+        sales_person: user?.full_name || user?.username || "",
         notes: "",
         line_items: [
           {
-            factory_product_name: "",
-            factory_product_sku: "",
+            factory_product_id: "",
             quantity: 1,
             unit_price: 0,
             notes: "",
@@ -151,31 +188,37 @@ export default function OrderEntryForm({
         ],
       });
     }
-  }, [order, form]);
+  }, [order, form, user]);
 
   const handleSubmit = async (data: OrderFormData) => {
     try {
       setIsSubmitting(true);
       
+      // Find selected customer
+      const selectedCustomer = customers.find(c => c.id === data.factory_customer_id);
+      
       const orderData: CreateCustomerOrderRequest = {
-        factory_customer_id: order?.factory_customer_id || `CUST-${Date.now()}`, // Generate temp ID for new customers
-        factory_customer_name: data.factory_customer_name,
-        factory_customer_email: data.factory_customer_email,
-        factory_customer_phone: data.factory_customer_phone,
+        factory_customer_id: data.factory_customer_id,
+        factory_customer_name: selectedCustomer?.name || "",
+        factory_customer_email: selectedCustomer?.email || "",
+        factory_customer_phone: selectedCustomer?.phone,
         order_date: data.order_date,
         required_date: data.required_date,
         priority: data.priority,
         currency: data.currency,
         sales_person: data.sales_person,
         notes: data.notes,
-        line_items: data.line_items.map(item => ({
-          factory_product_id: `PROD-${Date.now()}-${Math.random()}`, // Generate temp ID
-          factory_product_name: item.factory_product_name,
-          factory_product_sku: item.factory_product_sku,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          notes: item.notes,
-        })),
+        line_items: data.line_items.map(item => {
+          const selectedProduct = products.find(p => p.id === item.factory_product_id);
+          return {
+            factory_product_id: item.factory_product_id,
+            factory_product_name: selectedProduct?.name || "",
+            factory_product_sku: selectedProduct?.sku || "",
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            notes: item.notes,
+          };
+        }),
       };
 
       await onSubmit(orderData);
@@ -189,8 +232,7 @@ export default function OrderEntryForm({
 
   const addLineItem = () => {
     append({
-      factory_product_name: "",
-      factory_product_sku: "",
+      factory_product_id: "",
       quantity: 1,
       unit_price: 0,
       notes: "",
@@ -207,12 +249,16 @@ export default function OrderEntryForm({
     return quantity * unitPrice;
   };
 
-
   const calculateOrderTotal = () => {
     const lineItems = form.watch("line_items");
     return lineItems.reduce((total, item) => {
       return total + (item.quantity * item.unit_price);
     }, 0);
+  };
+
+  // Get product details for display
+  const getProductDetails = (productId: string) => {
+    return products.find(p => p.id === productId);
   };
 
   const priorityColors = {
@@ -245,47 +291,47 @@ export default function OrderEntryForm({
                 <CardTitle className="text-lg">Customer Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="factory_customer_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Customer Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter customer name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="factory_customer_email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="customer@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
-                  name="factory_customer_phone"
+                  name="factory_customer_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter phone number" {...field} />
-                      </FormControl>
+                      <FormLabel>Customer *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select a customer"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{customer.name}</span>
+                                <span className="text-sm text-muted-foreground">{customer.email}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {form.watch("factory_customer_id") && (
+                  <div className="bg-muted p-3 rounded-md">
+                    {(() => {
+                      const selectedCustomer = customers.find(c => c.id === form.watch("factory_customer_id"));
+                      return selectedCustomer ? (
+                        <div className="space-y-1 text-sm">
+                          <div><strong>Name:</strong> {selectedCustomer.name}</div>
+                          <div><strong>Email:</strong> {selectedCustomer.email}</div>
+                          {selectedCustomer.phone && <div><strong>Phone:</strong> {selectedCustomer.phone}</div>}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -362,7 +408,12 @@ export default function OrderEntryForm({
                       <FormItem>
                         <FormLabel>Sales Person *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter sales person name" {...field} />
+                          <Input 
+                            placeholder="Auto-filled from current user" 
+                            {...field} 
+                            readOnly
+                            className="bg-muted"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -435,72 +486,104 @@ export default function OrderEntryForm({
                         </Button>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
-                        name={`line_items.${index}.factory_product_name`}
+                        name={`line_items.${index}.factory_product_id`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Product Name *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter product name" {...field} />
-                            </FormControl>
+                            <FormLabel>Product *</FormLabel>
+                            <Select 
+                              onValueChange={(value) => {
+                                  console.log(value)
+                                field.onChange(value);
+                                // Auto-fill unit price when product is selected
+                                const selectedProduct = products.find(p => p.id === value);
+                                if (selectedProduct) {
+                                  form.setValue(`line_items.${index}.unit_price`, selectedProduct.unit_price);
+                                }
+                              }} 
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={loadingProducts ? "Loading products..." : "Select a product"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{product.name}</span>
+                                      <span className="text-sm text-muted-foreground">
+                                        {product.sku} - {formatCurrency(product.unit_price)}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`line_items.${index}.factory_product_sku`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SKU *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter SKU" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`line_items.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quantity *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="1"
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`line_items.${index}.unit_price`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit Price *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      
+                      {form.watch(`line_items.${index}.factory_product_id`) && (
+                        <div className="bg-muted p-3 rounded-md">
+                          {(() => {
+                            const selectedProduct = getProductDetails(form.watch(`line_items.${index}.factory_product_id`));
+                            return selectedProduct ? (
+                              <div className="space-y-1 text-sm">
+                                <div><strong>Product:</strong> {selectedProduct.name}</div>
+                                <div><strong>SKU:</strong> {selectedProduct.sku}</div>
+                                <div><strong>Unit Price:</strong> {formatCurrency(selectedProduct.unit_price)}</div>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`line_items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Quantity *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="1"
+                                  placeholder="0"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`line_items.${index}.unit_price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit Price *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <FormField

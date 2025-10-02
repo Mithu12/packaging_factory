@@ -7,24 +7,24 @@
 
 -- drop TABLE IF EXISTS vouchers;
 -- Create vouchers table
-CREATE TABLE IF NOT EXISTS vouchers (
-    id SERIAL PRIMARY KEY,
-    voucher_no VARCHAR(50) NOT NULL UNIQUE,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('Payment', 'Receipt', 'Journal', 'Contra')),
-    date DATE NOT NULL,
-    reference VARCHAR(255),
-    payee VARCHAR(255),
-    amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
-    status VARCHAR(20) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Pending Approval', 'Posted', 'Void')),
-    narration TEXT NOT NULL,
-    cost_center_id INTEGER REFERENCES cost_centers(id),
-    attachments INTEGER DEFAULT 0,
-    created_by INTEGER NOT NULL,
-    approved_by INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE IF NOT EXISTS vouchers (
+--     id SERIAL PRIMARY KEY,
+--     voucher_no VARCHAR(50) NOT NULL UNIQUE,
+--     type VARCHAR(20) NOT NULL CHECK (type IN ('Payment', 'Receipt', 'Journal', 'Contra')),
+--     date DATE NOT NULL,
+--     reference VARCHAR(255),
+--     payee VARCHAR(255),
+--     amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+--     currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+--     status VARCHAR(20) NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Pending Approval', 'Posted', 'Void')),
+--     narration TEXT NOT NULL,
+--     cost_center_id INTEGER REFERENCES cost_centers(id),
+--     attachments INTEGER DEFAULT 0,
+--     created_by INTEGER NOT NULL,
+--     approved_by INTEGER,
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
 -- drop TABLE IF EXISTS voucher_lines;
 -- Create voucher_lines table
 CREATE TABLE IF NOT EXISTS voucher_lines (

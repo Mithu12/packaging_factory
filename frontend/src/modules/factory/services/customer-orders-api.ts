@@ -57,11 +57,11 @@ export interface FactoryCustomerOrderLineItem {
 }
 
 export interface Address {
-  street: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
 }
 
 export interface FactoryCustomer {
@@ -70,10 +70,33 @@ export interface FactoryCustomer {
   email: string;
   phone?: string;
   company?: string;
-  billing_address?: Address;
-  shipping_address?: Address;
+  address?: Address;
+  credit_limit?: number;
+  payment_terms?: string;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateCustomerRequest {
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  address?: Address;
+  credit_limit?: number;
+  payment_terms?: string;
+}
+
+export interface UpdateCustomerRequest {
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  address?: Address;
+  credit_limit?: number;
+  payment_terms?: string;
+  is_active?: boolean;
 }
 
 export interface FactoryProduct {
@@ -315,6 +338,41 @@ export class CustomerOrdersApiService {
   // Search products (for order creation)
   static async searchProducts(query: string): Promise<FactoryProduct[]> {
     return makeRequest<FactoryProduct[]>(`/factory/products/search?q=${encodeURIComponent(query)}`);
+  }
+
+  // Get all customers (for dropdowns)
+  static async getAllCustomers(): Promise<FactoryCustomer[]> {
+    return makeRequest<FactoryCustomer[]>(`/factory/customers`);
+  }
+
+  // Get all products (for dropdowns)
+  static async getAllProducts(): Promise<FactoryProduct[]> {
+    return makeRequest<FactoryProduct[]>(`/factory/products`);
+  }
+
+  // Customer CRUD operations
+  static async getCustomerById(id: string): Promise<FactoryCustomer> {
+    return makeRequest<FactoryCustomer>(`/factory/customers/${id}`);
+  }
+
+  static async createCustomer(data: CreateCustomerRequest): Promise<FactoryCustomer> {
+    return makeRequest<FactoryCustomer>(`/factory/customers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateCustomer(id: string, data: UpdateCustomerRequest): Promise<FactoryCustomer> {
+    return makeRequest<FactoryCustomer>(`/factory/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteCustomer(id: string): Promise<{ deleted: boolean }> {
+    return makeRequest<{ deleted: boolean }>(`/factory/customers/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 
