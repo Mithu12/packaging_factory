@@ -138,7 +138,7 @@ export default function CustomerOrderManagement() {
   const handleSearch = (searchTerm: string) => {
     setSearch(prev => ({
       ...prev,
-      search: searchTerm,
+      search: searchTerm || '',
       page: 1, // Reset to first page
     }));
   };

@@ -140,7 +140,7 @@ export class GetCustomerOrderInfoMediator {
 
       queryParams.push(limit, offset);
       const ordersResult = await client.query(ordersQuery, queryParams);
-
+MyLogger.info('asd================================', ordersResult.rows)
       const orders: FactoryCustomerOrder[] = ordersResult.rows.map(row => ({
         id: row.id,
         order_number: row.order_number,
@@ -148,8 +148,8 @@ export class GetCustomerOrderInfoMediator {
         factory_customer_name: row.factory_customer_name,
         factory_customer_email: row.factory_customer_email,
         factory_customer_phone: row.factory_customer_phone,
-        order_date: row.order_date.toISOString(),
-        required_date: row.required_date.toISOString(),
+        order_date: row.order_date,
+        required_date: row.required_date,
         status: row.status,
         priority: row.priority,
         total_value: parseFloat(row.total_value),
@@ -158,23 +158,23 @@ export class GetCustomerOrderInfoMediator {
         notes: row.notes,
         terms: row.terms,
         payment_terms: row.payment_terms,
-        shipping_address: JSON.parse(row.shipping_address),
-        billing_address: JSON.parse(row.billing_address),
+        shipping_address: row.shipping_address,
+        billing_address: row.billing_address,
         line_items: row.line_items.map((item: any) => ({
           ...item,
           unit_price: parseFloat(item.unit_price),
           discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : undefined,
           line_total: parseFloat(item.line_total),
-          delivery_date: item.delivery_date ? item.delivery_date.toISOString() : undefined,
-          created_at: item.created_at.toISOString()
+          delivery_date: item.delivery_date ? item.delivery_date : undefined,
+          created_at: item.created_at
         })),
-        attachments: JSON.parse(row.attachments),
+        attachments: row.attachments,
         created_by: row.created_by,
-        created_at: row.created_at.toISOString(),
+        created_at: row.created_at,
         updated_by: row.updated_by,
-        updated_at: row.updated_at ? row.updated_at.toISOString() : undefined,
+        updated_at: row.updated_at,
         approved_by: row.approved_by,
-        approved_at: row.approved_at ? row.approved_at.toISOString() : undefined,
+        approved_at: row.approved_at ,
       }));
 
       const totalPages = Math.ceil(total / limit);
@@ -256,8 +256,8 @@ export class GetCustomerOrderInfoMediator {
         factory_customer_name: row.factory_customer_name,
         factory_customer_email: row.factory_customer_email,
         factory_customer_phone: row.factory_customer_phone,
-        order_date: row.order_date.toISOString(),
-        required_date: row.required_date.toISOString(),
+        order_date: row.order_date,
+        required_date: row.required_date,
         status: row.status,
         priority: row.priority,
         total_value: parseFloat(row.total_value),
@@ -273,16 +273,16 @@ export class GetCustomerOrderInfoMediator {
           unit_price: parseFloat(item.unit_price),
           discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : undefined,
           line_total: parseFloat(item.line_total),
-          delivery_date: item.delivery_date ? item.delivery_date.toISOString() : undefined,
-          created_at: item.created_at.toISOString()
+          delivery_date: item.delivery_date ? item.delivery_date : undefined,
+          created_at: item.created_at
         })),
         attachments: JSON.parse(row.attachments),
         created_by: row.created_by,
-        created_at: row.created_at.toISOString(),
+        created_at: row.created_at,
         updated_by: row.updated_by,
-        updated_at: row.updated_at ? row.updated_at.toISOString() : undefined,
+        updated_at: row.updated_at ? row.updated_at : undefined,
         approved_by: row.approved_by,
-        approved_at: row.approved_at ? row.approved_at.toISOString() : undefined,
+        approved_at: row.approved_at ? row.approved_at : undefined,
       };
 
       MyLogger.success(action, { orderId, found: true });
