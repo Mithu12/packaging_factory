@@ -1,157 +1,149 @@
--- Migration: Convert factory tables from UUID to BIGSERIAL
--- This migration changes the ID columns from UUID to BIGSERIAL (auto-incrementing integers)
--- to match the existing database pattern used throughout the ERP system
-
 -- =====================================================
--- Step 1: Drop existing foreign key constraints
+-- Drop existing factory tables (safe)
 -- =====================================================
 
--- Drop foreign key constraints that reference the UUID columns
-ALTER TABLE factory_customer_orders DROP CONSTRAINT IF EXISTS fk_customer_orders_customer_id;
-ALTER TABLE factory_customer_order_line_items DROP CONSTRAINT IF EXISTS fk_customer_order_line_items_order_id;
-ALTER TABLE factory_customer_order_line_items DROP CONSTRAINT IF EXISTS fk_customer_order_line_items_product_id;
+DROP TABLE IF EXISTS factory_customer_order_line_items CASCADE;
+DROP TABLE IF EXISTS factory_customer_orders CASCADE;
+-- Optionally keep factory_customers if used elsewhere, otherwise drop
+DROP TABLE IF EXISTS factory_customers CASCADE;
 
 -- =====================================================
--- Step 2: Add new BIGSERIAL columns
+-- Create factory_customers table with BIGSERIAL PK
 -- =====================================================
 
--- Add new ID columns with BIGSERIAL type
-ALTER TABLE factory_customers ADD COLUMN new_id BIGSERIAL;
-ALTER TABLE factory_customer_orders ADD COLUMN new_id BIGSERIAL;
-ALTER TABLE factory_customer_order_line_items ADD COLUMN new_id BIGSERIAL;
-
--- =====================================================
--- Step 3: Create mapping tables for data migration
--- =====================================================
-
--- Create temporary mapping tables to track old UUID to new BIGSERIAL mapping
-CREATE TEMP TABLE customer_id_mapping (
-    old_id UUID,
-    new_id BIGINT
-);
-
-CREATE TEMP TABLE order_id_mapping (
-    old_id UUID,
-    new_id BIGINT
+CREATE TABLE IF NOT EXISTS factory_customers (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    company VARCHAR(255),
+    address JSONB NOT NULL DEFAULT '{}',
+    credit_limit DECIMAL(15,2),
+    payment_terms VARCHAR(50) DEFAULT 'net_30',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =====================================================
--- Step 4: Populate mapping tables
+-- Create factory_customer_orders table with BIGSERIAL PK
 -- =====================================================
 
--- Map old customer UUIDs to new BIGSERIAL IDs
-INSERT INTO customer_id_mapping (old_id, new_id)
-SELECT id, new_id FROM factory_customers;
-
--- Map old order UUIDs to new BIGSERIAL IDs
-INSERT INTO order_id_mapping (old_id, new_id)
-SELECT id, new_id FROM factory_customer_orders;
-
--- =====================================================
--- Step 5: Update foreign key references
--- =====================================================
-
--- Update customer_orders to use new customer IDs
-UPDATE factory_customer_orders
-SET factory_customer_id = cm.new_id::TEXT
-FROM customer_id_mapping cm
-WHERE factory_customer_orders.factory_customer_id = cm.old_id::TEXT;
-
--- Update customer_order_line_items to use new order IDs
-UPDATE factory_customer_order_line_items
-SET order_id = om.new_id::TEXT
-FROM order_id_mapping om
-WHERE factory_customer_order_line_items.order_id = om.old_id::TEXT;
-
--- Update customer_order_line_items to use new product IDs (assuming products table uses integer IDs)
-UPDATE factory_customer_order_line_items
-SET product_id = product_id::INTEGER::TEXT
-WHERE product_id ~ '^[0-9]+$';
-
--- =====================================================
--- Step 6: Drop old UUID columns and rename new columns
--- =====================================================
-
--- Drop old UUID columns
-ALTER TABLE factory_customers DROP COLUMN id;
-ALTER TABLE factory_customer_orders DROP COLUMN id;
-ALTER TABLE factory_customer_order_line_items DROP COLUMN id;
-
--- Rename new columns to replace old ones
-ALTER TABLE factory_customers RENAME COLUMN new_id TO id;
-ALTER TABLE factory_customer_orders RENAME COLUMN new_id TO id;
-ALTER TABLE factory_customer_order_line_items RENAME COLUMN new_id TO id;
+CREATE TABLE factory_customer_orders (
+    id BIGSERIAL PRIMARY KEY,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
+    factory_customer_id BIGINT NOT NULL REFERENCES factory_customers(id) ON DELETE RESTRICT,
+    factory_customer_name VARCHAR(255) NOT NULL,
+    factory_customer_email VARCHAR(255) NOT NULL,
+    factory_customer_phone VARCHAR(20),
+    order_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    required_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled')),
+    priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    total_value DECIMAL(15,2) NOT NULL DEFAULT 0,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    sales_person VARCHAR(255) NOT NULL,
+    notes TEXT,
+    terms TEXT,
+    payment_terms VARCHAR(20) NOT NULL DEFAULT 'net_30' CHECK (payment_terms IN ('net_15', 'net_30', 'net_45', 'net_60', 'cash', 'advance')),
+    shipping_address JSONB NOT NULL,
+    billing_address JSONB NOT NULL,
+    attachments JSONB NOT NULL DEFAULT '[]',
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(255),
+    updated_at TIMESTAMP WITH TIME ZONE,
+    approved_by VARCHAR(255),
+    approved_at TIMESTAMP WITH TIME ZONE
+);
 
 -- =====================================================
--- Step 7: Set primary keys and constraints
+-- Create factory_customer_order_line_items table with BIGSERIAL PK
 -- =====================================================
 
--- Set primary key constraints
-ALTER TABLE factory_customers ADD PRIMARY KEY (id);
-ALTER TABLE factory_customer_orders ADD PRIMARY KEY (id);
-ALTER TABLE factory_customer_order_line_items ADD PRIMARY KEY (id);
+CREATE TABLE factory_customer_order_line_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES factory_customer_orders(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    product_sku VARCHAR(100) NOT NULL,
+    description TEXT,
+    quantity DECIMAL(15,3) NOT NULL CHECK (quantity > 0),
+    unit_price DECIMAL(15,2) NOT NULL CHECK (unit_price >= 0),
+    discount_percentage DECIMAL(5,2) CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
+    discount_amount DECIMAL(15,2) DEFAULT 0,
+    line_total DECIMAL(15,2) NOT NULL,
+    unit_of_measure VARCHAR(20) NOT NULL,
+    specifications TEXT,
+    delivery_date TIMESTAMP WITH TIME ZONE,
+    is_optional BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE
+);
 
 -- =====================================================
--- Step 8: Recreate foreign key constraints
+-- Create indexes for performance
 -- =====================================================
 
--- Add foreign key constraints with new BIGSERIAL columns
-ALTER TABLE factory_customer_orders
-ADD CONSTRAINT fk_customer_orders_customer_id 
-FOREIGN KEY (factory_customer_id) REFERENCES factory_customers(id);
+CREATE INDEX idx_factory_customer_orders_factory_customer_id ON factory_customer_orders(factory_customer_id);
+CREATE INDEX idx_factory_customer_orders_status ON factory_customer_orders(status);
+CREATE INDEX idx_factory_customer_orders_priority ON factory_customer_orders(priority);
+CREATE INDEX idx_factory_customer_orders_order_date ON factory_customer_orders(order_date);
+CREATE INDEX idx_factory_customer_orders_required_date ON factory_customer_orders(required_date);
+CREATE INDEX idx_factory_customer_orders_sales_person ON factory_customer_orders(sales_person);
+CREATE INDEX idx_factory_customer_orders_order_number ON factory_customer_orders(order_number);
 
-ALTER TABLE factory_customer_order_line_items
-ADD CONSTRAINT fk_customer_order_line_items_order_id 
-FOREIGN KEY (order_id) REFERENCES factory_customer_orders(id);
-
--- Note: Product foreign key will be added after confirming products table structure
--- ALTER TABLE customer_order_line_items 
--- ADD CONSTRAINT fk_customer_order_line_items_product_id 
--- FOREIGN KEY (factory_product_id) REFERENCES products(id);
+CREATE INDEX idx_factory_customer_order_line_items_order_id ON factory_customer_order_line_items(order_id);
+CREATE INDEX idx_factory_customer_order_line_items_product_id ON factory_customer_order_line_items(product_id);
 
 -- =====================================================
--- Step 9: Update sequences to start from appropriate values
+-- Triggers for updated_at timestamp
 -- =====================================================
 
--- Reset sequences to start from the maximum existing ID + 1
-SELECT setval('factory_customers_id_seq', COALESCE((SELECT MAX(id) FROM factory_customers), 0) + 1);
-SELECT setval('customer_orders_id_seq', COALESCE((SELECT MAX(id) FROM factory_customer_orders), 0) + 1);
-SELECT setval('customer_order_line_items_id_seq', COALESCE((SELECT MAX(id) FROM factory_customer_order_line_items), 0) + 1);
-
--- =====================================================
--- Step 10: Update column types for foreign key references
--- =====================================================
-
--- Change foreign key columns to INTEGER to match the new BIGSERIAL primary keys
-ALTER TABLE factory_customer_orders ALTER COLUMN factory_customer_id TYPE INTEGER USING factory_customer_id::INTEGER;
-ALTER TABLE factory_customer_order_line_items ALTER COLUMN order_id TYPE INTEGER USING order_id::INTEGER;
-ALTER TABLE factory_customer_order_line_items ALTER COLUMN product_id TYPE INTEGER USING product_id::INTEGER;
-
--- =====================================================
--- Step 11: Add indexes for performance
--- =====================================================
-
--- Add indexes on foreign key columns
-CREATE INDEX IF NOT EXISTS idx_customer_orders_customer_id ON factory_customer_orders(factory_customer_id);
-CREATE INDEX IF NOT EXISTS idx_customer_order_line_items_order_id ON factory_customer_order_line_items(order_id);
-CREATE INDEX IF NOT EXISTS idx_customer_order_line_items_product_id ON factory_customer_order_line_items(product_id);
-
--- Add indexes on commonly queried columns
-CREATE INDEX IF NOT EXISTS idx_customer_orders_order_number ON factory_customer_orders(order_number);
-CREATE INDEX IF NOT EXISTS idx_customer_orders_status ON factory_customer_orders(status);
-CREATE INDEX IF NOT EXISTS idx_customer_orders_order_date ON factory_customer_orders(order_date);
-CREATE INDEX IF NOT EXISTS idx_factory_customers_email ON factory_customers(email);
-CREATE INDEX IF NOT EXISTS idx_factory_customers_name ON factory_customers(name);
-
--- =====================================================
--- Migration completed successfully
--- =====================================================
-
--- Log the completion
-DO $$
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
-    RAISE NOTICE 'Migration V16 completed: Converted factory tables from UUID to BIGSERIAL';
-    RAISE NOTICE 'factory_customers: % records', (SELECT COUNT(*) FROM factory_customers);
-    RAISE NOTICE 'customer_orders: % records', (SELECT COUNT(*) FROM factory_customer_orders);
-    RAISE NOTICE 'customer_order_line_items: % records', (SELECT COUNT(*) FROM factory_customer_order_line_items);
-END $$;
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_factory_customer_orders_updated_at
+    BEFORE UPDATE ON factory_customer_orders
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_factory_customer_order_line_items_updated_at
+    BEFORE UPDATE ON factory_customer_order_line_items
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- =====================================================
+-- Optional: Insert sample data
+-- =====================================================
+
+INSERT INTO factory_customers (name, email, phone, company, address, payment_terms) VALUES
+('ABC Manufacturing Ltd', 'orders@abcmanufacturing.com', '+1-555-0123', 'ABC Manufacturing Ltd', 
+ '{"street": "123 Industrial Ave", "city": "Manufacturing City", "state": "CA", "postal_code": "90210", "country": "USA"}', 'net_30'),
+('XYZ Industries', 'procurement@xyzindustries.com', '+1-555-0456', 'XYZ Industries', 
+ '{"street": "456 Business Blvd", "city": "Commerce Town", "state": "NY", "postal_code": "10001", "country": "USA"}', 'net_45'),
+('Global Tech Solutions', 'orders@globaltech.com', '+1-555-0789', 'Global Tech Solutions', 
+ '{"street": "789 Tech Park", "city": "Silicon Valley", "state": "CA", "postal_code": "94000", "country": "USA"}', 'net_15')
+ON CONFLICT (email) DO NOTHING;
+
+-- =====================================================
+-- Comments for documentation
+-- =====================================================
+
+COMMENT ON TABLE factory_customer_orders IS 'Factory customer orders with full order lifecycle management';
+COMMENT ON TABLE factory_customer_order_line_items IS 'Line items for factory customer orders with product details and pricing';
+
+COMMENT ON COLUMN factory_customer_orders.status IS 'Order status: draft, pending, quoted, approved, rejected, in_production, completed, shipped, cancelled';
+COMMENT ON COLUMN factory_customer_orders.priority IS 'Order priority: low, medium, high, urgent';
+COMMENT ON COLUMN factory_customer_orders.payment_terms IS 'Payment terms: net_15, net_30, net_45, net_60, cash, advance';
+COMMENT ON COLUMN factory_customer_orders.shipping_address IS 'JSON object containing shipping address details';
+COMMENT ON COLUMN factory_customer_orders.billing_address IS 'JSON object containing billing address details';
+COMMENT ON COLUMN factory_customer_orders.attachments IS 'JSON array of attachment file paths';
+
+COMMENT ON COLUMN factory_customer_order_line_items.discount_percentage IS 'Discount percentage (0-100)';
+COMMENT ON COLUMN factory_customer_order_line_items.is_optional IS 'Whether this line item is optional for the order';
