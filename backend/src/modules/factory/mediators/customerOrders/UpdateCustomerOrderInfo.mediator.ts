@@ -244,7 +244,7 @@ export class UpdateCustomerOrderInfoMediator {
 
       // Get updated order
       const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id);
+      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id.toString());
 
       MyLogger.success(action, { 
         orderId: approvalData.order_id, 
@@ -328,7 +328,7 @@ export class UpdateCustomerOrderInfoMediator {
 
       // Get updated order
       const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(statusData.order_id);
+      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(statusData.order_id.toString());
 
       MyLogger.success(action, { 
         orderId: statusData.order_id, 
@@ -369,7 +369,7 @@ export class UpdateCustomerOrderInfoMediator {
 
       for (const orderId of orderIds) {
         try {
-          await this.updateOrderStatus({ order_id: orderId, status: status as FactoryCustomerOrderStatus, notes }, userId);
+          await this.updateOrderStatus({ order_id: Number(orderId), status: status as FactoryCustomerOrderStatus, notes }, userId);
           updated++;
         } catch (error: any) {
           errors.push(`Order ${orderId}: ${error.message}`);

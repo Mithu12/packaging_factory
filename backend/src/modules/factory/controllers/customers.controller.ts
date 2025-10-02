@@ -140,7 +140,7 @@ class CustomersController {
       ]);
       
       MyLogger.success(action, { customerId: result.rows[0].id, name });
-      serializeSuccessResponse(res, result.rows[0], "SUCCESS", 201);
+      serializeSuccessResponse(res, result.rows[0], "SUCCESS");
     } catch (error) {
       next(error);
     }

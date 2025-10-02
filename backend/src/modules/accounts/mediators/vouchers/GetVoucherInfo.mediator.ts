@@ -164,12 +164,10 @@ class GetVoucherInfoMediator implements MediatorInterface {
 
       return {
         data: vouchers,
-        pagination: {
           page,
           limit,
           total,
           totalPages
-        }
       };
     } catch (error: any) {
       MyLogger.error(action, error, { params });

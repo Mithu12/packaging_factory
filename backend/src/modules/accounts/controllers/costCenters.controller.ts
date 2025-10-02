@@ -57,7 +57,8 @@ class CostCentersController {
     try {
       const query = req.query.q as string;
       if (!query) {
-        return serializeSuccessResponse(res, [], "SUCCESS");
+        serializeSuccessResponse(res, [], "SUCCESS");
+        return
       }
       MyLogger.info(action, { query });
       const results = await GetCostCenterInfoMediator.searchCostCenters(query);

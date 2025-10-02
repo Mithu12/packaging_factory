@@ -108,7 +108,7 @@ class CustomerOrdersController {
     try {
       const action = "POST /api/factory/customer-orders/:id/approve";
       MyLogger.info(action, { orderId: req.params.id, approvalData: req.body });
-      const orderId = req.params.id;
+      const orderId = Number(req.params.id);
       const approvalData: ApproveOrderRequest = req.body;
       const userId = (req as any).user?.user_id || '1'; // Get from authenticated user
       
@@ -135,7 +135,7 @@ class CustomerOrdersController {
     try {
       const action = "POST /api/factory/customer-orders/:id/status";
       MyLogger.info(action, { orderId: req.params.id, statusData: req.body });
-      const orderId = req.params.id;
+      const orderId = Number(req.params.id);
       const statusData: UpdateOrderStatusRequest = req.body;
       const userId = (req as any).user?.user_id || '1'; // Get from authenticated user
       

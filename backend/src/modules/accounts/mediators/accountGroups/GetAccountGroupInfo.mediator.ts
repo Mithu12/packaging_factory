@@ -91,7 +91,7 @@ class GetAccountGroupInfoMediator implements MediatorInterface {
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM account_groups ${whereClause}
-        ORDER BY ${sortBy === 'parentId' ? 'parent_id' : sortBy} ${sortOrder.toUpperCase()}
+        ORDER BY ${ sortBy} ${sortOrder.toUpperCase()}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
