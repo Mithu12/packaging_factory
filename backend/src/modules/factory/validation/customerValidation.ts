@@ -37,5 +37,5 @@ export const updateCustomerSchema = Joi.object({
 
 // Customer ID validation schema
 export const customerIdSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: Joi.number().integer().positive().required(),
 });

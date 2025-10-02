@@ -24,9 +24,9 @@ export enum FactoryCustomerOrderPaymentTerms {
   ADVANCE = 'advance',
 }
 export interface FactoryCustomerOrder {
-  id: string;
+  id: number;
   order_number: string;
-  factory_customer_id: string;
+  factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone: string;
@@ -53,9 +53,9 @@ export interface FactoryCustomerOrder {
 }
 
 export interface OrderLineItem {
-  id: string;
-  order_id: string;
-  product_id: string;
+  id: number;
+  order_id: number;
+  product_id: number;
   product_name: string;
   product_sku: string;
   description?: string;
@@ -83,7 +83,7 @@ export interface Address {
 }
 
 export interface FactoryCustomer {
-  id: string;
+  id: number;
   name: string;
   email: string;
   phone: string;
@@ -97,7 +97,7 @@ export interface FactoryCustomer {
 }
 
 export interface FactoryProduct {
-  id: string;
+  id: number;
   name: string;
   sku: string;
   description?: string;
@@ -112,7 +112,7 @@ export interface FactoryProduct {
 
 // Request/Response Types
 export interface CreateCustomerOrderRequest {
-  factory_customer_id: string;
+  factory_customer_id: number;
   required_date: string;
   priority: FactoryCustomerOrderPriority;
   notes?: string;
@@ -124,7 +124,7 @@ export interface CreateCustomerOrderRequest {
 }
 
 export interface CreateOrderLineItemRequest {
-  product_id: string;
+  product_id: number;
   quantity: number;
   unit_price: number;
   discount_percentage?: number;
@@ -145,8 +145,8 @@ export interface UpdateCustomerOrderRequest {
 }
 
 export interface UpdateOrderLineItemRequest {
-  id?: string;
-  product_id: string;
+  id?: number;
+  product_id: number;
   quantity: number;
   unit_price: number;
   discount_percentage?: number;
@@ -170,7 +170,7 @@ export interface OrderStats {
 export interface OrderFilter {
   status?: string;
   priority?: string;
-  factory_customer_id?: string;
+  factory_customer_id?: number;
   date_from?: string;
   date_to?: string;
   sales_person?: string;
@@ -182,7 +182,7 @@ export interface OrderQueryParams {
   search?: string;
   status?: string;
   priority?: string;
-  factory_customer_id?: string;
+  factory_customer_id?: number;
   date_from?: string;
   date_to?: string;
   sales_person?: string;
@@ -191,22 +191,22 @@ export interface OrderQueryParams {
 }
 
 export interface ApproveOrderRequest {
-  order_id: string;
+  order_id: number;
   approved: boolean;
   notes?: string;
 }
 
 export interface UpdateOrderStatusRequest {
-  order_id: string;
+  order_id: number;
   status: FactoryCustomerOrderStatus;
   notes?: string;
 }
 
 // Database result types
 export interface CustomerOrderRow {
-  id: string;
+  id: number;
   order_number: string;
-  factory_customer_id: string;
+  factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone: string;
@@ -232,9 +232,9 @@ export interface CustomerOrderRow {
 }
 
 export interface OrderLineItemRow {
-  id: string;
-  order_id: string;
-  product_id: string;
+  id: number;
+  order_id: number;
+  product_id: number;
   product_name: string;
   product_sku: string;
   description?: string;

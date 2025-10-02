@@ -21,9 +21,9 @@ export type FactoryCustomerOrderStatus =
 export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface FactoryCustomerOrder {
-  id: string;
+  id: number;
   order_number: string;
-  factory_customer_id: string;
+  factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone?: string;
@@ -65,7 +65,7 @@ export interface Address {
 }
 
 export interface FactoryCustomer {
-  id: string;
+  id: number;
   name: string;
   email: string;
   phone?: string;
@@ -99,7 +99,7 @@ export interface UpdateCustomerRequest {
 }
 
 export interface FactoryProduct {
-  id: string;
+  id: number;
   name: string;
   sku: string;
   description?: string;
@@ -113,7 +113,7 @@ export interface FactoryProduct {
 
 // Request/Response Types
 export interface CreateCustomerOrderRequest {
-  factory_customer_id: string;
+  factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone?: string;
@@ -131,7 +131,7 @@ export interface CreateCustomerOrderRequest {
 }
 
 export interface CreateOrderLineItemRequest {
-  product_id: string;
+  product_id: number;
   // factory_product_name: string;
   // factory_product_sku: string;
   quantity: number;
