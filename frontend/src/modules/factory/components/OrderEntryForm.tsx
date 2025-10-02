@@ -37,6 +37,7 @@ import {
   OrderPriority,
   CreateOrderLineItemRequest,
 } from "../services/customer-orders-api";
+import { useFormatting } from "@/hooks/useFormatting";
 
 // Form validation schema
 const orderFormSchema = z.object({
@@ -46,7 +47,7 @@ const orderFormSchema = z.object({
   order_date: z.string().min(1, "Order date is required"),
   required_date: z.string().min(1, "Required date is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
-  currency: z.string().default("USD"),
+  currency: z.string().default("BDT"),
   sales_person: z.string().min(1, "Sales person is required"),
   notes: z.string().optional(),
   line_items: z.array(z.object({
@@ -74,7 +75,8 @@ export default function OrderEntryForm({
   onSubmit,
 }: OrderEntryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const { formatCurrency } = useFormatting();
+  
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
@@ -84,7 +86,7 @@ export default function OrderEntryForm({
       order_date: new Date().toISOString().split('T')[0],
       required_date: "",
       priority: "medium",
-      currency: "USD",
+      currency: "BDT",
       sales_person: "",
       notes: "",
       line_items: [
@@ -135,7 +137,7 @@ export default function OrderEntryForm({
         order_date: new Date().toISOString().split('T')[0],
         required_date: "",
         priority: "medium",
-        currency: "USD",
+        currency: "BDT",
         sales_person: "",
         notes: "",
         line_items: [
@@ -204,6 +206,7 @@ export default function OrderEntryForm({
   const calculateLineTotal = (quantity: number, unitPrice: number) => {
     return quantity * unitPrice;
   };
+
 
   const calculateOrderTotal = () => {
     const lineItems = form.watch("line_items");
@@ -378,10 +381,7 @@ export default function OrderEntryForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="USD">USD</SelectItem>
-                            <SelectItem value="EUR">EUR</SelectItem>
-                            <SelectItem value="GBP">GBP</SelectItem>
-                            <SelectItem value="CAD">CAD</SelectItem>
+                            <SelectItem value="BDT">BDT</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -518,10 +518,10 @@ export default function OrderEntryForm({
                       />
                       <div className="flex items-end">
                         <div className="text-sm text-muted-foreground">
-                          Line Total: ${calculateLineTotal(
-                            form.watch(`line_items.${index}.quantity`),
-                            form.watch(`line_items.${index}.unit_price`)
-                          ).toFixed(2)}
+                          Line Total: {formatCurrency(calculateLineTotal(
+                            form.watch(`line_items.${index}.quantity`) as number,
+                            form.watch(`line_items.${index}.unit_price`) as number
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -538,7 +538,7 @@ export default function OrderEntryForm({
               <CardContent>
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Total Order Value:</span>
-                  <span>${calculateOrderTotal().toFixed(2)} {form.watch("currency")}</span>
+                  <span>{formatCurrency(calculateOrderTotal())}</span>
                 </div>
               </CardContent>
             </Card>
