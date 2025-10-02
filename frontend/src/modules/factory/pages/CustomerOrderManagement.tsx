@@ -48,20 +48,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import type {
-  CustomerOrder,
-  OrderStats,
-  OrderSearch,
-} from "../types/customer-orders";
-import { OrderEntryForm } from "../components/OrderEntryForm";
-import { OrderDetailsDialog } from "../components/OrderDetailsDialog";
-import { 
-  CustomerOrdersApiService, 
+import {
+  CustomerOrdersApiService,
   FactoryCustomerOrder,
+  FactoryCustomerOrderStatus,
   OrderStats as ApiOrderStats,
   OrderQueryParams,
   CreateCustomerOrderRequest
 } from "../services/customer-orders-api";
+import OrderEntryForm from "../components/OrderEntryForm";
+import OrderDetailsDialog from "../components/OrderDetailsDialog";
 
 export default function CustomerOrderManagement() {
   const { formatCurrency, formatDate } = useFormatting();
@@ -103,7 +99,7 @@ export default function CustomerOrderManagement() {
       
       const queryParams: OrderQueryParams = {
         ...search,
-        status: statusFilter !== "all" ? statusFilter : undefined,
+        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : undefined,
       };
       
       const response = await CustomerOrdersApiService.getCustomerOrders(queryParams);
@@ -178,7 +174,7 @@ export default function CustomerOrderManagement() {
   // Handle order status update
   const handleStatusUpdate = async (orderId: string, status: string, notes?: string) => {
     try {
-      await CustomerOrdersApiService.updateOrderStatus(orderId, status, notes);
+      await CustomerOrdersApiService.updateOrderStatus(orderId, status as FactoryCustomerOrderStatus, notes);
       await loadOrders(); // Reload orders
       await loadStats(); // Reload stats
     } catch (err) {
@@ -493,20 +489,21 @@ export default function CustomerOrderManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Order Entry Dialog - TODO: Update to work with new API types */}
-      {/* <OrderEntryForm
+      {/* Order Entry Dialog */}
+      <OrderEntryForm
         open={showOrderEntry}
         onOpenChange={setShowOrderEntry}
         order={selectedOrder}
         onSubmit={handleOrderSubmit}
-      /> */}
+      />
 
-      {/* Order Details Dialog - TODO: Update to work with new API types */}
-      {/* <OrderDetailsDialog
+      {/* Order Details Dialog */}
+      <OrderDetailsDialog
         open={showOrderDetails}
         onOpenChange={setShowOrderDetails}
         order={selectedOrder}
-      /> */}
+        onEdit={handleEditOrder}
+      />
     </div>
   );
 }

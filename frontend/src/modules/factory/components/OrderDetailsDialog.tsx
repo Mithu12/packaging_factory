@@ -1,8 +1,4 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -19,486 +19,372 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  User,
-  MapPin,
-  DollarSign,
   Calendar,
   Clock,
+  DollarSign,
+  Mail,
+  Phone,
+  User,
   Package,
   FileText,
-  CheckCircle,
-  AlertTriangle,
   Edit,
+  Printer,
   Download,
-  Send,
 } from "lucide-react";
+import { FactoryCustomerOrder } from "../services/customer-orders-api";
 import { useFormatting } from "@/hooks/useFormatting";
-import type { CustomerOrder } from "../types/customer-orders";
 
 interface OrderDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  order: CustomerOrder | null;
+  order: FactoryCustomerOrder | null;
+  onEdit?: (order: FactoryCustomerOrder) => void;
 }
 
-export function OrderDetailsDialog({
+export default function OrderDetailsDialog({
   open,
   onOpenChange,
   order,
+  onEdit,
 }: OrderDetailsDialogProps) {
   const { formatCurrency, formatDate } = useFormatting();
-  const [activeTab, setActiveTab] = useState("overview");
 
   if (!order) return null;
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "draft":
-        return "bg-gray-100 text-gray-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "quoted":
-        return "bg-blue-100 text-blue-800";
-      case "approved":
-        return "bg-green-100 text-green-800";
-      case "rejected":
-        return "bg-red-100 text-red-800";
-      case "in_production":
-        return "bg-purple-100 text-purple-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "shipped":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    const colors = {
+      pending: "bg-yellow-100 text-yellow-800",
+      quoted: "bg-blue-100 text-blue-800",
+      approved: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
+      in_production: "bg-purple-100 text-purple-800",
+      completed: "bg-emerald-100 text-emerald-800",
+      shipped: "bg-indigo-100 text-indigo-800",
+      cancelled: "bg-gray-100 text-gray-800",
+    };
+    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800";
-      case "high":
-        return "bg-orange-100 text-orange-800";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "low":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    const colors = {
+      low: "bg-green-100 text-green-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      high: "bg-orange-100 text-orange-800",
+      urgent: "bg-red-100 text-red-800",
+    };
+    return colors[priority as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  const calculateLineTotal = (item: any) => {
-    const discountAmount = item.discountPercentage
-      ? (item.unitPrice * item.quantity * item.discountPercentage) / 100
-      : 0;
-    return item.unitPrice * item.quantity - discountAmount;
+  const calculateLineTotal = (quantity: number, unitPrice: number) => {
+    return quantity * unitPrice;
   };
 
-  const calculateOrderTotal = () => {
-    return order.lineItems.reduce(
-      (total, item) => total + calculateLineTotal(item),
-      0
-    );
+  const handlePrint = () => {
+    window.print();
   };
 
-  const handleApproveOrder = () => {
-    // In real app, this would call an API
-    console.log("Approving order:", order.id);
-  };
+  const handleDownload = () => {
+    // Create a simple text representation of the order
+    const orderText = `
+Order Details
+=============
 
-  const handleRejectOrder = () => {
-    // In real app, this would call an API
-    console.log("Rejecting order:", order.id);
-  };
+Order Number: ${order.order_number}
+Customer: ${order.factory_customer_name}
+Email: ${order.factory_customer_email}
+Phone: ${order.factory_customer_phone || 'N/A'}
+Order Date: ${formatDate(order.order_date)}
+Required Date: ${formatDate(order.required_date)}
+Status: ${order.status.replace('_', ' ').toUpperCase()}
+Priority: ${order.priority.toUpperCase()}
+Sales Person: ${order.sales_person}
 
-  const handleSendQuote = () => {
-    // In real app, this would call an API
-    console.log("Sending quote for order:", order.id);
+Line Items:
+-----------
+${order.line_items.map((item, index) => `
+${index + 1}. ${item.factory_product_name} (${item.factory_product_sku})
+   Quantity: ${item.quantity}
+   Unit Price: ${formatCurrency(item.unit_price)}
+   Total: ${formatCurrency(calculateLineTotal(item.quantity, item.unit_price))}
+   ${item.notes ? `Notes: ${item.notes}` : ''}
+`).join('')}
+
+Total Order Value: ${formatCurrency(order.total_value)} ${order.currency}
+
+${order.notes ? `Notes: ${order.notes}` : ''}
+    `.trim();
+
+    const blob = new Blob([orderText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `order-${order.order_number}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Order Details - {order.orderNumber}</span>
-            <div className="flex gap-2">
-              <Badge className={getStatusColor(order.status)}>
-                {order.status.replace("_", " ").toUpperCase()}
-              </Badge>
-              <Badge className={getPriorityColor(order.priority)}>
-                {order.priority.toUpperCase()}
-              </Badge>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl">Order Details</DialogTitle>
+              <DialogDescription>
+                Order #{order.order_number} - {order.factory_customer_name}
+              </DialogDescription>
             </div>
-          </DialogTitle>
-          <DialogDescription>
-            View and manage order details, line items, and customer information
-          </DialogDescription>
+            <div className="flex space-x-2">
+              <Button variant="outline" size="sm" onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              {onEdit && (
+                <Button size="sm" onClick={() => onEdit(order)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-4"
-        >
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="line-items">Line Items</TabsTrigger>
-            <TabsTrigger value="customer">Customer Info</TabsTrigger>
-            <TabsTrigger value="shipping">Shipping & Billing</TabsTrigger>
-            <TabsTrigger value="actions">Actions</TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          {/* Order Status and Priority */}
+          <div className="flex items-center space-x-4">
+            <Badge className={getStatusColor(order.status)}>
+              {order.status.replace("_", " ").toUpperCase()}
+            </Badge>
+            <Badge className={getPriorityColor(order.priority)}>
+              {order.priority.toUpperCase()} PRIORITY
+            </Badge>
+          </div>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Order Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Order Number:</span>
-                    <span className="text-sm">{order.orderNumber}</span>
+          {/* Customer Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Customer Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Name</div>
+                  <div className="text-lg font-semibold">{order.factory_customer_name}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Customer ID</div>
+                  <div>{order.factory_customer_id}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{order.factory_customer_email}</span>
+                </div>
+                {order.factory_customer_phone && (
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{order.factory_customer_phone}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Order Date:</span>
-                    <span className="text-sm">
-                      {formatDate(order.orderDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Required Date:</span>
-                    <span className="text-sm">
-                      {formatDate(order.requiredDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Sales Person:</span>
-                    <span className="text-sm">{order.salesPerson}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Payment Terms:</span>
-                    <span className="text-sm">
-                      {order.paymentTerms.replace("_", " ").toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Total Value:</span>
-                    <span className="text-sm font-bold">
-                      {formatCurrency(order.totalValue)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Customer Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+          {/* Order Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                Order Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Order Number</div>
+                  <div className="text-lg font-semibold">{order.order_number}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Sales Person</div>
+                  <div>{order.sales_person}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Currency</div>
+                  <div>{order.currency}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <span className="text-sm font-medium">Customer Name:</span>
-                    <p className="text-sm">{order.customerName}</p>
+                    <div className="text-sm font-medium text-muted-foreground">Order Date</div>
+                    <div>{formatDate(order.order_date)}</div>
                   </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <span className="text-sm font-medium">Email:</span>
-                    <p className="text-sm">{order.customerEmail}</p>
+                    <div className="text-sm font-medium text-muted-foreground">Required Date</div>
+                    <div>{formatDate(order.required_date)}</div>
                   </div>
-                  <div>
-                    <span className="text-sm font-medium">Phone:</span>
-                    <p className="text-sm">{order.customerPhone}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </div>
+              {order.notes && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Notes</div>
+                  <div className="bg-muted p-3 rounded-md text-sm">{order.notes}</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {order.notes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{order.notes}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {order.terms && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Terms & Conditions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{order.terms}</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="line-items" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Line Items ({order.lineItems.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Unit Price</TableHead>
-                      <TableHead>Discount</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Delivery Date</TableHead>
-                      <TableHead>Optional</TableHead>
+          {/* Order Items */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Package className="h-5 w-5 mr-2" />
+                Order Items ({order.line_items.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.line_items.map((item, index) => (
+                    <TableRow key={item.id || index}>
+                      <TableCell className="font-medium">
+                        {item.factory_product_name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{item.factory_product_sku}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.unit_price)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(calculateLineTotal(item.quantity, item.unit_price))}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {item.notes || "-"}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {order.lineItems.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {item.productName}
-                            </div>
-                            {item.description && (
-                              <div className="text-sm text-muted-foreground">
-                                {item.description}
-                              </div>
-                            )}
-                            {item.specifications && (
-                              <div className="text-sm text-muted-foreground mt-1">
-                                <strong>Specs:</strong> {item.specifications}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{item.productSku}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <span>{item.quantity}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {item.unitOfMeasure}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                        <TableCell>
-                          {item.discountPercentage
-                            ? `${item.discountPercentage}%`
-                            : "0%"}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatCurrency(calculateLineTotal(item))}
-                        </TableCell>
-                        <TableCell>
-                          {item.deliveryDate
-                            ? formatDate(item.deliveryDate)
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={item.isOptional ? "outline" : "default"}
-                          >
-                            {item.isOptional ? "Optional" : "Required"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-center text-lg font-bold">
-                  <span>Order Total:</span>
-                  <span>{formatCurrency(calculateOrderTotal())}</span>
+          {/* Order Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <DollarSign className="h-5 w-5 mr-2" />
+                Order Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(order.total_value)}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="customer" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Customer Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm font-medium">Customer ID:</span>
-                    <p className="text-sm">{order.customerId}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Customer Name:</span>
-                    <p className="text-sm">{order.customerName}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Email:</span>
-                    <p className="text-sm">{order.customerEmail}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">Phone:</span>
-                    <p className="text-sm">{order.customerPhone}</p>
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax:</span>
+                  <span>-</span>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <div className="flex justify-between text-sm">
+                  <span>Shipping:</span>
+                  <span>-</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between text-lg font-semibold">
+                  <span>Total:</span>
+                  <span>{formatCurrency(order.total_value)} {order.currency}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="shipping" className="space-y-4">
+          {/* Addresses */}
+          {(order.billing_address || order.shipping_address) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Shipping Address
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm">{order.shippingAddress.street}</p>
-                  <p className="text-sm">
-                    {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
-                    {order.shippingAddress.postalCode}
-                  </p>
-                  <p className="text-sm">{order.shippingAddress.country}</p>
-                  {order.shippingAddress.contactName && (
-                    <div className="mt-2 pt-2 border-t">
-                      <p className="text-sm font-medium">
-                        Contact: {order.shippingAddress.contactName}
-                      </p>
-                      {order.shippingAddress.contactPhone && (
-                        <p className="text-sm">
-                          Phone: {order.shippingAddress.contactPhone}
-                        </p>
-                      )}
+              {order.billing_address && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Billing Address</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm space-y-1">
+                      <div>{order.billing_address.street}</div>
+                      <div>
+                        {order.billing_address.city}, {order.billing_address.state} {order.billing_address.postal_code}
+                      </div>
+                      <div>{order.billing_address.country}</div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Billing Address
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <p className="text-sm">{order.billingAddress.street}</p>
-                  <p className="text-sm">
-                    {order.billingAddress.city}, {order.billingAddress.state}{" "}
-                    {order.billingAddress.postalCode}
-                  </p>
-                  <p className="text-sm">{order.billingAddress.country}</p>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
+              {order.shipping_address && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Shipping Address</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm space-y-1">
+                      <div>{order.shipping_address.street}</div>
+                      <div>
+                        {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
+                      </div>
+                      <div>{order.shipping_address.country}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="actions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Status Actions</h4>
-                    <div className="flex gap-2">
-                      {order.status === "pending" && (
-                        <>
-                          <Button
-                            onClick={handleApproveOrder}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Approve Order
-                          </Button>
-                          <Button
-                            onClick={handleRejectOrder}
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Reject Order
-                          </Button>
-                        </>
-                      )}
-                      {order.status === "quoted" && (
-                        <Button
-                          onClick={handleSendQuote}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Quote
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Document Actions</h4>
-                    <div className="flex gap-2">
-                      <Button variant="outline">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                      </Button>
-                      <Button variant="outline">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Order
-                      </Button>
-                    </div>
-                  </div>
+          {/* Timestamps */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Order History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Created</div>
+                  <div>{formatDate(order.created_at)}</div>
                 </div>
-
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Order History</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Created:</span>
-                      <span>
-                        {formatDate(order.createdDate)} by {order.createdBy}
-                      </span>
-                    </div>
-                    {order.updatedDate && (
-                      <div className="flex justify-between text-sm">
-                        <span>Last Updated:</span>
-                        <span>
-                          {formatDate(order.updatedDate)} by {order.updatedBy}
-                        </span>
-                      </div>
-                    )}
-                    {order.approvedDate && (
-                      <div className="flex justify-between text-sm">
-                        <span>Approved:</span>
-                        <span>
-                          {formatDate(order.approvedDate)} by {order.approvedBy}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <div className="text-muted-foreground">Last Updated</div>
+                  <div>{formatDate(order.updated_at)}</div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        {/* Dialog Actions */}
+        <div className="flex justify-end space-x-4 pt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>

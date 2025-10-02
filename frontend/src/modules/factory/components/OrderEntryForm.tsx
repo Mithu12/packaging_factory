@@ -1,7 +1,21 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -10,866 +24,541 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Trash2, Search } from "lucide-react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
-  Plus,
-  Trash2,
-  Package,
-  User,
-  MapPin,
-  DollarSign,
-  Calendar,
-  AlertCircle,
-} from "lucide-react";
-import { useFormatting } from "@/hooks/useFormatting";
-import type {
-  CustomerOrder,
-  Customer,
-  Product,
-  CreateOrderRequest,
-} from "../types/customer-orders";
+  FactoryCustomerOrder,
+  CreateCustomerOrderRequest,
+  OrderPriority,
+  CreateOrderLineItemRequest,
+} from "../services/customer-orders-api";
+
+// Form validation schema
+const orderFormSchema = z.object({
+  factory_customer_name: z.string().min(1, "Customer name is required"),
+  factory_customer_email: z.string().email("Valid email is required"),
+  factory_customer_phone: z.string().optional(),
+  order_date: z.string().min(1, "Order date is required"),
+  required_date: z.string().min(1, "Required date is required"),
+  priority: z.enum(["low", "medium", "high", "urgent"]),
+  currency: z.string().default("USD"),
+  sales_person: z.string().min(1, "Sales person is required"),
+  notes: z.string().optional(),
+  line_items: z.array(z.object({
+    factory_product_name: z.string().min(1, "Product name is required"),
+    factory_product_sku: z.string().min(1, "Product SKU is required"),
+    quantity: z.number().min(1, "Quantity must be at least 1"),
+    unit_price: z.number().min(0, "Unit price must be positive"),
+    notes: z.string().optional(),
+  })).min(1, "At least one line item is required"),
+});
+
+type OrderFormData = z.infer<typeof orderFormSchema>;
 
 interface OrderEntryFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  order?: CustomerOrder | null;
-  onSubmit: (orderData: CreateOrderRequest) => void;
+  order?: FactoryCustomerOrder | null;
+  onSubmit: (data: CreateCustomerOrderRequest) => Promise<void>;
 }
 
-export function OrderEntryForm({
+export default function OrderEntryForm({
   open,
   onOpenChange,
   order,
   onSubmit,
 }: OrderEntryFormProps) {
-  const { formatCurrency, formatDate } = useFormatting();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  const [formData, setFormData] = useState<CreateOrderRequest>({
-    customerId: "",
-    requiredDate: "",
-    priority: "medium",
-    notes: "",
-    terms: "",
-    paymentTerms: "net_30",
-    shippingAddress: {
-      street: "",
-      city: "",
-      state: "",
-      postalCode: "",
-      country: "",
-      contactName: "",
-      contactPhone: "",
-    },
-    billingAddress: {
-      street: "",
-      city: "",
-      state: "",
-      postalCode: "",
-      country: "",
-    },
-    lineItems: [],
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setCustomers([
-      {
-        id: "CUST-001",
-        name: "ABC Manufacturing Ltd",
-        email: "orders@abcmanufacturing.com",
-        phone: "+1-555-0123",
-        company: "ABC Manufacturing Ltd",
-        address: {
-          street: "123 Industrial Blvd",
-          city: "Detroit",
-          state: "MI",
-          postalCode: "48201",
-          country: "USA",
-        },
-        creditLimit: 100000,
-        paymentTerms: "net_30",
-        isActive: true,
-      },
-      {
-        id: "CUST-002",
-        name: "XYZ Industries",
-        email: "procurement@xyzindustries.com",
-        phone: "+1-555-0125",
-        company: "XYZ Industries",
-        address: {
-          street: "456 Commerce St",
-          city: "Chicago",
-          state: "IL",
-          postalCode: "60601",
-          country: "USA",
-        },
-        creditLimit: 75000,
-        paymentTerms: "net_15",
-        isActive: true,
-      },
-    ]);
-
-    setProducts([
-      {
-        id: "PROD-001",
-        name: "Premium Widget A",
-        sku: "PWA-001",
-        description: "High-quality premium widget",
-        unitPrice: 30,
-        unitOfMeasure: "pcs",
-        isActive: true,
-        stockQuantity: 1000,
-        leadTimeDays: 5,
-      },
-      {
-        id: "PROD-002",
-        name: "Standard Widget B",
-        sku: "SWB-002",
-        description: "Standard quality widget",
-        unitPrice: 20,
-        unitOfMeasure: "pcs",
-        isActive: true,
-        stockQuantity: 2000,
-        leadTimeDays: 3,
-      },
-      {
-        id: "PROD-003",
-        name: "Custom Widget C",
-        sku: "CWC-003",
-        description: "Custom manufactured widget",
-        unitPrice: 40,
-        unitOfMeasure: "pcs",
-        isActive: true,
-        stockQuantity: 500,
-        leadTimeDays: 7,
-      },
-    ]);
-
-    if (order) {
-      // Populate form with existing order data
-      setFormData({
-        customerId: order.customerId,
-        requiredDate: order.requiredDate,
-        priority: order.priority,
-        notes: order.notes || "",
-        terms: order.terms || "",
-        paymentTerms: order.paymentTerms,
-        shippingAddress: order.shippingAddress,
-        billingAddress: order.billingAddress,
-        lineItems: order.lineItems.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discountPercentage: item.discountPercentage,
-          specifications: item.specifications,
-          deliveryDate: item.deliveryDate,
-          isOptional: item.isOptional,
-        })),
-      });
-      setSelectedCustomer(
-        customers.find((c) => c.id === order.customerId) || null
-      );
-    } else {
-      // Reset form for new order
-      setFormData({
-        customerId: "",
-        requiredDate: "",
-        priority: "medium",
-        notes: "",
-        terms: "",
-        paymentTerms: "net_30",
-        shippingAddress: {
-          street: "",
-          city: "",
-          state: "",
-          postalCode: "",
-          country: "",
-          contactName: "",
-          contactPhone: "",
-        },
-        billingAddress: {
-          street: "",
-          city: "",
-          state: "",
-          postalCode: "",
-          country: "",
-        },
-        lineItems: [],
-      });
-      setSelectedCustomer(null);
-    }
-  }, [order, customers]);
-
-  const handleCustomerSelect = (customerId: string) => {
-    const customer = customers.find((c) => c.id === customerId);
-    setSelectedCustomer(customer || null);
-    setFormData((prev) => ({
-      ...prev,
-      customerId,
-      paymentTerms: customer?.paymentTerms || "net_30",
-      shippingAddress: customer
-        ? {
-            ...customer.address,
-            contactName: customer.name,
-            contactPhone: customer.phone,
-          }
-        : prev.shippingAddress,
-      billingAddress: customer ? customer.address : prev.billingAddress,
-    }));
-  };
-
-  const handleAddLineItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      lineItems: [
-        ...prev.lineItems,
+  const form = useForm<OrderFormData>({
+    resolver: zodResolver(orderFormSchema),
+    defaultValues: {
+      factory_customer_name: "",
+      factory_customer_email: "",
+      factory_customer_phone: "",
+      order_date: new Date().toISOString().split('T')[0],
+      required_date: "",
+      priority: "medium",
+      currency: "USD",
+      sales_person: "",
+      notes: "",
+      line_items: [
         {
-          productId: "",
+          factory_product_name: "",
+          factory_product_sku: "",
           quantity: 1,
-          unitPrice: 0,
-          isOptional: false,
+          unit_price: 0,
+          notes: "",
         },
       ],
-    }));
-  };
+    },
+  });
 
-  const handleRemoveLineItem = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      lineItems: prev.lineItems.filter((_, i) => i !== index),
-    }));
-  };
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "line_items",
+  });
 
-  const handleLineItemChange = (index: number, field: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      lineItems: prev.lineItems.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      ),
-    }));
-  };
+  // Reset form when order changes
+  useEffect(() => {
+    if (order) {
+      // Editing existing order
+      form.reset({
+        factory_customer_name: order.factory_customer_name,
+        factory_customer_email: order.factory_customer_email,
+        factory_customer_phone: order.factory_customer_phone || "",
+        order_date: order.order_date.split('T')[0],
+        required_date: order.required_date.split('T')[0],
+        priority: order.priority,
+        currency: order.currency,
+        sales_person: order.sales_person,
+        notes: order.notes || "",
+        line_items: order.line_items.map(item => ({
+          factory_product_name: item.factory_product_name,
+          factory_product_sku: item.factory_product_sku,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          notes: item.notes || "",
+        })),
+      });
+    } else {
+      // Creating new order
+      form.reset({
+        factory_customer_name: "",
+        factory_customer_email: "",
+        factory_customer_phone: "",
+        order_date: new Date().toISOString().split('T')[0],
+        required_date: "",
+        priority: "medium",
+        currency: "USD",
+        sales_person: "",
+        notes: "",
+        line_items: [
+          {
+            factory_product_name: "",
+            factory_product_sku: "",
+            quantity: 1,
+            unit_price: 0,
+            notes: "",
+          },
+        ],
+      });
+    }
+  }, [order, form]);
 
-  const handleProductSelect = (index: number, productId: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (product) {
-      handleLineItemChange(index, "productId", productId);
-      handleLineItemChange(index, "unitPrice", product.unitPrice);
+  const handleSubmit = async (data: OrderFormData) => {
+    try {
+      setIsSubmitting(true);
+      
+      const orderData: CreateCustomerOrderRequest = {
+        factory_customer_id: order?.factory_customer_id || `CUST-${Date.now()}`, // Generate temp ID for new customers
+        factory_customer_name: data.factory_customer_name,
+        factory_customer_email: data.factory_customer_email,
+        factory_customer_phone: data.factory_customer_phone,
+        order_date: data.order_date,
+        required_date: data.required_date,
+        priority: data.priority,
+        currency: data.currency,
+        sales_person: data.sales_person,
+        notes: data.notes,
+        line_items: data.line_items.map(item => ({
+          factory_product_id: `PROD-${Date.now()}-${Math.random()}`, // Generate temp ID
+          factory_product_name: item.factory_product_name,
+          factory_product_sku: item.factory_product_sku,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          notes: item.notes,
+        })),
+      };
+
+      await onSubmit(orderData);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error submitting order:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const calculateLineTotal = (item: any) => {
-    const discountAmount = item.discountPercentage
-      ? (item.unitPrice * item.quantity * item.discountPercentage) / 100
-      : 0;
-    return item.unitPrice * item.quantity - discountAmount;
+  const addLineItem = () => {
+    append({
+      factory_product_name: "",
+      factory_product_sku: "",
+      quantity: 1,
+      unit_price: 0,
+      notes: "",
+    });
+  };
+
+  const removeLineItem = (index: number) => {
+    if (fields.length > 1) {
+      remove(index);
+    }
+  };
+
+  const calculateLineTotal = (quantity: number, unitPrice: number) => {
+    return quantity * unitPrice;
   };
 
   const calculateOrderTotal = () => {
-    return formData.lineItems.reduce(
-      (total, item) => total + calculateLineTotal(item),
-      0
-    );
+    const lineItems = form.watch("line_items");
+    return lineItems.reduce((total, item) => {
+      return total + (item.quantity * item.unit_price);
+    }, 0);
   };
 
-  const handleSubmit = () => {
-    if (!formData.customerId || formData.lineItems.length === 0) {
-      alert("Please select a customer and add at least one line item");
-      return;
-    }
-
-    onSubmit(formData);
-  };
-
-  const copyShippingToBilling = () => {
-    setFormData((prev) => ({
-      ...prev,
-      billingAddress: prev.shippingAddress,
-    }));
+  const priorityColors = {
+    low: "bg-green-100 text-green-800",
+    medium: "bg-yellow-100 text-yellow-800",
+    high: "bg-orange-100 text-orange-800",
+    urgent: "bg-red-100 text-red-800",
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{order ? "Edit Order" : "Create New Order"}</DialogTitle>
+          <DialogTitle>
+            {order ? "Edit Customer Order" : "Create New Customer Order"}
+          </DialogTitle>
           <DialogDescription>
-            {order
-              ? "Update order details and line items"
-              : "Enter customer order information"}
+            {order 
+              ? `Edit order ${order.order_number}` 
+              : "Fill in the details to create a new customer order"
+            }
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="order-info" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="order-info">Order Information</TabsTrigger>
-            <TabsTrigger value="line-items">Line Items</TabsTrigger>
-            <TabsTrigger value="shipping">Shipping & Billing</TabsTrigger>
-          </TabsList>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            {/* Customer Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Customer Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="factory_customer_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter customer name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="factory_customer_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="customer@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="factory_customer_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter phone number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-          <TabsContent value="order-info" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customer">Customer *</Label>
-                <Select
-                  value={formData.customerId}
-                  onValueChange={handleCustomerSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedCustomer && (
-                  <div className="p-3 bg-gray-50 rounded-md">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4" />
-                      <span className="font-medium">
-                        {selectedCustomer.name}
-                      </span>
+            {/* Order Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Order Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="order_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Date *</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="required_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Required Date *</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">
+                              <Badge className={priorityColors.low}>Low</Badge>
+                            </SelectItem>
+                            <SelectItem value="medium">
+                              <Badge className={priorityColors.medium}>Medium</Badge>
+                            </SelectItem>
+                            <SelectItem value="high">
+                              <Badge className={priorityColors.high}>High</Badge>
+                            </SelectItem>
+                            <SelectItem value="urgent">
+                              <Badge className={priorityColors.urgent}>Urgent</Badge>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="sales_person"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sales Person *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter sales person name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Currency</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="GBP">GBP</SelectItem>
+                            <SelectItem value="CAD">CAD</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Enter any additional notes or requirements" 
+                          className="resize-none" 
+                          rows={3}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Line Items */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">Order Items</CardTitle>
+                <Button type="button" onClick={addLineItem} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Item {index + 1}</h4>
+                      {fields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeLineItem(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      <p>Email: {selectedCustomer.email}</p>
-                      <p>Phone: {selectedCustomer.phone}</p>
-                      <p>
-                        Credit Limit:{" "}
-                        {formatCurrency(selectedCustomer.creditLimit || 0)}
-                      </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`line_items.${index}.factory_product_name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product Name *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter product name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`line_items.${index}.factory_product_sku`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>SKU *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter SKU" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`line_items.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Quantity *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="1"
+                                placeholder="0"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`line_items.${index}.unit_price`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Unit Price *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name={`line_items.${index}.notes`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Item Notes</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter item-specific notes" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex items-end">
+                        <div className="text-sm text-muted-foreground">
+                          Line Total: ${calculateLineTotal(
+                            form.watch(`line_items.${index}.quantity`),
+                            form.watch(`line_items.${index}.unit_price`)
+                          ).toFixed(2)}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
+                ))}
+              </CardContent>
+            </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="required-date">Required Date *</Label>
-                <Input
-                  id="required-date"
-                  type="date"
-                  value={formData.requiredDate}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      requiredDate: e.target.value,
-                    }))
-                  }
-                />
-              </div>
+            {/* Order Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center text-lg font-semibold">
+                  <span>Total Order Value:</span>
+                  <span>${calculateOrderTotal().toFixed(2)} {form.watch("currency")}</span>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, priority: value as any }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-terms">Payment Terms</Label>
-                <Select
-                  value={formData.paymentTerms}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      paymentTerms: value as any,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="net_15">Net 15</SelectItem>
-                    <SelectItem value="net_30">Net 30</SelectItem>
-                    <SelectItem value="net_45">Net 45</SelectItem>
-                    <SelectItem value="net_60">Net 60</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="advance">Advance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional notes about this order..."
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="terms">Terms & Conditions</Label>
-              <Textarea
-                id="terms"
-                placeholder="Terms and conditions for this order..."
-                value={formData.terms}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, terms: e.target.value }))
-                }
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="line-items" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Line Items</h3>
-              <Button onClick={handleAddLineItem} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
+            {/* Form Actions */}
+            <div className="flex justify-end space-x-4 pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : order ? "Update Order" : "Create Order"}
               </Button>
             </div>
-
-            <div className="space-y-4">
-              {formData.lineItems.map((item, index) => (
-                <Card key={index}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-medium">Line Item {index + 1}</h4>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveLineItem(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Product *</Label>
-                        <Select
-                          value={item.productId}
-                          onValueChange={(value) =>
-                            handleProductSelect(index, value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} ({product.sku}) -{" "}
-                                {formatCurrency(product.unitPrice)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Quantity *</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            handleLineItemChange(
-                              index,
-                              "quantity",
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Unit Price *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) =>
-                            handleLineItemChange(
-                              index,
-                              "unitPrice",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Discount %</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={item.discountPercentage || 0}
-                          onChange={(e) =>
-                            handleLineItemChange(
-                              index,
-                              "discountPercentage",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Delivery Date</Label>
-                        <Input
-                          type="date"
-                          value={item.deliveryDate || ""}
-                          onChange={(e) =>
-                            handleLineItemChange(
-                              index,
-                              "deliveryDate",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Optional</Label>
-                        <Select
-                          value={item.isOptional ? "true" : "false"}
-                          onValueChange={(value) =>
-                            handleLineItemChange(
-                              index,
-                              "isOptional",
-                              value === "true"
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="false">Required</SelectItem>
-                            <SelectItem value="true">Optional</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mt-4">
-                      <Label>Specifications</Label>
-                      <Textarea
-                        placeholder="Product specifications or special requirements..."
-                        value={item.specifications || ""}
-                        onChange={(e) =>
-                          handleLineItemChange(
-                            index,
-                            "specifications",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Line Total:</span>
-                        <span className="font-bold">
-                          {formatCurrency(calculateLineTotal(item))}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {formData.lineItems.length > 0 && (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-center text-lg font-bold">
-                    <span>Order Total:</span>
-                    <span>{formatCurrency(calculateOrderTotal())}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="shipping" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Shipping Address
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="shipping-street">Street Address *</Label>
-                    <Input
-                      id="shipping-street"
-                      value={formData.shippingAddress.street}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          shippingAddress: {
-                            ...prev.shippingAddress,
-                            street: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-city">City *</Label>
-                      <Input
-                        id="shipping-city"
-                        value={formData.shippingAddress.city}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              city: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-state">State *</Label>
-                      <Input
-                        id="shipping-state"
-                        value={formData.shippingAddress.state}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              state: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-postal">Postal Code *</Label>
-                      <Input
-                        id="shipping-postal"
-                        value={formData.shippingAddress.postalCode}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              postalCode: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-country">Country *</Label>
-                      <Input
-                        id="shipping-country"
-                        value={formData.shippingAddress.country}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              country: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-contact">Contact Name</Label>
-                      <Input
-                        id="shipping-contact"
-                        value={formData.shippingAddress.contactName || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              contactName: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shipping-phone">Contact Phone</Label>
-                      <Input
-                        id="shipping-phone"
-                        value={formData.shippingAddress.contactPhone || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            shippingAddress: {
-                              ...prev.shippingAddress,
-                              contactPhone: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Billing Address
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyShippingToBilling}
-                      className="ml-auto"
-                    >
-                      Copy from Shipping
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="billing-street">Street Address *</Label>
-                    <Input
-                      id="billing-street"
-                      value={formData.billingAddress.street}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          billingAddress: {
-                            ...prev.billingAddress,
-                            street: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="billing-city">City *</Label>
-                      <Input
-                        id="billing-city"
-                        value={formData.billingAddress.city}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            billingAddress: {
-                              ...prev.billingAddress,
-                              city: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billing-state">State *</Label>
-                      <Input
-                        id="billing-state"
-                        value={formData.billingAddress.state}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            billingAddress: {
-                              ...prev.billingAddress,
-                              state: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="billing-postal">Postal Code *</Label>
-                      <Input
-                        id="billing-postal"
-                        value={formData.billingAddress.postalCode}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            billingAddress: {
-                              ...prev.billingAddress,
-                              postalCode: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billing-country">Country *</Label>
-                      <Input
-                        id="billing-country"
-                        value={formData.billingAddress.country}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            billingAddress: {
-                              ...prev.billingAddress,
-                              country: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>
-            {order ? "Update Order" : "Create Order"}
-          </Button>
-        </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

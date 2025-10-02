@@ -24,7 +24,7 @@ const orderLineItemSchema = Joi.object({
 
 // Create customer order validation schema
 export const createCustomerOrderSchema = Joi.object({
-  factory_customer_id: Joi.string().uuid().required(),
+  factory_customer_id: Joi.string().required(),
   required_date: Joi.date().iso().greater('now').required(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').required(),
   notes: Joi.string().max(2000).optional().allow(''),
