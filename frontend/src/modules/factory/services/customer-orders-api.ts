@@ -92,7 +92,6 @@ export interface UpdateCustomerRequest {
   name?: string;
   email?: string;
   phone?: string;
-  company?: string;
   address?: Address;
   credit_limit?: number;
   payment_terms?: string;
@@ -106,6 +105,8 @@ export interface FactoryProduct {
   description?: string;
   unit_price: number;
   currency: string;
+  current_stock?: number;
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -116,21 +117,23 @@ export interface CreateCustomerOrderRequest {
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone?: string;
+  payment_terms?: string;
   order_date: string;
   required_date: string;
   priority: OrderPriority;
   currency: string;
   sales_person: string;
   notes?: string;
+  terms?: string;
   billing_address?: Address;
   shipping_address?: Address;
   line_items: CreateOrderLineItemRequest[];
 }
 
 export interface CreateOrderLineItemRequest {
-  factory_product_id: string;
-  factory_product_name: string;
-  factory_product_sku: string;
+  product_id: string;
+  // factory_product_name: string;
+  // factory_product_sku: string;
   quantity: number;
   unit_price: number;
   notes?: string;
@@ -140,12 +143,14 @@ export interface UpdateCustomerOrderRequest {
   factory_customer_name?: string;
   factory_customer_email?: string;
   factory_customer_phone?: string;
+  payment_terms?: string;
   order_date?: string;
   required_date?: string;
   priority?: OrderPriority;
   currency?: string;
   sales_person?: string;
   notes?: string;
+  terms?: string;
   billing_address?: Address;
   shipping_address?: Address;
   line_items?: UpdateOrderLineItemRequest[];

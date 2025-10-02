@@ -13,7 +13,7 @@ const addressSchema = Joi.object({
 
 // Order line item validation schema
 const orderLineItemSchema = Joi.object({
-  product_id: Joi.string().uuid().required(),
+  product_id: Joi.string().required(),
   quantity: Joi.number().positive().required(),
   unit_price: Joi.number().min(0).precision(2).required(),
   discount_percentage: Joi.number().min(0).max(100).precision(2).optional(),
@@ -48,8 +48,8 @@ export const createCustomerOrderSchema = Joi.object({
 
 // Update order line item validation schema
 const updateOrderLineItemSchema = Joi.object({
-  id: Joi.string().uuid().optional(),
-  product_id: Joi.string().uuid().required(),
+  id: Joi.string().optional(),
+  product_id: Joi.string().required(),
   quantity: Joi.number().positive().required(),
   unit_price: Joi.number().min(0).precision(2).required(),
   discount_percentage: Joi.number().min(0).max(100).precision(2).optional(),
@@ -77,7 +77,7 @@ export const orderQuerySchema = Joi.object({
   search: Joi.string().max(255).optional().allow(''),
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
-  factory_customer_id: Joi.string().uuid().optional(),
+  factory_customer_id: Joi.string().optional(),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
   sales_person: Joi.string().max(255).optional(),
@@ -95,26 +95,26 @@ export const orderQuerySchema = Joi.object({
 
 // Approve order validation schema
 export const approveOrderSchema = Joi.object({
-  order_id: Joi.string().uuid().required(),
+  order_id: Joi.string().required(),
   approved: Joi.boolean().required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
 // Update order status validation schema
 export const updateOrderStatusSchema = Joi.object({
-  order_id: Joi.string().uuid().required(),
+  order_id: Joi.string().required(),
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
 // Order ID parameter validation
 export const orderIdSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: Joi.string().required(),
 });
 
 // Bulk operations validation
 export const bulkUpdateOrderStatusSchema = Joi.object({
-  order_ids: Joi.array().items(Joi.string().uuid()).min(1).max(50).required(),
+  order_ids: Joi.array().items(Joi.string()).min(1).max(50).required(),
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
@@ -125,7 +125,7 @@ export const exportOrdersSchema = Joi.object({
   status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
-  factory_customer_id: Joi.string().uuid().optional(),
+  factory_customer_id: Joi.string().optional(),
 }).custom((value, helpers) => {
   // Validate date range
   if (value.date_from && value.date_to && new Date(value.date_from) > new Date(value.date_to)) {

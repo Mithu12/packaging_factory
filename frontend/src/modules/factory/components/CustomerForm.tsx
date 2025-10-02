@@ -141,8 +141,8 @@ function CustomerForm({
         phone: data.phone || undefined,
         company: data.company || undefined,
         credit_limit: data.credit_limit || undefined,
-        payment_terms: data.payment_terms || "net_30",
-        is_active: data.is_active,
+        payment_terms: data.payment_terms || "net_30", // Always provide payment_terms
+        is_active: data.is_active !== undefined ? data.is_active : true,
         address: data.address && (
           data.address.street || 
           data.address.city || 

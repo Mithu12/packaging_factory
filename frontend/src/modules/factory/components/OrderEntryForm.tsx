@@ -126,6 +126,7 @@ export default function OrderEntryForm({
     try {
       setLoadingProducts(true);
       const data = await CustomerOrdersApiService.getAllProducts();
+      console.log('Loaded products:', data);
       setProducts(data);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -199,24 +200,36 @@ export default function OrderEntryForm({
       
       const orderData: CreateCustomerOrderRequest = {
         factory_customer_id: data.factory_customer_id,
-        factory_customer_name: selectedCustomer?.name || "",
-        factory_customer_email: selectedCustomer?.email || "",
-        factory_customer_phone: selectedCustomer?.phone,
-        order_date: data.order_date,
+          payment_terms: selectedCustomer?.payment_terms,
+          shipping_address: {
+            city: selectedCustomer?.address.city,
+            state: selectedCustomer?.address.state,
+            country: selectedCustomer?.address.country,
+            street: selectedCustomer?.address.street,
+            postal_code: selectedCustomer?.address.postal_code,
+          },
+          billing_address: {
+            city: selectedCustomer?.address.city,
+            state: selectedCustomer?.address.state,
+            country: selectedCustomer?.address.country,
+            street: selectedCustomer?.address.street,
+            postal_code: selectedCustomer?.address.postal_code,
+          },
+        // order_date: data.order_date,
         required_date: data.required_date,
         priority: data.priority,
-        currency: data.currency,
-        sales_person: data.sales_person,
+        // currency: data.currency,
+        // sales_person: data.sales_person,
         notes: data.notes,
         line_items: data.line_items.map(item => {
           const selectedProduct = products.find(p => p.id === item.factory_product_id);
           return {
-            factory_product_id: item.factory_product_id,
-            factory_product_name: selectedProduct?.name || "",
-            factory_product_sku: selectedProduct?.sku || "",
+            product_id: item.factory_product_id,
+            // product_name: selectedProduct?.name || "",
+            // product_sku: selectedProduct?.sku || "",
             quantity: item.quantity,
             unit_price: item.unit_price,
-            notes: item.notes,
+            specifications: item.notes,
           };
         }),
       };
@@ -258,7 +271,9 @@ export default function OrderEntryForm({
 
   // Get product details for display
   const getProductDetails = (productId: string) => {
-    return products.find(p => p.id === productId);
+    const product = products.find(p => p.id.toString() === productId.toString());
+    console.log('Getting product details for ID:', productId, 'Found:', product, 'All products:', products);
+    return product;
   };
 
   const priorityColors = {
@@ -498,7 +513,7 @@ export default function OrderEntryForm({
                                   console.log(value)
                                 field.onChange(value);
                                 // Auto-fill unit price when product is selected
-                                const selectedProduct = products.find(p => p.id === value);
+                                const selectedProduct = products.find(p => p.id.toString() === value.toString());
                                 if (selectedProduct) {
                                   form.setValue(`line_items.${index}.unit_price`, selectedProduct.unit_price);
                                 }
@@ -512,7 +527,7 @@ export default function OrderEntryForm({
                               </FormControl>
                               <SelectContent>
                                 {products.map((product) => (
-                                  <SelectItem key={product.id} value={product.id}>
+                                  <SelectItem key={product.id} value={product.id.toString()}>
                                     <div className="flex flex-col">
                                       <span className="font-medium">{product.name}</span>
                                       <span className="text-sm text-muted-foreground">
@@ -529,16 +544,24 @@ export default function OrderEntryForm({
                       />
                       
                       {form.watch(`line_items.${index}.factory_product_id`) && (
-                        <div className="bg-muted p-3 rounded-md">
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
                           {(() => {
-                            const selectedProduct = getProductDetails(form.watch(`line_items.${index}.factory_product_id`));
+                            const productId = form.watch(`line_items.${index}.factory_product_id`);
+                            const selectedProduct = getProductDetails(productId);
                             return selectedProduct ? (
                               <div className="space-y-1 text-sm">
                                 <div><strong>Product:</strong> {selectedProduct.name}</div>
                                 <div><strong>SKU:</strong> {selectedProduct.sku}</div>
                                 <div><strong>Unit Price:</strong> {formatCurrency(selectedProduct.unit_price)}</div>
+                                {selectedProduct.current_stock !== undefined && (
+                                  <div><strong>Stock:</strong> {selectedProduct.current_stock}</div>
+                                )}
                               </div>
-                            ) : null;
+                            ) : (
+                              <div className="text-sm text-red-600">
+                                Product not found (ID: {productId})
+                              </div>
+                            );
                           })()}
                         </div>
                       )}
