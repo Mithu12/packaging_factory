@@ -181,6 +181,12 @@ const menuSections: MenuSection[] = [
         permission: null,
       },
       {
+        title: "Factory Management",
+        url: "/factory/management",
+        icon: Building2,
+        permission: null,
+      },
+      {
         title: "Customer Orders",
         url: "/factory/customer-orders",
         icon: ShoppingCart,

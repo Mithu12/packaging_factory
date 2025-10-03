@@ -1,14 +1,41 @@
 // Factory Module Types
 
+// Backend-aligned Factory Types
 export interface Factory {
   id: string;
   name: string;
-  location: string;
-  managers: string[];
-  status: "active" | "inactive" | "maintenance";
-  createdDate: string;
-  capacity: number;
-  currentLoad: number;
+  code: string;
+  description?: string;
+  address: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  contact_name?: string;
+  contact_phone?: string;
+}
+
+export interface UserFactoryRole {
+  id: string;
+  user_id: number;
+  factory_id: string;
+  role: "manager" | "worker" | "viewer";
+  is_primary: boolean;
+  username: string;
+  full_name: string;
+  email: string;
+  factory_name: string;
+  factory_code: string;
 }
 
 export interface Warehouse {
@@ -221,9 +248,29 @@ export interface DowntimeReason {
 // API Request/Response Types
 export interface CreateFactoryRequest {
   name: string;
-  location: string;
-  managers: string[];
-  capacity: number;
+  code: string;
+  description?: string;
+  address: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+}
+
+export interface UpdateFactoryRequest {
+  name?: string;
+  code?: string;
+  description?: string;
+  address?: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+  is_active?: boolean;
+}
+
+export interface AssignUserToFactoryRequest {
+  userId: number;
+  role: "manager" | "worker" | "viewer";
+  isPrimary?: boolean;
 }
 
 export interface CreateWarehouseRequest {

@@ -6,6 +6,7 @@ export { CategoryApi } from '../modules/inventory/services/category-api';
 export { ProductApi } from '../modules/inventory/services/product-api';
 export { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
 export { SettingsApi } from './settings-api';
+export { FactoriesAPI } from '../modules/factory/services/factories-api';
 
 // Export all types
 export * from './types';

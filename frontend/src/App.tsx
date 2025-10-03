@@ -83,6 +83,7 @@ import MaterialAllocation from "@/modules/factory/pages/MaterialAllocation";
 import EnhancedWorkOrderPlanning from "@/modules/factory/pages/EnhancedWorkOrderPlanning";
 import MaterialCostAnalysis from "@/modules/factory/pages/MaterialCostAnalysis";
 import RawMaterialsManagement from "@/modules/factory/pages/RawMaterialsManagement";
+import FactoryManagement from "./modules/factory/pages/FactoryManagement";
 
 const queryClient = new QueryClient();
 
@@ -451,6 +452,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <FactoryDashboard />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/management"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <FactoryManagement />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
