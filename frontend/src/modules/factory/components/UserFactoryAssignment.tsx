@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,7 @@ import { Plus, Trash2, Search, UserPlus, Crown, Eye, Wrench } from 'lucide-react
 import { FactoriesAPI } from '../services/factories-api';
 import { Factory, UserFactoryRole, AssignUserToFactoryRequest } from '../types';
 import { useToast } from '@/hooks/use-toast';
+import { AuthApi, User } from '@/services/auth-api';
 
 interface UserFactoryAssignmentProps {
   factory: Factory;
@@ -55,10 +56,13 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
   onSuccess,
 }) => {
   const [assignments, setAssignments] = useState<UserFactoryRole[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [removingAssignment, setRemovingAssignment] = useState<UserFactoryRole | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newAssignment, setNewAssignment] = useState<AssignUserToFactoryRequest>({
     userId: 0,
     role: 'worker',
@@ -66,7 +70,7 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
   });
   const { toast } = useToast();
 
-  const loadAssignments = async () => {
+  const loadAssignments = useCallback(async () => {
     try {
       setLoading(true);
       const response = await FactoriesAPI.getUserFactories();
@@ -84,31 +88,57 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [factory.id, toast]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setLoadingUsers(true);
+      const allUsers = await AuthApi.getAllUsers();
+      // Filter out inactive users and sort by name
+      const activeUsers = allUsers
+        .filter(user => user.is_active)
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+      setUsers(activeUsers);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to load users',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (open && factory) {
       loadAssignments();
+      loadUsers();
     }
-  }, [open, factory, toast]);
+  }, [open, factory, loadAssignments, loadUsers]);
 
   const handleAssignUser = async () => {
-    if (!newAssignment.userId) {
+    if (!selectedUser) {
       toast({
         title: 'Error',
-        description: 'Please enter a valid user ID',
+        description: 'Please select a user',
         variant: 'destructive',
       });
       return;
     }
 
     try {
-      await FactoriesAPI.assignUserToFactory(factory.id, newAssignment);
+      await FactoriesAPI.assignUserToFactory(factory.id, {
+        userId: selectedUser.id,
+        role: newAssignment.role,
+        isPrimary: newAssignment.isPrimary,
+      });
       toast({
         title: 'Success',
-        description: `User assigned to factory "${factory.name}" successfully`,
+        description: `${selectedUser.full_name} assigned to factory "${factory.name}" as ${newAssignment.role}`,
       });
       setShowAssignDialog(false);
+      setSelectedUser(null);
       setNewAssignment({ userId: 0, role: 'worker', isPrimary: false });
       loadAssignments();
       onSuccess();
@@ -119,6 +149,12 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
         variant: 'destructive',
       });
     }
+  };
+
+  const handleAssignDialogClose = () => {
+    setShowAssignDialog(false);
+    setSelectedUser(null);
+    setNewAssignment({ userId: 0, role: 'worker', isPrimary: false });
   };
 
   const handleRemoveAssignment = async (assignment: UserFactoryRole) => {
@@ -286,17 +322,29 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="userId">User ID</Label>
-              <Input
-                id="userId"
-                type="number"
-                placeholder="Enter user ID"
-                value={newAssignment.userId || ''}
-                onChange={(e) => setNewAssignment(prev => ({
-                  ...prev,
-                  userId: parseInt(e.target.value) || 0
-                }))}
-              />
+              <Label htmlFor="user">Select User</Label>
+              <Select
+                value={selectedUser?.id.toString() || ''}
+                onValueChange={(value) => {
+                  const user = users.find(u => u.id.toString() === value);
+                  setSelectedUser(user || null);
+                }}
+                disabled={loadingUsers}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a user"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{user.full_name}</span>
+                        <span className="text-sm text-gray-500">@{user.username} • {user.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -348,7 +396,7 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+            <Button variant="outline" onClick={handleAssignDialogClose}>
               Cancel
             </Button>
             <Button onClick={handleAssignUser}>
