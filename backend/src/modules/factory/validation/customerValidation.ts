@@ -15,6 +15,7 @@ export const createCustomerSchema = Joi.object({
   }).optional(),
   credit_limit: Joi.number().min(0).optional(),
   payment_terms: Joi.string().valid('net_15', 'net_30', 'net_45', 'net_60', 'cash_on_delivery', 'advance_payment').default('net_30'),
+   is_active: Joi.boolean().optional(),
 });
 
 // Update customer validation schema

@@ -25,7 +25,7 @@ class CustomersController {
           updated_at
         FROM factory_customers 
         WHERE is_active = true
-        ORDER BY name
+        ORDER BY id desc
       `;
       
       const result = await pool.query(query);
