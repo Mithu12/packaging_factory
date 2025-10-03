@@ -99,7 +99,7 @@ class CustomerOrdersController {
       const orderId = req.params.id;
       const updateData: UpdateCustomerOrderRequest = {
         ...req.body,
-        factory_id: req.user?.factory_id
+        // factory_id: req.user?.factory_id
       };
       const userId = req.user?.user_id; // Get from authenticated user
       const result = await UpdateCustomerOrderInfoMediator.updateCustomerOrder(orderId, updateData, userId!.toString());

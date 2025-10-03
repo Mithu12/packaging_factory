@@ -66,6 +66,11 @@ const updateOrderLineItemSchema = Joi.object({
 // Update customer order validation schema
 export const updateCustomerOrderSchema = Joi.object({
   factory_customer_id: Joi.number().integer().positive().optional(),
+factory_id:Joi.string(),
+  factory_customer_name: Joi.string().max(255).required(),
+factory_customer_email: Joi.string().email().required(),
+factory_customer_phone: Joi.string().max(20).required(),
+order_date:Joi.allow(),
   required_date: Joi.date().iso().greater('now').optional(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
   notes: Joi.string().max(2000).optional().allow(''),
