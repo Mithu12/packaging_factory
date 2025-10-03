@@ -1,5 +1,41 @@
 // Factory Module Types
 
+// Factory Types
+export interface Factory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  address: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFactoryRequest {
+  name: string;
+  code: string;
+  description?: string;
+  address: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+}
+
+export interface UpdateFactoryRequest {
+  name?: string;
+  code?: string;
+  description?: string;
+  address?: Address;
+  phone?: string;
+  email?: string;
+  manager_id?: number;
+  is_active?: boolean;
+}
+
 export enum FactoryCustomerOrderStatus {
   DRAFT = 'draft',
   PENDING = 'pending',

@@ -6,6 +6,23 @@ import {
     OrderLineItem
 } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
+
+// Helper function to get user's accessible factories
+async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
+  const query = 'SELECT * FROM get_user_factories($1)';
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+}
+
+// Helper function to check if user is admin
+async function isUserAdmin(userId: number): Promise<boolean> {
+  const query = 'SELECT role_id FROM users WHERE id = $1';
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return false;
+
+  // Assuming role_id 1 is admin based on common patterns
+  return result.rows[0].role_id === 1;
+}
 export class AddCustomerOrderMediator {
   static async generateOrderNumber(): Promise<string> {
     const action = "AddCustomerOrderMediator.generateOrderNumber";
@@ -93,6 +110,22 @@ export class AddCustomerOrderMediator {
         lineItemsCount: orderData.line_items.length,
         userId
       });
+
+      // Get user's accessible factories for factory access control
+      const currentUserId = parseInt(userId);
+      let userFactories: string[] = [];
+      if (currentUserId) {
+        const isAdmin = await isUserAdmin(currentUserId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(currentUserId);
+          userFactories = factories.map(f => f.factory_id);
+
+          // If no factories are accessible, deny access
+          if (userFactories.length === 0) {
+            throw new Error('No factories accessible to user');
+          }
+        }
+      }
 
       // Validate references
       await this.validateReferences(orderData);

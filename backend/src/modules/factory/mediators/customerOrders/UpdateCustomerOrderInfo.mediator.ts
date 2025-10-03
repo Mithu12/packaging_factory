@@ -2,6 +2,23 @@ import pool from "@/database/connection";
 import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 
+// Helper function to get user's accessible factories
+async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
+  const query = 'SELECT * FROM get_user_factories($1)';
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+}
+
+// Helper function to check if user is admin
+async function isUserAdmin(userId: number): Promise<boolean> {
+  const query = 'SELECT role_id FROM users WHERE id = $1';
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return false;
+
+  // Assuming role_id 1 is admin based on common patterns
+  return result.rows[0].role_id === 1;
+}
+
 export class UpdateCustomerOrderInfoMediator {
   static async updateCustomerOrder(
     orderId: string,
@@ -16,12 +33,31 @@ export class UpdateCustomerOrderInfoMediator {
 
       MyLogger.info(action, { orderId, userId, updateFields: Object.keys(updateData) });
 
-      // Check if order exists and get current data
-      const existingOrderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      const existingOrderResult = await client.query(existingOrderQuery, [orderId]);
-      
+      // Get user's accessible factories for filtering
+      const currentUserId = parseInt(userId);
+      let userFactories: string[] = [];
+      if (currentUserId) {
+        const isAdmin = await isUserAdmin(currentUserId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(currentUserId);
+          userFactories = factories.map(f => f.factory_id);
+        }
+      }
+
+      // Check if order exists and get current data, with factory access control
+      let existingOrderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+      let queryParams: any[] = [orderId];
+
+      if (currentUserId && userFactories.length > 0) {
+        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+        existingOrderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+        queryParams.push(...userFactories);
+      }
+
+      const existingOrderResult = await client.query(existingOrderQuery, queryParams);
+
       if (existingOrderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${orderId} not found`);
+        throw new Error(`Customer order with ID ${orderId} not found or access denied`);
       }
 
       const existingOrder = existingOrderResult.rows[0];
@@ -195,18 +231,37 @@ export class UpdateCustomerOrderInfoMediator {
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { 
-        orderId: approvalData.order_id, 
-        approved: approvalData.approved, 
-        userId 
+      MyLogger.info(action, {
+        orderId: approvalData.order_id,
+        approved: approvalData.approved,
+        userId
       });
 
-      // Check if order exists and is in correct status
-      const orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      const orderResult = await client.query(orderQuery, [approvalData.order_id]);
-      
+      // Get user's accessible factories for filtering
+      const currentUserId = parseInt(userId);
+      let userFactories: string[] = [];
+      if (currentUserId) {
+        const isAdmin = await isUserAdmin(currentUserId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(currentUserId);
+          userFactories = factories.map(f => f.factory_id);
+        }
+      }
+
+      // Check if order exists and is in correct status, with factory access control
+      let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+      let queryParams: any[] = [approvalData.order_id];
+
+      if (currentUserId && userFactories.length > 0) {
+        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+        orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+        queryParams.push(...userFactories);
+      }
+
+      const orderResult = await client.query(orderQuery, queryParams);
+
       if (orderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${approvalData.order_id} not found`);
+        throw new Error(`Customer order with ID ${approvalData.order_id} not found or access denied`);
       }
 
       const order = orderResult.rows[0];
@@ -270,18 +325,37 @@ export class UpdateCustomerOrderInfoMediator {
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { 
-        orderId: statusData.order_id, 
-        newStatus: statusData.status, 
-        userId 
+      MyLogger.info(action, {
+        orderId: statusData.order_id,
+        newStatus: statusData.status,
+        userId
       });
 
-      // Check if order exists
-      const orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      const orderResult = await client.query(orderQuery, [statusData.order_id]);
-      
+      // Get user's accessible factories for filtering
+      const currentUserId = parseInt(userId);
+      let userFactories: string[] = [];
+      if (currentUserId) {
+        const isAdmin = await isUserAdmin(currentUserId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(currentUserId);
+          userFactories = factories.map(f => f.factory_id);
+        }
+      }
+
+      // Check if order exists, with factory access control
+      let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+      let queryParams: any[] = [statusData.order_id];
+
+      if (currentUserId && userFactories.length > 0) {
+        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+        orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+        queryParams.push(...userFactories);
+      }
+
+      const orderResult = await client.query(orderQuery, queryParams);
+
       if (orderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${statusData.order_id} not found`);
+        throw new Error(`Customer order with ID ${statusData.order_id} not found or access denied`);
       }
 
       const order = orderResult.rows[0];

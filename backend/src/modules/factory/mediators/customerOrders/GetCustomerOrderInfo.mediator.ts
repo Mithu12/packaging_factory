@@ -2,8 +2,26 @@ import pool from "@/database/connection";
 import { FactoryCustomerOrder, OrderLineItem, OrderQueryParams, OrderStats } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 
+// Helper function to get user's accessible factories
+async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
+  const query = 'SELECT * FROM get_user_factories($1)';
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+}
+
+// Helper function to check if user is admin
+async function isUserAdmin(userId: number): Promise<boolean> {
+  const query = 'SELECT role_id FROM users WHERE id = $1';
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return false;
+
+  // Assuming role_id 1 is admin based on common patterns
+  // You might need to adjust this based on your actual role structure
+  return result.rows[0].role_id === 1;
+}
+
 export class GetCustomerOrderInfoMediator {
-  static async getCustomerOrders(params: OrderQueryParams = {}): Promise<{
+  static async getCustomerOrders(params: OrderQueryParams = {}, userId?: number): Promise<{
     orders: FactoryCustomerOrder[];
     total: number;
     page: number;
@@ -14,7 +32,17 @@ export class GetCustomerOrderInfoMediator {
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { params });
+      MyLogger.info(action, { params, userId });
+
+      // Get user's accessible factories
+      let userFactories: string[] = [];
+      if (userId) {
+        const isAdmin = await isUserAdmin(userId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(userId);
+          userFactories = factories.map(f => f.factory_id);
+        }
+      }
 
       const {
         page = 1,
@@ -36,6 +64,14 @@ export class GetCustomerOrderInfoMediator {
       let whereClause = 'WHERE 1=1';
       const queryParams: any[] = [];
       let paramIndex = 1;
+
+      // Add factory filtering for non-admin users
+      if (userId && userFactories.length > 0) {
+        const factoryIds = userFactories.map((_, index) => `$${paramIndex + index}`);
+        whereClause += ` AND co.factory_id IN (${factoryIds.join(', ')})`;
+        queryParams.push(...userFactories);
+        paramIndex += userFactories.length;
+      }
 
       if (search) {
         whereClause += ` AND (
@@ -202,15 +238,31 @@ MyLogger.info('asd================================', ordersResult.rows)
     }
   }
 
-  static async getCustomerOrderById(orderId: string): Promise<FactoryCustomerOrder | null> {
+  static async getCustomerOrderById(orderId: string, userId?: number): Promise<FactoryCustomerOrder | null> {
     const action = "GetCustomerOrderInfoMediator.getCustomerOrderById";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { orderId });
+      MyLogger.info(action, { orderId, userId });
+
+      // Get user's accessible factories for filtering
+      let factoryFilter = '';
+      const queryParams: any[] = [orderId];
+      if (userId) {
+        const isAdmin = await isUserAdmin(userId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(userId);
+          const userFactories = factories.map(f => f.factory_id);
+          if (userFactories.length > 0) {
+            const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+            factoryFilter = ` AND co.factory_id IN (${factoryIds.join(', ')})`;
+            queryParams.push(...userFactories);
+          }
+        }
+      }
 
       const query = `
-        SELECT 
+        SELECT
           co.*,
           COALESCE(
             json_agg(
@@ -237,11 +289,11 @@ MyLogger.info('asd================================', ordersResult.rows)
           ) as line_items
         FROM factory_customer_orders co
         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
-        WHERE co.id = $1
+        WHERE co.id = $1${factoryFilter}
         GROUP BY co.id
       `;
 
-      const result = await client.query(query, [orderId]);
+      const result = await client.query(query, queryParams);
 
       if (result.rows.length === 0) {
         MyLogger.info(action, { orderId, found: false });
@@ -296,15 +348,31 @@ MyLogger.info('asd================================', ordersResult.rows)
     }
   }
 
-  static async getOrderStats(): Promise<OrderStats> {
+  static async getOrderStats(userId?: number): Promise<OrderStats> {
     const action = "GetCustomerOrderInfoMediator.getOrderStats";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action);
+      MyLogger.info(action, { userId });
+
+      // Get user's accessible factories for filtering
+      let factoryFilter = '';
+      const queryParams: any[] = [];
+      if (userId) {
+        const isAdmin = await isUserAdmin(userId);
+        if (!isAdmin) {
+          const factories = await getUserFactories(userId);
+          const userFactories = factories.map(f => f.factory_id);
+          if (userFactories.length > 0) {
+            const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+            factoryFilter = ` AND factory_id IN (${factoryIds.join(', ')})`;
+            queryParams.push(...userFactories);
+          }
+        }
+      }
 
       const query = `
-        SELECT 
+        SELECT
           COUNT(*) as total_orders,
           COUNT(*) FILTER (WHERE status = 'pending') as pending_orders,
           COUNT(*) FILTER (WHERE status = 'quoted') as quoted_orders,
@@ -314,15 +382,15 @@ MyLogger.info('asd================================', ordersResult.rows)
           COALESCE(SUM(total_value), 0) as total_value,
           COALESCE(AVG(total_value), 0) as average_order_value,
           COALESCE(
-            COUNT(*) FILTER (WHERE status = 'completed' AND required_date >= order_date) * 100.0 / 
-            NULLIF(COUNT(*) FILTER (WHERE status = 'completed'), 0), 
+            COUNT(*) FILTER (WHERE status = 'completed' AND required_date >= order_date) * 100.0 /
+            NULLIF(COUNT(*) FILTER (WHERE status = 'completed'), 0),
             0
           ) as on_time_delivery
         FROM factory_customer_orders
-        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'${factoryFilter}
       `;
 
-      const result = await client.query(query);
+      const result = await client.query(query, queryParams);
       const row = result.rows[0];
 
       const stats: OrderStats = {
