@@ -102,7 +102,7 @@ Sales Person: ${order.sales_person}
 Line Items:
 -----------
 ${order.line_items.map((item, index) => `
-${index + 1}. ${item.factory_product_name} (${item.factory_product_sku})
+${index + 1}. ${item.product_name} (${item.product_sku})
    Quantity: ${item.quantity}
    Unit Price: ${formatCurrency(item.unit_price)}
    Total: ${formatCurrency(calculateLineTotal(item.quantity, item.unit_price))}
@@ -272,10 +272,10 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
                   {order.line_items.map((item, index) => (
                     <TableRow key={item.id || index}>
                       <TableCell className="font-medium">
-                        {item.factory_product_name}
+                        {item.product_name}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{item.factory_product_sku}</Badge>
+                        <Badge variant="outline">{item.product_sku}</Badge>
                       </TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-right">
@@ -376,7 +376,7 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
                 </div>
                 <div>
                   <div className="text-muted-foreground">Last Updated</div>
-                  <div>{formatDate(order.updated_at)}</div>
+                  <div>{order.updated_at && formatDate(order.updated_at)}</div>
                 </div>
               </div>
             </CardContent>

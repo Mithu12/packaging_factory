@@ -45,9 +45,9 @@ export interface FactoryCustomerOrder {
 export interface FactoryCustomerOrderLineItem {
   id: string;
   order_id: string;
-  factory_product_id: string;
-  factory_product_name: string;
-  factory_product_sku: string;
+  product_id: string;
+  product_name: string;
+  product_sku: string;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -132,8 +132,8 @@ export interface CreateCustomerOrderRequest {
 
 export interface CreateOrderLineItemRequest {
   product_id: number;
-  // factory_product_name: string;
-  // factory_product_sku: string;
+  // product_name: string;
+  // product_sku: string;
   quantity: number;
   unit_price: number;
   notes?: string;
@@ -158,9 +158,9 @@ export interface UpdateCustomerOrderRequest {
 
 export interface UpdateOrderLineItemRequest {
   id?: string;
-  factory_product_id: string;
-  factory_product_name: string;
-  factory_product_sku: string;
+  product_id: string | number;
+  // product_name: string;
+  // product_sku: string;
   quantity: number;
   unit_price: number;
   notes?: string;

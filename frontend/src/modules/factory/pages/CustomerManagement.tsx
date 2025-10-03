@@ -417,7 +417,7 @@ export default function CustomerManagement() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Address</label>
                   <div className="bg-muted p-3 rounded-md text-sm">
-                    {JSON.stringify(selectedCustomer.address, null, 2)}
+                    {selectedCustomer.address.street}, {selectedCustomer.address.city}, {selectedCustomer.address.state}, {selectedCustomer.address.postal_code}, {selectedCustomer.address.country}
                   </div>
                 </div>
               )}

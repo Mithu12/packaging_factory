@@ -243,7 +243,7 @@ export default function CustomerOrderManagement() {
     try {
       if (selectedOrder) {
         // Update existing order
-        await CustomerOrdersApiService.updateCustomerOrder(selectedOrder.id, orderData);
+        await CustomerOrdersApiService.updateCustomerOrder(selectedOrder.id.toString(), orderData);
       } else {
         // Create new order
         await CustomerOrdersApiService.createCustomerOrder(orderData);
