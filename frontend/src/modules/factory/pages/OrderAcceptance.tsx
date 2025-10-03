@@ -42,6 +42,7 @@ import {
   FactoryCustomerOrderStatus,
   OrderQueryParams,
   ApproveOrderRequest,
+  UpdateOrderStatusRequest,
 } from "../services/customer-orders-api";
 
 // Use the API types directly
@@ -104,14 +105,22 @@ export default function OrderAcceptance() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "accepted":
+      case "draft":
+        return "bg-gray-100 text-gray-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "quoted":
+        return "bg-blue-100 text-blue-800";
+      case "approved":
         return "bg-green-100 text-green-800";
       case "rejected":
         return "bg-red-100 text-red-800";
       case "in_production":
+        return "bg-purple-100 text-purple-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "shipped":
         return "bg-blue-100 text-blue-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -149,6 +158,26 @@ export default function OrderAcceptance() {
 
     setOrderLines(convertedOrderLines);
     setShowOrderDetails(true);
+  };
+
+  const handleSubmitForApproval = async (orderId: string) => {
+    try {
+      const statusRequest: UpdateOrderStatusRequest = {
+        status: "pending",
+        notes: "Submitted for approval",
+      };
+
+      await CustomerOrdersApiService.updateOrderStatus(orderId, "pending", "Submitted for approval");
+
+      // Reload orders to get updated status
+      await loadOrders();
+
+      // Show success message or handle accordingly
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit order for approval');
+      console.error('Error submitting for approval:', err);
+    }
   };
 
   const handleAcceptOrder = async (orderId: string) => {
@@ -198,7 +227,7 @@ export default function OrderAcceptance() {
         <div>
           <h1 className="text-3xl font-bold">Order Acceptance</h1>
           <p className="text-muted-foreground">
-            Review and accept customer orders for production
+            Manage order workflow: submit for approval, review and accept orders for production
           </p>
         </div>
         <div className="flex gap-2">
@@ -231,9 +260,10 @@ export default function OrderAcceptance() {
             <Tabs value={statusFilter} onValueChange={setStatusFilter}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="draft">Draft</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="accepted">Accepted</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                <TabsTrigger value="quoted">Quoted</TabsTrigger>
+                <TabsTrigger value="approved">Approved</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -333,7 +363,17 @@ export default function OrderAcceptance() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {order.status === "pending" && (
+                      {order.status === "draft" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSubmitForApproval(order.id.toString())}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          Submit for Approval
+                        </Button>
+                      )}
+                      {(order.status === "pending" || order.status === "quoted") && (
                         <>
                           <Button
                             variant="outline"
@@ -371,7 +411,10 @@ export default function OrderAcceptance() {
               Order Details - {selectedOrder?.order_number}
             </DialogTitle>
             <DialogDescription>
-              Review order details and accept or reject for production
+              {selectedOrder?.status === "draft"
+                ? "Review order details and submit for approval"
+                : "Review order details and accept or reject for production"
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -489,12 +532,21 @@ export default function OrderAcceptance() {
                 </CardContent>
               </Card>
 
-              {/* Acceptance Notes */}
+              {/* Action Notes */}
               <div className="space-y-2">
-                <Label htmlFor="acceptance-notes">Acceptance Notes</Label>
+                <Label htmlFor="acceptance-notes">
+                  {selectedOrder?.status === "draft"
+                    ? "Submission Notes (Optional)"
+                    : "Approval/Rejection Notes (Optional)"
+                  }
+                </Label>
                 <Textarea
                   id="acceptance-notes"
-                  placeholder="Add any notes about this order acceptance..."
+                  placeholder={
+                    selectedOrder?.status === "draft"
+                      ? "Add any notes when submitting for approval..."
+                      : "Add any notes about this approval decision..."
+                  }
                   value={acceptanceNotes}
                   onChange={(e) => setAcceptanceNotes(e.target.value)}
                 />
@@ -504,22 +556,34 @@ export default function OrderAcceptance() {
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowOrderDetails(false)}
+                  onClick={() => {
+                    setShowOrderDetails(false);
+                    setAcceptanceNotes("");
+                  }}
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleRejectOrder(selectedOrder.id.toString())}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Reject Order
-                </Button>
-                <Button onClick={() => handleAcceptOrder(selectedOrder.id.toString())}>
-                  <Check className="h-4 w-4 mr-2" />
-                  Accept Order
-                </Button>
+                {selectedOrder?.status === "draft" && (
+                  <Button onClick={() => handleSubmitForApproval(selectedOrder.id.toString())}>
+                    Submit for Approval
+                  </Button>
+                )}
+                {(selectedOrder?.status === "pending" || selectedOrder?.status === "quoted") && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRejectOrder(selectedOrder.id.toString())}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Reject Order
+                    </Button>
+                    <Button onClick={() => handleAcceptOrder(selectedOrder.id.toString())}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Accept Order
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}

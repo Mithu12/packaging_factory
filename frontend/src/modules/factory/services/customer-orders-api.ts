@@ -8,14 +8,15 @@ import { makeRequest } from '@/services/api-utils';
 // Types (matching backend types)
 // =====================================================
 
-export type FactoryCustomerOrderStatus = 
-  | 'pending' 
-  | 'quoted' 
-  | 'approved' 
-  | 'rejected' 
-  | 'in_production' 
-  | 'completed' 
-  | 'shipped' 
+export type FactoryCustomerOrderStatus =
+  | 'draft'
+  | 'pending'
+  | 'quoted'
+  | 'approved'
+  | 'rejected'
+  | 'in_production'
+  | 'completed'
+  | 'shipped'
   | 'cancelled';
 
 export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';

@@ -86,7 +86,7 @@ export const orderQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional().default(1),
   limit: Joi.number().integer().min(1).max(100).optional().default(20),
   search: Joi.string().max(255).optional().allow(''),
-  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
+  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled').optional(),
   priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
   factory_customer_id: Joi.number().integer().positive().optional(),
   date_from: Joi.date().iso().optional(),
@@ -112,8 +112,7 @@ export const approveOrderSchema = Joi.object({
 
 // Update order status validation schema
 export const updateOrderStatusSchema = Joi.object({
-  order_id: Joi.number().integer().positive().required(),
-  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').required(),
+  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled').required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
@@ -125,14 +124,14 @@ export const orderIdSchema = Joi.object({
 // Bulk operations validation
 export const bulkUpdateOrderStatusSchema = Joi.object({
   order_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(50).required(),
-  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').required(),
+  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled').required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
 // Export order validation schema
 export const exportOrdersSchema = Joi.object({
   format: Joi.string().valid('csv', 'excel', 'pdf').optional().default('csv'),
-  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped').optional(),
+  status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled').optional(),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
   factory_customer_id: Joi.number().integer().positive().optional(),

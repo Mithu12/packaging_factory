@@ -92,13 +92,13 @@ export class UpdateCustomerOrderInfoMediator {
 
       if (updateData.notes !== undefined) {
         updateFields.push(`notes = $${paramIndex}`);
-        updateValues.push(updateData.notes || null);
+        updateValues.push(updateData.notes && updateData.notes.trim() !== '' ? updateData.notes : null);
         paramIndex++;
       }
 
       if (updateData.terms !== undefined) {
         updateFields.push(`terms = $${paramIndex}`);
-        updateValues.push(updateData.terms || null);
+        updateValues.push(updateData.terms && updateData.terms.trim() !== '' ? updateData.terms : null);
         paramIndex++;
       }
 
@@ -169,14 +169,14 @@ export class UpdateCustomerOrderInfoMediator {
             item.product_id,
             product.name,
             product.sku,
-            item.specifications || null,
+            item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
             item.quantity,
             item.unit_price,
-            item.discount_percentage || null,
+            item.discount_percentage && item.discount_percentage > 0 ? item.discount_percentage : null,
             discountAmount,
             lineTotal,
             product.unit_of_measure,
-            item.specifications || null,
+            item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
             item.delivery_date ? new Date(item.delivery_date) : null,
             item.is_optional || false,
             new Date()
@@ -283,12 +283,9 @@ export class UpdateCustomerOrderInfoMediator {
           status = $1,
           approved_by = $2,
           approved_at = $3,
-          notes = CASE 
-            WHEN $4 IS NOT NULL THEN COALESCE(notes, '') || CASE WHEN notes IS NOT NULL THEN E'\n' ELSE '' END || $4
-            ELSE notes 
-          END,
           updated_by = $2,
-          updated_at = $3
+          updated_at = $3,
+          notes = $4
         WHERE id = $5
         RETURNING *
       `;
@@ -297,7 +294,7 @@ export class UpdateCustomerOrderInfoMediator {
         newStatus,
         userId,
         new Date(),
-        approvalData.notes || null,
+        approvalData.notes && approvalData.notes.trim() !== '' ? approvalData.notes : null,
         approvalData.order_id
       ];
 
@@ -386,10 +383,7 @@ export class UpdateCustomerOrderInfoMediator {
         UPDATE factory_customer_orders 
         SET 
           status = $1,
-          notes = CASE 
-            WHEN $2 IS NOT NULL THEN COALESCE(notes, '') || CASE WHEN notes IS NOT NULL THEN E'\n' ELSE '' END || $2
-            ELSE notes 
-          END,
+          notes = $2,
           updated_by = $3,
           updated_at = $4
         WHERE id = $5
@@ -398,7 +392,7 @@ export class UpdateCustomerOrderInfoMediator {
 
       const updateValues = [
         statusData.status,
-        statusData.notes || null,
+        statusData.notes && statusData.notes.trim() !== '' ? statusData.notes : null,
         userId,
         new Date(),
         statusData.order_id

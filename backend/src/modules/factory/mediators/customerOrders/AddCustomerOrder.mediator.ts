@@ -177,8 +177,8 @@ MyLogger.info('processedLineItems',processedLineItems)
         totalValue,
         'BDT', // Default currency
         userId, // sales_person is the current user
-        orderData.notes || null,
-        orderData.terms || null,
+        orderData.notes && orderData.notes.trim() !== '' ? orderData.notes : null,
+        orderData.terms && orderData.terms.trim() !== '' ? orderData.terms : null,
         orderData.payment_terms,
         JSON.stringify(orderData.shipping_address),
         JSON.stringify(orderData.billing_address),
@@ -214,14 +214,14 @@ MyLogger.info('processedLineItems',processedLineItems)
           item.product_id,
           product.name,
           product.sku,
-          item.specifications || null,
+          item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
           item.quantity,
           item.unit_price,
-          item.discount_percentage || null,
+          item.discount_percentage && item.discount_percentage > 0 ? item.discount_percentage : null,
           item.discount_amount,
           item.line_total,
           product.unit_of_measure,
-          item.specifications || null,
+          item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
           item.delivery_date ? new Date(item.delivery_date) : null,
           item.is_optional || false,
           new Date()
