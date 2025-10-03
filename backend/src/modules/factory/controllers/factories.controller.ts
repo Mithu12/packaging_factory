@@ -180,7 +180,7 @@ class FactoriesController {
       });
 
       const factoryId = req.params.factoryId;
-      const userId = req.params.userId;
+      const userId = parseInt(req.params.userId);
       const currentUserId = req.user?.user_id;
 
       await FactoryMediator.removeUserFromFactory(factoryId, userId, currentUserId);

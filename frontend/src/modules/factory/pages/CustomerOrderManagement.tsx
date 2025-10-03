@@ -253,8 +253,8 @@ export default function CustomerOrderManagement() {
       await loadOrders();
       await loadStats();
       
-      setShowOrderEntry(false);
-      setSelectedOrder(null);
+      // setShowOrderEntry(false);
+      // setSelectedOrder(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save order');
     }
@@ -413,6 +413,7 @@ export default function CustomerOrderManagement() {
                   <TableRow>
                     <TableHead>Order #</TableHead>
                     <TableHead>Customer</TableHead>
+                    <TableHead>Factory</TableHead>
                     <TableHead>Order Date</TableHead>
                     <TableHead>Required Date</TableHead>
                     <TableHead>Value</TableHead>
@@ -437,6 +438,9 @@ export default function CustomerOrderManagement() {
                             {order.factory_customer_email}
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.factory_name}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

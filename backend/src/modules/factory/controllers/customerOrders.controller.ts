@@ -70,11 +70,16 @@ class CustomerOrdersController {
   // Create new customer order
   async createCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      console.log('==============================================================================', req.user);
+      
       const action = "POST /api/factory/customer-orders";
       MyLogger.info(action, { orderData: req.body });
-      const orderData: CreateCustomerOrderRequest = req.body;
+      const orderData: CreateCustomerOrderRequest = {
+        ...req.body,
+        // factory_id: req.user?.factory_id
+      };
       const userId = req.user?.user_id; // Get from authenticated user
-      const result = await AddCustomerOrderMediator.createCustomerOrder(orderData, userId);
+      const result = await AddCustomerOrderMediator.createCustomerOrder(orderData, userId!.toString());
       MyLogger.success(action, { 
         orderId: result.id, 
         orderNumber: result.order_number,
@@ -92,9 +97,12 @@ class CustomerOrdersController {
       const action = "PUT /api/factory/customer-orders/:id";
       MyLogger.info(action, { orderId: req.params.id, updateData: req.body });
       const orderId = req.params.id;
-      const updateData: UpdateCustomerOrderRequest = req.body;
+      const updateData: UpdateCustomerOrderRequest = {
+        ...req.body,
+        factory_id: req.user?.factory_id
+      };
       const userId = req.user?.user_id; // Get from authenticated user
-      const result = await UpdateCustomerOrderInfoMediator.updateCustomerOrder(orderId, updateData, userId);
+      const result = await UpdateCustomerOrderInfoMediator.updateCustomerOrder(orderId, updateData, userId!.toString());
       MyLogger.success(action, { 
         orderId, 
         orderNumber: result.order_number,
@@ -112,7 +120,10 @@ class CustomerOrdersController {
       const action = "POST /api/factory/customer-orders/:id/approve";
       MyLogger.info(action, { orderId: req.params.id, approvalData: req.body });
       const orderId = Number(req.params.id);
-      const approvalData: ApproveOrderRequest = req.body;
+      const approvalData: ApproveOrderRequest = {
+        ...req.body,
+        factory_id: req.user?.factory_id
+      };
       const userId = req.user?.user_id; // Get from authenticated user
 
       const approvalRequest = {
@@ -121,7 +132,7 @@ class CustomerOrdersController {
         notes: approvalData.notes
       };
 
-      const result = await UpdateCustomerOrderInfoMediator.approveOrder(approvalRequest, userId);
+      const result = await UpdateCustomerOrderInfoMediator.approveOrder(approvalRequest, userId!.toString());
       MyLogger.success(action, { 
         orderId, 
         approved: approvalData.approved,
@@ -145,9 +156,10 @@ class CustomerOrdersController {
       const updateRequest = {
         order_id: orderId,
         status: statusData.status,
-        notes: statusData.notes
+        notes: statusData.notes,
+        factory_id: req.user?.factory_id
       };
-      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(updateRequest, userId);
+      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(updateRequest, userId!.toString());
       MyLogger.success(action, { 
         orderId, 
         newStatus: statusData.status 
@@ -169,7 +181,7 @@ class CustomerOrdersController {
       const result = await UpdateCustomerOrderInfoMediator.bulkUpdateOrderStatus(
         orderIds,
         status,
-        userId,
+        userId!.toString(),
         notes
       );
       MyLogger.success(action, { 
@@ -227,9 +239,9 @@ class CustomerOrdersController {
       const force = req.query.force === 'true';
 
       if (force) {
-        await DeleteCustomerOrderMediator.deleteCustomerOrder(orderId, userId);
+        await DeleteCustomerOrderMediator.deleteCustomerOrder(orderId, userId!.toString());
       } else {
-        await DeleteCustomerOrderMediator.softDeleteCustomerOrder(orderId, userId);
+        await DeleteCustomerOrderMediator.softDeleteCustomerOrder(orderId, userId!.toString());
       }
       
       MyLogger.success(action, { orderId, force });
@@ -247,7 +259,7 @@ class CustomerOrdersController {
       const { orderIds, force } = req.body;
       const userId = (req as any).user?.user_id || '1'; // Get from authenticated user
       
-      const result = await DeleteCustomerOrderMediator.bulkDeleteCustomerOrders(orderIds, userId, force);
+      const result = await DeleteCustomerOrderMediator.bulkDeleteCustomerOrders(orderIds, userId!.toString(), force);
       MyLogger.success(action, { 
         deletedCount: result.deleted,
         force 

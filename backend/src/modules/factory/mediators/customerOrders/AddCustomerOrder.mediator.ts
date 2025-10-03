@@ -119,25 +119,23 @@ export class AddCustomerOrderMediator {
         if (!isAdmin) {
           const factories = await getUserFactories(currentUserId);
           userFactories = factories.map(f => f.factory_id);
-
+MyLogger.info('userFactories',userFactories)
           // If no factories are accessible, deny access
           if (userFactories.length === 0) {
             throw new Error('No factories accessible to user');
           }
         }
       }
-
       // Validate references
       await this.validateReferences(orderData);
-
       // Generate order number
       const orderNumber = await this.generateOrderNumber();
-
+MyLogger.info('orderNumber',orderNumber)
       // Get factory_customer details
       const factory_customerQuery = "SELECT name, email, phone FROM factory_customers WHERE id = $1";
       const factory_customerResult = await client.query(factory_customerQuery, [orderData.factory_customer_id]);
       const factory_customer = factory_customerResult.rows[0];
-
+MyLogger.info('factory_customer',factory_customer)
       // Calculate total value
       let totalValue = 0;
       const processedLineItems = orderData.line_items.map(item => {
@@ -153,16 +151,16 @@ export class AddCustomerOrderMediator {
           line_total: lineTotal
         };
       });
-
+MyLogger.info('processedLineItems',processedLineItems)
       // Insert factory_customer order
       const orderQuery = `
         INSERT INTO factory_customer_orders (
           order_number, factory_customer_id, factory_customer_name, factory_customer_email, factory_customer_phone,
           order_date, required_date, status, priority, total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
-          attachments, created_by, created_at
+          attachments, created_by, created_at, factory_id
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
         ) RETURNING *
       `;
 
@@ -186,7 +184,8 @@ export class AddCustomerOrderMediator {
         JSON.stringify(orderData.billing_address),
         JSON.stringify([]), // Empty attachments array
         userId,
-        new Date()
+        new Date(),
+        orderData.factory_id
       ];
 
       const orderResult = await client.query(orderQuery, orderValues);
@@ -269,10 +268,10 @@ export class AddCustomerOrderMediator {
         notes: orderResult.rows[0].notes,
         terms: orderResult.rows[0].terms,
         payment_terms: orderResult.rows[0].payment_terms,
-        shipping_address: JSON.parse(orderResult.rows[0].shipping_address),
-        billing_address: JSON.parse(orderResult.rows[0].billing_address),
+        shipping_address: orderResult.rows[0].shipping_address,
+        billing_address: orderResult.rows[0].billing_address,
         line_items: lineItems,
-        attachments: JSON.parse(orderResult.rows[0].attachments),
+        attachments: orderResult.rows[0].attachments,
         created_by: orderResult.rows[0].created_by,
         created_at: orderResult.rows[0].created_at.toISOString(),
       };

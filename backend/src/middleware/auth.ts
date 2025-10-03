@@ -11,6 +11,7 @@ declare global {
         user_id: number;
         username: string;
         role: UserRole;
+        factory_id?: number;
       };
     }
   }
@@ -40,7 +41,8 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     req.user = {
       user_id: payload.user_id,
       username: payload.username,
-      role: payload.role
+      role: payload.role,
+      factory_id: payload.factory_id
     };
     
     next();
@@ -87,7 +89,8 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
           req.user = {
             user_id: payload.user_id,
             username: payload.username,
-            role: payload.role
+            role: payload.role,
+            factory_id: payload.factory_id
           };
         } catch (error) {
           // Token is invalid, but we don't throw error for optional auth

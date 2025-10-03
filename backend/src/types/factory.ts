@@ -149,6 +149,7 @@ export interface FactoryProduct {
 // Request/Response Types
 export interface CreateCustomerOrderRequest {
   factory_customer_id: number;
+  factory_id?: number;
   required_date: string;
   priority: FactoryCustomerOrderPriority;
   notes?: string;
@@ -170,6 +171,7 @@ export interface CreateOrderLineItemRequest {
 }
 
 export interface UpdateCustomerOrderRequest {
+  factory_id?: number;
   required_date?: string;
   priority?: FactoryCustomerOrderPriority;
   notes?: string;
@@ -228,6 +230,7 @@ export interface OrderQueryParams {
 
 export interface ApproveOrderRequest {
   order_id: number;
+  factory_id?: number;
   approved: boolean;
   notes?: string;
 }

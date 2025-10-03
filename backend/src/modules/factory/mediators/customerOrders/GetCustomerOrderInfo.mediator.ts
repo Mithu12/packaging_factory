@@ -43,7 +43,7 @@ export class GetCustomerOrderInfoMediator {
           userFactories = factories.map(f => f.factory_id);
         }
       }
-
+MyLogger.info('userFactories',userFactories)
       const {
         page = 1,
         limit = 20,
@@ -143,6 +143,8 @@ export class GetCustomerOrderInfoMediator {
       const ordersQuery = `
         SELECT 
           co.*,
+          f.id as factory_id,
+          f.name as factory_name,
           COALESCE(
             json_agg(
               json_build_object(
@@ -168,18 +170,22 @@ export class GetCustomerOrderInfoMediator {
           ) as line_items
         FROM factory_customer_orders co
         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
+        JOIN factories f ON co.factory_id = f.id
         ${whereClause}
-        GROUP BY co.id
+        GROUP BY co.id, f.id, f.name
         ${orderClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
       queryParams.push(limit, offset);
+      // MyLogger.info('ordersQuery',{ordersQuery,queryParams})
       const ordersResult = await client.query(ordersQuery, queryParams);
-MyLogger.info('asd================================', ordersResult.rows)
+// MyLogger.info('asd================================', ordersResult.rows)
       const orders: FactoryCustomerOrder[] = ordersResult.rows.map(row => ({
         id: row.id,
         order_number: row.order_number,
+        factory_id: row.factory_id,
+        factory_name: row.factory_name,
         factory_customer_id: row.factory_customer_id,
         factory_customer_name: row.factory_customer_name,
         factory_customer_email: row.factory_customer_email,
@@ -264,6 +270,8 @@ MyLogger.info('asd================================', ordersResult.rows)
       const query = `
         SELECT
           co.*,
+          f.id as factory_id,
+          f.name as factory_name,
           COALESCE(
             json_agg(
               json_build_object(
@@ -289,8 +297,9 @@ MyLogger.info('asd================================', ordersResult.rows)
           ) as line_items
         FROM factory_customer_orders co
         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
+        JOIN factories f ON co.factory_id = f.id
         WHERE co.id = $1${factoryFilter}
-        GROUP BY co.id
+        GROUP BY co.id, f.id, f.name
       `;
 
       const result = await client.query(query, queryParams);
@@ -335,6 +344,8 @@ MyLogger.info('asd================================', ordersResult.rows)
         updated_at: row.updated_at ? row.updated_at : undefined,
         approved_by: row.approved_by,
         approved_at: row.approved_at ? row.approved_at : undefined,
+        factory_id: row.factory_id,
+        factory_name: row.factory_name,
       };
 
       MyLogger.success(action, { orderId, found: true });

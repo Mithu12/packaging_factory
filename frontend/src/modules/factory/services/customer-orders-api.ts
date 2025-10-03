@@ -118,6 +118,7 @@ export interface CreateCustomerOrderRequest {
   factory_customer_email: string;
   factory_customer_phone?: string;
   payment_terms?: string;
+  factory_id?: number;
   order_date: string;
   required_date: string;
   priority: OrderPriority;

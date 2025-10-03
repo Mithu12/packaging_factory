@@ -63,17 +63,20 @@ export class FactoryMediator {
       let whereClause = 'WHERE 1=1';
       const queryParams: any[] = [];
       let paramIndex = 1;
+      let whereClauseParamCount = 0;
 
       if (search) {
         whereClause += ` AND (name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
         queryParams.push(`%${search}%`);
         paramIndex++;
+        whereClauseParamCount++;
       }
 
       if (is_active !== undefined) {
         whereClause += ` AND is_active = $${paramIndex}`;
         queryParams.push(is_active);
         paramIndex++;
+        whereClauseParamCount++;
       }
 
       // Add factory filtering for non-admin users
@@ -82,11 +85,14 @@ export class FactoryMediator {
         whereClause += ` AND id IN (${factoryIds.join(', ')})`;
         queryParams.push(...userFactories);
         paramIndex += userFactories.length;
+        whereClauseParamCount += userFactories.length;
       }
 
-      // Get total count
+      // Get total count (use only WHERE clause parameters, not LIMIT/OFFSET)
       const countQuery = `SELECT COUNT(*) as total FROM factories ${whereClause}`;
-      const countResult = await client.query(countQuery, queryParams.slice(0, queryParams.length - (userFactories.length || 0)));
+      // Count query should use the first whereClauseParamCount parameters
+      const countParams = queryParams.slice(0, whereClauseParamCount);
+      const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].total);
 
       // Get factories

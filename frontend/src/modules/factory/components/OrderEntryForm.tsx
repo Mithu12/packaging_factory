@@ -40,12 +40,14 @@ import {
   FactoryCustomer,
   FactoryProduct,
 } from "../services/customer-orders-api";
+import FactoryApiService, { Factory } from "@/services/factory-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/hooks/useAuth";
 
-// Form validation schema
-const orderFormSchema = z.object({
+// Form validation schema factory function
+const createOrderFormSchema = (isAdmin: boolean) => z.object({
   factory_customer_id: z.string().min(1, "Customer is required"),
+  factory_id: isAdmin ? z.string().min(1, "Factory is required") : z.string().optional(),
   order_date: z.string().min(1, "Order date is required"),
   required_date: z.string().min(1, "Required date is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
@@ -56,11 +58,26 @@ const orderFormSchema = z.object({
     product_id: z.string().min(1, "Product is required"),
     quantity: z.number().min(1, "Quantity must be at least 1"),
     unit_price: z.number().min(0, "Unit price must be positive"),
-    notes: z.string().optional(),
+    specifications: z.string().optional(),
   })).min(1, "At least one line item is required"),
 });
 
-type OrderFormData = z.infer<typeof orderFormSchema>;
+type OrderFormData = {
+  factory_customer_id: string;
+  factory_id?: number;
+  order_date: string;
+  required_date: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  currency: string;
+  sales_person: string;
+  notes?: string;
+  line_items: Array<{
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    specifications?: string;
+  }>;
+};
 
 interface OrderEntryFormProps {
   open: boolean;
@@ -78,15 +95,21 @@ export default function OrderEntryForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
   const [products, setProducts] = useState<FactoryProduct[]>([]);
+  const [factories, setFactories] = useState<Factory[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingFactories, setLoadingFactories] = useState(false);
   const { formatCurrency } = useFormatting();
   const { user } = useAuth();
-  
+
+  // Determine if user is admin (no factory_id)
+  const isAdmin = !user?.factory_id;
+
   const form = useForm<OrderFormData>({
-    resolver: zodResolver(orderFormSchema),
+    resolver: zodResolver(createOrderFormSchema(isAdmin)),
     defaultValues: {
       factory_customer_id: "",
+      ...(isAdmin ? {} : { factory_id: user?.factory_id }),
       order_date: new Date().toISOString().split('T')[0],
       required_date: "",
       priority: "medium",
@@ -98,7 +121,7 @@ export default function OrderEntryForm({
           product_id: "",
           quantity: 1,
           unit_price: 0,
-          notes: "",
+          specifications: "",
         },
       ],
     },
@@ -135,13 +158,34 @@ export default function OrderEntryForm({
     }
   };
 
+  const loadFactories = async () => {
+    try {
+      setLoadingFactories(true);
+      // For admin users (no factory_id), load all factories
+      // For regular users, load their assigned factories
+      if (user?.factory_id) {
+        const data = await FactoryApiService.getUserFactories();
+        setFactories(data.factories);
+      } else {
+        // Admin user - load all factories
+        const data = await FactoryApiService.getAllFactories();
+        setFactories(data.factories);
+      }
+    } catch (error) {
+      console.error('Error loading factories:', error);
+    } finally {
+      setLoadingFactories(false);
+    }
+  };
+
   // Load data when dialog opens
   useEffect(() => {
     if (open) {
       loadCustomers();
       loadProducts();
+      loadFactories();
     }
-  }, [open]);
+  }, [open, user]);
 
   // Update sales person when user changes
   useEffect(() => {
@@ -152,10 +196,14 @@ export default function OrderEntryForm({
 
   // Reset form when order changes
   useEffect(() => {
+    const isAdmin = !user?.factory_id;
+    const schema = createOrderFormSchema(isAdmin);
+
     if (order) {
       // Editing existing order
       form.reset({
         factory_customer_id: order.factory_customer_id.toString(),
+        ...(isAdmin ? {} : { factory_id: user?.factory_id }), // Set from current user for existing orders
         order_date: order.order_date.split('T')[0],
         required_date: order.required_date.split('T')[0],
         priority: order.priority,
@@ -166,13 +214,14 @@ export default function OrderEntryForm({
           product_id: item.product_id.toString(),
           quantity: item.quantity,
           unit_price: item.unit_price,
-          notes: item.notes || "",
+          specifications: item.specifications || "",
         })),
       });
     } else {
       // Creating new order
       form.reset({
         factory_customer_id: "",
+        ...(isAdmin ? {} : { factory_id: user?.factory_id }), // Auto-populate for non-admin users
         order_date: new Date().toISOString().split('T')[0],
         required_date: "",
         priority: "medium",
@@ -184,7 +233,7 @@ export default function OrderEntryForm({
             product_id: "",
             quantity: 1,
             unit_price: 0,
-            notes: "",
+            specifications: "",
           },
         ],
       });
@@ -200,7 +249,17 @@ export default function OrderEntryForm({
       
       const orderData: CreateCustomerOrderRequest = {
         factory_customer_id: parseInt(data.factory_customer_id),
+        factory_customer_name: selectedCustomer?.name || "",
+        factory_customer_email: selectedCustomer?.email || "",
+        factory_customer_phone: selectedCustomer?.phone,
         payment_terms: selectedCustomer?.payment_terms,
+         factory_id: data.factory_id, // Include factory_id only if it exists
+        order_date: data.order_date,
+        required_date: data.required_date,
+        priority: data.priority,
+        // currency: data.currency,
+        // sales_person: data.sales_person,
+        notes: data.notes,
         shipping_address: {
           city: selectedCustomer?.address?.city || "",
           state: selectedCustomer?.address?.state || "",
@@ -215,12 +274,6 @@ export default function OrderEntryForm({
           street: selectedCustomer?.address?.street || "",
           postal_code: selectedCustomer?.address?.postal_code || "",
         },
-        // order_date: data.order_date,
-        required_date: data.required_date,
-        priority: data.priority,
-        // currency: data.currency,
-        // sales_person: data.sales_person,
-        notes: data.notes,
         line_items: data.line_items.map(item => {
           const selectedProduct = products.find(p => p.id.toString() === item.product_id);
           return {
@@ -229,10 +282,11 @@ export default function OrderEntryForm({
             // product_sku: selectedProduct?.sku || "",
             quantity: item.quantity,
             unit_price: item.unit_price,
-            specifications: item.notes,
+            specifications: item.specifications,
           };
         }),
       };
+      console.log('Order data:', orderData);
 
       await onSubmit(orderData);
       onOpenChange(false);
@@ -248,7 +302,7 @@ export default function OrderEntryForm({
       product_id: "",
       quantity: 1,
       unit_price: 0,
-      notes: "",
+      specifications: "",
     });
   };
 
@@ -345,6 +399,49 @@ export default function OrderEntryForm({
                         </div>
                       ) : null;
                     })()}
+                  </div>
+                )}
+
+                {/* Factory Selection - only for admin users */}
+                {!user?.factory_id && (
+                  <FormField
+                    control={form.control}
+                    name="factory_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Factory *</FormLabel>
+                        <Select onValueChange={(value) => field.onChange((value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={loadingFactories ? "Loading factories..." : "Select a factory"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {factories?.map((factory) => (
+                              <SelectItem key={factory.id} value={factory.id.toString()}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{factory.name}</span>
+                                  <span className="text-sm text-muted-foreground">{factory.code}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Factory Display - for regular users */}
+                {user?.factory_id && (
+                  <div className="bg-muted p-3 rounded-md">
+                    <div className="space-y-1 text-sm">
+                      <div><strong>Factory:</strong> {
+                        factories.find(f => f.id.toString() === user.factory_id.toString())?.name ||
+                        `Factory ID: ${user.factory_id}`
+                      }</div>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -611,12 +708,12 @@ export default function OrderEntryForm({
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name={`line_items.${index}.notes`}
+                        name={`line_items.${index}.specifications`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Item Notes</FormLabel>
+                            <FormLabel>Item specifications</FormLabel>
                             <FormControl>
-                              <Input placeholder="Enter item-specific notes" {...field} />
+                              <Input placeholder="Enter item-specific specifications" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
