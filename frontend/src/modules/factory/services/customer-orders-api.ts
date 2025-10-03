@@ -27,6 +27,8 @@ export interface FactoryCustomerOrder {
   factory_customer_name: string;
   factory_customer_email: string;
   factory_customer_phone?: string;
+  factory_id?: number;
+  factory_name?: string;
   order_date: string;
   required_date: string;
   status: FactoryCustomerOrderStatus;
@@ -52,6 +54,7 @@ export interface FactoryCustomerOrderLineItem {
   unit_price: number;
   total_price: number;
   notes?: string;
+  specifications?: string;
   created_at: string;
   updated_at: string;
 }
@@ -145,6 +148,7 @@ export interface UpdateCustomerOrderRequest {
   factory_customer_email?: string;
   factory_customer_phone?: string;
   payment_terms?: string;
+  factory_id?: number;
   order_date?: string;
   required_date?: string;
   priority?: OrderPriority;

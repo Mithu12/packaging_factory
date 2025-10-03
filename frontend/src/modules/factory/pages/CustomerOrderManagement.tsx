@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,7 +92,7 @@ export default function CustomerOrderManagement() {
   const [totalOrders, setTotalOrders] = useState(0);
 
   // Load orders from API
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -112,7 +112,7 @@ export default function CustomerOrderManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
 
   // Load stats from API
   const loadStats = async () => {
@@ -126,7 +126,7 @@ export default function CustomerOrderManagement() {
 
   useEffect(() => {
     loadOrders();
-  }, [search, statusFilter]);
+  }, [loadOrders]);
 
   useEffect(() => {
     loadStats();
@@ -253,8 +253,9 @@ export default function CustomerOrderManagement() {
       await loadOrders();
       await loadStats();
       
-      // setShowOrderEntry(false);
-      // setSelectedOrder(null);
+      // Close dialog and reset selected order
+      setShowOrderEntry(false);
+      setSelectedOrder(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save order');
     }

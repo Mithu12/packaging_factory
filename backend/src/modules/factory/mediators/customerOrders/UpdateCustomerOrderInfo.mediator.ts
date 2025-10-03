@@ -78,6 +78,12 @@ export class UpdateCustomerOrderInfoMediator {
         paramIndex++;
       }
 
+      if (updateData.factory_id) {
+        updateFields.push(`factory_id = $${paramIndex}`);
+        updateValues.push(updateData.factory_id);
+        paramIndex++;
+      }
+
       if (updateData.priority) {
         updateFields.push(`priority = $${paramIndex}`);
         updateValues.push(updateData.priority);

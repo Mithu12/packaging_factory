@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -133,7 +133,7 @@ export default function OrderEntryForm({
   });
 
   // Load customers and products
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       setLoadingCustomers(true);
       const data = await CustomerOrdersApiService.getAllCustomers();
@@ -143,9 +143,9 @@ export default function OrderEntryForm({
     } finally {
       setLoadingCustomers(false);
     }
-  };
+  }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setLoadingProducts(true);
       const data = await CustomerOrdersApiService.getAllProducts();
@@ -156,9 +156,9 @@ export default function OrderEntryForm({
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, []);
 
-  const loadFactories = async () => {
+  const loadFactories = useCallback(async () => {
     try {
       setLoadingFactories(true);
       // For admin users (no factory_id), load all factories
@@ -176,7 +176,7 @@ export default function OrderEntryForm({
     } finally {
       setLoadingFactories(false);
     }
-  };
+  }, [user?.factory_id]);
 
   // Load data when dialog opens
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function OrderEntryForm({
       loadProducts();
       loadFactories();
     }
-  }, [open, user]);
+  }, [open, user, loadCustomers, loadProducts, loadFactories]);
 
   // Update sales person when user changes
   useEffect(() => {
@@ -197,13 +197,13 @@ export default function OrderEntryForm({
   // Reset form when order changes
   useEffect(() => {
     const isAdmin = !user?.factory_id;
-    const schema = createOrderFormSchema(isAdmin);
 
     if (order) {
-      // Editing existing order
+      // Editing existing order - use factory_id from order if available
+      const orderFactoryId = order.factory_id || user?.factory_id;
       form.reset({
         factory_customer_id: order.factory_customer_id.toString(),
-        ...(isAdmin ? {} : { factory_id: user?.factory_id }), // Set from current user for existing orders
+        ...(isAdmin ? { factory_id: orderFactoryId } : { factory_id: user?.factory_id }),
         order_date: order.order_date.split('T')[0],
         required_date: order.required_date.split('T')[0],
         priority: order.priority,
@@ -221,7 +221,7 @@ export default function OrderEntryForm({
       // Creating new order
       form.reset({
         factory_customer_id: "",
-        ...(isAdmin ? {} : { factory_id: user?.factory_id }), // Auto-populate for non-admin users
+        ...(isAdmin ? {} : { factory_id: user?.factory_id }),
         order_date: new Date().toISOString().split('T')[0],
         required_date: "",
         priority: "medium",
@@ -253,7 +253,7 @@ export default function OrderEntryForm({
         factory_customer_email: selectedCustomer?.email || "",
         factory_customer_phone: selectedCustomer?.phone,
         payment_terms: selectedCustomer?.payment_terms,
-         factory_id: data.factory_id, // Include factory_id only if it exists
+        factory_id: data.factory_id, // Include factory_id only if it exists
         order_date: data.order_date,
         required_date: data.required_date,
         priority: data.priority,
@@ -289,7 +289,9 @@ export default function OrderEntryForm({
       console.log('Order data:', orderData);
 
       await onSubmit(orderData);
+      // Close dialog and reset form after successful submission
       onOpenChange(false);
+      form.reset();
     } catch (error) {
       console.error("Error submitting order:", error);
     } finally {
