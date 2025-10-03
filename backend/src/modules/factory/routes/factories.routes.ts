@@ -17,6 +17,9 @@ router.get('/:id', FactoriesController.getFactoryById);
 // Get user's accessible factories
 router.get('/user/my-factories', FactoriesController.getUserFactories);
 
+// Get users assigned to a specific factory
+router.get('/:factoryId/users', FactoriesController.getFactoryUsers);
+
 // Create new factory (admin only)
 router.post('/', requireSystemAdmin(), FactoriesController.createFactory);
 

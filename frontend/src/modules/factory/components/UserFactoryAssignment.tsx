@@ -73,12 +73,8 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
   const loadAssignments = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await FactoriesAPI.getUserFactories();
-      // Filter assignments for this specific factory
-      const factoryAssignments = response.filter(
-        assignment => assignment.factory_id === factory.id
-      );
-      setAssignments(factoryAssignments);
+      const factoryUsers = await FactoriesAPI.getFactoryUsers(factory.id);
+      setAssignments(factoryUsers);
     } catch (error) {
       toast({
         title: 'Error',

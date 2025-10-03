@@ -436,6 +436,67 @@ export class FactoryMediator {
     return factories;
   }
 
+  static async getFactoryUsers(factoryId: string, currentUserId?: number): Promise<any[]> {
+    const action = "FactoryMediator.getFactoryUsers";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { factoryId, currentUserId });
+
+      // Check if current user has access to this factory
+      if (currentUserId) {
+        const isAdmin = await isUserAdmin(currentUserId);
+        if (!isAdmin) {
+          const hasAccess = await userHasFactoryAccess(currentUserId, factoryId);
+          if (!hasAccess) {
+            MyLogger.info(action, { factoryId, currentUserId, accessDenied: true });
+            return [];
+          }
+        }
+      }
+
+      const query = `
+        SELECT
+          uf.id,
+          uf.user_id,
+          uf.factory_id,
+          uf.role,
+          uf.is_primary,
+          uf.assigned_at,
+          u.username,
+          u.full_name,
+          u.email
+        FROM user_factories uf
+        JOIN users u ON uf.user_id = u.id
+        WHERE uf.factory_id = $1
+        AND u.is_active = true
+        ORDER BY uf.assigned_at DESC
+      `;
+
+      const result = await client.query(query, [factoryId]);
+      const users = result.rows.map(row => ({
+        id: row.id,
+        user_id: row.user_id,
+        factory_id: row.factory_id,
+        role: row.role,
+        is_primary: row.is_primary,
+        assigned_at: row.assigned_at,
+        username: row.username,
+        full_name: row.full_name,
+        email: row.email,
+      }));
+
+      MyLogger.success(action, { usersCount: users.length });
+      return users;
+
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async assignUserToFactory(factoryId: string, userId: number, role: string, isPrimary: boolean = false, assignedBy?: number): Promise<void> {
     const action = "FactoryMediator.assignUserToFactory";
     const client = await pool.connect();

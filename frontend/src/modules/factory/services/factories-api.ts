@@ -72,6 +72,12 @@ export class FactoriesAPI {
     );
   }
 
+  static async getFactoryUsers(factoryId: string): Promise<UserFactoryRole[]> {
+    return makeRequest<{ users: UserFactoryRole[] }>(`${this.BASE_URL}/${factoryId}/users`).then(
+      response => response.users
+    );
+  }
+
   static async assignUserToFactory(factoryId: string, assignmentData: AssignUserToFactoryRequest): Promise<void> {
     return makeRequest<void>(`${this.BASE_URL}/${factoryId}/users`, {
       method: 'POST',

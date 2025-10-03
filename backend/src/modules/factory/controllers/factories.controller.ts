@@ -131,6 +131,23 @@ class FactoriesController {
     }
   }
 
+  // Get users assigned to a specific factory
+  async getFactoryUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/factories/:factoryId/users";
+      const { factoryId } = req.params;
+      MyLogger.info(action, { factoryId });
+
+      const userId = req.user?.user_id;
+      const users = await FactoryMediator.getFactoryUsers(factoryId, userId);
+
+      MyLogger.success(action, { usersCount: users.length });
+      serializeSuccessResponse(res, { users }, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Assign user to factory
   async assignUserToFactory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
