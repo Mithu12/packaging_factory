@@ -289,3 +289,201 @@ export interface OrderLineItemRow {
   created_at: Date;
   updated_at?: Date;
 }
+
+// =====================================================
+// Work Order Types
+// =====================================================
+
+export type WorkOrderStatus =
+  | 'draft'
+  | 'planned'
+  | 'released'
+  | 'in_progress'
+  | 'completed'
+  | 'on_hold'
+  | 'cancelled';
+
+export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface WorkOrder {
+  id: number;
+  work_order_number: string;
+  customer_order_id?: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  quantity: number;
+  unit_of_measure: string;
+  deadline: Date;
+  status: WorkOrderStatus;
+  priority: WorkOrderPriority;
+  progress: number;
+  estimated_hours: number;
+  actual_hours: number;
+  production_line_id?: number;
+  production_line_name?: string;
+  assigned_operators: string[];
+  created_by: string;
+  created_at: Date;
+  updated_by?: string;
+  updated_at?: Date;
+  started_at?: Date;
+  completed_at?: Date;
+  notes?: string;
+  specifications?: string;
+}
+
+export interface ProductionLine {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  capacity: number;
+  current_load: number;
+  status: 'available' | 'busy' | 'maintenance' | 'offline';
+  location?: string;
+  is_active: boolean;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface Operator {
+  id: number;
+  employee_id: string;
+  name: string;
+  skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
+  department?: string;
+  current_work_order_id?: number;
+  availability_status: 'available' | 'busy' | 'off_duty' | 'on_leave';
+  hourly_rate?: number;
+  is_active: boolean;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface WorkOrderAssignment {
+  id: number;
+  work_order_id: number;
+  production_line_id: number;
+  operator_id: number;
+  assigned_at: Date;
+  assigned_by: string;
+  estimated_start_time?: Date;
+  actual_start_time?: Date;
+  estimated_completion_time?: Date;
+  actual_completion_time?: Date;
+  notes?: string;
+}
+
+// Request/Response Types for Work Orders
+export interface CreateWorkOrderRequest {
+  customer_order_id?: number;
+  product_id: number;
+  quantity: number;
+  deadline: string;
+  priority: WorkOrderPriority;
+  estimated_hours: number;
+  production_line_id?: number;
+  assigned_operators?: number[];
+  notes?: string;
+  specifications?: string;
+}
+
+export interface UpdateWorkOrderRequest {
+  quantity?: number;
+  deadline?: string;
+  priority?: WorkOrderPriority;
+  estimated_hours?: number;
+  production_line_id?: number;
+  assigned_operators?: number[];
+  notes?: string;
+  specifications?: string;
+  progress?: number;
+  actual_hours?: number;
+}
+
+export interface WorkOrderQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: WorkOrderStatus;
+  priority?: WorkOrderPriority;
+  production_line_id?: number;
+  assigned_operator_id?: number;
+  customer_order_id?: number;
+  created_date_from?: string;
+  created_date_to?: string;
+  deadline_from?: string;
+  deadline_to?: string;
+  sort_by?: 'created_at' | 'deadline' | 'priority' | 'status' | 'progress';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface WorkOrderStats {
+  total_work_orders: number;
+  draft_work_orders: number;
+  planned_work_orders: number;
+  in_progress_work_orders: number;
+  completed_work_orders: number;
+  on_hold_work_orders: number;
+  total_estimated_hours: number;
+  total_actual_hours: number;
+  average_completion_rate: number;
+  on_time_delivery_rate: number;
+}
+
+// Production Line Management
+export interface CreateProductionLineRequest {
+  name: string;
+  code: string;
+  description?: string;
+  capacity: number;
+  location?: string;
+}
+
+export interface UpdateProductionLineRequest {
+  name?: string;
+  code?: string;
+  description?: string;
+  capacity?: number;
+  location?: string;
+  status?: 'available' | 'busy' | 'maintenance' | 'offline';
+  is_active?: boolean;
+}
+
+// Operator Management
+export interface CreateOperatorRequest {
+  employee_id: string;
+  name: string;
+  skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
+  department?: string;
+  hourly_rate?: number;
+}
+
+export interface UpdateOperatorRequest {
+  employee_id?: string;
+  name?: string;
+  skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
+  department?: string;
+  availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
+  hourly_rate?: number;
+  is_active?: boolean;
+}
+
+// Work Order Assignment
+export interface CreateWorkOrderAssignmentRequest {
+  work_order_id: number;
+  production_line_id: number;
+  operator_ids: number[];
+  estimated_start_time?: string;
+  notes?: string;
+}
+
+export interface UpdateWorkOrderAssignmentRequest {
+  operator_ids?: number[];
+  estimated_start_time?: string;
+  actual_start_time?: string;
+  estimated_completion_time?: string;
+  actual_completion_time?: string;
+  notes?: string;
+}

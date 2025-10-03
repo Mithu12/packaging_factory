@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,193 +48,103 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  WorkOrdersApiService,
+  WorkOrder,
+  ProductionLine,
+  Operator,
+  WorkOrderStatus,
+  WorkOrderPriority,
+  WorkOrderQueryParams,
+  WorkOrderStats,
+  CreateWorkOrderRequest,
+  UpdateWorkOrderRequest,
+} from "@/services/work-orders-api";
 
-interface WorkOrder {
-  id: string;
-  orderNumber: string;
-  product: string;
-  quantity: number;
-  deadline: string;
-  status:
-    | "draft"
-    | "planned"
-    | "released"
-    | "in_progress"
-    | "completed"
-    | "on_hold";
-  priority: "low" | "medium" | "high" | "urgent";
-  progress: number;
-  estimatedHours: number;
-  actualHours: number;
-  productionLine: string;
-  assignedOperators: string[];
-  createdDate: string;
-  startDate?: string;
-  completionDate?: string;
-  notes?: string;
-}
-
-interface ProductionLine {
-  id: string;
-  name: string;
-  capacity: number;
-  currentLoad: number;
-  status: "available" | "busy" | "maintenance";
-  operators: string[];
-}
-
-interface Operator {
-  id: string;
-  name: string;
-  skill: "beginner" | "intermediate" | "expert";
-  currentWorkOrder?: string;
-  availability: "available" | "busy" | "off_duty";
-}
+// Using types from API service
 
 export default function WorkOrderPlanning() {
   const { formatCurrency, formatDate } = useFormatting();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [productionLines, setProductionLines] = useState<ProductionLine[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(
-    null
-  );
+  const [stats, setStats] = useState<WorkOrderStats | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setWorkOrders([
-      {
-        id: "WO-001",
-        orderNumber: "ORD-2024-001",
-        product: "Premium Widget A",
-        quantity: 500,
-        deadline: "2024-03-20",
-        status: "planned",
-        priority: "high",
-        progress: 0,
-        estimatedHours: 40,
-        actualHours: 0,
-        productionLine: "Line 1",
-        assignedOperators: ["John Doe", "Jane Smith"],
-        createdDate: "2024-03-10",
-        notes: "High priority order for key customer",
-      },
-      {
-        id: "WO-002",
-        orderNumber: "ORD-2024-002",
-        product: "Standard Widget B",
-        quantity: 1000,
-        deadline: "2024-03-25",
-        status: "draft",
-        priority: "medium",
-        progress: 0,
-        estimatedHours: 60,
-        actualHours: 0,
-        productionLine: "",
-        assignedOperators: [],
-        createdDate: "2024-03-09",
-      },
-      {
-        id: "WO-003",
-        orderNumber: "ORD-2024-003",
-        product: "Custom Widget C",
-        quantity: 250,
-        deadline: "2024-03-18",
-        status: "in_progress",
-        priority: "urgent",
-        progress: 35,
-        estimatedHours: 25,
-        actualHours: 8.5,
-        productionLine: "Line 2",
-        assignedOperators: ["Mike Johnson", "Sarah Wilson"],
-        createdDate: "2024-03-08",
-        startDate: "2024-03-10",
-      },
-    ]);
+  // Load work orders from API
+  const loadWorkOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    setProductionLines([
-      {
-        id: "1",
-        name: "Line 1",
-        capacity: 100,
-        currentLoad: 75,
-        status: "busy",
-        operators: ["John Doe", "Jane Smith"],
-      },
-      {
-        id: "2",
-        name: "Line 2",
-        capacity: 80,
-        currentLoad: 60,
-        status: "busy",
-        operators: ["Mike Johnson", "Sarah Wilson"],
-      },
-      {
-        id: "3",
-        name: "Line 3",
-        capacity: 120,
-        currentLoad: 0,
-        status: "available",
-        operators: [],
-      },
-    ]);
+      const queryParams: WorkOrderQueryParams = {
+        search: searchTerm || undefined,
+        status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : undefined,
+        sort_by: "created_at",
+        sort_order: "desc",
+        page: 1,
+        limit: 50,
+      };
 
-    setOperators([
-      {
-        id: "1",
-        name: "John Doe",
-        skill: "expert",
-        currentWorkOrder: "WO-001",
-        availability: "busy",
-      },
-      {
-        id: "2",
-        name: "Jane Smith",
-        skill: "intermediate",
-        currentWorkOrder: "WO-001",
-        availability: "busy",
-      },
-      {
-        id: "3",
-        name: "Mike Johnson",
-        skill: "expert",
-        currentWorkOrder: "WO-003",
-        availability: "busy",
-      },
-      {
-        id: "4",
-        name: "Sarah Wilson",
-        skill: "beginner",
-        currentWorkOrder: "WO-003",
-        availability: "busy",
-      },
-      {
-        id: "5",
-        name: "Tom Brown",
-        skill: "intermediate",
-        availability: "available",
-      },
-      {
-        id: "6",
-        name: "Lisa Davis",
-        skill: "expert",
-        availability: "available",
-      },
-    ]);
+      const response = await WorkOrdersApiService.getWorkOrders(queryParams);
+      setWorkOrders(response.work_orders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load work orders');
+      console.error('Error loading work orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, statusFilter]);
+
+  // Load production lines from API
+  const loadProductionLines = useCallback(async () => {
+    try {
+      const data = await WorkOrdersApiService.getProductionLines();
+      setProductionLines(data);
+    } catch (err) {
+      console.error('Error loading production lines:', err);
+    }
   }, []);
 
-  const filteredWorkOrders = workOrders.filter((wo) => {
-    const matchesSearch =
-      wo.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      wo.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      wo.product.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Load operators from API
+  const loadOperators = useCallback(async () => {
+    try {
+      const data = await WorkOrdersApiService.getOperators();
+      setOperators(data);
+    } catch (err) {
+      console.error('Error loading operators:', err);
+    }
+  }, []);
+
+  // Load work order statistics
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await WorkOrdersApiService.getWorkOrderStats();
+      setStats(data);
+    } catch (err) {
+      console.error('Error loading work order stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWorkOrders();
+  }, [loadWorkOrders]);
+
+  useEffect(() => {
+    loadProductionLines();
+    loadOperators();
+    loadStats();
+  }, [loadProductionLines, loadOperators, loadStats]);
+
+  // Work orders are already filtered by the API, so we use them directly
+  const filteredWorkOrders = workOrders;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -249,6 +159,8 @@ export default function WorkOrderPlanning() {
       case "draft":
         return "bg-gray-100 text-gray-800";
       case "on_hold":
+        return "bg-orange-100 text-orange-800";
+      case "cancelled":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -293,26 +205,39 @@ export default function WorkOrderPlanning() {
     setShowPlanningDialog(true);
   };
 
-  const handleReleaseWorkOrder = (workOrderId: string) => {
-    setWorkOrders((prev) =>
-      prev.map((wo) =>
-        wo.id === workOrderId ? { ...wo, status: "released" as const } : wo
-      )
-    );
+  const handleReleaseWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, 'released');
+      await loadWorkOrders(); // Reload to get updated status
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to release work order');
+      console.error('Error releasing work order:', err);
+    }
   };
 
-  const handleStartWorkOrder = (workOrderId: string) => {
-    setWorkOrders((prev) =>
-      prev.map((wo) =>
-        wo.id === workOrderId
-          ? {
-              ...wo,
-              status: "in_progress" as const,
-              startDate: new Date().toISOString().split("T")[0],
-            }
-          : wo
-      )
-    );
+  const handleStartWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.startWorkOrder(workOrderId);
+      await loadWorkOrders(); // Reload to get updated status
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start work order');
+      console.error('Error starting work order:', err);
+    }
+  };
+
+  const handleCompleteWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.completeWorkOrder(workOrderId, undefined, "Completed via planning interface");
+      await loadWorkOrders(); // Reload to get updated status
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to complete work order');
+      console.error('Error completing work order:', err);
+    }
+  };
+
+  const handleCreateWorkOrder = () => {
+    setSelectedWorkOrder(null);
+    setShowCreateDialog(true);
   };
 
   return (
@@ -326,16 +251,36 @@ export default function WorkOrderPlanning() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={loadWorkOrders}>
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            Refresh
           </Button>
-          <Button>
+          <Button onClick={handleCreateWorkOrder}>
             <Plus className="h-4 w-4 mr-2" />
             Create Work Order
           </Button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setError(null); loadWorkOrders(); }}
+                className="ml-auto"
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Production Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -348,7 +293,7 @@ export default function WorkOrderPlanning() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {workOrders.filter((wo) => wo.status === "in_progress").length}
+              {stats?.in_progress_work_orders || workOrders.filter((wo) => wo.status === "in_progress").length}
             </div>
             <p className="text-xs text-muted-foreground">
               Currently in production
@@ -365,7 +310,7 @@ export default function WorkOrderPlanning() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {workOrders.filter((wo) => wo.status === "planned").length}
+              {stats?.planned_work_orders || workOrders.filter((wo) => wo.status === "planned").length}
             </div>
             <p className="text-xs text-muted-foreground">Ready for release</p>
           </CardContent>
@@ -450,14 +395,21 @@ export default function WorkOrderPlanning() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredWorkOrders.map((wo) => (
+                  {filteredWorkOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        {loading ? "Loading work orders..." : "No work orders found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredWorkOrders.map((wo) => (
                     <TableRow key={wo.id}>
-                      <TableCell className="font-medium">{wo.id}</TableCell>
+                      <TableCell className="font-medium">{wo.work_order_number}</TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{wo.product}</div>
+                          <div className="font-medium">{wo.product_name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {wo.orderNumber}
+                            SKU: {wo.product_sku}
                           </div>
                         </div>
                       </TableCell>
@@ -490,7 +442,7 @@ export default function WorkOrderPlanning() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {wo.productionLine || "Not assigned"}
+                        {wo.production_line_name || "Not assigned"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -514,7 +466,7 @@ export default function WorkOrderPlanning() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleReleaseWorkOrder(wo.id)}
+                              onClick={() => handleReleaseWorkOrder(wo.id.toString())}
                             >
                               <Play className="h-4 w-4" />
                             </Button>
@@ -523,15 +475,26 @@ export default function WorkOrderPlanning() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleStartWorkOrder(wo.id)}
+                              onClick={() => handleStartWorkOrder(wo.id.toString())}
                             >
                               <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {wo.status === "in_progress" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCompleteWorkOrder(wo.id.toString())}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -564,31 +527,17 @@ export default function WorkOrderPlanning() {
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${line.currentLoad}%` }}
+                            style={{ width: `${line.current_load}%` }}
                           />
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Current Load</span>
-                          <span>{line.currentLoad}%</span>
+                          <span>{line.current_load}%</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium">Operators:</span>
                           <div className="mt-1">
-                            {line.operators.length > 0 ? (
-                              line.operators.map((operator, index) => (
-                                <Badge
-                                  key={index}
-                                  variant="outline"
-                                  className="mr-1"
-                                >
-                                  {operator}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-muted-foreground">
-                                No operators assigned
-                              </span>
-                            )}
+                            <span className="text-muted-foreground">View operators in Operators tab</span>
                           </div>
                         </div>
                       </div>
@@ -624,26 +573,26 @@ export default function WorkOrderPlanning() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {operator.skill.toUpperCase()}
+                          {operator.skill_level.toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge
                           className={
-                            operator.availability === "available"
+                            operator.availability_status === "available"
                               ? "bg-green-100 text-green-800"
-                              : operator.availability === "busy"
+                              : operator.availability_status === "busy"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-gray-100 text-gray-800"
                           }
                         >
-                          {operator.availability
+                          {operator.availability_status
                             .replace("_", " ")
                             .toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {operator.currentWorkOrder || "None"}
+                        {operator.current_work_order_id ? `WO-${operator.current_work_order_id}` : "None"}
                       </TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm">
@@ -683,7 +632,7 @@ export default function WorkOrderPlanning() {
                     <div>
                       <Label className="text-sm font-medium">Product</Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedWorkOrder.product}
+                        {selectedWorkOrder.product_name}
                       </p>
                     </div>
                     <div>
@@ -713,7 +662,7 @@ export default function WorkOrderPlanning() {
                         Estimated Hours
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedWorkOrder.estimatedHours}h
+                        {selectedWorkOrder.estimated_hours}h
                       </p>
                     </div>
                     <div>
@@ -721,7 +670,7 @@ export default function WorkOrderPlanning() {
                         Actual Hours
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedWorkOrder.actualHours}h
+                        {selectedWorkOrder.actual_hours}h
                       </p>
                     </div>
                     <div>
@@ -729,7 +678,7 @@ export default function WorkOrderPlanning() {
                         Production Line
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedWorkOrder.productionLine || "Not assigned"}
+                        {selectedWorkOrder.production_line_name || "Not assigned"}
                       </p>
                     </div>
                     <div>
@@ -748,9 +697,9 @@ export default function WorkOrderPlanning() {
                   <CardTitle>Assigned Operators</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {selectedWorkOrder.assignedOperators.length > 0 ? (
+                  {selectedWorkOrder.assigned_operators.length > 0 ? (
                     <div className="flex gap-2">
-                      {selectedWorkOrder.assignedOperators.map(
+                      {selectedWorkOrder.assigned_operators.map(
                         (operator, index) => (
                           <Badge key={index} variant="outline">
                             {operator}
@@ -804,8 +753,8 @@ export default function WorkOrderPlanning() {
                   </SelectTrigger>
                   <SelectContent>
                     {productionLines.map((line) => (
-                      <SelectItem key={line.id} value={line.id}>
-                        {line.name} - {line.status} ({line.currentLoad}% load)
+                      <SelectItem key={line.id} value={line.id.toString()}>
+                        {line.name} - {line.status} ({line.current_load}% load)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -816,15 +765,15 @@ export default function WorkOrderPlanning() {
                 <Label>Assign Operators</Label>
                 <div className="space-y-2">
                   {operators
-                    .filter((op) => op.availability === "available")
+                    .filter((op) => op.availability_status === "available")
                     .map((operator) => (
                       <div
                         key={operator.id}
                         className="flex items-center space-x-2"
                       >
-                        <Checkbox id={operator.id} />
-                        <Label htmlFor={operator.id} className="flex-1">
-                          {operator.name} ({operator.skill})
+                        <Checkbox id={operator.id.toString()} />
+                        <Label htmlFor={operator.id.toString()} className="flex-1">
+                          {operator.name} ({operator.skill_level})
                         </Label>
                       </div>
                     ))}

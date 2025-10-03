@@ -394,7 +394,31 @@ export const PERMISSIONS = {
   FACTORY_ORDERS_READ: createPermissionCheck('Factory', 'read', 'factory_customer_orders'),
   FACTORY_ORDERS_UPDATE: createPermissionCheck('Factory', 'update', 'factory_customer_orders'),
   FACTORY_ORDERS_DELETE: createPermissionCheck('Factory', 'delete', 'factory_customer_orders'),
-  FACTORY_ORDERS_APPROVE: createPermissionCheck('Factory', 'approve', 'factory_customer_orders')
+  FACTORY_ORDERS_APPROVE: createPermissionCheck('Factory', 'approve', 'factory_customer_orders'),
+
+  // Work Orders
+  FACTORY_WORK_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'work_orders'),
+  FACTORY_WORK_ORDERS_READ: createPermissionCheck('Factory', 'read', 'work_orders'),
+  FACTORY_WORK_ORDERS_UPDATE: createPermissionCheck('Factory', 'update', 'work_orders'),
+  FACTORY_WORK_ORDERS_DELETE: createPermissionCheck('Factory', 'delete', 'work_orders'),
+
+  // Production Lines
+  FACTORY_PRODUCTION_LINES_CREATE: createPermissionCheck('Factory', 'create', 'production_lines'),
+  FACTORY_PRODUCTION_LINES_READ: createPermissionCheck('Factory', 'read', 'production_lines'),
+  FACTORY_PRODUCTION_LINES_UPDATE: createPermissionCheck('Factory', 'update', 'production_lines'),
+  FACTORY_PRODUCTION_LINES_DELETE: createPermissionCheck('Factory', 'delete', 'production_lines'),
+
+  // Operators
+  FACTORY_OPERATORS_CREATE: createPermissionCheck('Factory', 'create', 'operators'),
+  FACTORY_OPERATORS_READ: createPermissionCheck('Factory', 'read', 'operators'),
+  FACTORY_OPERATORS_UPDATE: createPermissionCheck('Factory', 'update', 'operators'),
+  FACTORY_OPERATORS_DELETE: createPermissionCheck('Factory', 'delete', 'operators'),
+
+  // Work Order Assignments
+  FACTORY_WORK_ORDER_ASSIGNMENTS_CREATE: createPermissionCheck('Factory', 'create', 'work_order_assignments'),
+  FACTORY_WORK_ORDER_ASSIGNMENTS_READ: createPermissionCheck('Factory', 'read', 'work_order_assignments'),
+  FACTORY_WORK_ORDER_ASSIGNMENTS_UPDATE: createPermissionCheck('Factory', 'update', 'work_order_assignments'),
+  FACTORY_WORK_ORDER_ASSIGNMENTS_DELETE: createPermissionCheck('Factory', 'delete', 'work_order_assignments'),
 };
 
 // Export permission middleware functions
