@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,22 +36,16 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  CustomerOrdersApiService,
+  FactoryCustomerOrder,
+  FactoryCustomerOrderStatus,
+  OrderQueryParams,
+  ApproveOrderRequest,
+} from "../services/customer-orders-api";
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  customerId: string;
-  totalLines: number;
-  totalQuantity: number;
-  totalValue: number;
-  deadline: string;
-  status: "pending" | "accepted" | "rejected" | "in_production";
-  priority: "low" | "medium" | "high" | "urgent";
-  createdDate: string;
-  factoryManager?: string;
-  notes?: string;
-}
+// Use the API types directly
+type Order = FactoryCustomerOrder;
 
 interface OrderLine {
   id: string;
@@ -61,7 +55,7 @@ interface OrderLine {
   unitPrice: number;
   totalPrice: number;
   deadline: string;
-  specifications?: string;
+  specifications: string;
 }
 
 export default function OrderAcceptance() {
@@ -73,63 +67,40 @@ export default function OrderAcceptance() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [acceptanceNotes, setAcceptanceNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load orders from API
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const queryParams: OrderQueryParams = {
+        search: searchTerm || undefined,
+        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : undefined,
+        sort_by: "order_date",
+        sort_order: "desc",
+        page: 1,
+        limit: 50, // Get more orders for acceptance review
+      };
+
+      const response = await CustomerOrdersApiService.getCustomerOrders(queryParams);
+      setOrders(response.orders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load orders');
+      console.error('Error loading orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, statusFilter]);
 
   useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setOrders([
-      {
-        id: "1",
-        orderNumber: "ORD-2024-001",
-        customer: "ABC Manufacturing Ltd",
-        customerId: "CUST-001",
-        totalLines: 3,
-        totalQuantity: 1500,
-        totalValue: 45000,
-        deadline: "2024-03-20",
-        status: "pending",
-        priority: "high",
-        createdDate: "2024-03-10",
-        notes: "Rush order for new product launch",
-      },
-      {
-        id: "2",
-        orderNumber: "ORD-2024-002",
-        customer: "XYZ Industries",
-        customerId: "CUST-002",
-        totalLines: 2,
-        totalQuantity: 800,
-        totalValue: 24000,
-        deadline: "2024-03-25",
-        status: "accepted",
-        priority: "medium",
-        createdDate: "2024-03-09",
-        factoryManager: "John Smith",
-      },
-      {
-        id: "3",
-        orderNumber: "ORD-2024-003",
-        customer: "DEF Corp",
-        customerId: "CUST-003",
-        totalLines: 1,
-        totalQuantity: 200,
-        totalValue: 8000,
-        deadline: "2024-03-15",
-        status: "rejected",
-        priority: "low",
-        createdDate: "2024-03-08",
-        notes: "Insufficient capacity for deadline",
-      },
-    ]);
-  }, []);
+    loadOrders();
+  }, [loadOrders]);
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Orders are already filtered by the API, so we use them directly
+  const filteredOrders = orders;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -161,58 +132,63 @@ export default function OrderAcceptance() {
     }
   };
 
-  const handleViewOrder = (order: Order) => {
+  const handleViewOrder = async (order: Order) => {
     setSelectedOrder(order);
-    // Mock order lines data
-    setOrderLines([
-      {
-        id: "1",
-        productId: "PROD-001",
-        productName: "Premium Widget A",
-        quantity: 500,
-        unitPrice: 30,
-        totalPrice: 15000,
-        deadline: "2024-03-20",
-        specifications: "Custom color: Blue, Size: Large",
-      },
-      {
-        id: "2",
-        productId: "PROD-002",
-        productName: "Standard Widget B",
-        quantity: 1000,
-        unitPrice: 20,
-        totalPrice: 20000,
-        deadline: "2024-03-20",
-        specifications: "Standard specifications",
-      },
-    ]);
+
+    // Convert API line items to component format
+    const convertedOrderLines: OrderLine[] = order.line_items.map(item => ({
+      id: item.id.toString(),
+      productId: item.product_id.toString(),
+      productName: item.product_name,
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+      totalPrice: item.total_price,
+      deadline: order.required_date, // Use order deadline as line deadline
+      specifications: (item.specifications as string) || "Standard",
+    }));
+
+    setOrderLines(convertedOrderLines);
     setShowOrderDetails(true);
   };
 
-  const handleAcceptOrder = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: "accepted" as const,
-              factoryManager: "Current User",
-            }
-          : order
-      )
-    );
-    setShowOrderDetails(false);
-    setAcceptanceNotes("");
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      const approveRequest: ApproveOrderRequest = {
+        approved: true,
+        notes: acceptanceNotes || undefined,
+      };
+
+      await CustomerOrdersApiService.approveCustomerOrder(orderId, true, acceptanceNotes || undefined);
+
+      // Reload orders to get updated status
+      await loadOrders();
+
+      setShowOrderDetails(false);
+      setAcceptanceNotes("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to accept order');
+      console.error('Error accepting order:', err);
+    }
   };
 
-  const handleRejectOrder = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId ? { ...order, status: "rejected" as const } : order
-      )
-    );
-    setShowOrderDetails(false);
-    setAcceptanceNotes("");
+  const handleRejectOrder = async (orderId: string) => {
+    try {
+      const approveRequest: ApproveOrderRequest = {
+        approved: false,
+        notes: acceptanceNotes || undefined,
+      };
+
+      await CustomerOrdersApiService.approveCustomerOrder(orderId, false, acceptanceNotes || undefined);
+
+      // Reload orders to get updated status
+      await loadOrders();
+
+      setShowOrderDetails(false);
+      setAcceptanceNotes("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject order');
+      console.error('Error rejecting order:', err);
+    }
   };
 
   return (
@@ -226,9 +202,9 @@ export default function OrderAcceptance() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={loadOrders}>
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            Refresh
           </Button>
           <Button variant="outline">
             <Calendar className="h-4 w-4 mr-2" />
@@ -264,10 +240,30 @@ export default function OrderAcceptance() {
         </CardContent>
       </Card>
 
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setError(null); loadOrders(); }}
+                className="ml-auto"
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Orders Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Customer Orders</CardTitle>
+          <CardTitle>Customer Orders {loading && "(Loading...)"}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -275,6 +271,7 @@ export default function OrderAcceptance() {
               <TableRow>
                 <TableHead>Order #</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Factory</TableHead>
                 <TableHead>Lines</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Value</TableHead>
@@ -284,27 +281,37 @@ export default function OrderAcceptance() {
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
+                <TableBody>
+                  {filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        {loading ? "Loading orders..." : "No orders found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">
-                    {order.orderNumber}
+                    {order.order_number}
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{order.customer}</div>
+                      <div className="font-medium">{order.factory_customer_name}</div>
                       <div className="text-sm text-muted-foreground">
-                        {order.customerId}
+                        {order.factory_customer_id}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{order.totalLines}</TableCell>
-                  <TableCell>{order.totalQuantity.toLocaleString()}</TableCell>
-                  <TableCell>{formatCurrency(order.totalValue)}</TableCell>
+                  <TableCell>{order.factory_name || 'Not assigned'}</TableCell>
+                  <TableCell>{order.line_items.length}</TableCell>
+                  <TableCell>
+                    {order.line_items.reduce((total, item) => total + item.quantity, 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell>{formatCurrency(order.total_value)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {formatDate(order.deadline)}
+                      {formatDate(order.required_date)}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -331,7 +338,7 @@ export default function OrderAcceptance() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleAcceptOrder(order.id)}
+                            onClick={() => handleAcceptOrder(order.id.toString())}
                             className="text-green-600 hover:text-green-700"
                           >
                             <Check className="h-4 w-4" />
@@ -339,7 +346,7 @@ export default function OrderAcceptance() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRejectOrder(order.id)}
+                            onClick={() => handleRejectOrder(order.id.toString())}
                             className="text-red-600 hover:text-red-700"
                           >
                             <X className="h-4 w-4" />
@@ -349,7 +356,8 @@ export default function OrderAcceptance() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -360,7 +368,7 @@ export default function OrderAcceptance() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
-              Order Details - {selectedOrder?.orderNumber}
+              Order Details - {selectedOrder?.order_number}
             </DialogTitle>
             <DialogDescription>
               Review order details and accept or reject for production
@@ -382,13 +390,13 @@ export default function OrderAcceptance() {
                     <div>
                       <Label className="text-sm font-medium">Customer</Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedOrder.customer}
+                        {selectedOrder.factory_customer_name}
                       </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Total Lines</Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedOrder.totalLines}
+                        {selectedOrder.line_items.length}
                       </p>
                     </div>
                     <div>
@@ -396,19 +404,19 @@ export default function OrderAcceptance() {
                         Total Quantity
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        {selectedOrder.totalQuantity.toLocaleString()}
+                        {selectedOrder.line_items.reduce((total, item) => total + item.quantity, 0).toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Total Value</Label>
                       <p className="text-sm text-muted-foreground">
-                        {formatCurrency(selectedOrder.totalValue)}
+                        {formatCurrency(selectedOrder.total_value)}
                       </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Deadline</Label>
                       <p className="text-sm text-muted-foreground">
-                        {formatDate(selectedOrder.deadline)}
+                        {formatDate(selectedOrder.required_date)}
                       </p>
                     </div>
                     <div>
@@ -502,13 +510,13 @@ export default function OrderAcceptance() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleRejectOrder(selectedOrder.id)}
+                  onClick={() => handleRejectOrder(selectedOrder.id.toString())}
                   className="text-red-600 hover:text-red-700"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Reject Order
                 </Button>
-                <Button onClick={() => handleAcceptOrder(selectedOrder.id)}>
+                <Button onClick={() => handleAcceptOrder(selectedOrder.id.toString())}>
                   <Check className="h-4 w-4 mr-2" />
                   Accept Order
                 </Button>

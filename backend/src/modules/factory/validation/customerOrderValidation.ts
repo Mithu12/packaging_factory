@@ -106,7 +106,6 @@ export const orderQuerySchema = Joi.object({
 
 // Approve order validation schema
 export const approveOrderSchema = Joi.object({
-  order_id: Joi.number().integer().positive().required(),
   approved: Joi.boolean().required(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
