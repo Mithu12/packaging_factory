@@ -53,7 +53,7 @@ const orderFormSchema = z.object({
   sales_person: z.string().min(1, "Sales person is required"),
   notes: z.string().optional(),
   line_items: z.array(z.object({
-    factory_product_id: z.string().min(1, "Product is required"),
+    product_id: z.string().min(1, "Product is required"),
     quantity: z.number().min(1, "Quantity must be at least 1"),
     unit_price: z.number().min(0, "Unit price must be positive"),
     notes: z.string().optional(),
@@ -95,7 +95,7 @@ export default function OrderEntryForm({
       notes: "",
       line_items: [
         {
-          factory_product_id: "",
+          product_id: "",
           quantity: 1,
           unit_price: 0,
           notes: "",
@@ -155,7 +155,7 @@ export default function OrderEntryForm({
     if (order) {
       // Editing existing order
       form.reset({
-        factory_customer_id: order.factory_customer_id,
+        factory_customer_id: order.factory_customer_id.toString(),
         order_date: order.order_date.split('T')[0],
         required_date: order.required_date.split('T')[0],
         priority: order.priority,
@@ -163,7 +163,7 @@ export default function OrderEntryForm({
         sales_person: order.sales_person,
         notes: order.notes || "",
         line_items: order.line_items.map(item => ({
-          factory_product_id: item.factory_product_id,
+          product_id: item.product_id.toString(),
           quantity: item.quantity,
           unit_price: item.unit_price,
           notes: item.notes || "",
@@ -181,7 +181,7 @@ export default function OrderEntryForm({
         notes: "",
         line_items: [
           {
-            factory_product_id: "",
+            product_id: "",
             quantity: 1,
             unit_price: 0,
             notes: "",
@@ -196,25 +196,25 @@ export default function OrderEntryForm({
       setIsSubmitting(true);
       
       // Find selected customer
-      const selectedCustomer = customers.find(c => c.id === data.factory_customer_id);
+      const selectedCustomer = customers.find(c => c.id.toString() === data.factory_customer_id);
       
       const orderData: CreateCustomerOrderRequest = {
-        factory_customer_id: data.factory_customer_id,
-          payment_terms: selectedCustomer?.payment_terms,
-          shipping_address: {
-            city: selectedCustomer?.address.city,
-            state: selectedCustomer?.address.state,
-            country: selectedCustomer?.address.country,
-            street: selectedCustomer?.address.street,
-            postal_code: selectedCustomer?.address.postal_code,
-          },
-          billing_address: {
-            city: selectedCustomer?.address.city,
-            state: selectedCustomer?.address.state,
-            country: selectedCustomer?.address.country,
-            street: selectedCustomer?.address.street,
-            postal_code: selectedCustomer?.address.postal_code,
-          },
+        factory_customer_id: parseInt(data.factory_customer_id),
+        payment_terms: selectedCustomer?.payment_terms,
+        shipping_address: {
+          city: selectedCustomer?.address?.city || "",
+          state: selectedCustomer?.address?.state || "",
+          country: selectedCustomer?.address?.country || "",
+          street: selectedCustomer?.address?.street || "",
+          postal_code: selectedCustomer?.address?.postal_code || "",
+        },
+        billing_address: {
+          city: selectedCustomer?.address?.city || "",
+          state: selectedCustomer?.address?.state || "",
+          country: selectedCustomer?.address?.country || "",
+          street: selectedCustomer?.address?.street || "",
+          postal_code: selectedCustomer?.address?.postal_code || "",
+        },
         // order_date: data.order_date,
         required_date: data.required_date,
         priority: data.priority,
@@ -222,9 +222,9 @@ export default function OrderEntryForm({
         // sales_person: data.sales_person,
         notes: data.notes,
         line_items: data.line_items.map(item => {
-          const selectedProduct = products.find(p => p.id === item.factory_product_id);
+          const selectedProduct = products.find(p => p.id.toString() === item.product_id);
           return {
-            product_id: item.factory_product_id,
+            product_id: parseInt(item.product_id),
             // product_name: selectedProduct?.name || "",
             // product_sku: selectedProduct?.sku || "",
             quantity: item.quantity,
@@ -245,7 +245,7 @@ export default function OrderEntryForm({
 
   const addLineItem = () => {
     append({
-      factory_product_id: "",
+      product_id: "",
       quantity: 1,
       unit_price: 0,
       notes: "",
@@ -320,7 +320,7 @@ export default function OrderEntryForm({
                         </FormControl>
                         <SelectContent>
                           {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
+                            <SelectItem key={customer.id} value={customer.id.toString()}>
                               <div className="flex flex-col">
                                 <span className="font-medium">{customer.name}</span>
                                 <span className="text-sm text-muted-foreground">{customer.email}</span>
@@ -336,7 +336,7 @@ export default function OrderEntryForm({
                 {form.watch("factory_customer_id") && (
                   <div className="bg-muted p-3 rounded-md">
                     {(() => {
-                      const selectedCustomer = customers.find(c => c.id === form.watch("factory_customer_id"));
+                      const selectedCustomer = customers.find(c => c.id.toString() === form.watch("factory_customer_id"));
                       return selectedCustomer ? (
                         <div className="space-y-1 text-sm">
                           <div><strong>Name:</strong> {selectedCustomer.name}</div>
@@ -504,7 +504,7 @@ export default function OrderEntryForm({
                     <div className="space-y-4">
                       <FormField
                         control={form.control}
-                        name={`line_items.${index}.factory_product_id`}
+                        name={`line_items.${index}.product_id`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Product *</FormLabel>
@@ -543,10 +543,10 @@ export default function OrderEntryForm({
                         )}
                       />
                       
-                      {form.watch(`line_items.${index}.factory_product_id`) && (
+                      {form.watch(`line_items.${index}.product_id`) && (
                         <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
                           {(() => {
-                            const productId = form.watch(`line_items.${index}.factory_product_id`);
+                            const productId = form.watch(`line_items.${index}.product_id`);
                             const selectedProduct = getProductDetails(productId);
                             return selectedProduct ? (
                               <div className="space-y-1 text-sm">

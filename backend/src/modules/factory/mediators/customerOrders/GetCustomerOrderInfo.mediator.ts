@@ -266,8 +266,8 @@ MyLogger.info('asd================================', ordersResult.rows)
         notes: row.notes,
         terms: row.terms,
         payment_terms: row.payment_terms,
-        shipping_address: JSON.parse(row.shipping_address),
-        billing_address: JSON.parse(row.billing_address),
+        shipping_address: (row.shipping_address),
+        billing_address: (row.billing_address),
         line_items: row.line_items.map((item: any) => ({
           ...item,
           unit_price: parseFloat(item.unit_price),
@@ -276,7 +276,7 @@ MyLogger.info('asd================================', ordersResult.rows)
           delivery_date: item.delivery_date ? item.delivery_date : undefined,
           created_at: item.created_at
         })),
-        attachments: JSON.parse(row.attachments),
+        attachments: (row.attachments),
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
