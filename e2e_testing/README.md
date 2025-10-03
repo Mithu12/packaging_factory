@@ -35,6 +35,19 @@ The Playwright configuration automatically:
   - Creating a new product via the UI, wiring it to the seeded category/brand/origin/supplier records, and verifying it appears in the list.
   - Opening the product detail view, validating related metadata, and jumping into the supplier details page.
 
+- `factory-customer.e2e.spec.ts` exercises the factory and customer management flows:
+  - **Factory Management**:
+    - Creating new factories with location and contact details
+    - Editing factory information and settings
+    - Managing factory user assignments and permissions
+    - Deleting factories and cleanup operations
+  - **Customer Management**:
+    - Creating new customers with business information and credit limits
+    - Viewing and editing customer details including payment terms and addresses
+    - Searching and filtering customers by name, email, or company
+    - Managing customer status (active/inactive) and statistics
+    - Customer data refresh and validation
+
 Add additional specs under `tests/` and re-use the helpers in `utils/` (for example `loginAsAdmin`).
 
 ## Environment overrides
