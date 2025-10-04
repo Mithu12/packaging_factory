@@ -78,12 +78,6 @@ router.post(
   expressAsyncHandler(bomController.createBOM)
 );
 
-// Get BOM by ID
-router.get(
-  "/:id",
-  requirePermission(PERMISSIONS.FACTORY_BOMS_READ),
-  expressAsyncHandler(bomController.getBOMById)
-);
 
 // Update BOM
 router.put(
@@ -118,4 +112,10 @@ router.get(
   expressAsyncHandler(bomController.getMaterialPlanningStats)
 );
 
+// Get BOM by ID
+router.get(
+  "/:id",
+  requirePermission(PERMISSIONS.FACTORY_BOMS_READ),
+  expressAsyncHandler(bomController.getBOMById)
+);
 export default router;

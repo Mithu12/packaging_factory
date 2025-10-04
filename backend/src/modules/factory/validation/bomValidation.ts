@@ -60,8 +60,8 @@ export const updateBOMSchema = Joi.object({
   components: Joi.array()
     .items(
       Joi.object({
-        id: Joi.string().uuid().optional().messages({
-          "string.guid": "Component ID must be a valid UUID",
+        id: Joi.number().optional().messages({
+          "number.base": "Component ID must be a valid number",
         }),
         component_product_id: Joi.number().optional().messages({
           "number.base": "Component product ID must be a valid number",
@@ -98,18 +98,18 @@ export const bomQuerySchema = Joi.object({
 });
 
 export const bomIdSchema = Joi.object({
-  id: Joi.string().uuid().required().messages({
-    "string.guid": "BOM ID must be a valid UUID",
+  id: Joi.number().required().messages({
+    "number.base": "BOM ID must be a valid number",
     "any.required": "BOM ID is required",
   }),
 });
 
 // Material Requirements validation schemas
 export const materialRequirementsQuerySchema = Joi.object({
-  work_order_id: Joi.string().uuid().optional(),
+  work_order_id: Joi.number().optional(),
   status: Joi.string().valid("pending", "allocated", "short", "fulfilled", "cancelled").optional(),
   priority: Joi.number().integer().min(1).optional(),
-  material_id: Joi.string().uuid().optional(),
+  material_id: Joi.number().optional(),
   required_date_from: Joi.date().optional(),
   required_date_to: Joi.date().optional(),
   sort_by: Joi.string().valid("required_date", "priority", "status").optional(),
@@ -126,7 +126,7 @@ export const updateMaterialRequirementStatusSchema = Joi.object({
 
 // Bulk operations
 export const bulkUpdateMaterialRequirementStatusSchema = Joi.object({
-  requirement_ids: Joi.array().items(Joi.string().uuid()).min(1).required().messages({
+  requirement_ids: Joi.array().items(Joi.number()).min(1).required().messages({
     "array.min": "At least one requirement ID is required",
     "any.required": "Requirement IDs are required",
   }),

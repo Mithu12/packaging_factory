@@ -55,9 +55,9 @@ export class AddWorkOrderMediator {
         const customerOrderQuery = `
           SELECT fco.factory_id
           FROM factory_customer_orders fco
-          WHERE fco.id = $1 AND fco.factory_id IN (${userFactoryIds.map(() => '?').join(',')})
+          WHERE fco.id = $1 AND fco.factory_id = ANY($2::uuid[])
         `;
-        const customerOrderResult = await client.query(customerOrderQuery, [workOrderData.customer_order_id, ...userFactoryIds]);
+        const customerOrderResult = await client.query(customerOrderQuery, [workOrderData.customer_order_id, userFactoryIds]);
 
         if (customerOrderResult.rows.length === 0) {
           throw new Error('Access denied to customer order or factory');

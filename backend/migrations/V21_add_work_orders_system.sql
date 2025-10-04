@@ -11,7 +11,7 @@ CREATE SEQUENCE IF NOT EXISTS work_order_sequence
 
 -- Create production_lines table
 CREATE TABLE production_lines (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     code VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
@@ -26,12 +26,12 @@ CREATE TABLE production_lines (
 
 -- Create operators table (operators are users with specific roles)
 CREATE TABLE operators (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     employee_id VARCHAR(50) UNIQUE NOT NULL,
     skill_level VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (skill_level IN ('beginner', 'intermediate', 'expert', 'master')),
     department VARCHAR(100),
-    current_work_order_id UUID,
+    current_work_order_id BIGINT,
     availability_status VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (availability_status IN ('available', 'busy', 'off_duty', 'on_leave')),
     hourly_rate DECIMAL(10,2),
     is_active BOOLEAN DEFAULT true,
@@ -42,10 +42,10 @@ CREATE TABLE operators (
 
 -- Create work_orders table
 CREATE TABLE work_orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     work_order_number VARCHAR(50) UNIQUE NOT NULL,
     customer_order_id BIGINT REFERENCES factory_customer_orders(id) ON DELETE SET NULL,
-    product_id UUID NOT NULL,
+    product_id BIGINT NOT NULL,
     product_name VARCHAR(255) NOT NULL,
     product_sku VARCHAR(100) NOT NULL,
     quantity DECIMAL(15,3) NOT NULL CHECK (quantity > 0),
@@ -56,7 +56,7 @@ CREATE TABLE work_orders (
     progress DECIMAL(5,2) NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
     estimated_hours DECIMAL(10,2) NOT NULL CHECK (estimated_hours > 0),
     actual_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
-    production_line_id UUID REFERENCES production_lines(id) ON DELETE SET NULL,
+    production_line_id BIGINT REFERENCES production_lines(id) ON DELETE SET NULL,
     production_line_name VARCHAR(255),
     assigned_operator_ids JSONB NOT NULL DEFAULT '[]',
     created_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -71,10 +71,10 @@ CREATE TABLE work_orders (
 
 -- Create work_order_assignments table (for tracking operator assignments)
 CREATE TABLE work_order_assignments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
-    production_line_id UUID NOT NULL REFERENCES production_lines(id) ON DELETE CASCADE,
-    operator_id UUID NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    work_order_id BIGINT NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+    production_line_id BIGINT NOT NULL REFERENCES production_lines(id) ON DELETE CASCADE,
+    operator_id BIGINT NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     assigned_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     estimated_start_time TIMESTAMP WITH TIME ZONE,

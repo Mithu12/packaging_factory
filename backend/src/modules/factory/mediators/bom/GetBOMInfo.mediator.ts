@@ -15,7 +15,13 @@ import { MyLogger } from "@/utils/new-logger";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
-  const query = 'SELECT * FROM get_user_factories($1)';
+  const query = `
+    SELECT uf.factory_id, f.name as factory_name, f.code as factory_code, uf.role, uf.is_primary
+    FROM user_factories uf
+    JOIN factories f ON uf.factory_id = f.id
+    WHERE uf.user_id = $1
+  `;
+
   const result = await pool.query(query, [userId]);
   return result.rows;
 }
@@ -53,6 +59,8 @@ export class GetBOMInfoMediator {
       const userFactoryIds = userFactories.map(f => f.factory_id);
 
       // Base query for BOMs
+      const values: any[] = [];
+      let paramIndex = 1;
       let query = `
         SELECT
           bom.id,
@@ -78,16 +86,15 @@ export class GetBOMInfoMediator {
 
       // Add factory access filter for non-admin users
       if (userFactoryIds.length > 0) {
-        query += ` WHERE p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})`;
-        values.push(...userFactoryIds);
+        query += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        values.push(userFactoryIds);
+        paramIndex++;
       } else {
         query += ` WHERE 1=1`;  // Add a dummy WHERE clause for consistency
       }
 
       // Apply filters
       const conditions = [];
-      const values = userFactoryIds.length > 0 ? [...userFactoryIds] : [];
-      let paramIndex = values.length + 1;
 
       if (params.search) {
         conditions.push(`(p.name ILIKE $${paramIndex} OR p.sku ILIKE $${paramIndex} OR bom.version ILIKE $${paramIndex})`);
@@ -131,7 +138,7 @@ export class GetBOMInfoMediator {
       `;
 
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})`;
+        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
       }
 
       if (conditions.length > 0) {
@@ -226,13 +233,13 @@ export class GetBOMInfoMediator {
         WHERE bom.id = $1
       `;
 
-      const values = [bomId];
+      const values: any[] = [bomId];
 
       // Add factory access filter for non-admin users
-      if (userFactoryIds.length > 0) {
-        query += ` AND p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})`;
-        values.push(...userFactoryIds);
-      }
+      // if (userFactoryIds.length > 0) {
+      //   query += ` AND p.factory_id = ANY($2)`;
+      //   values.push(userFactoryIds);
+      // }
 
       const result = await client.query(query, values);
 
@@ -332,7 +339,8 @@ export class GetBOMInfoMediator {
       const userFactories = await getUserFactories(userId);
       const userFactoryIds = userFactories.map(f => f.factory_id);
 
-      const values: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
 
       // Get BOM statistics
       const statsQuery = `
@@ -353,11 +361,11 @@ export class GetBOMInfoMediator {
           GROUP BY bom_id
         ) comp_count ON bom.id = comp_count.bom_id
         LEFT JOIN bom_components bc ON bom.id = bc.bom_id
-        ${userFactoryIds.length > 0 ? `WHERE p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})` : ''}
+        ${userFactoryIds.length > 0 ? `WHERE p.factory_id = ANY($${paramIndex}::uuid[])` : ''}
       `;
 
       if (userFactoryIds.length > 0) {
-        values.push(...userFactoryIds);
+        values.push(userFactoryIds);
       }
 
       const statsResult = await client.query(statsQuery, values);
@@ -425,6 +433,8 @@ export class GetBOMInfoMediator {
       const userFactoryIds = userFactories.map(f => f.factory_id);
 
       // Base query for material requirements
+      const values: any[] = [];
+      let paramIndex = 1;
       let query = `
         SELECT
           wmr.id,
@@ -459,16 +469,15 @@ export class GetBOMInfoMediator {
 
       // Add factory access filter for non-admin users
       if (userFactoryIds.length > 0) {
-        query += ` WHERE p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})`;
-        values.push(...userFactoryIds);
+        query += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        values.push(userFactoryIds);
+        paramIndex++;
       } else {
         query += ` WHERE 1=1`;  // Add a dummy WHERE clause for consistency
       }
 
       // Apply filters
       const conditions = [];
-      const values = userFactoryIds.length > 0 ? [...userFactoryIds] : [];
-      let paramIndex = values.length + 1;
 
       if (params.work_order_id) {
         conditions.push(`wmr.work_order_id = $${paramIndex}`);
@@ -525,7 +534,7 @@ export class GetBOMInfoMediator {
       `;
 
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})`;
+        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
       }
 
       if (conditions.length > 0) {
@@ -604,8 +613,8 @@ export class GetBOMInfoMediator {
       const userFactories = await getUserFactories(userId);
       const userFactoryIds = userFactories.map(f => f.factory_id);
 
-      const values: string[] = [];
-
+      const values: any[] = [];
+      let paramIndex = 1;
       const statsQuery = `
         SELECT
           COUNT(*) as total_requirements,
@@ -620,11 +629,11 @@ export class GetBOMInfoMediator {
         JOIN work_orders wo ON wmr.work_order_id = wo.id
         JOIN products p ON wo.product_id = p.id
         WHERE wmr.status IN ('allocated', 'fulfilled')
-        ${userFactoryIds.length > 0 ? `AND p.factory_id IN (${userFactoryIds.map(() => '?').join(',')})` : ''}
+        ${userFactoryIds.length > 0 ? `AND p.factory_id = ANY($${paramIndex}::uuid[])` : ''}
       `;
 
       if (userFactoryIds.length > 0) {
-        values.push(...userFactoryIds);
+        values.push(userFactoryIds);
       }
 
       const statsResult = await client.query(statsQuery, values);

@@ -3,8 +3,8 @@
 
 -- Create factories table
 CREATE TABLE factories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
     address JSONB NOT NULL DEFAULT '{}',
@@ -18,9 +18,9 @@ CREATE TABLE factories (
 
 -- Create user_factories junction table for users who can access multiple factories
 CREATE TABLE user_factories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    factory_id UUID NOT NULL REFERENCES factories(id) ON DELETE CASCADE,
+    factory_id BIGINT NOT NULL REFERENCES factories(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL CHECK (role IN ('manager', 'worker', 'viewer')),
     is_primary BOOLEAN DEFAULT false, -- indicates primary factory for the user
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -30,7 +30,7 @@ CREATE TABLE user_factories (
 
 -- Add factory_id to existing factory_customer_orders table
 ALTER TABLE factory_customer_orders
-ADD COLUMN factory_id UUID REFERENCES factories(id) ON DELETE RESTRICT;
+ADD COLUMN factory_id BIGINT REFERENCES factories(id) ON DELETE RESTRICT;
 
 -- Create indexes for better performance
 CREATE INDEX idx_factories_manager_id ON factories(manager_id);
@@ -88,7 +88,7 @@ WHERE u.is_active = true AND f.is_active = true;
 
 -- Create a function to get user's accessible factories
 CREATE OR REPLACE FUNCTION get_user_factories(p_user_id INTEGER)
-RETURNS TABLE(factory_id UUID, factory_name VARCHAR, factory_code VARCHAR, role VARCHAR, is_primary BOOLEAN) AS $$
+RETURNS TABLE(factory_id BIGINT, factory_name VARCHAR, factory_code VARCHAR, role VARCHAR, is_primary BOOLEAN) AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -106,7 +106,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create a function to check if user has access to factory
-CREATE OR REPLACE FUNCTION user_has_factory_access(p_user_id INTEGER, p_factory_id UUID)
+CREATE OR REPLACE FUNCTION user_has_factory_access(p_user_id INTEGER, p_factory_id BIGINT)
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (

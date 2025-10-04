@@ -3,7 +3,7 @@
 
 -- Add factory_id column to users table (nullable initially)
 ALTER TABLE users
-ADD COLUMN factory_id UUID REFERENCES factories(id) ON DELETE SET NULL;
+ADD COLUMN factory_id BIGINT REFERENCES factories(id) ON DELETE SET NULL;
 
 -- Create index for better performance
 CREATE INDEX idx_users_factory_id ON users(factory_id);

@@ -3,7 +3,7 @@
 
 -- Create bill_of_materials table
 CREATE TABLE bill_of_materials (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     parent_product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     version VARCHAR(20) NOT NULL,
     effective_date DATE NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE bill_of_materials (
 
 -- Create bom_components table
 CREATE TABLE bom_components (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    bom_id UUID NOT NULL REFERENCES bill_of_materials(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    bom_id BIGINT NOT NULL REFERENCES bill_of_materials(id) ON DELETE CASCADE,
     component_product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     quantity_required DECIMAL(15,4) NOT NULL CHECK (quantity_required > 0),
     unit_of_measure VARCHAR(20) NOT NULL,
@@ -38,8 +38,8 @@ CREATE TABLE bom_components (
 
 -- Create work_order_material_requirements table
 CREATE TABLE work_order_material_requirements (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    work_order_id BIGINT NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     material_sku VARCHAR(100) NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE work_order_material_requirements (
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'allocated', 'short', 'fulfilled', 'cancelled')),
     priority INTEGER NOT NULL DEFAULT 1,
     required_date DATE NOT NULL,
-    bom_component_id UUID REFERENCES bom_components(id) ON DELETE SET NULL,
+    bom_component_id BIGINT REFERENCES bom_components(id) ON DELETE SET NULL,
     supplier_id BIGINT REFERENCES suppliers(id) ON DELETE SET NULL,
     supplier_name VARCHAR(255),
     unit_cost DECIMAL(15,4) NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE work_order_material_requirements (
 
 -- Create work_order_material_allocations table
 CREATE TABLE work_order_material_allocations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    work_order_requirement_id UUID NOT NULL REFERENCES work_order_material_requirements(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    work_order_requirement_id BIGINT NOT NULL REFERENCES work_order_material_requirements(id) ON DELETE CASCADE,
     inventory_item_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     allocated_quantity DECIMAL(15,4) NOT NULL CHECK (allocated_quantity > 0),
     allocated_from_location VARCHAR(255) NOT NULL,
@@ -81,13 +81,13 @@ CREATE TABLE work_order_material_allocations (
 
 -- Create work_order_material_consumptions table
 CREATE TABLE work_order_material_consumptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    work_order_id BIGINT NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     consumed_quantity DECIMAL(15,4) NOT NULL CHECK (consumed_quantity > 0),
     consumption_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    production_line_id UUID REFERENCES production_lines(id) ON DELETE SET NULL,
+    production_line_id BIGINT REFERENCES production_lines(id) ON DELETE SET NULL,
     production_line_name VARCHAR(255),
     consumed_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     wastage_quantity DECIMAL(15,4) NOT NULL DEFAULT 0,
@@ -99,14 +99,14 @@ CREATE TABLE work_order_material_consumptions (
 
 -- Create material_shortages table for tracking shortages
 CREATE TABLE material_shortages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     material_sku VARCHAR(100) NOT NULL,
     required_quantity DECIMAL(15,4) NOT NULL CHECK (required_quantity > 0),
     available_quantity DECIMAL(15,4) NOT NULL DEFAULT 0,
     shortfall_quantity DECIMAL(15,4) NOT NULL,
-    work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+    work_order_id BIGINT NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     work_order_number VARCHAR(50) NOT NULL,
     required_date DATE NOT NULL,
     priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
