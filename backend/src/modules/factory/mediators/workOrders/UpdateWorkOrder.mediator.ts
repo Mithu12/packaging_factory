@@ -138,7 +138,7 @@ export class UpdateWorkOrderMediator {
       }
 
       if (updateData.assigned_operators !== undefined) {
-        updateFields.push(`assigned_operators = $${paramIndex}`);
+        updateFields.push(`assigned_operator_ids = $${paramIndex}`);
         updateValues.push(JSON.stringify(updateData.assigned_operators));
         paramIndex++;
       }
@@ -208,8 +208,8 @@ export class UpdateWorkOrderMediator {
           await client.query(`
             UPDATE operators
             SET availability_status = 'busy', current_work_order_id = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id IN (${updateData.assigned_operators.map(() => '?').join(',')})
-          `, [workOrderId, ...updateData.assigned_operators]);
+            WHERE id = ANY($2::integer[])
+          `, [workOrderId, updateData.assigned_operators]);
         }
       }
 
@@ -230,7 +230,7 @@ export class UpdateWorkOrderMediator {
         actual_hours: parseFloat(updatedWorkOrder.actual_hours),
         production_line_id: updatedWorkOrder.production_line_id,
         production_line_name: updatedWorkOrder.production_line_name,
-        assigned_operators: updatedWorkOrder.assigned_operators || [],
+        assigned_operator_ids: updatedWorkOrder.assigned_operator_ids || [],
         created_by: updatedWorkOrder.created_by,
         created_at: updatedWorkOrder.created_at,
         updated_by: updatedWorkOrder.updated_by,
@@ -356,13 +356,13 @@ export class UpdateWorkOrderMediator {
 
       if (newStatus === 'in_progress' && currentWorkOrder.status !== 'in_progress') {
         // Mark operators as busy
-        const operatorIds = updatedWorkOrder.assigned_operators || [];
+        const operatorIds = updatedWorkOrder.assigned_operator_ids || [];
         if (operatorIds.length > 0) {
           await client.query(`
             UPDATE operators
             SET availability_status = 'busy', updated_at = CURRENT_TIMESTAMP
-            WHERE id IN (${operatorIds.map(() => '?').join(',')})
-          `, [...operatorIds]);
+            WHERE id = ANY($1::integer[])
+          `, [operatorIds]);
         }
       }
 
@@ -383,7 +383,7 @@ export class UpdateWorkOrderMediator {
         actual_hours: parseFloat(updatedWorkOrder.actual_hours),
         production_line_id: updatedWorkOrder.production_line_id,
         production_line_name: updatedWorkOrder.production_line_name,
-        assigned_operators: updatedWorkOrder.assigned_operators || [],
+        assigned_operator_ids: updatedWorkOrder.assigned_operator_ids || [],
         created_by: updatedWorkOrder.created_by,
         created_at: updatedWorkOrder.created_at,
         updated_by: updatedWorkOrder.updated_by,
@@ -437,7 +437,7 @@ export class UpdateWorkOrderMediator {
       }
 
       // Free up operators if work order is being deleted
-      if (workOrder.assigned_operators && workOrder.assigned_operators.length > 0) {
+      if (workOrder.assigned_operator_ids && workOrder.assigned_operator_ids.length > 0) {
         await client.query(`
           UPDATE operators
           SET availability_status = 'available', current_work_order_id = NULL, updated_at = CURRENT_TIMESTAMP
@@ -463,7 +463,7 @@ export class UpdateWorkOrderMediator {
       // Delete work order
       const deleteResult = await client.query('DELETE FROM work_orders WHERE id = $1', [workOrderId]);
 
-      const deleted = deleteResult.rowCount > 0;
+      const deleted = (deleteResult.rowCount || 0) > 0;
 
       MyLogger.success(action, {
         workOrderId,

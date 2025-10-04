@@ -935,7 +935,7 @@ export default function WorkOrderPlanning() {
                   <CardTitle>Assigned Operators</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {selectedWorkOrder.assigned_operators.length > 0 ? (
+                  {selectedWorkOrder?.assigned_operators?.length > 0 ? (
                     <div className="flex gap-2">
                       {selectedWorkOrder.assigned_operators.map(
                         (operator, index) => (
