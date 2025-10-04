@@ -2,8 +2,8 @@ import Joi from "joi";
 
 // BOM validation schemas
 export const createBOMSchema = Joi.object({
-  parent_product_id: Joi.string().uuid().required().messages({
-    "string.guid": "Parent product ID must be a valid UUID",
+  parent_product_id: Joi.number().required().messages({
+    "number.base": "Parent product ID must be a valid number",
     "any.required": "Parent product ID is required",
   }),
   version: Joi.string().max(20).required().messages({
@@ -17,8 +17,8 @@ export const createBOMSchema = Joi.object({
   components: Joi.array()
     .items(
       Joi.object({
-        component_product_id: Joi.string().uuid().required().messages({
-          "string.guid": "Component product ID must be a valid UUID",
+        component_product_id: Joi.number().required().messages({
+          "number.base": "Component product ID must be a valid number",
           "any.required": "Component product ID is required",
         }),
         quantity_required: Joi.number().positive().precision(4).required().messages({
@@ -36,7 +36,7 @@ export const createBOMSchema = Joi.object({
           "number.max": "Scrap factor must not exceed 100",
           "number.precision": "Scrap factor must have at most 2 decimal places",
         }),
-        specifications: Joi.string().max(1000).allow("").optional(),
+        specifications: Joi.string().max(1000).allow("").optional().default(""),
         notes: Joi.string().max(1000).allow("").optional(),
       })
     )
@@ -63,8 +63,8 @@ export const updateBOMSchema = Joi.object({
         id: Joi.string().uuid().optional().messages({
           "string.guid": "Component ID must be a valid UUID",
         }),
-        component_product_id: Joi.string().uuid().optional().messages({
-          "string.guid": "Component product ID must be a valid UUID",
+        component_product_id: Joi.number().optional().messages({
+          "number.base": "Component product ID must be a valid number",
         }),
         quantity_required: Joi.number().positive().precision(4).optional().messages({
           "number.positive": "Quantity required must be positive",
@@ -79,7 +79,7 @@ export const updateBOMSchema = Joi.object({
           "number.max": "Scrap factor must not exceed 100",
           "number.precision": "Scrap factor must have at most 2 decimal places",
         }),
-        specifications: Joi.string().max(1000).allow("").optional(),
+        specifications: Joi.string().max(1000).allow("").optional().default(""),
         notes: Joi.string().max(1000).allow("").optional(),
       })
     )
@@ -91,7 +91,7 @@ export const bomQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   search: Joi.string().max(100).optional(),
-  parent_product_id: Joi.string().uuid().optional(),
+  parent_product_id: Joi.number().optional(),
   is_active: Joi.boolean().optional(),
   sort_by: Joi.string().valid("created_at", "version", "total_cost").optional(),
   sort_order: Joi.string().valid("asc", "desc").optional(),
@@ -121,7 +121,7 @@ export const updateMaterialRequirementStatusSchema = Joi.object({
     "any.only": "Status must be one of: pending, allocated, short, fulfilled, cancelled",
     "any.required": "Status is required",
   }),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("").optional().default(""),
 });
 
 // Bulk operations
@@ -134,7 +134,7 @@ export const bulkUpdateMaterialRequirementStatusSchema = Joi.object({
     "any.only": "Status must be one of: pending, allocated, short, fulfilled, cancelled",
     "any.required": "Status is required",
   }),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("").optional().default(""),
 });
 
 // Material allocation
@@ -148,7 +148,7 @@ export const allocateMaterialsSchema = Joi.object({
     "string.max": "Location must not exceed 255 characters",
     "any.required": "Allocation location is required",
   }),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("").optional().default(""),
 });
 
 // Material consumption
@@ -163,7 +163,7 @@ export const consumeMaterialsSchema = Joi.object({
     "number.precision": "Wastage quantity must have at most 4 decimal places",
   }),
   wastage_reason: Joi.string().max(500).allow("").optional(),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("").optional().default(""),
 });
 
 // Material shortage resolution
@@ -175,5 +175,5 @@ export const resolveShortageSchema = Joi.object({
       "any.only": "Resolved action must be one of: purchase, substitute, delay, split, cancelled",
       "any.required": "Resolved action is required",
     }),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("").optional().default(""), 
 });

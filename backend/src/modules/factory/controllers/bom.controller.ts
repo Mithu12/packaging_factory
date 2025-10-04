@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { GetBOMInfoMediator } from "../mediators/bom/GetBOMInfo.mediator";
 import { AddBOMMediator } from "../mediators/bom/AddBOM.mediator";
+import { UpdateBOMMediator } from "../mediators/bom/UpdateBOM.mediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
 import {
@@ -145,20 +146,15 @@ class BOMController {
         throw new Error('User not authenticated');
       }
 
-      // TODO: Implement BOM update logic
-      // const updatedBOM = await UpdateBOMMediator.updateBOM(id, updateData, userId.toString());
+      const updatedBOM = await UpdateBOMMediator.updateBOM(id, updateData, userId.toString());
 
       MyLogger.success(action, {
-        // bomId: id,
-        message: "BOM update not yet implemented"
+        bomId: updatedBOM.id,
+        version: updatedBOM.version,
+        componentsCount: updatedBOM.components?.length || 0
       });
 
-      // serializeSuccessResponse(res, updatedBOM, "BOM updated successfully");
-      res.status(501).json({
-        success: false,
-        message: "BOM update not yet implemented",
-        data: null
-      });
+      serializeSuccessResponse(res, updatedBOM, "BOM updated successfully");
     } catch (error) {
       next(error);
     }

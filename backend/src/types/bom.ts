@@ -49,6 +49,10 @@ export interface CreateBOMRequest {
 export interface CreateBOMComponentRequest {
   component_product_id: string;
   quantity_required: number;
+  unit_cost: number;
+  total_cost: number;
+  lead_time_days: number;
+  supplier_id?: string;
   unit_of_measure: string;
   is_optional: boolean;
   scrap_factor: number;
@@ -68,6 +72,8 @@ export interface UpdateBOMComponentRequest {
   id?: string;
   component_product_id?: string;
   quantity_required?: number;
+  unit_cost?: number;
+  total_cost?: number;
   unit_of_measure?: string;
   is_optional?: boolean;
   scrap_factor?: number;
@@ -85,6 +91,8 @@ export interface WorkOrderMaterialRequirement {
   required_quantity: number;
   allocated_quantity: number;
   consumed_quantity: number;
+  unit_cost: number;
+  total_cost: number;
   unit_of_measure: string;
   status: 'pending' | 'allocated' | 'short' | 'fulfilled' | 'cancelled';
   priority: number;
@@ -92,8 +100,6 @@ export interface WorkOrderMaterialRequirement {
   bom_component_id?: string;
   supplier_id?: string;
   supplier_name?: string;
-  unit_cost: number;
-  total_cost: number;
   lead_time_days: number;
   is_critical: boolean;
   notes?: string;
@@ -106,6 +112,8 @@ export interface WorkOrderMaterialAllocation {
   work_order_requirement_id: string;
   inventory_item_id: number;
   allocated_quantity: number;
+  unit_cost: number;
+  total_cost: number;
   allocated_from_location: string;
   allocated_date: string;
   allocated_by: number;
@@ -123,6 +131,8 @@ export interface WorkOrderMaterialConsumption {
   material_id: string;
   material_name: string;
   consumed_quantity: number;
+  unit_cost: number;
+  total_cost: number;
   consumption_date: string;
   production_line_id?: string;
   production_line_name?: string;
@@ -144,6 +154,8 @@ export interface MaterialShortage {
   shortfall_quantity: number;
   work_order_id: string;
   work_order_number: string;
+  unit_cost: number;
+  total_cost: number;
   required_date: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   supplier_id?: string;
@@ -177,9 +189,9 @@ export interface MaterialCostAnalysis {
 export interface MaterialCostBreakdown {
   material_id: string;
   material_name: string;
-  quantity_used: number;
   unit_cost: number;
   total_cost: number;
+  quantity_used: number;
   cost_percentage: number;
   wastage_quantity: number;
   wastage_cost: number;

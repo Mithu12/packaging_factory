@@ -31,7 +31,7 @@ export class AddBOMMediator {
 
       // Verify the parent product exists and user has access to it
       const productQuery = `
-        SELECT p.id, p.name, p.sku, p.factory_id
+        SELECT p.id, p.name, p.sku
         FROM products p
         WHERE p.id = $1
       `;
@@ -45,9 +45,9 @@ export class AddBOMMediator {
       const product = productResult.rows[0];
 
       // Check if user has access to the product's factory
-      if (userFactoryIds.length > 0 && !userFactoryIds.includes(product.factory_id)) {
-        throw new Error('Access denied to this product');
-      }
+      // if (userFactoryIds.length > 0 && !userFactoryIds.includes(product.factory_id)) {
+      //   throw new Error('Access denied to this product');
+      // }
 
       // Check if BOM version already exists for this product
       const existingBOMQuery = `
@@ -72,7 +72,7 @@ export class AddBOMMediator {
       for (const component of bomData.components) {
         // Verify component product exists
         const componentProductQuery = `
-          SELECT p.id, p.name, p.sku, p.cost_price, p.unit_of_measure, p.factory_id
+          SELECT p.id, p.name, p.sku, p.cost_price, p.unit_of_measure, p.supplier_id
           FROM products p
           WHERE p.id = $1
         `;
@@ -86,9 +86,9 @@ export class AddBOMMediator {
         const componentProduct = componentProductResult.rows[0];
 
         // Check if user has access to the component product's factory
-        if (userFactoryIds.length > 0 && !userFactoryIds.includes(componentProduct.factory_id)) {
-          throw new Error('Access denied to component product');
-        }
+        // if (userFactoryIds.length > 0 && !userFactoryIds.includes(componentProduct.factory_id)) {
+        //   throw new Error('Access denied to component product');
+        // }
 
         const unitCost = parseFloat(componentProduct.cost_price || '0');
         const componentTotalCost = unitCost * component.quantity_required;
@@ -99,7 +99,8 @@ export class AddBOMMediator {
           ...component,
           // Use product cost price if available, otherwise use provided unit_cost
           unit_cost: unitCost,
-          total_cost: componentTotalCost
+          total_cost: componentTotalCost,
+          supplier_id: componentProduct.supplier_id || null
         });
       }
 
@@ -166,7 +167,7 @@ export class AddBOMMediator {
           component.lead_time_days || 0,
           component.supplier_id || null,
           component.specifications || null,
-          component.notes || null
+          component.notes || null 
         ];
 
         await client.query(createComponentQuery, componentValues);

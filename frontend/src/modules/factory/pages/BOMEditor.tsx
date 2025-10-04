@@ -26,6 +26,7 @@ import {
   Clock,
   Search,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -43,152 +44,140 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BillOfMaterials, BOMComponent, CreateBOMRequest } from "../types/bom";
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  unitOfMeasure: string;
-  costPrice: number;
-  supplierId?: string;
-  supplierName?: string;
-  leadTimeDays: number;
-}
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+  BillOfMaterials, 
+  BOMComponent, 
+  CreateBOMRequest, 
+  UpdateBOMRequest,
+  CreateBOMComponentRequest,
+  UpdateBOMComponentRequest,
+  BOMApiService, 
+  bomQueryKeys 
+} from "@/services/bom-api";
+import { ProductApi, Product } from "@/services/api";
 
 export default function BOMEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { formatCurrency, formatDate } = useFormatting();
   const isEditing = Boolean(id);
 
-  const [bom, setBOM] = useState<BillOfMaterials | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [components, setComponents] = useState<BOMComponent[]>([]);
   const [showAddComponent, setShowAddComponent] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [newComponent, setNewComponent] = useState({
-    componentId: "",
-    quantityRequired: 1,
-    unitOfMeasure: "",
-    isOptional: false,
-    scrapFactor: 0,
+    component_product_id: "",
+    quantity_required: 1,
+    unit_of_measure: "",
+    is_optional: false,
+    scrap_factor: 0,
     specifications: "",
     notes: "",
   });
 
   const [formData, setFormData] = useState({
-    parentProductId: "",
-    parentProductName: "",
-    parentProductSku: "",
+    parent_product_id: "",
+    parent_product_name: "",
+    parent_product_sku: "",
     version: "1.0",
-    effectiveDate: new Date().toISOString().split("T")[0],
-    isActive: true,
+    effective_date: new Date().toISOString().split("T")[0],
+    is_active: true,
     notes: "",
   });
 
+  // Fetch products for component selection
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => ProductApi.getProducts({ limit: 100 }),
+  });
+
+  // Fetch existing BOM data if editing
+  const { data: existingBOM, isLoading: bomLoading } = useQuery({
+    queryKey: bomQueryKeys.detail(id || ''),
+    queryFn: () => BOMApiService.getBOMById(id!),
+    enabled: isEditing && !!id,
+  });
+
+  // Create BOM mutation
+  const createBOMMutation = useMutation({
+    mutationFn: (data: CreateBOMRequest) => BOMApiService.createBOM(data),
+    onSuccess: (data) => {
+      toast.success("BOM created successfully");
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.lists() });
+      navigate("/factory/bom");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to create BOM");
+    },
+  });
+
+  // Update BOM mutation
+  const updateBOMMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateBOMRequest }) => 
+      BOMApiService.updateBOM(id, data),
+    onSuccess: (data) => {
+      toast.success("BOM updated successfully");
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.detail(id!) });
+      navigate("/factory/bom");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update BOM");
+    },
+  });
+
+  // Initialize form data when editing
   useEffect(() => {
-    // Mock products data
-    setProducts([
-      {
-        id: "MAT-001",
-        name: "Steel Frame",
-        sku: "SF-001",
-        unitOfMeasure: "pcs",
-        costPrice: 25.0,
-        supplierId: "SUP-001",
-        supplierName: "Steel Works Ltd",
-        leadTimeDays: 7,
-      },
-      {
-        id: "MAT-002",
-        name: "Electronic Module",
-        sku: "EM-001",
-        unitOfMeasure: "pcs",
-        costPrice: 45.0,
-        supplierId: "SUP-002",
-        supplierName: "ElectroTech Inc",
-        leadTimeDays: 14,
-      },
-      {
-        id: "MAT-003",
-        name: "Aluminum Frame",
-        sku: "AF-001",
-        unitOfMeasure: "pcs",
-        costPrice: 15.0,
-        supplierId: "SUP-003",
-        supplierName: "Aluminum Co",
-        leadTimeDays: 5,
-      },
-      {
-        id: "MAT-004",
-        name: "Plastic Housing",
-        sku: "PH-001",
-        unitOfMeasure: "pcs",
-        costPrice: 8.5,
-        supplierId: "SUP-004",
-        supplierName: "Plastic Molds Inc",
-        leadTimeDays: 10,
-      },
-    ]);
-
-    if (isEditing && id) {
-      // Load existing BOM data
-      setBOM({
-        id: id,
-        parentProductId: "PROD-001",
-        parentProductName: "Premium Widget A",
-        parentProductSku: "PWA-001",
-        version: "1.2",
-        effectiveDate: "2024-03-01",
-        isActive: true,
-        components: [],
-        totalCost: 0,
-        createdBy: "John Smith",
-        createdDate: "2024-02-15T10:30:00Z",
-      });
-
+    if (isEditing && existingBOM) {
       setFormData({
-        parentProductId: "PROD-001",
-        parentProductName: "Premium Widget A",
-        parentProductSku: "PWA-001",
-        version: "1.2",
-        effectiveDate: "2024-03-01",
-        isActive: true,
-        notes: "Updated with new electronic module",
+        parent_product_id: existingBOM.parent_product_id,
+        parent_product_name: existingBOM.parent_product_name || "",
+        parent_product_sku: existingBOM.parent_product_sku || "",
+        version: existingBOM.version,
+        effective_date: existingBOM.effective_date.split('T')[0],
+        is_active: existingBOM.is_active,
+        notes: existingBOM.notes || "",
       });
+      setComponents(existingBOM.components || []);
     }
-  }, [id, isEditing]);
+  }, [isEditing, existingBOM]);
+
+  const products = productsData?.products || [];
 
   const handleAddComponent = () => {
     if (!selectedProduct) return;
 
     const component: BOMComponent = {
       id: `COMP-${Date.now()}`,
-      componentId: selectedProduct.id,
-      componentName: selectedProduct.name,
-      componentSku: selectedProduct.sku,
-      quantityRequired: newComponent.quantityRequired,
-      unitOfMeasure: selectedProduct.unitOfMeasure,
-      isOptional: newComponent.isOptional,
-      scrapFactor: newComponent.scrapFactor,
-      unitCost: selectedProduct.costPrice,
-      totalCost: selectedProduct.costPrice * newComponent.quantityRequired,
-      leadTimeDays: selectedProduct.leadTimeDays,
-      supplierId: selectedProduct.supplierId,
-      supplierName: selectedProduct.supplierName,
+      bom_id: id || "",
+      component_product_id: selectedProduct.id.toString(),
+      component_product_name: selectedProduct.name,
+      component_product_sku: selectedProduct.sku,
+      quantity_required: newComponent.quantity_required,
+      unit_of_measure: selectedProduct.unit_of_measure,
+      is_optional: newComponent.is_optional,
+      scrap_factor: newComponent.scrap_factor,
+      unit_cost: selectedProduct.cost_price,
+      total_cost: selectedProduct.cost_price * newComponent.quantity_required,
+      lead_time_days: 0, // Default value since Product doesn't have this field
+      supplier_id: selectedProduct.supplier_id?.toString(),
+      supplier_name: undefined, // Will be populated by backend
       specifications: newComponent.specifications,
       notes: newComponent.notes,
+      created_at: new Date().toISOString(),
     };
 
     setComponents((prev) => [...prev, component]);
     setShowAddComponent(false);
     setNewComponent({
-      componentId: "",
-      quantityRequired: 1,
-      unitOfMeasure: "",
-      isOptional: false,
-      scrapFactor: 0,
+      component_product_id: "",
+      quantity_required: 1,
+      unit_of_measure: "",
+      is_optional: false,
+      scrap_factor: 0,
       specifications: "",
       notes: "",
     });
@@ -203,32 +192,61 @@ export default function BOMEditor() {
     navigate("/factory/bom");
   };
 
-  const handleSave = () => {
-    const totalCost = components.reduce((sum, comp) => sum + comp.totalCost, 0);
+  const handleSave = async () => {
+    if (!formData.parent_product_id) {
+      toast.error("Please select a parent product");
+      return;
+    }
 
-    const bomData: CreateBOMRequest = {
-      parentProductId: formData.parentProductId,
-      version: formData.version,
-      effectiveDate: formData.effectiveDate,
-      components: components.map((comp) => ({
-        componentId: comp.componentId,
-        quantityRequired: comp.quantityRequired,
-        unitOfMeasure: comp.unitOfMeasure,
-        isOptional: comp.isOptional,
-        scrapFactor: comp.scrapFactor,
-        specifications: comp.specifications,
-        notes: comp.notes,
-      })),
-      notes: formData.notes,
-    };
+    if (components.length === 0) {
+      toast.error("Please add at least one component");
+      return;
+    }
 
-    console.log("Saving BOM:", bomData);
-    // In real app, call API to save BOM
-    navigate("/factory/bom");
+    if (isEditing && id) {
+      // Update existing BOM
+      const updateData: UpdateBOMRequest = {
+        version: formData.version,
+        effective_date: formData.effective_date,
+        is_active: formData.is_active,
+        notes: formData.notes,
+        components: components.map((comp): UpdateBOMComponentRequest => ({
+          id: comp.id.startsWith('COMP-') ? undefined : comp.id, // Only include ID for existing components
+          component_product_id: comp.component_product_id,
+          quantity_required: comp.quantity_required,
+          unit_of_measure: comp.unit_of_measure,
+          is_optional: comp.is_optional,
+          scrap_factor: comp.scrap_factor,
+          specifications: comp.specifications,
+          notes: comp.notes,
+        })),
+      };
+
+      updateBOMMutation.mutate({ id, data: updateData });
+    } else {
+      // Create new BOM
+      const createData: CreateBOMRequest = {
+        parent_product_id: formData.parent_product_id,
+        version: formData.version,
+        effective_date: formData.effective_date,
+        components: components.map((comp): CreateBOMComponentRequest => ({
+          component_product_id: comp.component_product_id,
+          quantity_required: comp.quantity_required,
+          unit_of_measure: comp.unit_of_measure,
+          is_optional: comp.is_optional,
+          scrap_factor: comp.scrap_factor,
+          specifications: comp.specifications,
+          notes: comp.notes,
+        })),
+        notes: formData.notes,
+      };
+
+      createBOMMutation.mutate(createData);
+    }
   };
 
   const getTotalCost = () => {
-    return components.reduce((sum, comp) => sum + comp.totalCost, 0);
+    return components.reduce((sum, comp) => sum + comp.total_cost, 0);
   };
 
   const getComponentCount = () => {
@@ -236,8 +254,20 @@ export default function BOMEditor() {
   };
 
   const getCriticalComponents = () => {
-    return components.filter((comp) => !comp.isOptional).length;
+    return components.filter((comp) => !comp.is_optional).length;
   };
+
+  const isLoading = bomLoading || productsLoading;
+  const isSaving = createBOMMutation.isPending || updateBOMMutation.isPending;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -265,9 +295,13 @@ export default function BOMEditor() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Preview</Button>
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save BOM
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {isSaving ? "Saving..." : "Save BOM"}
           </Button>
         </div>
       </div>
@@ -308,7 +342,7 @@ export default function BOMEditor() {
           <CardContent>
             <div className="text-2xl font-bold">
               {components.length > 0
-                ? Math.max(...components.map((c) => c.leadTimeDays))
+                ? Math.max(...components.map((c) => c.lead_time_days))
                 : 0}{" "}
               days
             </div>
@@ -324,7 +358,7 @@ export default function BOMEditor() {
           <CardContent>
             <div className="text-2xl font-bold">
               {
-                new Set(components.map((c) => c.supplierId).filter(Boolean))
+                new Set(components.map((c) => c.supplier_id).filter(Boolean))
                   .size
               }
             </div>
@@ -343,17 +377,34 @@ export default function BOMEditor() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="parentProduct">Parent Product</Label>
-                <Input
-                  id="parentProduct"
-                  value={formData.parentProductName}
-                  onChange={(e) =>
+                <Select
+                  value={formData.parent_product_id}
+                  onValueChange={(value) => {
+                    const product = products.find((p) => p.id.toString() === value);
                     setFormData((prev) => ({
                       ...prev,
-                      parentProductName: e.target.value,
-                    }))
-                  }
-                  placeholder="Select or enter product name"
-                />
+                      parent_product_id: value,
+                      parent_product_name: product?.name || "",
+                      parent_product_sku: product?.sku || "",
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select parent product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id.toString()}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{product.name}</span>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            {product.sku}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -376,11 +427,11 @@ export default function BOMEditor() {
                 <Input
                   id="effectiveDate"
                   type="date"
-                  value={formData.effectiveDate}
+                  value={formData.effective_date}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      effectiveDate: e.target.value,
+                      effective_date: e.target.value,
                     }))
                   }
                 />
@@ -389,11 +440,11 @@ export default function BOMEditor() {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="isActive"
-                  checked={formData.isActive}
+                  checked={formData.is_active}
                   onCheckedChange={(checked) =>
                     setFormData((prev) => ({
                       ...prev,
-                      isActive: checked as boolean,
+                      is_active: checked as boolean,
                     }))
                   }
                 />
@@ -464,12 +515,12 @@ export default function BOMEditor() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {component.componentName}
+                              {component.component_product_name}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {component.componentSku}
+                              {component.component_product_sku}
                             </div>
-                            {component.isOptional && (
+                            {component.is_optional && (
                               <Badge variant="outline" className="mt-1">
                                 Optional
                               </Badge>
@@ -479,21 +530,21 @@ export default function BOMEditor() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">
-                              {component.quantityRequired}
+                              {component.quantity_required}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {component.unitOfMeasure}
+                              {component.unit_of_measure}
                             </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {formatCurrency(component.unitCost)}
+                          {formatCurrency(component.unit_cost)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(component.totalCost)}
+                          {formatCurrency(component.total_cost)}
                         </TableCell>
                         <TableCell>
-                          {component.supplierName || (
+                          {component.supplier_name || (
                             <span className="text-muted-foreground">
                               Not assigned
                             </span>
@@ -533,15 +584,15 @@ export default function BOMEditor() {
               <Label htmlFor="component">Component</Label>
               <div className="flex gap-2">
                 <Select
-                  value={selectedProduct?.id || ""}
+                  value={selectedProduct?.id.toString() || ""}
                   onValueChange={(value) => {
-                    const product = products.find((p) => p.id === value);
+                    const product = products.find((p) => p.id.toString() === value);
                     setSelectedProduct(product || null);
                     if (product) {
                       setNewComponent((prev) => ({
                         ...prev,
-                        componentId: product.id,
-                        unitOfMeasure: product.unitOfMeasure,
+                        component_product_id: product.id.toString(),
+                        unit_of_measure: product.unit_of_measure,
                       }));
                     }
                   }}
@@ -551,7 +602,7 @@ export default function BOMEditor() {
                   </SelectTrigger>
                   <SelectContent>
                     {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
+                      <SelectItem key={product.id} value={product.id.toString()}>
                         <div className="flex items-center justify-between w-full">
                           <span>{product.name}</span>
                           <span className="text-sm text-muted-foreground ml-2">
@@ -582,11 +633,11 @@ export default function BOMEditor() {
                     type="number"
                     min="0.01"
                     step="0.01"
-                    value={newComponent.quantityRequired}
+                    value={newComponent.quantity_required}
                     onChange={(e) =>
                       setNewComponent((prev) => ({
                         ...prev,
-                        quantityRequired: parseFloat(e.target.value) || 0,
+                        quantity_required: parseFloat(e.target.value) || 0,
                       }))
                     }
                   />
@@ -600,11 +651,11 @@ export default function BOMEditor() {
                     min="0"
                     max="100"
                     step="0.1"
-                    value={newComponent.scrapFactor}
+                    value={newComponent.scrap_factor}
                     onChange={(e) =>
                       setNewComponent((prev) => ({
                         ...prev,
-                        scrapFactor: parseFloat(e.target.value) || 0,
+                        scrap_factor: parseFloat(e.target.value) || 0,
                       }))
                     }
                   />
@@ -615,11 +666,11 @@ export default function BOMEditor() {
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="isOptional"
-                checked={newComponent.isOptional}
+                checked={newComponent.is_optional}
                 onCheckedChange={(checked) =>
                   setNewComponent((prev) => ({
                     ...prev,
-                    isOptional: checked as boolean,
+                    is_optional: checked as boolean,
                   }))
                 }
               />
@@ -665,27 +716,27 @@ export default function BOMEditor() {
                   <div>
                     <span className="text-muted-foreground">Unit Cost:</span>
                     <span className="ml-2 font-medium">
-                      {formatCurrency(selectedProduct.costPrice)}
+                      {formatCurrency(selectedProduct.cost_price)}
                     </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Lead Time:</span>
                     <span className="ml-2 font-medium">
-                      {selectedProduct.leadTimeDays} days
+                      0 days
                     </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Supplier:</span>
                     <span className="ml-2 font-medium">
-                      {selectedProduct.supplierName || "Not assigned"}
+                      Not assigned
                     </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Total Cost:</span>
                     <span className="ml-2 font-medium">
                       {formatCurrency(
-                        selectedProduct.costPrice *
-                          newComponent.quantityRequired
+                        selectedProduct.cost_price *
+                          newComponent.quantity_required
                       )}
                     </span>
                   </div>
