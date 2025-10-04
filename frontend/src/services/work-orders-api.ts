@@ -217,9 +217,9 @@ export interface UpdateWorkOrderAssignmentRequest {
 
 export class WorkOrdersApiService {
   private static readonly BASE_URL = '/factory/work-orders';
-  private static readonly PRODUCTION_LINES_URL = '/factory/production-lines';
-  private static readonly OPERATORS_URL = '/factory/operators';
-  private static readonly ASSIGNMENTS_URL = '/factory/work-order-assignments';
+  private static readonly PRODUCTION_LINES_URL = '/production-lines';
+  private static readonly OPERATORS_URL = '/operators';
+  private static readonly ASSIGNMENTS_URL = '/assignments';
 
   // =====================================================
   // Work Order CRUD Operations
@@ -318,17 +318,17 @@ export class WorkOrdersApiService {
 
   // Get all production lines
   static async getProductionLines(): Promise<ProductionLine[]> {
-    return makeRequest<ProductionLine[]>(this.PRODUCTION_LINES_URL);
+    return makeRequest<ProductionLine[]>(this.BASE_URL + this.PRODUCTION_LINES_URL);
   }
 
   // Get production line by ID
   static async getProductionLineById(id: string): Promise<ProductionLine> {
-    return makeRequest<ProductionLine>(`${this.PRODUCTION_LINES_URL}/${id}`);
+    return makeRequest<ProductionLine>(`${this.BASE_URL + this.PRODUCTION_LINES_URL}/${id}`);
   }
 
   // Create production line
   static async createProductionLine(data: CreateProductionLineRequest): Promise<ProductionLine> {
-    return makeRequest<ProductionLine>(this.PRODUCTION_LINES_URL, {
+    return makeRequest<ProductionLine>(this.BASE_URL + this.PRODUCTION_LINES_URL, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -336,7 +336,7 @@ export class WorkOrdersApiService {
 
   // Update production line
   static async updateProductionLine(id: string, data: UpdateProductionLineRequest): Promise<ProductionLine> {
-    return makeRequest<ProductionLine>(`${this.PRODUCTION_LINES_URL}/${id}`, {
+    return makeRequest<ProductionLine>(`${this.BASE_URL + this.PRODUCTION_LINES_URL}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -344,7 +344,7 @@ export class WorkOrdersApiService {
 
   // Delete production line
   static async deleteProductionLine(id: string): Promise<{ deleted: boolean }> {
-    return makeRequest<{ deleted: boolean }>(`${this.PRODUCTION_LINES_URL}/${id}`, {
+    return makeRequest<{ deleted: boolean }>(`${this.BASE_URL + this.PRODUCTION_LINES_URL}/${id}`, {
       method: 'DELETE',
     });
   }
@@ -355,17 +355,17 @@ export class WorkOrdersApiService {
 
   // Get all operators
   static async getOperators(): Promise<Operator[]> {
-    return makeRequest<Operator[]>(this.OPERATORS_URL);
+    return makeRequest<Operator[]>(this.BASE_URL + this.OPERATORS_URL);
   }
 
   // Get operator by ID
   static async getOperatorById(id: string): Promise<Operator> {
-    return makeRequest<Operator>(`${this.OPERATORS_URL}/${id}`);
+    return makeRequest<Operator>(`${this.BASE_URL + this.OPERATORS_URL}/${id}`);
   }
 
   // Create operator
   static async createOperator(data: CreateOperatorRequest): Promise<Operator> {
-    return makeRequest<Operator>(this.OPERATORS_URL, {
+    return makeRequest<Operator>(this.BASE_URL + this.OPERATORS_URL, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -373,7 +373,7 @@ export class WorkOrdersApiService {
 
   // Update operator
   static async updateOperator(id: string, data: UpdateOperatorRequest): Promise<Operator> {
-    return makeRequest<Operator>(`${this.OPERATORS_URL}/${id}`, {
+    return makeRequest<Operator>(`${this.BASE_URL + this.OPERATORS_URL}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -381,7 +381,7 @@ export class WorkOrdersApiService {
 
   // Delete operator
   static async deleteOperator(id: string): Promise<{ deleted: boolean }> {
-    return makeRequest<{ deleted: boolean }>(`${this.OPERATORS_URL}/${id}`, {
+    return makeRequest<{ deleted: boolean }>(`${this.BASE_URL + this.OPERATORS_URL}/${id}`, {
       method: 'DELETE',
     });
   }
@@ -391,7 +391,7 @@ export class WorkOrdersApiService {
     id: string,
     availabilityStatus: 'available' | 'busy' | 'off_duty' | 'on_leave'
   ): Promise<Operator> {
-    return makeRequest<Operator>(`${this.OPERATORS_URL}/${id}/availability`, {
+    return makeRequest<Operator>(`${this.BASE_URL + this.OPERATORS_URL}/${id}/availability`, {
       method: 'POST',
       body: JSON.stringify({ availability_status: availabilityStatus }),
     });
@@ -403,7 +403,7 @@ export class WorkOrdersApiService {
 
   // Create work order assignment
   static async createWorkOrderAssignment(data: CreateWorkOrderAssignmentRequest): Promise<any> {
-    return makeRequest<any>(this.ASSIGNMENTS_URL, {
+    return makeRequest<any>(this.BASE_URL + this.ASSIGNMENTS_URL, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -414,7 +414,7 @@ export class WorkOrdersApiService {
     workOrderId: string,
     data: UpdateWorkOrderAssignmentRequest
   ): Promise<any> {
-    return makeRequest<any>(`${this.ASSIGNMENTS_URL}/${workOrderId}`, {
+    return makeRequest<any>(`${this.BASE_URL + this.ASSIGNMENTS_URL}/${workOrderId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -422,13 +422,13 @@ export class WorkOrdersApiService {
 
   // Get work order assignments
   static async getWorkOrderAssignments(workOrderId?: string): Promise<any[]> {
-    const url = workOrderId ? `${this.ASSIGNMENTS_URL}?work_order_id=${workOrderId}` : this.ASSIGNMENTS_URL;
+    const url = workOrderId ? `${this.BASE_URL + this.ASSIGNMENTS_URL}?work_order_id=${workOrderId}` : this.BASE_URL + this.ASSIGNMENTS_URL;
     return makeRequest<any[]>(url);
   }
 
   // Delete work order assignment
   static async deleteWorkOrderAssignment(assignmentId: string): Promise<{ deleted: boolean }> {
-    return makeRequest<{ deleted: boolean }>(`${this.ASSIGNMENTS_URL}/${assignmentId}`, {
+    return makeRequest<{ deleted: boolean }>(`${this.BASE_URL + this.ASSIGNMENTS_URL}/${assignmentId}`, {
       method: 'DELETE',
     });
   }
@@ -443,7 +443,7 @@ export class WorkOrdersApiService {
     status: WorkOrderStatus,
     notes?: string
   ): Promise<{ updated_work_orders: WorkOrder[] }> {
-    return makeRequest<{ updated_work_orders: WorkOrder[] }>(`${this.BASE_URL}/bulk/status`, {
+    return makeRequest<{ updated_work_orders: WorkOrder[] }>(`${this.BASE_URL + this.BASE_URL}/bulk/status`, {
       method: 'POST',
       body: JSON.stringify({ work_order_ids: workOrderIds, status, notes }),
     });
@@ -458,7 +458,7 @@ export class WorkOrdersApiService {
       notes?: string;
     }>
   ): Promise<{ assignments: any[] }> {
-    return makeRequest<{ assignments: any[] }>(`${this.ASSIGNMENTS_URL}/bulk`, {
+    return makeRequest<{ assignments: any[] }>(`${this.BASE_URL + this.ASSIGNMENTS_URL}/bulk`, {
       method: 'POST',
       body: JSON.stringify({ assignments }),
     });

@@ -252,12 +252,6 @@ const menuSections: MenuSection[] = [
         icon: CalculatorIcon,
         permission: null,
       },
-      {
-        title: "Raw Materials",
-        url: "/factory/raw-materials",
-        icon: Package,
-        permission: null,
-      },
     ],
   },
   {

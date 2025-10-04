@@ -55,34 +55,38 @@ const validateRequest = (schema: any) => {
 router.use(auditMiddleware);
 
 // =====================================================
+// Operator Management Routes
+// =====================================================
+
+// Get all operators
+router.get(
+  "/operators",
+  requirePermission(PERMISSIONS.FACTORY_OPERATORS_READ),
+  expressAsyncHandler(workOrdersController.getOperators)
+);
+
+// =====================================================
 // Work Order CRUD Routes
 // =====================================================
 
 // Get all work orders with filtering and pagination
 router.get(
   "/",
-  requirePermission(PERMISSIONS.FACTORY_READ_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
   expressAsyncHandler(workOrdersController.getAllWorkOrders)
-);
-
-// Get work order by ID
-router.get(
-  "/:id",
-  requirePermission(PERMISSIONS.FACTORY_READ_WORK_ORDERS),
-  expressAsyncHandler(workOrdersController.getWorkOrderById)
 );
 
 // Get work order statistics
 router.get(
   "/stats",
-  requirePermission(PERMISSIONS.FACTORY_READ_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
   expressAsyncHandler(workOrdersController.getWorkOrderStats)
 );
 
 // Create new work order
 router.post(
   "/",
-  requirePermission(PERMISSIONS.FACTORY_CREATE_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_CREATE),
   validateRequest(createWorkOrderSchema),
   expressAsyncHandler(workOrdersController.createWorkOrder)
 );
@@ -90,7 +94,7 @@ router.post(
 // Update work order
 router.put(
   "/:id",
-  requirePermission(PERMISSIONS.FACTORY_UPDATE_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
   validateRequest(updateWorkOrderSchema),
   expressAsyncHandler(workOrdersController.updateWorkOrder)
 );
@@ -98,7 +102,7 @@ router.put(
 // Update work order status
 router.post(
   "/:id/status",
-  requirePermission(PERMISSIONS.FACTORY_UPDATE_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
   validateRequest(updateWorkOrderStatusSchema),
   expressAsyncHandler(workOrdersController.updateWorkOrderStatus)
 );
@@ -106,7 +110,7 @@ router.post(
 // Delete work order
 router.delete(
   "/:id",
-  requirePermission(PERMISSIONS.FACTORY_DELETE_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_DELETE),
   expressAsyncHandler(workOrdersController.deleteWorkOrder)
 );
 
@@ -117,20 +121,10 @@ router.delete(
 // Get all production lines
 router.get(
   "/production-lines",
-  requirePermission(PERMISSIONS.FACTORY_READ_PRODUCTION_LINES),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_LINES_READ),
   expressAsyncHandler(workOrdersController.getProductionLines)
 );
 
-// =====================================================
-// Operator Management Routes
-// =====================================================
-
-// Get all operators
-router.get(
-  "/operators",
-  requirePermission(PERMISSIONS.FACTORY_READ_OPERATORS),
-  expressAsyncHandler(workOrdersController.getOperators)
-);
 
 // =====================================================
 // Bulk Operations Routes
@@ -139,9 +133,18 @@ router.get(
 // Bulk update work order status
 router.post(
   "/bulk/status",
-  requirePermission(PERMISSIONS.FACTORY_UPDATE_WORK_ORDERS),
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
   validateRequest(bulkUpdateWorkOrderStatusSchema),
   expressAsyncHandler(workOrdersController.bulkUpdateWorkOrderStatus)
 );
+
+
+// Get work order by ID
+router.get(
+  "/:id",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
+  expressAsyncHandler(workOrdersController.getWorkOrderById)
+);
+
 
 export default router;

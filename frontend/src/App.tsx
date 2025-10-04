@@ -598,16 +598,7 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/factory/raw-materials"
-                  element={
-                    <ProtectedRoute>
-                      <DashboardLayout>
-                        <RawMaterialsManagement />
-                      </DashboardLayout>
-                    </ProtectedRoute>
-                  }
-                />
+               
 
                 {/* Expense Routes */}
                 <Route
