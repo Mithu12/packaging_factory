@@ -45,14 +45,14 @@ export const productionLineStatusSchema = Joi.string().valid(
 
 // Create work order validation schema
 export const createWorkOrderSchema = Joi.object({
-  customer_order_id: Joi.string().uuid().optional(),
-  product_id: Joi.string().uuid().required(),
+  customer_order_id: Joi.number().optional(),
+  product_id: Joi.number().required(),
   quantity: Joi.number().positive().precision(3).required(),
   deadline: Joi.date().iso().greater('now').required(),
   priority: workOrderPrioritySchema,
   estimated_hours: Joi.number().positive().precision(2).required(),
-  production_line_id: Joi.string().uuid().optional(),
-  assigned_operators: Joi.array().items(Joi.string().uuid()).optional(),
+  production_line_id: Joi.number().optional(),
+  assigned_operators: Joi.array().items(Joi.number()).optional(),
   notes: Joi.string().max(2000).optional().allow(''),
   specifications: Joi.string().max(2000).optional().allow(''),
 });
@@ -63,8 +63,8 @@ export const updateWorkOrderSchema = Joi.object({
   deadline: Joi.date().iso().greater('now').optional(),
   priority: workOrderPrioritySchema.optional(),
   estimated_hours: Joi.number().positive().precision(2).optional(),
-  production_line_id: Joi.string().uuid().optional(),
-  assigned_operators: Joi.array().items(Joi.string().uuid()).optional(),
+  production_line_id: Joi.number().optional(),
+  assigned_operators: Joi.array().items(Joi.number()).optional(),
   notes: Joi.string().max(2000).optional().allow(''),
   specifications: Joi.string().max(2000).optional().allow(''),
   progress: Joi.number().min(0).max(100).precision(2).optional(),
@@ -84,9 +84,9 @@ export const workOrderQuerySchema = Joi.object({
   search: Joi.string().max(255).optional().allow(''),
   status: workOrderStatusSchema.optional(),
   priority: workOrderPrioritySchema.optional(),
-  production_line_id: Joi.string().uuid().optional(),
-  assigned_operator_id: Joi.string().uuid().optional(),
-  customer_order_id: Joi.string().uuid().optional(),
+  production_line_id: Joi.number().optional(),
+  assigned_operator_id: Joi.number().optional(),
+  customer_order_id: Joi.number().optional(),
   created_date_from: Joi.date().iso().optional(),
   created_date_to: Joi.date().iso().optional(),
   deadline_from: Joi.date().iso().optional(),
@@ -97,12 +97,12 @@ export const workOrderQuerySchema = Joi.object({
 
 // Work order ID validation schema
 export const workOrderIdSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: Joi.number().required(),
 });
 
 // Bulk update work order status validation schema
 export const bulkUpdateWorkOrderStatusSchema = Joi.object({
-  work_order_ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
+  work_order_ids: Joi.array().items(Joi.number()).min(1).required(),
   status: workOrderStatusSchema,
   notes: Joi.string().max(1000).optional().allow(''),
 });
@@ -149,16 +149,16 @@ export const updateOperatorSchema = Joi.object({
 
 // Work order assignment validation schema
 export const createWorkOrderAssignmentSchema = Joi.object({
-  work_order_id: Joi.string().uuid().required(),
-  production_line_id: Joi.string().uuid().required(),
-  operator_ids: Joi.array().items(Joi.string().uuid()).min(1).required(),
+  work_order_id: Joi.number().required(),
+  production_line_id: Joi.number().required(),
+  operator_ids: Joi.array().items(Joi.number()).min(1).required(),
   estimated_start_time: Joi.date().iso().optional(),
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
 // Update work order assignment validation schema
 export const updateWorkOrderAssignmentSchema = Joi.object({
-  operator_ids: Joi.array().items(Joi.string().uuid()).min(1).optional(),
+  operator_ids: Joi.array().items(Joi.number()).min(1).optional(),
   estimated_start_time: Joi.date().iso().optional(),
   actual_start_time: Joi.date().iso().optional(),
   estimated_completion_time: Joi.date().iso().optional(),

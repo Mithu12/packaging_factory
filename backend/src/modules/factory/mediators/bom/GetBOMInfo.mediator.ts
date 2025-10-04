@@ -86,7 +86,7 @@ export class GetBOMInfoMediator {
 
       // Add factory access filter for non-admin users
       if (userFactoryIds.length > 0) {
-        query += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        query += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
         values.push(userFactoryIds);
         paramIndex++;
       } else {
@@ -138,7 +138,7 @@ export class GetBOMInfoMediator {
       `;
 
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
       }
 
       if (conditions.length > 0) {
@@ -361,7 +361,7 @@ export class GetBOMInfoMediator {
           GROUP BY bom_id
         ) comp_count ON bom.id = comp_count.bom_id
         LEFT JOIN bom_components bc ON bom.id = bc.bom_id
-        ${userFactoryIds.length > 0 ? `WHERE p.factory_id = ANY($${paramIndex}::uuid[])` : ''}
+        ${userFactoryIds.length > 0 ? `WHERE p.factory_id = ANY($${paramIndex}::bigint[])` : ''}
       `;
 
       if (userFactoryIds.length > 0) {
@@ -469,7 +469,7 @@ export class GetBOMInfoMediator {
 
       // Add factory access filter for non-admin users
       if (userFactoryIds.length > 0) {
-        query += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        query += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
         values.push(userFactoryIds);
         paramIndex++;
       } else {
@@ -534,7 +534,7 @@ export class GetBOMInfoMediator {
       `;
 
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::uuid[])`;
+        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
       }
 
       if (conditions.length > 0) {
@@ -629,7 +629,7 @@ export class GetBOMInfoMediator {
         JOIN work_orders wo ON wmr.work_order_id = wo.id
         JOIN products p ON wo.product_id = p.id
         WHERE wmr.status IN ('allocated', 'fulfilled')
-        ${userFactoryIds.length > 0 ? `AND p.factory_id = ANY($${paramIndex}::uuid[])` : ''}
+        ${userFactoryIds.length > 0 ? `AND p.factory_id = ANY($${paramIndex}::bigint[])` : ''}
       `;
 
       if (userFactoryIds.length > 0) {

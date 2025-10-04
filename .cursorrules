@@ -50,6 +50,15 @@ Shared rules for Cursor agents and contributors to keep edits consistent across 
 - Use Flyway naming `V{n}_{snake_case_description}.sql` and update docs if needed.
 - Never edit applied migrations; add a new one.
 - Validate migrations with provided scripts/config; ensure idempotence for views/indexes.
+- **All database tables must use `BIGSERIAL` as the primary key type.**
+  - Do **not** use `UUID` for primary keys unless explicitly approved for external interoperability.
+  - Default pattern:  
+    ```sql
+    id BIGSERIAL PRIMARY KEY
+    ```
+  - Use `REFERENCES <table>(id)` for foreign keys consistently.
+- Keep naming consistent: plural table names (e.g., `users`, `orders`).
+- Include `created_at` and `updated_at` with `TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`.
 
 ## Testing & Quality
 

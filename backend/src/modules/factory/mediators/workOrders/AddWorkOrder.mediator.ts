@@ -55,7 +55,7 @@ export class AddWorkOrderMediator {
         const customerOrderQuery = `
           SELECT fco.factory_id
           FROM factory_customer_orders fco
-          WHERE fco.id = $1 AND fco.factory_id = ANY($2::uuid[])
+          WHERE fco.id = $1 AND fco.factory_id = ANY($2::bigint[])
         `;
         const customerOrderResult = await client.query(customerOrderQuery, [workOrderData.customer_order_id, userFactoryIds]);
 
