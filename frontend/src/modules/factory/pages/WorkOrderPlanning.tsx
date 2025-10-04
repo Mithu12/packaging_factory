@@ -95,6 +95,10 @@ export default function WorkOrderPlanning() {
   }>({
     assigned_operators: [],
   });
+
+  // Form state for editing work orders
+  const [editWorkOrder, setEditWorkOrder] = useState<Partial<UpdateWorkOrderRequest>>({});
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const queryClient = useQueryClient();
 
   // API query parameters
@@ -171,9 +175,10 @@ export default function WorkOrderPlanning() {
         estimated_hours: 1,
         customer_order_id: undefined,
       });
-      // Refresh work orders data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      // Refresh work orders data and products (for stock updates)
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
       console.error("Failed to create work order:", error);
@@ -188,10 +193,13 @@ export default function WorkOrderPlanning() {
     onSuccess: (result) => {
       console.log("Work order updated:", result);
       setShowPlanningDialog(false);
+      setShowEditDialog(false);
       setPlanningData({ assigned_operators: [] });
-      // Refresh work orders data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      setEditWorkOrder({});
+      // Refresh work orders data and products (for stock updates)
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
       console.error("Failed to update work order:", error);
@@ -329,15 +337,29 @@ export default function WorkOrderPlanning() {
     setShowPlanningDialog(true);
   };
 
+  const handleEditWorkOrder = (workOrder: WorkOrder) => {
+    setSelectedWorkOrder(workOrder);
+    setEditWorkOrder({
+      quantity: workOrder.quantity,
+      deadline: workOrder.deadline,
+      priority: workOrder.priority,
+      estimated_hours: workOrder.estimated_hours,
+      notes: workOrder.notes,
+      specifications: workOrder.specifications,
+    });
+    setShowEditDialog(true);
+  };
+
   // Mutation for status changes
   const statusChangeMutation = useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) =>
       WorkOrdersApiService.updateWorkOrderStatus(id, status, notes),
     onSuccess: (result) => {
       console.log("Work order status updated:", result);
-      // Refresh work orders data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      // Refresh work orders data and products (for stock updates)
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
       console.error("Failed to update work order status:", error);
@@ -408,6 +430,15 @@ export default function WorkOrderPlanning() {
     });
   };
 
+  const handleSubmitEditWorkOrder = () => {
+    if (!selectedWorkOrder) return;
+
+    updateWorkOrderMutation.mutate({
+      id: selectedWorkOrder.id,
+      data: editWorkOrder as UpdateWorkOrderRequest,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -420,7 +451,7 @@ export default function WorkOrderPlanning() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => {
-            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
             queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
           }}>
             <Filter className="h-4 w-4 mr-2" />
@@ -454,7 +485,7 @@ export default function WorkOrderPlanning() {
                 size="sm"
                 onClick={() => {
                   setError(null);
-                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
                   queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
                 }}
                 className="ml-auto"
@@ -826,7 +857,11 @@ export default function WorkOrderPlanning() {
                         {operator.current_work_order_id ? `WO-${operator.current_work_order_id}` : "None"}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditWorkOrder(wo)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -1329,6 +1364,122 @@ export default function WorkOrderPlanning() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Work Order Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Work Order - {selectedWorkOrder?.work_order_number}</DialogTitle>
+            <DialogDescription>
+              Modify work order details
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedWorkOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-quantity">Quantity</Label>
+                  <Input
+                    id="edit-quantity"
+                    type="number"
+                    value={editWorkOrder.quantity || ''}
+                    onChange={(e) => setEditWorkOrder(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-priority">Priority</Label>
+                  <Select
+                    value={editWorkOrder.priority || selectedWorkOrder.priority}
+                    onValueChange={(value: WorkOrderPriority) => setEditWorkOrder(prev => ({ ...prev, priority: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-deadline">Deadline</Label>
+                  <Input
+                    id="edit-deadline"
+                    type="datetime-local"
+                    value={editWorkOrder.deadline || selectedWorkOrder.deadline}
+                    onChange={(e) => setEditWorkOrder(prev => ({ ...prev, deadline: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-estimated-hours">Estimated Hours</Label>
+                  <Input
+                    id="edit-estimated-hours"
+                    type="number"
+                    value={editWorkOrder.estimated_hours || ''}
+                    onChange={(e) => setEditWorkOrder(prev => ({ ...prev, estimated_hours: parseFloat(e.target.value) || 1 }))}
+                    min="0.1"
+                    step="0.1"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  placeholder="Add any notes for this work order..."
+                  value={editWorkOrder.notes || selectedWorkOrder.notes || ''}
+                  onChange={(e) => setEditWorkOrder(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-specifications">Specifications</Label>
+                <Textarea
+                  id="edit-specifications"
+                  placeholder="Add any specifications for this work order..."
+                  value={editWorkOrder.specifications || selectedWorkOrder.specifications || ''}
+                  onChange={(e) => setEditWorkOrder(prev => ({ ...prev, specifications: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitEditWorkOrder}
+                  disabled={updateWorkOrderMutation.isPending}
+                >
+                  {updateWorkOrderMutation.isPending ? (
+                    <>
+                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

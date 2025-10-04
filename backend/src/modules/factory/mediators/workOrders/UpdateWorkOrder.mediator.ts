@@ -26,6 +26,82 @@ async function isUserAdmin(userId: number): Promise<boolean> {
   return result.rows[0].role_id === UserRoleIds.ADMIN;
 }
 
+// Helper function to handle stock reservation updates
+async function handleStockReservationUpdate(
+  client: any,
+  workOrderId: string,
+  updateData: any,
+  currentWorkOrder: any
+) {
+  const currentQuantity = parseFloat(currentWorkOrder.quantity) || 0;
+  const currentProductId = currentWorkOrder.product_id;
+  const newQuantity = updateData.quantity ? parseFloat(updateData.quantity) : currentQuantity;
+  const newProductId = updateData.product_id || currentProductId;
+  const newStatus = updateData.status || currentWorkOrder.status;
+
+  // If quantity or product changed, we need to adjust reservations
+  if (newQuantity !== currentQuantity || newProductId !== currentProductId) {
+    // Release reservation from old product
+    if (currentProductId && currentQuantity > 0) {
+      const releaseQuery = `
+        UPDATE products
+        SET reserved_stock = reserved_stock - $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2 AND reserved_stock >= $1
+      `;
+      await client.query(releaseQuery, [currentQuantity, currentProductId]);
+    }
+
+    // Reserve stock for new product/quantity
+    if (newProductId && newQuantity > 0) {
+      const reserveQuery = `
+        UPDATE products
+        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      await client.query(reserveQuery, [newQuantity, newProductId]);
+    }
+  }
+
+  // Handle status changes that should release stock
+  const statusChangesThatReleaseStock = ['completed', 'cancelled'];
+  if (statusChangesThatReleaseStock.includes(newStatus) && !statusChangesThatReleaseStock.includes(currentWorkOrder.status)) {
+    // Release reserved stock
+    if (currentProductId && currentQuantity > 0) {
+      const releaseQuery = `
+        UPDATE products
+        SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      await client.query(releaseQuery, [currentQuantity, currentProductId]);
+    }
+  }
+
+  // Handle status changes that should reserve stock (when moving from draft to planned/released)
+  const statusChangesThatReserveStock = ['planned', 'released', 'in_progress'];
+  if (statusChangesThatReserveStock.includes(newStatus) && !statusChangesThatReserveStock.includes(currentWorkOrder.status)) {
+    // Reserve stock if not already reserved
+    if (newProductId && newQuantity > 0) {
+      const currentReservedQuery = 'SELECT reserved_stock FROM products WHERE id = $1';
+      const reservedResult = await client.query(currentReservedQuery, [newProductId]);
+
+      if (reservedResult.rows.length > 0) {
+        const currentReserved = parseFloat(reservedResult.rows[0].reserved_stock) || 0;
+
+        // Only reserve if not already reserved for this quantity
+        const expectedReserved = newQuantity;
+        if (currentReserved < expectedReserved) {
+          const reserveQuery = `
+            UPDATE products
+            SET reserved_stock = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `;
+          await client.query(reserveQuery, [expectedReserved, newProductId]);
+        }
+      }
+    }
+  }
+}
+
 export class UpdateWorkOrderMediator {
   static async updateWorkOrder(
     workOrderId: string,
@@ -143,6 +219,9 @@ export class UpdateWorkOrderMediator {
         updateValues.push(JSON.stringify(updateData.assigned_operators));
         paramIndex++;
       }
+
+      // Handle stock reservation updates
+      await handleStockReservationUpdate(client, workOrderId, updateData, existingWorkOrder);
 
       if (updateFields.length === 0) {
         throw new Error('No fields to update');
@@ -345,6 +424,28 @@ export class UpdateWorkOrderMediator {
 
       const updatedWorkOrder = updateResult.rows[0];
 
+      // Handle stock release when work order is completed or cancelled
+      if (newStatus === 'completed' || newStatus === 'cancelled') {
+        const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
+        const productId = updatedWorkOrder.product_id;
+
+        if (productId && quantity > 0) {
+          // Release reserved stock
+          await client.query(`
+            UPDATE products
+            SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [quantity, productId]);
+
+          MyLogger.info("Stock released for completed/cancelled work order", {
+            workOrderId,
+            productId,
+            quantity,
+            newStatus
+          });
+        }
+      }
+
       // Handle operator status updates when work order status changes
       if (newStatus === 'completed' || newStatus === 'cancelled') {
         // Free up operators
@@ -456,6 +557,21 @@ export class UpdateWorkOrderMediator {
           SET current_load = GREATEST(current_load - $1, 0), updated_at = CURRENT_TIMESTAMP
           WHERE id = $2
         `, [loadToRemove, workOrder.production_line_id]);
+      }
+
+      // Release reserved stock before deleting
+      if (workOrder.quantity && workOrder.quantity > 0 && workOrder.product_id) {
+        await client.query(`
+          UPDATE products
+          SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [workOrder.quantity, workOrder.product_id]);
+
+        MyLogger.info("Stock released for deleted work order", {
+          workOrderId,
+          productId: workOrder.product_id,
+          quantity: workOrder.quantity
+        });
       }
 
       // Delete work order assignments first

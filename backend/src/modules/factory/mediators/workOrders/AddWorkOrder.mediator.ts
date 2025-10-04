@@ -181,6 +181,43 @@ export class AddWorkOrderMediator {
 
       const newWorkOrder = workOrderResult.rows[0];
 
+      // Reserve stock for the work order
+      if (workOrderData.quantity && workOrderData.quantity > 0) {
+        const currentReservedStockQuery = `
+          SELECT reserved_stock, current_stock
+          FROM products
+          WHERE id = $1
+        `;
+        const stockResult = await client.query(currentReservedStockQuery, [workOrderData.product_id]);
+
+        if (stockResult.rows.length > 0) {
+          const product = stockResult.rows[0];
+          const currentReservedStock = parseFloat(product.reserved_stock) || 0;
+          const currentStock = parseFloat(product.current_stock) || 0;
+          const requiredQuantity = parseFloat(workOrderData.quantity);
+
+          // Check if there's enough available stock (current_stock - reserved_stock)
+          const availableStock = currentStock - currentReservedStock;
+          if (availableStock < requiredQuantity) {
+            throw new Error(`Insufficient available stock for product. Available: ${availableStock}, Required: ${requiredQuantity}`);
+          }
+
+          // Reserve the stock
+          const newReservedStock = currentReservedStock + requiredQuantity;
+          await client.query(
+            'UPDATE products SET reserved_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [newReservedStock, workOrderData.product_id]
+          );
+
+          MyLogger.info("Stock reserved for work order", {
+            workOrderId: newWorkOrder.id,
+            productId: workOrderData.product_id,
+            quantity: requiredQuantity,
+            newReservedStock
+          });
+        }
+      }
+
       // Create assignments if operators were provided
       if (workOrderData.assigned_operators && workOrderData.assigned_operators.length > 0) {
         const assignmentQuery = `
