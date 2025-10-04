@@ -24,7 +24,9 @@ const BACKEND_BASE_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests'),
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
+  maxFailures: 1,
   timeout: 120_000,
   expect: {
     timeout: 5_000,

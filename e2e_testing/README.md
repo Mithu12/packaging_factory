@@ -23,6 +23,18 @@ root
    npm test
    ```
 
+   **Available test commands**:
+   - `npm test` - Run all tests serially (recommended)
+   - `npm run test:serial` - Explicit serial execution
+   - `npm run test:headed` - Run tests with browser UI visible (serial)
+   - `npm run test:ui` - Run tests with Playwright UI mode (serial)
+   - `npm run test:debug` - Run tests in debug mode (serial)
+
+   **Note**: Tests are configured to run serially (one by one) to avoid overwhelming the backend with concurrent requests. If you need to run tests in parallel for faster execution, use:
+   ```bash
+   npx playwright test --fully-parallel --workers=4
+   ```
+
 The Playwright configuration automatically:
 - Creates a dedicated `erp_e2e` database, runs the backend migrations, and seeds reference data (category, brand, origin, supplier) used by the product tests.
 - Boots both backend and frontend dev servers against that database when the tests start.
