@@ -331,6 +331,11 @@ export interface WorkOrder {
   completed_at?: string;
   notes?: string;
   specifications?: string;
+  // Material requirements integration
+  material_requirements?: WorkOrderMaterialRequirement[];
+  material_requirements_count?: number;
+  total_material_cost?: number;
+  has_material_shortages?: boolean;
   // Populated from joins
   created_by_name?: string;
   updated_by_name?: string;
@@ -495,4 +500,30 @@ export interface UpdateWorkOrderAssignmentRequest {
   estimated_completion_time?: string;
   actual_completion_time?: string;
   notes?: string;
+}
+
+// Work Order Material Requirements Types
+export interface WorkOrderMaterialRequirement {
+  id: string;
+  work_order_id: string;
+  material_id: string;
+  material_name: string;
+  material_sku: string;
+  required_quantity: number;
+  allocated_quantity: number;
+  consumed_quantity: number;
+  unit_of_measure: string;
+  status: 'pending' | 'allocated' | 'short' | 'fulfilled' | 'cancelled';
+  priority: number;
+  required_date: string;
+  bom_component_id?: string;
+  supplier_id?: string;
+  supplier_name?: string;
+  unit_cost: number;
+  total_cost: number;
+  lead_time_days: number;
+  is_critical: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
 }

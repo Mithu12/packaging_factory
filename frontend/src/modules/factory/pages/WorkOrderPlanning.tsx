@@ -60,88 +60,111 @@ import {
   CreateWorkOrderRequest,
   UpdateWorkOrderRequest,
 } from "@/services/work-orders-api";
+import { BOMApiService } from "@/services/bom-api";
+import { useQuery } from "@tanstack/react-query";
+import { workOrdersQueryKeys } from "@/services/work-orders-api";
 
 // Using types from API service
 
 export default function WorkOrderPlanning() {
   const { formatCurrency, formatDate } = useFormatting();
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [productionLines, setProductionLines] = useState<ProductionLine[]>([]);
-  const [operators, setOperators] = useState<Operator[]>([]);
-  const [stats, setStats] = useState<WorkOrderStats | null>(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Load work orders from API
-  const loadWorkOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // API query parameters
+  const queryParams: WorkOrderQueryParams = {
+    search: searchTerm || undefined,
+    status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : undefined,
+    sort_by: "created_at",
+    sort_order: "desc",
+    page: 1,
+    limit: 50,
+  };
 
-      const queryParams: WorkOrderQueryParams = {
-        search: searchTerm || undefined,
-        status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : undefined,
-        sort_by: "created_at",
-        sort_order: "desc",
-        page: 1,
-        limit: 50,
-      };
+  // Fetch work orders
+  const { data: workOrdersData, isLoading: workOrdersLoading, error: workOrdersError } = useQuery({
+    queryKey: workOrdersQueryKeys.list(queryParams),
+    queryFn: () => WorkOrdersApiService.getWorkOrders(queryParams),
+  });
 
-      const response = await WorkOrdersApiService.getWorkOrders(queryParams);
-      setWorkOrders(response.work_orders);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load work orders');
-      console.error('Error loading work orders:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm, statusFilter]);
+  // Fetch work order statistics
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: workOrdersQueryKeys.stats(),
+    queryFn: () => WorkOrdersApiService.getWorkOrderStats(),
+  });
 
-  // Load production lines from API
-  const loadProductionLines = useCallback(async () => {
-    try {
-      const data = await WorkOrdersApiService.getProductionLines();
-      setProductionLines(data);
-    } catch (err) {
-      console.error('Error loading production lines:', err);
-    }
-  }, []);
+  // Fetch production lines and operators
+  const { data: productionLinesData } = useQuery({
+    queryKey: workOrdersQueryKeys.productionLines(),
+    queryFn: () => WorkOrdersApiService.getProductionLines(),
+  });
 
-  // Load operators from API
-  const loadOperators = useCallback(async () => {
-    try {
-      const data = await WorkOrdersApiService.getOperators();
-      setOperators(data);
-    } catch (err) {
-      console.error('Error loading operators:', err);
-    }
-  }, []);
+  const { data: operatorsData } = useQuery({
+    queryKey: workOrdersQueryKeys.operators(),
+    queryFn: () => WorkOrdersApiService.getOperators(),
+  });
 
-  // Load work order statistics
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await WorkOrdersApiService.getWorkOrderStats();
-      setStats(data);
-    } catch (err) {
-      console.error('Error loading work order stats:', err);
-    }
-  }, []);
+  const workOrders = workOrdersData?.work_orders || [];
+  const stats = statsData || null;
+  const productionLines = productionLinesData || [];
+  const operators = operatorsData || [];
+  const loading = workOrdersLoading || statsLoading;
 
-  useEffect(() => {
-    loadWorkOrders();
-  }, [loadWorkOrders]);
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Work Order Planning</h1>
+            <p className="text-muted-foreground">
+              Plan and manage production work orders
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    loadProductionLines();
-    loadOperators();
-    loadStats();
-  }, [loadProductionLines, loadOperators, loadStats]);
+  // Handle error state
+  if (workOrdersError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Work Order Planning</h1>
+            <p className="text-muted-foreground">
+              Plan and manage production work orders
+            </p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              Error loading work orders: {workOrdersError.message}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
 
   // Work orders are already filtered by the API, so we use them directly
   const filteredWorkOrders = workOrders;
@@ -195,9 +218,20 @@ export default function WorkOrderPlanning() {
     }
   };
 
-  const handleViewWorkOrder = (workOrder: WorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setShowDetailsDialog(true);
+  const handleViewWorkOrder = async (workOrder: WorkOrder) => {
+    try {
+      // Fetch detailed work order with material requirements
+      const detailedWorkOrder = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
+      setSelectedWorkOrder(detailedWorkOrder);
+      setShowDetailsDialog(true);
+    } catch (error) {
+      console.error("Failed to fetch work order details:", error);
+    }
+  };
+
+  const handleViewMaterialRequirements = (workOrder: WorkOrder) => {
+    // Navigate to material requirements planning page filtered by this work order
+    navigate(`/factory/mrp?work_order_id=${workOrder.id}`);
   };
 
   const handlePlanWorkOrder = (workOrder: WorkOrder) => {
@@ -391,13 +425,14 @@ export default function WorkOrderPlanning() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Production Line</TableHead>
+                    <TableHead>Materials</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredWorkOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         {loading ? "Loading work orders..." : "No work orders found"}
                       </TableCell>
                     </TableRow>
@@ -445,6 +480,27 @@ export default function WorkOrderPlanning() {
                         {wo.production_line_name || "Not assigned"}
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">
+                              {wo.material_requirements_count || 0}
+                            </span>
+                          </div>
+                          {wo.has_material_shortages && (
+                            <Badge variant="outline" className="text-red-600 border-red-600">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Shortages
+                            </Badge>
+                          )}
+                          {wo.total_material_cost && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatCurrency(wo.total_material_cost)}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -453,6 +509,16 @@ export default function WorkOrderPlanning() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          {(wo.material_requirements_count || 0) > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewMaterialRequirements(wo)}
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            >
+                              <Package className="h-4 w-4" />
+                            </Button>
+                          )}
                           {wo.status === "draft" && (
                             <Button
                               variant="outline"
@@ -621,7 +687,14 @@ export default function WorkOrderPlanning() {
           </DialogHeader>
 
           {selectedWorkOrder && (
-            <div className="space-y-6">
+            <Tabs defaultValue="overview" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="materials">Materials</TabsTrigger>
+                <TabsTrigger value="operators">Operators</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
               {/* Work Order Summary */}
               <Card>
                 <CardHeader>
@@ -715,20 +788,103 @@ export default function WorkOrderPlanning() {
                 </CardContent>
               </Card>
 
-              {/* Notes */}
-              {selectedWorkOrder.notes && (
+                {/* Notes */}
+                {selectedWorkOrder.notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedWorkOrder.notes}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="materials" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Notes</CardTitle>
+                    <CardTitle>Material Requirements</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedWorkOrder.notes}
+                    {selectedWorkOrder.material_requirements && selectedWorkOrder.material_requirements.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Material</TableHead>
+                            <TableHead>Required</TableHead>
+                            <TableHead>Allocated</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Total Cost</TableHead>
+                            <TableHead>Supplier</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedWorkOrder.material_requirements.map((req) => (
+                            <TableRow key={req.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{req.material_name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {req.material_sku}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{req.required_quantity}</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {req.unit_of_measure}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{req.allocated_quantity}</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {req.unit_of_measure}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={getStatusColor(req.status)}>
+                                  {req.status.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {formatCurrency(req.total_cost)}
+                              </TableCell>
+                              <TableCell>
+                                {req.supplier_name || "Not assigned"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No material requirements found for this work order.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="operators" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Operator Management</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">
+                      Operator assignment and management features would go here.
                     </p>
                   </CardContent>
                 </Card>
-              )}
-            </div>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

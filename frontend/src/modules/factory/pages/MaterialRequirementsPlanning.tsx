@@ -43,23 +43,14 @@ import {
   MaterialRequirement,
   MaterialShortage,
   MaterialPlanningStats,
+  MaterialRequirementsQueryParams,
 } from "../types/bom";
+import { BOMApiService, bomQueryKeys } from "@/services/bom-api";
+import { useQuery } from "@tanstack/react-query";
 
 export default function MaterialRequirementsPlanning() {
   const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
-  const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
-  const [shortages, setShortages] = useState<MaterialShortage[]>([]);
-  const [stats, setStats] = useState<MaterialPlanningStats>({
-    totalRequirements: 0,
-    pendingAllocations: 0,
-    materialShortages: 0,
-    criticalShortages: 0,
-    totalMaterialValue: 0,
-    averageLeadTime: 0,
-    onTimeDelivery: 0,
-    costVariance: 0,
-  });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -70,125 +61,74 @@ export default function MaterialRequirementsPlanning() {
   const [generatedPOs, setGeneratedPOs] = useState<string[]>([]);
   const [showPODialog, setShowPODialog] = useState(false);
 
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setRequirements([
-      {
-        id: "REQ-001",
-        workOrderId: "WO-001",
-        materialId: "MAT-001",
-        materialName: "Steel Frame",
-        materialSku: "SF-001",
-        requiredQuantity: 100,
-        allocatedQuantity: 80,
-        consumedQuantity: 0,
-        unitOfMeasure: "pcs",
-        status: "allocated",
-        priority: 1,
-        requiredDate: "2024-03-20",
-        bomComponentId: "COMP-001",
-        supplierId: "SUP-001",
-        supplierName: "Steel Works Ltd",
-        unitCost: 25.0,
-        totalCost: 2500.0,
-        leadTimeDays: 7,
-        isCritical: true,
-        notes: "Critical component for production",
-      },
-      {
-        id: "REQ-002",
-        workOrderId: "WO-001",
-        materialId: "MAT-002",
-        materialName: "Electronic Module",
-        materialSku: "EM-001",
-        requiredQuantity: 50,
-        allocatedQuantity: 0,
-        consumedQuantity: 0,
-        unitOfMeasure: "pcs",
-        status: "pending",
-        priority: 2,
-        requiredDate: "2024-03-25",
-        bomComponentId: "COMP-002",
-        supplierId: "SUP-002",
-        supplierName: "ElectroTech Inc",
-        unitCost: 45.0,
-        totalCost: 2250.0,
-        leadTimeDays: 14,
-        isCritical: false,
-      },
-      {
-        id: "REQ-003",
-        workOrderId: "WO-002",
-        materialId: "MAT-003",
-        materialName: "Aluminum Frame",
-        materialSku: "AF-001",
-        requiredQuantity: 75,
-        allocatedQuantity: 75,
-        consumedQuantity: 0,
-        unitOfMeasure: "pcs",
-        status: "allocated",
-        priority: 1,
-        requiredDate: "2024-03-18",
-        bomComponentId: "COMP-003",
-        supplierId: "SUP-003",
-        supplierName: "Aluminum Co",
-        unitCost: 15.0,
-        totalCost: 1125.0,
-        leadTimeDays: 5,
-        isCritical: true,
-      },
-    ]);
+  // API query parameters
+  const queryParams: MaterialRequirementsQueryParams = {
+    search: searchTerm || undefined,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    sort_by: 'required_date',
+    sort_order: 'asc',
+    page: 1,
+    limit: 100,
+  };
 
-    setShortages([
-      {
-        id: "SHORT-001",
-        materialId: "MAT-002",
-        materialName: "Electronic Module",
-        materialSku: "EM-001",
-        requiredQuantity: 50,
-        availableQuantity: 20,
-        shortfallQuantity: 30,
-        workOrderId: "WO-001",
-        workOrderNumber: "ORD-2024-001",
-        requiredDate: "2024-03-25",
-        priority: "high",
-        supplierId: "SUP-002",
-        supplierName: "ElectroTech Inc",
-        leadTimeDays: 14,
-        suggestedAction: "purchase",
-        notes: "Need to place urgent order",
-      },
-      {
-        id: "SHORT-002",
-        materialId: "MAT-004",
-        materialName: "Plastic Housing",
-        materialSku: "PH-001",
-        requiredQuantity: 200,
-        availableQuantity: 0,
-        shortfallQuantity: 200,
-        workOrderId: "WO-003",
-        workOrderNumber: "ORD-2024-003",
-        requiredDate: "2024-03-30",
-        priority: "critical",
-        supplierId: "SUP-004",
-        supplierName: "Plastic Molds Inc",
-        leadTimeDays: 10,
-        suggestedAction: "purchase",
-        notes: "Critical shortage - production will stop",
-      },
-    ]);
+  // Fetch material requirements
+  const { data: requirementsData, isLoading: requirementsLoading } = useQuery({
+    queryKey: bomQueryKeys.materialRequirementsList(queryParams),
+    queryFn: () => BOMApiService.getMaterialRequirements(queryParams),
+  });
 
-    setStats({
-      totalRequirements: 25,
-      pendingAllocations: 8,
-      materialShortages: 5,
-      criticalShortages: 2,
-      totalMaterialValue: 125000,
-      averageLeadTime: 8.5,
-      onTimeDelivery: 85,
-      costVariance: -5.2,
-    });
-  }, []);
+  // Fetch material planning statistics
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: bomQueryKeys.materialPlanningStats(),
+    queryFn: () => BOMApiService.getMaterialPlanningStats(),
+  });
+
+  // Fetch material shortages
+  const { data: shortagesData, isLoading: shortagesLoading } = useQuery({
+    queryKey: bomQueryKeys.materialShortages(),
+    queryFn: () => BOMApiService.getMaterialShortages(),
+  });
+
+  const requirements = requirementsData?.requirements || [];
+  const shortages = shortagesData || [];
+  const stats = statsData || {
+    total_requirements: 0,
+    pending_allocations: 0,
+    material_shortages: 0,
+    critical_shortages: 0,
+    total_material_value: 0,
+    average_lead_time: 0,
+    on_time_delivery: 0,
+    cost_variance: 0,
+  };
+
+  // Handle loading states
+  if (requirementsLoading || statsLoading || shortagesLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Material Requirements Planning</h1>
+            <p className="text-muted-foreground">
+              Plan and manage material requirements for production
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleViewBOM = (bomId: string) => {
     navigate(`/factory/bom/${bomId}/edit`);
@@ -198,18 +138,21 @@ export default function MaterialRequirementsPlanning() {
     navigate(`/factory/materials`);
   };
 
+  // Filter requirements based on search and priority (API handles status filtering)
   const filteredRequirements = requirements.filter((req) => {
-    const matchesSearch =
-      req.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.materialSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.workOrderId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
-    const matchesPriority =
-      priorityFilter === "all" ||
-      (priorityFilter === "critical" && req.isCritical) ||
-      (priorityFilter === "high" && req.priority === 1) ||
-      (priorityFilter === "medium" && req.priority === 2);
-    return matchesSearch && matchesStatus && matchesPriority;
+    if (!searchTerm) return true;
+
+    return (
+      req.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.material_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.work_order_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }).filter((req) => {
+    if (priorityFilter === "all") return true;
+    if (priorityFilter === "critical") return req.is_critical;
+    if (priorityFilter === "high") return req.priority <= 1;
+    if (priorityFilter === "medium") return req.priority <= 2;
+    return true;
   });
 
   const getStatusColor = (status: string) => {
@@ -326,9 +269,9 @@ export default function MaterialRequirementsPlanning() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalRequirements}</div>
+            <div className="text-2xl font-bold">{stats.total_requirements}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.pendingAllocations} pending allocation
+              {stats.pending_allocations} pending allocation
             </p>
           </CardContent>
         </Card>
@@ -342,10 +285,10 @@ export default function MaterialRequirementsPlanning() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {stats.materialShortages}
+              {stats.material_shortages}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.criticalShortages} critical
+              {stats.critical_shortages} critical
             </p>
           </CardContent>
         </Card>
@@ -357,7 +300,7 @@ export default function MaterialRequirementsPlanning() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.totalMaterialValue)}
+              {formatCurrency(stats.total_material_value)}
             </div>
             <p className="text-xs text-muted-foreground">
               material requirements
@@ -373,7 +316,7 @@ export default function MaterialRequirementsPlanning() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.onTimeDelivery}%</div>
+            <div className="text-2xl font-bold">{stats.on_time_delivery}%</div>
             <p className="text-xs text-muted-foreground">
               delivery performance
             </p>
@@ -451,33 +394,33 @@ export default function MaterialRequirementsPlanning() {
                   {filteredRequirements.map((req) => (
                     <TableRow key={req.id}>
                       <TableCell className="font-medium">
-                        {req.workOrderId}
+                        {req.work_order_id}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{req.materialName}</div>
+                          <div className="font-medium">{req.material_name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {req.materialSku}
+                            {req.material_sku}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
-                            {req.requiredQuantity}
+                            {req.required_quantity}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {req.unitOfMeasure}
+                            {req.unit_of_measure}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
-                            {req.allocatedQuantity}
+                            {req.allocated_quantity}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {req.unitOfMeasure}
+                            {req.unit_of_measure}
                           </span>
                         </div>
                       </TableCell>
@@ -490,12 +433,12 @@ export default function MaterialRequirementsPlanning() {
                         <div className="flex items-center gap-2">
                           <Badge
                             className={
-                              req.isCritical
+                              req.is_critical
                                 ? "bg-red-100 text-red-800"
                                 : "bg-gray-100 text-gray-800"
                             }
                           >
-                            {req.isCritical ? "CRITICAL" : "NORMAL"}
+                            {req.is_critical ? "CRITICAL" : "NORMAL"}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
                             P{req.priority}
@@ -505,11 +448,11 @@ export default function MaterialRequirementsPlanning() {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(req.requiredDate)}
+                          {formatDate(req.required_date)}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {req.supplierName || (
+                        {req.supplier_name || (
                           <span className="text-muted-foreground">
                             Not assigned
                           </span>
@@ -661,23 +604,23 @@ export default function MaterialRequirementsPlanning() {
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>Average Lead Time</span>
-                      <span>{stats.averageLeadTime} days</span>
+                      <span>{stats.average_lead_time} days</span>
                     </div>
                     <Progress value={75} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>Critical Path Items</span>
-                      <span>{stats.criticalShortages}</span>
+                      <span>{stats.critical_shortages}</span>
                     </div>
                     <Progress value={40} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>On-Time Delivery</span>
-                      <span>{stats.onTimeDelivery}%</span>
+                      <span>{stats.on_time_delivery}%</span>
                     </div>
-                    <Progress value={stats.onTimeDelivery} className="h-2" />
+                    <Progress value={stats.on_time_delivery} className="h-2" />
                   </div>
                 </div>
               </CardContent>
@@ -691,7 +634,7 @@ export default function MaterialRequirementsPlanning() {
                 <div className="space-y-4">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-green-600">
-                      {formatCurrency(stats.totalMaterialValue)}
+                      {formatCurrency(stats.total_material_value)}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Total Material Value
@@ -699,7 +642,7 @@ export default function MaterialRequirementsPlanning() {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-orange-600">
-                      {stats.costVariance}%
+                      {stats.cost_variance}%
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Cost Variance
@@ -712,14 +655,14 @@ export default function MaterialRequirementsPlanning() {
                       </div>
                       <div className="font-medium">
                         {formatCurrency(
-                          stats.totalMaterialValue / stats.totalRequirements
+                          stats.total_material_value / stats.total_requirements || 0
                         )}
                       </div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Pending Value</div>
                       <div className="font-medium">
-                        {formatCurrency(stats.totalMaterialValue * 0.3)}
+                        {formatCurrency(stats.total_material_value * 0.3)}
                       </div>
                     </div>
                   </div>

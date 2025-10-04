@@ -236,6 +236,197 @@ export class AddWorkOrderMediator {
         `, [estimatedLoad, workOrderData.production_line_id]);
       }
 
+      // Create material requirements from BOM if BOM exists for this product
+      const bomQuery = `
+        SELECT bom.id, bom.total_cost, bc.*, s.name as supplier_name
+        FROM bill_of_materials bom
+        JOIN bom_components bc ON bom.id = bc.bom_id
+        LEFT JOIN suppliers s ON bc.supplier_id = s.id
+        WHERE bom.parent_product_id = $1 AND bom.is_active = true
+        ORDER BY bc.created_at
+      `;
+
+      const bomResult = await client.query(bomQuery, [workOrderData.product_id]);
+
+      if (bomResult.rows.length > 0) {
+        const bomComponents = bomResult.rows;
+        const workOrderQuantity = parseFloat(workOrderData.quantity.toString());
+
+        // Create material requirements for each BOM component
+        for (const component of bomComponents) {
+          const requiredQuantity = parseFloat(component.quantity_required) * workOrderQuantity;
+          const scrapQuantity = requiredQuantity * (parseFloat(component.scrap_factor) / 100);
+          const totalRequiredQuantity = requiredQuantity + scrapQuantity;
+
+          // Get current inventory for this material
+          const inventoryQuery = `
+            SELECT p.current_stock, p.cost_price, p.unit_of_measure, p.name, p.sku
+            FROM products p
+            WHERE p.id = $1
+          `;
+          const inventoryResult = await client.query(inventoryQuery, [component.component_product_id]);
+
+          if (inventoryResult.rows.length > 0) {
+            const material = inventoryResult.rows[0];
+            const availableStock = parseFloat(material.current_stock);
+            const unitCost = parseFloat(material.cost_price || component.unit_cost);
+            const totalCost = totalRequiredQuantity * unitCost;
+
+            // Determine requirement status based on availability
+            let status: 'pending' | 'allocated' | 'short' | 'fulfilled' = 'pending';
+            let allocatedQuantity = 0;
+
+            if (availableStock >= totalRequiredQuantity) {
+              // Full allocation possible
+              status = 'allocated';
+              allocatedQuantity = totalRequiredQuantity;
+            } else if (availableStock > 0) {
+              // Partial allocation possible
+              status = 'short';
+              allocatedQuantity = availableStock;
+            } else {
+              // No stock available
+              status = 'short';
+              allocatedQuantity = 0;
+            }
+
+            // Determine if this is a critical requirement (based on priority or lead time)
+            const isCritical = component.lead_time_days > 7 || component.is_optional === false;
+
+            // Insert material requirement
+            const requirementQuery = `
+              INSERT INTO work_order_material_requirements (
+                work_order_id,
+                material_id,
+                material_name,
+                material_sku,
+                required_quantity,
+                allocated_quantity,
+                consumed_quantity,
+                unit_of_measure,
+                status,
+                priority,
+                required_date,
+                bom_component_id,
+                supplier_id,
+                supplier_name,
+                unit_cost,
+                total_cost,
+                lead_time_days,
+                is_critical,
+                notes
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+              RETURNING id
+            `;
+
+            const requirementValues = [
+              newWorkOrder.id,
+              component.component_product_id,
+              material.name,
+              material.sku,
+              totalRequiredQuantity,
+              allocatedQuantity,
+              0, // consumed_quantity initially 0
+              material.unit_of_measure,
+              status,
+              1, // priority - could be calculated based on various factors
+              workOrderData.deadline,
+              component.id,
+              component.supplier_id,
+              component.supplier_name,
+              unitCost,
+              totalCost,
+              component.lead_time_days,
+              isCritical,
+              `Required for work order ${workOrderNumber}. Scrap factor: ${component.scrap_factor}%`
+            ];
+
+            const requirementResult = await client.query(requirementQuery, requirementValues);
+
+            // If we can allocate materials, create allocation records
+            if (allocatedQuantity > 0) {
+              // Create material allocation
+              const allocationQuery = `
+                INSERT INTO work_order_material_allocations (
+                  work_order_requirement_id,
+                  inventory_item_id,
+                  allocated_quantity,
+                  allocated_from_location,
+                  allocated_by,
+                  status,
+                  notes
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+              `;
+
+              await client.query(allocationQuery, [
+                requirementResult.rows[0].id,
+                component.component_product_id,
+                allocatedQuantity,
+                'Main Warehouse', // Could be more sophisticated
+                userId,
+                'allocated',
+                `Allocated ${allocatedQuantity} units for work order ${workOrderNumber}`
+              ]);
+
+              // Update product stock (reduce available stock)
+              await client.query(`
+                UPDATE products
+                SET current_stock = current_stock - $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2
+              `, [allocatedQuantity, component.component_product_id]);
+            }
+
+            // If there's a shortage, create a shortage record
+            if (status === 'short') {
+              const shortfallQuantity = totalRequiredQuantity - allocatedQuantity;
+
+              const shortageQuery = `
+                INSERT INTO material_shortages (
+                  material_id,
+                  material_name,
+                  material_sku,
+                  required_quantity,
+                  available_quantity,
+                  shortfall_quantity,
+                  work_order_id,
+                  work_order_number,
+                  required_date,
+                  priority,
+                  supplier_id,
+                  supplier_name,
+                  lead_time_days,
+                  suggested_action,
+                  status,
+                  notes
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+              `;
+
+              const priority = isCritical ? 'critical' : 'medium';
+              const suggestedAction = availableStock === 0 ? 'purchase' : 'substitute';
+
+              await client.query(shortageQuery, [
+                component.component_product_id,
+                material.name,
+                material.sku,
+                totalRequiredQuantity,
+                availableStock,
+                shortfallQuantity,
+                newWorkOrder.id,
+                workOrderNumber,
+                workOrderData.deadline,
+                priority,
+                component.supplier_id,
+                component.supplier_name,
+                component.lead_time_days,
+                suggestedAction,
+                'open',
+                `Short ${shortfallQuantity} units for work order ${workOrderNumber}`
+              ]);
+            }
+          }
+        }
+      }
+
       // Get the complete work order with production line name
       const finalQuery = `
         SELECT

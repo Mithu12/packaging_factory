@@ -419,6 +419,12 @@ export const PERMISSIONS = {
   FACTORY_WORK_ORDER_ASSIGNMENTS_READ: createPermissionCheck('Factory', 'read', 'work_order_assignments'),
   FACTORY_WORK_ORDER_ASSIGNMENTS_UPDATE: createPermissionCheck('Factory', 'update', 'work_order_assignments'),
   FACTORY_WORK_ORDER_ASSIGNMENTS_DELETE: createPermissionCheck('Factory', 'delete', 'work_order_assignments'),
+
+  // Bill of Materials (BOM)
+  FACTORY_BOMS_CREATE: createPermissionCheck('Factory', 'create', 'boms'),
+  FACTORY_BOMS_READ: createPermissionCheck('Factory', 'read', 'boms'),
+  FACTORY_BOMS_UPDATE: createPermissionCheck('Factory', 'update', 'boms'),
+  FACTORY_BOMS_DELETE: createPermissionCheck('Factory', 'delete', 'boms'),
 };
 
 // Export permission middleware functions

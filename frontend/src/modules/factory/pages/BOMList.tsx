@@ -47,26 +47,49 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { BillOfMaterials, BOMStats } from "../types/bom";
+import { BillOfMaterials, BOMStats, BOMQueryParams } from "../types/bom";
+import { BOMApiService, bomQueryKeys } from "@/services/bom-api";
+import { useQuery } from "@tanstack/react-query";
 
 export default function BOMList() {
   const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
-  const [boms, setBoms] = useState<BillOfMaterials[]>([]);
-  const [stats, setStats] = useState<BOMStats>({
-    totalBOMs: 0,
-    activeBOMs: 0,
-    averageComponents: 0,
-    averageCost: 0,
-    mostExpensiveBOM: "",
-    leastExpensiveBOM: "",
-    componentsWithoutSupplier: 0,
-    outdatedBOMs: 0,
-  });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showBOMDialog, setShowBOMDialog] = useState(false);
   const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
+
+  // API query parameters
+  const queryParams: BOMQueryParams = {
+    search: searchTerm || undefined,
+    is_active: statusFilter === "all" ? undefined : statusFilter === "active",
+    page: 1,
+    limit: 50,
+  };
+
+  // Fetch BOMs data
+  const { data: bomsData, isLoading: bomsLoading } = useQuery({
+    queryKey: bomQueryKeys.list(queryParams),
+    queryFn: () => BOMApiService.getBOMs(queryParams),
+  });
+
+  // Fetch BOM statistics
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: bomQueryKeys.stats(),
+    queryFn: () => BOMApiService.getBOMStats(),
+  });
+
+  const boms = bomsData?.boms || [];
+  const stats = statsData || {
+    total_boms: 0,
+    active_boms: 0,
+    average_components: 0,
+    average_cost: 0,
+    most_expensive_bom: "",
+    least_expensive_bom: "",
+    components_without_supplier: 0,
+    outdated_boms: 0,
+  };
 
   const handleCreateBOM = () => {
     navigate("/factory/bom/new");
@@ -76,112 +99,26 @@ export default function BOMList() {
     navigate(`/factory/bom/${bomId}/edit`);
   };
 
-  const handleViewBOM = (bom: BillOfMaterials) => {
-    setSelectedBOM(bom);
-    setShowBOMDialog(true);
+  const handleViewBOM = async (bom: BillOfMaterials) => {
+    try {
+      const detailedBOM = await BOMApiService.getBOMById(bom.id);
+      setSelectedBOM(detailedBOM);
+      setShowBOMDialog(true);
+    } catch (error) {
+      console.error("Failed to fetch BOM details:", error);
+    }
   };
 
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setBoms([
-      {
-        id: "BOM-001",
-        parentProductId: "PROD-001",
-        parentProductName: "Premium Widget A",
-        parentProductSku: "PWA-001",
-        version: "1.2",
-        effectiveDate: "2024-03-01",
-        isActive: true,
-        components: [
-          {
-            id: "COMP-001",
-            componentId: "MAT-001",
-            componentName: "Steel Frame",
-            componentSku: "SF-001",
-            quantityRequired: 2,
-            unitOfMeasure: "pcs",
-            isOptional: false,
-            scrapFactor: 5,
-            unitCost: 25.0,
-            totalCost: 50.0,
-            leadTimeDays: 7,
-            supplierId: "SUP-001",
-            supplierName: "Steel Works Ltd",
-          },
-          {
-            id: "COMP-002",
-            componentId: "MAT-002",
-            componentName: "Electronic Module",
-            componentSku: "EM-001",
-            quantityRequired: 1,
-            unitOfMeasure: "pcs",
-            isOptional: false,
-            scrapFactor: 2,
-            unitCost: 45.0,
-            totalCost: 45.0,
-            leadTimeDays: 14,
-            supplierId: "SUP-002",
-            supplierName: "ElectroTech Inc",
-          },
-        ],
-        totalCost: 95.0,
-        createdBy: "John Smith",
-        createdDate: "2024-02-15T10:30:00Z",
-        notes: "Updated with new electronic module",
-      },
-      {
-        id: "BOM-002",
-        parentProductId: "PROD-002",
-        parentProductName: "Standard Widget B",
-        parentProductSku: "SWB-001",
-        version: "2.0",
-        effectiveDate: "2024-03-15",
-        isActive: true,
-        components: [
-          {
-            id: "COMP-003",
-            componentId: "MAT-003",
-            componentName: "Aluminum Frame",
-            componentSku: "AF-001",
-            quantityRequired: 1,
-            unitOfMeasure: "pcs",
-            isOptional: false,
-            scrapFactor: 3,
-            unitCost: 15.0,
-            totalCost: 15.0,
-            leadTimeDays: 5,
-            supplierId: "SUP-003",
-            supplierName: "Aluminum Co",
-          },
-        ],
-        totalCost: 15.0,
-        createdBy: "Jane Doe",
-        createdDate: "2024-03-10T14:20:00Z",
-      },
-    ]);
-
-    setStats({
-      totalBOMs: 15,
-      activeBOMs: 12,
-      averageComponents: 4.2,
-      averageCost: 125.5,
-      mostExpensiveBOM: "Premium Widget A",
-      leastExpensiveBOM: "Standard Widget B",
-      componentsWithoutSupplier: 3,
-      outdatedBOMs: 2,
-    });
-  }, []);
-
+  // Local filtering for search (API handles status filtering)
   const filteredBOMs = boms.filter((bom) => {
-    const matchesSearch =
-      bom.parentProductName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bom.parentProductSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bom.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "active" && bom.isActive) ||
-      (statusFilter === "inactive" && !bom.isActive);
-    return matchesSearch && matchesStatus;
+    if (!searchTerm) return true;
+
+    return (
+      bom.parent_product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bom.parent_product_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bom.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bom.version?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   });
 
   const getStatusColor = (isActive: boolean) => {
@@ -199,6 +136,34 @@ export default function BOMList() {
     // View BOM version history
     console.log("View history for BOM:", bom.id);
   };
+
+  // Handle loading states
+  if (bomsLoading || statsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Bill of Materials</h1>
+            <p className="text-muted-foreground">
+              Manage product component structures and material requirements
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -343,10 +308,10 @@ export default function BOMList() {
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {bom.parentProductName}
+                            {bom.parent_product_name}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {bom.parentProductSku}
+                            {bom.parent_product_sku}
                           </div>
                         </div>
                       </TableCell>
@@ -356,7 +321,7 @@ export default function BOMList() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
-                            {bom.components.length}
+                            {bom.components?.length || 0}
                           </span>
                           <span className="text-sm text-muted-foreground">
                             components
@@ -364,20 +329,20 @@ export default function BOMList() {
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(bom.totalCost)}
+                        {formatCurrency(bom.total_cost)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(bom.isActive)}>
-                          {bom.isActive ? "ACTIVE" : "INACTIVE"}
+                        <Badge className={getStatusColor(bom.is_active)}>
+                          {bom.is_active ? "ACTIVE" : "INACTIVE"}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div>
                           <div className="text-sm">
-                            {formatDate(bom.createdDate)}
+                            {formatDate(bom.created_at)}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            by {bom.createdBy}
+                            by User {bom.created_by}
                           </div>
                         </div>
                       </TableCell>
@@ -432,20 +397,20 @@ export default function BOMList() {
             <CardContent>
               <div className="space-y-4">
                 {boms
-                  .filter((bom) => bom.isActive)
+                  .filter((bom) => bom.is_active)
                   .map((bom) => (
                     <Card key={bom.id}>
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between mb-4">
                           <div>
                             <h3 className="font-medium">
-                              {bom.parentProductName}
+                              {bom.parent_product_name}
                             </h3>
                             <p className="text-sm text-muted-foreground">
                               {bom.id} • Version {bom.version}
                             </p>
                           </div>
-                          <Badge className={getStatusColor(bom.isActive)}>
+                          <Badge className={getStatusColor(bom.is_active)}>
                             ACTIVE
                           </Badge>
                         </div>
@@ -456,7 +421,7 @@ export default function BOMList() {
                               Components
                             </div>
                             <div className="text-2xl font-bold">
-                              {bom.components.length}
+                              {bom.components?.length || 0}
                             </div>
                           </div>
                           <div>
@@ -464,13 +429,13 @@ export default function BOMList() {
                               Total Cost
                             </div>
                             <div className="text-2xl font-bold">
-                              {formatCurrency(bom.totalCost)}
+                              {formatCurrency(bom.total_cost)}
                             </div>
                           </div>
                           <div>
                             <div className="text-sm font-medium">Created</div>
                             <div className="text-sm text-muted-foreground">
-                              {formatDate(bom.createdDate)}
+                              {formatDate(bom.created_at)}
                             </div>
                           </div>
                           <div>
@@ -478,7 +443,7 @@ export default function BOMList() {
                               Created By
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {bom.createdBy}
+                              User {bom.created_by}
                             </div>
                           </div>
                         </div>
@@ -640,7 +605,7 @@ export default function BOMList() {
                     <div>
                       <div className="text-sm font-medium">Product</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedBOM.parentProductName}
+                        {selectedBOM.parent_product_name}
                       </div>
                     </div>
                     <div>
@@ -652,13 +617,13 @@ export default function BOMList() {
                     <div>
                       <div className="text-sm font-medium">Components</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedBOM.components.length}
+                        {selectedBOM.components?.length || 0}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Total Cost</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatCurrency(selectedBOM.totalCost)}
+                        {formatCurrency(selectedBOM.total_cost)}
                       </div>
                     </div>
                   </div>
@@ -683,38 +648,38 @@ export default function BOMList() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedBOM.components.map((component) => (
+                      {selectedBOM.components?.map((component) => (
                         <TableRow key={component.id}>
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {component.componentName}
+                                {component.component_product_name}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {component.componentSku}
+                                {component.component_product_sku}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span>{component.quantityRequired}</span>
+                              <span>{component.quantity_required}</span>
                               <span className="text-sm text-muted-foreground">
-                                {component.unitOfMeasure}
+                                {component.unit_of_measure}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            {formatCurrency(component.unitCost)}
+                            {formatCurrency(component.unit_cost)}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatCurrency(component.totalCost)}
+                            {formatCurrency(component.total_cost)}
                           </TableCell>
                           <TableCell>
-                            {component.supplierName || "Not assigned"}
+                            {component.supplier_name || "Not assigned"}
                           </TableCell>
-                          <TableCell>{component.leadTimeDays} days</TableCell>
+                          <TableCell>{component.lead_time_days} days</TableCell>
                         </TableRow>
-                      ))}
+                      )) || []}
                     </TableBody>
                   </Table>
                 </CardContent>

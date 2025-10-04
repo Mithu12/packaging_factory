@@ -189,9 +189,22 @@ export class GetWorkOrderInfoMediator {
           wo.started_at,
           wo.completed_at,
           wo.notes,
-          wo.specifications
+          wo.specifications,
+          -- Material requirements aggregation
+          COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
+          COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
+          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+        LEFT JOIN (
+          SELECT
+            wmr.work_order_id,
+            COUNT(*) as material_requirements_count,
+            SUM(wmr.total_cost) as total_material_cost,
+            BOOL_OR(wmr.status = 'short') as has_material_shortages
+          FROM work_order_material_requirements wmr
+          GROUP BY wmr.work_order_id
+        ) mr_stats ON wo.id = mr_stats.work_order_id
         ${whereClause}
         ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -225,7 +238,11 @@ export class GetWorkOrderInfoMediator {
         started_at: row.started_at,
         completed_at: row.completed_at,
         notes: row.notes,
-        specifications: row.specifications
+        specifications: row.specifications,
+        // Material requirements integration
+        material_requirements_count: parseInt(row.material_requirements_count || 0),
+        total_material_cost: parseFloat(row.total_material_cost || 0),
+        has_material_shortages: row.has_material_shortages || false
       }));
 
       const totalPages = Math.ceil(total / limit);
@@ -309,9 +326,22 @@ export class GetWorkOrderInfoMediator {
           wo.started_at,
           wo.completed_at,
           wo.notes,
-          wo.specifications
+          wo.specifications,
+          -- Material requirements aggregation
+          COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
+          COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
+          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+        LEFT JOIN (
+          SELECT
+            wmr.work_order_id,
+            COUNT(*) as material_requirements_count,
+            SUM(wmr.total_cost) as total_material_cost,
+            BOOL_OR(wmr.status = 'short') as has_material_shortages
+          FROM work_order_material_requirements wmr
+          GROUP BY wmr.work_order_id
+        ) mr_stats ON wo.id = mr_stats.work_order_id
         ${whereClause}
       `;
 
@@ -322,6 +352,63 @@ export class GetWorkOrderInfoMediator {
       }
 
       const row = result.rows[0];
+
+      // Get material requirements for this work order
+      const materialRequirementsQuery = `
+        SELECT
+          wmr.id,
+          wmr.work_order_id,
+          wmr.material_id,
+          wmr.material_name,
+          wmr.material_sku,
+          wmr.required_quantity,
+          wmr.allocated_quantity,
+          wmr.consumed_quantity,
+          wmr.unit_of_measure,
+          wmr.status,
+          wmr.priority,
+          wmr.required_date,
+          wmr.bom_component_id,
+          wmr.supplier_id,
+          wmr.supplier_name,
+          wmr.unit_cost,
+          wmr.total_cost,
+          wmr.lead_time_days,
+          wmr.is_critical,
+          wmr.notes,
+          wmr.created_at,
+          wmr.updated_at
+        FROM work_order_material_requirements wmr
+        WHERE wmr.work_order_id = $1
+        ORDER BY wmr.created_at
+      `;
+
+      const materialRequirementsResult = await client.query(materialRequirementsQuery, [workOrderId]);
+      const material_requirements = materialRequirementsResult.rows.map(mr => ({
+        id: mr.id,
+        work_order_id: mr.work_order_id,
+        material_id: mr.material_id,
+        material_name: mr.material_name,
+        material_sku: mr.material_sku,
+        required_quantity: parseFloat(mr.required_quantity),
+        allocated_quantity: parseFloat(mr.allocated_quantity),
+        consumed_quantity: parseFloat(mr.consumed_quantity),
+        unit_of_measure: mr.unit_of_measure,
+        status: mr.status,
+        priority: mr.priority,
+        required_date: mr.required_date,
+        bom_component_id: mr.bom_component_id,
+        supplier_id: mr.supplier_id,
+        supplier_name: mr.supplier_name,
+        unit_cost: parseFloat(mr.unit_cost),
+        total_cost: parseFloat(mr.total_cost),
+        lead_time_days: mr.lead_time_days,
+        is_critical: mr.is_critical,
+        notes: mr.notes,
+        created_at: mr.created_at,
+        updated_at: mr.updated_at
+      }));
+
       const workOrder: WorkOrder = {
         id: row.id,
         work_order_number: row.work_order_number,
@@ -347,7 +434,12 @@ export class GetWorkOrderInfoMediator {
         started_at: row.started_at,
         completed_at: row.completed_at,
         notes: row.notes,
-        specifications: row.specifications
+        specifications: row.specifications,
+        // Material requirements integration
+        material_requirements,
+        material_requirements_count: parseInt(row.material_requirements_count || 0),
+        total_material_cost: parseFloat(row.total_material_cost || 0),
+        has_material_shortages: row.has_material_shortages || false
       };
 
       MyLogger.success(action, { workOrderId });
