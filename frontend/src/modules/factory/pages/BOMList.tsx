@@ -199,9 +199,9 @@ export default function BOMList() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBOMs}</div>
+            <div className="text-2xl font-bold">{stats.total_boms}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeBOMs} active
+              {stats.active_boms} active
             </p>
           </CardContent>
         </Card>
@@ -214,7 +214,7 @@ export default function BOMList() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.averageComponents}</div>
+            <div className="text-2xl font-bold">{stats.average_components}</div>
             <p className="text-xs text-muted-foreground">per BOM</p>
           </CardContent>
         </Card>
@@ -226,7 +226,7 @@ export default function BOMList() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.averageCost)}
+              {formatCurrency(stats.average_cost)}
             </div>
             <p className="text-xs text-muted-foreground">per BOM</p>
           </CardContent>
@@ -239,7 +239,7 @@ export default function BOMList() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {stats.componentsWithoutSupplier + stats.outdatedBOMs}
+              {stats.components_without_supplier + stats.outdated_boms}
             </div>
             <p className="text-xs text-muted-foreground">need attention</p>
           </CardContent>
@@ -520,10 +520,10 @@ export default function BOMList() {
                     <span className="text-sm">Most Expensive</span>
                     <div className="text-right">
                       <div className="font-medium">
-                        {stats.mostExpensiveBOM}
+                        {stats.most_expensive_bom}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {formatCurrency(stats.averageCost * 1.5)}
+                        {formatCurrency(stats.average_cost * 1.5)}
                       </div>
                     </div>
                   </div>
@@ -531,10 +531,10 @@ export default function BOMList() {
                     <span className="text-sm">Least Expensive</span>
                     <div className="text-right">
                       <div className="font-medium">
-                        {stats.leastExpensiveBOM}
+                        {stats.least_expensive_bom}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {formatCurrency(stats.averageCost * 0.3)}
+                        {formatCurrency(stats.average_cost * 0.3)}
                       </div>
                     </div>
                   </div>
@@ -552,12 +552,12 @@ export default function BOMList() {
                     <div className="flex justify-between text-sm mb-2">
                       <span>Active BOMs</span>
                       <span>
-                        {Math.round((stats.activeBOMs / stats.totalBOMs) * 100)}
+                        {Math.round((stats.active_boms / stats.total_boms) * 100)}
                         %
                       </span>
                     </div>
                     <Progress
-                      value={(stats.activeBOMs / stats.totalBOMs) * 100}
+                      value={(stats.active_boms / stats.total_boms) * 100}
                       className="h-2"
                     />
                   </div>
@@ -566,9 +566,9 @@ export default function BOMList() {
                       <span>Components with Suppliers</span>
                       <span>
                         {Math.round(
-                          ((stats.totalBOMs * stats.averageComponents -
-                            stats.componentsWithoutSupplier) /
-                            (stats.totalBOMs * stats.averageComponents)) *
+                          ((stats.total_boms * stats.average_components -
+                            stats.components_without_supplier) /
+                            (stats.total_boms * stats.average_components)) *
                             100
                         )}
                         %
