@@ -711,7 +711,9 @@ export class GetBOMInfoMediator {
           ms.resolved_by,
           ms.notes,
           ms.created_at,
-          ms.updated_at
+          ms.updated_at,
+          ms.unit_cost,
+          ms.total_cost
         FROM material_shortages ms
         JOIN work_orders wo ON ms.work_order_id = wo.id
         JOIN products p ON wo.product_id = p.id
@@ -791,7 +793,9 @@ export class GetBOMInfoMediator {
         resolved_by: row.resolved_by,
         notes: row.notes,
         created_at: row.created_at,
-        updated_at: row.updated_at
+        updated_at: row.updated_at,
+        unit_cost: parseFloat(row.unit_cost || 0),
+        total_cost: parseFloat(row.total_cost || 0)
       }));
 
       MyLogger.success(action, {
@@ -1193,7 +1197,7 @@ export class GetBOMInfoMediator {
       }, {} as Record<string, typeof shortages>);
 
       // Create purchase orders for each supplier group
-      for (const [supplierId, supplierShortages] of Object.entries(supplierGroups)) {
+      for (const [supplierId, supplierShortages] of Object.entries(supplierGroups) as [string, typeof shortages][] ) {
         // Generate PO number
         const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 

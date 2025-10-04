@@ -194,7 +194,7 @@ export class AddWorkOrderMediator {
           const product = stockResult.rows[0];
           const currentReservedStock = parseFloat(product.reserved_stock) || 0;
           const currentStock = parseFloat(product.current_stock) || 0;
-          const requiredQuantity = parseFloat(workOrderData.quantity);
+          const requiredQuantity = workOrderData.quantity;
 
           // Check if there's enough available stock (current_stock - reserved_stock)
           const availableStock = currentStock - currentReservedStock;
@@ -494,7 +494,7 @@ export class AddWorkOrderMediator {
         actual_hours: parseFloat(completeWorkOrder.actual_hours),
         production_line_id: completeWorkOrder.production_line_id,
         production_line_name: completeWorkOrder.production_line_name,
-        assigned_operators: completeWorkOrder.assigned_operator_ids || [],
+        assigned_operator_ids: completeWorkOrder.assigned_operator_ids || [],
         created_by: completeWorkOrder.created_by,
         created_at: completeWorkOrder.created_at,
         updated_by: completeWorkOrder.updated_by,

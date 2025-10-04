@@ -62,6 +62,8 @@ export enum FactoryCustomerOrderPaymentTerms {
 export interface FactoryCustomerOrder {
   id: number;
   order_number: string;
+  factory_id?: number;
+  factory_name?: string;
   factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;
