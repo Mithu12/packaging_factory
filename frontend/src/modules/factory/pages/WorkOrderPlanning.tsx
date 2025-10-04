@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,19 +62,22 @@ import {
   UpdateWorkOrderRequest,
 } from "@/services/work-orders-api";
 import { BOMApiService } from "@/services/bom-api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { workOrdersQueryKeys } from "@/services/work-orders-api";
 
 // Using types from API service
 
 export default function WorkOrderPlanning() {
+  const navigate = useNavigate();
   const { formatCurrency, formatDate } = useFormatting();
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [error, setError] = useState<string | null>(null);
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const queryClient = useQueryClient();
 
   // API query parameters
   const queryParams: WorkOrderQueryParams = {
@@ -242,7 +246,9 @@ export default function WorkOrderPlanning() {
   const handleReleaseWorkOrder = async (workOrderId: string) => {
     try {
       await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, 'released');
-      await loadWorkOrders(); // Reload to get updated status
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to release work order');
       console.error('Error releasing work order:', err);
@@ -252,7 +258,9 @@ export default function WorkOrderPlanning() {
   const handleStartWorkOrder = async (workOrderId: string) => {
     try {
       await WorkOrdersApiService.startWorkOrder(workOrderId);
-      await loadWorkOrders(); // Reload to get updated status
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start work order');
       console.error('Error starting work order:', err);
@@ -262,7 +270,9 @@ export default function WorkOrderPlanning() {
   const handleCompleteWorkOrder = async (workOrderId: string) => {
     try {
       await WorkOrdersApiService.completeWorkOrder(workOrderId, undefined, "Completed via planning interface");
-      await loadWorkOrders(); // Reload to get updated status
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete work order');
       console.error('Error completing work order:', err);
@@ -285,7 +295,10 @@ export default function WorkOrderPlanning() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadWorkOrders}>
+          <Button variant="outline" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+          }}>
             <Filter className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -306,7 +319,11 @@ export default function WorkOrderPlanning() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setError(null); loadWorkOrders(); }}
+                onClick={() => {
+                  setError(null);
+                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+                }}
                 className="ml-auto"
               >
                 Retry
@@ -635,7 +652,7 @@ export default function WorkOrderPlanning() {
                   {operators.map((operator) => (
                     <TableRow key={operator.id}>
                       <TableCell className="font-medium">
-                        {operator.name}
+                        {operator.user_name || operator.employee_id}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
@@ -929,7 +946,7 @@ export default function WorkOrderPlanning() {
                       >
                         <Checkbox id={operator.id.toString()} />
                         <Label htmlFor={operator.id.toString()} className="flex-1">
-                          {operator.name} ({operator.skill_level})
+                          {operator.user_name || operator.employee_id} ({operator.skill_level})
                         </Label>
                       </div>
                     ))}

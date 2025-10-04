@@ -36,7 +36,7 @@ export interface WorkOrder {
   actual_hours: number;
   production_line_id?: string;
   production_line_name?: string;
-  assigned_operator_ids: number[];
+  assigned_operators: number[];
   created_by: number;
   created_at: string;
   updated_by?: number;
@@ -45,6 +45,11 @@ export interface WorkOrder {
   completed_at?: string;
   notes?: string;
   specifications?: string;
+  // Material requirements integration
+  material_requirements?: any[];
+  material_requirements_count?: number;
+  total_material_cost?: number;
+  has_material_shortages?: boolean;
   // Populated from joins
   created_by_name?: string;
   updated_by_name?: string;
