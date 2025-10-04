@@ -135,7 +135,7 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Factory Management</CardTitle>
-            <Button onClick={handleCreateFactory}>
+            <Button onClick={handleCreateFactory} data-testid="add-factory-button">
               <Plus className="mr-2 h-4 w-4" />
               Add Factory
             </Button>
@@ -150,6 +150,7 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                data-testid="factory-search-input"
               />
             </div>
           </div>
@@ -171,6 +172,7 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
                   key={factory.id}
                   className={onFactorySelect ? 'cursor-pointer hover:bg-gray-50' : ''}
                   onClick={() => onFactorySelect?.(factory)}
+                  data-testid="factory-row"
                 >
                   <TableCell className="font-medium">{factory.name}</TableCell>
                   <TableCell>{factory.code}</TableCell>
@@ -188,22 +190,23 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" data-testid="factory-actions-dropdown">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditFactory(factory)}>
+                        <DropdownMenuItem onClick={() => handleEditFactory(factory)} data-testid="edit-factory-menu-item">
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleManageUsers(factory)}>
+                        <DropdownMenuItem onClick={() => handleManageUsers(factory)} data-testid="manage-users-menu-item">
                           <Users className="mr-2 h-4 w-4" />
                           Manage Users
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => setDeletingFactory(factory)}
                           className="text-red-600"
+                          data-testid="delete-factory-menu-item"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete

@@ -136,15 +136,6 @@ INSERT INTO production_lines (name, code, description, capacity, location) VALUE
 ('Production Line 4', 'PL004', 'Quality control and testing line', 50.00, 'Building C - Floor 1')
 ON CONFLICT (code) DO NOTHING;
 
--- Insert some sample operators
-INSERT INTO operators (employee_id, name, skill_level, department, hourly_rate) VALUES
-('EMP001', 'John Smith', 'expert', 'Assembly', 25.00),
-('EMP002', 'Jane Doe', 'intermediate', 'Assembly', 20.00),
-('EMP003', 'Mike Johnson', 'expert', 'Quality Control', 28.00),
-('EMP004', 'Sarah Wilson', 'beginner', 'Assembly', 15.00),
-('EMP005', 'Tom Brown', 'intermediate', 'Maintenance', 22.00),
-('EMP006', 'Lisa Davis', 'expert', 'Quality Control', 30.00)
-ON CONFLICT (employee_id) DO NOTHING;
 
 -- Add comments for documentation
 COMMENT ON TABLE production_lines IS 'Production lines with capacity and status tracking';
@@ -164,7 +155,6 @@ COMMENT ON COLUMN operators.current_work_order_id IS 'Currently assigned work or
 COMMENT ON COLUMN work_orders.status IS 'Work order status: draft, planned, released, in_progress, completed, on_hold, cancelled';
 COMMENT ON COLUMN work_orders.priority IS 'Work order priority: low, medium, high, urgent';
 COMMENT ON COLUMN work_orders.progress IS 'Completion progress percentage (0-100)';
-COMMENT ON COLUMN work_orders.assigned_operators IS 'JSON array of operator names assigned to this work order';
 
 COMMENT ON COLUMN work_order_assignments.estimated_start_time IS 'Planned start time for this assignment';
 COMMENT ON COLUMN work_order_assignments.actual_start_time IS 'Actual start time when work began';

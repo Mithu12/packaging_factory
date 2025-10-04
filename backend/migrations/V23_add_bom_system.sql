@@ -4,7 +4,7 @@
 -- Create bill_of_materials table
 CREATE TABLE bill_of_materials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    parent_product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     version VARCHAR(20) NOT NULL,
     effective_date DATE NOT NULL,
     is_active BOOLEAN DEFAULT true,
@@ -21,7 +21,7 @@ CREATE TABLE bill_of_materials (
 CREATE TABLE bom_components (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bom_id UUID NOT NULL REFERENCES bill_of_materials(id) ON DELETE CASCADE,
-    component_product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    component_product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     quantity_required DECIMAL(15,4) NOT NULL CHECK (quantity_required > 0),
     unit_of_measure VARCHAR(20) NOT NULL,
     is_optional BOOLEAN DEFAULT false,
@@ -29,7 +29,7 @@ CREATE TABLE bom_components (
     unit_cost DECIMAL(15,4) NOT NULL,
     total_cost DECIMAL(15,4) NOT NULL,
     lead_time_days INTEGER DEFAULT 0,
-    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    supplier_id BIGINT REFERENCES suppliers(id) ON DELETE SET NULL,
     specifications TEXT,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -40,7 +40,7 @@ CREATE TABLE bom_components (
 CREATE TABLE work_order_material_requirements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
-    material_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     material_sku VARCHAR(100) NOT NULL,
     required_quantity DECIMAL(15,4) NOT NULL CHECK (required_quantity > 0),
@@ -51,7 +51,7 @@ CREATE TABLE work_order_material_requirements (
     priority INTEGER NOT NULL DEFAULT 1,
     required_date DATE NOT NULL,
     bom_component_id UUID REFERENCES bom_components(id) ON DELETE SET NULL,
-    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    supplier_id BIGINT REFERENCES suppliers(id) ON DELETE SET NULL,
     supplier_name VARCHAR(255),
     unit_cost DECIMAL(15,4) NOT NULL,
     total_cost DECIMAL(15,4) NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE work_order_material_allocations (
 CREATE TABLE work_order_material_consumptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
-    material_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     consumed_quantity DECIMAL(15,4) NOT NULL CHECK (consumed_quantity > 0),
     consumption_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +100,7 @@ CREATE TABLE work_order_material_consumptions (
 -- Create material_shortages table for tracking shortages
 CREATE TABLE material_shortages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    material_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     material_name VARCHAR(255) NOT NULL,
     material_sku VARCHAR(100) NOT NULL,
     required_quantity DECIMAL(15,4) NOT NULL CHECK (required_quantity > 0),
@@ -110,7 +110,7 @@ CREATE TABLE material_shortages (
     work_order_number VARCHAR(50) NOT NULL,
     required_date DATE NOT NULL,
     priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
-    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    supplier_id BIGINT REFERENCES suppliers(id) ON DELETE SET NULL,
     supplier_name VARCHAR(255),
     lead_time_days INTEGER DEFAULT 0,
     suggested_action VARCHAR(20) NOT NULL CHECK (suggested_action IN ('purchase', 'substitute', 'delay', 'split', 'po_created')),

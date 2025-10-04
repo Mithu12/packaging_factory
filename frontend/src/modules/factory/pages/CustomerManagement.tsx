@@ -118,7 +118,7 @@ export default function CustomerManagement() {
     if (!customerToDelete) return;
 
     try {
-      await CustomerOrdersApiService.deleteCustomer(customerToDelete.id);
+      await CustomerOrdersApiService.deleteCustomer(customerToDelete.id.toString());
       await loadCustomers(); // Reload customers
       setShowDeleteDialog(false);
       setCustomerToDelete(null);
@@ -132,7 +132,7 @@ export default function CustomerManagement() {
     try {
       if (selectedCustomer) {
         // Update existing customer
-        await CustomerOrdersApiService.updateCustomer(selectedCustomer.id, data as UpdateCustomerRequest);
+        await CustomerOrdersApiService.updateCustomer(selectedCustomer.id.toString(), data as UpdateCustomerRequest);
       } else {
         // Create new customer
         await CustomerOrdersApiService.createCustomer(data as CreateCustomerRequest);
@@ -157,11 +157,11 @@ export default function CustomerManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadCustomers} disabled={loading}>
+          <Button variant="outline" onClick={loadCustomers} disabled={loading} data-testid="refresh-customers-button">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateCustomer}>
+          <Button onClick={handleCreateCustomer} data-testid="add-customer-button">
             <Plus className="h-4 w-4 mr-2" />
             New Customer
           </Button>
@@ -237,6 +237,7 @@ export default function CustomerManagement() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
+                  data-testid="customer-search-input"
                 />
               </div>
             </div>
@@ -284,7 +285,7 @@ export default function CustomerManagement() {
             </TableHeader>
             <TableBody>
               {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
+                <TableRow key={customer.id} data-testid="customer-row">
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -320,6 +321,7 @@ export default function CustomerManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewCustomer(customer)}
+                        data-testid="view-customer-button"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -327,6 +329,7 @@ export default function CustomerManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditCustomer(customer)}
+                        data-testid="edit-customer-button"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -335,6 +338,7 @@ export default function CustomerManagement() {
                         size="sm"
                         onClick={() => handleDeleteCustomer(customer)}
                         className="text-red-600 hover:text-red-700"
+                        data-testid="delete-customer-button"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

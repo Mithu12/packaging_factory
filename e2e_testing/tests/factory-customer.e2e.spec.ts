@@ -23,7 +23,7 @@ async function createFactory(page: Page, factoryName: string, factoryCode: strin
   await page.goto('/factory/management');
 
   // Click add factory button
-  const addButton = page.getByRole('button', { name: /add factory/i });
+  const addButton = page.getByTestId('add-factory-button');
   await expect(addButton).toBeVisible();
   await addButton.click();
 
@@ -54,7 +54,7 @@ async function createCustomer(page: Page, customerName: string, customerEmail: s
   await page.goto('/factory/customers');
 
   // Click add customer button
-  const addButton = page.getByRole('button', { name: /new customer|add customer/i });
+  const addButton = page.getByTestId('add-customer-button');
   await expect(addButton).toBeVisible();
   await addButton.click();
 
@@ -104,11 +104,10 @@ test.describe.serial('Factory Management Flows', () => {
     await createFactory(page, factoryName, factoryCode);
 
     // Verify factory appears in the list
-    const searchBox = page.getByPlaceholder(/search factories/i);
+    const searchBox = page.getByTestId('factory-search-input');
     await searchBox.fill(factoryName);
 
-    const factoryRow = page.getByTestId('factory-row')?.filter({ hasText: factoryName }) ||
-                       page.locator(`tr:has-text("${factoryName}")`);
+    const factoryRow = page.getByTestId('factory-row').filter({ hasText: factoryName });
     await expect(factoryRow).toBeVisible();
     await expect(factoryRow).toContainText(factoryCode);
   });
@@ -117,19 +116,18 @@ test.describe.serial('Factory Management Flows', () => {
     test.skip(factoryName === '', 'Factory must be created in previous test');
 
     await page.goto('/factory/management');
-    const searchBox = page.getByPlaceholder(/search factories/i);
+    const searchBox = page.getByTestId('factory-search-input');
     await searchBox.fill(factoryName);
 
-    const factoryRow = page.getByTestId('factory-row')?.filter({ hasText: factoryName }) ||
-                       page.locator(`tr:has-text("${factoryName}")`);
+    const factoryRow = page.getByTestId('factory-row').filter({ hasText: factoryName });
     await expect(factoryRow).toBeVisible();
 
-    // Click the dropdown menu trigger (MoreHorizontal button)
-    const dropdownTrigger = factoryRow.locator('button[aria-label="More options"]').first();
+    // Click the dropdown menu trigger
+    const dropdownTrigger = page.getByTestId('factory-actions-dropdown');
     await dropdownTrigger.click();
 
     // Click edit action from dropdown
-    await page.getByRole('menuitem', { name: /edit/i }).click();
+    await page.getByTestId('edit-factory-menu-item').click();
 
     // Verify edit modal opens and contains current values
     const modal = page.getByRole('dialog', { name: /edit factory/i });
@@ -153,19 +151,18 @@ test.describe.serial('Factory Management Flows', () => {
     test.skip(factoryName === '', 'Factory must be created in previous test');
 
     await page.goto('/factory/management');
-    const searchBox = page.getByPlaceholder(/search factories/i);
+    const searchBox = page.getByTestId('factory-search-input');
     await searchBox.fill(factoryName);
 
-    const factoryRow = page.getByTestId('factory-row')?.filter({ hasText: factoryName }) ||
-                       page.locator(`tr:has-text("${factoryName}")`);
+    const factoryRow = page.getByTestId('factory-row').filter({ hasText: factoryName });
     await expect(factoryRow).toBeVisible();
 
-    // Click the dropdown menu trigger (MoreHorizontal button)
-    const dropdownTrigger = factoryRow.locator('button[aria-label="More options"]').first();
+    // Click the dropdown menu trigger
+    const dropdownTrigger = page.getByTestId('factory-actions-dropdown');
     await dropdownTrigger.click();
 
     // Click manage users action from dropdown
-    await page.getByRole('menuitem', { name: /manage users/i }).click();
+    await page.getByTestId('manage-users-menu-item').click();
 
     // Verify user assignment modal opens
     const modal = page.getByRole('dialog', { name: /manage users|user assignments/i });
@@ -181,19 +178,18 @@ test.describe.serial('Factory Management Flows', () => {
     test.skip(factoryName === '', 'Factory must be created in previous test');
 
     await page.goto('/factory/management');
-    const searchBox = page.getByPlaceholder(/search factories/i);
+    const searchBox = page.getByTestId('factory-search-input');
     await searchBox.fill(factoryName);
 
-    const factoryRow = page.getByTestId('factory-row')?.filter({ hasText: factoryName }) ||
-                       page.locator(`tr:has-text("${factoryName}")`);
+    const factoryRow = page.getByTestId('factory-row').filter({ hasText: factoryName });
     await expect(factoryRow).toBeVisible();
 
-    // Click the dropdown menu trigger (MoreHorizontal button)
-    const dropdownTrigger = factoryRow.locator('button[aria-label="More options"]').first();
+    // Click the dropdown menu trigger
+    const dropdownTrigger = page.getByTestId('factory-actions-dropdown');
     await dropdownTrigger.click();
 
     // Click delete action from dropdown
-    await page.getByRole('menuitem', { name: /delete/i }).click();
+    await page.getByTestId('delete-factory-menu-item').click();
 
     // Confirm deletion in dialog
     const confirmDialog = page.getByRole('dialog', { name: /delete factory/i });
@@ -220,11 +216,10 @@ test.describe.serial('Customer Management Flows', () => {
     await createCustomer(page, createdCustomerName, createdCustomerEmail);
 
     // Verify customer appears in the list
-    const searchBox = page.getByPlaceholder(/search customers/i);
+    const searchBox = page.getByTestId('customer-search-input');
     await searchBox.fill(createdCustomerName);
 
-    const customerRow = page.getByTestId('customer-row')?.filter({ hasText: createdCustomerName }) ||
-                        page.locator(`tr:has-text("${createdCustomerName}")`);
+    const customerRow = page.getByTestId('customer-row').filter({ hasText: createdCustomerName });
     await expect(customerRow).toBeVisible();
     await expect(customerRow).toContainText(createdCustomerEmail);
     await expect(customerRow).toContainText(CUSTOMER_PHONE);
@@ -235,16 +230,15 @@ test.describe.serial('Customer Management Flows', () => {
     test.skip(createdCustomerName === '', 'Customer must be created in previous test');
 
     await page.goto('/factory/customers');
-    const searchBox = page.getByPlaceholder(/search customers/i);
+    const searchBox = page.getByTestId('customer-search-input');
     await searchBox.fill(createdCustomerName);
 
-    const customerRow = page.getByTestId('customer-row')?.filter({ hasText: createdCustomerName }) ||
-                        page.locator(`tr:has-text("${createdCustomerName}")`);
+    const customerRow = page.getByTestId('customer-row').filter({ hasText: createdCustomerName });
     await expect(customerRow).toBeVisible();
 
-    // Click view details action (first button in the actions cell)
-    const actionButtons = customerRow.locator('td').last().locator('button');
-    await actionButtons.nth(0).click();
+    // Click view details action
+    const viewButton = page.getByTestId('view-customer-button');
+    await viewButton.click();
 
     // Verify details modal opens
     const modal = page.getByRole('dialog', { name: /customer details/i });
@@ -263,16 +257,15 @@ test.describe.serial('Customer Management Flows', () => {
     test.skip(createdCustomerName === '', 'Customer must be created in previous test');
 
     await page.goto('/factory/customers');
-    const searchBox = page.getByPlaceholder(/search customers/i);
+    const searchBox = page.getByTestId('customer-search-input');
     await searchBox.fill(createdCustomerName);
 
-    const customerRow = page.getByTestId('customer-row')?.filter({ hasText: createdCustomerName }) ||
-                        page.locator(`tr:has-text("${createdCustomerName}")`);
+    const customerRow = page.getByTestId('customer-row').filter({ hasText: createdCustomerName });
     await expect(customerRow).toBeVisible();
 
-    // Click edit action (second button in the actions cell)
-    const actionButtons = customerRow.locator('td').last().locator('button');
-    await actionButtons.nth(1).click();
+    // Click edit action
+    const editButton = page.getByTestId('edit-customer-button');
+    await editButton.click();
 
     // Verify edit modal opens
     const modal = page.getByRole('dialog', { name: /edit customer/i });
@@ -300,11 +293,11 @@ test.describe.serial('Customer Management Flows', () => {
     await page.goto('/factory/customers');
 
     // Test search functionality
-    const searchBox = page.getByPlaceholder(/search customers/i);
+    const searchBox = page.getByTestId('customer-search-input');
 
     // Search by name
     await searchBox.fill(createdCustomerName);
-    let customerRows = page.locator('tbody tr');
+    let customerRows = page.getByTestId('customer-row');
     await expect(customerRows).toHaveCount(1);
 
     // Search by email
@@ -344,16 +337,15 @@ test.describe.serial('Customer Management Flows', () => {
     test.skip(createdCustomerName === '', 'Customer must be created in previous test');
 
     await page.goto('/factory/customers');
-    const searchBox = page.getByPlaceholder(/search customers/i);
+    const searchBox = page.getByTestId('customer-search-input');
     await searchBox.fill(createdCustomerName);
 
-    const customerRow = page.getByTestId('customer-row')?.filter({ hasText: createdCustomerName }) ||
-                        page.locator(`tr:has-text("${createdCustomerName}")`);
+    const customerRow = page.getByTestId('customer-row').filter({ hasText: createdCustomerName });
     await expect(customerRow).toBeVisible();
 
-    // Click delete action (third button in the actions cell)
-    const actionButtons = customerRow.locator('td').last().locator('button');
-    await actionButtons.nth(2).click();
+    // Click delete action
+    const deleteButton = page.getByTestId('delete-customer-button');
+    await deleteButton.click();
 
     // Confirm deletion in dialog
     const confirmDialog = page.getByRole('dialog', { name: /delete customer/i });
@@ -369,7 +361,7 @@ test.describe.serial('Customer Management Flows', () => {
     await page.goto('/factory/customers');
 
     // Click refresh button
-    const refreshButton = page.getByRole('button', { name: /refresh/i });
+    const refreshButton = page.getByTestId('refresh-customers-button');
     await expect(refreshButton).toBeVisible();
     await refreshButton.click();
 
