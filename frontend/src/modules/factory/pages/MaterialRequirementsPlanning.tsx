@@ -46,7 +46,7 @@ import {
   MaterialRequirementsQueryParams,
 } from "../types/bom";
 import { BOMApiService, bomQueryKeys } from "@/services/bom-api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function MaterialRequirementsPlanning() {
   const navigate = useNavigate();
@@ -57,9 +57,9 @@ export default function MaterialRequirementsPlanning() {
   const [showShortageDialog, setShowShortageDialog] = useState(false);
   const [selectedShortage, setSelectedShortage] =
     useState<MaterialShortage | null>(null);
-  const [isGeneratingPOs, setIsGeneratingPOs] = useState(false);
   const [generatedPOs, setGeneratedPOs] = useState<string[]>([]);
   const [showPODialog, setShowPODialog] = useState(false);
+  const queryClient = useQueryClient();
 
   // API query parameters
   const queryParams: MaterialRequirementsQueryParams = {
@@ -87,6 +87,36 @@ export default function MaterialRequirementsPlanning() {
   const { data: shortagesData, isLoading: shortagesLoading } = useQuery({
     queryKey: bomQueryKeys.materialShortages(),
     queryFn: () => BOMApiService.getMaterialShortages(),
+  });
+
+  // Mutation for running MRP calculation
+  const runMRPMutation = useMutation({
+    mutationFn: () => BOMApiService.runMRPCalculation(),
+    onSuccess: (result) => {
+      console.log("MRP calculation completed:", result);
+      // Refresh data after MRP calculation
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialRequirements() });
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialPlanningStats() });
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialShortages() });
+    },
+    onError: (error) => {
+      console.error("MRP calculation failed:", error);
+    },
+  });
+
+  // Mutation for generating purchase orders
+  const generatePOsMutation = useMutation({
+    mutationFn: (shortageIds: string[]) => BOMApiService.generatePurchaseOrdersForShortages(shortageIds),
+    onSuccess: (result) => {
+      console.log("Purchase orders generated:", result);
+      setGeneratedPOs(result.purchase_orders);
+      setShowPODialog(true);
+      // Refresh shortages data to show updated status
+      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialShortages() });
+    },
+    onError: (error) => {
+      console.error("Failed to generate purchase orders:", error);
+    },
   });
 
   const requirements = requirementsData?.requirements || [];
@@ -191,34 +221,17 @@ export default function MaterialRequirementsPlanning() {
   };
 
   const handleGeneratePurchaseOrders = async () => {
-    setIsGeneratingPOs(true);
+    if (shortages.length === 0) return;
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const openShortages = shortages.filter(shortage => shortage.status === 'open');
+    if (openShortages.length === 0) return;
 
-    // Generate mock purchase orders for shortages
-    const newPOs = shortages.map((shortage, index) => {
-      const poNumber = `PO-${new Date().getFullYear()}-${String(
-        index + 1
-      ).padStart(4, "0")}`;
-      return poNumber;
-    });
-
-    setGeneratedPOs(newPOs);
-    setIsGeneratingPOs(false);
-    setShowPODialog(true);
-
-    // Update shortages to show they have pending POs
-    setShortages((prev) =>
-      prev.map((shortage) => ({
-        ...shortage,
-        suggestedAction: "po_created" as const,
-      }))
-    );
+    const shortageIds = openShortages.map(shortage => shortage.id);
+    generatePOsMutation.mutate(shortageIds);
   };
 
   const handleRunMRP = () => {
-    console.log("Running Material Requirements Planning");
+    runMRPMutation.mutate();
   };
 
   return (
@@ -232,9 +245,22 @@ export default function MaterialRequirementsPlanning() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRunMRP}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Run MRP
+          <Button
+            variant="outline"
+            onClick={handleRunMRP}
+            disabled={runMRPMutation.isPending}
+          >
+            {runMRPMutation.isPending ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Run MRP
+              </>
+            )}
           </Button>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
@@ -242,9 +268,9 @@ export default function MaterialRequirementsPlanning() {
           </Button>
           <Button
             onClick={handleGeneratePurchaseOrders}
-            disabled={isGeneratingPOs || shortages.length === 0}
+            disabled={generatePOsMutation.isPending || shortages.length === 0}
           >
-            {isGeneratingPOs ? (
+            {generatePOsMutation.isPending ? (
               <>
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                 Generating...

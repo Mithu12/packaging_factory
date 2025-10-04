@@ -211,9 +211,10 @@ export interface BOMQueryParams {
 export interface MaterialRequirementsQueryParams {
   page?: number;
   limit?: number;
+  search?: string;
   work_order_id?: string;
   status?: string;
-  priority?: number;
+  priority?: string;
   material_id?: string;
   required_date_from?: string;
   required_date_to?: string;

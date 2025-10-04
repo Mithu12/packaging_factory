@@ -18,6 +18,9 @@ class BOMController {
       const action = "GET /api/factory/boms";
       MyLogger.info(action, { query: req.query });
       const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const result = await GetBOMInfoMediator.getBOMs(req.query as BOMQueryParams, userId);
       MyLogger.success(action, {
         total: result.total,
@@ -39,6 +42,9 @@ class BOMController {
       MyLogger.info(action, { bomId: id });
 
       const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const bom = await GetBOMInfoMediator.getBOMById(id, userId);
 
       if (!bom) {
@@ -63,6 +69,9 @@ class BOMController {
       const action = "GET /api/factory/boms/stats";
       MyLogger.info(action);
       const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const stats = await GetBOMInfoMediator.getBOMStats(userId);
       MyLogger.success(action, stats);
       serializeSuccessResponse(res, stats, "SUCCESS");
@@ -77,6 +86,9 @@ class BOMController {
       const action = "GET /api/factory/material-requirements";
       MyLogger.info(action, { query: req.query });
       const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const result = await GetBOMInfoMediator.getMaterialRequirements(
         req.query as MaterialRequirementsQueryParams,
         userId
@@ -99,9 +111,79 @@ class BOMController {
       const action = "GET /api/factory/material-planning/stats";
       MyLogger.info(action);
       const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
       const stats = await GetBOMInfoMediator.getMaterialPlanningStats(userId);
       MyLogger.success(action, stats);
       serializeSuccessResponse(res, stats, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get material shortages
+  async getMaterialShortages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/material-shortages";
+      MyLogger.info(action, { query: req.query });
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      const params = req.query as {
+        status?: string;
+        priority?: string;
+        material_id?: string;
+        work_order_id?: string;
+      };
+      const shortages = await GetBOMInfoMediator.getMaterialShortages(params, userId);
+      MyLogger.success(action, {
+        shortagesCount: shortages.length,
+        filters: params
+      });
+      serializeSuccessResponse(res, shortages, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Run MRP calculation
+  async runMRPCalculation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/run-mrp";
+      MyLogger.info(action);
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const result = await GetBOMInfoMediator.runMRPCalculation(userId);
+      MyLogger.success(action, result);
+      serializeSuccessResponse(res, result, "MRP calculation completed successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Generate purchase orders for material shortages
+  async generatePurchaseOrdersForShortages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/generate-purchase-orders";
+      MyLogger.info(action, { body: req.body });
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { shortageIds } = req.body;
+      if (!shortageIds || !Array.isArray(shortageIds)) {
+        throw new Error('shortageIds array is required');
+      }
+
+      const result = await GetBOMInfoMediator.generatePurchaseOrdersForShortages(shortageIds, userId);
+      MyLogger.success(action, result);
+      serializeSuccessResponse(res, result, "Purchase orders generated successfully");
     } catch (error) {
       next(error);
     }

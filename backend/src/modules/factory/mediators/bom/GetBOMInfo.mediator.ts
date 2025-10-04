@@ -665,4 +665,638 @@ export class GetBOMInfoMediator {
       client.release();
     }
   }
+
+  // Get material shortages
+  static async getMaterialShortages(
+    params: {
+      status?: string;
+      priority?: string;
+      material_id?: string;
+      work_order_id?: string;
+    },
+    userId: number
+  ): Promise<MaterialShortage[]> {
+    const action = "GetBOMInfoMediator.getMaterialShortages";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { params, userId });
+
+      // Get user's accessible factories
+      const userFactories = await getUserFactories(userId);
+      const userFactoryIds = userFactories.map(f => f.factory_id);
+
+      // Base query for material shortages
+      const values: any[] = [];
+      let paramIndex = 1;
+      let query = `
+        SELECT
+          ms.id,
+          ms.material_id,
+          ms.material_name,
+          ms.material_sku,
+          ms.required_quantity,
+          ms.available_quantity,
+          ms.shortfall_quantity,
+          ms.work_order_id,
+          ms.work_order_number,
+          ms.required_date,
+          ms.priority,
+          ms.supplier_id,
+          ms.supplier_name,
+          ms.lead_time_days,
+          ms.suggested_action,
+          ms.status,
+          ms.resolved_date,
+          ms.resolved_by,
+          ms.notes,
+          ms.created_at,
+          ms.updated_at
+        FROM material_shortages ms
+        JOIN work_orders wo ON ms.work_order_id = wo.id
+        JOIN products p ON wo.product_id = p.id
+      `;
+
+      // Add factory access filter for non-admin users
+      if (userFactoryIds.length > 0) {
+        query += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
+        values.push(userFactoryIds);
+        paramIndex++;
+      } else {
+        query += ` WHERE 1=1`;  // Add a dummy WHERE clause for consistency
+      }
+
+      // Apply filters
+      const conditions = [];
+
+      if (params.status) {
+        conditions.push(`ms.status = $${paramIndex}`);
+        values.push(params.status);
+        paramIndex++;
+      }
+
+      if (params.priority) {
+        conditions.push(`ms.priority = $${paramIndex}`);
+        values.push(params.priority);
+        paramIndex++;
+      }
+
+      if (params.material_id) {
+        conditions.push(`ms.material_id = $${paramIndex}`);
+        values.push(params.material_id);
+        paramIndex++;
+      }
+
+      if (params.work_order_id) {
+        conditions.push(`ms.work_order_id = $${paramIndex}`);
+        values.push(params.work_order_id);
+        paramIndex++;
+      }
+
+      if (conditions.length > 0) {
+        query += ` AND ${conditions.join(' AND ')}`;
+      }
+
+      // Apply sorting
+      query += ` ORDER BY
+        CASE ms.priority
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+        END,
+        ms.required_date ASC,
+        ms.shortfall_quantity DESC`;
+
+      // Get material shortages
+      const result = await client.query(query, values);
+      const shortages = result.rows.map(row => ({
+        id: row.id,
+        material_id: row.material_id,
+        material_name: row.material_name,
+        material_sku: row.material_sku,
+        required_quantity: parseFloat(row.required_quantity),
+        available_quantity: parseFloat(row.available_quantity),
+        shortfall_quantity: parseFloat(row.shortfall_quantity),
+        work_order_id: row.work_order_id,
+        work_order_number: row.work_order_number,
+        required_date: row.required_date,
+        priority: row.priority,
+        supplier_id: row.supplier_id,
+        supplier_name: row.supplier_name,
+        lead_time_days: row.lead_time_days,
+        suggested_action: row.suggested_action,
+        status: row.status,
+        resolved_date: row.resolved_date,
+        resolved_by: row.resolved_by,
+        notes: row.notes,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }));
+
+      MyLogger.success(action, {
+        shortagesCount: shortages.length,
+        filters: params
+      });
+
+      return shortages;
+
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Run Material Requirements Planning calculation
+  static async runMRPCalculation(userId: number): Promise<{
+    processed: number;
+    shortages_created: number;
+    shortages_resolved: number;
+    message: string;
+  }> {
+    const action = "GetBOMInfoMediator.runMRPCalculation";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { userId });
+
+      // Get user's accessible factories
+      const userFactories = await getUserFactories(userId);
+      const userFactoryIds = userFactories.map(f => f.factory_id);
+
+      if (userFactoryIds.length === 0) {
+        throw new Error('No accessible factories found');
+      }
+
+      let processed = 0;
+      let shortagesCreated = 0;
+      let shortagesResolved = 0;
+
+      // Get all active work orders for accessible factories
+      const workOrdersQuery = `
+        SELECT
+          wo.id,
+          wo.work_order_number,
+          wo.product_id,
+          wo.quantity,
+          wo.status,
+          wo.due_date,
+          p.name as product_name,
+          p.sku as product_sku
+        FROM work_orders wo
+        JOIN products p ON wo.product_id = p.id
+        WHERE p.factory_id = ANY($1::bigint[])
+        AND wo.status IN ('planned', 'in_progress', 'released')
+        ORDER BY wo.due_date ASC
+      `;
+
+      const workOrdersResult = await client.query(workOrdersQuery, [userFactoryIds]);
+      const workOrders = workOrdersResult.rows;
+
+      MyLogger.info(action, { workOrdersCount: workOrders.length });
+
+      for (const workOrder of workOrders) {
+        // Get BOM for this product
+        const bomQuery = `
+          SELECT
+            bom.id as bom_id,
+            bom.version,
+            bc.id as component_id,
+            bc.component_product_id,
+            bc.quantity_required,
+            bc.unit_of_measure,
+            bc.lead_time_days,
+            bc.supplier_id,
+            s.name as supplier_name,
+            p2.name as component_name,
+            p2.sku as component_sku
+          FROM bill_of_materials bom
+          JOIN bom_components bc ON bom.id = bc.bom_id
+          JOIN products p2 ON bc.component_product_id = p2.id
+          LEFT JOIN suppliers s ON bc.supplier_id = s.id
+          WHERE bom.parent_product_id = $1
+          AND bom.is_active = true
+          AND bom.effective_date <= CURRENT_DATE
+          ORDER BY bom.effective_date DESC
+          LIMIT 1
+        `;
+
+        const bomResult = await client.query(bomQuery, [workOrder.product_id]);
+
+        if (bomResult.rows.length === 0) {
+          MyLogger.warn(action, {
+            workOrderId: workOrder.id,
+            message: 'No active BOM found for product'
+          });
+          continue;
+        }
+
+        const bom = bomResult.rows[0];
+
+        // Calculate total required quantity for each component
+        const requiredQuantity = parseFloat(bom.quantity_required) * workOrder.quantity;
+
+        // Check current inventory availability
+        const inventoryQuery = `
+          SELECT
+            COALESCE(SUM(
+              CASE
+                WHEN ii.status = 'available' THEN ii.quantity
+                ELSE 0
+              END
+            ), 0) as available_quantity
+          FROM inventory_items ii
+          WHERE ii.product_id = $1
+          AND ii.status = 'available'
+        `;
+
+        const inventoryResult = await client.query(inventoryQuery, [bom.component_product_id]);
+        const availableQuantity = parseFloat(inventoryResult.rows[0].available_quantity || 0);
+
+        // Calculate shortfall
+        const shortfallQuantity = Math.max(0, requiredQuantity - availableQuantity);
+
+        // Check if requirement already exists
+        const existingReqQuery = `
+          SELECT id, required_quantity, allocated_quantity, status
+          FROM work_order_material_requirements
+          WHERE work_order_id = $1 AND material_id = $2
+        `;
+
+        const existingReqResult = await client.query(existingReqQuery, [workOrder.id, bom.component_product_id]);
+
+        if (existingReqResult.rows.length > 0) {
+          const existing = existingReqResult.rows[0];
+
+          // Update existing requirement
+          const updateQuery = `
+            UPDATE work_order_material_requirements
+            SET
+              required_quantity = $1,
+              required_date = $2,
+              supplier_id = $3,
+              supplier_name = $4,
+              unit_cost = COALESCE((
+                SELECT AVG(unit_price) FROM purchase_order_items
+                WHERE product_id = $5 AND created_at >= CURRENT_DATE - INTERVAL '90 days'
+              ), 0),
+              total_cost = $1 * COALESCE((
+                SELECT AVG(unit_price) FROM purchase_order_items
+                WHERE product_id = $5 AND created_at >= CURRENT_DATE - INTERVAL '90 days'
+              ), 0),
+              lead_time_days = $6,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $7
+          `;
+
+          await client.query(updateQuery, [
+            requiredQuantity,
+            workOrder.due_date,
+            bom.supplier_id,
+            bom.supplier_name,
+            bom.component_product_id,
+            bom.lead_time_days,
+            existing.id
+          ]);
+
+          // Update or create material shortage
+          if (shortfallQuantity > 0) {
+            const upsertShortageQuery = `
+              INSERT INTO material_shortages (
+                material_id, material_name, material_sku,
+                required_quantity, available_quantity, shortfall_quantity,
+                work_order_id, work_order_number, required_date,
+                priority, supplier_id, supplier_name, lead_time_days,
+                suggested_action, status, notes
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+              ON CONFLICT (material_id, work_order_id)
+              DO UPDATE SET
+                required_quantity = EXCLUDED.required_quantity,
+                available_quantity = EXCLUDED.available_quantity,
+                shortfall_quantity = EXCLUDED.shortfall_quantity,
+                required_date = EXCLUDED.required_date,
+                priority = EXCLUDED.priority,
+                supplier_id = EXCLUDED.supplier_id,
+                supplier_name = EXCLUDED.supplier_name,
+                lead_time_days = EXCLUDED.lead_time_days,
+                suggested_action = EXCLUDED.suggested_action,
+                status = EXCLUDED.status,
+                notes = EXCLUDED.notes,
+                updated_at = CURRENT_TIMESTAMP
+            `;
+
+            const priority = shortfallQuantity > requiredQuantity * 0.5 ? 'critical' :
+                           shortfallQuantity > requiredQuantity * 0.2 ? 'high' : 'medium';
+
+            await client.query(upsertShortageQuery, [
+              bom.component_product_id,
+              bom.component_name,
+              bom.component_sku,
+              requiredQuantity,
+              availableQuantity,
+              shortfallQuantity,
+              workOrder.id,
+              workOrder.work_order_number,
+              workOrder.due_date,
+              priority,
+              bom.supplier_id,
+              bom.supplier_name,
+              bom.lead_time_days,
+              'purchase',
+              'open',
+              `Shortage calculated by MRP for Work Order ${workOrder.work_order_number}`
+            ]);
+
+            shortagesCreated++;
+          } else {
+            // Check if shortage exists and mark as resolved
+            const checkShortageQuery = `
+              SELECT id FROM material_shortages
+              WHERE material_id = $1 AND work_order_id = $2 AND status = 'open'
+            `;
+
+            const shortageResult = await client.query(checkShortageQuery, [bom.component_product_id, workOrder.id]);
+
+            if (shortageResult.rows.length > 0) {
+              const resolveQuery = `
+                UPDATE material_shortages
+                SET status = 'resolved', resolved_date = CURRENT_TIMESTAMP, resolved_by = $1
+                WHERE id = $2
+              `;
+
+              await client.query(resolveQuery, [userId, shortageResult.rows[0].id]);
+              shortagesResolved++;
+            }
+          }
+
+        } else {
+          // Create new material requirement
+          const insertReqQuery = `
+            INSERT INTO work_order_material_requirements (
+              work_order_id, material_id, material_name, material_sku,
+              required_quantity, unit_of_measure, status, priority,
+              required_date, supplier_id, supplier_name, unit_cost,
+              total_cost, lead_time_days, is_critical, notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          `;
+
+          const unitCost = 0; // Would need to calculate from purchase history or supplier quotes
+          const totalCost = requiredQuantity * unitCost;
+          const priority = shortfallQuantity > 0 ? 1 : 2; // 1 = high priority if shortage
+
+          await client.query(insertReqQuery, [
+            workOrder.id,
+            bom.component_product_id,
+            bom.component_name,
+            bom.component_sku,
+            requiredQuantity,
+            bom.unit_of_measure,
+            shortfallQuantity > 0 ? 'short' : 'pending',
+            priority,
+            workOrder.due_date,
+            bom.supplier_id,
+            bom.supplier_name,
+            unitCost,
+            totalCost,
+            bom.lead_time_days,
+            shortfallQuantity > requiredQuantity * 0.5,
+            `Material requirement created by MRP for Work Order ${workOrder.work_order_number}`
+          ]);
+
+          // Create material shortage if needed
+          if (shortfallQuantity > 0) {
+            const insertShortageQuery = `
+              INSERT INTO material_shortages (
+                material_id, material_name, material_sku,
+                required_quantity, available_quantity, shortfall_quantity,
+                work_order_id, work_order_number, required_date,
+                priority, supplier_id, supplier_name, lead_time_days,
+                suggested_action, status, notes
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            `;
+
+            const priority = shortfallQuantity > requiredQuantity * 0.5 ? 'critical' :
+                           shortfallQuantity > requiredQuantity * 0.2 ? 'high' : 'medium';
+
+            await client.query(insertShortageQuery, [
+              bom.component_product_id,
+              bom.component_name,
+              bom.component_sku,
+              requiredQuantity,
+              availableQuantity,
+              shortfallQuantity,
+              workOrder.id,
+              workOrder.work_order_number,
+              workOrder.due_date,
+              priority,
+              bom.supplier_id,
+              bom.supplier_name,
+              bom.lead_time_days,
+              'purchase',
+              'open',
+              `Shortage identified by MRP for Work Order ${workOrder.work_order_number}`
+            ]);
+
+            shortagesCreated++;
+          }
+        }
+
+        processed++;
+      }
+
+      MyLogger.success(action, {
+        processed,
+        shortagesCreated,
+        shortagesResolved,
+        totalWorkOrders: workOrders.length
+      });
+
+      return {
+        processed,
+        shortages_created: shortagesCreated,
+        shortages_resolved: shortagesResolved,
+        message: `MRP calculation completed: ${processed} requirements processed, ${shortagesCreated} shortages created, ${shortagesResolved} shortages resolved`
+      };
+
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Generate purchase orders for material shortages
+  static async generatePurchaseOrdersForShortages(
+    shortageIds: string[],
+    userId: number
+  ): Promise<{
+    generated_orders: number;
+    purchase_orders: string[];
+    message: string;
+  }> {
+    const action = "GetBOMInfoMediator.generatePurchaseOrdersForShortages";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { shortageIds, userId });
+
+      if (shortageIds.length === 0) {
+        throw new Error('No shortage IDs provided');
+      }
+
+      let generatedOrders = 0;
+      const purchaseOrders: string[] = [];
+
+      // Get material shortages details
+      const shortagesQuery = `
+        SELECT
+          ms.id,
+          ms.material_id,
+          ms.material_name,
+          ms.material_sku,
+          ms.shortfall_quantity,
+          ms.supplier_id,
+          ms.supplier_name,
+          ms.work_order_number,
+          ms.required_date,
+          ms.lead_time_days,
+          s.email as supplier_email,
+          s.phone as supplier_phone,
+          s.contact_person
+        FROM material_shortages ms
+        LEFT JOIN suppliers s ON ms.supplier_id = s.id
+        WHERE ms.id = ANY($1::bigint[])
+        AND ms.status = 'open'
+        ORDER BY ms.required_date ASC
+      `;
+
+      const shortagesResult = await client.query(shortagesQuery, [shortageIds]);
+      const shortages = shortagesResult.rows;
+
+      if (shortages.length === 0) {
+        throw new Error('No valid open shortages found');
+      }
+
+      MyLogger.info(action, { shortagesFound: shortages.length });
+
+      // Group shortages by supplier
+      const supplierGroups = shortages.reduce((groups, shortage) => {
+        const supplierId = shortage.supplier_id || 'no_supplier';
+        if (!groups[supplierId]) {
+          groups[supplierId] = [];
+        }
+        groups[supplierId].push(shortage);
+        return groups;
+      }, {} as Record<string, typeof shortages>);
+
+      // Create purchase orders for each supplier group
+      for (const [supplierId, supplierShortages] of Object.entries(supplierGroups)) {
+        // Generate PO number
+        const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+        // Get supplier details
+        const supplier = supplierShortages[0];
+
+        // Create purchase order
+        const createPOQuery = `
+          INSERT INTO purchase_orders (
+            po_number, supplier_id, supplier_name, supplier_email,
+            supplier_phone, supplier_contact_person, status, order_date,
+            expected_delivery_date, total_amount, notes, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING id
+        `;
+
+        const expectedDeliveryDate = new Date();
+        expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + (supplier.lead_time_days || 7));
+
+        const notes = `Auto-generated purchase order for material shortages: ${supplierShortages.map(s => s.work_order_number).join(', ')}`;
+
+        const poResult = await client.query(createPOQuery, [
+          poNumber,
+          supplier.supplier_id,
+          supplier.supplier_name,
+          supplier.supplier_email,
+          supplier.supplier_phone,
+          supplier.contact_person,
+          'draft',
+          new Date(),
+          expectedDeliveryDate,
+          0, // Will be calculated from items
+          notes,
+          userId
+        ]);
+
+        const purchaseOrderId = poResult.rows[0].id;
+
+        // Create purchase order items
+        let totalAmount = 0;
+        for (const shortage of supplierShortages) {
+          // Get estimated unit price (could be improved with historical data)
+          const unitPrice = 0; // Would need to get from supplier quotes or historical data
+
+          const createPOItemQuery = `
+            INSERT INTO purchase_order_items (
+              purchase_order_id, product_id, product_name, product_sku,
+              quantity, unit_of_measure, unit_price, total_price,
+              required_date, notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          `;
+
+          await client.query(createPOItemQuery, [
+            purchaseOrderId,
+            shortage.material_id,
+            shortage.material_name,
+            shortage.material_sku,
+            shortage.shortfall_quantity,
+            'units', // Default unit of measure
+            unitPrice,
+            shortage.shortfall_quantity * unitPrice,
+            shortage.required_date,
+            `Required for Work Order ${shortage.work_order_number}`
+          ]);
+
+          totalAmount += shortage.shortfall_quantity * unitPrice;
+        }
+
+        // Update purchase order total
+        await client.query(
+          'UPDATE purchase_orders SET total_amount = $1 WHERE id = $2',
+          [totalAmount, purchaseOrderId]
+        );
+
+        // Update material shortages to mark PO created
+        for (const shortage of supplierShortages) {
+          await client.query(
+            'UPDATE material_shortages SET suggested_action = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            ['po_created', shortage.id]
+          );
+        }
+
+        purchaseOrders.push(poNumber);
+        generatedOrders++;
+      }
+
+      MyLogger.success(action, {
+        generatedOrders,
+        purchaseOrders,
+        shortagesProcessed: shortages.length
+      });
+
+      return {
+        generated_orders: generatedOrders,
+        purchase_orders: purchaseOrders,
+        message: `Successfully generated ${generatedOrders} purchase orders: ${purchaseOrders.join(', ')}`
+      };
+
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

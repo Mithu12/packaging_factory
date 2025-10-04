@@ -421,6 +421,39 @@ export class BOMApiService {
       body: JSON.stringify({ work_order_ids: workOrderIds }),
     });
   }
+
+  // Run MRP calculation
+  static async runMRPCalculation(): Promise<{
+    processed: number;
+    shortages_created: number;
+    shortages_resolved: number;
+    message: string;
+  }> {
+    return makeRequest<{
+      processed: number;
+      shortages_created: number;
+      shortages_resolved: number;
+      message: string;
+    }>(`${this.BASE_URL}/run-mrp`, {
+      method: 'POST',
+    });
+  }
+
+  // Generate purchase orders for material shortages
+  static async generatePurchaseOrdersForShortages(shortageIds: string[]): Promise<{
+    generated_orders: number;
+    purchase_orders: string[];
+    message: string;
+  }> {
+    return makeRequest<{
+      generated_orders: number;
+      purchase_orders: string[];
+      message: string;
+    }>(`${this.BASE_URL}/generate-purchase-orders`, {
+      method: 'POST',
+      body: JSON.stringify({ shortageIds }),
+    });
+  }
 }
 
 // =====================================================

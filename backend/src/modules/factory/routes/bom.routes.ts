@@ -112,6 +112,27 @@ router.get(
   expressAsyncHandler(bomController.getMaterialPlanningStats)
 );
 
+// Get material shortages
+router.get(
+  "/material-shortages",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
+  expressAsyncHandler(bomController.getMaterialShortages)
+);
+
+// Run MRP calculation
+router.post(
+  "/run-mrp",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
+  expressAsyncHandler(bomController.runMRPCalculation)
+);
+
+// Generate purchase orders for material shortages
+router.post(
+  "/generate-purchase-orders",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
+  expressAsyncHandler(bomController.generatePurchaseOrdersForShortages)
+);
+
 // Get BOM by ID
 router.get(
   "/:id",

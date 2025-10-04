@@ -137,21 +137,26 @@ export interface MaterialConsumption {
 
 export interface MaterialShortage {
   id: string;
-  materialId: string;
-  materialName: string;
-  materialSku: string;
-  requiredQuantity: number;
-  availableQuantity: number;
-  shortfallQuantity: number;
-  workOrderId: string;
-  workOrderNumber: string;
-  requiredDate: string;
+  material_id: string;
+  material_name: string;
+  material_sku: string;
+  required_quantity: number;
+  available_quantity: number;
+  shortfall_quantity: number;
+  work_order_id: string;
+  work_order_number: string;
+  required_date: string;
   priority: "low" | "medium" | "high" | "critical";
-  supplierId?: string;
-  supplierName?: string;
-  leadTimeDays: number;
-  suggestedAction: "purchase" | "substitute" | "delay" | "split" | "po_created";
+  supplier_id?: string;
+  supplier_name?: string;
+  lead_time_days: number;
+  suggested_action: "purchase" | "substitute" | "delay" | "split" | "po_created";
+  status: "open" | "resolved" | "cancelled";
+  resolved_date?: string;
+  resolved_by?: number;
   notes?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface MaterialCostAnalysis {
@@ -202,4 +207,18 @@ export interface MaterialPlanningStats {
   averageLeadTime: number;
   onTimeDelivery: number;
   costVariance: number;
+}
+
+export interface MaterialRequirementsQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  work_order_id?: string;
+  status?: string;
+  priority?: string;
+  material_id?: string;
+  required_date_from?: string;
+  required_date_to?: string;
+  sort_by?: 'required_date' | 'priority' | 'status';
+  sort_order?: 'asc' | 'desc';
 }
