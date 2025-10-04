@@ -1,4 +1,5 @@
 import pool from "@/database/connection";
+import { UserRoleIds } from "@/types";
 import {
   WorkOrder,
   UpdateWorkOrderRequest,
@@ -22,7 +23,7 @@ async function isUserAdmin(userId: number): Promise<boolean> {
 
   // Assuming role_id 1 is admin based on common patterns
   // You might need to adjust this based on your actual role structure
-  return result.rows[0].role_id === 1;
+  return result.rows[0].role_id === UserRoleIds.ADMIN;
 }
 
 export class UpdateWorkOrderMediator {

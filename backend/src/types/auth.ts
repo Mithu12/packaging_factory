@@ -21,6 +21,10 @@ export enum UserRole {
   VIEWER = 'viewer'
 }
 
+export enum UserRoleIds {
+  ADMIN = 1,
+}
+
 export interface LoginRequest {
   username: string;
   password: string;
