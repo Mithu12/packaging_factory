@@ -217,7 +217,7 @@ export class GetWorkOrderInfoMediator {
         actual_hours: parseFloat(row.actual_hours),
         production_line_id: row.production_line_id,
         production_line_name: row.production_line_name,
-        assigned_operators: row.assigned_operators || [],
+        assigned_operator_ids: row.assigned_operators || [],
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
@@ -339,7 +339,7 @@ export class GetWorkOrderInfoMediator {
         actual_hours: parseFloat(row.actual_hours),
         production_line_id: row.production_line_id,
         production_line_name: row.production_line_name,
-        assigned_operators: row.assigned_operators || [],
+        assigned_operator_ids: row.assigned_operators || [],
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
@@ -508,28 +508,31 @@ export class GetWorkOrderInfoMediator {
 
       const query = `
         SELECT
-          id,
-          employee_id,
-          name,
-          skill_level,
-          department,
-          current_work_order_id,
-          availability_status,
-          hourly_rate,
-          is_active,
-          created_at,
-          updated_at
-        FROM operators
-        WHERE is_active = true
-        ORDER BY name
+          o.id,
+          o.user_id,
+          o.employee_id,
+          u.full_name as user_name,
+          u.email as user_email,
+          o.skill_level,
+          o.department,
+          o.current_work_order_id,
+          o.availability_status,
+          o.hourly_rate,
+          o.is_active,
+          o.created_at,
+          o.updated_at
+        FROM operators o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.is_active = true
+        ORDER BY u.full_name
       `;
 
       const result = await client.query(query);
 
       const operators: Operator[] = result.rows.map(row => ({
         id: row.id,
+        user_id: row.user_id,
         employee_id: row.employee_id,
-        name: row.name,
         skill_level: row.skill_level,
         department: row.department,
         current_work_order_id: row.current_work_order_id,
@@ -537,7 +540,9 @@ export class GetWorkOrderInfoMediator {
         hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : undefined,
         is_active: row.is_active,
         created_at: row.created_at,
-        updated_at: row.updated_at
+        updated_at: row.updated_at,
+        user_name: row.user_name,
+        user_email: row.user_email
       }));
 
       MyLogger.success(action, { count: operators.length });

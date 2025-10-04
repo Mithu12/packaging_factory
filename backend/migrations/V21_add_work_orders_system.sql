@@ -24,11 +24,11 @@ CREATE TABLE production_lines (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create operators table
+-- Create operators table (operators are users with specific roles)
 CREATE TABLE operators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     employee_id VARCHAR(50) UNIQUE NOT NULL,
-    name VARCHAR(255) NOT NULL,
     skill_level VARCHAR(20) NOT NULL DEFAULT 'beginner' CHECK (skill_level IN ('beginner', 'intermediate', 'expert', 'master')),
     department VARCHAR(100),
     current_work_order_id UUID,
@@ -36,7 +36,8 @@ CREATE TABLE operators (
     hourly_rate DECIMAL(10,2),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id) -- One operator record per user
 );
 
 -- Create work_orders table
@@ -57,10 +58,10 @@ CREATE TABLE work_orders (
     actual_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
     production_line_id UUID REFERENCES production_lines(id) ON DELETE SET NULL,
     production_line_name VARCHAR(255),
-    assigned_operators JSONB NOT NULL DEFAULT '[]',
-    created_by VARCHAR(255) NOT NULL,
+    assigned_operator_ids JSONB NOT NULL DEFAULT '[]',
+    created_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_by VARCHAR(255),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     updated_at TIMESTAMP WITH TIME ZONE,
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
@@ -75,7 +76,7 @@ CREATE TABLE work_order_assignments (
     production_line_id UUID NOT NULL REFERENCES production_lines(id) ON DELETE CASCADE,
     operator_id UUID NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    assigned_by VARCHAR(255) NOT NULL,
+    assigned_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     estimated_start_time TIMESTAMP WITH TIME ZONE,
     actual_start_time TIMESTAMP WITH TIME ZONE,
     estimated_completion_time TIMESTAMP WITH TIME ZONE,
@@ -89,6 +90,7 @@ CREATE INDEX idx_production_lines_status ON production_lines(status);
 CREATE INDEX idx_production_lines_is_active ON production_lines(is_active);
 CREATE INDEX idx_production_lines_code ON production_lines(code);
 
+CREATE INDEX idx_operators_user_id ON operators(user_id);
 CREATE INDEX idx_operators_employee_id ON operators(employee_id);
 CREATE INDEX idx_operators_availability_status ON operators(availability_status);
 CREATE INDEX idx_operators_is_active ON operators(is_active);
@@ -100,12 +102,15 @@ CREATE INDEX idx_work_orders_status ON work_orders(status);
 CREATE INDEX idx_work_orders_priority ON work_orders(priority);
 CREATE INDEX idx_work_orders_deadline ON work_orders(deadline);
 CREATE INDEX idx_work_orders_created_at ON work_orders(created_at);
+CREATE INDEX idx_work_orders_created_by ON work_orders(created_by);
+CREATE INDEX idx_work_orders_updated_by ON work_orders(updated_by);
 CREATE INDEX idx_work_orders_production_line_id ON work_orders(production_line_id);
 CREATE INDEX idx_work_orders_work_order_number ON work_orders(work_order_number);
 
 CREATE INDEX idx_work_order_assignments_work_order_id ON work_order_assignments(work_order_id);
 CREATE INDEX idx_work_order_assignments_production_line_id ON work_order_assignments(production_line_id);
 CREATE INDEX idx_work_order_assignments_operator_id ON work_order_assignments(operator_id);
+CREATE INDEX idx_work_order_assignments_assigned_by ON work_order_assignments(assigned_by);
 
 -- Create trigger to update updated_at timestamp
 CREATE TRIGGER update_production_lines_updated_at

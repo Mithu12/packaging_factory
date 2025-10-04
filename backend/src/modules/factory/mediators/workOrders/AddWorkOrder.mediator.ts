@@ -191,32 +191,36 @@ export class AddWorkOrderMediator {
             assigned_at,
             assigned_by,
             notes
-          ) VALUES ${workOrderData.assigned_operators.map((_, index) =>
+          ) VALUES ${workOrderData.assigned_operators?.map((_, index) =>
             `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${index * 6 + 4}, $${index * 6 + 5}, $${index * 6 + 6})`
           ).join(', ')}
         `;
 
         const assignmentValues = [];
-        for (const operatorId of workOrderData.assigned_operators) {
-          assignmentValues.push(
-            newWorkOrder.id,
-            workOrderData.production_line_id || null,
-            operatorId,
-            new Date(),
-            userId,
-            'Initial assignment'
-          );
+        if (workOrderData.assigned_operators) {
+          for (const operatorId of workOrderData.assigned_operators) {
+            assignmentValues.push(
+              newWorkOrder.id,
+              workOrderData.production_line_id || null,
+              operatorId,
+              new Date(),
+              userId,
+              'Initial assignment'
+            );
+          }
         }
 
         await client.query(assignmentQuery, assignmentValues);
 
         // Update operator availability status
-        const updateOperatorQuery = `
-          UPDATE operators
-          SET availability_status = 'busy', current_work_order_id = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id IN (${workOrderData.assigned_operators.map(() => '?').join(',')})
-        `;
-        await client.query(updateOperatorQuery, [newWorkOrder.id, ...workOrderData.assigned_operators]);
+        if (workOrderData.assigned_operators) {
+          const updateOperatorQuery = `
+            UPDATE operators
+            SET availability_status = 'busy', current_work_order_id = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id IN (${workOrderData.assigned_operators.map(() => '?').join(',')})
+          `;
+          await client.query(updateOperatorQuery, [newWorkOrder.id, ...workOrderData.assigned_operators]);
+        }
       }
 
       // Update production line current load if assigned
@@ -262,7 +266,7 @@ export class AddWorkOrderMediator {
         actual_hours: parseFloat(completeWorkOrder.actual_hours),
         production_line_id: completeWorkOrder.production_line_id,
         production_line_name: completeWorkOrder.production_line_name,
-        assigned_operators: completeWorkOrder.assigned_operators || [],
+        assigned_operator_ids: completeWorkOrder.assigned_operators || [],
         created_by: completeWorkOrder.created_by,
         created_at: completeWorkOrder.created_at,
         updated_by: completeWorkOrder.updated_by,

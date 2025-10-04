@@ -306,35 +306,38 @@ export type WorkOrderStatus =
 export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface WorkOrder {
-  id: number;
+  id: string;
   work_order_number: string;
   customer_order_id?: number;
-  product_id: number;
+  product_id: string;
   product_name: string;
   product_sku: string;
   quantity: number;
   unit_of_measure: string;
-  deadline: Date;
+  deadline: string;
   status: WorkOrderStatus;
   priority: WorkOrderPriority;
   progress: number;
   estimated_hours: number;
   actual_hours: number;
-  production_line_id?: number;
+  production_line_id?: string;
   production_line_name?: string;
-  assigned_operators: string[];
-  created_by: string;
-  created_at: Date;
-  updated_by?: string;
-  updated_at?: Date;
-  started_at?: Date;
-  completed_at?: Date;
+  assigned_operator_ids: number[];
+  created_by: number;
+  created_at: string;
+  updated_by?: number;
+  updated_at?: string;
+  started_at?: string;
+  completed_at?: string;
   notes?: string;
   specifications?: string;
+  // Populated from joins
+  created_by_name?: string;
+  updated_by_name?: string;
 }
 
 export interface ProductionLine {
-  id: number;
+  id: string;
   name: string;
   code: string;
   description?: string;
@@ -343,47 +346,53 @@ export interface ProductionLine {
   status: 'available' | 'busy' | 'maintenance' | 'offline';
   location?: string;
   is_active: boolean;
-  created_at: Date;
-  updated_at?: Date;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface Operator {
-  id: number;
+  id: string;
+  user_id: number;
   employee_id: string;
-  name: string;
   skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
   department?: string;
-  current_work_order_id?: number;
+  current_work_order_id?: string;
   availability_status: 'available' | 'busy' | 'off_duty' | 'on_leave';
   hourly_rate?: number;
   is_active: boolean;
-  created_at: Date;
-  updated_at?: Date;
+  created_at: string;
+  updated_at?: string;
+  // Populated from users table join
+  user_name?: string;
+  user_email?: string;
 }
 
 export interface WorkOrderAssignment {
-  id: number;
-  work_order_id: number;
-  production_line_id: number;
-  operator_id: number;
-  assigned_at: Date;
-  assigned_by: string;
-  estimated_start_time?: Date;
-  actual_start_time?: Date;
-  estimated_completion_time?: Date;
-  actual_completion_time?: Date;
+  id: string;
+  work_order_id: string;
+  production_line_id: string;
+  operator_id: string;
+  assigned_at: string;
+  assigned_by: number;
+  estimated_start_time?: string;
+  actual_start_time?: string;
+  estimated_completion_time?: string;
+  actual_completion_time?: string;
   notes?: string;
+  // Populated from joins
+  operator_name?: string;
+  production_line_name?: string;
 }
 
 // Request/Response Types for Work Orders
 export interface CreateWorkOrderRequest {
   customer_order_id?: number;
-  product_id: number;
+  product_id: string;
   quantity: number;
   deadline: string;
   priority: WorkOrderPriority;
   estimated_hours: number;
-  production_line_id?: number;
+  production_line_id?: string;
   assigned_operators?: number[];
   notes?: string;
   specifications?: string;
@@ -394,7 +403,7 @@ export interface UpdateWorkOrderRequest {
   deadline?: string;
   priority?: WorkOrderPriority;
   estimated_hours?: number;
-  production_line_id?: number;
+  production_line_id?: string;
   assigned_operators?: number[];
   notes?: string;
   specifications?: string;
@@ -408,7 +417,7 @@ export interface WorkOrderQueryParams {
   search?: string;
   status?: WorkOrderStatus;
   priority?: WorkOrderPriority;
-  production_line_id?: number;
+  production_line_id?: string;
   assigned_operator_id?: number;
   customer_order_id?: number;
   created_date_from?: string;
