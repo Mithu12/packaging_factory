@@ -143,11 +143,11 @@ export class AddWorkOrderMediator {
           actual_hours,
           production_line_id,
           production_line_name,
-          assigned_operators,
+          -- assigned_operators,
           created_by,
           notes,
           specifications
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING *
       `;
 
@@ -167,7 +167,7 @@ export class AddWorkOrderMediator {
         0, // Initial actual hours
         workOrderData.production_line_id || null,
         workOrderData.production_line_id ? 'Production Line' : null, // Will be updated when assigned
-        JSON.stringify(workOrderData.assigned_operators || []),
+        // JSON.stringify(workOrderData.assigned_operators || []),
         userId,
         workOrderData.notes || null,
         workOrderData.specifications || null

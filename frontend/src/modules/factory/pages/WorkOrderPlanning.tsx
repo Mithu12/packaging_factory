@@ -62,6 +62,8 @@ import {
   UpdateWorkOrderRequest,
 } from "@/services/work-orders-api";
 import { BOMApiService } from "@/services/bom-api";
+import { ProductsApiService, Product, ProductQueryParams as ProductQueryParamsType } from "@/services/products-api";
+import { CustomerOrdersApiService, FactoryCustomerOrder } from "../services/customer-orders-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workOrdersQueryKeys } from "@/services/work-orders-api";
 
@@ -128,11 +130,34 @@ export default function WorkOrderPlanning() {
     queryFn: () => WorkOrdersApiService.getOperators(),
   });
 
+  // Fetch products for work order creation
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['products', 'active'],
+    queryFn: () => ProductsApiService.getProducts({
+      status: 'active',
+      limit: 100,
+    }),
+  });
+
+  // Fetch customer orders for work order linking
+  const { data: customerOrdersData, isLoading: customerOrdersLoading } = useQuery({
+    queryKey: ['customer-orders', 'approved'],
+    queryFn: () => CustomerOrdersApiService.getCustomerOrders({
+      status: 'approved', // Only show approved orders for linking
+      limit: 50,
+    }),
+  });
+
   const workOrders = workOrdersData?.work_orders || [];
   const stats = statsData || null;
   const productionLines = productionLinesData || [];
   const operators = operatorsData || [];
-  const loading = workOrdersLoading || statsLoading;
+  const products = productsData?.products || [];
+  const customerOrders = customerOrdersData?.orders || [];
+  const loading = workOrdersLoading || statsLoading || productsLoading || customerOrdersLoading;
+
+  // Derived state for selected product
+  const selectedProduct = products.find(p => p.id.toString() === newWorkOrder.product_id);
 
   // Mutation for creating work orders
   const createWorkOrderMutation = useMutation({
@@ -144,6 +169,7 @@ export default function WorkOrderPlanning() {
         quantity: 1,
         priority: 'medium',
         estimated_hours: 1,
+        customer_order_id: undefined,
       });
       // Refresh work orders data
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
@@ -337,6 +363,12 @@ export default function WorkOrderPlanning() {
 
   const handleCreateWorkOrder = () => {
     setSelectedWorkOrder(null);
+    setNewWorkOrder({
+      quantity: 1,
+      priority: 'medium',
+      estimated_hours: 1,
+      customer_order_id: undefined,
+    });
     setShowCreateDialog(true);
   };
 
@@ -344,6 +376,18 @@ export default function WorkOrderPlanning() {
     if (!newWorkOrder.product_id || !newWorkOrder.deadline) {
       setError('Product and deadline are required');
       return;
+    }
+
+    // Check if quantity exceeds available stock
+    if (selectedProduct && newWorkOrder.quantity && newWorkOrder.quantity > selectedProduct.current_stock) {
+      setError(`Requested quantity (${newWorkOrder.quantity}) exceeds available stock (${selectedProduct.current_stock})`);
+      return;
+    }
+
+    // Warning for low stock (less than reorder point)
+    if (selectedProduct && newWorkOrder.quantity && newWorkOrder.quantity > selectedProduct.reorder_point) {
+      // Could add a confirmation dialog here, but for now just proceed
+      console.warn(`Warning: Requested quantity (${newWorkOrder.quantity}) is above reorder point (${selectedProduct.reorder_point})`);
     }
 
     createWorkOrderMutation.mutate(newWorkOrder as CreateWorkOrderRequest);
@@ -1032,11 +1076,15 @@ export default function WorkOrderPlanning() {
                     <SelectValue placeholder="Select production line" />
                   </SelectTrigger>
                   <SelectContent>
-                    {productionLines.map((line) => (
-                      <SelectItem key={line.id} value={line.id.toString()}>
-                        {line.name} - {line.status} ({line.current_load}% load)
-                      </SelectItem>
-                    ))}
+                    {productionLines.length > 0 ? (
+                      productionLines.map((line) => (
+                        <SelectItem key={line.id} value={line.id.toString()}>
+                          {line.name} - {line.status} ({line.current_load}% load)
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No production lines available</div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1044,35 +1092,39 @@ export default function WorkOrderPlanning() {
               <div className="space-y-2">
                 <Label>Assign Operators</Label>
                 <div className="space-y-2">
-                  {operators
-                    .filter((op) => op.availability_status === "available")
-                    .map((operator) => (
-                      <div
-                        key={operator.id}
-                        className="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          id={operator.id.toString()}
-                          checked={planningData.assigned_operators.includes(parseInt(operator.id))}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setPlanningData(prev => ({
-                                ...prev,
-                                assigned_operators: [...prev.assigned_operators, parseInt(operator.id)]
-                              }));
-                            } else {
-                              setPlanningData(prev => ({
-                                ...prev,
-                                assigned_operators: prev.assigned_operators.filter(id => id !== parseInt(operator.id))
-                              }));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={operator.id.toString()} className="flex-1">
-                          {operator.user_name || operator.employee_id} ({operator.skill_level})
-                        </Label>
-                      </div>
-                    ))}
+                  {operators.length > 0 ? (
+                    operators
+                      .filter((op) => op.availability_status === "available")
+                      .map((operator) => (
+                        <div
+                          key={operator.id}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={operator.id.toString()}
+                            checked={planningData.assigned_operators.includes(parseInt(operator.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setPlanningData(prev => ({
+                                  ...prev,
+                                  assigned_operators: [...prev.assigned_operators, parseInt(operator.id)]
+                                }));
+                              } else {
+                                setPlanningData(prev => ({
+                                  ...prev,
+                                  assigned_operators: prev.assigned_operators.filter(id => id !== parseInt(operator.id))
+                                }));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={operator.id.toString()} className="flex-1">
+                            {operator.user_name || operator.employee_id} ({operator.skill_level})
+                          </Label>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No available operators</div>
+                  )}
                 </div>
               </div>
 
@@ -1137,22 +1189,39 @@ export default function WorkOrderPlanning() {
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* This would need to fetch products from the API */}
-                    <SelectItem value="1">Sample Product 1</SelectItem>
-                    <SelectItem value="2">Sample Product 2</SelectItem>
+                    {productsData?.products?.length > 0 ? (
+                      productsData.products.map((product) => (
+                        <SelectItem key={product.id} value={product.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{product.name} ({product.sku})</span>
+                            <span className={`text-xs ${product.current_stock <= product.reorder_point ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              Stock: {product.current_stock} {product.current_stock <= product.reorder_point && '(Low Stock)'}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No products available</div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity *</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={newWorkOrder.quantity || ''}
-                  onChange={(e) => setNewWorkOrder(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                  min="1"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={newWorkOrder.quantity || ''}
+                    onChange={(e) => setNewWorkOrder(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                    className="flex-1"
+                  />
+                  <div className="flex items-center px-3 py-2 bg-muted rounded-md text-sm">
+                    {selectedProduct?.unit_of_measure || 'units'}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1196,6 +1265,33 @@ export default function WorkOrderPlanning() {
                 min="0.1"
                 step="0.1"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customer-order">Customer Order (Optional)</Label>
+              <Select
+                value={newWorkOrder.customer_order_id?.toString() || 'none'}
+                onValueChange={(value) => setNewWorkOrder(prev => ({
+                  ...prev,
+                  customer_order_id: value && value !== 'none' ? parseInt(value) : undefined
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer order (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {customerOrdersData?.orders?.length > 0 ? (
+                    customerOrdersData.orders.map((order) => (
+                      <SelectItem key={order.id} value={order.id.toString()}>
+                        {order.order_number} - {order.factory_customer_name} (${order.total_value})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No approved orders available</div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
