@@ -62,7 +62,7 @@ import {
   UpdateWorkOrderRequest,
 } from "@/services/work-orders-api";
 import { BOMApiService } from "@/services/bom-api";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workOrdersQueryKeys } from "@/services/work-orders-api";
 
 // Using types from API service
@@ -77,6 +77,22 @@ export default function WorkOrderPlanning() {
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Form state for creating work orders
+  const [newWorkOrder, setNewWorkOrder] = useState<Partial<CreateWorkOrderRequest>>({
+    quantity: 1,
+    priority: 'medium',
+    estimated_hours: 1,
+  });
+
+  // Form state for planning work orders
+  const [planningData, setPlanningData] = useState<{
+    production_line_id?: string;
+    assigned_operators: number[];
+    notes?: string;
+  }>({
+    assigned_operators: [],
+  });
   const queryClient = useQueryClient();
 
   // API query parameters
@@ -117,6 +133,45 @@ export default function WorkOrderPlanning() {
   const productionLines = productionLinesData || [];
   const operators = operatorsData || [];
   const loading = workOrdersLoading || statsLoading;
+
+  // Mutation for creating work orders
+  const createWorkOrderMutation = useMutation({
+    mutationFn: (data: CreateWorkOrderRequest) => WorkOrdersApiService.createWorkOrder(data),
+    onSuccess: (result) => {
+      console.log("Work order created:", result);
+      setShowCreateDialog(false);
+      setNewWorkOrder({
+        quantity: 1,
+        priority: 'medium',
+        estimated_hours: 1,
+      });
+      // Refresh work orders data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+    },
+    onError: (error) => {
+      console.error("Failed to create work order:", error);
+      setError(error instanceof Error ? error.message : 'Failed to create work order');
+    },
+  });
+
+  // Mutation for updating work orders (planning)
+  const updateWorkOrderMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateWorkOrderRequest }) =>
+      WorkOrdersApiService.updateWorkOrder(id, data),
+    onSuccess: (result) => {
+      console.log("Work order updated:", result);
+      setShowPlanningDialog(false);
+      setPlanningData({ assigned_operators: [] });
+      // Refresh work orders data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+    },
+    onError: (error) => {
+      console.error("Failed to update work order:", error);
+      setError(error instanceof Error ? error.message : 'Failed to update work order');
+    },
+  });
 
   // Handle loading state
   if (loading) {
@@ -240,48 +295,73 @@ export default function WorkOrderPlanning() {
 
   const handlePlanWorkOrder = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder);
+    setPlanningData({
+      production_line_id: workOrder.production_line_id,
+      assigned_operators: workOrder.assigned_operators || [],
+      notes: '',
+    });
     setShowPlanningDialog(true);
   };
 
-  const handleReleaseWorkOrder = async (workOrderId: string) => {
-    try {
-      await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, 'released');
-      // Invalidate queries to refresh data
+  // Mutation for status changes
+  const statusChangeMutation = useMutation({
+    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) =>
+      WorkOrdersApiService.updateWorkOrderStatus(id, status, notes),
+    onSuccess: (result) => {
+      console.log("Work order status updated:", result);
+      // Refresh work orders data
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to release work order');
-      console.error('Error releasing work order:', err);
-    }
+    },
+    onError: (error) => {
+      console.error("Failed to update work order status:", error);
+      setError(error instanceof Error ? error.message : 'Failed to update work order status');
+    },
+  });
+
+  const handleReleaseWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({ id: workOrderId, status: 'released' });
   };
 
-  const handleStartWorkOrder = async (workOrderId: string) => {
-    try {
-      await WorkOrdersApiService.startWorkOrder(workOrderId);
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start work order');
-      console.error('Error starting work order:', err);
-    }
+  const handleStartWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({ id: workOrderId, status: 'in_progress' });
   };
 
-  const handleCompleteWorkOrder = async (workOrderId: string) => {
-    try {
-      await WorkOrdersApiService.completeWorkOrder(workOrderId, undefined, "Completed via planning interface");
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.list() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to complete work order');
-      console.error('Error completing work order:', err);
-    }
+  const handleCompleteWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({
+      id: workOrderId,
+      status: 'completed',
+      notes: "Completed via planning interface"
+    });
   };
 
   const handleCreateWorkOrder = () => {
     setSelectedWorkOrder(null);
     setShowCreateDialog(true);
+  };
+
+  const handleSubmitCreateWorkOrder = () => {
+    if (!newWorkOrder.product_id || !newWorkOrder.deadline) {
+      setError('Product and deadline are required');
+      return;
+    }
+
+    createWorkOrderMutation.mutate(newWorkOrder as CreateWorkOrderRequest);
+  };
+
+  const handleSavePlanning = () => {
+    if (!selectedWorkOrder) return;
+
+    const updateData: UpdateWorkOrderRequest = {
+      production_line_id: planningData.production_line_id,
+      assigned_operators: planningData.assigned_operators,
+      notes: planningData.notes,
+    };
+
+    updateWorkOrderMutation.mutate({
+      id: selectedWorkOrder.id,
+      data: updateData,
+    });
   };
 
   return (
@@ -302,9 +382,18 @@ export default function WorkOrderPlanning() {
             <Filter className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateWorkOrder}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Work Order
+          <Button onClick={handleCreateWorkOrder} disabled={createWorkOrderMutation.isPending}>
+            {createWorkOrderMutation.isPending ? (
+              <>
+                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Work Order
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -550,8 +639,13 @@ export default function WorkOrderPlanning() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleReleaseWorkOrder(wo.id.toString())}
+                              disabled={statusChangeMutation.isPending}
                             >
-                              <Play className="h-4 w-4" />
+                              {statusChangeMutation.isPending ? (
+                                <Clock className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
                             </Button>
                           )}
                           {wo.status === "released" && (
@@ -559,8 +653,13 @@ export default function WorkOrderPlanning() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleStartWorkOrder(wo.id.toString())}
+                              disabled={statusChangeMutation.isPending}
                             >
-                              <Play className="h-4 w-4" />
+                              {statusChangeMutation.isPending ? (
+                                <Clock className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
                             </Button>
                           )}
                           {wo.status === "in_progress" && (
@@ -569,8 +668,13 @@ export default function WorkOrderPlanning() {
                               size="sm"
                               onClick={() => handleCompleteWorkOrder(wo.id.toString())}
                               className="text-green-600 hover:text-green-700"
+                              disabled={statusChangeMutation.isPending}
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              {statusChangeMutation.isPending ? (
+                                <Clock className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4" />
+                              )}
                             </Button>
                           )}
                         </div>
@@ -920,7 +1024,10 @@ export default function WorkOrderPlanning() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="production-line">Production Line</Label>
-                <Select>
+                <Select
+                  value={planningData.production_line_id || ''}
+                  onValueChange={(value) => setPlanningData(prev => ({ ...prev, production_line_id: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select production line" />
                   </SelectTrigger>
@@ -944,7 +1051,23 @@ export default function WorkOrderPlanning() {
                         key={operator.id}
                         className="flex items-center space-x-2"
                       >
-                        <Checkbox id={operator.id.toString()} />
+                        <Checkbox
+                          id={operator.id.toString()}
+                          checked={planningData.assigned_operators.includes(parseInt(operator.id))}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setPlanningData(prev => ({
+                                ...prev,
+                                assigned_operators: [...prev.assigned_operators, parseInt(operator.id)]
+                              }));
+                            } else {
+                              setPlanningData(prev => ({
+                                ...prev,
+                                assigned_operators: prev.assigned_operators.filter(id => id !== parseInt(operator.id))
+                              }));
+                            }
+                          }}
+                        />
                         <Label htmlFor={operator.id.toString()} className="flex-1">
                           {operator.user_name || operator.employee_id} ({operator.skill_level})
                         </Label>
@@ -958,6 +1081,8 @@ export default function WorkOrderPlanning() {
                 <Textarea
                   id="planning-notes"
                   placeholder="Add any planning notes..."
+                  value={planningData.notes || ''}
+                  onChange={(e) => setPlanningData(prev => ({ ...prev, notes: e.target.value }))}
                 />
               </div>
 
@@ -968,12 +1093,146 @@ export default function WorkOrderPlanning() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={() => setShowPlanningDialog(false)}>
-                  Save Plan
+                <Button
+                  onClick={handleSavePlanning}
+                  disabled={updateWorkOrderMutation.isPending}
+                >
+                  {updateWorkOrderMutation.isPending ? (
+                    <>
+                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Save Plan
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Work Order Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Work Order</DialogTitle>
+            <DialogDescription>
+              Create a new production work order
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="product">Product *</Label>
+                <Select
+                  value={newWorkOrder.product_id || ''}
+                  onValueChange={(value) => setNewWorkOrder(prev => ({ ...prev, product_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* This would need to fetch products from the API */}
+                    <SelectItem value="1">Sample Product 1</SelectItem>
+                    <SelectItem value="2">Sample Product 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity *</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={newWorkOrder.quantity || ''}
+                  onChange={(e) => setNewWorkOrder(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Deadline *</Label>
+                <Input
+                  id="deadline"
+                  type="datetime-local"
+                  value={newWorkOrder.deadline || ''}
+                  onChange={(e) => setNewWorkOrder(prev => ({ ...prev, deadline: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={newWorkOrder.priority || 'medium'}
+                  onValueChange={(value: WorkOrderPriority) => setNewWorkOrder(prev => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="estimated-hours">Estimated Hours</Label>
+              <Input
+                id="estimated-hours"
+                type="number"
+                value={newWorkOrder.estimated_hours || ''}
+                onChange={(e) => setNewWorkOrder(prev => ({ ...prev, estimated_hours: parseFloat(e.target.value) || 1 }))}
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Add any notes for this work order..."
+                value={newWorkOrder.notes || ''}
+                onChange={(e) => setNewWorkOrder(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitCreateWorkOrder}
+                disabled={createWorkOrderMutation.isPending}
+              >
+                {createWorkOrderMutation.isPending ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Work Order
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
