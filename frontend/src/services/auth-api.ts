@@ -44,8 +44,8 @@ export interface ChangePasswordRequest {
 export interface UpdateProfileRequest {
   full_name?: string;
   email?: string;
-  mobile_number?: string;
-  departments?: string[];
+  mobile_number?: string | null;
+  departments?: string[] | null;
 }
 
 export interface PasswordResetRequest {
