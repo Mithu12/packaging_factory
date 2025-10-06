@@ -1,6 +1,7 @@
 import pool from "@/database/connection";
-import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus } from "@/types/factory";
+import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
+import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -15,8 +16,125 @@ async function isUserAdmin(userId: number): Promise<boolean> {
   const result = await pool.query(query, [userId]);
   if (result.rows.length === 0) return false;
 
-  // Assuming role_id 1 is admin based on common patterns
+// Assuming role_id 1 is admin based on common patterns
   return result.rows[0].role_id === 1;
+}
+
+const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+
+function ensureFutureIsoDate(dateValue?: string | null): string {
+  const fallback = new Date(Date.now() + ONE_HOUR_IN_MS);
+
+  if (!dateValue) {
+    return fallback.toISOString();
+  }
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.getTime() <= Date.now()) {
+    return fallback.toISOString();
+  }
+
+  return parsedDate.toISOString();
+}
+
+async function autoCreateDraftWorkOrders(order: FactoryCustomerOrder, userId: string): Promise<void> {
+  const action = "UpdateCustomerOrderInfoMediator.autoCreateDraftWorkOrders";
+
+  if (!order.line_items || order.line_items.length === 0) {
+    MyLogger.info(action, {
+      orderId: order.id,
+      message: "No line items found; skipping work order generation",
+    });
+    return;
+  }
+
+  const existingWorkOrders = await pool.query(
+    "SELECT id FROM work_orders WHERE customer_order_id = $1 LIMIT 1",
+    [order.id]
+  );
+
+  if (existingWorkOrders.rows.length > 0) {
+    MyLogger.info(action, {
+      orderId: order.id,
+      message: "Work orders already exist for this customer order; skipping auto-generation",
+    });
+    return;
+  }
+
+  const generatedWorkOrderIds: string[] = [];
+
+  try {
+    for (const lineItem of order.line_items) {
+      const productId = lineItem.product_id?.toString();
+      const quantity = Number(lineItem.quantity);
+
+      if (!productId) {
+        MyLogger.warn(action, {
+          orderId: order.id,
+          lineItemId: lineItem.id,
+          message: "Line item missing product reference; skipping work order generation for this item",
+        });
+        continue;
+      }
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        MyLogger.warn(action, {
+          orderId: order.id,
+          lineItemId: lineItem.id,
+          productId,
+          quantity,
+          message: "Invalid quantity detected; skipping work order generation for this item",
+        });
+        continue;
+      }
+
+      const deadlineSource = lineItem.delivery_date || order.required_date;
+      const workOrderPayload: CreateWorkOrderRequest = {
+        customer_order_id: order.id,
+        product_id: productId,
+        quantity,
+        deadline: ensureFutureIsoDate(deadlineSource),
+        priority: order.priority || "medium",
+        estimated_hours: Math.max(1, Math.round(quantity)),
+        notes: `Auto-generated from customer order ${order.order_number} (line: ${lineItem.product_name}).`,
+        specifications: lineItem.specifications || undefined,
+      };
+
+      const createdWorkOrder = await AddWorkOrderMediator.createWorkOrder(workOrderPayload, userId);
+      generatedWorkOrderIds.push(createdWorkOrder.id);
+
+      MyLogger.info(action, {
+        orderId: order.id,
+        lineItemId: lineItem.id,
+        workOrderId: createdWorkOrder.id,
+        workOrderNumber: createdWorkOrder.work_order_number,
+      });
+    }
+  } catch (error) {
+    MyLogger.error(action, error, {
+      orderId: order.id,
+      generatedCount: generatedWorkOrderIds.length,
+    });
+
+    // Attempt to clean up any partially created work orders to keep state consistent
+    for (const workOrderId of generatedWorkOrderIds) {
+      try {
+        await pool.query("DELETE FROM work_orders WHERE id = $1", [workOrderId]);
+        MyLogger.warn(action, {
+          orderId: order.id,
+          workOrderId,
+          message: "Rolled back auto-generated work order after failure",
+        });
+      } catch (cleanupError: any) {
+        MyLogger.error(`${action}.cleanup`, cleanupError, {
+          orderId: order.id,
+          workOrderId,
+        });
+      }
+    }
+
+    throw error;
+  }
 }
 
 export class UpdateCustomerOrderInfoMediator {
@@ -235,8 +353,12 @@ export class UpdateCustomerOrderInfoMediator {
   ): Promise<FactoryCustomerOrder> {
     const action = "UpdateCustomerOrderInfoMediator.approveOrder";
     const client = await pool.connect();
+    let transactionActive = false;
 
     try {
+      await client.query('BEGIN');
+      transactionActive = true;
+
       MyLogger.info(action, {
         orderId: approvalData.order_id,
         approved: approvalData.approved,
@@ -271,6 +393,8 @@ export class UpdateCustomerOrderInfoMediator {
       }
 
       const order = orderResult.rows[0];
+      const previousStatus = order.status;
+      const previousNotes = order.notes;
       
       if (!['pending', 'quoted'].includes(order.status)) {
         throw new Error(`Order cannot be approved from ${order.status} status`);
@@ -299,10 +423,46 @@ export class UpdateCustomerOrderInfoMediator {
       ];
 
       await client.query(updateQuery, updateValues);
+      await client.query('COMMIT');
+      transactionActive = false;
 
       // Get updated order
       const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
       const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id.toString());
+
+      if (approvalData.approved && updatedOrder) {
+        try {
+          await autoCreateDraftWorkOrders(updatedOrder, userId);
+        } catch (autoCreationError: any) {
+          MyLogger.error(`${action}.autoCreate`, autoCreationError, {
+            orderId: approvalData.order_id,
+            message: "Auto-generation of work orders failed; reverting customer order status",
+          });
+
+          await pool.query(
+            `
+              UPDATE factory_customer_orders
+              SET
+                status = $1,
+                approved_by = NULL,
+                approved_at = NULL,
+                notes = $2,
+                updated_by = $3,
+                updated_at = $4
+              WHERE id = $5
+            `,
+            [
+              previousStatus,
+              previousNotes || null,
+              userId,
+              new Date(),
+              approvalData.order_id,
+            ]
+          );
+
+          throw autoCreationError;
+        }
+      }
 
       MyLogger.success(action, { 
         orderId: approvalData.order_id, 
@@ -313,6 +473,9 @@ export class UpdateCustomerOrderInfoMediator {
       return updatedOrder!;
 
     } catch (error: any) {
+      if (transactionActive) {
+        await client.query('ROLLBACK');
+      }
       MyLogger.error(action, error);
       throw error;
     } finally {
