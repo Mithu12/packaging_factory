@@ -41,23 +41,57 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
-const profileSchema = z.object({
-  full_name: z.string().trim().min(2, "Full name must be at least 2 characters"),
-  email: z.string().trim().min(1, "Email is required").email("Please enter a valid email address"),
-  mobile_number: z
-    .string()
-    .optional()
-    .refine((value) => !value || value.trim().length >= 6, {
-      message: "Phone number must be at least 6 characters",
-    }),
-  departments: z.string().optional(),
-})
+const passwordComplexityRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/
+
+const trimmedOptionalString = (schema: z.ZodString) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value === "string") {
+        const trimmed = value.trim()
+        return trimmed.length === 0 ? undefined : trimmed
+      }
+      return value
+    },
+    schema.optional()
+  )
+
+const profileSchema = z
+  .object({
+    full_name: trimmedOptionalString(
+      z.string().min(2, "Full name must be at least 2 characters").max(100, "Full name must not exceed 100 characters")
+    ),
+    email: trimmedOptionalString(z.string().email("Please enter a valid email address")),
+    mobile_number: z.string().trim().optional(),
+    departments: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasFullName = data.full_name !== undefined
+    const hasEmail = data.email !== undefined
+    const hasMobile = data.mobile_number !== undefined
+    const hasDepartments = data.departments !== undefined
+
+    if (!hasFullName && !hasEmail && !hasMobile && !hasDepartments) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one field must be provided for update",
+        path: ["full_name"],
+      })
+    }
+  })
 
 const changePasswordSchema = z
   .object({
     current_password: z.string().trim().min(1, "Current password is required"),
-    new_password: z.string().min(8, "New password must be at least 8 characters"),
-    confirm_password: z.string().min(8, "Confirm your new password"),
+    new_password: z
+      .string()
+      .trim()
+      .min(8, "New password must be at least 8 characters")
+      .regex(
+        passwordComplexityRegex,
+        "Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character"
+      ),
+    confirm_password: z.string().trim().min(8, "Confirm your new password"),
   })
   .refine((values) => values.new_password === values.confirm_password, {
     message: "Passwords do not match",
@@ -255,17 +289,27 @@ const Profile = () => {
   const handleProfileSubmit = async (values: ProfileFormValues) => {
     try {
       setIsSaving(true)
-      const departmentsArray =
-        values.departments
-          ?.split(",")
-          .map((dept) => dept.trim())
-          .filter(Boolean) ?? null
+      const payload: UpdateProfileRequest = {}
 
-      const payload: UpdateProfileRequest = {
-        full_name: values.full_name.trim(),
-        email: values.email.trim(),
-        mobile_number: values.mobile_number?.trim() ? values.mobile_number.trim() : null,
-        departments: departmentsArray && departmentsArray.length > 0 ? departmentsArray : null,
+      if (values.full_name !== undefined) {
+        payload.full_name = values.full_name
+      }
+
+      if (values.email !== undefined) {
+        payload.email = values.email
+      }
+
+      if (values.mobile_number !== undefined) {
+        payload.mobile_number = values.mobile_number
+      }
+
+      if (values.departments !== undefined) {
+        const parsedDepartments = values.departments
+          .split(",")
+          .map((dept) => dept.trim())
+          .filter(Boolean)
+
+        payload.departments = parsedDepartments.length > 0 ? parsedDepartments : []
       }
 
       const updatedProfile = await AuthApi.updateProfile(payload)
