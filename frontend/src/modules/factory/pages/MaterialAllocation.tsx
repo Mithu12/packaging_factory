@@ -83,7 +83,7 @@ export default function MaterialAllocationPage() {
   // API query parameters
   const queryParams: MaterialAllocationQueryParams = {
     search: searchTerm || undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : '',
     sort_by: "allocated_date",
     sort_order: "desc",
     page: 1,

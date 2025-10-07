@@ -16,14 +16,14 @@ export const updateMaterialAllocationSchema = Joi.object({
   expiry_date: Joi.date().optional().allow(null),
   batch_number: Joi.string().optional().allow(null, ''),
   notes: Joi.string().optional().allow(null, ''),
-  status: Joi.string().valid('allocated', 'consumed', 'returned', 'short').optional()
+  status: Joi.string().valid('allocated', 'consumed', 'returned', 'short').optional().allow('')
 });
 
 export const materialAllocationQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   search: Joi.string().optional().allow(''),
-  status: Joi.string().valid('allocated', 'consumed', 'returned', 'short').optional(),
+  status: Joi.string().valid('allocated', 'consumed', 'returned', 'short').optional().allow(''),
   work_order_id: Joi.string().optional(),
   sort_by: Joi.string().valid('allocated_date', 'allocated_quantity', 'status').optional(),
   sort_order: Joi.string().valid('asc', 'desc').optional()

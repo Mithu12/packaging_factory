@@ -50,7 +50,7 @@ export const productionRunQuerySchema = Joi.object({
   search: Joi.string().allow('').optional(),
   status: Joi.string()
     .valid('scheduled', 'in_progress', 'paused', 'completed', 'cancelled')
-    .optional(),
+    .optional().allow(''),
   work_order_id: Joi.string().uuid().optional(),
   production_line_id: Joi.string().uuid().optional(),
   sort_by: Joi.string()

@@ -85,8 +85,8 @@ export default function ProductionExecution() {
 
   // API query parameters
   const queryParams: ProductionRunQueryParams = {
-    search: searchTerm || undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
+    search: searchTerm || '',
+    status: statusFilter !== "all" ? statusFilter : '',
     sort_by: "actual_start_time",
     sort_order: "desc",
     page: 1,
@@ -184,11 +184,11 @@ export default function ProductionExecution() {
   };
 
   const handleStartRun = (run: ProductionRun) => {
-    startMutation.mutate(run.id);
+    startMutation.mutate(run.id.toString());
   };
 
   const handlePauseRun = (run: ProductionRun) => {
-    pauseMutation.mutate({ id: run.id });
+    pauseMutation.mutate({ id: run.id.toString() });
   };
 
   const handleCompleteRun = (run: ProductionRun) => {
@@ -206,7 +206,7 @@ export default function ProductionExecution() {
     setSelectedRun(run);
     setDowntimeData({
       ...downtimeData,
-      production_run_id: run.id,
+      production_run_id: run.id.toString(),
     });
     setShowDowntimeDialog(true);
   };
@@ -613,7 +613,7 @@ export default function ProductionExecution() {
               onClick={() => {
                 if (selectedRun) {
                   completeMutation.mutate({
-                    id: selectedRun.id,
+                    id: selectedRun.id.toString(),
                     data: completeData,
                   });
                 }
@@ -697,7 +697,7 @@ export default function ProductionExecution() {
                 if (selectedRun) {
                   downtimeMutation.mutate({
                     ...downtimeData,
-                    production_run_id: selectedRun.id,
+                    production_run_id: selectedRun.id.toString(),
                   } as RecordDowntimeRequest);
                 }
               }}

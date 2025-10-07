@@ -100,11 +100,12 @@ export class GetProductionRunInfoMediator {
           pr.*,
           wo.work_order_number,
           pl.name as production_line_name,
-          o.name as operator_name
+          u.full_name as operator_name
         FROM production_runs pr
         JOIN work_orders wo ON pr.work_order_id = wo.id
         LEFT JOIN production_lines pl ON pr.production_line_id = pl.id
         LEFT JOIN operators o ON pr.operator_id = o.id
+        join users u on pr.operator_id = u.id
         WHERE ${whereClause}
         ORDER BY pr.${sort_by} ${sort_order}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

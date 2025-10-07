@@ -11,12 +11,12 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
  * @access  Private (FACTORY_PRODUCTION_RUNS_READ)
  */
 export const getProductionRuns = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const params = req.query;
 
   const result = await GetProductionRunInfoMediator.getProductionRuns(params, userId);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Production runs fetched successfully');
 });
 
 /**
@@ -26,11 +26,11 @@ export const getProductionRuns = asyncHandler(async (req: Request, res: Response
  */
 export const getProductionRunById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const productionRun = await GetProductionRunInfoMediator.getProductionRunById(id, userId);
 
-  res.status(200).json(serializeSuccessResponse(productionRun));
+  serializeSuccessResponse(res, productionRun, 'Production run fetched successfully');
 });
 
 /**
@@ -39,12 +39,12 @@ export const getProductionRunById = asyncHandler(async (req: Request, res: Respo
  * @access  Private (FACTORY_PRODUCTION_RUNS_CREATE)
  */
 export const createProductionRun = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const data = req.body;
 
   const productionRun = await AddProductionRunMediator.execute(data, userId);
 
-  res.status(201).json(serializeSuccessResponse(productionRun));
+  serializeSuccessResponse(res, productionRun, 'Production run created successfully');
 });
 
 /**
@@ -54,11 +54,11 @@ export const createProductionRun = asyncHandler(async (req: Request, res: Respon
  */
 export const startProductionRun = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const result = await UpdateProductionRunStatusMediator.startProductionRun(id, userId);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Production run started successfully');
 });
 
 /**
@@ -69,11 +69,11 @@ export const startProductionRun = asyncHandler(async (req: Request, res: Respons
 export const pauseProductionRun = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { notes } = req.body;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const result = await UpdateProductionRunStatusMediator.pauseProductionRun(id, userId, notes);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Production run paused successfully');
 });
 
 /**
@@ -84,11 +84,11 @@ export const pauseProductionRun = asyncHandler(async (req: Request, res: Respons
 export const completeProductionRun = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const data = req.body;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const result = await UpdateProductionRunStatusMediator.completeProductionRun(id, data, userId);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Production run completed successfully');
 });
 
 /**
@@ -97,12 +97,12 @@ export const completeProductionRun = asyncHandler(async (req: Request, res: Resp
  * @access  Private (FACTORY_PRODUCTION_RUNS_UPDATE)
  */
 export const recordDowntime = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const data = req.body;
 
   const downtime = await UpdateProductionRunStatusMediator.recordDowntime(data, userId);
 
-  res.status(201).json(serializeSuccessResponse(downtime));
+  serializeSuccessResponse(res, downtime, 'Downtime recorded successfully');
 });
 
 /**
@@ -111,10 +111,10 @@ export const recordDowntime = asyncHandler(async (req: Request, res: Response) =
  * @access  Private (FACTORY_PRODUCTION_RUNS_READ)
  */
 export const getProductionRunStats = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const stats = await GetProductionRunInfoMediator.getProductionRunStats(userId);
 
-  res.status(200).json(serializeSuccessResponse(stats));
+  serializeSuccessResponse(res, stats, 'Production run stats fetched successfully');
 });
 
