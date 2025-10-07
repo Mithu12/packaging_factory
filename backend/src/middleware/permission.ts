@@ -425,6 +425,32 @@ export const PERMISSIONS = {
   FACTORY_BOMS_READ: createPermissionCheck('Factory', 'read', 'boms'),
   FACTORY_BOMS_UPDATE: createPermissionCheck('Factory', 'update', 'boms'),
   FACTORY_BOMS_DELETE: createPermissionCheck('Factory', 'delete', 'boms'),
+
+  // Material Allocations
+  FACTORY_MATERIAL_ALLOCATIONS_CREATE: createPermissionCheck('Factory', 'create', 'material_allocations'),
+  FACTORY_MATERIAL_ALLOCATIONS_READ: createPermissionCheck('Factory', 'read', 'material_allocations'),
+  FACTORY_MATERIAL_ALLOCATIONS_UPDATE: createPermissionCheck('Factory', 'update', 'material_allocations'),
+  FACTORY_MATERIAL_ALLOCATIONS_DELETE: createPermissionCheck('Factory', 'delete', 'material_allocations'),
+
+  // Material Consumptions
+  FACTORY_MATERIAL_CONSUMPTIONS_CREATE: createPermissionCheck('Factory', 'create', 'material_consumptions'),
+  FACTORY_MATERIAL_CONSUMPTIONS_READ: createPermissionCheck('Factory', 'read', 'material_consumptions'),
+
+  // Wastage Tracking
+  FACTORY_WASTAGE_CREATE: createPermissionCheck('Factory', 'create', 'wastage'),
+  FACTORY_WASTAGE_READ: createPermissionCheck('Factory', 'read', 'wastage'),
+  FACTORY_WASTAGE_APPROVE: createPermissionCheck('Factory', 'approve', 'wastage'),
+
+  // Production Runs
+  FACTORY_PRODUCTION_RUNS_CREATE: createPermissionCheck('Factory', 'create', 'production_runs'),
+  FACTORY_PRODUCTION_RUNS_READ: createPermissionCheck('Factory', 'read', 'production_runs'),
+  FACTORY_PRODUCTION_RUNS_UPDATE: createPermissionCheck('Factory', 'update', 'production_runs'),
+
+  // Dashboard
+  FACTORY_DASHBOARD_READ: createPermissionCheck('Factory', 'read', 'dashboard'),
+
+  // Cost Analysis
+  FACTORY_COST_ANALYSIS_READ: createPermissionCheck('Factory', 'read', 'cost_analysis'),
 };
 
 // Export permission middleware functions

@@ -4,6 +4,7 @@ import productsRoutes from "./routes/products.routes";
 import factoriesRoutes from "./routes/factories.routes";
 import workOrdersRoutes from "./routes/workOrders.routes";
 import bomRoutes from "./routes/bom.routes";
+import materialAllocationsRoutes from "./routes/materialAllocations.routes";
 import express from "express";
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.use("/products", productsRoutes);
 router.use("/factories", factoriesRoutes);
 router.use("/work-orders", workOrdersRoutes);
 router.use("/boms", bomRoutes);
+router.use("/material-allocations", materialAllocationsRoutes);
 
 export default router;

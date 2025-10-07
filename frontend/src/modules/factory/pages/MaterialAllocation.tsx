@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   Zap,
   MapPin,
   User,
+  Undo2,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -50,135 +51,142 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { MaterialAllocation, MaterialConsumption } from "../types/bom";
+import {
+  MaterialAllocationsApiService,
+  materialAllocationsQueryKeys,
+  type MaterialAllocation,
+  type MaterialAllocationQueryParams,
+  type CreateMaterialAllocationRequest,
+} from "@/services/material-allocations-api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-interface AllocationStats {
-  totalAllocations: number;
-  activeAllocations: number;
-  consumedAllocations: number;
-  returnedAllocations: number;
-  totalValue: number;
-  averageAllocationTime: number;
-  onTimeAllocation: number;
-  allocationEfficiency: number;
-}
-
-export default function MaterialAllocation() {
+export default function MaterialAllocationPage() {
   const navigate = useNavigate();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
-  const [allocations, setAllocations] = useState<MaterialAllocation[]>([]);
-  const [consumptions, setConsumptions] = useState<MaterialConsumption[]>([]);
-  const [stats, setStats] = useState<AllocationStats>({
-    totalAllocations: 0,
-    activeAllocations: 0,
-    consumedAllocations: 0,
-    returnedAllocations: 0,
-    totalValue: 0,
-    averageAllocationTime: 0,
-    onTimeAllocation: 0,
-    allocationEfficiency: 0,
-  });
+  const queryClient = useQueryClient();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showAllocationDialog, setShowAllocationDialog] = useState(false);
-  const [showConsumptionDialog, setShowConsumptionDialog] = useState(false);
   const [selectedAllocation, setSelectedAllocation] =
     useState<MaterialAllocation | null>(null);
-  const [newAllocation, setNewAllocation] = useState({
-    workOrderId: "",
-    materialId: "",
-    materialName: "",
-    allocatedQuantity: 0,
-    allocatedFromLocation: "",
+  const [newAllocation, setNewAllocation] = useState<Partial<CreateMaterialAllocationRequest>>({
+    work_order_requirement_id: "",
+    inventory_item_id: 0,
+    allocated_quantity: 0,
+    allocated_from_location: "",
     notes: "",
   });
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setAllocations([
-      {
-        id: "ALLOC-001",
-        workOrderId: "WO-001",
-        materialId: "MAT-001",
-        materialName: "Steel Frame",
-        allocatedQuantity: 100,
-        allocatedFromLocation: "Main Warehouse - A12-3B",
-        allocatedDate: "2024-03-10T10:30:00Z",
-        allocatedBy: "John Smith",
-        status: "allocated",
-        expiryDate: "2024-03-25T00:00:00Z",
-        notes: "Critical component for production",
-      },
-      {
-        id: "ALLOC-002",
-        workOrderId: "WO-001",
-        materialId: "MAT-002",
-        materialName: "Electronic Module",
-        allocatedQuantity: 50,
-        allocatedFromLocation: "Electronics Storage - B5-2A",
-        allocatedDate: "2024-03-12T14:20:00Z",
-        allocatedBy: "Jane Doe",
-        status: "consumed",
-        expiryDate: "2024-03-30T00:00:00Z",
-        notes: "High-value component",
-      },
-      {
-        id: "ALLOC-003",
-        workOrderId: "WO-002",
-        materialId: "MAT-003",
-        materialName: "Aluminum Frame",
-        allocatedQuantity: 75,
-        allocatedFromLocation: "Metal Storage - C8-1D",
-        allocatedDate: "2024-03-08T09:15:00Z",
-        allocatedBy: "Mike Johnson",
-        status: "returned",
-        expiryDate: "2024-03-22T00:00:00Z",
-        notes: "Returned due to quality issues",
-      },
-    ]);
+  // API query parameters
+  const queryParams: MaterialAllocationQueryParams = {
+    search: searchTerm || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    sort_by: "allocated_date",
+    sort_order: "desc",
+    page: 1,
+    limit: 100,
+  };
 
-    setConsumptions([
-      {
-        id: "CONS-001",
-        workOrderId: "WO-001",
-        materialId: "MAT-002",
-        materialName: "Electronic Module",
-        consumedQuantity: 50,
-        consumptionDate: "2024-03-15T11:45:00Z",
-        productionLineId: "LINE-001",
-        productionLineName: "Line 1",
-        consumedBy: "Sarah Wilson",
-        wastageQuantity: 2,
-        wastageReason: "Quality control rejection",
-        notes: "Standard consumption for production",
-      },
-      {
-        id: "CONS-002",
-        workOrderId: "WO-002",
-        materialId: "MAT-003",
-        materialName: "Aluminum Frame",
-        consumedQuantity: 70,
-        consumptionDate: "2024-03-14T16:30:00Z",
-        productionLineId: "LINE-002",
-        productionLineName: "Line 2",
-        consumedBy: "Tom Brown",
-        wastageQuantity: 5,
-        wastageReason: "Setup waste",
-        notes: "Normal production consumption",
-      },
-    ]);
+  // Fetch allocations
+  const { data: allocationsData, isLoading: allocationsLoading } = useQuery({
+    queryKey: materialAllocationsQueryKeys.list(queryParams),
+    queryFn: () => MaterialAllocationsApiService.getAllocations(queryParams),
+  });
 
-    setStats({
-      totalAllocations: 25,
-      activeAllocations: 15,
-      consumedAllocations: 8,
-      returnedAllocations: 2,
-      totalValue: 125000,
-      averageAllocationTime: 2.5,
-      onTimeAllocation: 92,
-      allocationEfficiency: 88,
-    });
-  }, []);
+  // Fetch allocation statistics
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: materialAllocationsQueryKeys.stats(),
+    queryFn: () => MaterialAllocationsApiService.getAllocationStats(),
+  });
+
+  // Mutation for creating allocations
+  const createAllocationMutation = useMutation({
+    mutationFn: (data: CreateMaterialAllocationRequest) =>
+      MaterialAllocationsApiService.createAllocation(data),
+    onSuccess: () => {
+      setShowAllocationDialog(false);
+      setNewAllocation({
+        work_order_requirement_id: "",
+        inventory_item_id: 0,
+        allocated_quantity: 0,
+        allocated_from_location: "",
+        notes: "",
+      });
+      // Refresh data
+      queryClient.invalidateQueries({
+        queryKey: materialAllocationsQueryKeys.lists(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: materialAllocationsQueryKeys.stats(),
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to create allocation:", error);
+      setError(error instanceof Error ? error.message : "Failed to create allocation");
+    },
+  });
+
+  // Mutation for returning allocations
+  const returnAllocationMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      MaterialAllocationsApiService.returnAllocation(id, notes),
+    onSuccess: () => {
+      // Refresh data
+      queryClient.invalidateQueries({
+        queryKey: materialAllocationsQueryKeys.lists(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: materialAllocationsQueryKeys.stats(),
+      });
+    },
+    onError: (error) => {
+      console.error("Failed to return allocation:", error);
+      setError(error instanceof Error ? error.message : "Failed to return allocation");
+    },
+  });
+
+  const allocations = allocationsData?.allocations || [];
+  const stats = statsData || {
+    total_allocations: 0,
+    active_allocations: 0,
+    consumed_allocations: 0,
+    returned_allocations: 0,
+    total_value: 0,
+    average_allocation_time: 0,
+    on_time_allocation: 0,
+    allocation_efficiency: 0,
+  };
+
+  // Handle loading state
+  if (allocationsLoading || statsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Material Allocation</h1>
+            <p className="text-muted-foreground">
+              Allocate materials to work orders and track consumption
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleViewWorkOrder = (workOrderId: string) => {
     navigate(`/factory/work-orders`);
@@ -188,24 +196,50 @@ export default function MaterialAllocation() {
     navigate(`/factory/materials`);
   };
 
-  const filteredAllocations = allocations.filter((alloc) => {
-    const matchesSearch =
-      alloc.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alloc.workOrderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alloc.allocatedBy.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || alloc.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const handleCreateAllocation = () => {
+    setNewAllocation({
+      work_order_requirement_id: "",
+      inventory_item_id: 0,
+      allocated_quantity: 0,
+      allocated_from_location: "",
+      notes: "",
+    });
+    setShowAllocationDialog(true);
+  };
+
+  const handleSubmitAllocation = () => {
+    if (
+      !newAllocation.work_order_requirement_id ||
+      !newAllocation.inventory_item_id ||
+      !newAllocation.allocated_quantity ||
+      !newAllocation.allocated_from_location
+    ) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    createAllocationMutation.mutate(newAllocation as CreateMaterialAllocationRequest);
+  };
+
+  const handleReturnAllocation = (allocationId: string) => {
+    if (confirm("Are you sure you want to return this allocation?")) {
+      returnAllocationMutation.mutate({ id: allocationId });
+    }
+  };
+
+  const handleViewAllocation = async (allocation: MaterialAllocation) => {
+    setSelectedAllocation(allocation);
+    setShowDetailsDialog(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "consumed":
-        return "bg-green-100 text-green-800";
       case "allocated":
         return "bg-blue-100 text-blue-800";
+      case "consumed":
+        return "bg-green-100 text-green-800";
       case "returned":
-        return "bg-orange-100 text-orange-800";
+        return "bg-gray-100 text-gray-800";
       case "short":
         return "bg-red-100 text-red-800";
       default:
@@ -213,44 +247,15 @@ export default function MaterialAllocation() {
     }
   };
 
-  const handleViewAllocation = (allocation: MaterialAllocation) => {
-    setSelectedAllocation(allocation);
-    setShowAllocationDialog(true);
-  };
-
-  const handleCreateAllocation = () => {
-    setShowAllocationDialog(true);
-  };
-
-  const handleRecordConsumption = () => {
-    setShowConsumptionDialog(true);
-  };
-
-  const handleSaveAllocation = () => {
-    const newAllocationData: MaterialAllocation = {
-      id: `ALLOC-${Date.now()}`,
-      workOrderId: newAllocation.workOrderId,
-      materialId: newAllocation.materialId,
-      materialName: newAllocation.materialName,
-      allocatedQuantity: newAllocation.allocatedQuantity,
-      allocatedFromLocation: newAllocation.allocatedFromLocation,
-      allocatedDate: new Date().toISOString(),
-      allocatedBy: "Current User",
-      status: "allocated",
-      notes: newAllocation.notes,
-    };
-
-    setAllocations((prev) => [newAllocationData, ...prev]);
-    setShowAllocationDialog(false);
-    setNewAllocation({
-      workOrderId: "",
-      materialId: "",
-      materialName: "",
-      allocatedQuantity: 0,
-      allocatedFromLocation: "",
-      notes: "",
-    });
-  };
+  const filteredAllocations = allocations.filter((alloc) => {
+    const matchesSearch =
+      alloc.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      alloc.work_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      alloc.allocated_by_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || alloc.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6">
@@ -259,24 +264,56 @@ export default function MaterialAllocation() {
         <div>
           <h1 className="text-3xl font-bold">Material Allocation</h1>
           <p className="text-muted-foreground">
-            Manage material allocations and consumption tracking
+            Allocate materials to work orders and track consumption
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRecordConsumption}>
-            <Package className="h-4 w-4 mr-2" />
-            Record Consumption
+          <Button variant="outline" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: materialAllocationsQueryKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: materialAllocationsQueryKeys.stats() });
+          }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
           </Button>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            Export
           </Button>
-          <Button onClick={handleCreateAllocation}>
-            <Plus className="h-4 w-4 mr-2" />
-            Allocate Material
+          <Button onClick={handleCreateAllocation} disabled={createAllocationMutation.isPending}>
+            {createAllocationMutation.isPending ? (
+              <>
+                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Allocate Material
+              </>
+            )}
           </Button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setError(null)}
+                className="ml-auto"
+              >
+                Dismiss
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -288,159 +325,153 @@ export default function MaterialAllocation() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAllocations}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.activeAllocations} active
-            </p>
+            <div className="text-2xl font-bold">{stats.total_allocations}</div>
+            <p className="text-xs text-muted-foreground">All time allocations</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consumed</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Allocations
+            </CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {stats.consumedAllocations}
-            </div>
-            <p className="text-xs text-muted-foreground">materials used</p>
+            <div className="text-2xl font-bold">{stats.active_allocations}</div>
+            <p className="text-xs text-muted-foreground">Currently allocated</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.totalValue)}
+              {formatCurrency(stats.total_value)}
             </div>
-            <p className="text-xs text-muted-foreground">allocated materials</p>
+            <p className="text-xs text-muted-foreground">Allocated value</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Efficiency</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Allocation Efficiency
+            </CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats.allocationEfficiency}%
+              {stats.allocation_efficiency}%
             </div>
-            <p className="text-xs text-muted-foreground">
-              allocation efficiency
-            </p>
+            <p className="text-xs text-muted-foreground">Target: 90%</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="allocations" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="allocations">Material Allocations</TabsTrigger>
-          <TabsTrigger value="consumption">Material Consumption</TabsTrigger>
-          <TabsTrigger value="returns">Material Returns</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="allocations" className="space-y-4">
+      {/* Main Content */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Material Allocations</CardTitle>
+        </CardHeader>
+        <CardContent>
           {/* Search and Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search allocations..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-                  <TabsList>
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="allocated">Allocated</TabsTrigger>
-                    <TabsTrigger value="consumed">Consumed</TabsTrigger>
-                    <TabsTrigger value="returned">Returned</TabsTrigger>
-                    <TabsTrigger value="short">Short</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search allocations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="allocated">Allocated</TabsTrigger>
+                <TabsTrigger value="consumed">Consumed</TabsTrigger>
+                <TabsTrigger value="returned">Returned</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
           {/* Allocations Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Material Allocations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Work Order</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Allocated By</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAllocations.map((alloc) => (
-                    <TableRow key={alloc.id}>
-                      <TableCell className="font-medium">
-                        {alloc.workOrderId}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {alloc.materialName}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {alloc.materialId}
-                          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Material</TableHead>
+                <TableHead>Work Order</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Allocated By</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAllocations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No allocations found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAllocations.map((alloc) => (
+                  <TableRow key={alloc.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{alloc.material_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {alloc.material_sku}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">
-                          {alloc.allocatedQuantity}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {alloc.allocatedFromLocation}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(alloc.status)}>
-                          {alloc.status.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{alloc.allocatedBy}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(alloc.allocatedDate)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto"
+                        onClick={() => handleViewWorkOrder(alloc.work_order_id)}
+                      >
+                        {alloc.work_order_number}
+                      </Button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{alloc.allocated_quantity}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {alloc.unit_of_measure}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{alloc.allocated_from_location}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{alloc.allocated_by_name || 'N/A'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{formatDate(alloc.allocated_date)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(alloc.status)}>
+                        {alloc.status.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -448,483 +479,232 @@ export default function MaterialAllocation() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="consumption" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Material Consumption</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Work Order</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Consumed</TableHead>
-                    <TableHead>Wastage</TableHead>
-                    <TableHead>Production Line</TableHead>
-                    <TableHead>Consumed By</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {consumptions.map((cons) => (
-                    <TableRow key={cons.id}>
-                      <TableCell className="font-medium">
-                        {cons.workOrderId}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{cons.materialName}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {cons.materialId}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">
-                          {cons.consumedQuantity}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {cons.wastageQuantity}
-                          </span>
-                          {cons.wastageQuantity > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-orange-600"
-                            >
-                              {cons.wastageReason}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Zap className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {cons.productionLineName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{cons.consumedBy}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(cons.consumptionDate)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="returns" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Material Returns</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {allocations
-                  .filter((alloc) => alloc.status === "returned")
-                  .map((alloc) => (
-                    <Card key={alloc.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="font-medium">
-                              {alloc.materialName}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {alloc.workOrderId} •{" "}
-                              {alloc.allocatedFromLocation}
-                            </p>
-                          </div>
-                          <Badge className="bg-orange-100 text-orange-800">
-                            RETURNED
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div>
-                            <div className="text-sm font-medium">
-                              Returned Quantity
-                            </div>
-                            <div className="text-2xl font-bold">
-                              {alloc.allocatedQuantity}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">
-                              Returned By
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {alloc.allocatedBy}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">
-                              Return Date
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatDate(alloc.allocatedDate)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium">Reason</div>
-                            <div className="text-sm text-muted-foreground">
-                              Quality issues
-                            </div>
-                          </div>
-                        </div>
-
-                        {alloc.notes && (
-                          <div className="mb-4">
-                            <div className="text-sm font-medium">Notes</div>
-                            <p className="text-sm text-muted-foreground">
-                              {alloc.notes}
-                            </p>
-                          </div>
+                        {alloc.status === "allocated" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReturnAllocation(alloc.id)}
+                            disabled={returnAllocationMutation.isPending}
+                            className="text-orange-600 hover:text-orange-700"
+                          >
+                            {returnAllocationMutation.isPending ? (
+                              <Clock className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Undo2 className="h-4 w-4" />
+                            )}
+                          </Button>
                         )}
-
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4 mr-2" />
-                            Process Return
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Allocation Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>On-Time Allocation</span>
-                      <span>{stats.onTimeAllocation}%</span>
-                    </div>
-                    <Progress value={stats.onTimeAllocation} className="h-2" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Allocation Efficiency</span>
-                      <span>{stats.allocationEfficiency}%</span>
-                    </div>
-                    <Progress
-                      value={stats.allocationEfficiency}
-                      className="h-2"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Average Allocation Time</span>
-                      <span>{stats.averageAllocationTime} days</span>
-                    </div>
-                    <Progress value={75} className="h-2" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Consumption Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-green-600">
-                      {stats.consumedAllocations}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Materials Consumed
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {allocations.reduce(
-                        (sum, alloc) =>
-                          sum +
-                          (alloc.status === "returned"
-                            ? alloc.allocatedQuantity
-                            : 0),
-                        0
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Materials Returned
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">
-                        Total Value Consumed
                       </div>
-                      <div className="font-medium">
-                        {formatCurrency(stats.totalValue * 0.8)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Wastage Rate</div>
-                      <div className="font-medium">3.2%</div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      {/* Allocation Details Dialog */}
-      <Dialog
-        open={showAllocationDialog}
-        onOpenChange={setShowAllocationDialog}
-      >
+      {/* Create Allocation Dialog */}
+      <Dialog open={showAllocationDialog} onOpenChange={setShowAllocationDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {selectedAllocation ? "Allocation Details" : "Allocate Material"}
-            </DialogTitle>
+            <DialogTitle>Allocate Material</DialogTitle>
             <DialogDescription>
-              {selectedAllocation
-                ? "View detailed information about the material allocation"
-                : "Allocate material for a work order"}
+              Allocate materials from inventory to a work order requirement
             </DialogDescription>
           </DialogHeader>
 
-          {selectedAllocation ? (
-            <div className="space-y-6">
-              {/* Allocation Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Allocation Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <div className="text-sm font-medium">Work Order</div>
-                      <div className="text-sm text-muted-foreground">
-                        {selectedAllocation.workOrderId}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Material</div>
-                      <div className="text-sm text-muted-foreground">
-                        {selectedAllocation.materialName}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Quantity</div>
-                      <div className="text-sm text-muted-foreground">
-                        {selectedAllocation.allocatedQuantity}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Status</div>
-                      <Badge
-                        className={getStatusColor(selectedAllocation.status)}
-                      >
-                        {selectedAllocation.status.toUpperCase()}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Location and Timing */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Location & Timing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Allocated From</span>
-                      <span className="font-medium">
-                        {selectedAllocation.allocatedFromLocation}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Allocated By</span>
-                      <span className="font-medium">
-                        {selectedAllocation.allocatedBy}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Allocation Date</span>
-                      <span className="font-medium">
-                        {formatDate(selectedAllocation.allocatedDate)}
-                      </span>
-                    </div>
-                    {selectedAllocation.expiryDate && (
-                      <div className="flex justify-between items-center">
-                        <span>Expiry Date</span>
-                        <span className="font-medium">
-                          {formatDate(selectedAllocation.expiryDate)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {selectedAllocation.notes && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Notes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedAllocation.notes}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="requirement">Work Order Requirement ID *</Label>
+              <Input
+                id="requirement"
+                value={newAllocation.work_order_requirement_id}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    work_order_requirement_id: e.target.value,
+                  }))
+                }
+                placeholder="Enter requirement ID"
+              />
             </div>
-          ) : (
+
+            <div className="space-y-2">
+              <Label htmlFor="inventory">Inventory Item ID *</Label>
+              <Input
+                id="inventory"
+                type="number"
+                value={newAllocation.inventory_item_id || ""}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    inventory_item_id: parseInt(e.target.value) || 0,
+                  }))
+                }
+                placeholder="Enter product ID"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Allocated Quantity *</Label>
+              <Input
+                id="quantity"
+                type="number"
+                value={newAllocation.allocated_quantity || ""}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    allocated_quantity: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                placeholder="Enter quantity"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location">Location *</Label>
+              <Input
+                id="location"
+                value={newAllocation.allocated_from_location}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    allocated_from_location: e.target.value,
+                  }))
+                }
+                placeholder="e.g., Warehouse A - Shelf 12"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="batch">Batch Number</Label>
+              <Input
+                id="batch"
+                value={newAllocation.batch_number || ""}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    batch_number: e.target.value,
+                  }))
+                }
+                placeholder="Enter batch number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={newAllocation.notes || ""}
+                onChange={(e) =>
+                  setNewAllocation((prev) => ({
+                    ...prev,
+                    notes: e.target.value,
+                  }))
+                }
+                placeholder="Add any notes..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllocationDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitAllocation}
+                disabled={createAllocationMutation.isPending}
+              >
+                {createAllocationMutation.isPending ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Allocating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Allocate
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Allocation Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Allocation Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedAllocation && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="workOrder">Work Order ID</Label>
-                <Input
-                  id="workOrder"
-                  value={newAllocation.workOrderId}
-                  onChange={(e) =>
-                    setNewAllocation((prev) => ({
-                      ...prev,
-                      workOrderId: e.target.value,
-                    }))
-                  }
-                  placeholder="WO-001"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="material">Material</Label>
-                <Select
-                  value={newAllocation.materialId}
-                  onValueChange={(value) => {
-                    const material = {
-                      id: value,
-                      name: "Steel Frame", // In real app, get from API
-                    };
-                    setNewAllocation((prev) => ({
-                      ...prev,
-                      materialId: material.id,
-                      materialName: material.name,
-                    }));
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select material" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MAT-001">Steel Frame</SelectItem>
-                    <SelectItem value="MAT-002">Electronic Module</SelectItem>
-                    <SelectItem value="MAT-003">Aluminum Frame</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="0"
-                    value={newAllocation.allocatedQuantity}
-                    onChange={(e) =>
-                      setNewAllocation((prev) => ({
-                        ...prev,
-                        allocatedQuantity: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                  />
+                <div>
+                  <Label className="text-sm font-medium">Material</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.material_name}
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">From Location</Label>
-                  <Input
-                    id="location"
-                    value={newAllocation.allocatedFromLocation}
-                    onChange={(e) =>
-                      setNewAllocation((prev) => ({
-                        ...prev,
-                        allocatedFromLocation: e.target.value,
-                      }))
-                    }
-                    placeholder="Main Warehouse - A12-3B"
-                  />
+                <div>
+                  <Label className="text-sm font-medium">SKU</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.material_sku}
+                  </p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium">Quantity</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.allocated_quantity} {selectedAllocation.unit_of_measure}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Badge className={getStatusColor(selectedAllocation.status)}>
+                    {selectedAllocation.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Location</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.allocated_from_location}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Allocated By</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.allocated_by_name || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Allocated Date</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(selectedAllocation.allocated_date)}
+                  </p>
+                </div>
+                {selectedAllocation.batch_number && (
+                  <div>
+                    <Label className="text-sm font-medium">Batch Number</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAllocation.batch_number}
+                    </p>
+                  </div>
+                )}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={newAllocation.notes}
-                  onChange={(e) =>
-                    setNewAllocation((prev) => ({
-                      ...prev,
-                      notes: e.target.value,
-                    }))
-                  }
-                  placeholder="Additional notes about the allocation..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAllocationDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveAllocation}>
-                  Allocate Material
-                </Button>
-              </div>
+              {selectedAllocation.notes && (
+                <div>
+                  <Label className="text-sm font-medium">Notes</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAllocation.notes}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
