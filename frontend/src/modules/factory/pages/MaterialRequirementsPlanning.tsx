@@ -62,6 +62,9 @@ export default function MaterialRequirementsPlanning() {
   const [showShortageDialog, setShowShortageDialog] = useState(false);
   const [selectedShortage, setSelectedShortage] =
     useState<MaterialShortage | null>(null);
+  const [showRequirementDialog, setShowRequirementDialog] = useState(false);
+  const [selectedRequirement, setSelectedRequirement] =
+    useState<WorkOrderMaterialRequirement | null>(null);
   const [generatedPOs, setGeneratedPOs] = useState<string[]>([]);
   const [showPODialog, setShowPODialog] = useState(false);
   const queryClient = useQueryClient();
@@ -70,8 +73,8 @@ export default function MaterialRequirementsPlanning() {
   const queryParams: RequirementsQueryParams = {
     search: searchTerm || undefined,
     status: statusFilter === "all" ? undefined : statusFilter,
-    sort_by: 'required_date',
-    sort_order: 'asc',
+    sort_by: "required_date",
+    sort_order: "asc",
     page: 1,
     limit: 100,
   };
@@ -100,9 +103,15 @@ export default function MaterialRequirementsPlanning() {
     onSuccess: (result) => {
       console.log("MRP calculation completed:", result);
       // Refresh data after MRP calculation
-      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialRequirements() });
-      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialPlanningStats() });
-      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialShortages() });
+      queryClient.invalidateQueries({
+        queryKey: bomQueryKeys.materialRequirements(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: bomQueryKeys.materialPlanningStats(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: bomQueryKeys.materialShortages(),
+      });
     },
     onError: (error) => {
       console.error("MRP calculation failed:", error);
@@ -111,13 +120,16 @@ export default function MaterialRequirementsPlanning() {
 
   // Mutation for generating purchase orders
   const generatePOsMutation = useMutation({
-    mutationFn: (shortageIds: string[]) => BOMApiService.generatePurchaseOrdersForShortages(shortageIds),
+    mutationFn: (shortageIds: string[]) =>
+      BOMApiService.generatePurchaseOrdersForShortages(shortageIds),
     onSuccess: (result) => {
       console.log("Purchase orders generated:", result);
       setGeneratedPOs(result.purchase_orders ?? []);
       setShowPODialog(true);
       // Refresh shortages data to show updated status
-      queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialShortages() });
+      queryClient.invalidateQueries({
+        queryKey: bomQueryKeys.materialShortages(),
+      });
     },
     onError: (error) => {
       console.error("Failed to generate purchase orders:", error);
@@ -149,7 +161,9 @@ export default function MaterialRequirementsPlanning() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Material Requirements Planning</h1>
+            <h1 className="text-3xl font-bold">
+              Material Requirements Planning
+            </h1>
             <p className="text-muted-foreground">
               Plan and manage material requirements for production
             </p>
@@ -172,21 +186,23 @@ export default function MaterialRequirementsPlanning() {
   }
 
   // Filter requirements based on search and priority (API handles status filtering)
-  const filteredRequirements = requirements.filter((req) => {
-    if (!searchTerm) return true;
+  const filteredRequirements = requirements
+    .filter((req) => {
+      if (!searchTerm) return true;
 
-    return (
-      req.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.material_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.work_order_id?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }).filter((req) => {
-    if (priorityFilter === "all") return true;
-    if (priorityFilter === "critical") return req.is_critical;
-    if (priorityFilter === "high") return req.priority <= 1;
-    if (priorityFilter === "medium") return req.priority <= 2;
-    return true;
-  });
+      return (
+        req.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.material_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.work_order_id?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    })
+    .filter((req) => {
+      if (priorityFilter === "all") return true;
+      if (priorityFilter === "critical") return req.is_critical;
+      if (priorityFilter === "high") return req.priority <= 1;
+      if (priorityFilter === "medium") return req.priority <= 2;
+      return true;
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -223,13 +239,29 @@ export default function MaterialRequirementsPlanning() {
     setShowShortageDialog(true);
   };
 
+  const handleGeneratePOForShortage = (shortage: MaterialShortage) => {
+    if (shortage.status !== "open") {
+      return;
+    }
+    generatePOsMutation.mutate([shortage.id]);
+  };
+
+  const handleViewRequirement = (
+    requirement: WorkOrderMaterialRequirement
+  ) => {
+    setSelectedRequirement(requirement);
+    setShowRequirementDialog(true);
+  };
+
   const handleGeneratePurchaseOrders = async () => {
     if (shortages.length === 0) return;
 
-    const openShortages = shortages.filter(shortage => shortage.status === 'open');
+    const openShortages = shortages.filter(
+      (shortage) => shortage.status === "open"
+    );
     if (openShortages.length === 0) return;
 
-    const shortageIds = openShortages.map(shortage => shortage.id);
+    const shortageIds = openShortages.map((shortage) => shortage.id);
     generatePOsMutation.mutate(shortageIds);
   };
 
@@ -268,22 +300,6 @@ export default function MaterialRequirementsPlanning() {
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Export Report
-          </Button>
-          <Button
-            onClick={handleGeneratePurchaseOrders}
-            disabled={generatePOsMutation.isPending || shortages.length === 0}
-          >
-            {generatePOsMutation.isPending ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                Generate POs
-              </>
-            )}
           </Button>
         </div>
       </div>
@@ -488,7 +504,11 @@ export default function MaterialRequirementsPlanning() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewRequirement(req)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -516,7 +536,8 @@ export default function MaterialRequirementsPlanning() {
                             {shortage.material_name}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {shortage.material_sku} - {shortage.work_order_number}
+                            {shortage.material_sku} -{" "}
+                            {shortage.work_order_number}
                           </p>
                         </div>
                         <Badge className={getPriorityColor(shortage.priority)}>
@@ -558,7 +579,9 @@ export default function MaterialRequirementsPlanning() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Supplier</span>
-                          <span>{shortage.supplier_name || "Not assigned"}</span>
+                          <span>
+                            {shortage.supplier_name || "Not assigned"}
+                          </span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Suggested Action</span>
@@ -597,17 +620,23 @@ export default function MaterialRequirementsPlanning() {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => {
-                            // Create a single PO for this shortage
-                            const poNumber = `PO-${new Date().getFullYear()}-${String(
-                              Date.now()
-                            ).slice(-4)}`;
-                            setGeneratedPOs([poNumber]);
-                            setShowPODialog(true);
-                          }}
+                          onClick={() => handleGeneratePOForShortage(shortage)}
+                          disabled={
+                            generatePOsMutation.isPending ||
+                            shortage.status !== "open"
+                          }
                         >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create PO
+                          {generatePOsMutation.isPending ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Create PO
+                            </>
+                          )}
                         </Button>
                         <Button variant="outline" size="sm">
                           <Edit className="h-4 w-4 mr-2" />
@@ -754,8 +783,148 @@ export default function MaterialRequirementsPlanning() {
         </TabsContent>
       </Tabs>
 
+      {/* Requirement Details Dialog */}
+      <Dialog
+        open={showRequirementDialog}
+        onOpenChange={(open) => {
+          setShowRequirementDialog(open);
+          if (!open) {
+            setSelectedRequirement(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Requirement Details - {selectedRequirement?.material_name}
+            </DialogTitle>
+            <DialogDescription>
+              Allocation status and planning data for this material requirement
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRequirement && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Requirement Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-medium">Work Order</div>
+                    <div className="text-sm text-muted-foreground">
+                      {selectedRequirement.work_order_id}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">Priority</div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className={
+                          selectedRequirement.is_critical
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }
+                      >
+                        {selectedRequirement.is_critical ? "CRITICAL" : "NORMAL"}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        P{selectedRequirement.priority}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">Status</div>
+                    <Badge className={getStatusColor(selectedRequirement.status)}>
+                      {selectedRequirement.status.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">Required Date</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatDate(selectedRequirement.required_date)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quantities</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span>Required Quantity</span>
+                    <span className="font-medium">
+                      {selectedRequirement.required_quantity}{" "}
+                      {selectedRequirement.unit_of_measure}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Allocated Quantity</span>
+                    <span className="font-medium text-blue-600">
+                      {selectedRequirement.allocated_quantity}{" "}
+                      {selectedRequirement.unit_of_measure}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Consumed Quantity</span>
+                    <span className="font-medium text-green-600">
+                      {selectedRequirement.consumed_quantity}{" "}
+                      {selectedRequirement.unit_of_measure}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cost & Supplier</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span>Unit Cost</span>
+                    <span>{formatCurrency(selectedRequirement.unit_cost)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Total Cost</span>
+                    <span>{formatCurrency(selectedRequirement.total_cost)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Supplier</span>
+                    <span>
+                      {selectedRequirement.supplier_name || "Not assigned"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Lead Time</span>
+                    <span>{selectedRequirement.lead_time_days} days</span>
+                  </div>
+                  {selectedRequirement.notes && (
+                    <div>
+                      <div className="text-sm font-medium">Notes</div>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedRequirement.notes}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Shortage Details Dialog */}
-      <Dialog open={showShortageDialog} onOpenChange={setShowShortageDialog}>
+      <Dialog
+        open={showShortageDialog}
+        onOpenChange={(open) => {
+          setShowShortageDialog(open);
+          if (!open) {
+            setSelectedShortage(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>

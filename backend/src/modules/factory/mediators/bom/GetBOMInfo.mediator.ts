@@ -1200,41 +1200,57 @@ export class GetBOMInfoMediator {
       }, {} as Record<string, typeof shortages>);
 
       // Create purchase orders for each supplier group
-      for (const [supplierId, supplierShortages] of Object.entries(supplierGroups) as [string, typeof shortages][] ) {
+      for (const supplierShortages of Object.values(supplierGroups)) {
         // Generate PO number
         const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
         // Get supplier details
         const supplier = supplierShortages[0];
 
+        if (!supplier.supplier_id) {
+          MyLogger.warn(action, {
+            message: "Skipping PO generation for shortages without a supplier",
+            shortageIds: supplierShortages.map((s) => s.id),
+          });
+          continue;
+        }
+
         // Create purchase order
         const createPOQuery = `
           INSERT INTO purchase_orders (
-            po_number, supplier_id, supplier_name, supplier_email,
-            supplier_phone, supplier_contact_person, status, order_date,
-            expected_delivery_date, total_amount, notes, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            po_number,
+            supplier_id,
+            expected_delivery_date,
+            priority,
+            payment_terms,
+            delivery_terms,
+            department,
+            project,
+            notes,
+            total_amount,
+            created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING id
         `;
 
         const expectedDeliveryDate = new Date();
-        expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + (supplier.lead_time_days || 7));
+        const leadTimeDays = Number(supplier.lead_time_days) || 7;
+        expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + leadTimeDays);
 
         const notes = `Auto-generated purchase order for material shortages: ${supplierShortages.map(s => s.work_order_number).join(', ')}`;
 
         const poResult = await client.query(createPOQuery, [
           poNumber,
           supplier.supplier_id,
-          supplier.supplier_name,
-          supplier.supplier_email,
-          supplier.supplier_phone,
-          supplier.contact_person,
-          'draft',
-          new Date(),
           expectedDeliveryDate,
-          0, // Will be calculated from items
+          'normal',
+          'Net 30',
+          'Standard Delivery',
+          null,
+          null,
           notes,
-          userId
+          0, // Will be recalculated after inserting items
+          `MRP Auto (${userId})`,
         ]);
 
         const purchaseOrderId = poResult.rows[0].id;
@@ -1246,27 +1262,39 @@ export class GetBOMInfoMediator {
           const unitPrice = 0; // Would need to get from supplier quotes or historical data
 
           const createPOItemQuery = `
-            INSERT INTO purchase_order_items (
-              purchase_order_id, product_id, product_name, product_sku,
-              quantity, unit_of_measure, unit_price, total_price,
-              required_date, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO purchase_order_line_items (
+              purchase_order_id,
+              product_id,
+              product_sku,
+              product_name,
+              description,
+              quantity,
+              unit_price,
+              total_price,
+              received_quantity,
+              pending_quantity,
+              unit_of_measure
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           `;
+
+          const quantity = Number(shortage.shortfall_quantity) || 0;
+          const totalPrice = quantity * unitPrice;
 
           await client.query(createPOItemQuery, [
             purchaseOrderId,
             shortage.material_id,
-            shortage.material_name,
             shortage.material_sku,
-            shortage.shortfall_quantity,
-            'units', // Default unit of measure
+            shortage.material_name,
+            `Required for Work Order ${shortage.work_order_number}`,
+            quantity,
             unitPrice,
-            shortage.shortfall_quantity * unitPrice,
-            shortage.required_date,
-            `Required for Work Order ${shortage.work_order_number}`
+            totalPrice,
+            0, // received_quantity
+            quantity, // pending_quantity
+            'units'
           ]);
 
-          totalAmount += shortage.shortfall_quantity * unitPrice;
+          totalAmount += totalPrice;
         }
 
         // Update purchase order total
@@ -1285,6 +1313,10 @@ export class GetBOMInfoMediator {
 
         purchaseOrders.push(poNumber);
         generatedOrders++;
+      }
+
+      if (generatedOrders === 0) {
+        throw new Error('No purchase orders were generated. Ensure shortages are linked to suppliers before creating POs.');
       }
 
       MyLogger.success(action, {
