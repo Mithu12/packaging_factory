@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS material_wastage (
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_material_allocations_requirement 
-    ON work_order_material_allocations(work_order_requirement_id);
+-- CREATE INDEX IF NOT EXISTS idx_material_allocations_requirement 
+--     ON work_order_material_allocations(work_order_requirement_id);
 CREATE INDEX IF NOT EXISTS idx_material_allocations_inventory 
     ON work_order_material_allocations(inventory_item_id);
 CREATE INDEX IF NOT EXISTS idx_material_allocations_status 
@@ -105,8 +105,8 @@ CREATE INDEX IF NOT EXISTS idx_material_allocations_status
 CREATE INDEX IF NOT EXISTS idx_material_allocations_date 
     ON work_order_material_allocations(allocated_date);
 
-CREATE INDEX IF NOT EXISTS idx_material_consumptions_requirement 
-    ON work_order_material_consumptions(work_order_requirement_id);
+-- CREATE INDEX IF NOT EXISTS idx_material_consumptions_requirement 
+--     ON work_order_material_consumptions(work_order_requirement_id);
 CREATE INDEX IF NOT EXISTS idx_material_consumptions_work_order 
     ON work_order_material_consumptions(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_material_consumptions_material 
