@@ -9,7 +9,7 @@ import { makeRequest } from '@/services/api-utils';
 // =====================================================
 
 export interface MaterialAllocation {
-  id: string;
+  id: number;
   work_order_requirement_id: string;
   inventory_item_id: number;
   material_name: string;

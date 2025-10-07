@@ -7,7 +7,7 @@
 
 -- Production Runs: Track individual production runs
 CREATE TABLE IF NOT EXISTS production_runs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     production_line_id UUID REFERENCES production_lines(id) ON DELETE SET NULL,
     operator_id UUID REFERENCES operators(id) ON DELETE SET NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS production_runs (
 
 -- Production Run Events: Track state changes and actions
 CREATE TABLE IF NOT EXISTS production_run_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     production_run_id UUID NOT NULL REFERENCES production_runs(id) ON DELETE CASCADE,
     
     -- Event details
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS production_run_events (
 
 -- Production Downtime: Track downtime periods
 CREATE TABLE IF NOT EXISTS production_downtime (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     production_run_id UUID NOT NULL REFERENCES production_runs(id) ON DELETE CASCADE,
     
     -- Downtime details

@@ -116,7 +116,7 @@ SELECT
     p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.name = 'System Administrator'
+WHERE r.name = 'Admin'
 AND p.name IN (
     'FACTORY_MATERIAL_ALLOCATIONS_READ',
     'FACTORY_MATERIAL_ALLOCATIONS_CREATE',

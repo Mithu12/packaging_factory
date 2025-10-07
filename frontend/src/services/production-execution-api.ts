@@ -9,7 +9,7 @@ import { makeRequest } from '@/services/api-utils';
 // =====================================================
 
 export interface ProductionRun {
-  id: string;
+  id: number;
   run_number: string;
   work_order_id: string;
   work_order_number: string;
@@ -41,8 +41,8 @@ export interface ProductionRun {
 }
 
 export interface ProductionRunEvent {
-  id: string;
-  production_run_id: string;
+  id: number;
+  production_run_id: number;
   event_type: string;
   event_status?: string;
   event_timestamp: string;
@@ -54,8 +54,8 @@ export interface ProductionRunEvent {
 }
 
 export interface ProductionDowntime {
-  id: string;
-  production_run_id: string;
+  id: number;
+  production_run_id: number;
   downtime_reason: string;
   downtime_category: string;
   start_time: string;

@@ -9,7 +9,7 @@ import { makeRequest } from '@/services/api-utils';
 // =====================================================
 
 export interface MaterialWastage {
-  id: string;
+  id: number;
   work_order_id: string;
   work_order_number: string;
   material_id: string;

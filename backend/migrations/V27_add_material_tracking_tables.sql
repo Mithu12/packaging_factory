@@ -7,7 +7,7 @@
 
 -- Work Order Material Allocations: Track material allocations to work orders
 CREATE TABLE IF NOT EXISTS work_order_material_allocations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     work_order_requirement_id UUID NOT NULL REFERENCES work_order_material_requirements(id) ON DELETE CASCADE,
     inventory_item_id BIGINT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS work_order_material_allocations (
 
 -- Work Order Material Consumptions: Track actual material consumption
 CREATE TABLE IF NOT EXISTS work_order_material_consumptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     work_order_requirement_id UUID NOT NULL REFERENCES work_order_material_requirements(id) ON DELETE CASCADE,
     work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS work_order_material_consumptions (
 
 -- Material Wastage: Separate tracking for wastage reporting and approval
 CREATE TABLE IF NOT EXISTS material_wastage (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
     material_id BIGINT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
     material_name VARCHAR(255) NOT NULL,
