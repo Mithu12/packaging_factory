@@ -33,6 +33,10 @@ function calculateProductionLineLoad(estimatedHours: number): number {
   return Math.min((estimatedHours / 8) * 10, 100);
 }
 
+const RESERVING_STATUSES = new Set(['planned', 'released', 'in_progress', 'on_hold']);
+const RELEASING_STATUSES = new Set(['completed', 'cancelled']);
+const MAINTAIN_STATUSES = new Set(['on_hold']);
+
 // Helper function to handle stock reservation updates
 let cachedReservedStockSupport: boolean | null = null;
 
@@ -78,68 +82,78 @@ async function handleStockReservationUpdate(
   const currentProductId = currentWorkOrder.product_id;
   const newQuantity = updateData.quantity ? parseFloat(updateData.quantity) : currentQuantity;
   const newProductId = updateData.product_id || currentProductId;
-  const newStatus = updateData.status || currentWorkOrder.status;
+  const isCurrentlyReserved = RESERVING_STATUSES.has(currentWorkOrder.status);
 
-  // If quantity or product changed, we need to adjust reservations
-  if (newQuantity !== currentQuantity || newProductId !== currentProductId) {
-    // Release reservation from old product
-    if (currentProductId && currentQuantity > 0) {
-      const releaseQuery = `
-        UPDATE products
-        SET reserved_stock = reserved_stock - $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2 AND reserved_stock >= $1
-      `;
-      await client.query(releaseQuery, [currentQuantity, currentProductId]);
-    }
-
-    // Reserve stock for new product/quantity
-    if (newProductId && newQuantity > 0) {
-      const reserveQuery = `
-        UPDATE products
-        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `;
-      await client.query(reserveQuery, [newQuantity, newProductId]);
-    }
+  if (!(isCurrentlyReserved && (newQuantity !== currentQuantity || newProductId !== currentProductId))) {
+    return;
   }
 
-  // Handle status changes that should release stock
-  const statusChangesThatReleaseStock = ['completed', 'cancelled'];
-  if (statusChangesThatReleaseStock.includes(newStatus) && !statusChangesThatReleaseStock.includes(currentWorkOrder.status)) {
-    // Release reserved stock
-    if (currentProductId && currentQuantity > 0) {
-      const releaseQuery = `
-        UPDATE products
-        SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `;
-      await client.query(releaseQuery, [currentQuantity, currentProductId]);
+  if (newProductId && currentProductId && newProductId === currentProductId) {
+    const delta = newQuantity - currentQuantity;
+    if (delta === 0) {
+      return;
     }
-  }
 
-  // Handle status changes that should reserve stock (when moving from draft to planned/released)
-  const statusChangesThatReserveStock = ['planned', 'released', 'in_progress'];
-  if (statusChangesThatReserveStock.includes(newStatus) && !statusChangesThatReserveStock.includes(currentWorkOrder.status)) {
-    // Reserve stock if not already reserved
-    if (newProductId && newQuantity > 0) {
-      const currentReservedQuery = 'SELECT reserved_stock FROM products WHERE id = $1';
-      const reservedResult = await client.query(currentReservedQuery, [newProductId]);
+    if (delta > 0) {
+      const availabilityResult = await client.query(
+        `SELECT current_stock, reserved_stock FROM products WHERE id = $1`,
+        [currentProductId]
+      );
 
-      if (reservedResult.rows.length > 0) {
-        const currentReserved = parseFloat(reservedResult.rows[0].reserved_stock) || 0;
+      if (availabilityResult.rows.length > 0) {
+        const currentStock = parseFloat(availabilityResult.rows[0].current_stock) || 0;
+        const reservedStock = parseFloat(availabilityResult.rows[0].reserved_stock) || 0;
+        const availableStock = currentStock - reservedStock;
 
-        // Only reserve if not already reserved for this quantity
-        const expectedReserved = newQuantity;
-        if (currentReserved < expectedReserved) {
-          const reserveQuery = `
-            UPDATE products
-            SET reserved_stock = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-          `;
-          await client.query(reserveQuery, [expectedReserved, newProductId]);
+        if (availableStock < delta) {
+          throw new Error(`Insufficient available stock for product ${currentProductId}. Available: ${availableStock}, required: ${delta}`);
         }
       }
     }
+
+    await client.query(
+      `UPDATE products
+       SET reserved_stock = GREATEST(reserved_stock + $1, 0), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [delta, currentProductId]
+    );
+    return;
+  }
+
+  // Product switched while reserved
+  if (newProductId && newQuantity > 0) {
+    const availabilityResult = await client.query(
+      `SELECT current_stock, reserved_stock FROM products WHERE id = $1`,
+      [newProductId]
+    );
+
+    if (availabilityResult.rows.length > 0) {
+      const currentStock = parseFloat(availabilityResult.rows[0].current_stock) || 0;
+      const reservedStock = parseFloat(availabilityResult.rows[0].reserved_stock) || 0;
+      const availableStock = currentStock - reservedStock;
+
+      if (availableStock < newQuantity) {
+        throw new Error(`Insufficient available stock for product ${newProductId}. Available: ${availableStock}, required: ${newQuantity}`);
+      }
+    }
+  }
+
+  if (currentProductId && currentQuantity > 0) {
+    await client.query(
+      `UPDATE products
+       SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [currentQuantity, currentProductId]
+    );
+  }
+
+  if (newProductId && newQuantity > 0) {
+    await client.query(
+      `UPDATE products
+       SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [newQuantity, newProductId]
+    );
   }
 }
 
@@ -448,6 +462,37 @@ export class UpdateWorkOrderMediator {
         throw new Error(`Invalid status transition from ${currentWorkOrder.status} to ${newStatus}`);
       }
 
+      const supportsReservedStock = await hasReservedStockColumn();
+      const currentQuantity = parseFloat(currentWorkOrder.quantity) || 0;
+      const previousProductId = currentWorkOrder.product_id;
+      const hasInventoryTarget = supportsReservedStock && previousProductId && currentQuantity > 0;
+      const enteringReservedState =
+        hasInventoryTarget &&
+        RESERVING_STATUSES.has(newStatus) &&
+        !RESERVING_STATUSES.has(currentWorkOrder.status);
+      const leavingReservedState =
+        hasInventoryTarget &&
+        RESERVING_STATUSES.has(currentWorkOrder.status) &&
+        !RESERVING_STATUSES.has(newStatus) &&
+        !MAINTAIN_STATUSES.has(newStatus);
+
+      if (enteringReservedState) {
+        const availabilityResult = await client.query(
+          `SELECT current_stock, reserved_stock FROM products WHERE id = $1`,
+          [previousProductId]
+        );
+
+        if (availabilityResult.rows.length > 0) {
+          const currentStock = parseFloat(availabilityResult.rows[0].current_stock) || 0;
+          const reservedStock = parseFloat(availabilityResult.rows[0].reserved_stock) || 0;
+          const availableStock = currentStock - reservedStock;
+
+          if (availableStock < currentQuantity) {
+            throw new Error(`Insufficient available stock for product ${previousProductId}. Available: ${availableStock}, required: ${currentQuantity}`);
+          }
+        }
+      }
+
       // Update work order status and handle side effects
       const updateFields: string[] = ['status = $1'];
       const updateValues: any[] = [newStatus];
@@ -499,21 +544,29 @@ export class UpdateWorkOrderMediator {
 
       const updatedWorkOrder = updateResult.rows[0];
 
-      // Handle stock release when work order is completed or cancelled
-      const supportsReservedStock = await hasReservedStockColumn();
+      const productId = updatedWorkOrder.product_id;
+      const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
 
-      if (supportsReservedStock && (newStatus === 'completed' || newStatus === 'cancelled')) {
-        const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
-        const productId = updatedWorkOrder.product_id;
+      if (supportsReservedStock && productId && quantity > 0) {
+        if (enteringReservedState) {
+          await client.query(
+            `UPDATE products
+             SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [quantity, productId]
+          );
+        }
 
-        if (productId && quantity > 0) {
-          // Release reserved stock
-          await client.query(`
-            UPDATE products
-            SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-          `, [quantity, productId]);
+        if (leavingReservedState) {
+          await client.query(
+            `UPDATE products
+             SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [quantity, productId]
+          );
+        }
 
+        if (RELEASING_STATUSES.has(newStatus)) {
           MyLogger.info("Stock released for completed/cancelled work order", {
             workOrderId,
             productId,
@@ -645,6 +698,7 @@ export class UpdateWorkOrderMediator {
       }
 
       const workOrder = workOrderResult.rows[0];
+      const supportsReservedStock = await hasReservedStockColumn();
 
       // Check if work order can be deleted
       if (!force && !['draft', 'planned'].includes(workOrder.status)) {
@@ -673,7 +727,13 @@ export class UpdateWorkOrderMediator {
       }
 
       // Release reserved stock before deleting
-      if (workOrder.quantity && workOrder.quantity > 0 && workOrder.product_id) {
+      if (
+        supportsReservedStock &&
+        RESERVING_STATUSES.has(workOrder.status) &&
+        workOrder.quantity &&
+        workOrder.quantity > 0 &&
+        workOrder.product_id
+      ) {
         await client.query(`
           UPDATE products
           SET reserved_stock = GREATEST(reserved_stock - $1, 0), updated_at = CURRENT_TIMESTAMP

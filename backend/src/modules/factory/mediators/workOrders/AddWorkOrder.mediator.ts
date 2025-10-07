@@ -25,35 +25,6 @@ async function isUserAdmin(userId: number): Promise<boolean> {
   return result.rows[0].role_id === 1;
 }
 
-let cachedReservedStockSupport: boolean | null = null;
-
-async function hasReservedStockColumn(): Promise<boolean> {
-  if (cachedReservedStockSupport !== null) {
-    return cachedReservedStockSupport;
-  }
-
-  try {
-    const checkQuery = `
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'products'
-          AND column_name = 'reserved_stock'
-      ) AS exists
-    `;
-    const result = await pool.query(checkQuery);
-    cachedReservedStockSupport = Boolean(result.rows?.[0]?.exists);
-  } catch (error: any) {
-    cachedReservedStockSupport = false;
-    MyLogger.warn("AddWorkOrderMediator.hasReservedStockColumn", {
-      message: "Failed to inspect products.reserved_stock column; assuming absent",
-      error: error?.message || error,
-    });
-  }
-
-  return cachedReservedStockSupport;
-}
-
 function calculateProductionLineLoad(estimatedHours: number): number {
   if (!Number.isFinite(estimatedHours) || estimatedHours <= 0) {
     return 0;
@@ -217,53 +188,6 @@ export class AddWorkOrderMediator {
       }
 
       const newWorkOrder = workOrderResult.rows[0];
-
-      // Reserve stock for the work order if the schema supports it
-      if (workOrderData.quantity && workOrderData.quantity > 0) {
-        const supportsReservedStock = await hasReservedStockColumn();
-
-        if (supportsReservedStock) {
-          const currentReservedStockQuery = `
-            SELECT COALESCE(reserved_stock, 0) AS reserved_stock, COALESCE(current_stock, 0) AS current_stock
-            FROM products
-            WHERE id = $1
-          `;
-          const stockResult = await client.query(currentReservedStockQuery, [workOrderData.product_id]);
-
-          if (stockResult.rows.length > 0) {
-            const product = stockResult.rows[0];
-            const currentReservedStock = parseFloat(product.reserved_stock) || 0;
-            const currentStock = parseFloat(product.current_stock) || 0;
-            const requiredQuantity = workOrderData.quantity;
-
-            // Check if there's enough available stock (current_stock - reserved_stock)
-            const availableStock = currentStock - currentReservedStock;
-            if (availableStock < requiredQuantity) {
-              throw new Error(`Insufficient available stock for product. Available: ${availableStock}, Required: ${requiredQuantity}`);
-            }
-
-            // Reserve the stock
-            const newReservedStock = currentReservedStock + requiredQuantity;
-            await client.query(
-              'UPDATE products SET reserved_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-              [newReservedStock, workOrderData.product_id]
-            );
-
-            MyLogger.info("Stock reserved for work order", {
-              workOrderId: newWorkOrder.id,
-              productId: workOrderData.product_id,
-              quantity: requiredQuantity,
-              newReservedStock
-            });
-          }
-        } else {
-          MyLogger.info("AddWorkOrderMediator.createWorkOrder", {
-            workOrderId: newWorkOrder.id,
-            productId: workOrderData.product_id,
-            message: "Reserved stock column not available; skipping stock reservation step"
-          });
-        }
-      }
 
       // Create assignments if operators were provided
       if (workOrderData.assigned_operators && workOrderData.assigned_operators.length > 0) {

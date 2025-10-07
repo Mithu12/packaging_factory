@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,14 +13,12 @@ import {
   TrendingUp,
   BarChart3,
   Search,
-  Filter,
   Plus,
   Eye,
   Edit,
   Download,
   RefreshCw,
   Target,
-  Zap,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -40,17 +38,24 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
-  MaterialRequirement,
-  MaterialShortage,
-  MaterialPlanningStats,
-  MaterialRequirementsQueryParams,
-} from "../types/bom";
-import { BOMApiService, bomQueryKeys } from "@/services/bom-api";
+  BOMApiService,
+  bomQueryKeys,
+  type MaterialPlanningStats,
+  type MaterialShortage,
+  type MaterialRequirementsQueryParams as ApiMaterialRequirementsQueryParams,
+  type WorkOrderMaterialRequirement,
+} from "@/services/bom-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+type RequirementsQueryParams = ApiMaterialRequirementsQueryParams & {
+  page?: number;
+  limit?: number;
+  search?: string;
+};
 
 export default function MaterialRequirementsPlanning() {
   const navigate = useNavigate();
-  const { formatCurrency, formatDate, formatNumber } = useFormatting();
+  const { formatCurrency, formatDate } = useFormatting();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -62,7 +67,7 @@ export default function MaterialRequirementsPlanning() {
   const queryClient = useQueryClient();
 
   // API query parameters
-  const queryParams: MaterialRequirementsQueryParams = {
+  const queryParams: RequirementsQueryParams = {
     search: searchTerm || undefined,
     status: statusFilter === "all" ? undefined : statusFilter,
     sort_by: 'required_date',
@@ -109,7 +114,7 @@ export default function MaterialRequirementsPlanning() {
     mutationFn: (shortageIds: string[]) => BOMApiService.generatePurchaseOrdersForShortages(shortageIds),
     onSuccess: (result) => {
       console.log("Purchase orders generated:", result);
-      setGeneratedPOs(result.purchase_orders);
+      setGeneratedPOs(result.purchase_orders ?? []);
       setShowPODialog(true);
       // Refresh shortages data to show updated status
       queryClient.invalidateQueries({ queryKey: bomQueryKeys.materialShortages() });
@@ -119,9 +124,10 @@ export default function MaterialRequirementsPlanning() {
     },
   });
 
-  const requirements = requirementsData?.requirements || [];
-  const shortages = shortagesData || [];
-  const stats = statsData || {
+  const requirements: WorkOrderMaterialRequirement[] =
+    requirementsData?.requirements ?? [];
+  const shortages: MaterialShortage[] = shortagesData ?? [];
+  const defaultStats: MaterialPlanningStats = {
     total_requirements: 0,
     pending_allocations: 0,
     material_shortages: 0,
@@ -131,6 +137,11 @@ export default function MaterialRequirementsPlanning() {
     on_time_delivery: 0,
     cost_variance: 0,
   };
+  const stats = statsData ?? defaultStats;
+  const averageCostPerRequirement =
+    stats.total_requirements > 0
+      ? stats.total_material_value / stats.total_requirements
+      : 0;
 
   // Handle loading states
   if (requirementsLoading || statsLoading || shortagesLoading) {
@@ -159,14 +170,6 @@ export default function MaterialRequirementsPlanning() {
       </div>
     );
   }
-
-  const handleViewBOM = (bomId: string) => {
-    navigate(`/factory/bom/${bomId}/edit`);
-  };
-
-  const handleViewMaterial = (materialId: string) => {
-    navigate(`/factory/materials`);
-  };
 
   // Filter requirements based on search and priority (API handles status filtering)
   const filteredRequirements = requirements.filter((req) => {
@@ -510,10 +513,10 @@ export default function MaterialRequirementsPlanning() {
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h3 className="font-medium">
-                            {shortage.materialName}
+                            {shortage.material_name}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {shortage.materialSku} • {shortage.workOrderNumber}
+                            {shortage.material_sku} - {shortage.work_order_number}
                           </p>
                         </div>
                         <Badge className={getPriorityColor(shortage.priority)}>
@@ -525,25 +528,25 @@ export default function MaterialRequirementsPlanning() {
                         <div>
                           <div className="text-sm font-medium">Required</div>
                           <div className="text-2xl font-bold">
-                            {shortage.requiredQuantity}
+                            {shortage.required_quantity}
                           </div>
                         </div>
                         <div>
                           <div className="text-sm font-medium">Available</div>
                           <div className="text-2xl font-bold text-green-600">
-                            {shortage.availableQuantity}
+                            {shortage.available_quantity}
                           </div>
                         </div>
                         <div>
                           <div className="text-sm font-medium">Shortfall</div>
                           <div className="text-2xl font-bold text-red-600">
-                            {shortage.shortfallQuantity}
+                            {shortage.shortfall_quantity}
                           </div>
                         </div>
                         <div>
                           <div className="text-sm font-medium">Lead Time</div>
                           <div className="text-2xl font-bold">
-                            {shortage.leadTimeDays} days
+                            {shortage.lead_time_days} days
                           </div>
                         </div>
                       </div>
@@ -551,25 +554,25 @@ export default function MaterialRequirementsPlanning() {
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-sm">
                           <span>Required Date</span>
-                          <span>{formatDate(shortage.requiredDate)}</span>
+                          <span>{formatDate(shortage.required_date)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Supplier</span>
-                          <span>{shortage.supplierName || "Not assigned"}</span>
+                          <span>{shortage.supplier_name || "Not assigned"}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Suggested Action</span>
                           <Badge
                             variant="outline"
                             className={
-                              shortage.suggestedAction === "po_created"
+                              shortage.suggested_action === "po_created"
                                 ? "bg-green-100 text-green-800"
                                 : ""
                             }
                           >
-                            {shortage.suggestedAction === "po_created"
+                            {shortage.suggested_action === "po_created"
                               ? "PO CREATED"
-                              : shortage.suggestedAction.toUpperCase()}
+                              : shortage.suggested_action.toUpperCase()}
                           </Badge>
                         </div>
                       </div>
@@ -680,9 +683,7 @@ export default function MaterialRequirementsPlanning() {
                         Avg Cost per Requirement
                       </div>
                       <div className="font-medium">
-                        {formatCurrency(
-                          stats.total_material_value / stats.total_requirements || 0
-                        )}
+                        {formatCurrency(averageCostPerRequirement)}
                       </div>
                     </div>
                     <div>
@@ -758,7 +759,7 @@ export default function MaterialRequirementsPlanning() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Shortage Details - {selectedShortage?.materialName}
+              Shortage Details - {selectedShortage?.material_name}
             </DialogTitle>
             <DialogDescription>
               Detailed analysis of material shortage and recommended actions
@@ -777,13 +778,13 @@ export default function MaterialRequirementsPlanning() {
                     <div>
                       <div className="text-sm font-medium">Material</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedShortage.materialName}
+                        {selectedShortage.material_name}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Work Order</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedShortage.workOrderNumber}
+                        {selectedShortage.work_order_number}
                       </div>
                     </div>
                     <div>
@@ -797,7 +798,7 @@ export default function MaterialRequirementsPlanning() {
                     <div>
                       <div className="text-sm font-medium">Required Date</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatDate(selectedShortage.requiredDate)}
+                        {formatDate(selectedShortage.required_date)}
                       </div>
                     </div>
                   </div>
@@ -814,19 +815,19 @@ export default function MaterialRequirementsPlanning() {
                     <div className="flex justify-between items-center">
                       <span>Required Quantity</span>
                       <span className="font-medium">
-                        {selectedShortage.requiredQuantity}
+                        {selectedShortage.required_quantity}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Available Quantity</span>
                       <span className="font-medium text-green-600">
-                        {selectedShortage.availableQuantity}
+                        {selectedShortage.available_quantity}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Shortfall Quantity</span>
                       <span className="font-medium text-red-600">
-                        {selectedShortage.shortfallQuantity}
+                        {selectedShortage.shortfall_quantity}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -834,9 +835,11 @@ export default function MaterialRequirementsPlanning() {
                         className="bg-red-600 h-2 rounded-full"
                         style={{
                           width: `${
-                            (selectedShortage.shortfallQuantity /
-                              selectedShortage.requiredQuantity) *
-                            100
+                            selectedShortage.required_quantity > 0
+                              ? (selectedShortage.shortfall_quantity /
+                                  selectedShortage.required_quantity) *
+                                100
+                              : 0
                           }%`,
                         }}
                       />
@@ -855,18 +858,18 @@ export default function MaterialRequirementsPlanning() {
                     <div className="flex items-center justify-between">
                       <span>Suggested Action</span>
                       <Badge variant="outline">
-                        {selectedShortage.suggestedAction.toUpperCase()}
+                        {selectedShortage.suggested_action.toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Supplier</span>
                       <span>
-                        {selectedShortage.supplierName || "Not assigned"}
+                        {selectedShortage.supplier_name || "Not assigned"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Lead Time</span>
-                      <span>{selectedShortage.leadTimeDays} days</span>
+                      <span>{selectedShortage.lead_time_days} days</span>
                     </div>
                     {selectedShortage.notes && (
                       <div>

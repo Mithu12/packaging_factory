@@ -712,11 +712,14 @@ export class GetBOMInfoMediator {
           ms.notes,
           ms.created_at,
           ms.updated_at,
-          ms.unit_cost,
-          ms.total_cost
+          COALESCE(wmr.unit_cost, p.cost_price, 0) AS unit_cost,
+          COALESCE(wmr.unit_cost, p.cost_price, 0) * ms.shortfall_quantity AS total_cost
         FROM material_shortages ms
         JOIN work_orders wo ON ms.work_order_id = wo.id
         JOIN products p ON wo.product_id = p.id
+        LEFT JOIN work_order_material_requirements wmr
+          ON wmr.work_order_id = ms.work_order_id
+          AND wmr.material_id = ms.material_id
       `;
 
       // Add factory access filter for non-admin users
