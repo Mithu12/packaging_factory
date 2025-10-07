@@ -1,7 +1,7 @@
 import express from 'express';
-import { authenticate } from '@/middleware/authenticate';
-import { requirePermission } from '@/middleware/permission';
-import { validateRequest, validateQuery, validateParams } from '@/middleware/validateRequest';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
+import { validateRequest, validateQuery, validateParams } from '@/middleware/validation';
 import { auditMiddleware } from '@/middleware/audit';
 import {
   createProductionRunSchema,
@@ -23,7 +23,7 @@ const router = express.Router();
 router.get(
   '/stats',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_READ'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ),
   productionExecutionController.getProductionRunStats
 );
 
@@ -35,7 +35,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_READ'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ),
   validateQuery(productionRunQuerySchema),
   productionExecutionController.getProductionRuns
 );
@@ -48,7 +48,7 @@ router.get(
 router.get(
   '/:id',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_READ'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ),
   validateParams(productionRunParamsSchema),
   productionExecutionController.getProductionRunById
 );
@@ -61,16 +61,9 @@ router.get(
 router.post(
   '/',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_CREATE'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_CREATE),
   validateRequest(createProductionRunSchema),
-  auditMiddleware({
-    action: 'CREATE',
-    resource: 'PRODUCTION_RUN',
-    getDetails: (req) => ({
-      work_order_id: req.body.work_order_id,
-      target_quantity: req.body.target_quantity,
-    }),
-  }),
+  auditMiddleware,
   productionExecutionController.createProductionRun
 );
 
@@ -82,16 +75,9 @@ router.post(
 router.post(
   '/:id/start',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_UPDATE'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_UPDATE),
   validateParams(productionRunParamsSchema),
-  auditMiddleware({
-    action: 'START',
-    resource: 'PRODUCTION_RUN',
-    getDetails: (req) => ({
-      production_run_id: req.params.id,
-    }),
-  }),
-  productionExecutionController.startProductionRun
+  auditMiddleware,productionExecutionController.startProductionRun
 );
 
 /**
@@ -102,17 +88,10 @@ router.post(
 router.post(
   '/:id/pause',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_UPDATE'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_UPDATE),
   validateParams(productionRunParamsSchema),
   validateRequest(pauseProductionRunSchema),
-  auditMiddleware({
-    action: 'PAUSE',
-    resource: 'PRODUCTION_RUN',
-    getDetails: (req) => ({
-      production_run_id: req.params.id,
-    }),
-  }),
-  productionExecutionController.pauseProductionRun
+  auditMiddleware,productionExecutionController.pauseProductionRun
 );
 
 /**
@@ -123,17 +102,10 @@ router.post(
 router.post(
   '/:id/complete',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_UPDATE'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_UPDATE),
   validateParams(productionRunParamsSchema),
   validateRequest(completeProductionRunSchema),
-  auditMiddleware({
-    action: 'COMPLETE',
-    resource: 'PRODUCTION_RUN',
-    getDetails: (req) => ({
-      production_run_id: req.params.id,
-      produced_quantity: req.body.produced_quantity,
-    }),
-  }),
+  auditMiddleware,
   productionExecutionController.completeProductionRun
 );
 
@@ -145,16 +117,9 @@ router.post(
 router.post(
   '/downtime',
   authenticate,
-  requirePermission('FACTORY_PRODUCTION_RUNS_UPDATE'),
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_UPDATE),
   validateRequest(recordDowntimeSchema),
-  auditMiddleware({
-    action: 'RECORD_DOWNTIME',
-    resource: 'PRODUCTION_RUN',
-    getDetails: (req) => ({
-      production_run_id: req.body.production_run_id,
-      downtime_reason: req.body.downtime_reason,
-    }),
-  }),
+  auditMiddleware,
   productionExecutionController.recordDowntime
 );
 

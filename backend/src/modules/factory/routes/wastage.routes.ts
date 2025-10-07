@@ -1,7 +1,7 @@
 import express from 'express';
-import { authenticate } from '@/middleware/authenticate';
-import { requirePermission } from '@/middleware/permission';
-import { validateRequest, validateQuery, validateParams } from '@/middleware/validateRequest';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
+import { validateRequest, validateQuery, validateParams } from '@/middleware/validation';
 import { auditMiddleware } from '@/middleware/audit';
 import {
   approveWastageSchema,
@@ -20,7 +20,7 @@ const router = express.Router();
 router.get(
   '/stats',
   authenticate,
-  requirePermission('FACTORY_WASTAGE_READ'),
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_READ),
   wastageController.getWastageStats
 );
 
@@ -32,7 +32,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  requirePermission('FACTORY_WASTAGE_READ'),
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_READ),
   validateQuery(wastageQuerySchema),
   wastageController.getWastageRecords
 );
@@ -45,7 +45,7 @@ router.get(
 router.get(
   '/:id',
   authenticate,
-  requirePermission('FACTORY_WASTAGE_READ'),
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_READ),
   validateParams(wastageParamsSchema),
   wastageController.getWastageById
 );
@@ -58,39 +58,25 @@ router.get(
 router.post(
   '/:id/approve',
   authenticate,
-  requirePermission('FACTORY_WASTAGE_APPROVE'),
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_APPROVE),
   validateParams(wastageParamsSchema),
   validateRequest(approveWastageSchema),
-  auditMiddleware({
-    action: 'APPROVE',
-    resource: 'MATERIAL_WASTAGE',
-    getDetails: (req) => ({
-      wastage_id: req.params.id,
-      notes: req.body.notes,
-    }),
-  }),
+  auditMiddleware,
   wastageController.approveWastage
 );
 
 /**
  * @route   POST /api/factory/wastage/:id/reject
  * @desc    Reject wastage record
- * @access  Private (FACTORY_WASTAGE_REJECT)
+ * @access  Private (FACTORY_WASTAGE_APPROVE)
  */
 router.post(
   '/:id/reject',
   authenticate,
-  requirePermission('FACTORY_WASTAGE_REJECT'),
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_APPROVE),
   validateParams(wastageParamsSchema),
   validateRequest(approveWastageSchema),
-  auditMiddleware({
-    action: 'REJECT',
-    resource: 'MATERIAL_WASTAGE',
-    getDetails: (req) => ({
-      wastage_id: req.params.id,
-      notes: req.body.notes,
-    }),
-  }),
+  auditMiddleware,
   wastageController.rejectWastage
 );
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticate } from '@/middleware/auth';
 import { PERMISSIONS, requirePermission } from '@/middleware/permission';
-import { validateRequest, validateQuery, validateParams } from '@/middleware/validateRequest';
+import { validateRequest, validateQuery, validateParams } from '@/middleware/validation';
 import { auditMiddleware } from '@/middleware/audit';
 import {
   createConsumptionSchema,
@@ -20,7 +20,7 @@ const router = express.Router();
 router.get(
   '/stats',
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_CONSUMPTIONS_READ),
+  requirePermission(PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ),
   materialConsumptionsController.getConsumptionStats
 );
 
@@ -32,7 +32,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  requirePermission('FACTORY_CONSUMPTIONS_READ'),
+  requirePermission(PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ),
   validateQuery(consumptionQuerySchema),
   materialConsumptionsController.getConsumptions
 );
@@ -40,12 +40,12 @@ router.get(
 /**
  * @route   GET /api/factory/material-consumptions/:id
  * @desc    Get consumption by ID
- * @access  Private (FACTORY_CONSUMPTIONS_READ)
+ * @access  Private (FACTORY_MATERIAL_CONSUMPTIONS_READ)
  */
 router.get(
   '/:id',
   authenticate,
-  requirePermission('FACTORY_CONSUMPTIONS_READ'),
+  requirePermission(PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ),
   validateParams(consumptionParamsSchema),
   materialConsumptionsController.getConsumptionById
 );
@@ -53,22 +53,14 @@ router.get(
 /**
  * @route   POST /api/factory/material-consumptions
  * @desc    Create material consumption
- * @access  Private (FACTORY_CONSUMPTIONS_CREATE)
+ * @access  Private (FACTORY_MATERIAL_CONSUMPTIONS_CREATE)
  */
 router.post(
   '/',
   authenticate,
-  requirePermission('FACTORY_CONSUMPTIONS_CREATE'),
+  requirePermission(PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_CREATE),
   validateRequest(createConsumptionSchema),
-  auditMiddleware({
-    action: 'CREATE',
-    resource: 'MATERIAL_CONSUMPTION',
-    getDetails: (req) => ({
-      work_order_requirement_id: req.body.work_order_requirement_id,
-      material_id: req.body.material_id,
-      consumed_quantity: req.body.consumed_quantity,
-    }),
-  }),
+  auditMiddleware,
   materialConsumptionsController.createConsumption
 );
 

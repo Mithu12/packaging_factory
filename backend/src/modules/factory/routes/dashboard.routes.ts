@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticate } from '@/middleware/authenticate';
-import { requirePermission } from '@/middleware/permission';
+import { authenticate } from '@/middleware/auth';
+import { requirePermission, PERMISSIONS } from '@/middleware/permission';
 import * as dashboardController from '../controllers/dashboard.controller';
 
 const router = express.Router();
@@ -13,7 +13,7 @@ const router = express.Router();
 router.get(
   '/stats',
   authenticate,
-  requirePermission('FACTORY_DASHBOARD_READ'),
+  requirePermission(PERMISSIONS.FACTORY_DASHBOARD_READ),
   dashboardController.getDashboardStats
 );
 
