@@ -206,43 +206,6 @@ export default function WorkOrderPlanning() {
     },
   });
 
-  // Mutation for status changes
-  const statusChangeMutation = useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) =>
-      WorkOrdersApiService.updateWorkOrderStatus(id, status, notes),
-    onSuccess: (result) => {
-      console.log("Work order status updated:", result);
-      // Refresh work orders data and products (for stock updates)
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
-    },
-    onError: (error) => {
-      console.error("Failed to update work order status:", error);
-      setError(error instanceof Error ? error.message : 'Failed to update work order status');
-    },
-  });
-
-  const handleReleaseWorkOrder = (workOrderId: string) => {
-    statusChangeMutation.mutate({ id: workOrderId, status: 'released' });
-  };
-
-  const handleStartWorkOrder = (workOrderId: string) => {
-    statusChangeMutation.mutate({ id: workOrderId, status: 'in_progress' });
-  };
-
-  const handleCompleteWorkOrder = (workOrderId: string) => {
-    statusChangeMutation.mutate({
-      id: workOrderId,
-      status: 'completed',
-      notes: "Completed via planning interface"
-    });
-  };
-
-  const planningMutationsPending = updateWorkOrderMutation.isPending || statusChangeMutation.isPending;
-  const isSavePlanningPending = planningSubmitType === "save" && planningMutationsPending;
-  const isPlanAndPromotePending = planningSubmitType === "plan" && planningMutationsPending;
-
   // Handle loading state
   if (loading) {
     return (
@@ -386,6 +349,43 @@ export default function WorkOrderPlanning() {
     setShowEditDialog(true);
   };
 
+  // Mutation for status changes
+  const statusChangeMutation = useMutation({
+    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) =>
+      WorkOrdersApiService.updateWorkOrderStatus(id, status, notes),
+    onSuccess: (result) => {
+      console.log("Work order status updated:", result);
+      // Refresh work orders data and products (for stock updates)
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+    },
+    onError: (error) => {
+      console.error("Failed to update work order status:", error);
+      setError(error instanceof Error ? error.message : 'Failed to update work order status');
+    },
+  });
+
+  const handleReleaseWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({ id: workOrderId, status: 'released' });
+  };
+
+  const handleStartWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({ id: workOrderId, status: 'in_progress' });
+  };
+
+  const handleCompleteWorkOrder = (workOrderId: string) => {
+    statusChangeMutation.mutate({
+      id: workOrderId,
+      status: 'completed',
+      notes: "Completed via planning interface"
+    });
+  };
+
+  const planningMutationsPending = updateWorkOrderMutation.isPending || statusChangeMutation.isPending;
+  const isSavePlanningPending = planningSubmitType === "save" && planningMutationsPending;
+  const isPlanAndPromotePending = planningSubmitType === "plan" && planningMutationsPending;
+
   const handleCreateWorkOrder = () => {
     setSelectedWorkOrder(null);
     setNewWorkOrder({
@@ -421,9 +421,7 @@ export default function WorkOrderPlanning() {
   const handleSavePlanning = async (promoteToPlanned: boolean = false) => {
     if (!selectedWorkOrder) return;
 
-    const productionLineId = planningData.production_line_id
-      ? parseInt(planningData.production_line_id, 10)
-      : undefined;
+    const productionLineId = planningData.production_line_id;
 
     if (promoteToPlanned && !productionLineId) {
       setError("Select a production line before marking the work order as planned.");

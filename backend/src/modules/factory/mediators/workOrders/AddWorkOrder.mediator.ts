@@ -54,6 +54,14 @@ async function hasReservedStockColumn(): Promise<boolean> {
   return cachedReservedStockSupport;
 }
 
+function calculateProductionLineLoad(estimatedHours: number): number {
+  if (!Number.isFinite(estimatedHours) || estimatedHours <= 0) {
+    return 0;
+  }
+  // Basic heuristic: convert hours into a 0-100 load percentage
+  return Math.min((estimatedHours / 8) * 10, 100);
+}
+
 export class AddWorkOrderMediator {
   static async createWorkOrder(
     workOrderData: CreateWorkOrderRequest,
@@ -303,11 +311,17 @@ export class AddWorkOrderMediator {
       if (workOrderData.production_line_id) {
         // Calculate estimated load based on estimated hours and line capacity
         // This is a simplified calculation - in reality you'd want more sophisticated load calculation
-        const estimatedLoad = Math.min((workOrderData.estimated_hours / 8) * 10, 100); // Assume 8-hour day, convert to percentage
+        const estimatedLoad = calculateProductionLineLoad(workOrderData.estimated_hours);
 
         await client.query(`
           UPDATE production_lines
-          SET current_load = current_load + $1, updated_at = CURRENT_TIMESTAMP
+          SET
+            current_load = LEAST(current_load + $1, 100),
+            status = CASE
+              WHEN status = 'available' THEN 'busy'
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
           WHERE id = $2
         `, [estimatedLoad, workOrderData.production_line_id]);
       }

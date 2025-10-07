@@ -26,13 +26,54 @@ async function isUserAdmin(userId: number): Promise<boolean> {
   return result.rows[0].role_id === UserRoleIds.ADMIN;
 }
 
+function calculateProductionLineLoad(estimatedHours: number): number {
+  if (!Number.isFinite(estimatedHours) || estimatedHours <= 0) {
+    return 0;
+  }
+  return Math.min((estimatedHours / 8) * 10, 100);
+}
+
 // Helper function to handle stock reservation updates
+let cachedReservedStockSupport: boolean | null = null;
+
+async function hasReservedStockColumn(): Promise<boolean> {
+  if (cachedReservedStockSupport !== null) {
+    return cachedReservedStockSupport;
+  }
+
+  try {
+    const checkQuery = `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'products'
+          AND column_name = 'reserved_stock'
+      ) AS exists
+    `;
+    const result = await pool.query(checkQuery);
+    cachedReservedStockSupport = Boolean(result.rows?.[0]?.exists);
+  } catch (error: any) {
+    cachedReservedStockSupport = false;
+    MyLogger.warn("UpdateWorkOrderMediator.hasReservedStockColumn", {
+      message: "Failed to inspect products.reserved_stock column; assuming absent",
+      error: error?.message || error,
+    });
+  }
+
+  return cachedReservedStockSupport;
+}
+
 async function handleStockReservationUpdate(
   client: any,
   workOrderId: string,
   updateData: any,
   currentWorkOrder: any
 ) {
+  const supportsReservedStock = await hasReservedStockColumn();
+  if (!supportsReservedStock) {
+    return;
+  }
+
   const currentQuantity = parseFloat(currentWorkOrder.quantity) || 0;
   const currentProductId = currentWorkOrder.product_id;
   const newQuantity = updateData.quantity ? parseFloat(updateData.quantity) : currentQuantity;
@@ -249,6 +290,40 @@ export class UpdateWorkOrderMediator {
       }
 
       const updatedWorkOrder = updateResult.rows[0];
+      const previousLineId = existingWorkOrder.production_line_id ? existingWorkOrder.production_line_id.toString() : null;
+      const newLineId = updatedWorkOrder.production_line_id ? updatedWorkOrder.production_line_id.toString() : null;
+      const previousLoad = calculateProductionLineLoad(parseFloat(existingWorkOrder.estimated_hours) || 0);
+      const newLoad = calculateProductionLineLoad(parseFloat(updatedWorkOrder.estimated_hours) || 0);
+      const lineChanged = previousLineId !== newLineId;
+      const loadChanged = previousLoad !== newLoad;
+
+      if (previousLineId && (lineChanged || loadChanged)) {
+        await client.query(`
+          UPDATE production_lines
+          SET
+            current_load = GREATEST(current_load - $1, 0),
+            status = CASE
+              WHEN GREATEST(current_load - $1, 0) <= 0 THEN 'available'
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [previousLoad, previousLineId]);
+      }
+
+      if (newLineId && (lineChanged || loadChanged)) {
+        await client.query(`
+          UPDATE production_lines
+          SET
+            current_load = LEAST(current_load + $1, 100),
+            status = CASE
+              WHEN status = 'available' THEN 'busy'
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [newLoad, newLineId]);
+      }
 
       // Handle operator assignments if they were updated
       if (updateData.assigned_operators !== undefined) {
@@ -425,7 +500,9 @@ export class UpdateWorkOrderMediator {
       const updatedWorkOrder = updateResult.rows[0];
 
       // Handle stock release when work order is completed or cancelled
-      if (newStatus === 'completed' || newStatus === 'cancelled') {
+      const supportsReservedStock = await hasReservedStockColumn();
+
+      if (supportsReservedStock && (newStatus === 'completed' || newStatus === 'cancelled')) {
         const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
         const productId = updatedWorkOrder.product_id;
 
@@ -465,6 +542,42 @@ export class UpdateWorkOrderMediator {
             SET availability_status = 'busy', updated_at = CURRENT_TIMESTAMP
             WHERE id = ANY($1::integer[])
           `, [operatorIds]);
+        }
+      }
+
+      const productionLineId = updatedWorkOrder.production_line_id;
+      if (productionLineId) {
+        const lineLoad = calculateProductionLineLoad(parseFloat(updatedWorkOrder.estimated_hours) || 0);
+
+        if (newStatus === 'completed' || newStatus === 'cancelled') {
+          await client.query(`
+            UPDATE production_lines
+            SET
+              current_load = GREATEST(current_load - $1, 0),
+              status = CASE
+                WHEN GREATEST(current_load - $1, 0) <= 0 THEN 'available'
+                ELSE status
+              END,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [lineLoad, productionLineId]);
+        } else if (['planned', 'released', 'in_progress'].includes(newStatus)) {
+          await client.query(`
+            UPDATE production_lines
+            SET
+              status = CASE
+                WHEN status = 'available' THEN 'busy'
+                ELSE status
+              END,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [productionLineId]);
+        } else if (newStatus === 'on_hold') {
+          await client.query(`
+            UPDATE production_lines
+            SET status = 'maintenance', updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [productionLineId]);
         }
       }
 
