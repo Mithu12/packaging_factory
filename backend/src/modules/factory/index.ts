@@ -5,6 +5,10 @@ import factoriesRoutes from "./routes/factories.routes";
 import workOrdersRoutes from "./routes/workOrders.routes";
 import bomRoutes from "./routes/bom.routes";
 import materialAllocationsRoutes from "./routes/materialAllocations.routes";
+import materialConsumptionsRoutes from "./routes/materialConsumptions.routes";
+import wastageRoutes from "./routes/wastage.routes";
+import productionExecutionRoutes from "./routes/productionExecution.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 import express from "express";
 
 const router = express.Router();
@@ -17,5 +21,9 @@ router.use("/factories", factoriesRoutes);
 router.use("/work-orders", workOrdersRoutes);
 router.use("/boms", bomRoutes);
 router.use("/material-allocations", materialAllocationsRoutes);
+router.use("/material-consumptions", materialConsumptionsRoutes);
+router.use("/wastage", wastageRoutes);
+router.use("/production-runs", productionExecutionRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;

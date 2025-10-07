@@ -1,6 +1,12 @@
-import axios from 'axios';
+// =====================================================
+// Material Allocations Frontend API Service
+// =====================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { makeRequest } from '@/services/api-utils';
+
+// =====================================================
+// Types
+// =====================================================
 
 export interface MaterialAllocation {
   id: string;
@@ -64,15 +70,11 @@ export interface MaterialAllocationStats {
   allocation_efficiency: number;
 }
 
-export class MaterialAllocationsApiService {
-  private static getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  }
+// =====================================================
+// API Service
+// =====================================================
 
+export class MaterialAllocationsApiService {
   static async getAllocations(
     params?: MaterialAllocationQueryParams
   ): Promise<{
@@ -81,79 +83,63 @@ export class MaterialAllocationsApiService {
     page: number;
     limit: number;
   }> {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/factory/material-allocations`,
-      {
-        params,
-        headers: this.getAuthHeaders(),
-      }
-    );
-    return response.data.data;
+    const queryString = params
+      ? '?' + new URLSearchParams(params as any).toString()
+      : '';
+    
+    return makeRequest<{
+      allocations: MaterialAllocation[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/factory/material-allocations${queryString}`);
   }
 
   static async getAllocationById(id: string): Promise<MaterialAllocation> {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/factory/material-allocations/${id}`,
-      {
-        headers: this.getAuthHeaders(),
-      }
-    );
-    return response.data.data;
+    return makeRequest<MaterialAllocation>(`/factory/material-allocations/${id}`);
   }
 
   static async createAllocation(
     data: CreateMaterialAllocationRequest
   ): Promise<MaterialAllocation> {
-    const response = await axios.post(
-      `${API_BASE_URL}/api/factory/material-allocations`,
-      data,
-      {
-        headers: this.getAuthHeaders(),
-      }
-    );
-    return response.data.data;
+    return makeRequest<MaterialAllocation>('/factory/material-allocations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async updateAllocation(
     id: string,
     data: UpdateMaterialAllocationRequest
   ): Promise<MaterialAllocation> {
-    const response = await axios.put(
-      `${API_BASE_URL}/api/factory/material-allocations/${id}`,
-      data,
-      {
-        headers: this.getAuthHeaders(),
-      }
-    );
-    return response.data.data;
+    return makeRequest<MaterialAllocation>(`/factory/material-allocations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   static async returnAllocation(
     id: string,
     notes?: string
   ): Promise<{ success: boolean; message: string }> {
-    const response = await axios.post(
-      `${API_BASE_URL}/api/factory/material-allocations/${id}/return`,
-      { notes },
+    return makeRequest<{ success: boolean; message: string }>(
+      `/factory/material-allocations/${id}/return`,
       {
-        headers: this.getAuthHeaders(),
+        method: 'POST',
+        body: JSON.stringify({ notes }),
       }
     );
-    return response.data.data;
   }
 
   static async getAllocationStats(): Promise<MaterialAllocationStats> {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/factory/material-allocations/stats`,
-      {
-        headers: this.getAuthHeaders(),
-      }
-    );
-    return response.data.data;
+    return makeRequest<MaterialAllocationStats>('/factory/material-allocations/stats');
   }
 }
 
-// Query keys for React Query
+// =====================================================
+// Query Keys for React Query
+// =====================================================
+
 export const materialAllocationsQueryKeys = {
   all: ['material-allocations'] as const,
   lists: () => [...materialAllocationsQueryKeys.all, 'list'] as const,
@@ -164,4 +150,3 @@ export const materialAllocationsQueryKeys = {
     [...materialAllocationsQueryKeys.details(), id] as const,
   stats: () => [...materialAllocationsQueryKeys.all, 'stats'] as const,
 };
-

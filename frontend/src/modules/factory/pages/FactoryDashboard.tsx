@@ -1,28 +1,7 @@
-import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Factory,
   Package,
@@ -30,625 +9,459 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingUp,
-  Users,
-  Calendar,
-  BarChart3,
   Activity,
   Zap,
   Target,
-  Plus,
+  DollarSign,
+  Calendar,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
-
-interface FactoryStats {
-  totalOrders: number;
-  activeWorkOrders: number;
-  completedToday: number;
-  pendingApprovals: number;
-  efficiency: number;
-  onTimeDelivery: number;
-}
-
-interface WorkOrder {
-  id: string;
-  orderNumber: string;
-  product: string;
-  quantity: number;
-  deadline: string;
-  status: "pending" | "in_progress" | "completed" | "overdue";
-  priority: "low" | "medium" | "high" | "urgent";
-  progress: number;
-}
-
-interface RecentActivity {
-  id: string;
-  type:
-    | "order_accepted"
-    | "wo_created"
-    | "production_started"
-    | "production_completed"
-    | "wastage_recorded";
-  description: string;
-  timestamp: string;
-  user: string;
-}
+import { FactoryDashboardApiService, factoryDashboardQueryKeys } from "@/services/factory-dashboard-api";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function FactoryDashboard() {
   const { formatCurrency, formatDate } = useFormatting();
-  const [stats, setStats] = useState<FactoryStats>({
-    totalOrders: 0,
-    activeWorkOrders: 0,
-    completedToday: 0,
-    pendingApprovals: 0,
-    efficiency: 0,
-    onTimeDelivery: 0,
+  const navigate = useNavigate();
+
+  // Fetch dashboard stats
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: factoryDashboardQueryKeys.stats(),
+    queryFn: () => FactoryDashboardApiService.getDashboardStats(),
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
-
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [isNewWorkOrderOpen, setIsNewWorkOrderOpen] = useState(false);
-  const [newWorkOrder, setNewWorkOrder] = useState({
-    orderNumber: "",
-    product: "",
-    quantity: "",
-    deadline: "",
-    priority: "medium" as "low" | "medium" | "high" | "urgent",
-    description: "",
-  });
-
-  useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setStats({
-      totalOrders: 24,
-      activeWorkOrders: 8,
-      completedToday: 12,
-      pendingApprovals: 3,
-      efficiency: 87,
-      onTimeDelivery: 92,
-    });
-
-    setWorkOrders([
-      {
-        id: "WO-001",
-        orderNumber: "ORD-2024-001",
-        product: "Premium Widget A",
-        quantity: 500,
-        deadline: "2024-03-15",
-        status: "in_progress",
-        priority: "high",
-        progress: 65,
-      },
-      {
-        id: "WO-002",
-        orderNumber: "ORD-2024-002",
-        product: "Standard Widget B",
-        quantity: 1000,
-        deadline: "2024-03-12",
-        status: "overdue",
-        priority: "urgent",
-        progress: 90,
-      },
-      {
-        id: "WO-003",
-        orderNumber: "ORD-2024-003",
-        product: "Custom Widget C",
-        quantity: 250,
-        deadline: "2024-03-18",
-        status: "pending",
-        priority: "medium",
-        progress: 0,
-      },
-    ]);
-
-    setRecentActivity([
-      {
-        id: "1",
-        type: "order_accepted",
-        description: "Order ORD-2024-001 accepted by Factory Manager",
-        timestamp: "2024-03-10T10:30:00Z",
-        user: "John Smith",
-      },
-      {
-        id: "2",
-        type: "wo_created",
-        description: "Work Order WO-001 created for Premium Widget A",
-        timestamp: "2024-03-10T11:15:00Z",
-        user: "Jane Doe",
-      },
-      {
-        id: "3",
-        type: "production_started",
-        description: "Production started for WO-001",
-        timestamp: "2024-03-10T14:00:00Z",
-        user: "Mike Johnson",
-      },
-    ]);
-  }, []);
-
-  const handleNewWorkOrderSubmit = () => {
-    if (
-      !newWorkOrder.orderNumber ||
-      !newWorkOrder.product ||
-      !newWorkOrder.quantity ||
-      !newWorkOrder.deadline
-    ) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
-    const workOrderId = `WO-${String(workOrders.length + 1).padStart(3, "0")}`;
-    const newWorkOrderData: WorkOrder = {
-      id: workOrderId,
-      orderNumber: newWorkOrder.orderNumber,
-      product: newWorkOrder.product,
-      quantity: parseInt(newWorkOrder.quantity),
-      deadline: newWorkOrder.deadline,
-      status: "pending",
-      priority: newWorkOrder.priority,
-      progress: 0,
-    };
-
-    setWorkOrders((prev) => [newWorkOrderData, ...prev]);
-
-    // Add to recent activity
-    const newActivity: RecentActivity = {
-      id: String(recentActivity.length + 1),
-      type: "wo_created",
-      description: `Work Order ${workOrderId} created for ${newWorkOrder.product}`,
-      timestamp: new Date().toISOString(),
-      user: "Current User",
-    };
-    setRecentActivity((prev) => [newActivity, ...prev]);
-
-    // Update stats
-    setStats((prev) => ({
-      ...prev,
-      totalOrders: prev.totalOrders + 1,
-      activeWorkOrders: prev.activeWorkOrders + 1,
-    }));
-
-    // Reset form and close modal
-    setNewWorkOrder({
-      orderNumber: "",
-      product: "",
-      quantity: "",
-      deadline: "",
-      priority: "medium",
-      description: "",
-    });
-    setIsNewWorkOrderOpen(false);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-800";
       case "in_progress":
-        return "bg-blue-100 text-blue-800";
-      case "overdue":
-        return "bg-red-100 text-red-800";
+      case "approved":
+        return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
+      case "completed":
+      case "shipped":
+        return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-red-100 text-red-800";
-      case "high":
-        return "bg-orange-100 text-orange-800";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "low":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "order_accepted":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "wo_created":
-        return <Package className="h-4 w-4 text-blue-600" />;
-      case "production_started":
-        return <Zap className="h-4 w-4 text-yellow-600" />;
-      case "production_completed":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "wastage_recorded":
-        return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      default:
-        return <Activity className="h-4 w-4 text-gray-600" />;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Factory Dashboard</h1>
-          <p className="text-muted-foreground">
-            Monitor production activities and work orders
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Factory className="h-8 w-8 text-blue-600" />
+            Factory Dashboard
+          </h1>
+          <p className="text-gray-500">
+            Real-time overview of factory operations
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Calendar className="h-4 w-4 mr-2" />
-            View Calendar
-          </Button>
-          <Dialog
-            open={isNewWorkOrderOpen}
-            onOpenChange={setIsNewWorkOrderOpen}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Work Order
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create New Work Order</DialogTitle>
-                <DialogDescription>
-                  Add a new work order to the production queue.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="orderNumber" className="text-right">
-                    Order Number *
-                  </Label>
-                  <Input
-                    id="orderNumber"
-                    value={newWorkOrder.orderNumber}
-                    onChange={(e) =>
-                      setNewWorkOrder((prev) => ({
-                        ...prev,
-                        orderNumber: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                    placeholder="ORD-2024-XXX"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product" className="text-right">
-                    Product *
-                  </Label>
-                  <Input
-                    id="product"
-                    value={newWorkOrder.product}
-                    onChange={(e) =>
-                      setNewWorkOrder((prev) => ({
-                        ...prev,
-                        product: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                    placeholder="Product name"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="quantity" className="text-right">
-                    Quantity *
-                  </Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={newWorkOrder.quantity}
-                    onChange={(e) =>
-                      setNewWorkOrder((prev) => ({
-                        ...prev,
-                        quantity: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                    placeholder="100"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="deadline" className="text-right">
-                    Deadline *
-                  </Label>
-                  <Input
-                    id="deadline"
-                    type="date"
-                    value={newWorkOrder.deadline}
-                    onChange={(e) =>
-                      setNewWorkOrder((prev) => ({
-                        ...prev,
-                        deadline: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="priority" className="text-right">
-                    Priority
-                  </Label>
-                  <Select
-                    value={newWorkOrder.priority}
-                    onValueChange={(
-                      value: "low" | "medium" | "high" | "urgent"
-                    ) =>
-                      setNewWorkOrder((prev) => ({ ...prev, priority: value }))
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="description" className="text-right">
-                    Description
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={newWorkOrder.description}
-                    onChange={(e) =>
-                      setNewWorkOrder((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                    placeholder="Additional notes..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsNewWorkOrderOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleNewWorkOrderSubmit}>
-                  Create Work Order
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Customer Orders
+            </CardTitle>
+            <Package className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              +12% from last month
+            <div className="text-2xl font-bold">
+              {statsLoading ? "..." : stats?.active_orders || 0}
+            </div>
+            <p className="text-xs text-gray-500">
+              Active of {stats?.total_orders || 0} total
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Work Orders
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Work Orders
             </CardTitle>
-            <Factory className="h-4 w-4 text-muted-foreground" />
+            <Activity className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeWorkOrders}</div>
-            <p className="text-xs text-muted-foreground">In production</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Completed Today
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedToday}</div>
-            <p className="text-xs text-muted-foreground">
-              Work orders completed
+            <div className="text-2xl font-bold">
+              {statsLoading ? "..." : stats?.active_work_orders || 0}
+            </div>
+            <p className="text-xs text-gray-500">
+              Active of {stats?.total_work_orders || 0} total
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Approvals
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Production Runs
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <Zap className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingApprovals}</div>
-            <p className="text-xs text-muted-foreground">Awaiting approval</p>
+            <div className="text-2xl font-bold">
+              {statsLoading ? "..." : stats?.active_production_runs || 0}
+            </div>
+            <p className="text-xs text-gray-500">Currently running</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Produced Today
+            </CardTitle>
+            <Target className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statsLoading
+                ? "..."
+                : stats?.total_produced_today.toFixed(0) || 0}
+            </div>
+            <p className="text-xs text-gray-500">Units completed</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Production Efficiency
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Avg Efficiency
             </CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Current Efficiency</span>
-                <span className="font-medium">{stats.efficiency}%</span>
-              </div>
-              <Progress value={stats.efficiency} className="h-2" />
-              <p className="text-xs text-muted-foreground">Target: 90%</p>
+            <div className="text-2xl font-bold">
+              {statsLoading
+                ? "..."
+                : `${stats?.average_efficiency.toFixed(1) || 0}%`}
             </div>
+            <p className="text-xs text-gray-500">Production efficiency</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              On-Time Delivery
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Avg Quality
             </CardTitle>
+            <CheckCircle className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Delivery Rate</span>
-                <span className="font-medium">{stats.onTimeDelivery}%</span>
-              </div>
-              <Progress value={stats.onTimeDelivery} className="h-2" />
-              <p className="text-xs text-muted-foreground">Target: 95%</p>
+            <div className="text-2xl font-bold">
+              {statsLoading
+                ? "..."
+                : `${stats?.average_quality.toFixed(1) || 0}%`}
             </div>
+            <p className="text-xs text-gray-500">Quality rate</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Material Allocations
+            </CardTitle>
+            <Package className="h-4 w-4 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statsLoading ? "..." : stats?.total_allocations || 0}
+            </div>
+            <p className="text-xs text-gray-500">Active allocations</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">
+              Wastage Cost
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statsLoading
+                ? "..."
+                : formatCurrency(stats?.total_wastage_cost || 0)}
+            </div>
+            <p className="text-xs text-gray-500">Total wastage</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="work-orders" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
-          <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-          <TabsTrigger value="alerts">Alerts</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="work-orders" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Work Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {workOrders.map((wo) => (
-                  <div key={wo.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge className={getStatusColor(wo.status)}>
-                          {wo.status.replace("_", " ").toUpperCase()}
-                        </Badge>
-                        <Badge className={getPriorityColor(wo.priority)}>
-                          {wo.priority.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Due: {formatDate(wo.deadline)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-medium">{wo.product}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Order: {wo.orderNumber} • Qty: {wo.quantity}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span>{wo.progress}%</span>
-                      </div>
-                      <Progress value={wo.progress} className="h-2" />
+      {/* Alerts */}
+      {stats && (stats.material_shortages > 0 || stats.overdue_orders > 0 || stats.quality_issues > 0 || stats.wastage_pending_approval > 0) && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Alerts & Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.material_shortages > 0 && (
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Material Shortages</div>
+                    <div className="text-sm text-gray-600">
+                      {stats.material_shortages} materials need attention
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </div>
+              )}
+              {stats.overdue_orders > 0 && (
+                <div className="flex items-start gap-2">
+                  <Clock className="h-4 w-4 text-red-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Overdue Orders</div>
+                    <div className="text-sm text-gray-600">
+                      {stats.overdue_orders} orders past due date
+                    </div>
+                  </div>
+                </div>
+              )}
+              {stats.quality_issues > 0 && (
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Quality Issues</div>
+                    <div className="text-sm text-gray-600">
+                      {stats.quality_issues} runs below 90% quality
+                    </div>
+                  </div>
+                </div>
+              )}
+              {stats.wastage_pending_approval > 0 && (
+                <div className="flex items-start gap-2">
+                  <Clock className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Pending Approvals</div>
+                    <div className="text-sm text-gray-600">
+                      {stats.wastage_pending_approval} wastage records
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="activity" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Recent Orders</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/factory/orders")}
+              >
+                View All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            ) : !stats?.recent_orders || stats.recent_orders.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No recent orders
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {stats.recent_orders.map((order: any) => (
                   <div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-3 border rounded-lg"
+                    key={order.id}
+                    className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    onClick={() =>
+                      navigate(`/factory/orders/${order.id}`)
+                    }
                   >
-                    {getActivityIcon(activity.type)}
                     <div className="flex-1">
-                      <p className="text-sm">{activity.description}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(activity.timestamp)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <span className="text-xs text-muted-foreground">
-                          {activity.user}
-                        </span>
+                      <div className="font-medium text-sm">
+                        {order.order_number}
                       </div>
+                      <div className="text-xs text-gray-500">
+                        {order.customer_name}
+                      </div>
+                    </div>
+                    <Badge className={getStatusColor(order.status)}>
+                      {order.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Work Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Recent Work Orders</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/factory/work-order-planning")}
+              >
+                View All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            ) : !stats?.recent_work_orders || stats.recent_work_orders.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No recent work orders
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {stats.recent_work_orders.map((wo: any) => (
+                  <div
+                    key={wo.id}
+                    className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    onClick={() =>
+                      navigate(`/factory/work-order-planning`)
+                    }
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {wo.work_order_number}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {wo.product_name}
+                      </div>
+                    </div>
+                    <Badge className={getStatusColor(wo.status)}>
+                      {wo.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Active Production Runs */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Active Production</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/factory/production-execution")}
+              >
+                View All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            ) : !stats?.recent_production_runs || stats.recent_production_runs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No active production runs
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {stats.recent_production_runs.map((run: any) => (
+                  <div
+                    key={run.id}
+                    className="p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    onClick={() =>
+                      navigate("/factory/production-execution")
+                    }
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-medium text-sm">
+                        {run.run_number}
+                      </div>
+                      <Badge className={getStatusColor(run.status)}>
+                        {run.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-2">
+                      {run.work_order_number}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {run.produced_quantity} / {run.target_quantity} units (
+                      {run.efficiency_percentage.toFixed(0)}%)
                     </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="alerts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Alerts & Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 border border-red-200 rounded-lg bg-red-50">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-red-900">
-                      Overdue Work Order
-                    </p>
-                    <p className="text-sm text-red-700">
-                      WO-002 is 2 days overdue
-                    </p>
-                    <p className="text-xs text-red-600 mt-1">
-                      Due: March 12, 2024
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 border border-yellow-200 rounded-lg bg-yellow-50">
-                  <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-yellow-900">
-                      Approaching Deadline
-                    </p>
-                    <p className="text-sm text-yellow-700">
-                      WO-001 due in 3 days
-                    </p>
-                    <p className="text-xs text-yellow-600 mt-1">
-                      Due: March 15, 2024
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button
+              variant="outline"
+              className="h-20 flex flex-col gap-2"
+              onClick={() => navigate("/factory/order-acceptance")}
+            >
+              <Package className="h-6 w-6" />
+              <span>Review Orders</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex flex-col gap-2"
+              onClick={() => navigate("/factory/work-order-planning")}
+            >
+              <Activity className="h-6 w-6" />
+              <span>Plan Work Orders</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex flex-col gap-2"
+              onClick={() => navigate("/factory/material-requirements")}
+            >
+              <AlertTriangle className="h-6 w-6" />
+              <span>Material Planning</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex flex-col gap-2"
+              onClick={() => navigate("/factory/production-execution")}
+            >
+              <Zap className="h-6 w-6" />
+              <span>Production Floor</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
