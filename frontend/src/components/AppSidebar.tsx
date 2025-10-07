@@ -84,12 +84,12 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
-      {
-        title: "Reports",
-        url: "/reports",
-        icon: FileText,
-        permission: null, // Reports might be accessible to all users
-      },
+      // {
+      //   title: "Reports",
+      //   url: "/reports",
+      //   icon: FileText,
+      //   permission: null, // Reports might be accessible to all users
+      // },
     ],
   },
   {
@@ -101,12 +101,6 @@ const menuSections: MenuSection[] = [
         url: "/pos-manager",
         icon: Calculator,
         permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
-      },
-      {
-        title: "Payments",
-        url: "/payments",
-        icon: DollarSign,
-        permission: PERMISSIONS.PAYMENTS_READ,
       },
     ],
   },
@@ -151,16 +145,22 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.SUPPLIERS_READ,
       },
       {
+        title: "Inventory",
+        url: "/inventory",
+        icon: Truck,
+        permission: PERMISSIONS.INVENTORY_TRACK,
+      },
+      {
         title: "Purchase Orders",
         url: "/purchase-orders",
         icon: ShoppingCart,
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
       },
       {
-        title: "Inventory",
-        url: "/inventory",
-        icon: Truck,
-        permission: PERMISSIONS.INVENTORY_TRACK,
+        title: "Payments",
+        url: "/payments",
+        icon: DollarSign,
+        permission: PERMISSIONS.PAYMENTS_READ,
       },
       {
         title: "Distribution",
