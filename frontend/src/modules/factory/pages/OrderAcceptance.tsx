@@ -41,7 +41,6 @@ import {
   FactoryCustomerOrder,
   FactoryCustomerOrderStatus,
   OrderQueryParams,
-  ApproveOrderRequest,
   UpdateOrderStatusRequest,
 } from "../services/customer-orders-api";
 
@@ -182,11 +181,6 @@ export default function OrderAcceptance() {
 
   const handleAcceptOrder = async (orderId: string) => {
     try {
-      const approveRequest: ApproveOrderRequest = {
-        approved: true,
-        notes: acceptanceNotes || undefined,
-      };
-
       await CustomerOrdersApiService.approveCustomerOrder(orderId, true, acceptanceNotes || undefined);
 
       // Reload orders to get updated status
@@ -202,11 +196,6 @@ export default function OrderAcceptance() {
 
   const handleRejectOrder = async (orderId: string) => {
     try {
-      const approveRequest: ApproveOrderRequest = {
-        approved: false,
-        notes: acceptanceNotes || undefined,
-      };
-
       await CustomerOrdersApiService.approveCustomerOrder(orderId, false, acceptanceNotes || undefined);
 
       // Reload orders to get updated status

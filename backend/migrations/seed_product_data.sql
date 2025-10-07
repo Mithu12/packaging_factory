@@ -254,35 +254,35 @@ ON CONFLICT (sku) DO NOTHING;
 -- =============================================================================
 
 -- Insert Pricing Rules for various products
-INSERT INTO pricing_rules (
-    name, description, product_id, rule_type, rule_value, rule_percentage,
-    min_quantity, max_quantity, start_date, end_date, customer_type, is_active, priority
-) VALUES
--- Volume discount for resistors
-('Resistor Volume Discount', 'Bulk discount for orders over 1000 pieces', 
- (SELECT id FROM products WHERE sku = 'RES-10K-1W'), 'discount', 0.00, 10.0,
- 1000, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', NULL, true, 1),
+-- INSERT INTO pricing_rules (
+--     name, description, product_id, rule_type, rule_value, rule_percentage,
+--     min_quantity, max_quantity, start_date, end_date, customer_type, is_active, priority
+-- ) VALUES
+-- -- Volume discount for resistors
+-- ('Resistor Volume Discount', 'Bulk discount for orders over 1000 pieces', 
+--  (SELECT id FROM products WHERE sku = 'RES-10K-1W'), 'discount', 0.00, 10.0,
+--  1000, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', NULL, true, 1),
 
--- VIP customer discount for microcontrollers
-('MCU VIP Discount', 'VIP customer discount on microcontrollers', 
- (SELECT id FROM products WHERE sku = 'MCU-ARM-STM32'), 'discount', 0.00, 15.0,
- 1, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '6 months', 'vip', true, 2),
+-- -- VIP customer discount for microcontrollers
+-- ('MCU VIP Discount', 'VIP customer discount on microcontrollers', 
+--  (SELECT id FROM products WHERE sku = 'MCU-ARM-STM32'), 'discount', 0.00, 15.0,
+--  1, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '6 months', 'vip', true, 2),
 
--- Wholesale pricing for mechanical parts
-('Mechanical Parts Wholesale', 'Wholesale pricing for bulk mechanical orders', 
- (SELECT id FROM products WHERE sku = 'SCREW-M6-20'), 'discount', 0.00, 20.0,
- 5000, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', 'wholesale', true, 1),
+-- -- Wholesale pricing for mechanical parts
+-- ('Mechanical Parts Wholesale', 'Wholesale pricing for bulk mechanical orders', 
+--  (SELECT id FROM products WHERE sku = 'SCREW-M6-20'), 'discount', 0.00, 20.0,
+--  5000, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', 'wholesale', true, 1),
 
--- Fixed price for tools
-('Tool Fixed Price', 'Fixed promotional price for drill bits', 
- (SELECT id FROM products WHERE sku = 'DRILL-10MM-HSS'), 'fixed_price', 6.50, NULL,
- 1, 100, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 months', NULL, true, 3),
+-- -- Fixed price for tools
+-- ('Tool Fixed Price', 'Fixed promotional price for drill bits', 
+--  (SELECT id FROM products WHERE sku = 'DRILL-10MM-HSS'), 'fixed_price', 6.50, NULL,
+--  1, 100, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 months', NULL, true, 3),
 
--- Markup for premium tools
-('Premium Tool Markup', 'Premium markup for digital calipers', 
- (SELECT id FROM products WHERE sku = 'CALIPER-DIGITAL-150MM'), 'markup', 0.00, 5.0,
- 1, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', NULL, true, 1)
-ON CONFLICT (name) DO NOTHING;
+-- -- Markup for premium tools
+-- ('Premium Tool Markup', 'Premium markup for digital calipers', 
+--  (SELECT id FROM products WHERE sku = 'CALIPER-DIGITAL-150MM'), 'markup', 0.00, 5.0,
+--  1, NULL, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 year', NULL, true, 1)
+-- ON CONFLICT (name) DO NOTHING;
 
 -- =============================================================================
 -- BILL OF MATERIALS (BOM)

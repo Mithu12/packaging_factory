@@ -57,7 +57,7 @@ import {
   PermissionGuard,
   SystemAdminGuard,
 } from "@/components/rbac/PermissionGuard";
-import { ModuleStatusIndicator } from '@/components/ModuleStatusIndicator';
+import { ModuleStatusIndicator } from "@/components/ModuleStatusIndicator";
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
 
 type MenuItem = {
@@ -187,15 +187,21 @@ const menuSections: MenuSection[] = [
         permission: null,
       },
       {
-        title: "Customer Orders",
-        url: "/factory/customer-orders",
-        icon: ShoppingCart,
+        title: "Bill of Materials",
+        url: "/factory/bom",
+        icon: ClipboardList,
         permission: null,
       },
       {
         title: "Customer Management",
         url: "/factory/customers",
         icon: Users,
+        permission: null,
+      },
+      {
+        title: "Customer Orders",
+        url: "/factory/customer-orders",
+        icon: ShoppingCart,
         permission: null,
       },
       {
@@ -208,6 +214,18 @@ const menuSections: MenuSection[] = [
         title: "Work Order Planning",
         url: "/factory/work-orders",
         icon: Calendar,
+        permission: null,
+      },
+      {
+        title: "Material Requirements",
+        url: "/factory/mrp",
+        icon: TrendingUp,
+        permission: null,
+      },
+      {
+        title: "Material Allocation",
+        url: "/factory/materials",
+        icon: Package2,
         permission: null,
       },
       {
@@ -226,24 +244,6 @@ const menuSections: MenuSection[] = [
         title: "Factory Expenses",
         url: "/factory/expenses",
         icon: Receipt,
-        permission: null,
-      },
-      {
-        title: "Bill of Materials",
-        url: "/factory/bom",
-        icon: ClipboardList,
-        permission: null,
-      },
-      {
-        title: "Material Requirements",
-        url: "/factory/mrp",
-        icon: TrendingUp,
-        permission: null,
-      },
-      {
-        title: "Material Allocation",
-        url: "/factory/materials",
-        icon: Package2,
         permission: null,
       },
       {
@@ -286,7 +286,7 @@ const menuSections: MenuSection[] = [
         title: "Payment Vouchers",
         url: "/finance/vouchers/payment",
         icon: Wallet,
-      permission: PERMISSIONS.VOUCHERS_READ,
+        permission: PERMISSIONS.VOUCHERS_READ,
       },
       {
         title: "Receipt Vouchers",
@@ -316,7 +316,7 @@ const menuSections: MenuSection[] = [
         title: "Cost Center Ledger",
         url: "/finance/ledger/cost-centers",
         icon: Building2,
-       permission: PERMISSIONS.COST_CENTER_LEDGER_READ,
+        permission: PERMISSIONS.COST_CENTER_LEDGER_READ,
       },
       {
         title: "Income Statement",
@@ -590,10 +590,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      
+
       {/* Module Status Footer */}
       <div className="p-4 border-t">
-        <ModuleStatusIndicator showDetails={true} className="w-full justify-center" />
+        <ModuleStatusIndicator
+          showDetails={true}
+          className="w-full justify-center"
+        />
       </div>
     </Sidebar>
   );
