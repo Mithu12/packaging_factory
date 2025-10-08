@@ -144,14 +144,14 @@ export const EVENT_NAMES = {
   FACTORY_ORDER_SHIPPED: 'factory.order.shipped',
   FACTORY_PAYMENT_RECEIVED: 'factory.payment.received',
   
+  // Factory events - Returns
+  FACTORY_RETURN_APPROVED: 'factory.return.approved',
+  
   // Factory events - Production
   MATERIAL_CONSUMED: 'factory.material.consumed',
   MATERIAL_WASTAGE_APPROVED: 'factory.wastage.approved',
   PRODUCTION_RUN_COMPLETED: 'factory.production.completed',
   WORK_ORDER_COMPLETED: 'factory.workorder.completed',
-  
-  // Factory events - Returns
-  FACTORY_RETURN_APPROVED: 'factory.return.approved',
   
   // Factory events - Expenses
   FACTORY_EXPENSE_APPROVED: 'factory.expense.approved',

@@ -34,9 +34,52 @@ export interface VoucherCreationResult {
   error?: string;
 }
 
+export interface ReturnAccountingData {
+  returnId: string;
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  totalReturnValue: number;
+  currency: string;
+  returnDate: string;
+  returnReason: string;
+  lineItems?: any[];
+  notes?: string;
+  // Original voucher IDs to reverse
+  originalReceivableVoucherId?: number;
+  originalRevenueVoucherId?: number;
+  originalCogsVoucherId?: number;
+}
+
 class FactoryAccountsIntegrationService {
   private isAccountsAvailable(): boolean {
     return moduleRegistry.isModuleAvailable(MODULE_NAMES.ACCOUNTS);
+  }
+
+  /**
+   * Get revenue recognition policy from system settings
+   * Returns: 'on_approval', 'on_shipment', or 'on_payment'
+   */
+  async getRevenueRecognitionPolicy(): Promise<string> {
+    try {
+      const result = await pool.query(
+        `SELECT setting_value FROM system_settings 
+         WHERE setting_key = 'factory.revenue_recognition_policy' 
+         AND is_active = TRUE`
+      );
+
+      if (result.rows.length > 0) {
+        return result.rows[0].setting_value;
+      }
+
+      // Default to on_approval if not set
+      return 'on_approval';
+    } catch (error) {
+      MyLogger.error('Get Revenue Recognition Policy', error);
+      return 'on_approval'; // Safe default
+    }
   }
 
   /**
@@ -282,6 +325,10 @@ class FactoryAccountsIntegrationService {
         case 'finished_goods':
           searchTerm = 'Finished Goods';
           category = 'Assets';
+          break;
+        case 'sales_returns':
+          searchTerm = 'Sales Returns';
+          category = 'Expenses';
           break;
         default:
           return null;
@@ -863,6 +910,257 @@ class FactoryAccountsIntegrationService {
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
+
+  // ========================================
+  // ADVANCED FEATURES: Revenue Recognition & Returns
+  // ========================================
+
+  /**
+   * Create revenue recognition voucher when order is shipped
+   * Debit: Deferred Revenue, Credit: Sales Revenue
+   * Only created if revenue recognition policy is 'on_shipment'
+   */
+  async createRevenueRecognitionVoucher(
+    orderData: OrderAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create Revenue Recognition Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available', orderId: orderData.orderId });
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const deferredRevenueAccount = await this.getDefaultAccount('deferred_revenue');
+      const salesRevenueAccount = await this.getDefaultAccount('sales_revenue');
+
+      if (!deferredRevenueAccount || !salesRevenueAccount) {
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: 'Required accounts not configured (Deferred Revenue, Sales Revenue)'
+        };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(),
+        reference: orderData.orderNumber,
+        payee: orderData.customerName,
+        amount: orderData.totalValue,
+        narration: `Revenue Recognition - Order ${orderData.orderNumber} Shipped`,
+        lines: [
+          {
+            accountId: deferredRevenueAccount.id,
+            debit: orderData.totalValue,
+            credit: 0,
+            description: `Deferred Revenue - ${orderData.orderNumber}`
+          },
+          {
+            accountId: salesRevenueAccount.id,
+            debit: 0,
+            credit: orderData.totalValue,
+            description: `Sales Revenue - ${orderData.orderNumber}`
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      // Update order with revenue voucher reference
+      await pool.query(
+        'UPDATE factory_customer_orders SET revenue_voucher_id = $1 WHERE id = $2',
+        [voucher.id, orderData.orderId]
+      );
+
+      MyLogger.success(action, {
+        orderId: orderData.orderId,
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { orderData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
+
+  /**
+   * Create reversal vouchers for customer return
+   * Creates credit note and reverses original accounting entries
+   */
+  async createReturnReversalVouchers(
+    returnData: ReturnAccountingData,
+    userId: number
+  ): Promise<{ creditNote: VoucherCreationResult | null; reversalVoucher: VoucherCreationResult | null }> {
+    const action = 'Create Return Reversal Vouchers';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available', returnId: returnData.returnId });
+      return { creditNote: null, reversalVoucher: null };
+    }
+
+    try {
+      const creditNote = await this.createCreditNoteVoucher(returnData, userId);
+      const reversalVoucher = await this.createARReversalVoucher(returnData, userId);
+
+      // Update return record with voucher references
+      if (creditNote?.success || reversalVoucher?.success) {
+        await pool.query(
+          `UPDATE factory_customer_returns 
+           SET credit_note_voucher_id = $1,
+               reversal_voucher_id = $2,
+               accounting_integrated = TRUE,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [creditNote?.voucherId || null, reversalVoucher?.voucherId || null, returnData.returnId]
+        );
+      }
+
+      return { creditNote, reversalVoucher };
+    } catch (error: any) {
+      MyLogger.error(action, error, { returnData });
+      return { creditNote: null, reversalVoucher: null };
+    }
+  }
+
+  /**
+   * Create credit note voucher for customer return
+   * Debit: Sales Returns, Credit: Accounts Receivable
+   */
+  private async createCreditNoteVoucher(
+    returnData: ReturnAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create Credit Note Voucher';
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const salesReturnsAccount = await this.getDefaultAccount('sales_returns');
+      const receivableAccount = await this.getDefaultAccount('accounts_receivable');
+
+      if (!salesReturnsAccount || !receivableAccount) {
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: 'Required accounts not configured (Sales Returns, Accounts Receivable)'
+        };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(returnData.returnDate),
+        reference: returnData.returnNumber,
+        payee: returnData.customerName,
+        amount: returnData.totalReturnValue,
+        narration: `Credit Note - Return ${returnData.returnNumber} - Reason: ${returnData.returnReason}${returnData.notes ? ` - ${returnData.notes}` : ''}`,
+        lines: [
+          {
+            accountId: salesReturnsAccount.id,
+            debit: returnData.totalReturnValue,
+            credit: 0,
+            description: `Sales Returns - ${returnData.returnNumber}`
+          },
+          {
+            accountId: receivableAccount.id,
+            debit: 0,
+            credit: returnData.totalReturnValue,
+            description: `A/R Reduction - ${returnData.returnNumber}`
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      MyLogger.success(action, { returnId: returnData.returnId, voucherId: voucher.id });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { returnData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
+
+  /**
+   * Create AR reversal voucher (reverse original deferred revenue if needed)
+   * Debit: Deferred Revenue, Credit: Sales Returns
+   */
+  private async createARReversalVoucher(
+    returnData: ReturnAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create AR Reversal Voucher';
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const deferredRevenueAccount = await this.getDefaultAccount('deferred_revenue');
+      const salesReturnsAccount = await this.getDefaultAccount('sales_returns');
+
+      if (!deferredRevenueAccount || !salesReturnsAccount) {
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: 'Required accounts not configured'
+        };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(returnData.returnDate),
+        reference: returnData.returnNumber,
+        payee: returnData.customerName,
+        amount: returnData.totalReturnValue,
+        narration: `Revenue Reversal - Return ${returnData.returnNumber} for Order ${returnData.orderNumber}`,
+        lines: [
+          {
+            accountId: deferredRevenueAccount.id,
+            debit: returnData.totalReturnValue,
+            credit: 0,
+            description: `Deferred Revenue Reversal - ${returnData.returnNumber}`
+          },
+          {
+            accountId: salesReturnsAccount.id,
+            debit: 0,
+            credit: returnData.totalReturnValue,
+            description: `Sales Returns - ${returnData.returnNumber}`
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      MyLogger.success(action, { returnId: returnData.returnId, voucherId: voucher.id });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { returnData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
 }
 
 // Export singleton instance
@@ -1043,10 +1341,86 @@ export const registerFactoryAccountingListeners = (): void => {
     }
   });
 
+  // Listen for order shipment events (revenue recognition if policy = on_shipment)
+  eventBus.on(EVENT_NAMES.FACTORY_ORDER_SHIPPED, async (payload: EventPayload) => {
+    try {
+      const orderData = payload.orderData as OrderAccountingData;
+      const userId = payload.userId as number;
+      
+      // Check revenue recognition policy
+      const policy = await factoryAccountsIntegrationService.getRevenueRecognitionPolicy();
+      
+      if (policy === 'on_shipment' && orderData) {
+        const result = await factoryAccountsIntegrationService.createRevenueRecognitionVoucher(orderData, userId);
+        
+        if (result?.success) {
+          MyLogger.success('Factory Accounting Integration', {
+            event: 'ORDER_SHIPPED',
+            orderId: orderData.orderId,
+            voucherId: result.voucherId,
+            voucherNo: result.voucherNo,
+            policy: 'on_shipment'
+          });
+        } else if (result?.error) {
+          MyLogger.warn('Factory Accounting Integration', {
+            event: 'ORDER_SHIPPED',
+            orderId: orderData.orderId,
+            error: result.error
+          });
+        }
+      } else {
+        MyLogger.info('Factory Accounting Integration', {
+          event: 'ORDER_SHIPPED',
+          orderId: orderData?.orderId,
+          message: `Revenue recognition policy is ${policy}, skipping revenue voucher on shipment`
+        });
+      }
+    } catch (error) {
+      MyLogger.error('Factory Accounting Integration', error, { 
+        event: 'ORDER_SHIPPED',
+        payload 
+      });
+    }
+  });
+
+  // Listen for return approval events
+  eventBus.on(EVENT_NAMES.FACTORY_RETURN_APPROVED, async (payload: EventPayload) => {
+    try {
+      const returnData = payload.returnData as ReturnAccountingData;
+      const userId = payload.userId as number;
+      
+      if (returnData) {
+        const result = await factoryAccountsIntegrationService.createReturnReversalVouchers(returnData, userId);
+        
+        if (result.creditNote?.success || result.reversalVoucher?.success) {
+          MyLogger.success('Factory Accounting Integration', {
+            event: 'RETURN_APPROVED',
+            returnId: returnData.returnId,
+            creditNoteId: result.creditNote?.voucherId,
+            reversalVoucherId: result.reversalVoucher?.voucherId
+          });
+        } else {
+          MyLogger.warn('Factory Accounting Integration', {
+            event: 'RETURN_APPROVED',
+            returnId: returnData.returnId,
+            error: 'Failed to create reversal vouchers'
+          });
+        }
+      }
+    } catch (error) {
+      MyLogger.error('Factory Accounting Integration', error, { 
+        event: 'RETURN_APPROVED',
+        payload 
+      });
+    }
+  });
+
   MyLogger.success('Factory Accounting Listeners', { 
     message: 'Event listeners registered successfully',
     events: [
       'FACTORY_ORDER_APPROVED', 
+      'FACTORY_ORDER_SHIPPED',
+      'FACTORY_RETURN_APPROVED',
       'MATERIAL_CONSUMED', 
       'MATERIAL_WASTAGE_APPROVED',
       'PRODUCTION_RUN_COMPLETED',
