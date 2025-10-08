@@ -62,6 +62,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BOMApiService } from "@/services/bom-api";
 import { InventoryApi } from "@/modules/inventory/services/inventory-api";
 import { WorkOrdersApiService } from "@/services/work-orders-api";
+import { DistributionApi } from "@/modules/inventory/services/distribution-api";
 
 export default function MaterialAllocationPage() {
   const navigate = useNavigate();
@@ -123,6 +124,12 @@ export default function MaterialAllocationPage() {
     queryFn: () => WorkOrdersApiService.getWorkOrders({ limit: 1000 }),
   });
 
+  // Fetch locations for dropdown
+  const { data: locations, isLoading: locationsLoading } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => DistributionApi.getProductLocations({ limit: 1000 }),
+  });
+
   // Mutation for creating allocations
   const createAllocationMutation = useMutation({
     mutationFn: (data: CreateMaterialAllocationRequest) =>
@@ -132,7 +139,7 @@ export default function MaterialAllocationPage() {
       setNewAllocation({
         work_order_requirement_id: "",
         inventory_item_id: 0,
-        allocated_quantity: 0,
+        allocated_quantity: 0, // Will be auto-populated when requirement is selected
         allocated_from_location: "",
         notes: "",
       });
@@ -182,7 +189,7 @@ export default function MaterialAllocationPage() {
   };
 
   // Handle loading state
-  if (allocationsLoading || statsLoading || requirementsLoading || inventoryLoading || workOrdersLoading) {
+  if (allocationsLoading || statsLoading || requirementsLoading || inventoryLoading || workOrdersLoading || locationsLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -221,7 +228,7 @@ export default function MaterialAllocationPage() {
     setNewAllocation({
       work_order_requirement_id: "",
       inventory_item_id: 0,
-      allocated_quantity: 0,
+      allocated_quantity: 0, // Will be auto-populated when requirement is selected
       allocated_from_location: "",
       notes: "",
     });
@@ -262,6 +269,8 @@ export default function MaterialAllocationPage() {
         setNewAllocation((prev) => ({
           ...prev,
           inventory_item_id: matchingInventoryItem.id,
+          // Auto-set allocated quantity based on requirement's required quantity
+          allocated_quantity: selectedRequirement.required_quantity,
         }));
         // Optional: Show a toast or some feedback that auto-selection happened
         // toast.info(`Auto-selected inventory item: ${matchingInventoryItem.product_name}`);
@@ -661,36 +670,26 @@ export default function MaterialAllocationPage() {
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Warehouse A - Shelf 1">Warehouse A - Shelf 1</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 2">Warehouse A - Shelf 2</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 3">Warehouse A - Shelf 3</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 4">Warehouse A - Shelf 4</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 5">Warehouse A - Shelf 5</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 6">Warehouse A - Shelf 6</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 7">Warehouse A - Shelf 7</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 8">Warehouse A - Shelf 8</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 9">Warehouse A - Shelf 9</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 10">Warehouse A - Shelf 10</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 11">Warehouse A - Shelf 11</SelectItem>
-                  <SelectItem value="Warehouse A - Shelf 12">Warehouse A - Shelf 12</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 1">Warehouse B - Shelf 1</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 2">Warehouse B - Shelf 2</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 3">Warehouse B - Shelf 3</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 4">Warehouse B - Shelf 4</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 5">Warehouse B - Shelf 5</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 6">Warehouse B - Shelf 6</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 7">Warehouse B - Shelf 7</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 8">Warehouse B - Shelf 8</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 9">Warehouse B - Shelf 9</SelectItem>
-                  <SelectItem value="Warehouse B - Shelf 10">Warehouse B - Shelf 10</SelectItem>
-                  <SelectItem value="Cold Storage - Zone A">Cold Storage - Zone A</SelectItem>
-                  <SelectItem value="Cold Storage - Zone B">Cold Storage - Zone B</SelectItem>
-                  <SelectItem value="Cold Storage - Zone C">Cold Storage - Zone C</SelectItem>
-                  <SelectItem value="Quality Control - Holding">Quality Control - Holding</SelectItem>
-                  <SelectItem value="Production Floor - Raw Materials">Production Floor - Raw Materials</SelectItem>
-                  <SelectItem value="Production Floor - WIP">Production Floor - WIP</SelectItem>
-                  <SelectItem value="Shipping Dock - Staging">Shipping Dock - Staging</SelectItem>
-                  <SelectItem value="Receiving Dock - Staging">Receiving Dock - Staging</SelectItem>
+                  {locations?.locations?.map((location) => (
+                    <SelectItem key={location.id} value={location.location_in_warehouse || `Location ${location.id}`}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {location.location_in_warehouse || `Location ${location.id}`}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {location.center_name} | Stock: {location.current_stock} {location.product_name}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  )) || (
+                    <>
+                      <SelectItem value="Warehouse A - Shelf 1">Warehouse A - Shelf 1</SelectItem>
+                      <SelectItem value="Warehouse A - Shelf 2">Warehouse A - Shelf 2</SelectItem>
+                      <SelectItem value="Warehouse B - Shelf 1">Warehouse B - Shelf 1</SelectItem>
+                      <SelectItem value="Cold Storage - Zone A">Cold Storage - Zone A</SelectItem>
+                      <SelectItem value="Production Floor - Raw Materials">Production Floor - Raw Materials</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
