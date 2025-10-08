@@ -99,7 +99,7 @@ export class OperatorMediator {
       const dataQuery = `
         SELECT
           o.*,
-          u.name as user_name,
+          u.full_name as user_name,
           u.email as user_email
         FROM operators o
         LEFT JOIN users u ON o.user_id = u.id
