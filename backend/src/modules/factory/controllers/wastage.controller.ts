@@ -9,12 +9,12 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
  * @access  Private (FACTORY_WASTAGE_READ)
  */
 export const getWastageRecords = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const params = req.query;
 
   const result = await MaterialWastageMediator.getWastageRecords(params, userId);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Wastage records retrieved successfully');
 });
 
 /**
@@ -24,11 +24,11 @@ export const getWastageRecords = asyncHandler(async (req: Request, res: Response
  */
 export const getWastageById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const wastage = await MaterialWastageMediator.getWastageById(id, userId);
 
-  res.status(200).json(serializeSuccessResponse(wastage));
+  serializeSuccessResponse(res, wastage, 'Wastage record retrieved successfully');
 });
 
 /**
@@ -39,11 +39,11 @@ export const getWastageById = asyncHandler(async (req: Request, res: Response) =
 export const approveWastage = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { notes } = req.body;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const result = await MaterialWastageMediator.approveWastage(id, userId, notes);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Wastage approved successfully');
 });
 
 /**
@@ -54,11 +54,11 @@ export const approveWastage = asyncHandler(async (req: Request, res: Response) =
 export const rejectWastage = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { notes } = req.body;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const result = await MaterialWastageMediator.rejectWastage(id, userId, notes);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Wastage rejected successfully');
 });
 
 /**
@@ -67,10 +67,10 @@ export const rejectWastage = asyncHandler(async (req: Request, res: Response) =>
  * @access  Private (FACTORY_WASTAGE_READ)
  */
 export const getWastageStats = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const stats = await MaterialWastageMediator.getWastageStats(userId);
 
-  res.status(200).json(serializeSuccessResponse(stats));
+  serializeSuccessResponse(res, stats, 'Wastage statistics retrieved successfully');
 });
 

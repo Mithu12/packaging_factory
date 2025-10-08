@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 
 export interface CreateMaterialConsumptionRequest {
   work_order_id: string;
@@ -196,6 +197,28 @@ export class AddMaterialConsumptionMediator {
         quantity: data.consumed_quantity,
         workOrderId: data.work_order_id
       });
+
+      // Emit event for accounts integration
+      try {
+        eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
+          consumptionData: {
+            consumptionId: consumption.id,
+            workOrderId: data.work_order_id,
+            materialId: data.material_id,
+            materialName: material.name,
+            quantity: data.consumed_quantity,
+            cost: parseFloat(material.current_stock) * data.consumed_quantity, // Basic cost calculation
+            productionLineId: data.production_line_id,
+            consumptionDate: new Date().toISOString()
+          },
+          userId
+        });
+      } catch (eventError: any) {
+        MyLogger.error(`${action}.eventEmit`, eventError, {
+          consumptionId: consumption.id,
+          message: 'Failed to emit MATERIAL_CONSUMED event, but consumption recording succeeded'
+        });
+      }
 
       return consumption;
     } catch (error) {

@@ -7,6 +7,7 @@ import {
   WorkOrderPriority
 } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -667,6 +668,35 @@ export class UpdateWorkOrderMediator {
         oldStatus: currentWorkOrder.status,
         newStatus: newStatus
       });
+
+      // Emit event for accounts integration when work order is completed
+      if (newStatus === 'completed') {
+        try {
+          eventBus.emit(EVENT_NAMES.WORK_ORDER_COMPLETED, {
+            workOrderData: {
+              workOrderId: workOrder.id,
+              workOrderNumber: workOrder.work_order_number,
+              productId: workOrder.product_id,
+              productName: workOrder.product_name,
+              productSku: workOrder.product_sku,
+              quantity: workOrder.quantity,
+              unitOfMeasure: workOrder.unit_of_measure,
+              totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
+              totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
+              totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
+              totalWipCost: updatedWorkOrder.total_wip_cost || 0,
+              completedDate: new Date().toISOString(),
+              customerOrderId: workOrder.customer_order_id
+            },
+            userId: parseInt(userId)
+          });
+        } catch (eventError: any) {
+          MyLogger.error(`${action}.eventEmit`, eventError, {
+            workOrderId: workOrder.id,
+            message: 'Failed to emit WORK_ORDER_COMPLETED event, but status update succeeded'
+          });
+        }
+      }
 
       return workOrder;
 

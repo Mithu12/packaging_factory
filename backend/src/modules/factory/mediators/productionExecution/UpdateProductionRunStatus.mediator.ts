@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 
 export interface UpdateProductionRunStatusRequest {
   status: 'in_progress' | 'paused' | 'completed' | 'cancelled';
@@ -220,6 +221,42 @@ export class UpdateProductionRunStatusMediator {
       await client.query('COMMIT');
 
       MyLogger.success(action, { runId });
+
+      // Calculate labor and overhead costs for accounts integration
+      // TODO: Replace with actual cost calculation from labor tracking system
+      const runtimeMinutes = run.total_runtime_minutes || 0;
+      const laborHours = runtimeMinutes / 60;
+      const laborRatePerHour = 15; // TODO: Get from production line/operator rate
+      const laborCost = laborHours * laborRatePerHour;
+      
+      const overheadRatePerHour = 10; // TODO: Get from cost center/factory overhead rate
+      const overheadCost = laborHours * overheadRatePerHour;
+
+      // Emit event for accounts integration
+      try {
+        eventBus.emit(EVENT_NAMES.PRODUCTION_RUN_COMPLETED, {
+          productionRunData: {
+            runId,
+            runNumber: run.run_number,
+            workOrderId: run.work_order_id,
+            productionLineId: run.production_line_id,
+            targetQuantity: run.target_quantity,
+            producedQuantity: producedQty,
+            goodQuantity: goodQty,
+            rejectedQuantity: rejectedQty,
+            runtimeMinutes,
+            laborCost,
+            overheadCost,
+            completedDate: new Date().toISOString()
+          },
+          userId
+        });
+      } catch (eventError: any) {
+        MyLogger.error(`${action}.eventEmit`, eventError, {
+          runId,
+          message: 'Failed to emit PRODUCTION_RUN_COMPLETED event, but completion succeeded'
+        });
+      }
 
       return { success: true, message: 'Production run completed successfully' };
     } catch (error) {

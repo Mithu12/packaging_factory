@@ -10,12 +10,12 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
  * @access  Private (FACTORY_CONSUMPTIONS_READ)
  */
 export const getConsumptions = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const params = req.query;
 
   const result = await GetMaterialConsumptionInfoMediator.getConsumptions(params, userId);
 
-  res.status(200).json(serializeSuccessResponse(result));
+  serializeSuccessResponse(res, result, 'Material consumptions retrieved successfully');
 });
 
 /**
@@ -25,11 +25,11 @@ export const getConsumptions = asyncHandler(async (req: Request, res: Response) 
  */
 export const getConsumptionById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const consumption = await GetMaterialConsumptionInfoMediator.getConsumptionById(id, userId);
 
-  res.status(200).json(serializeSuccessResponse(consumption));
+  serializeSuccessResponse(res, consumption, 'Material consumption retrieved successfully');
 });
 
 /**
@@ -38,12 +38,13 @@ export const getConsumptionById = asyncHandler(async (req: Request, res: Respons
  * @access  Private (FACTORY_CONSUMPTIONS_CREATE)
  */
 export const createConsumption = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
   const data = req.body;
 
-  const consumption = await AddMaterialConsumptionMediator.execute(data, userId);
+  const consumption = await AddMaterialConsumptionMediator.recordConsumption(data, userId);
 
-  res.status(201).json(serializeSuccessResponse(consumption));
+  res.status(201);
+  serializeSuccessResponse(res, consumption, 'Material consumption created successfully');
 });
 
 /**
@@ -52,10 +53,10 @@ export const createConsumption = asyncHandler(async (req: Request, res: Response
  * @access  Private (FACTORY_CONSUMPTIONS_READ)
  */
 export const getConsumptionStats = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const stats = await GetMaterialConsumptionInfoMediator.getConsumptionStats(userId);
 
-  res.status(200).json(serializeSuccessResponse(stats));
+  serializeSuccessResponse(res, stats, 'Material consumption statistics retrieved successfully');
 });
 

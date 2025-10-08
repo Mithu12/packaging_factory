@@ -90,7 +90,7 @@ export class GetWorkOrderInfoMediator {
       }
 
       // Status filter
-      if (status && status !== '') {
+      if (status) {
         conditions.push(`wo.status = $${paramIndex}`);
         queryParams.push(status);
         paramIndex++;

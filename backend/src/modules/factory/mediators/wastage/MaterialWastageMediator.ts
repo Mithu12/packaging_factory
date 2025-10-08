@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 
 export interface WastageQueryParams {
   page?: number;
@@ -203,6 +204,29 @@ export class MaterialWastageMediator {
       await client.query('COMMIT');
 
       MyLogger.success(action, { wastageId });
+
+      // Emit event for accounts integration
+      try {
+        eventBus.emit(EVENT_NAMES.MATERIAL_WASTAGE_APPROVED, {
+          wastageData: {
+            wastageId,
+            workOrderId: wastage.work_order_id,
+            materialId: wastage.material_id,
+            materialName: wastage.material_name,
+            quantity: wastage.quantity,
+            cost: wastage.cost,
+            reason: wastage.wastage_reason,
+            approvedDate: new Date().toISOString(),
+            notes
+          },
+          userId
+        });
+      } catch (eventError: any) {
+        MyLogger.error(`${action}.eventEmit`, eventError, {
+          wastageId,
+          message: 'Failed to emit MATERIAL_WASTAGE_APPROVED event, but approval succeeded'
+        });
+      }
 
       return { success: true, message: 'Wastage approved successfully' };
     } catch (error) {

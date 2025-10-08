@@ -9,10 +9,10 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
  * @access  Private (FACTORY_DASHBOARD_READ)
  */
 export const getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.user!.user_id;
 
   const stats = await FactoryDashboardMediator.getDashboardStats(userId);
 
-  res.status(200).json(serializeSuccessResponse(stats));
+  serializeSuccessResponse(res, stats, 'Dashboard statistics retrieved successfully');
 });
 

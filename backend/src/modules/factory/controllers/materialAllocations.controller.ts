@@ -87,7 +87,8 @@ class MaterialAllocationsController {
       );
 
       MyLogger.success(action, { allocationId: allocation.id });
-      serializeSuccessResponse(res, allocation, 'SUCCESS', 201);
+      res.status(201);
+      serializeSuccessResponse(res, allocation, 'SUCCESS');
     } catch (error) {
       next(error);
     }
