@@ -105,7 +105,7 @@ export class GetProductionRunInfoMediator {
         JOIN work_orders wo ON pr.work_order_id = wo.id
         LEFT JOIN production_lines pl ON pr.production_line_id = pl.id
         LEFT JOIN operators o ON pr.operator_id = o.id
-        join users u on pr.operator_id = u.id
+        LEFT JOIN users u ON o.user_id = u.id
         WHERE ${whereClause}
         ORDER BY pr.${sort_by} ${sort_order}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -144,13 +144,15 @@ export class GetProductionRunInfoMediator {
           wo.work_order_number,
           wo.product_name,
           pl.name as production_line_name,
-          o.name as operator_name,
+          u_operator.full_name as operator_name,
+          o.employee_id as operator_employee_id,
           u1.full_name as started_by_name,
           u2.full_name as completed_by_name
         FROM production_runs pr
         JOIN work_orders wo ON pr.work_order_id = wo.id
         LEFT JOIN production_lines pl ON pr.production_line_id = pl.id
         LEFT JOIN operators o ON pr.operator_id = o.id
+        LEFT JOIN users u_operator ON o.user_id = u_operator.id
         LEFT JOIN users u1 ON pr.started_by = u1.id
         LEFT JOIN users u2 ON pr.completed_by = u2.id
         WHERE pr.id = $1
