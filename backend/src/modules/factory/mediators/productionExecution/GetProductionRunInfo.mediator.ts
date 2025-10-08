@@ -63,7 +63,7 @@ export class GetProductionRunInfoMediator {
         paramIndex++;
       }
 
-      if (status) {
+      if (status && status !== '') {
         whereConditions.push(`pr.status = $${paramIndex}`);
         queryParams.push(status);
         paramIndex++;

@@ -72,7 +72,7 @@ export default function MaterialRequirementsPlanning() {
   // API query parameters
   const queryParams: RequirementsQueryParams = {
     search: searchTerm || undefined,
-    status: statusFilter === "all" ? undefined : statusFilter,
+    status: statusFilter === "all" ? "" : statusFilter,
     sort_by: "required_date",
     sort_order: "asc",
     page: 1,

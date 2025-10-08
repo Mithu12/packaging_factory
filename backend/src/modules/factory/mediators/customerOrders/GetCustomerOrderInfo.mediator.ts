@@ -83,7 +83,7 @@ MyLogger.info('userFactories',userFactories)
         paramIndex++;
       }
 
-      if (status) {
+      if (status && status !== '') {
         whereClause += ` AND co.status = $${paramIndex}`;
         queryParams.push(status);
         paramIndex++;

@@ -9,7 +9,7 @@ export const wastageQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
   search: Joi.string().allow('').optional(),
   status: Joi.string()
-    .valid('pending', 'approved', 'rejected')
+    .valid('', 'pending', 'approved', 'rejected')
     .optional(),
   work_order_id: Joi.string().uuid().optional(),
   sort_by: Joi.string()

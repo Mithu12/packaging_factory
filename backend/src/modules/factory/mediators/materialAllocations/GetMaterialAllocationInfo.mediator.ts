@@ -62,7 +62,7 @@ export class GetMaterialAllocationInfoMediator {
         paramIndex++;
       }
 
-      if (status) {
+      if (status && status !== '') {
         whereConditions.push(`wma.status = $${paramIndex}`);
         queryParams.push(status);
         paramIndex++;

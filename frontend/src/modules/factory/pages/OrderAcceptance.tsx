@@ -78,7 +78,7 @@ export default function OrderAcceptance() {
 
       const queryParams: OrderQueryParams = {
         search: searchTerm || undefined,
-        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : undefined,
+        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : "",
         sort_by: "order_date",
         sort_order: "desc",
         page: 1,

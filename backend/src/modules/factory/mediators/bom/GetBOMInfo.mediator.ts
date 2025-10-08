@@ -12,6 +12,7 @@ import {
   MaterialRequirementsQueryParams
 } from "@/types/bom";
 import { MyLogger } from "@/utils/new-logger";
+import { QueryResult } from "pg";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -485,7 +486,7 @@ export class GetBOMInfoMediator {
         paramIndex++;
       }
 
-      if (params.status) {
+      if (params.status && params.status !== '') {
         conditions.push(`wmr.status = $${paramIndex}`);
         values.push(params.status);
         paramIndex++;
@@ -734,7 +735,7 @@ export class GetBOMInfoMediator {
       // Apply filters
       const conditions = [];
 
-      if (params.status) {
+      if (params.status && params.status !== '') {
         conditions.push(`ms.status = $${paramIndex}`);
         values.push(params.status);
         paramIndex++;
@@ -1180,7 +1181,7 @@ export class GetBOMInfoMediator {
         ORDER BY ms.required_date ASC
       `;
 
-      const shortagesResult = await client.query(shortagesQuery, [shortageIds]);
+      const shortagesResult: QueryResult<MaterialShortage> = await client.query(shortagesQuery, [shortageIds]);
       const shortages = shortagesResult.rows;
 
       if (shortages.length === 0) {
@@ -1190,14 +1191,14 @@ export class GetBOMInfoMediator {
       MyLogger.info(action, { shortagesFound: shortages.length });
 
       // Group shortages by supplier
-      const supplierGroups = shortages.reduce((groups, shortage) => {
+      const supplierGroups = shortages.reduce((groups: Record<string, MaterialShortage[]>, shortage: MaterialShortage) => {
         const supplierId = shortage.supplier_id || 'no_supplier';
         if (!groups[supplierId]) {
           groups[supplierId] = [];
         }
         groups[supplierId].push(shortage);
         return groups;
-      }, {} as Record<string, typeof shortages>);
+      }, {} as Record<string, MaterialShortage[]>);
 
       // Create purchase orders for each supplier group
       for (const supplierShortages of Object.values(supplierGroups)) {
@@ -1205,12 +1206,12 @@ export class GetBOMInfoMediator {
         const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
         // Get supplier details
-        const supplier = supplierShortages[0];
+        const supplier = supplierShortages[0] as MaterialShortage;
 
         if (!supplier.supplier_id) {
           MyLogger.warn(action, {
             message: "Skipping PO generation for shortages without a supplier",
-            shortageIds: supplierShortages.map((s) => s.id),
+            shortageIds: supplierShortages.map((s: MaterialShortage) => s.id),
           });
           continue;
         }
@@ -1257,7 +1258,7 @@ export class GetBOMInfoMediator {
 
         // Create purchase order items
         let totalAmount = 0;
-        for (const shortage of supplierShortages) {
+        for (const shortage of supplierShortages as MaterialShortage[]) {
           // Get estimated unit price (could be improved with historical data)
           const unitPrice = 0; // Would need to get from supplier quotes or historical data
 
@@ -1304,7 +1305,7 @@ export class GetBOMInfoMediator {
         );
 
         // Update material shortages to mark PO created
-        for (const shortage of supplierShortages) {
+        for (const shortage of supplierShortages as MaterialShortage[]) {
           await client.query(
             'UPDATE material_shortages SET suggested_action = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
             ['po_created', shortage.id]

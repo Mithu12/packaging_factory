@@ -66,7 +66,7 @@ export default function WastageTracking() {
   // API query parameters
   const queryParams: MaterialWastageQueryParams = {
     search: searchTerm || undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : "",
     sort_by: "recorded_date",
     sort_order: "desc",
     page: 1,

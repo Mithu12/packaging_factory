@@ -107,7 +107,7 @@ export const bomIdSchema = Joi.object({
 // Material Requirements validation schemas
 export const materialRequirementsQuerySchema = Joi.object({
   work_order_id: Joi.number().optional(),
-  status: Joi.string().valid("pending", "allocated", "short", "fulfilled", "cancelled").optional(),
+  status: Joi.string().valid("", "pending", "allocated", "short", "fulfilled", "cancelled").optional(),
   priority: Joi.number().integer().min(1).optional(),
   material_id: Joi.number().optional(),
   required_date_from: Joi.date().optional(),

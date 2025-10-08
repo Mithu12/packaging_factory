@@ -99,7 +99,7 @@ export default function CustomerOrderManagement() {
       
       const queryParams: OrderQueryParams = {
         ...search,
-        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : undefined,
+        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : "",
       };
       
       const response = await CustomerOrdersApiService.getCustomerOrders(queryParams);

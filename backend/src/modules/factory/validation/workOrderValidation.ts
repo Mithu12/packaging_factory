@@ -82,7 +82,7 @@ export const workOrderQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   search: Joi.string().max(255).optional().allow(''),
-  status: workOrderStatusSchema.optional(),
+  status: Joi.string().valid('', 'draft', 'planned', 'released', 'in_progress', 'completed', 'on_hold', 'cancelled').optional(),
   priority: workOrderPrioritySchema.optional(),
   production_line_id: Joi.number().optional(),
   assigned_operator_id: Joi.number().optional(),

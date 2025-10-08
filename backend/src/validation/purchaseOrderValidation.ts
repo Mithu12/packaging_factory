@@ -264,7 +264,7 @@ export const purchaseOrderQuerySchema = Joi.object({
       'string.max': 'Search term cannot exceed 100 characters'
     }),
   
-  status: Joi.string().valid('draft', 'pending', 'approved', 'sent', 'partially_received', 'received', 'cancelled').optional()
+  status: Joi.string().valid('', 'draft', 'pending', 'approved', 'sent', 'partially_received', 'received', 'cancelled').optional()
     .messages({
       'any.only': 'Status must be one of: draft, pending, approved, sent, partially_received, received, cancelled'
     }),

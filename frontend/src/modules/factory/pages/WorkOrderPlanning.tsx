@@ -105,7 +105,7 @@ export default function WorkOrderPlanning() {
   // API query parameters
   const queryParams: WorkOrderQueryParams = {
     search: searchTerm || undefined,
-    status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : undefined,
+    status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : "",
     sort_by: "created_at",
     sort_order: "desc",
     page: 1,

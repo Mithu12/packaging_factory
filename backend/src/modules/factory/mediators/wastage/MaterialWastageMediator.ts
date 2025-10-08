@@ -60,7 +60,7 @@ export class MaterialWastageMediator {
         paramIndex++;
       }
 
-      if (status) {
+      if (status && status !== '') {
         whereConditions.push(`mw.status = $${paramIndex}`);
         queryParams.push(status);
         paramIndex++;
