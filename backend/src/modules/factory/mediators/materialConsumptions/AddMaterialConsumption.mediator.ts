@@ -296,7 +296,10 @@ export class AddMaterialConsumptionMediator {
       let operatorName = null;
       if (context.operator_id) {
         const operatorResult = await client.query(
-          'SELECT user_name FROM operators WHERE id = $1',
+          `SELECT u.full_name as user_name
+           FROM operators o
+           JOIN users u ON o.user_id = u.id
+           WHERE o.id = $1`,
           [context.operator_id]
         );
         if (operatorResult.rows.length > 0) {
