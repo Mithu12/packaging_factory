@@ -59,6 +59,9 @@ import {
   type CreateMaterialAllocationRequest,
 } from "@/services/material-allocations-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BOMApiService } from "@/services/bom-api";
+import { InventoryApi } from "@/modules/inventory/services/inventory-api";
+import { WorkOrdersApiService } from "@/services/work-orders-api";
 
 export default function MaterialAllocationPage() {
   const navigate = useNavigate();
@@ -100,6 +103,24 @@ export default function MaterialAllocationPage() {
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: materialAllocationsQueryKeys.stats(),
     queryFn: () => MaterialAllocationsApiService.getAllocationStats(),
+  });
+
+  // Fetch work order requirements for dropdown
+  const { data: workOrderRequirements, isLoading: requirementsLoading } = useQuery({
+    queryKey: ['work-order-requirements'],
+    queryFn: () => BOMApiService.getMaterialRequirements(),
+  });
+
+  // Fetch inventory items for dropdown
+  const { data: inventoryItems, isLoading: inventoryLoading } = useQuery({
+    queryKey: ['inventory-items'],
+    queryFn: () => InventoryApi.getInventoryItems({ limit: 1000 }),
+  });
+
+  // Fetch work orders for dropdown
+  const { data: workOrders, isLoading: workOrdersLoading } = useQuery({
+    queryKey: ['work-orders'],
+    queryFn: () => WorkOrdersApiService.getWorkOrders({ limit: 1000 }),
   });
 
   // Mutation for creating allocations
@@ -161,7 +182,7 @@ export default function MaterialAllocationPage() {
   };
 
   // Handle loading state
-  if (allocationsLoading || statsLoading) {
+  if (allocationsLoading || statsLoading || requirementsLoading || inventoryLoading || workOrdersLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -483,7 +504,7 @@ export default function MaterialAllocationPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleReturnAllocation(alloc.id)}
+                            onClick={() => handleReturnAllocation(alloc.id.toString())}
                             disabled={returnAllocationMutation.isPending}
                             className="text-orange-600 hover:text-orange-700"
                           >
@@ -516,34 +537,61 @@ export default function MaterialAllocationPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="requirement">Work Order Requirement ID *</Label>
-              <Input
-                id="requirement"
+              <Label htmlFor="requirement">Work Order Requirement *</Label>
+              <Select
                 value={newAllocation.work_order_requirement_id}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setNewAllocation((prev) => ({
                     ...prev,
-                    work_order_requirement_id: e.target.value,
+                    work_order_requirement_id: value,
                   }))
                 }
-                placeholder="Enter requirement ID"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select work order requirement" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workOrderRequirements?.requirements?.map((req) => (
+                    <SelectItem key={req.id} value={req.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{req.material_name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          WO: {req.work_order_id} | Required: {req.required_quantity} {req.unit_of_measure}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="inventory">Inventory Item ID *</Label>
-              <Input
-                id="inventory"
-                type="number"
-                value={newAllocation.inventory_item_id || ""}
-                onChange={(e) =>
+              <Label htmlFor="inventory">Inventory Item *</Label>
+              <Select
+                value={newAllocation.inventory_item_id?.toString() || ""}
+                onValueChange={(value) =>
                   setNewAllocation((prev) => ({
                     ...prev,
-                    inventory_item_id: parseInt(e.target.value) || 0,
+                    inventory_item_id: parseInt(value) || 0,
                   }))
                 }
-                placeholder="Enter product ID"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select inventory item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {inventoryItems?.map((item) => (
+                    <SelectItem key={item.id} value={item.id.toString()}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{item.product_name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          SKU: {item.product_sku} | Stock: {item.current_stock} {item.unit_of_measure}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -564,17 +612,51 @@ export default function MaterialAllocationPage() {
 
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
-              <Input
-                id="location"
+              <Select
                 value={newAllocation.allocated_from_location}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setNewAllocation((prev) => ({
                     ...prev,
-                    allocated_from_location: e.target.value,
+                    allocated_from_location: value,
                   }))
                 }
-                placeholder="e.g., Warehouse A - Shelf 12"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Warehouse A - Shelf 1">Warehouse A - Shelf 1</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 2">Warehouse A - Shelf 2</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 3">Warehouse A - Shelf 3</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 4">Warehouse A - Shelf 4</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 5">Warehouse A - Shelf 5</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 6">Warehouse A - Shelf 6</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 7">Warehouse A - Shelf 7</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 8">Warehouse A - Shelf 8</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 9">Warehouse A - Shelf 9</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 10">Warehouse A - Shelf 10</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 11">Warehouse A - Shelf 11</SelectItem>
+                  <SelectItem value="Warehouse A - Shelf 12">Warehouse A - Shelf 12</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 1">Warehouse B - Shelf 1</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 2">Warehouse B - Shelf 2</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 3">Warehouse B - Shelf 3</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 4">Warehouse B - Shelf 4</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 5">Warehouse B - Shelf 5</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 6">Warehouse B - Shelf 6</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 7">Warehouse B - Shelf 7</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 8">Warehouse B - Shelf 8</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 9">Warehouse B - Shelf 9</SelectItem>
+                  <SelectItem value="Warehouse B - Shelf 10">Warehouse B - Shelf 10</SelectItem>
+                  <SelectItem value="Cold Storage - Zone A">Cold Storage - Zone A</SelectItem>
+                  <SelectItem value="Cold Storage - Zone B">Cold Storage - Zone B</SelectItem>
+                  <SelectItem value="Cold Storage - Zone C">Cold Storage - Zone C</SelectItem>
+                  <SelectItem value="Quality Control - Holding">Quality Control - Holding</SelectItem>
+                  <SelectItem value="Production Floor - Raw Materials">Production Floor - Raw Materials</SelectItem>
+                  <SelectItem value="Production Floor - WIP">Production Floor - WIP</SelectItem>
+                  <SelectItem value="Shipping Dock - Staging">Shipping Dock - Staging</SelectItem>
+                  <SelectItem value="Receiving Dock - Staging">Receiving Dock - Staging</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

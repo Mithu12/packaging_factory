@@ -10,7 +10,7 @@ const router = express.Router();
 
 const inventoryQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(1000).optional(),
   search: Joi.string().max(255).optional(),
   category_id: Joi.number().integer().min(1).optional(),
   subcategory_id: Joi.number().integer().min(1).optional(),
@@ -43,7 +43,7 @@ const stockMovementQuerySchema = Joi.object({
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(1000).optional(),
   sortBy: Joi.string()
     .valid("created_at", "product_name", "movement_type", "quantity")
     .optional(),
