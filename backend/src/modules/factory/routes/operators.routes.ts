@@ -27,14 +27,14 @@ const operatorQuerySchema = Joi.object({
 });
 
 const createOperatorSchema = Joi.object({
-  employee_id: Joi.string().min(1).max(50).required(),
+  user_id: Joi.number().integer().positive().required(),
   skill_level: Joi.string().valid('beginner', 'intermediate', 'expert', 'master').required(),
   department: Joi.string().max(100).optional(),
   hourly_rate: Joi.number().min(0).precision(2).optional(),
 });
 
 const updateOperatorSchema = Joi.object({
-  employee_id: Joi.string().min(1).max(50).optional(),
+  user_id: Joi.number().integer().positive().optional(),
   skill_level: Joi.string().valid('beginner', 'intermediate', 'expert', 'master').optional(),
   department: Joi.string().max(100).optional(),
   availability_status: Joi.string().valid('available', 'busy', 'off_duty', 'on_leave').optional(),

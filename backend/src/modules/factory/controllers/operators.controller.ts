@@ -74,7 +74,7 @@ export class OperatorController {
 
       serializeSuccessResponse(res, operator, "Operator retrieved successfully");
     } catch (error: any) {
-      MyLogger.error(action, error, { employee_id });
+      MyLogger.error(action, error, { employee_id: req.params.employee_id });
       next(error);
     }
   }
@@ -83,9 +83,9 @@ export class OperatorController {
   async createOperator(req: Request, res: Response, next: NextFunction): Promise<void> {
     const action = "POST /api/factory/operators";
     try {
-      const factory_id = req.user!.factory_id ? parseInt(req.user!.factory_id as string) : null;
+      const factory_id = req.user!.factory_id ? Number(req.user!.factory_id) : null;
       const data: CreateOperatorRequest = req.body;
-      const created_by = parseInt(req.user!.user_id as string);
+      const created_by = Number(req.user!.user_id);
 
       MyLogger.info(action, { factory_id, data, created_by });
 
@@ -97,7 +97,7 @@ export class OperatorController {
 
       MyLogger.success(action, { operator: { id: operator.id, employee_id: operator.employee_id } });
 
-      serializeSuccessResponse(res, operator, "Operator created successfully", 201);
+      serializeSuccessResponse(res, operator, "Operator created successfully");
     } catch (error: any) {
       MyLogger.error(action, error, { data: req.body });
       next(error);
@@ -110,7 +110,7 @@ export class OperatorController {
     try {
       const { id } = req.params;
       const data: UpdateOperatorRequest = req.body;
-      const updated_by = parseInt(req.user!.user_id as string);
+      const updated_by = Number(req.user!.user_id);
 
       MyLogger.info(action, { id, data, updated_by });
 

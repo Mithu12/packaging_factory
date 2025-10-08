@@ -447,7 +447,7 @@ export class OperatorMediator {
       const query = `DELETE FROM operators WHERE id = $1`;
       const result = await client.query(query, [id]);
 
-      const deleted = result.rowCount > 0;
+      const deleted = result.rowCount ? result.rowCount > 0 : false;
 
       MyLogger.success(action, { deleted, id });
 
