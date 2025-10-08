@@ -247,6 +247,7 @@ export class GetWorkOrderInfoMediator {
 
       const totalPages = Math.ceil(total / limit);
 
+
       MyLogger.success(action, {
         ordersCount: work_orders.length,
         total,

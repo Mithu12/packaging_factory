@@ -146,6 +146,11 @@ export default function MaterialConsumptionPage() {
     queryFn: () => WorkOrdersApiService.getOperators(),
   });
 
+  const { data: workOrdersData, isLoading: workOrdersLoading, error: workOrdersError } = useQuery({
+    queryKey: ["material-consumption", "work-orders"],
+    queryFn: () => WorkOrdersApiService.getWorkOrders({ limit: 200 }),
+  });
+
   const createConsumptionMutation = useMutation({
     mutationFn: (payload: CreateMaterialConsumptionRequest) =>
       MaterialConsumptionsApiService.createConsumption(payload),
@@ -189,9 +194,11 @@ export default function MaterialConsumptionPage() {
   const requirements = requirementsData?.requirements || [];
   const productionLines = productionLinesData || [];
   const operators = operatorsData || [];
+  const workOrders = workOrdersData?.work_orders || [];
+
 
   const isCreateDialogLoading =
-    requirementsLoading || productionLinesLoading || operatorsLoading;
+    requirementsLoading || productionLinesLoading || operatorsLoading || workOrdersLoading;
 
   const parsedConsumedQuantity = Number(formState.consumed_quantity);
   const parsedWastageQuantity = Number(formState.wastage_quantity || "0");
@@ -273,10 +280,32 @@ export default function MaterialConsumptionPage() {
   };
 
   const handleBulkFormChange = (field: string, value: any) => {
-    setBulkFormState((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setBulkFormState((prev) => {
+      const newState = { ...prev, [field]: value };
+
+      // Auto-populate fields when work order is selected
+      if (field === 'work_order_id' && value) {
+        const selectedWorkOrder = workOrders.find(wo => wo.id === value);
+        if (selectedWorkOrder) {
+          // Auto-populate production line if available
+          if (selectedWorkOrder.production_line_id && !prev.production_line_id) {
+            newState.production_line_id = selectedWorkOrder.production_line_id;
+          }
+
+          // Auto-populate operator if only one operator is assigned
+          if (selectedWorkOrder.assigned_operators && selectedWorkOrder.assigned_operators.length === 1 && !prev.operator_id) {
+            newState.operator_id = selectedWorkOrder.assigned_operators[0].toString();
+          }
+
+          // Generate batch number based on work order if not set
+          if (!prev.batch_number) {
+            newState.batch_number = `WO-${selectedWorkOrder.work_order_number}-${new Date().toISOString().slice(0, 10)}`;
+          }
+        }
+      }
+
+      return newState;
+    });
   };
 
   const handleAddBulkConsumptionItem = (material_id: string) => {
@@ -412,14 +441,8 @@ export default function MaterialConsumptionPage() {
   };
 
   const workOrderOptions = useMemo(() => {
-    const unique = new Map<string, string>();
-    requirements.forEach((req) => {
-      if (!unique.has(req.work_order_id)) {
-        unique.set(req.work_order_id, req.work_order_id);
-      }
-    });
-    return Array.from(unique.values());
-  }, [requirements]);
+    return workOrders.filter(wo => wo.status === 'in_progress' || wo.status === 'released');
+  }, [workOrders]);
 
   return (
     <div className="p-6 space-y-6">
@@ -577,8 +600,8 @@ export default function MaterialConsumptionPage() {
                 <SelectContent>
                   <SelectItem value="all">All work orders</SelectItem>
                   {workOrderOptions.map((wo) => (
-                    <SelectItem key={wo} value={wo}>
-                      Work Order {wo}
+                    <SelectItem key={wo.id} value={wo.id}>
+                      {wo.work_order_number} - {wo.product_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1091,9 +1114,14 @@ export default function MaterialConsumptionPage() {
                     <SelectValue placeholder="Select work order" />
                   </SelectTrigger>
                   <SelectContent>
-                    {workOrderOptions.map((workOrderId) => (
-                      <SelectItem key={workOrderId} value={workOrderId}>
-                        {workOrderId}
+                    {workOrderOptions.map((wo) => (
+                      <SelectItem key={wo.id} value={wo.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{wo.work_order_number}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {wo.product_name} • Qty: {formatNumber(wo.quantity)} {wo.unit_of_measure}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
