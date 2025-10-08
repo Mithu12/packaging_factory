@@ -1,5 +1,6 @@
 import { moduleRegistry, MODULE_NAMES } from '@/utils/moduleRegistry';
 import { MyLogger } from '@/utils/new-logger';
+import { registerFactoryAccountingListeners } from '@/services/factoryAccountsIntegrationService';
 
 // Import mediators
 import AddCustomerOrderMediator from './mediators/customerOrders/AddCustomerOrder.mediator';
@@ -31,9 +32,14 @@ export const initializeFactoryModule = (): void => {
 
     moduleRegistry.registerModule(MODULE_NAMES.FACTORY, factoryServices);
 
+    // Set up optional accounts integration
+    // This will only work if accounts module is already registered
+    registerFactoryAccountingListeners();
+
     MyLogger.success('Factory Module Initialization', {
       module: MODULE_NAMES.FACTORY,
       services: Object.keys(factoryServices),
+      accountsIntegration: moduleRegistry.isModuleAvailable(MODULE_NAMES.ACCOUNTS),
       message: 'Factory module initialized and registered successfully'
     });
 

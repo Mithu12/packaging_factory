@@ -138,6 +138,23 @@ export const EVENT_NAMES = {
   VOUCHER_CREATED: 'voucher.created',
   VOUCHER_POSTED: 'voucher.posted',
   ACCOUNT_BALANCE_UPDATED: 'account.balance.updated',
+  
+  // Factory events - Customer Orders
+  FACTORY_ORDER_APPROVED: 'factory.order.approved',
+  FACTORY_ORDER_SHIPPED: 'factory.order.shipped',
+  FACTORY_PAYMENT_RECEIVED: 'factory.payment.received',
+  
+  // Factory events - Production
+  MATERIAL_CONSUMED: 'factory.material.consumed',
+  MATERIAL_WASTAGE_APPROVED: 'factory.wastage.approved',
+  PRODUCTION_RUN_COMPLETED: 'factory.production.completed',
+  WORK_ORDER_COMPLETED: 'factory.workorder.completed',
+  
+  // Factory events - Returns
+  FACTORY_RETURN_APPROVED: 'factory.return.approved',
+  
+  // Factory events - Expenses
+  FACTORY_EXPENSE_APPROVED: 'factory.expense.approved',
 } as const;
 
 export type EventName = typeof EVENT_NAMES[keyof typeof EVENT_NAMES];

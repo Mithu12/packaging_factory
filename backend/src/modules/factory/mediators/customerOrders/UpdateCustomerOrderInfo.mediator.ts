@@ -2,6 +2,7 @@ import pool from "@/database/connection";
 import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
+import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -469,6 +470,34 @@ export class UpdateCustomerOrderInfoMediator {
         newStatus,
         approved: approvalData.approved 
       });
+
+      // Emit event for accounts integration (if order was approved)
+      if (approvalData.approved && updatedOrder) {
+        try {
+          eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
+            orderData: {
+              orderId: updatedOrder.id,
+              orderNumber: updatedOrder.order_number,
+              customerId: updatedOrder.factory_customer_id,
+              customerName: updatedOrder.factory_customer_name,
+              customerEmail: updatedOrder.factory_customer_email,
+              totalValue: updatedOrder.total_value,
+              currency: updatedOrder.currency || 'BDT',
+              orderDate: updatedOrder.order_date || new Date().toISOString(),
+              factoryId: updatedOrder.factory_id,
+              lineItems: updatedOrder.line_items,
+              notes: approvalData.notes
+            },
+            userId: parseInt(userId)
+          });
+        } catch (eventError: any) {
+          // Log error but don't fail the operation
+          MyLogger.error(`${action}.eventEmit`, eventError, {
+            orderId: approvalData.order_id,
+            message: 'Failed to emit FACTORY_ORDER_APPROVED event, but order approval succeeded'
+          });
+        }
+      }
 
       return updatedOrder!;
 
