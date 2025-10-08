@@ -3,6 +3,7 @@ import { eventBus, EVENT_NAMES, EventPayload } from '@/utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 import { VoucherType } from '@/types/accounts';
 import pool from '@/database/connection';
+import { factoryEventLogService } from './factoryEventLogService';
 
 /**
  * Factory Accounts Integration Service
@@ -42,6 +43,8 @@ class FactoryAccountsIntegrationService {
    * Create accounting voucher for customer order approval
    * Creates A/R and Deferred Revenue
    * Only works if accounts module is available
+   * 
+   * WITH IDEMPOTENCY: Checks event log to prevent duplicate vouchers
    */
   async createCustomerOrderReceivable(
     orderData: OrderAccountingData, 
@@ -55,6 +58,39 @@ class FactoryAccountsIntegrationService {
         orderId: orderData.orderId 
       });
       return null;
+    }
+
+    // Generate event ID for idempotency
+    const eventId = factoryEventLogService.generateEventId(
+      'order_approved',
+      parseInt(orderData.orderId)
+    );
+
+    // Check if already processed (idempotency)
+    const alreadyProcessed = await factoryEventLogService.isEventProcessed(eventId);
+    if (alreadyProcessed) {
+      MyLogger.info(action, {
+        message: 'Event already processed, skipping',
+        eventId,
+        orderId: orderData.orderId
+      });
+      return { voucherId: 0, voucherNo: '', success: true }; // Return success but no new voucher
+    }
+
+    // Log event start
+    let eventLogId: number | null = null;
+    try {
+      eventLogId = await factoryEventLogService.logEventStart(
+        eventId,
+        'FACTORY_ORDER_APPROVED',
+        'customer_order',
+        parseInt(orderData.orderId),
+        orderData,
+        userId
+      );
+    } catch (logError) {
+      MyLogger.error(`${action}.logEventStart`, logError, { eventId, orderId: orderData.orderId });
+      // Continue even if logging fails
     }
 
     try {
@@ -149,6 +185,11 @@ class FactoryAccountsIntegrationService {
       // Update order with voucher reference
       await this.updateOrderVoucherReference(orderData.orderId, voucher.id, 'receivable_voucher_id');
 
+      // Log success
+      if (eventLogId) {
+        await factoryEventLogService.logEventSuccess(eventLogId, [voucher.id]);
+      }
+
       return {
         voucherId: voucher.id,
         voucherNo: voucher.voucherNo,
@@ -157,6 +198,21 @@ class FactoryAccountsIntegrationService {
 
     } catch (error: any) {
       MyLogger.error(action, error, { orderId: orderData.orderId });
+
+      // Log failure and add to failed voucher queue
+      if (eventLogId) {
+        const failureCategory = factoryEventLogService.determineFailureCategory(error);
+        await factoryEventLogService.logEventFailure(
+          eventLogId,
+          error,
+          'FACTORY_ORDER_APPROVED',
+          'customer_order',
+          parseInt(orderData.orderId),
+          orderData,
+          failureCategory
+        );
+      }
+
       return {
         voucherId: 0,
         voucherNo: '',
