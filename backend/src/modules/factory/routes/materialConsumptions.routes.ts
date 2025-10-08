@@ -7,6 +7,7 @@ import {
   createConsumptionSchema,
   consumptionQuerySchema,
   consumptionParamsSchema,
+  bulkConsumptionSchema,
 } from '@/validation/materialConsumptions.validation';
 import * as materialConsumptionsController from '../controllers/materialConsumptions.controller';
 
@@ -62,6 +63,20 @@ router.post(
   validateRequest(createConsumptionSchema),
   auditMiddleware,
   materialConsumptionsController.createConsumption
+);
+
+/**
+ * @route   POST /api/factory/material-consumptions/bulk
+ * @desc    Create bulk material consumptions
+ * @access  Private (FACTORY_CONSUMPTIONS_CREATE)
+ */
+router.post(
+  '/bulk',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_CREATE),
+  validateRequest(bulkConsumptionSchema),
+  auditMiddleware,
+  materialConsumptionsController.createBulkConsumptions
 );
 
 export default router;

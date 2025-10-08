@@ -48,6 +48,31 @@ export const createConsumption = asyncHandler(async (req: Request, res: Response
 });
 
 /**
+ * @desc    Create bulk material consumptions
+ * @route   POST /api/factory/material-consumptions/bulk
+ * @access  Private (FACTORY_CONSUMPTIONS_CREATE)
+ */
+export const createBulkConsumptions = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.user_id;
+  const { consumptions, work_order_id, production_line_id, operator_id, batch_number, notes } = req.body;
+
+  const results = await AddMaterialConsumptionMediator.recordBulkConsumptions(
+    consumptions,
+    {
+      work_order_id,
+      production_line_id,
+      operator_id,
+      batch_number,
+      notes
+    },
+    userId
+  );
+
+  res.status(201);
+  serializeSuccessResponse(res, results, 'Bulk material consumptions created successfully');
+});
+
+/**
  * @desc    Get material consumption stats
  * @route   GET /api/factory/material-consumptions/stats
  * @access  Private (FACTORY_CONSUMPTIONS_READ)

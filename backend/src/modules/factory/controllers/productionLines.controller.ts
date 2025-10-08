@@ -63,9 +63,9 @@ export class ProductionLineController {
   async createProductionLine(req: Request, res: Response, next: NextFunction): Promise<void> {
     const action = "POST /api/factory/production-lines";
     try {
-      const factory_id = req.user!.factory_id ? parseInt(req.user!.factory_id as string) : null;
+      const factory_id = req.user!.factory_id ? Number(req.user!.factory_id) : null;
       const data: CreateProductionLineRequest = req.body;
-      const created_by = parseInt(req.user!.user_id as string);
+      const created_by = Number(req.user!.user_id);
 
       MyLogger.info(action, { factory_id, data, created_by });
 
@@ -77,7 +77,11 @@ export class ProductionLineController {
 
       MyLogger.success(action, { production_line: { id: production_line.id, name: production_line.name } });
 
-      serializeSuccessResponse(res, production_line, "Production line created successfully", 201);
+      res.status(201).json({
+        success: true,
+        data: production_line,
+        message: "Production line created successfully"
+      });
     } catch (error: any) {
       MyLogger.error(action, error, { data: req.body });
       next(error);
@@ -90,7 +94,7 @@ export class ProductionLineController {
     try {
       const { id } = req.params;
       const data: UpdateProductionLineRequest = req.body;
-      const updated_by = parseInt(req.user!.user_id as string);
+      const updated_by = Number(req.user!.user_id);
 
       MyLogger.info(action, { id, data, updated_by });
 

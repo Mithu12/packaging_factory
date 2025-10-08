@@ -34,3 +34,19 @@ export const consumptionQuerySchema = Joi.object({
 export const consumptionParamsSchema = Joi.object({
   id: numericIdSchema.required(),
 });
+
+export const bulkConsumptionSchema = Joi.object({
+  consumptions: Joi.array().items(
+    Joi.object({
+      material_id: numericIdSchema.required(),
+      consumed_quantity: Joi.number().positive().required(),
+      wastage_quantity: Joi.number().min(0).default(0),
+      wastage_reason: Joi.string().allow('', null).optional(),
+    })
+  ).min(1).required(),
+  work_order_id: numericIdSchema.required(),
+  production_line_id: numericIdSchema.allow(null).optional(),
+  operator_id: numericIdSchema.allow(null).optional(),
+  batch_number: Joi.string().allow('', null).optional(),
+  notes: Joi.string().max(500).allow('', null).optional(),
+});

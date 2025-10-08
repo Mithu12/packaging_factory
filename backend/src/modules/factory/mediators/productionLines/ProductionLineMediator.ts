@@ -172,8 +172,6 @@ export class ProductionLineMediator {
         is_active: row.is_active,
         created_at: row.created_at.toISOString(),
         updated_at: row.updated_at?.toISOString(),
-        // Populated fields
-        factory_name: row.factory_name,
       };
 
       MyLogger.success(action, { production_line: { id, name: production_line.name } });
@@ -374,7 +372,7 @@ export class ProductionLineMediator {
       const query = `DELETE FROM production_lines WHERE id = $1`;
       const result = await client.query(query, [id]);
 
-      const deleted = result.rowCount > 0;
+      const deleted = (result.rowCount ?? 0) > 0;
 
       MyLogger.success(action, { deleted, id });
 

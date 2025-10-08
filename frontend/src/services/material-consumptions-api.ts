@@ -45,6 +45,22 @@ export interface CreateMaterialConsumptionRequest {
   notes?: string;
 }
 
+export interface BulkConsumptionItem {
+  material_id: string;
+  consumed_quantity: number;
+  wastage_quantity?: number;
+  wastage_reason?: string;
+}
+
+export interface CreateBulkConsumptionRequest {
+  consumptions: BulkConsumptionItem[];
+  work_order_id: string;
+  production_line_id?: string;
+  operator_id?: string;
+  batch_number?: string;
+  notes?: string;
+}
+
 export interface MaterialConsumptionQueryParams {
   page?: number;
   limit?: number;
@@ -116,6 +132,15 @@ export class MaterialConsumptionsApiService {
     });
   }
 
+  static async createBulkConsumptions(
+    data: CreateBulkConsumptionRequest
+  ): Promise<MaterialConsumption[]> {
+    return makeRequest<MaterialConsumption[]>('/factory/material-consumptions/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   static async getConsumptionStats(): Promise<MaterialConsumptionStats> {
     return makeRequest<MaterialConsumptionStats>('/factory/material-consumptions/stats');
   }
@@ -134,5 +159,6 @@ export const materialConsumptionsQueryKeys = {
   detail: (id: string) =>
     [...materialConsumptionsQueryKeys.details(), id] as const,
   stats: () => [...materialConsumptionsQueryKeys.all, 'stats'] as const,
+  bulk: () => [...materialConsumptionsQueryKeys.all, 'bulk'] as const,
 };
 

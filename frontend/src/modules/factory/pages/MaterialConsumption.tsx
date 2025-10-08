@@ -35,6 +35,8 @@ import {
   type MaterialConsumption,
   type MaterialConsumptionQueryParams,
   type CreateMaterialConsumptionRequest,
+  type CreateBulkConsumptionRequest,
+  type BulkConsumptionItem,
 } from "@/services/material-consumptions-api";
 import {
   BOMApiService,
@@ -78,6 +80,7 @@ export default function MaterialConsumptionPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [workOrderFilter, setWorkOrderFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showBulkCreateDialog, setShowBulkCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState<boolean>(false);
   const [selectedConsumption, setSelectedConsumption] =
     useState<MaterialConsumption | null>(null);
@@ -93,6 +96,17 @@ export default function MaterialConsumptionPage() {
     notes: "",
   };
   const [formState, setFormState] = useState<CreateConsumptionForm>(emptyForm);
+
+  // Bulk consumption form state
+  const emptyBulkForm: CreateBulkConsumptionRequest = {
+    work_order_id: "",
+    consumptions: [],
+    production_line_id: "",
+    operator_id: "",
+    batch_number: "",
+    notes: "",
+  };
+  const [bulkFormState, setBulkFormState] = useState<CreateBulkConsumptionRequest>(emptyBulkForm);
 
   const queryParams: MaterialConsumptionQueryParams = useMemo(
     () => ({
@@ -145,6 +159,22 @@ export default function MaterialConsumptionPage() {
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to record consumption");
+    },
+  });
+
+  const createBulkConsumptionMutation = useMutation({
+    mutationFn: (payload: CreateBulkConsumptionRequest) =>
+      MaterialConsumptionsApiService.createBulkConsumptions(payload),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: materialConsumptionsQueryKeys.all,
+      });
+      toast.success(`Bulk consumption recorded successfully (${data.length} materials)`);
+      setShowBulkCreateDialog(false);
+      setBulkFormState(emptyBulkForm);
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to record bulk consumption");
     },
   });
 
@@ -237,6 +267,150 @@ export default function MaterialConsumptionPage() {
     setShowDetailsDialog(true);
   };
 
+  const handleOpenBulkCreateDialog = () => {
+    setBulkFormState(emptyBulkForm);
+    setShowBulkCreateDialog(true);
+  };
+
+  const handleBulkFormChange = (field: string, value: any) => {
+    setBulkFormState((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleAddBulkConsumptionItem = (material_id: string) => {
+    const existingIndex = bulkFormState.consumptions.findIndex(
+      (item) => item.material_id === material_id
+    );
+
+    if (existingIndex >= 0) {
+      toast.warning("Material already added to consumption list");
+      return;
+    }
+
+    const newItem: BulkConsumptionItem = {
+      material_id,
+      consumed_quantity: 0,
+      wastage_quantity: 0,
+    };
+
+    setBulkFormState((prev) => ({
+      ...prev,
+      consumptions: [...prev.consumptions, newItem],
+    }));
+  };
+
+  const handleUpdateBulkConsumptionItem = (
+    material_id: string,
+    field: keyof BulkConsumptionItem,
+    value: number | string
+  ) => {
+    setBulkFormState((prev) => ({
+      ...prev,
+      consumptions: prev.consumptions.map((item) =>
+        item.material_id === material_id
+          ? { ...item, [field]: value }
+          : item
+      ),
+    }));
+  };
+
+  const handleRemoveBulkConsumptionItem = (material_id: string) => {
+    setBulkFormState((prev) => ({
+      ...prev,
+      consumptions: prev.consumptions.filter(
+        (item) => item.material_id !== material_id
+      ),
+    }));
+  };
+
+  const handlePreFillFromBOM = () => {
+    if (!bulkFormState.work_order_id) {
+      toast.error("Please select a work order first");
+      return;
+    }
+
+    // Get all requirements for the selected work order
+    const workOrderRequirements = requirements.filter(
+      (req) => req.work_order_id === bulkFormState.work_order_id
+    );
+
+    if (workOrderRequirements.length === 0) {
+      toast.warning("No material requirements found for this work order");
+      return;
+    }
+
+    // Clear existing consumptions and add all BOM materials
+    const bomConsumptions: BulkConsumptionItem[] = workOrderRequirements.map((req) => ({
+      material_id: req.material_id,
+      consumed_quantity: req.required_quantity - req.consumed_quantity, // Remaining quantity to consume
+      wastage_quantity: 0,
+    }));
+
+    setBulkFormState((prev) => ({
+      ...prev,
+      consumptions: bomConsumptions,
+    }));
+
+    toast.success(`Pre-filled ${bomConsumptions.length} materials from BOM`);
+  };
+
+  const handleConsumeAsPerBOM = () => {
+    if (!bulkFormState.work_order_id) {
+      toast.error("Please select a work order first");
+      return;
+    }
+
+    // Get all requirements for the selected work order
+    const workOrderRequirements = requirements.filter(
+      (req) => req.work_order_id === bulkFormState.work_order_id
+    );
+
+    if (workOrderRequirements.length === 0) {
+      toast.warning("No material requirements found for this work order");
+      return;
+    }
+
+    // Set all materials to their required quantities (ignoring already consumed)
+    const bomConsumptions: BulkConsumptionItem[] = workOrderRequirements.map((req) => ({
+      material_id: req.material_id,
+      consumed_quantity: req.required_quantity, // Full BOM quantity
+      wastage_quantity: 0,
+    }));
+
+    setBulkFormState((prev) => ({
+      ...prev,
+      consumptions: bomConsumptions,
+    }));
+
+    toast.success(`Set all materials to BOM quantities (${bomConsumptions.length} materials)`);
+  };
+
+  const handleSubmitBulkConsumption = () => {
+    if (!bulkFormState.work_order_id) {
+      toast.error("Please select a work order");
+      return;
+    }
+
+    if (bulkFormState.consumptions.length === 0) {
+      toast.error("Please add at least one material to consume");
+      return;
+    }
+
+    // Validate quantities
+    const invalidItems = bulkFormState.consumptions.filter(
+      (item) => item.consumed_quantity <= 0
+    );
+
+    if (invalidItems.length > 0) {
+      toast.error("All materials must have a consumed quantity greater than 0");
+      return;
+    }
+
+    createBulkConsumptionMutation.mutate(bulkFormState);
+  };
+
   const workOrderOptions = useMemo(() => {
     const unique = new Map<string, string>();
     requirements.forEach((req) => {
@@ -256,22 +430,41 @@ export default function MaterialConsumptionPage() {
             Record material usage and capture wastage for production.
           </p>
         </div>
-        <Button
-          onClick={handleOpenCreateDialog}
-          disabled={createConsumptionMutation.isPending}
-        >
-          {createConsumptionMutation.isPending ? (
-            <>
-              <Clock className="h-4 w-4 mr-2 animate-spin" />
-              Logging...
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 mr-2" />
-              Log Consumption
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleOpenCreateDialog}
+            disabled={createConsumptionMutation.isPending}
+            variant="outline"
+          >
+            {createConsumptionMutation.isPending ? (
+              <>
+                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                Logging...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Log Consumption
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleOpenBulkCreateDialog}
+            disabled={createBulkConsumptionMutation.isPending}
+          >
+            {createBulkConsumptionMutation.isPending ? (
+              <>
+                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                Bulk Logging...
+              </>
+            ) : (
+              <>
+                <Package className="h-4 w-4 mr-2" />
+                Bulk Consumption
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -555,7 +748,58 @@ export default function MaterialConsumptionPage() {
                   }))
                 }
                 placeholder="Enter consumed amount"
+                className={
+                  formState.work_order_requirement_id && formState.consumed_quantity
+                    ? (() => {
+                        const req = requirements.find(
+                          (r) => r.id === formState.work_order_requirement_id
+                        );
+                        const bomRequired = req?.required_quantity || 0;
+                        const consumed = parseFloat(formState.consumed_quantity) || 0;
+                        const variance = consumed - bomRequired;
+                        return variance > 0
+                          ? "border-orange-500 focus:border-orange-500"
+                          : variance < 0
+                            ? "border-red-500 focus:border-red-500"
+                            : "";
+                      })()
+                    : ""
+                }
               />
+              {formState.work_order_requirement_id && (
+                <div className="text-sm text-muted-foreground">
+                  {(() => {
+                    const req = requirements.find(
+                      (r) => r.id === formState.work_order_requirement_id
+                    );
+                    const bomRequired = req?.required_quantity || 0;
+                    const consumed = parseFloat(formState.consumed_quantity) || 0;
+                    const variance = consumed - bomRequired;
+                    const variancePercentage = bomRequired > 0 ? (variance / bomRequired) * 100 : 0;
+
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span>BOM Required: {formatNumber(bomRequired)} {req?.unit_of_measure}</span>
+                        {consumed > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className={`flex items-center gap-1 ${
+                              variance > 0
+                                ? "text-orange-600"
+                                : variance < 0
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                            }`}>
+                              {variance !== 0 && <AlertTriangle className="h-3 w-3" />}
+                              Variance: {variance > 0 ? "+" : ""}{formatNumber(variancePercentage)}%
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -818,6 +1062,368 @@ export default function MaterialConsumptionPage() {
               variant="outline"
               onClick={() => setShowDetailsDialog(false)}
             >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Consumption Dialog */}
+      <Dialog open={showBulkCreateDialog} onOpenChange={setShowBulkCreateDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Material Consumption</DialogTitle>
+            <DialogDescription>
+              Record consumption for multiple materials at once. Select a work order and add materials to consume.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Work Order Selection */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bulk-work-order">Work Order</Label>
+                <Select
+                  value={bulkFormState.work_order_id}
+                  onValueChange={(value) => handleBulkFormChange("work_order_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select work order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workOrderOptions.map((workOrderId) => (
+                      <SelectItem key={workOrderId} value={workOrderId}>
+                        {workOrderId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bulk-production-line">Production Line (Optional)</Label>
+                <Select
+                  value={bulkFormState.production_line_id}
+                  onValueChange={(value) => handleBulkFormChange("production_line_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select production line" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productionLines.map((line) => (
+                      <SelectItem key={line.id} value={line.id}>
+                        {line.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bulk-operator">Operator (Optional)</Label>
+                <Select
+                  value={bulkFormState.operator_id}
+                  onValueChange={(value) => handleBulkFormChange("operator_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select operator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operators.map((operator) => (
+                      <SelectItem key={operator.id} value={operator.id}>
+                        {operator.user_name || `Operator ${operator.id}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bulk-batch-number">Batch Number (Optional)</Label>
+                <Input
+                  id="bulk-batch-number"
+                  value={bulkFormState.batch_number}
+                  onChange={(e) => handleBulkFormChange("batch_number", e.target.value)}
+                  placeholder="Enter batch number"
+                />
+              </div>
+            </div>
+
+            {/* Material Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Add Materials</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreFillFromBOM}
+                    disabled={!bulkFormState.work_order_id}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Pre-fill from BOM
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConsumeAsPerBOM}
+                    disabled={!bulkFormState.work_order_id}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Consume as per BOM
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Select onValueChange={handleAddBulkConsumptionItem}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select material to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {requirements
+                      .filter((req) => req.work_order_id === bulkFormState.work_order_id)
+                      .filter((req) => !bulkFormState.consumptions.some(c => c.material_id === req.material_id))
+                      .map((req) => (
+                        <SelectItem key={req.material_id} value={req.material_id}>
+                          {req.material_name} ({req.material_sku})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Materials Table */}
+            {bulkFormState.consumptions.length > 0 && (
+              <div className="space-y-2">
+                <Label>Materials to Consume</Label>
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Material</TableHead>
+                        <TableHead className="w-28">BOM Required</TableHead>
+                        <TableHead className="w-28">Consumed Qty</TableHead>
+                        <TableHead className="w-28">Wastage Qty</TableHead>
+                        <TableHead className="w-24">Variance</TableHead>
+                        <TableHead className="w-32">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bulkFormState.consumptions.map((item) => {
+                        const req = requirements.find(r => r.material_id === item.material_id);
+                        const bomRequired = req?.required_quantity || 0;
+                        const consumed = item.consumed_quantity || 0;
+                        const variance = consumed - bomRequired;
+                        const variancePercentage = bomRequired > 0 ? (variance / bomRequired) * 100 : 0;
+                        const isOverConsumption = variance > 0;
+                        const isUnderConsumption = variance < 0;
+
+                        return (
+                          <TableRow key={item.material_id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{req?.material_name}</div>
+                                <div className="text-sm text-muted-foreground">{req?.material_sku}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {formatNumber(bomRequired)} {req?.unit_of_measure}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.consumed_quantity}
+                                onChange={(e) => handleUpdateBulkConsumptionItem(
+                                  item.material_id,
+                                  "consumed_quantity",
+                                  parseFloat(e.target.value) || 0
+                                )}
+                                className={`w-full ${isOverConsumption ? 'border-orange-500' : isUnderConsumption ? 'border-red-500' : ''}`}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.wastage_quantity || 0}
+                                onChange={(e) => handleUpdateBulkConsumptionItem(
+                                  item.material_id,
+                                  "wastage_quantity",
+                                  parseFloat(e.target.value) || 0
+                                )}
+                                className="w-full"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {variance !== 0 && (
+                                  <AlertTriangle
+                                    className={`h-4 w-4 ${
+                                      isOverConsumption ? 'text-orange-500' : 'text-red-500'
+                                    }`}
+                                  />
+                                )}
+                                <span
+                                  className={`text-sm font-medium ${
+                                    isOverConsumption
+                                      ? 'text-orange-600'
+                                      : isUnderConsumption
+                                        ? 'text-red-600'
+                                        : 'text-green-600'
+                                  }`}
+                                >
+                                  {variance > 0 ? '+' : ''}{formatNumber(variancePercentage)}%
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveBulkConsumptionItem(item.material_id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="bulk-notes">Notes (Optional)</Label>
+              <Textarea
+                id="bulk-notes"
+                value={bulkFormState.notes}
+                onChange={(e) => handleBulkFormChange("notes", e.target.value)}
+                placeholder="Add any notes for this bulk consumption"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkCreateDialog(false)}
+              disabled={createBulkConsumptionMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitBulkConsumption}
+              disabled={createBulkConsumptionMutation.isPending || bulkFormState.consumptions.length === 0}
+            >
+              {createBulkConsumptionMutation.isPending ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  Recording...
+                </>
+              ) : (
+                <>
+                  <Package className="h-4 w-4 mr-2" />
+                  Record Bulk Consumption
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Consumption Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the material consumption record.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedConsumption && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Work Order</Label>
+                  <p className="font-medium">{selectedConsumption.work_order_number}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Material</Label>
+                  <p className="font-medium">{selectedConsumption.material_name}</p>
+                  <p className="text-sm text-muted-foreground">{selectedConsumption.material_sku}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Consumed Quantity</Label>
+                  <p className="font-medium">{formatNumber(selectedConsumption.consumed_quantity)} {selectedConsumption.unit_of_measure}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Wastage Quantity</Label>
+                  <p className="font-medium">{formatNumber(selectedConsumption.wastage_quantity)} {selectedConsumption.unit_of_measure}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Consumption Date</Label>
+                  <p className="font-medium">{formatDate(selectedConsumption.consumption_date)}</p>
+                </div>
+              </div>
+
+              {selectedConsumption.wastage_reason && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Wastage Reason</Label>
+                  <p className="font-medium">{selectedConsumption.wastage_reason}</p>
+                </div>
+              )}
+
+              {selectedConsumption.production_line_name && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Production Line</Label>
+                  <p className="font-medium">{selectedConsumption.production_line_name}</p>
+                </div>
+              )}
+
+              {selectedConsumption.batch_number && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Batch Number</Label>
+                  <p className="font-medium">{selectedConsumption.batch_number}</p>
+                </div>
+              )}
+
+              {selectedConsumption.notes && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+                  <p className="font-medium">{selectedConsumption.notes}</p>
+                </div>
+              )}
+
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Recorded by: {selectedConsumption.consumed_by_name || `User ${selectedConsumption.consumed_by}`}</span>
+                  <span>Created: {formatDate(selectedConsumption.created_at)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowDetailsDialog(false)}>
               Close
             </Button>
           </DialogFooter>
