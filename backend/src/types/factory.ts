@@ -469,16 +469,13 @@ export interface UpdateProductionLineRequest {
 
 // Operator Management
 export interface CreateOperatorRequest {
-  employee_id: string;
-  name: string;
+  user_id: number;
   skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
   department?: string;
   hourly_rate?: number;
 }
 
 export interface UpdateOperatorRequest {
-  employee_id?: string;
-  name?: string;
   skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
   department?: string;
   availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';

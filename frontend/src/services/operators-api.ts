@@ -18,14 +18,13 @@ export interface Operator {
 }
 
 export interface CreateOperatorRequest {
-  employee_id: string;
+  user_id: number;
   skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
   department?: string;
   hourly_rate?: number;
 }
 
 export interface UpdateOperatorRequest {
-  employee_id?: string;
   skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
   department?: string;
   availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';

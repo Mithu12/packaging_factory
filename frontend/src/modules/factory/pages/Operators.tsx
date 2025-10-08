@@ -57,6 +57,7 @@ import {
   type UpdateOperatorRequest,
 } from "@/services/operators-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { UsersApiService } from "@/services/users-api";
 
 export default function OperatorsPage() {
   const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function OperatorsPage() {
   const [selectedOperator, setSelectedOperator] =
     useState<Operator | null>(null);
   const [newOperator, setNewOperator] = useState<Partial<CreateOperatorRequest>>({
-    employee_id: "",
+    user_id: 0,
     skill_level: "beginner",
     department: "",
     hourly_rate: 0,
@@ -102,6 +103,12 @@ export default function OperatorsPage() {
     queryFn: () => OperatorsApiService.getOperatorStats(),
   });
 
+  // Fetch users for dropdown
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => UsersApiService.getUsers(),
+  });
+
   // Mutation for creating operators
   const createOperatorMutation = useMutation({
     mutationFn: (data: CreateOperatorRequest) =>
@@ -109,7 +116,7 @@ export default function OperatorsPage() {
     onSuccess: () => {
       setShowOperatorDialog(false);
       setNewOperator({
-        employee_id: "",
+        user_id: 0,
         skill_level: "beginner",
         department: "",
         hourly_rate: 0,
@@ -136,7 +143,7 @@ export default function OperatorsPage() {
       setShowOperatorDialog(false);
       setSelectedOperator(null);
       setNewOperator({
-        employee_id: "",
+        user_id: 0,
         skill_level: "beginner",
         department: "",
         hourly_rate: 0,
@@ -208,7 +215,7 @@ export default function OperatorsPage() {
   };
 
   // Handle loading state
-  if (operatorsLoading || statsLoading) {
+  if (operatorsLoading || statsLoading || usersLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -242,7 +249,7 @@ export default function OperatorsPage() {
 
   const handleCreateOperator = () => {
     setNewOperator({
-      employee_id: "",
+      user_id: 0,
       skill_level: "beginner",
       department: "",
       hourly_rate: 0,
@@ -253,7 +260,6 @@ export default function OperatorsPage() {
   const handleEditOperator = (operator: Operator) => {
     setSelectedOperator(operator);
     setNewOperator({
-      employee_id: operator.employee_id,
       skill_level: operator.skill_level,
       department: operator.department || "",
       hourly_rate: operator.hourly_rate || 0,
@@ -262,7 +268,7 @@ export default function OperatorsPage() {
   };
 
   const handleSubmitOperator = () => {
-    if (!newOperator.employee_id || !newOperator.skill_level) {
+    if (!newOperator.user_id || !newOperator.skill_level) {
       setError("Please fill in all required fields");
       return;
     }
@@ -599,18 +605,32 @@ export default function OperatorsPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employee_id">Employee ID *</Label>
-              <Input
-                id="employee_id"
-                value={newOperator.employee_id}
-                onChange={(e) =>
+              <Label htmlFor="user">User *</Label>
+              <Select
+                value={newOperator.user_id?.toString() || ""}
+                onValueChange={(value) =>
                   setNewOperator((prev) => ({
                     ...prev,
-                    employee_id: e.target.value,
+                    user_id: parseInt(value),
                   }))
                 }
-                placeholder="Enter employee ID"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users?.filter(user => user.is_active).map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{user.full_name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {user.email} | {user.role_name}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

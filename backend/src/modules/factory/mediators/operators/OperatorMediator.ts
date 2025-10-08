@@ -272,24 +272,28 @@ export class OperatorMediator {
     try {
       MyLogger.info(action, { factory_id, data, created_by });
 
-      // Check if employee_id already exists
-      const checkQuery = `SELECT id FROM operators WHERE employee_id = $1`;
-      const checkResult = await client.query(checkQuery, [data.employee_id]);
+      // Check if user is already an operator
+      const checkQuery = `SELECT id FROM operators WHERE user_id = $1`;
+      const checkResult = await client.query(checkQuery, [data.user_id]);
 
       if (checkResult.rows.length > 0) {
-        throw new Error(`Employee ID ${data.employee_id} already exists`);
+        throw new Error(`User is already assigned as an operator`);
       }
+
+      // Generate employee_id based on user_id
+      const employee_id = `EMP${data.user_id.toString().padStart(3, '0')}`;
 
       const query = `
         INSERT INTO operators (
-          factory_id, employee_id, skill_level, department, hourly_rate, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          factory_id, user_id, employee_id, skill_level, department, hourly_rate, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `;
 
       const values = [
         factory_id,
-        data.employee_id,
+        data.user_id,
+        employee_id,
         data.skill_level,
         data.department,
         data.hourly_rate,
@@ -341,19 +345,6 @@ export class OperatorMediator {
       let paramIndex = 1;
 
       // Build dynamic update query
-      if (data.employee_id !== undefined) {
-        // Check if new employee_id already exists (excluding current operator)
-        const checkQuery = `SELECT id FROM operators WHERE employee_id = $1 AND id != $2`;
-        const checkResult = await client.query(checkQuery, [data.employee_id, id]);
-
-        if (checkResult.rows.length > 0) {
-          throw new Error(`Employee ID ${data.employee_id} already exists`);
-        }
-
-        updateFields.push(`employee_id = $${paramIndex}`);
-        queryParams.push(data.employee_id);
-        paramIndex++;
-      }
 
       if (data.skill_level !== undefined) {
         updateFields.push(`skill_level = $${paramIndex}`);
