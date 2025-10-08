@@ -228,6 +228,47 @@ export default function MaterialAllocationPage() {
     setShowAllocationDialog(true);
   };
 
+  // Auto-select inventory item when work order requirement changes
+  const handleRequirementChange = (requirementId: string) => {
+    setNewAllocation((prev) => ({
+      ...prev,
+      work_order_requirement_id: requirementId,
+      // Clear inventory item when requirement changes
+      inventory_item_id: 0,
+    }));
+
+    // Find the selected requirement
+    const selectedRequirement = workOrderRequirements?.requirements?.find(
+      (req) => req.id === requirementId
+    );
+
+    if (selectedRequirement && inventoryItems && requirementId) {
+      // Try to find matching inventory item by name and SKU first
+      let matchingInventoryItem = inventoryItems.find(
+        (item) =>
+          item.product_name === selectedRequirement.material_name &&
+          item.product_sku === selectedRequirement.material_sku
+      );
+
+      // If no match by name and SKU, try by ID (convert string to number)
+      if (!matchingInventoryItem) {
+        matchingInventoryItem = inventoryItems.find(
+          (item) => item.id === parseInt(selectedRequirement.material_id)
+        );
+      }
+
+      // Auto-select the inventory item if found
+      if (matchingInventoryItem) {
+        setNewAllocation((prev) => ({
+          ...prev,
+          inventory_item_id: matchingInventoryItem.id,
+        }));
+        // Optional: Show a toast or some feedback that auto-selection happened
+        // toast.info(`Auto-selected inventory item: ${matchingInventoryItem.product_name}`);
+      }
+    }
+  };
+
   const handleSubmitAllocation = () => {
     if (
       !newAllocation.work_order_requirement_id ||
@@ -540,12 +581,7 @@ export default function MaterialAllocationPage() {
               <Label htmlFor="requirement">Work Order Requirement *</Label>
               <Select
                 value={newAllocation.work_order_requirement_id}
-                onValueChange={(value) =>
-                  setNewAllocation((prev) => ({
-                    ...prev,
-                    work_order_requirement_id: value,
-                  }))
-                }
+                onValueChange={handleRequirementChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select work order requirement" />
