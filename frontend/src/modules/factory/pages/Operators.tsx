@@ -260,6 +260,7 @@ export default function OperatorsPage() {
   const handleEditOperator = (operator: Operator) => {
     setSelectedOperator(operator);
     setNewOperator({
+      user_id: operator.user_id,
       skill_level: operator.skill_level,
       department: operator.department || "",
       hourly_rate: operator.hourly_rate || 0,
@@ -268,9 +269,18 @@ export default function OperatorsPage() {
   };
 
   const handleSubmitOperator = () => {
-    if (!newOperator.user_id || !newOperator.skill_level) {
-      setError("Please fill in all required fields");
-      return;
+    if (selectedOperator) {
+      // When editing, only validate skill_level since user_id is fixed
+      if (!newOperator.skill_level) {
+        setError("Please select a skill level");
+        return;
+      }
+    } else {
+      // When creating, validate both user_id and skill_level
+      if (!newOperator.user_id || !newOperator.skill_level) {
+        setError("Please fill in all required fields");
+        return;
+      }
     }
 
     if (selectedOperator) {
@@ -597,8 +607,8 @@ export default function OperatorsPage() {
             </DialogTitle>
             <DialogDescription>
               {selectedOperator
-                ? 'Update the operator information'
-                : 'Create a new operator for your factory'
+                ? 'Update the operator information (user cannot be changed)'
+                : 'Select a user and assign them as an operator'
               }
             </DialogDescription>
           </DialogHeader>
@@ -606,31 +616,53 @@ export default function OperatorsPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="user">User *</Label>
-              <Select
-                value={newOperator.user_id?.toString() || ""}
-                onValueChange={(value) =>
-                  setNewOperator((prev) => ({
-                    ...prev,
-                    user_id: parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users?.filter(user => user.is_active).map((user) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.full_name}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {user.email} | {user.role_name}
-                        </span>
+              {selectedOperator ? (
+                // Show selected user info when editing
+                <div className="p-3 border rounded-md bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.full_name || 'User not found'}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      <div className="text-sm text-muted-foreground">
+                        {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.email || ''}
+                        {' | '}
+                        {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.role_name || ''}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Employee ID: {selectedOperator.employee_id}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Show user selection when creating
+                <Select
+                  value={newOperator.user_id?.toString() || ""}
+                  onValueChange={(value) =>
+                    setNewOperator((prev) => ({
+                      ...prev,
+                      user_id: parseInt(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users?.filter(user => user.is_active).map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{user.full_name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {user.email} | {user.role_name}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
