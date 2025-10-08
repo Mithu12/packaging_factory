@@ -54,9 +54,26 @@ import {
   type ProductionRunQueryParams,
   type CompleteProductionRunRequest,
   type RecordDowntimeRequest,
+  type CreateProductionRunRequest,
 } from "@/services/production-execution-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  WorkOrdersApiService,
+  type WorkOrder,
+  type ProductionLine,
+  type Operator,
+} from "@/services/work-orders-api";
+
+type CreateRunFormState = {
+  work_order_id: string;
+  production_line_id: string;
+  operator_id: string;
+  scheduled_start_time: string;
+  target_quantity: string;
+  planned_cycle_time_seconds: string;
+  notes: string;
+};
 
 export default function ProductionExecution() {
   const { formatDate } = useFormatting();
@@ -68,6 +85,7 @@ export default function ProductionExecution() {
   const [showRunDetails, setShowRunDetails] = useState(false);
   const [showDowntimeDialog, setShowDowntimeDialog] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
   const [downtimeData, setDowntimeData] = useState({
     downtime_reason: "",
     downtime_category: "machine_breakdown",
@@ -82,11 +100,22 @@ export default function ProductionExecution() {
     rejected_quantity: 0,
     notes: "",
   });
+  const emptyCreateRunState: CreateRunFormState = {
+    work_order_id: "",
+    production_line_id: "",
+    operator_id: "",
+    scheduled_start_time: "",
+    target_quantity: "",
+    planned_cycle_time_seconds: "",
+    notes: "",
+  };
+  const [createRunData, setCreateRunData] =
+    useState<CreateRunFormState>(emptyCreateRunState);
 
   // API query parameters
   const queryParams: ProductionRunQueryParams = {
-    search: searchTerm || '',
-    status: statusFilter !== "all" ? statusFilter : '',
+    search: searchTerm || "",
+    status: statusFilter !== "all" ? statusFilter : "",
     sort_by: "actual_start_time",
     sort_order: "desc",
     page: 1,
@@ -105,11 +134,47 @@ export default function ProductionExecution() {
     queryFn: () => ProductionExecutionApiService.getProductionRunStats(),
   });
 
+  const { data: workOrdersData, isLoading: workOrdersLoading } = useQuery({
+    queryKey: ["production-execution", "work-orders"],
+    queryFn: () =>
+      WorkOrdersApiService.getWorkOrders({ limit: 500, sort_by: "deadline" }),
+  });
+
+  const { data: productionLinesData, isLoading: productionLinesLoading } =
+    useQuery({
+      queryKey: ["production-execution", "production-lines"],
+      queryFn: () => WorkOrdersApiService.getProductionLines(),
+    });
+
+  const { data: operatorsData, isLoading: operatorsLoading } = useQuery({
+    queryKey: ["production-execution", "operators"],
+    queryFn: () => WorkOrdersApiService.getOperators(),
+  });
+
+  const createRunMutation = useMutation({
+    mutationFn: (data: CreateProductionRunRequest) =>
+      ProductionExecutionApiService.createProductionRun(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
+      toast.success("Production run created successfully");
+      setShowCreateRunDialog(false);
+      setCreateRunData(emptyCreateRunState);
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to create production run");
+    },
+  });
+
   // Start production run mutation
   const startMutation = useMutation({
-    mutationFn: (id: string) => ProductionExecutionApiService.startProductionRun(id),
+    mutationFn: (id: string) =>
+      ProductionExecutionApiService.startProductionRun(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productionExecutionQueryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
       toast.success("Production run started successfully");
     },
     onError: (error: any) => {
@@ -122,7 +187,9 @@ export default function ProductionExecution() {
     mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
       ProductionExecutionApiService.pauseProductionRun(id, notes),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productionExecutionQueryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
       toast.success("Production run paused successfully");
     },
     onError: (error: any) => {
@@ -132,10 +199,17 @@ export default function ProductionExecution() {
 
   // Complete production run mutation
   const completeMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CompleteProductionRunRequest }) =>
-      ProductionExecutionApiService.completeProductionRun(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: CompleteProductionRunRequest;
+    }) => ProductionExecutionApiService.completeProductionRun(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productionExecutionQueryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
       toast.success("Production run completed successfully");
       setShowCompleteDialog(false);
       setCompleteData({
@@ -155,7 +229,9 @@ export default function ProductionExecution() {
     mutationFn: (data: RecordDowntimeRequest) =>
       ProductionExecutionApiService.recordDowntime(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productionExecutionQueryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
       toast.success("Downtime recorded successfully");
       setShowDowntimeDialog(false);
       setDowntimeData({
@@ -181,6 +257,77 @@ export default function ProductionExecution() {
     average_efficiency: 0,
     average_quality: 0,
     total_downtime_hours: 0,
+  };
+  const workOrders = workOrdersData?.work_orders || [];
+  const productionLines = productionLinesData || [];
+  const operators = operatorsData || [];
+  const createDialogLoading =
+    workOrdersLoading || productionLinesLoading || operatorsLoading;
+  const parsedTargetQuantity = Number(createRunData.target_quantity);
+  const canSubmitCreateRun =
+    createRunData.work_order_id !== "" &&
+    !Number.isNaN(parsedTargetQuantity) &&
+    parsedTargetQuantity > 0;
+
+  const handleOpenCreateRun = () => {
+    setCreateRunData(emptyCreateRunState);
+    setShowCreateRunDialog(true);
+  };
+
+  const handleCreateRunFieldChange = (
+    field: keyof CreateRunFormState,
+    value: string
+  ) => {
+    setCreateRunData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmitCreateRun = () => {
+    if (!canSubmitCreateRun) {
+      toast.error("Select a work order and enter a target quantity.");
+      return;
+    }
+
+    const targetQuantity = Number(createRunData.target_quantity);
+    const plannedCycle =
+      createRunData.planned_cycle_time_seconds !== ""
+        ? Number(createRunData.planned_cycle_time_seconds)
+        : undefined;
+
+    if (Number.isNaN(targetQuantity) || targetQuantity <= 0) {
+      toast.error("Target quantity must be greater than zero.");
+      return;
+    }
+
+    if (
+      plannedCycle !== undefined &&
+      (Number.isNaN(plannedCycle) || plannedCycle < 0)
+    ) {
+      toast.error("Planned cycle time must be a positive number.");
+      return;
+    }
+
+    const payload: CreateProductionRunRequest = {
+      work_order_id: createRunData.work_order_id,
+      target_quantity: targetQuantity,
+      production_line_id:
+        createRunData.production_line_id !== ""
+          ? createRunData.production_line_id
+          : undefined,
+      operator_id:
+        createRunData.operator_id !== ""
+          ? createRunData.operator_id
+          : undefined,
+      scheduled_start_time: createRunData.scheduled_start_time
+        ? new Date(createRunData.scheduled_start_time).toISOString()
+        : undefined,
+      planned_cycle_time_seconds: plannedCycle,
+      notes: createRunData.notes || undefined,
+    };
+
+    createRunMutation.mutate(payload);
   };
 
   const handleStartRun = (run: ProductionRun) => {
@@ -254,6 +401,22 @@ export default function ProductionExecution() {
           <h1 className="text-3xl font-bold">Production Execution</h1>
           <p className="text-gray-500">Monitor and control production runs</p>
         </div>
+        <Button
+          onClick={handleOpenCreateRun}
+          disabled={createRunMutation.isPending}
+        >
+          {createRunMutation.isPending ? (
+            <>
+              <Clock className="h-4 w-4 mr-2 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Run
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -357,7 +520,9 @@ export default function ProductionExecution() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? "..." : `${stats.total_downtime_hours.toFixed(1)}h`}
+              {statsLoading
+                ? "..."
+                : `${stats.total_downtime_hours.toFixed(1)}h`}
             </div>
             <p className="text-xs text-gray-500">Accumulated</p>
           </CardContent>
@@ -420,24 +585,40 @@ export default function ProductionExecution() {
                   </TableRow>
                 ) : productionRuns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                    <TableCell
+                      colSpan={9}
+                      className="text-center py-8 text-gray-500"
+                    >
                       No production runs found
                     </TableCell>
                   </TableRow>
                 ) : (
                   productionRuns.map((run) => {
                     const StatusIcon = getStatusIcon(run.status);
-                    const progress = run.target_quantity > 0 
-                      ? (run.produced_quantity / run.target_quantity) * 100 
-                      : 0;
-                    
+                    const targetQuantity = Number(run.target_quantity ?? 0);
+                    const producedQuantity = Number(run.produced_quantity ?? 0);
+                    const efficiency = Number(run.efficiency_percentage ?? 0);
+                    const quality = Number(run.quality_percentage ?? 0);
+                    const progress =
+                      targetQuantity > 0
+                        ? (producedQuantity / targetQuantity) * 100
+                        : 0;
+                    const normalizedProgress = Math.min(
+                      Math.max(progress, 0),
+                      100
+                    );
+
                     return (
                       <TableRow key={run.id}>
-                        <TableCell className="font-medium">{run.run_number}</TableCell>
+                        <TableCell className="font-medium">
+                          {run.run_number}
+                        </TableCell>
                         <TableCell>{run.work_order_number}</TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{run.production_line_name || "N/A"}</div>
+                            <div className="font-medium">
+                              {run.production_line_name || "N/A"}
+                            </div>
                             <div className="text-sm text-gray-500">
                               {run.operator_name || "Unassigned"}
                             </div>
@@ -452,19 +633,19 @@ export default function ProductionExecution() {
                         <TableCell>
                           <div className="space-y-1">
                             <div className="text-sm">
-                              {run.produced_quantity} / {run.target_quantity}
+                              {producedQuantity} / {targetQuantity}
                             </div>
-                            <Progress value={progress} className="h-2" />
+                            <Progress value={normalizedProgress} className="h-2" />
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm font-medium">
-                            {run.efficiency_percentage.toFixed(1)}%
+                            {efficiency.toFixed(1)}%
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm font-medium">
-                            {run.quality_percentage.toFixed(1)}%
+                            {quality.toFixed(1)}%
                           </div>
                         </TableCell>
                         <TableCell>
@@ -537,6 +718,200 @@ export default function ProductionExecution() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Run Dialog */}
+      <Dialog
+        open={showCreateRunDialog}
+        onOpenChange={(open) => {
+          setShowCreateRunDialog(open);
+          if (!open) {
+            setCreateRunData(emptyCreateRunState);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Production Run</DialogTitle>
+            <DialogDescription>
+              Link a work order to a production line and target output.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createDialogLoading && (
+            <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Loading work orders, production lines, and operators...
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Work Order *</Label>
+              <Select
+                value={createRunData.work_order_id || undefined}
+                onValueChange={(value) =>
+                  handleCreateRunFieldChange("work_order_id", value)
+                }
+                disabled={workOrdersLoading || workOrders.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select work order" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workOrders.map((wo: WorkOrder) => (
+                    <SelectItem key={wo.id} value={wo.id.toString()}>
+                      {wo.work_order_number} • {wo.product_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {workOrders.length === 0 && !workOrdersLoading && (
+                <p className="text-xs text-orange-600">
+                  No work orders available. Create or release a work order
+                  first.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Production Line</Label>
+                <Select
+                  value={createRunData.production_line_id || undefined}
+                  onValueChange={(value) =>
+                    handleCreateRunFieldChange("production_line_id", value)
+                  }
+                  disabled={
+                    productionLinesLoading || productionLines.length === 0
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Assign production line (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {productionLines.map((line: ProductionLine) => (
+                      <SelectItem key={line.id} value={line.id.toString()}>
+                        {line.name} ({line.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Operator</Label>
+                <Select
+                  value={createRunData.operator_id || undefined}
+                  onValueChange={(value) =>
+                    handleCreateRunFieldChange("operator_id", value)
+                  }
+                  disabled={operatorsLoading || operators.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Assign operator (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {operators.map((operator: Operator) => (
+                      <SelectItem
+                        key={operator.id}
+                        value={operator.id.toString()}
+                      >
+                        {operator.user_name || operator.employee_id} (
+                        {operator.availability_status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="target_quantity">Target Quantity *</Label>
+                <Input
+                  id="target_quantity"
+                  type="number"
+                  min={1}
+                  value={createRunData.target_quantity}
+                  onChange={(e) =>
+                    handleCreateRunFieldChange(
+                      "target_quantity",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Enter target output"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="planned_cycle_time">
+                  Planned Cycle Time (seconds)
+                </Label>
+                <Input
+                  id="planned_cycle_time"
+                  type="number"
+                  min={0}
+                  value={createRunData.planned_cycle_time_seconds}
+                  onChange={(e) =>
+                    handleCreateRunFieldChange(
+                      "planned_cycle_time_seconds",
+                      e.target.value
+                    )
+                  }
+                  placeholder="e.g. 45"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="scheduled_start_time">
+                  Scheduled Start Time
+                </Label>
+                <Input
+                  id="scheduled_start_time"
+                  type="datetime-local"
+                  value={createRunData.scheduled_start_time}
+                  onChange={(e) =>
+                    handleCreateRunFieldChange(
+                      "scheduled_start_time",
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-notes">Notes</Label>
+              <Textarea
+                id="create-notes"
+                value={createRunData.notes}
+                onChange={(e) =>
+                  handleCreateRunFieldChange("notes", e.target.value)
+                }
+                placeholder="Additional instructions or context..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateRunDialog(false)}
+              disabled={createRunMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitCreateRun}
+              disabled={!canSubmitCreateRun || createRunMutation.isPending}
+            >
+              {createRunMutation.isPending ? "Creating..." : "Create Run"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Complete Dialog */}
       <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
@@ -662,12 +1037,20 @@ export default function ProductionExecution() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="machine_breakdown">Machine Breakdown</SelectItem>
+                  <SelectItem value="machine_breakdown">
+                    Machine Breakdown
+                  </SelectItem>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="material_shortage">Material Shortage</SelectItem>
+                  <SelectItem value="material_shortage">
+                    Material Shortage
+                  </SelectItem>
                   <SelectItem value="quality_issue">Quality Issue</SelectItem>
-                  <SelectItem value="setup_changeover">Setup/Changeover</SelectItem>
-                  <SelectItem value="operator_absence">Operator Absence</SelectItem>
+                  <SelectItem value="setup_changeover">
+                    Setup/Changeover
+                  </SelectItem>
+                  <SelectItem value="operator_absence">
+                    Operator Absence
+                  </SelectItem>
                   <SelectItem value="power_outage">Power Outage</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>

@@ -1,9 +1,14 @@
 import Joi from 'joi';
 
+const numericIdSchema = Joi.alternatives().try(
+  Joi.number().integer().positive(),
+  Joi.string().pattern(/^\d+$/)
+);
+
 export const createProductionRunSchema = Joi.object({
-  work_order_id: Joi.string().uuid().required(),
-  production_line_id: Joi.string().uuid().optional(),
-  operator_id: Joi.string().uuid().optional(),
+  work_order_id: numericIdSchema.required(),
+  production_line_id: numericIdSchema.optional(),
+  operator_id: numericIdSchema.optional(),
   scheduled_start_time: Joi.date().iso().optional(),
   target_quantity: Joi.number().positive().required(),
   planned_cycle_time_seconds: Joi.number().integer().positive().optional(),
@@ -23,7 +28,7 @@ export const pauseProductionRunSchema = Joi.object({
 });
 
 export const recordDowntimeSchema = Joi.object({
-  production_run_id: Joi.string().uuid().required(),
+  production_run_id: numericIdSchema.required(),
   downtime_reason: Joi.string().max(100).required(),
   downtime_category: Joi.string()
     .valid(
@@ -51,8 +56,8 @@ export const productionRunQuerySchema = Joi.object({
   status: Joi.string()
     .valid('', 'scheduled', 'in_progress', 'paused', 'completed', 'cancelled')
     .optional(),
-  work_order_id: Joi.string().uuid().optional(),
-  production_line_id: Joi.string().uuid().optional(),
+  work_order_id: numericIdSchema.optional(),
+  production_line_id: numericIdSchema.optional(),
   sort_by: Joi.string()
     .valid('run_number', 'actual_start_time', 'status', 'target_quantity', 'efficiency_percentage')
     .default('actual_start_time'),
@@ -60,6 +65,6 @@ export const productionRunQuerySchema = Joi.object({
 });
 
 export const productionRunParamsSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: numericIdSchema.required(),
 });
 
