@@ -18,6 +18,7 @@ import {
   Search,
   Filter,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -55,6 +56,8 @@ import {
   type CompleteProductionRunRequest,
   type RecordDowntimeRequest,
   type CreateProductionRunRequest,
+  type ProductionRunEvent,
+  type ProductionDowntime,
 } from "@/services/production-execution-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -76,7 +79,7 @@ type CreateRunFormState = {
 };
 
 export default function ProductionExecution() {
-  const { formatDate } = useFormatting();
+  const { formatDate, formatNumber } = useFormatting();
   const queryClient = useQueryClient();
 
   const [selectedRun, setSelectedRun] = useState<ProductionRun | null>(null);
@@ -258,6 +261,17 @@ export default function ProductionExecution() {
     average_quality: 0,
     total_downtime_hours: 0,
   };
+  const selectedRunId = selectedRun ? selectedRun.id.toString() : undefined;
+  const {
+    data: runDetailsData,
+    isFetching: runDetailsLoading,
+    refetch: refetchRunDetails,
+  } = useQuery({
+    queryKey: productionExecutionQueryKeys.detail(selectedRunId ?? "preview"),
+    queryFn: () =>
+      ProductionExecutionApiService.getProductionRunById(selectedRunId!),
+    enabled: !!selectedRunId && showRunDetails,
+  });
   const workOrders = workOrdersData?.work_orders || [];
   const productionLines = productionLinesData || [];
   const operators = operatorsData || [];
@@ -908,6 +922,232 @@ export default function ProductionExecution() {
               disabled={!canSubmitCreateRun || createRunMutation.isPending}
             >
               {createRunMutation.isPending ? "Creating..." : "Create Run"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Run Details Dialog */}
+      <Dialog
+        open={showRunDetails}
+        onOpenChange={(open) => setShowRunDetails(open)}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              Production Run Details
+              {selectedRun && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  #{selectedRun.run_number}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Review runtime history, events, and downtime for the selected run.
+            </DialogDescription>
+          </DialogHeader>
+
+          {runDetailsLoading ? (
+            <div className="py-6 text-center text-muted-foreground">
+              Loading run details...
+            </div>
+          ) : (
+            (() => {
+              const runDetails = runDetailsData ?? selectedRun ?? null;
+              if (!runDetails) {
+                return (
+                  <div className="py-6 text-center text-muted-foreground">
+                    No run data available.
+                  </div>
+                );
+              }
+
+              const events: ProductionRunEvent[] = runDetails.events || [];
+              const downtimeEntries: ProductionDowntime[] =
+                runDetails.downtime || [];
+
+              return (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Work Order
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-lg font-semibold">
+                          {runDetails.work_order_number}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Status: {runDetails.status.replace("_", " ")}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Output
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-lg font-semibold">
+                          {formatNumber(runDetails.good_quantity || 0)} good /
+                          {formatNumber(runDetails.rejected_quantity || 0)} scrap
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Target: {formatNumber(runDetails.target_quantity || 0)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          Timing
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-1 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Started:</span>{" "}
+                          {runDetails.actual_start_time
+                            ? formatDate(runDetails.actual_start_time)
+                            : "—"}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Ended:</span>{" "}
+                          {runDetails.actual_end_time
+                            ? formatDate(runDetails.actual_end_time)
+                            : "—"}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Runtime (min):
+                          </span>{" "}
+                          {formatNumber(runDetails.total_runtime_minutes || 0)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Event History</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => refetchRunDetails()}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Refresh
+                      </Button>
+                    </div>
+                    {events.length === 0 ? (
+                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        No events recorded for this run yet.
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Time</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Quantity</TableHead>
+                              <TableHead>Notes</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {events.map((event) => (
+                              <TableRow key={event.id}>
+                                <TableCell>
+                                  {formatDate(event.event_timestamp)}
+                                </TableCell>
+                                <TableCell className="capitalize">
+                                  {event.event_type.replace("_", " ")}
+                                </TableCell>
+                                <TableCell className="capitalize">
+                                  {event.event_status || "—"}
+                                </TableCell>
+                                <TableCell>
+                                  {event.quantity_at_event !== undefined &&
+                                  event.quantity_at_event !== null
+                                    ? formatNumber(event.quantity_at_event)
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {event.notes || "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Downtime Log</h3>
+                    {downtimeEntries.length === 0 ? (
+                      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        No downtime has been recorded for this run.
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Reason</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Start</TableHead>
+                              <TableHead>End</TableHead>
+                              <TableHead>Duration (min)</TableHead>
+                              <TableHead>Notes</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {downtimeEntries.map((entry) => (
+                              <TableRow key={entry.id}>
+                                <TableCell>{entry.downtime_reason}</TableCell>
+                                <TableCell className="capitalize">
+                                  {entry.downtime_category.replace("_", " ")}
+                                </TableCell>
+                                <TableCell>
+                                  {formatDate(entry.start_time)}
+                                </TableCell>
+                                <TableCell>
+                                  {entry.end_time
+                                    ? formatDate(entry.end_time)
+                                    : "Ongoing"}
+                                </TableCell>
+                                <TableCell>
+                                  {entry.duration_minutes !== undefined &&
+                                  entry.duration_minutes !== null
+                                    ? formatNumber(entry.duration_minutes)
+                                    : "—"}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {entry.notes || "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRunDetails(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

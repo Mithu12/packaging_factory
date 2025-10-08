@@ -64,9 +64,24 @@ export class WastageApiService {
     page: number;
     limit: number;
   }> {
-    const queryString = params
-      ? '?' + new URLSearchParams(params as any).toString()
-      : '';
+    let queryString = '';
+
+    if (params) {
+      const searchParams = new URLSearchParams();
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') {
+          return;
+        }
+
+        searchParams.append(key, String(value));
+      });
+
+      const serialized = searchParams.toString();
+      if (serialized) {
+        queryString = `?${serialized}`;
+      }
+    }
     
     return makeRequest<{
       wastage_records: MaterialWastage[];

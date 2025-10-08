@@ -32,6 +32,7 @@ export interface MaterialConsumption {
 }
 
 export interface CreateMaterialConsumptionRequest {
+  work_order_id: string;
   work_order_requirement_id: string;
   material_id: string;
   consumed_quantity: number;
@@ -75,9 +76,24 @@ export class MaterialConsumptionsApiService {
     page: number;
     limit: number;
   }> {
-    const queryString = params
-      ? '?' + new URLSearchParams(params as any).toString()
-      : '';
+    let queryString = '';
+
+    if (params) {
+      const searchParams = new URLSearchParams();
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') {
+          return;
+        }
+
+        searchParams.append(key, String(value));
+      });
+
+      const serialized = searchParams.toString();
+      if (serialized) {
+        queryString = `?${serialized}`;
+      }
+    }
     
     return makeRequest<{
       consumptions: MaterialConsumption[];
