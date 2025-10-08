@@ -124,25 +124,32 @@ export default function WastageTracking() {
     top_reason: "N/A",
     monthly_trend: 0,
   };
+  const totalWastage = Number(stats.total_wastage ?? 0);
+  const totalCost = Number(stats.total_cost ?? 0);
+  const averageWastage = Number(stats.average_wastage ?? 0);
+  const monthlyTrend = Number(stats.monthly_trend ?? 0);
 
   const handleApprove = () => {
     if (!selectedRecord) return;
+    const recordId = selectedRecord.id.toString();
     approveMutation.mutate({
-      id: selectedRecord.id,
+      id: recordId,
       notes: approvalNotes || undefined,
     });
   };
 
   const handleReject = () => {
     if (!selectedRecord) return;
+    const recordId = selectedRecord.id.toString();
     rejectMutation.mutate({
-      id: selectedRecord.id,
+      id: recordId,
       notes: approvalNotes || undefined,
     });
   };
 
   const handleViewRecord = (record: MaterialWastage) => {
     setSelectedRecord(record);
+    setApprovalNotes("");
     setShowDetailsDialog(true);
   };
 
@@ -195,7 +202,7 @@ export default function WastageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? "..." : stats.total_wastage.toFixed(2)}
+              {statsLoading ? "..." : totalWastage.toFixed(2)}
             </div>
             <p className="text-xs text-gray-500">Units</p>
           </CardContent>
@@ -225,7 +232,7 @@ export default function WastageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? "..." : formatCurrency(stats.total_cost)}
+              {statsLoading ? "..." : formatCurrency(totalCost)}
             </div>
             <p className="text-xs text-gray-500">This Month</p>
           </CardContent>
@@ -240,7 +247,7 @@ export default function WastageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? "..." : stats.average_wastage.toFixed(2)}
+              {statsLoading ? "..." : averageWastage.toFixed(2)}
             </div>
             <p className="text-xs text-gray-500">Per Record</p>
           </CardContent>
@@ -270,7 +277,7 @@ export default function WastageTracking() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? "..." : `${stats.monthly_trend > 0 ? "+" : ""}${stats.monthly_trend}%`}
+              {statsLoading ? "..." : `${monthlyTrend > 0 ? "+" : ""}${monthlyTrend}%`}
             </div>
             <p className="text-xs text-gray-500">vs Last Month</p>
           </CardContent>
@@ -335,14 +342,16 @@ export default function WastageTracking() {
                       No wastage records found
                     </TableCell>
                   </TableRow>
-                ) : (
-                  wastageRecords.map((record) => {
-                    const StatusIcon = getStatusIcon(record.status);
-                    return (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">
-                          {record.work_order_number}
-                        </TableCell>
+              ) : (
+                wastageRecords.map((record) => {
+                  const StatusIcon = getStatusIcon(record.status);
+                  const quantity = Number(record.quantity ?? 0);
+                  const costValue = Number(record.cost ?? 0);
+                  return (
+                    <TableRow key={record.id}>
+                      <TableCell className="font-medium">
+                        {record.work_order_number}
+                      </TableCell>
                         <TableCell>
                           <div>
                             <div className="font-medium">{record.material_name}</div>
@@ -351,15 +360,15 @@ export default function WastageTracking() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {record.quantity} {record.unit_of_measure}
-                        </TableCell>
-                        <TableCell>{record.wastage_reason}</TableCell>
-                        <TableCell>{formatCurrency(record.cost)}</TableCell>
+                      <TableCell>
+                          {quantity} {record.unit_of_measure}
+                      </TableCell>
+                      <TableCell>{record.wastage_reason}</TableCell>
+                      <TableCell>{formatCurrency(costValue)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(record.status)}>
                             <StatusIcon className="mr-1 h-3 w-3" />
-                            {record.status}
+                            {record.status.toUpperCase()}
                           </Badge>
                         </TableCell>
                         <TableCell>{record.recorded_by_name || `User #${record.recorded_by}`}</TableCell>
@@ -384,7 +393,15 @@ export default function WastageTracking() {
       </Card>
 
       {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+      <Dialog
+        open={showDetailsDialog}
+        onOpenChange={(open) => {
+          setShowDetailsDialog(open);
+          if (!open) {
+            setApprovalNotes("");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Wastage Record Details</DialogTitle>
@@ -402,7 +419,7 @@ export default function WastageTracking() {
                 <div>
                   <Label>Status</Label>
                   <Badge className={getStatusColor(selectedRecord.status)}>
-                    {selectedRecord.status}
+                    {selectedRecord.status.toUpperCase()}
                   </Badge>
                 </div>
                 <div>
@@ -483,14 +500,14 @@ export default function WastageTracking() {
                 <Button
                   variant="outline"
                   onClick={handleReject}
-                  disabled={rejectMutation.isPending}
+                  disabled={approveMutation.isPending || rejectMutation.isPending}
                 >
                   <X className="mr-2 h-4 w-4" />
                   Reject
                 </Button>
                 <Button
                   onClick={handleApprove}
-                  disabled={approveMutation.isPending}
+                  disabled={approveMutation.isPending || rejectMutation.isPending}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   Approve

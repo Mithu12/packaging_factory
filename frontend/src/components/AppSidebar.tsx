@@ -229,6 +229,12 @@ const menuSections: MenuSection[] = [
         permission: null,
       },
       {
+        title: "Material Consumption",
+        url: "/factory/material-consumption",
+        icon: Activity,
+        permission: null,
+      },
+      {
         title: "Production Execution",
         url: "/factory/production",
         icon: Activity,

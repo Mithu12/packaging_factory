@@ -74,6 +74,7 @@ import WorkOrderPlanning from "@/modules/factory/pages/WorkOrderPlanning";
 import ProductionExecution from "@/modules/factory/pages/ProductionExecution";
 import WastageTracking from "@/modules/factory/pages/WastageTracking";
 import FactoryExpenses from "@/modules/factory/pages/FactoryExpenses";
+import MaterialConsumptionPage from "@/modules/factory/pages/MaterialConsumption";
 
 // BOM and Material Management Imports
 import BOMList from "@/modules/factory/pages/BOMList";
@@ -584,6 +585,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <MaterialAllocation />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/material-consumption"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <MaterialConsumptionPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
