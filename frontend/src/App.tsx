@@ -84,6 +84,8 @@ import EnhancedWorkOrderPlanning from "@/modules/factory/pages/EnhancedWorkOrder
 import MaterialCostAnalysis from "@/modules/factory/pages/MaterialCostAnalysis";
 import RawMaterialsManagement from "@/modules/factory/pages/RawMaterialsManagement";
 import FactoryManagement from "./modules/factory/pages/FactoryManagement";
+import ProductionLines from "@/modules/factory/pages/ProductionLines";
+import Operators from "@/modules/factory/pages/Operators";
 
 const queryClient = new QueryClient();
 
@@ -598,7 +600,27 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-               
+                <Route
+                  path="/factory/production-lines"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <ProductionLines />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/operators"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <Operators />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
 
                 {/* Expense Routes */}
                 <Route

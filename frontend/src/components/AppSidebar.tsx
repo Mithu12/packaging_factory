@@ -252,6 +252,18 @@ const menuSections: MenuSection[] = [
         icon: CalculatorIcon,
         permission: null,
       },
+      {
+        title: "Production Lines",
+        url: "/factory/production-lines",
+        icon: Settings,
+        permission: null,
+      },
+      {
+        title: "Operators",
+        url: "/factory/operators",
+        icon: UserCog,
+        permission: null,
+      },
     ],
   },
   {
