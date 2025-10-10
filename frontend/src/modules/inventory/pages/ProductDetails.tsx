@@ -244,7 +244,11 @@ export default function ProductDetails() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground" data-testid="product-title">{product.name}</h1>
-          <p className="text-muted-foreground" data-testid="product-sku">SKU: {product.sku} � {product.category.name} ? {product.subcategory?.name || 'No subcategory'} {product.brand && `� ${product.brand.name}`}</p>
+          <p className="text-muted-foreground" data-testid="product-sku">
+            SKU: {product.sku} • {product.category.name}
+            {product.subcategory?.name && ` • ${product.subcategory.name}`}
+            {product.brand && ` • ${product.brand.name}`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate(`/products/${id}/edit`)} data-testid="product-edit-button">
@@ -387,7 +391,10 @@ export default function ProductDetails() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="font-medium">{product.category.name} ? {product.subcategory?.name || 'No subcategory'}</p>
+                  <p className="font-medium">
+                    {product.category.name}
+                    {product.subcategory?.name && ` • ${product.subcategory.name}`}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Brand</label>
@@ -582,13 +589,13 @@ export default function ProductDetails() {
                   <span className="text-sm text-muted-foreground">Minimum Stock</span>
                   <span className="font-medium">{product.min_stock_level} {product.unit_of_measure}</span>
                 </div>
-                {/*<div className="flex justify-between">*/}
-                {/*  <span className="text-sm text-muted-foreground">Maximum Stock</span>*/}
-                {/*  <span className="font-medium">{product.max_stock_level || 'Not set'} {product.unit_of_measure}</span>*/}
-                {/*</div>*/}
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Maximum Stock</span>
+                  <span className="font-medium">{product.max_stock_level ? `${product.max_stock_level} ${product.unit_of_measure}` : 'Not set'}</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Reorder Point</span>
-                  <span className="font-medium">{product.reorder_point || 'Not set'} {product.unit_of_measure}</span>
+                  <span className="font-medium">{product.reorder_point ? `${product.reorder_point} ${product.unit_of_measure}` : 'Not set'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Tax Rate</span>
@@ -618,8 +625,9 @@ export default function ProductDetails() {
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>
-                <span className="font-medium text-success">
-                  {formatCurrency(product.selling_price - product.cost_price)} ({Number((product.selling_price - product.cost_price) / product.cost_price * 100).toFixed(1)}%)
+                <span className="font-medium text-green-600">
+                  {formatCurrency(product.selling_price - product.cost_price)}
+                  {product.cost_price > 0 ? ` (${Number(((product.selling_price - product.cost_price) / product.cost_price) * 100).toFixed(1)}%)` : ' (N/A)'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -641,7 +649,9 @@ export default function ProductDetails() {
               <div className="space-y-2">
                 <p className="font-medium">{product.supplier.name}</p>
                 <p className="text-sm text-muted-foreground">Supplier Code: {product.supplier.supplier_code}</p>
-                <p className="text-sm text-muted-foreground">Average Lead Time: 5-7 days</p>
+                <p className="text-sm text-muted-foreground">
+                  Average Lead Time: Not specified
+                </p>
                 <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => navigate(`/suppliers/${product.supplier.id}`)} data-testid="view-supplier-details-button">
                   View Supplier Details
                 </Button>
@@ -658,7 +668,7 @@ export default function ProductDetails() {
               <div>
                 <label className="text-sm text-muted-foreground">Status</label>
                 <div className="mt-1">
-                  <Badge className={product.status === 'active' ? 'bg-success text-white' : 'bg-status-draft text-white'}>
+                  <Badge className={product.status === 'active' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
                     {product.status}
                   </Badge>
                 </div>
