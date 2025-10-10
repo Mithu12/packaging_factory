@@ -24,7 +24,7 @@ export class AddProductionRunMediator {
       await client.query('BEGIN');
       MyLogger.info(action, { data, userId });
 
-      // Validate work order exists
+      // Validate work order exists and is in released status
       const workOrderResult = await client.query(
         'SELECT * FROM work_orders WHERE id = $1',
         [data.work_order_id]
@@ -32,6 +32,16 @@ export class AddProductionRunMediator {
 
       if (workOrderResult.rows.length === 0) {
         throw createError('Work order not found', 404);
+      }
+
+      const workOrder = workOrderResult.rows[0];
+
+      // Only allow production runs from released work orders
+      if (workOrder.status !== 'released') {
+        throw createError(
+          `Cannot create production run for work order in ${workOrder.status} status. Only released work orders can be used for production runs.`,
+          400
+        );
       }
 
       // Generate run number

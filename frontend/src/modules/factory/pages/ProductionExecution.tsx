@@ -140,7 +140,11 @@ export default function ProductionExecution() {
   const { data: workOrdersData, isLoading: workOrdersLoading } = useQuery({
     queryKey: ["production-execution", "work-orders"],
     queryFn: () =>
-      WorkOrdersApiService.getWorkOrders({ limit: 500, sort_by: "deadline" }),
+      WorkOrdersApiService.getWorkOrders({
+        limit: 500,
+        sort_by: "deadline",
+        status: "released" // Only show released work orders for production runs
+      }),
   });
 
   const { data: productionLinesData, isLoading: productionLinesLoading } =
@@ -780,8 +784,8 @@ export default function ProductionExecution() {
               </Select>
               {workOrders.length === 0 && !workOrdersLoading && (
                 <p className="text-xs text-orange-600">
-                  No work orders available. Create or release a work order
-                  first.
+                  No released work orders available. Only work orders in "released"
+                  status can be used for production runs.
                 </p>
               )}
             </div>
