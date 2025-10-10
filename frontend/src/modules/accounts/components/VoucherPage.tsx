@@ -361,8 +361,8 @@ export function VoucherPage({
 
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const debitTotal = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
-    const creditTotal = lines.reduce((sum, line) => sum + (line.credit || 0), 0)
+    const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit || 0), 0)
+    const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit || 0), 0)
 
     if (debitTotal !== creditTotal) {
       toast.error("Voucher not balanced", {
@@ -736,13 +736,13 @@ export function VoucherPage({
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">Total Debits</div>
                     <div className="font-medium text-emerald-600">
-                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => sum + line.debit, 0))}
+                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => Number(sum) + Number(line.debit), 0))}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">Total Credits</div>
                     <div className="font-medium text-rose-600">
-                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => sum + line.credit, 0))}
+                      {formatCurrency(selectedVoucher.lines.reduce((sum, line) => Number(sum) + Number(line.credit) , 0))}
                     </div>
                   </div>
                 </div>
