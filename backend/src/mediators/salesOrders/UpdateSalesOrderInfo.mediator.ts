@@ -57,25 +57,35 @@ export class UpdateSalesOrderInfoMediator {
                     updatedFields: Object.keys(data)
                 });
 
-                // Trigger accounts integration when status transitioned to completed, idempotent on voucher_id
+                // Trigger accounts integration when status changes
                 try {
+                    const orderData = {
+                        id: salesOrder.id,
+                        order_number: salesOrder.order_number,
+                        customer_id: salesOrder.customer_id,
+                        customer_name: salesOrder.customer_name,
+                        order_date: salesOrder.order_date,
+                        status: salesOrder.status,
+                        subtotal: Number(salesOrder.subtotal) || 0,
+                        discount_amount: Number(salesOrder.discount_amount) || 0,
+                        tax_amount: Number(salesOrder.tax_amount) || 0,
+                        total_amount: Number(salesOrder.total_amount) || 0,
+                        cash_received: Number(salesOrder.cash_received) || 0,
+                        change_given: Number(salesOrder.change_given) || 0,
+                        due_amount: Number(salesOrder.due_amount) || 0,
+                        voucher_id: salesOrder.voucher_id,
+                        notes: salesOrder.notes,
+                    };
+
+                    // Handle completion - create voucher
                     if (data.status === 'completed' && !salesOrder.accounting_integrated && !salesOrder.voucher_id) {
-                        await salesAccountsIntegrationService.createSalesOrderVoucher({
-                            id: salesOrder.id,
-                            order_number: salesOrder.order_number,
-                            customer_id: salesOrder.customer_id,
-                            customer_name: salesOrder.customer_name,
-                            order_date: salesOrder.order_date,
-                            status: salesOrder.status,
-                            subtotal: Number(salesOrder.subtotal) || 0,
-                            discount_amount: Number(salesOrder.discount_amount) || 0,
-                            tax_amount: Number(salesOrder.tax_amount) || 0,
-                            total_amount: Number(salesOrder.total_amount) || 0,
-                            cash_received: Number(salesOrder.cash_received) || 0,
-                            change_given: Number(salesOrder.change_given) || 0,
-                            due_amount: Number(salesOrder.due_amount) || 0,
-                            notes: salesOrder.notes,
-                        }, 1);
+                        await salesAccountsIntegrationService.createSalesOrderVoucher(orderData, 1);
+                    }
+                    // Handle cancellation/refund - create reversing voucher
+                    else if ((data.status === 'cancelled' || data.status === 'refunded') &&
+                             salesOrder.voucher_id && !salesOrder.reversing_voucher_id &&
+                             salesAccountsIntegrationService.canReverse(orderData)) {
+                        await salesAccountsIntegrationService.createReversingVoucher(orderData, 1);
                     }
                 } catch (integrationError: any) {
                     MyLogger.error(`${action}.accountsIntegration`, integrationError, { salesOrderId: salesOrder.id });

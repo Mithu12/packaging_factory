@@ -2,6 +2,7 @@ import {
   Voucher,
   UpdateVoucherRequest,
   VoucherStatus,
+  VoucherType,
 } from "@/types/accounts";
 import { MediatorInterface } from "@/types";
 import pool from "@/database/connection";
@@ -309,7 +310,131 @@ class UpdateVoucherInfoMediator implements MediatorInterface {
 
   // Void voucher
   async voidVoucher(id: number, voidedBy: number): Promise<Voucher> {
-    return this.updateVoucher(id, { status: VoucherStatus.VOID }, voidedBy);
+    const action = 'Void Voucher';
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { voucherId: id, voidedBy });
+
+      // Check if voucher exists and get current status
+      const existingResult = await client.query(
+        "SELECT * FROM vouchers WHERE id = $1",
+        [id]
+      );
+
+      if (existingResult.rows.length === 0) {
+        throw createError("Voucher not found", 404);
+      }
+
+      const existing = existingResult.rows[0];
+
+      if (existing.status === VoucherStatus.VOID) {
+        throw createError("Voucher is already voided", 400);
+      }
+
+      // Prevent voiding posted vouchers - require reversing entries instead
+      if (existing.status === VoucherStatus.POSTED) {
+        throw createError("Cannot void posted vouchers. Create a reversing journal entry instead.", 400);
+      }
+
+      // Void the voucher (only works for draft vouchers)
+      return await this.updateVoucher(id, { status: VoucherStatus.VOID }, voidedBy);
+
+    } catch (error: any) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { voucherId: id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Create reversing journal entry for posted voucher
+  async createReversingEntry(originalVoucherId: number, reversedBy: number): Promise<Voucher> {
+    const action = 'Create Reversing Entry';
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { originalVoucherId, reversedBy });
+
+      // Get original voucher with lines
+      const voucherQuery = `
+        SELECT v.*, vl.account_id, vl.debit, vl.credit, vl.cost_center_id, vl.description,
+               coa.code as account_code, coa.name as account_name
+        FROM vouchers v
+        JOIN voucher_lines vl ON v.id = vl.voucher_id
+        JOIN chart_of_accounts coa ON vl.account_id = coa.id
+        WHERE v.id = $1 AND v.status = $2
+        ORDER BY vl.id
+      `;
+
+      const voucherResult = await client.query(voucherQuery, [originalVoucherId, VoucherStatus.POSTED]);
+
+      if (voucherResult.rows.length === 0) {
+        throw createError("Original voucher not found or not posted", 404);
+      }
+
+      const originalVoucher = voucherResult.rows[0];
+      const lines = voucherResult.rows;
+
+      // Calculate reversing amount (same as original)
+      const reversingAmount = originalVoucher.amount;
+
+      // Create reversing voucher data
+      const reversingData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(),
+        reference: `REV-${originalVoucher.voucher_no}`,
+        payee: originalVoucher.payee,
+        amount: reversingAmount,
+        narration: `Reversing Entry for ${originalVoucher.voucher_no} - ${originalVoucher.narration}`,
+        costCenterId: originalVoucher.cost_center_id,
+        lines: lines.map(line => ({
+          accountId: line.account_id,
+          debit: line.credit,    // Reverse debit/credit
+          credit: line.debit,
+          costCenterId: line.cost_center_id,
+          description: `REV: ${line.description || originalVoucher.narration}`
+        }))
+      };
+
+      // Create the reversing voucher
+      const AddVoucherMediator = await import('./AddVoucher.mediator');
+      const reversingVoucher = await AddVoucherMediator.default.createVoucher(reversingData, reversedBy);
+
+      // Auto-approve the reversing voucher
+      await this.approveVoucher(reversingVoucher.id, reversedBy);
+
+      // Link the vouchers
+      await client.query(
+        'UPDATE vouchers SET reversed_by_voucher_id = $1 WHERE id = $2',
+        [reversingVoucher.id, originalVoucherId]
+      );
+
+      await client.query(
+        'UPDATE vouchers SET reverses_voucher_id = $1 WHERE id = $2',
+        [originalVoucherId, reversingVoucher.id]
+      );
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, {
+        originalVoucherId,
+        reversingVoucherId: reversingVoucher.id,
+        reversingVoucherNo: reversingVoucher.voucherNo
+      });
+
+      return reversingVoucher;
+
+    } catch (error: any) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { originalVoucherId });
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // Generate ledger entries for posted voucher

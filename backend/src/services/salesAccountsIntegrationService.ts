@@ -17,6 +17,7 @@ export interface SalesOrderAccountingData {
   cash_received: number;
   change_given: number;
   due_amount: number;
+  voucher_id?: number;
   notes?: string;
 }
 
@@ -37,6 +38,14 @@ class SalesAccountsIntegrationService {
       this.isAccountsAvailable() &&
       order.status === 'completed' &&
       (order.total_amount ?? 0) > 0
+    );
+  }
+
+  canReverse(order: SalesOrderAccountingData): boolean {
+    return (
+      this.isAccountsAvailable() &&
+      (order.status === 'cancelled' || order.status === 'refunded') &&
+      !!order.voucher_id
     );
   }
 
@@ -130,6 +139,63 @@ class SalesAccountsIntegrationService {
         MyLogger.error(`${action}.persistError`, persistError, { orderId: order.id });
       }
       return { voucherId: 0, voucherNo: '', success: false, error: error?.message || 'Failed to create voucher' };
+    }
+  }
+
+  async createReversingVoucher(order: SalesOrderAccountingData, userId: number): Promise<VoucherCreationResult | null> {
+    const action = 'Create Reversing Sales Voucher';
+
+    if (!this.isAccountsAvailable() || !order.voucher_id) {
+      MyLogger.info(action, { message: 'Accounts not available or no original voucher', orderId: order.id });
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.updateVoucherMediator) {
+        MyLogger.warn(action, { message: 'Update voucher mediator not available' });
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
+      }
+
+      // Create reversing entry for the original voucher
+      const reversingVoucher = await accountsServices.updateVoucherMediator.createReversingEntry(order.voucher_id, userId);
+
+      // Update order to reference the reversing voucher
+      await pool.query(
+        `UPDATE sales_orders
+         SET reversing_voucher_id = $1,
+             accounting_integrated = FALSE,
+             accounting_integration_error = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [reversingVoucher.id, order.id]
+      );
+
+      MyLogger.success(action, {
+        orderId: order.id,
+        originalVoucherId: order.voucher_id,
+        reversingVoucherId: reversingVoucher.id,
+        reversingVoucherNo: reversingVoucher.voucherNo
+      });
+
+      return { voucherId: reversingVoucher.id, voucherNo: reversingVoucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { orderId: order.id });
+
+      try {
+        await pool.query(
+          `UPDATE sales_orders
+           SET accounting_integrated = FALSE,
+               accounting_integration_error = $1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [error?.message || 'Failed to create reversing voucher', order.id]
+        );
+      } catch (persistError) {
+        MyLogger.error(`${action}.persistError`, persistError, { orderId: order.id });
+      }
+
+      return { voucherId: 0, voucherNo: '', success: false, error: error?.message || 'Failed to create reversing voucher' };
     }
   }
 
