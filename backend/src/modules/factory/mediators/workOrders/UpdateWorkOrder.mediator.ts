@@ -591,6 +591,24 @@ export class UpdateWorkOrderMediator {
         'cancelled': [] // Final status
       };
 
+      // Additional validation: Check if work order has production run before completion
+      if (newStatus === 'completed') {
+        // Check if work order has any production runs
+        const productionRunCheck = await client.query(
+          'SELECT id FROM production_runs WHERE work_order_id = $1 LIMIT 1',
+          [workOrderId]
+        );
+
+        if (productionRunCheck.rows.length === 0) {
+          MyLogger.warn("Work order completed without production run", {
+            workOrderId,
+            productId: currentWorkOrder.product_id,
+            quantity: currentWorkOrder.quantity,
+            message: "Work order completed without formal production tracking"
+          });
+        }
+      }
+
       if (!validTransitions[currentWorkOrder.status]?.includes(newStatus)) {
         throw new Error(`Invalid status transition from ${currentWorkOrder.status} to ${newStatus}`);
       }
