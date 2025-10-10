@@ -65,6 +65,31 @@ Create these accounts in your Chart of Accounts **before** testing the factory-a
 - Phase 3: Overhead allocation (Debit side)
 - Phase 3: Work order completion (Credit side - transferred to FG)
 
+---
+
+## 4. Sales Integration (POS) Required Accounts
+
+For Sales→Accounts (POS) integration to post vouchers on completed orders, ensure the following accounts exist and are Active:
+
+- Cash (Assets)
+  - Name includes: `Cash` (or your specific cash/bank account name)
+  - Category: `Assets`
+  - Type: Posting
+- Accounts Receivable (Assets)
+  - Name includes: `Receivable`
+  - Category: `Assets`
+  - Type: Posting
+- Sales Revenue (Revenue)
+  - Name includes: `Sales Revenue`
+  - Category: `Revenue`
+  - Type: Posting
+- Tax Payable (Liabilities)
+  - Name includes: `Tax Payable`
+  - Category: `Liabilities`
+  - Type: Posting
+
+The integration service searches by category and the indicated name fragments. If your naming differs, update names accordingly or extend the search logic.
+
 **Entries:**
 - Debit WIP when materials consumed
 - Debit WIP when labor applied
