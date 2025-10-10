@@ -77,63 +77,7 @@ DELETE FROM factory_event_log;
 DELETE FROM failed_voucher_queue;
 
 -- =======================================================================================
--- Step 2: Delete financial transactions (vouchers and accounting)
--- =======================================================================================
-
--- Option A: Individual DELETE statements (comment out if using Option B)
--- Check current counts before deletion
-SELECT 'Before deletion - ledger_entries' as info, COUNT(*) FROM ledger_entries
-UNION ALL
-SELECT 'Before deletion - voucher_lines', COUNT(*) FROM voucher_lines
-UNION ALL
-SELECT 'Before deletion - vouchers', COUNT(*) FROM vouchers;
-
--- Delete ledger entries first (foreign key to vouchers)
--- Note: This must be done before deleting vouchers due to foreign key constraint
-DELETE FROM ledger_entries;
-
--- Delete voucher lines (foreign key to vouchers, has CASCADE delete)
-DELETE FROM voucher_lines;
-
--- Delete vouchers (after all dependent records are deleted)
-DELETE FROM vouchers;
-
--- Verify deletion was successful
-SELECT 'After deletion - ledger_entries' as info, COUNT(*) FROM ledger_entries
-UNION ALL
-SELECT 'After deletion - voucher_lines', COUNT(*) FROM voucher_lines
-UNION ALL
-SELECT 'After deletion - vouchers', COUNT(*) FROM vouchers;
-
--- Option B: TRUNCATE CASCADE approach (uncomment if Option A fails)
--- This automatically handles all foreign key dependencies in the correct order
--- TRUNCATE TABLE ledger_entries, voucher_lines, vouchers CASCADE;
-
--- =======================================================================================
--- Step 3: Delete payment and financial transaction data
--- =======================================================================================
-
--- Delete payment history
-DELETE FROM payment_history;
-
--- Delete payments
-DELETE FROM payments;
-
--- Delete customer due transactions
-DELETE FROM customer_due_transactions;
-
--- =======================================================================================
--- Step 4: Delete sales returns and related transactions
--- =======================================================================================
-
--- Delete sales return items first (foreign key to sales_returns)
-DELETE FROM sales_return_items;
-
--- Delete sales returns
-DELETE FROM sales_returns;
-
--- =======================================================================================
--- Step 5: Delete sales transactions
+-- Step 2: Delete sales transactions (must be done before vouchers due to foreign key)
 -- =======================================================================================
 
 -- Delete sales receipts
@@ -145,52 +89,11 @@ DELETE FROM invoices;
 -- Delete sales order line items first (foreign key to sales_orders)
 DELETE FROM sales_order_line_items;
 
--- Delete sales orders
+-- Delete sales orders (BEFORE vouchers due to voucher_id foreign key constraint)
 DELETE FROM sales_orders;
 
 -- =======================================================================================
--- Step 6: Delete purchase transactions
--- =======================================================================================
-
--- Delete purchase order line items first (foreign key to purchase_orders)
-DELETE FROM purchase_order_line_items;
-
--- Delete purchase order timeline
-DELETE FROM purchase_order_timeline;
-
--- Delete purchase orders
-DELETE FROM purchase_orders;
-
--- =======================================================================================
--- Step 7: Delete inventory and stock transactions
--- =======================================================================================
-
--- Delete return inventory adjustments
-DELETE FROM return_inventory_adjustments;
-
--- Delete return refund transactions
-DELETE FROM return_refund_transactions;
-
--- Delete stock adjustments
-DELETE FROM stock_adjustments;
-
--- Delete fulfillment items first (foreign key to order_fulfillments)
-DELETE FROM fulfillment_items;
-
--- Delete order fulfillments
-DELETE FROM order_fulfillments;
-
--- Delete shipment items first (foreign key to shipments)
-DELETE FROM shipment_items;
-
--- Delete shipments
-DELETE FROM shipments;
-
--- Delete stock transfers
-DELETE FROM stock_transfers;
-
--- =======================================================================================
--- Step 8: Delete production and manufacturing transactions
+-- Step 3: Delete production and manufacturing transactions (before vouchers)
 -- =======================================================================================
 
 -- Delete material wastage
@@ -224,7 +127,7 @@ DELETE FROM work_order_assignments;
 DELETE FROM work_orders;
 
 -- =======================================================================================
--- Step 9: Delete factory customer transactions
+-- Step 4: Delete factory customer transactions (before vouchers)
 -- =======================================================================================
 
 -- Delete factory return line items first (foreign key to factory_customer_returns)
@@ -239,15 +142,109 @@ DELETE FROM factory_customer_order_line_items;
 -- Delete factory customer orders
 DELETE FROM factory_customer_orders;
 
--- Delete factory customers
--- DELETE FROM factory_customers;
+-- =======================================================================================
+-- Step 5: Delete payment and financial transaction data
+-- =======================================================================================
+
+-- Delete payment history
+DELETE FROM payment_history;
+
+-- Delete payments
+DELETE FROM payments;
+
+-- Delete customer due transactions
+DELETE FROM customer_due_transactions;
 
 -- =======================================================================================
--- Step 10: Delete pricing rules (these are transactional/configuration)
+-- Step 6: Delete sales returns and related transactions
+-- =======================================================================================
+
+-- Delete sales return items first (foreign key to sales_returns)
+DELETE FROM sales_return_items;
+
+-- Delete sales returns
+DELETE FROM sales_returns;
+
+-- =======================================================================================
+-- Step 7: Delete purchase transactions
+-- =======================================================================================
+
+-- Delete purchase order line items first (foreign key to purchase_orders)
+DELETE FROM purchase_order_line_items;
+
+-- Delete purchase order timeline
+DELETE FROM purchase_order_timeline;
+
+-- Delete purchase orders
+DELETE FROM purchase_orders;
+
+-- =======================================================================================
+-- Step 8: Delete inventory and stock transactions
+-- =======================================================================================
+
+-- Delete return inventory adjustments
+DELETE FROM return_inventory_adjustments;
+
+-- Delete return refund transactions
+DELETE FROM return_refund_transactions;
+
+-- Delete stock adjustments
+DELETE FROM stock_adjustments;
+
+-- Delete fulfillment items first (foreign key to order_fulfillments)
+DELETE FROM fulfillment_items;
+
+-- Delete order fulfillments
+DELETE FROM order_fulfillments;
+
+-- Delete shipment items first (foreign key to shipments)
+DELETE FROM shipment_items;
+
+-- Delete shipments
+DELETE FROM shipments;
+
+-- Delete stock transfers
+DELETE FROM stock_transfers;
+
+-- =======================================================================================
+-- Step 9: Delete pricing rules (these are transactional/configuration)
 -- =======================================================================================
 
 -- Delete pricing rules
 DELETE FROM pricing_rules;
+
+-- =======================================================================================
+-- Step 10: Delete financial transactions (vouchers and accounting - last due to FKs)
+-- =======================================================================================
+
+-- Option A: Individual DELETE statements (comment out if using Option B)
+-- Check current counts before deletion
+SELECT 'Before deletion - ledger_entries' as info, COUNT(*) FROM ledger_entries
+UNION ALL
+SELECT 'Before deletion - voucher_lines', COUNT(*) FROM voucher_lines
+UNION ALL
+SELECT 'Before deletion - vouchers', COUNT(*) FROM vouchers;
+
+-- Delete ledger entries first (foreign key to vouchers)
+-- Note: This must be done before deleting vouchers due to foreign key constraint
+DELETE FROM ledger_entries;
+
+-- Delete voucher lines (foreign key to vouchers, has CASCADE delete)
+DELETE FROM voucher_lines;
+
+-- Delete vouchers (after all dependent records are deleted)
+DELETE FROM vouchers;
+
+-- Verify deletion was successful
+SELECT 'After deletion - ledger_entries' as info, COUNT(*) FROM ledger_entries
+UNION ALL
+SELECT 'After deletion - voucher_lines', COUNT(*) FROM voucher_lines
+UNION ALL
+SELECT 'After deletion - vouchers', COUNT(*) FROM vouchers;
+
+-- Option B: TRUNCATE CASCADE approach (uncomment if Option A fails)
+-- This automatically handles all foreign key dependencies in the correct order
+-- TRUNCATE TABLE ledger_entries, voucher_lines, vouchers CASCADE;
 
 -- =======================================================================================
 -- Step 11: Reset sequences (optional - uncomment if needed)
