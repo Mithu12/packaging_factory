@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { SalesOrder, UpdateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
+import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
 
 export class UpdateSalesOrderInfoMediator {
     static async updateSalesOrder(id: number, data: UpdateSalesOrderRequest): Promise<SalesOrder> {
@@ -55,6 +56,30 @@ export class UpdateSalesOrderInfoMediator {
                     orderNumber: salesOrder.order_number,
                     updatedFields: Object.keys(data)
                 });
+
+                // Trigger accounts integration when status transitioned to completed, idempotent on voucher_id
+                try {
+                    if (data.status === 'completed' && !salesOrder.accounting_integrated && !salesOrder.voucher_id) {
+                        await salesAccountsIntegrationService.createSalesOrderVoucher({
+                            id: salesOrder.id,
+                            order_number: salesOrder.order_number,
+                            customer_id: salesOrder.customer_id,
+                            customer_name: salesOrder.customer_name,
+                            order_date: salesOrder.order_date,
+                            status: salesOrder.status,
+                            subtotal: Number(salesOrder.subtotal) || 0,
+                            discount_amount: Number(salesOrder.discount_amount) || 0,
+                            tax_amount: Number(salesOrder.tax_amount) || 0,
+                            total_amount: Number(salesOrder.total_amount) || 0,
+                            cash_received: Number(salesOrder.cash_received) || 0,
+                            change_given: Number(salesOrder.change_given) || 0,
+                            due_amount: Number(salesOrder.due_amount) || 0,
+                            notes: salesOrder.notes,
+                        }, 1);
+                    }
+                } catch (integrationError: any) {
+                    MyLogger.error(`${action}.accountsIntegration`, integrationError, { salesOrderId: salesOrder.id });
+                }
 
                 return salesOrder;
             } catch (error) {
