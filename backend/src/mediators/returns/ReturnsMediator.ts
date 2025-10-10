@@ -1,9 +1,10 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
-import { 
-  SalesReturn, 
-  SalesReturnWithDetails, 
-  CreateReturnRequest, 
+import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
+import {
+  SalesReturn,
+  SalesReturnWithDetails,
+  CreateReturnRequest,
   ProcessReturnRequest,
   RefundTransactionRequest,
   ReturnQueryParams,
@@ -758,18 +759,83 @@ export class ReturnsMediator {
       const updatedReturnResult = await client.query(updateReturnQuery, [processedBy, returnId]);
       const updatedReturn = updatedReturnResult.rows[0];
 
-      // 7. Update original sales order return tracking
-      const updateOrderQuery = `
-        UPDATE sales_orders
-        SET total_returned_amount = COALESCE(total_returned_amount, 0) + $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2;
-      `;
+      // 7. Create reversing voucher for return if original order was integrated
+      let reversingVoucherId = null;
+      try {
+        if (salesReturn.final_refund_amount > 0) {
+          // Get original sales order details
+          const originalOrderQuery = `
+            SELECT * FROM sales_orders WHERE id = $1;
+          `;
+          const originalOrderResult = await client.query(originalOrderQuery, [salesReturn.original_order_id]);
+          const originalOrder = originalOrderResult.rows[0];
 
-      await client.query(updateOrderQuery, [
-        salesReturn.final_refund_amount,
-        salesReturn.original_order_id
-      ]);
+          // Check if original order was integrated with accounts
+          if (originalOrder.voucher_id) {
+            const orderData = {
+              id: originalOrder.id,
+              order_number: originalOrder.order_number,
+              customer_id: originalOrder.customer_id,
+              customer_name: originalOrder.customer_name,
+              order_date: originalOrder.order_date,
+              status: originalOrder.status,
+              subtotal: Number(originalOrder.subtotal) || 0,
+              discount_amount: Number(originalOrder.discount_amount) || 0,
+              tax_amount: Number(originalOrder.tax_amount) || 0,
+              total_amount: Number(originalOrder.total_amount) || 0,
+              cash_received: Number(originalOrder.cash_received) || 0,
+              change_given: Number(originalOrder.change_given) || 0,
+              due_amount: Number(originalOrder.due_amount) || 0,
+              voucher_id: originalOrder.voucher_id,
+              notes: originalOrder.notes,
+            };
+
+            // Create reversing voucher for the return
+            const reversingResult = await salesAccountsIntegrationService.createReversingVoucher(orderData, processedBy || 1);
+            if (reversingResult?.success) {
+              reversingVoucherId = reversingResult.voucherId;
+              MyLogger.success(`${action}.reversingVoucher`, {
+                returnId,
+                originalVoucherId: originalOrder.voucher_id,
+                reversingVoucherId,
+                reversingVoucherNo: reversingResult.voucherNo
+              });
+            }
+          }
+        }
+      } catch (integrationError: any) {
+        MyLogger.error(`${action}.accountsIntegration`, integrationError, { returnId });
+        // Don't fail the return if voucher creation fails
+      }
+
+      // 8. Update original sales order return tracking
+      if (reversingVoucherId) {
+        const updateOrderQuery = `
+          UPDATE sales_orders
+          SET total_returned_amount = COALESCE(total_returned_amount, 0) + $1,
+              reversing_voucher_id = $2,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3;
+        `;
+
+        await client.query(updateOrderQuery, [
+          salesReturn.final_refund_amount,
+          reversingVoucherId,
+          salesReturn.original_order_id
+        ]);
+      } else {
+        const updateOrderQuery = `
+          UPDATE sales_orders
+          SET total_returned_amount = COALESCE(total_returned_amount, 0) + $1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2;
+        `;
+
+        await client.query(updateOrderQuery, [
+          salesReturn.final_refund_amount,
+          salesReturn.original_order_id
+        ]);
+      }
 
       await client.query('COMMIT');
 
@@ -777,7 +843,8 @@ export class ReturnsMediator {
         return_id: returnId,
         return_number: salesReturn.return_number,
         items_processed: returnItems.length,
-        final_refund_amount: salesReturn.final_refund_amount
+        final_refund_amount: salesReturn.final_refund_amount,
+        reversing_voucher_id: reversingVoucherId
       });
 
       return updatedReturn;
