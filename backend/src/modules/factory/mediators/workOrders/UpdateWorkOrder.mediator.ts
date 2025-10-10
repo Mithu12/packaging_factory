@@ -168,6 +168,7 @@ export class UpdateWorkOrderMediator {
     const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
       MyLogger.info(action, { workOrderId, updateData, userId });
 
       // Get user's accessible factories
@@ -196,6 +197,9 @@ export class UpdateWorkOrderMediator {
         // For now, we'll assume work orders inherit factory access from the user
         // This should be implemented based on your factory access control logic
       }
+
+      // Handle stock reservation updates FIRST - this can fail and should rollback everything
+      await handleStockReservationUpdate(client, workOrderId, updateData, existingWorkOrder);
 
       // Build dynamic update query
       const updateFields: string[] = [];
@@ -275,9 +279,6 @@ export class UpdateWorkOrderMediator {
         updateValues.push(JSON.stringify(updateData.assigned_operators));
         paramIndex++;
       }
-
-      // Handle stock reservation updates
-      await handleStockReservationUpdate(client, workOrderId, updateData, existingWorkOrder);
 
       if (updateFields.length === 0) {
         throw new Error('No fields to update');
@@ -383,6 +384,8 @@ export class UpdateWorkOrderMediator {
         }
       }
 
+      await client.query('COMMIT');
+
       const workOrder: WorkOrder = {
         id: updatedWorkOrder.id,
         work_order_number: updatedWorkOrder.work_order_number,
@@ -419,6 +422,7 @@ export class UpdateWorkOrderMediator {
       return workOrder;
 
     } catch (error) {
+      await client.query('ROLLBACK');
       MyLogger.error(action, error);
       throw error;
     } finally {
@@ -436,6 +440,7 @@ export class UpdateWorkOrderMediator {
     const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
       MyLogger.info(action, { workOrderId, newStatus, userId, notes });
 
       // Get current work order
@@ -698,9 +703,11 @@ export class UpdateWorkOrderMediator {
         }
       }
 
+      await client.query('COMMIT');
       return workOrder;
 
     } catch (error) {
+      await client.query('ROLLBACK');
       MyLogger.error(action, error);
       throw error;
     } finally {
@@ -717,6 +724,7 @@ export class UpdateWorkOrderMediator {
     const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
       MyLogger.info(action, { workOrderId, userId, force });
 
       // Get work order details
@@ -791,9 +799,240 @@ export class UpdateWorkOrderMediator {
         workOrderNumber: workOrder.work_order_number
       });
 
+      await client.query('COMMIT');
       return { deleted };
 
     } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async planWorkOrder(
+    workOrderId: string,
+    planningData: {
+      production_line_id?: number;
+      assigned_operators?: number[];
+      notes?: string;
+    },
+    userId: string
+  ): Promise<WorkOrder> {
+    const action = "UpdateWorkOrderMediator.planWorkOrder";
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { workOrderId, planningData, userId });
+
+      // Get user's accessible factories
+      const userFactories = await getUserFactories(parseInt(userId));
+      const userFactoryIds = userFactories.map(f => f.factory_id);
+
+      // Check if work order exists and user has access
+      const existingWorkOrderQuery = `
+        SELECT wo.*, pl.name as production_line_name
+        FROM work_orders wo
+        LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+        WHERE wo.id = $1
+      `;
+      const existingResult = await client.query(existingWorkOrderQuery, [workOrderId]);
+
+      if (existingResult.rows.length === 0) {
+        throw new Error('Work order not found');
+      }
+
+      const existingWorkOrder = existingResult.rows[0];
+
+      // Validate factory access for non-admin users
+      if (userFactories.length > 0) {
+        // Check if user has access to the factory this work order belongs to
+        // We need to check the factory_id field which should be added to work_orders table
+        // For now, we'll assume work orders inherit factory access from the user
+        // This should be implemented based on your factory access control logic
+      }
+
+      // Handle stock reservation updates FIRST - this can fail and should rollback everything
+      await handleStockReservationUpdate(client, workOrderId, {
+        production_line_id: planningData.production_line_id,
+        assigned_operators: planningData.assigned_operators,
+        quantity: existingWorkOrder.quantity,
+        product_id: existingWorkOrder.product_id
+      }, existingWorkOrder);
+
+      // Build update query for assignments
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      let paramIndex = 1;
+
+      if (planningData.production_line_id !== undefined) {
+        updateFields.push(`production_line_id = $${paramIndex}`);
+        updateValues.push(planningData.production_line_id);
+
+        // Update production line name
+        if (planningData.production_line_id) {
+          const productionLineQuery = 'SELECT name FROM production_lines WHERE id = $1';
+          const productionLineResult = await client.query(productionLineQuery, [planningData.production_line_id]);
+          if (productionLineResult.rows.length > 0) {
+            updateFields.push(`production_line_name = $${paramIndex + 1}`);
+            updateValues.push(productionLineResult.rows[0].name);
+            paramIndex++;
+          }
+        } else {
+          updateFields.push(`production_line_name = $${paramIndex}`);
+          updateValues.push(null);
+        }
+        paramIndex++;
+      }
+
+      if (planningData.assigned_operators !== undefined) {
+        updateFields.push(`assigned_operator_ids = $${paramIndex}`);
+        updateValues.push(JSON.stringify(planningData.assigned_operators));
+        paramIndex++;
+      }
+
+      // Change status to planned
+      updateFields.push(`status = $${paramIndex}`);
+      updateValues.push('planned');
+      paramIndex++;
+
+      // Set started_at timestamp since we're moving to planned status
+      if (!existingWorkOrder.started_at) {
+        updateFields.push(`started_at = $${paramIndex}`);
+        updateValues.push(new Date());
+        paramIndex++;
+      }
+
+      // Update notes
+      if (planningData.notes) {
+        updateFields.push(`notes = $${paramIndex}`);
+        updateValues.push(planningData.notes);
+        paramIndex++;
+      }
+
+      // Add updated_by and updated_at
+      updateFields.push(`updated_by = $${paramIndex}`);
+      updateValues.push(userId);
+      paramIndex++;
+
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      const updateQuery = `
+        UPDATE work_orders
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+
+      updateValues.push(workOrderId);
+      const updateResult = await client.query(updateQuery, updateValues);
+
+      if (updateResult.rows.length === 0) {
+        throw new Error('Failed to update work order');
+      }
+
+      const updatedWorkOrder = updateResult.rows[0];
+
+      // Update production line load
+      if (planningData.production_line_id) {
+        const newLoad = calculateProductionLineLoad(parseFloat(updatedWorkOrder.estimated_hours) || 0);
+
+        await client.query(`
+          UPDATE production_lines
+          SET
+            current_load = LEAST(current_load + $1, 100),
+            status = CASE
+              WHEN status = 'available' THEN 'busy'
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [newLoad, planningData.production_line_id]);
+      }
+
+      // Handle operator assignments
+      if (planningData.assigned_operators && planningData.assigned_operators.length > 0) {
+        // Remove existing assignments
+        await client.query('DELETE FROM work_order_assignments WHERE work_order_id = $1', [workOrderId]);
+
+        // Create new assignments
+        const assignmentQuery = `
+          INSERT INTO work_order_assignments (
+            work_order_id,
+            production_line_id,
+            operator_id,
+            assigned_at,
+            assigned_by,
+            notes
+          ) VALUES ${planningData.assigned_operators.map((_, index) =>
+            `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${index * 6 + 4}, $${index * 6 + 5}, $${index * 6 + 6})`
+          ).join(', ')}
+        `;
+
+        const assignmentValues = [];
+        for (const operatorId of planningData.assigned_operators) {
+          assignmentValues.push(
+            workOrderId,
+            planningData.production_line_id || null,
+            operatorId,
+            new Date(),
+            userId,
+            'Planned assignment'
+          );
+        }
+
+        await client.query(assignmentQuery, assignmentValues);
+
+        // Update operator availability status
+        await client.query(`
+          UPDATE operators
+          SET availability_status = 'busy', current_work_order_id = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ANY($2::integer[])
+        `, [workOrderId, planningData.assigned_operators]);
+      }
+
+      await client.query('COMMIT');
+
+      const workOrder: WorkOrder = {
+        id: updatedWorkOrder.id,
+        work_order_number: updatedWorkOrder.work_order_number,
+        customer_order_id: updatedWorkOrder.customer_order_id,
+        product_id: updatedWorkOrder.product_id,
+        product_name: updatedWorkOrder.product_name,
+        product_sku: updatedWorkOrder.product_sku,
+        quantity: parseFloat(updatedWorkOrder.quantity),
+        unit_of_measure: updatedWorkOrder.unit_of_measure,
+        deadline: updatedWorkOrder.deadline,
+        status: updatedWorkOrder.status,
+        priority: updatedWorkOrder.priority,
+        progress: parseFloat(updatedWorkOrder.progress),
+        estimated_hours: parseFloat(updatedWorkOrder.estimated_hours),
+        actual_hours: parseFloat(updatedWorkOrder.actual_hours),
+        production_line_id: updatedWorkOrder.production_line_id,
+        production_line_name: updatedWorkOrder.production_line_name,
+        assigned_operator_ids: updatedWorkOrder.assigned_operator_ids || [],
+        created_by: updatedWorkOrder.created_by,
+        created_at: updatedWorkOrder.created_at,
+        updated_by: updatedWorkOrder.updated_by,
+        updated_at: updatedWorkOrder.updated_at,
+        started_at: updatedWorkOrder.started_at,
+        completed_at: updatedWorkOrder.completed_at,
+        notes: updatedWorkOrder.notes,
+        specifications: updatedWorkOrder.specifications
+      };
+
+      MyLogger.success(action, {
+        workOrderId: workOrder.id,
+        status: workOrder.status,
+        operatorsAssigned: planningData.assigned_operators?.length || 0
+      });
+
+      return workOrder;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
       MyLogger.error(action, error);
       throw error;
     } finally {

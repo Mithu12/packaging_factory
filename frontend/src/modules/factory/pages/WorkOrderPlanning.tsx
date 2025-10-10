@@ -430,32 +430,40 @@ export default function WorkOrderPlanning() {
       return;
     }
 
-    const updateData: UpdateWorkOrderRequest = {
-      production_line_id: productionLineId,
-      assigned_operators: planningData.assigned_operators,
-      notes: planningData.notes,
-    };
-
     const workOrderId = selectedWorkOrder.id.toString();
 
     try {
       setPlanningSubmitType(promoteToPlanned ? "plan" : "save");
-      await updateWorkOrderMutation.mutateAsync({
-        id: workOrderId,
-        data: updateData,
-      });
 
       if (promoteToPlanned) {
-        await statusChangeMutation.mutateAsync({
-          id: workOrderId,
-          status: "planned",
+        // Use the new combined planning API that handles both assignment and status change atomically
+        const planningRequest = {
+          production_line_id: productionLineId,
+          assigned_operators: planningData.assigned_operators,
           notes: planningData.notes,
+        };
+
+        await WorkOrdersApiService.planWorkOrder(workOrderId, planningRequest);
+        console.log("Work order planned successfully with combined API");
+      } else {
+        // For save-only operations, use the regular update
+        const updateData: UpdateWorkOrderRequest = {
+          production_line_id: productionLineId,
+          assigned_operators: planningData.assigned_operators,
+          notes: planningData.notes,
+        };
+
+        await updateWorkOrderMutation.mutateAsync({
+          id: workOrderId,
+          data: updateData,
         });
       }
 
       setShowPlanningDialog(false);
     } catch (err) {
       console.error("Planning action failed:", err);
+      // The new API handles rollback automatically, so we just show the error
+      setError(err instanceof Error ? err.message : 'Planning failed. Please try again.');
       // Leave dialog open so the planner can adjust and retry
       setShowPlanningDialog(true);
     } finally {

@@ -468,6 +468,25 @@ export class WorkOrdersApiService {
       body: JSON.stringify({ assignments }),
     });
   }
+
+  // =====================================================
+  // Combined Planning Operations
+  // =====================================================
+
+  // Plan work order (assign production line, operators and change status to planned atomically)
+  static async planWorkOrder(
+    workOrderId: string,
+    planningData: {
+      production_line_id?: number;
+      assigned_operators?: number[];
+      notes?: string;
+    }
+  ): Promise<WorkOrder> {
+    return makeRequest<WorkOrder>(`${this.BASE_URL}/${workOrderId}/plan`, {
+      method: 'POST',
+      body: JSON.stringify(planningData),
+    });
+  }
 }
 
 // =====================================================

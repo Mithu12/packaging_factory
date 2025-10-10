@@ -205,6 +205,37 @@ class WorkOrdersController {
     }
   }
 
+  // Plan work order (assign production line, operators and change status to planned)
+  async planWorkOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/work-orders/:id/plan";
+      const { id } = req.params;
+      const { production_line_id, assigned_operators, notes } = req.body;
+      MyLogger.info(action, { workOrderId: id, production_line_id, assigned_operators, notes });
+
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use the combined planning method that handles both assignment and status change atomically
+      const result = await UpdateWorkOrderMediator.planWorkOrder(
+        id,
+        { production_line_id, assigned_operators, notes },
+        userId.toString()
+      );
+
+      MyLogger.success(action, {
+        workOrderId: id,
+        planned: true
+      });
+
+      serializeSuccessResponse(res, result, "Work order planned successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Bulk update work order status
   async bulkUpdateWorkOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

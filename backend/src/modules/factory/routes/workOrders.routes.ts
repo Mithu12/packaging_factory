@@ -107,6 +107,13 @@ router.post(
   expressAsyncHandler(workOrdersController.updateWorkOrderStatus)
 );
 
+// Plan work order (assign production line, operators and change status to planned)
+router.post(
+  "/:id/plan",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
+  expressAsyncHandler(workOrdersController.planWorkOrder)
+);
+
 // Delete work order
 router.delete(
   "/:id",
