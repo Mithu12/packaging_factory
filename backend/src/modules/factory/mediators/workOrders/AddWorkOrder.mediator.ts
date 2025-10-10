@@ -251,6 +251,8 @@ export class AddWorkOrderMediator {
       }
 
       // Create material requirements from BOM if BOM exists for this product
+      // Note: For draft work orders, we only create requirements, not allocations
+      // Allocations happen when work order status changes to 'planned' or 'released'
       const bomQuery = `
         SELECT bom.id, bom.total_cost, bc.*, s.name as supplier_name
         FROM bill_of_materials bom
@@ -282,32 +284,14 @@ export class AddWorkOrderMediator {
 
           if (inventoryResult.rows.length > 0) {
             const material = inventoryResult.rows[0];
-            const availableStock = parseFloat(material.current_stock);
             const unitCost = parseFloat(material.cost_price || component.unit_cost);
             const totalCost = totalRequiredQuantity * unitCost;
-
-            // Determine requirement status based on availability
-            let status: 'pending' | 'allocated' | 'short' | 'fulfilled' = 'pending';
-            let allocatedQuantity = 0;
-
-            if (availableStock >= totalRequiredQuantity) {
-              // Full allocation possible
-              status = 'allocated';
-              allocatedQuantity = totalRequiredQuantity;
-            } else if (availableStock > 0) {
-              // Partial allocation possible
-              status = 'short';
-              allocatedQuantity = availableStock;
-            } else {
-              // No stock available
-              status = 'short';
-              allocatedQuantity = 0;
-            }
 
             // Determine if this is a critical requirement (based on priority or lead time)
             const isCritical = component.lead_time_days > 7 || component.is_optional === false;
 
-            // Insert material requirement
+            // For draft work orders, we only create requirements with 'pending' status
+            // No allocations are made until the work order is planned or released
             const requirementQuery = `
               INSERT INTO work_order_material_requirements (
                 work_order_id,
@@ -339,10 +323,10 @@ export class AddWorkOrderMediator {
               material.name,
               material.sku,
               totalRequiredQuantity,
-              allocatedQuantity,
+              0, // allocated_quantity initially 0 for draft work orders
               0, // consumed_quantity initially 0
               material.unit_of_measure,
-              status,
+              'pending', // All requirements start as pending for draft work orders
               1, // priority - could be calculated based on various factors
               workOrderData.deadline,
               component.id,
@@ -355,44 +339,13 @@ export class AddWorkOrderMediator {
               `Required for work order ${workOrderNumber}. Scrap factor: ${component.scrap_factor}%`
             ];
 
-            const requirementResult = await client.query(requirementQuery, requirementValues);
+            await client.query(requirementQuery, requirementValues);
 
-            // If we can allocate materials, create allocation records
-            if (allocatedQuantity > 0) {
-              // Create material allocation
-              const allocationQuery = `
-                INSERT INTO work_order_material_allocations (
-                  work_order_requirement_id,
-                  inventory_item_id,
-                  allocated_quantity,
-                  allocated_from_location,
-                  allocated_by,
-                  status,
-                  notes
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-              `;
-
-              await client.query(allocationQuery, [
-                requirementResult.rows[0].id,
-                component.component_product_id,
-                allocatedQuantity,
-                'Main Warehouse', // Could be more sophisticated
-                userId,
-                'allocated',
-                `Allocated ${allocatedQuantity} units for work order ${workOrderNumber}`
-              ]);
-
-              // Update product stock (reduce available stock)
-              await client.query(`
-                UPDATE products
-                SET current_stock = current_stock - $1, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $2
-              `, [allocatedQuantity, component.component_product_id]);
-            }
-
-            // If there's a shortage, create a shortage record
-            if (status === 'short') {
-              const shortfallQuantity = totalRequiredQuantity - allocatedQuantity;
+            // No allocations or stock updates for draft work orders
+            // If there's a shortage, we still create a shortage record for visibility
+            if (totalRequiredQuantity > 0) {
+              const availableStock = parseFloat(material.current_stock);
+              const shortfallQuantity = totalRequiredQuantity;
 
               const shortageQuery = `
                 INSERT INTO material_shortages (

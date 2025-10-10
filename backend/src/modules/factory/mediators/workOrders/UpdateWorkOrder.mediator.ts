@@ -34,6 +34,17 @@ function calculateProductionLineLoad(estimatedHours: number): number {
   return Math.min((estimatedHours / 8) * 10, 100);
 }
 
+// Status-based reservation behavior:
+// - draft: No reservation
+// - planned: Soft reservation (optional pre-reservation for planning)
+// - released: Hard reservation (materials locked for production)
+// - in_progress: Hard reservation maintained
+// - completed: Release reservations
+// - on_hold: Maintain existing reservations
+// - cancelled: Release reservations
+
+const SOFT_RESERVING_STATUSES = new Set(['planned']);
+const HARD_RESERVING_STATUSES = new Set(['released', 'in_progress']);
 const RESERVING_STATUSES = new Set(['planned', 'released', 'in_progress', 'on_hold']);
 const RELEASING_STATUSES = new Set(['completed', 'cancelled']);
 const MAINTAIN_STATUSES = new Set(['on_hold']);
@@ -68,6 +79,122 @@ async function hasReservedStockColumn(): Promise<boolean> {
   return cachedReservedStockSupport;
 }
 
+async function allocateMaterialsForWorkOrder(
+  client: any,
+  workOrderId: string,
+  productId: string,
+  quantity: number,
+  userId: string
+) {
+  // Get material requirements for this work order
+  const requirementsQuery = `
+    SELECT wmr.*, p.current_stock, p.reserved_stock
+    FROM work_order_material_requirements wmr
+    JOIN products p ON wmr.material_id = p.id
+    WHERE wmr.work_order_id = $1 AND wmr.status IN ('pending', 'short')
+  `;
+  const requirementsResult = await client.query(requirementsQuery, [workOrderId]);
+
+  for (const requirement of requirementsResult.rows) {
+    const requiredQuantity = parseFloat(requirement.required_quantity);
+    const currentStock = parseFloat(requirement.current_stock) || 0;
+    const reservedStock = parseFloat(requirement.reserved_stock) || 0;
+    const availableStock = currentStock - reservedStock;
+
+    if (availableStock >= requiredQuantity) {
+      // Create allocation record
+      await client.query(`
+        INSERT INTO work_order_material_allocations (
+          work_order_requirement_id,
+          inventory_item_id,
+          allocated_quantity,
+          allocated_from_location,
+          allocated_by,
+          status,
+          notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        requirement.id,
+        requirement.material_id,
+        requiredQuantity,
+        'Main Warehouse',
+        userId,
+        'allocated',
+        `Auto-allocated when work order ${workOrderId} was released`
+      ]);
+
+      // Update requirement status to allocated
+      await client.query(`
+        UPDATE work_order_material_requirements
+        SET allocated_quantity = allocated_quantity + $1,
+            status = CASE
+              WHEN (allocated_quantity + $1) >= required_quantity THEN 'allocated'::text
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [requiredQuantity, requirement.id]);
+
+      // Reserve the stock
+      await client.query(`
+        UPDATE products
+        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [requiredQuantity, requirement.material_id]);
+
+      MyLogger.info("Material allocated for work order", {
+        workOrderId,
+        materialId: requirement.material_id,
+        quantity: requiredQuantity
+      });
+    } else if (availableStock > 0) {
+      // Partial allocation
+      await client.query(`
+        INSERT INTO work_order_material_allocations (
+          work_order_requirement_id,
+          inventory_item_id,
+          allocated_quantity,
+          allocated_from_location,
+          allocated_by,
+          status,
+          notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        requirement.id,
+        requirement.material_id,
+        availableStock,
+        'Main Warehouse',
+        'system',
+        'allocated',
+        `Partial allocation when work order ${workOrderId} was released`
+      ]);
+
+      // Update requirement status to short (partial allocation)
+      await client.query(`
+        UPDATE work_order_material_requirements
+        SET allocated_quantity = allocated_quantity + $1,
+            status = 'short'::text,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [availableStock, requirement.id]);
+
+      // Reserve the available stock
+      await client.query(`
+        UPDATE products
+        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [availableStock, requirement.material_id]);
+
+      MyLogger.info("Partial material allocation for work order", {
+        workOrderId,
+        materialId: requirement.material_id,
+        allocated: availableStock,
+        required: requiredQuantity
+      });
+    }
+  }
+}
+
 async function handleStockReservationUpdate(
   client: any,
   workOrderId: string,
@@ -83,9 +210,9 @@ async function handleStockReservationUpdate(
   const currentProductId = currentWorkOrder.product_id;
   const newQuantity = updateData.quantity ? parseFloat(updateData.quantity) : currentQuantity;
   const newProductId = updateData.product_id || currentProductId;
-  const isCurrentlyReserved = RESERVING_STATUSES.has(currentWorkOrder.status);
+  const isCurrentlyHardReserved = HARD_RESERVING_STATUSES.has(currentWorkOrder.status);
 
-  if (!(isCurrentlyReserved && (newQuantity !== currentQuantity || newProductId !== currentProductId))) {
+  if (!(isCurrentlyHardReserved && (newQuantity !== currentQuantity || newProductId !== currentProductId))) {
     return;
   }
 
@@ -472,17 +599,27 @@ export class UpdateWorkOrderMediator {
       const currentQuantity = parseFloat(currentWorkOrder.quantity) || 0;
       const previousProductId = currentWorkOrder.product_id;
       const hasInventoryTarget = supportsReservedStock && previousProductId && currentQuantity > 0;
-      const enteringReservedState =
+
+      // Determine reservation behavior based on status transition
+      const enteringHardReservation =
         hasInventoryTarget &&
-        RESERVING_STATUSES.has(newStatus) &&
+        HARD_RESERVING_STATUSES.has(newStatus) &&
+        !HARD_RESERVING_STATUSES.has(currentWorkOrder.status) &&
         !RESERVING_STATUSES.has(currentWorkOrder.status);
+
+      const enteringSoftReservation =
+        hasInventoryTarget &&
+        SOFT_RESERVING_STATUSES.has(newStatus) &&
+        !RESERVING_STATUSES.has(currentWorkOrder.status);
+
       const leavingReservedState =
         hasInventoryTarget &&
         RESERVING_STATUSES.has(currentWorkOrder.status) &&
         !RESERVING_STATUSES.has(newStatus) &&
         !MAINTAIN_STATUSES.has(newStatus);
 
-      if (enteringReservedState) {
+      // Check availability for hard reservations only
+      if (enteringHardReservation) {
         const availabilityResult = await client.query(
           `SELECT current_stock, reserved_stock FROM products WHERE id = $1`,
           [previousProductId]
@@ -554,15 +691,39 @@ export class UpdateWorkOrderMediator {
       const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
 
       if (supportsReservedStock && productId && quantity > 0) {
-        if (enteringReservedState) {
+        // Handle hard reservations (actual stock reservation)
+        if (enteringHardReservation) {
           await client.query(
             `UPDATE products
              SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
              WHERE id = $2`,
             [quantity, productId]
           );
+          MyLogger.info("Hard reservation created for work order", {
+            workOrderId,
+            productId,
+            quantity,
+            newStatus
+          });
         }
 
+        // Handle soft reservations (just planning, no actual stock reservation)
+        if (enteringSoftReservation) {
+          MyLogger.info("Soft reservation created for work order", {
+            workOrderId,
+            productId,
+            quantity,
+            newStatus
+          });
+          // Soft reservations don't actually reserve stock, just indicate intent
+        }
+
+        // Handle material allocation when work order is released
+        if (newStatus === 'released') {
+          await allocateMaterialsForWorkOrder(client, workOrderId, productId, quantity, userId);
+        }
+
+        // Release reservations when leaving reserved state
         if (leavingReservedState) {
           await client.query(
             `UPDATE products
@@ -570,6 +731,12 @@ export class UpdateWorkOrderMediator {
              WHERE id = $2`,
             [quantity, productId]
           );
+          MyLogger.info("Reservation released for work order", {
+            workOrderId,
+            productId,
+            quantity,
+            newStatus
+          });
         }
 
         if (RELEASING_STATUSES.has(newStatus)) {
@@ -764,10 +931,10 @@ export class UpdateWorkOrderMediator {
         `, [loadToRemove, workOrder.production_line_id]);
       }
 
-      // Release reserved stock before deleting
+      // Release reserved stock before deleting (only for hard reservations)
       if (
         supportsReservedStock &&
-        RESERVING_STATUSES.has(workOrder.status) &&
+        HARD_RESERVING_STATUSES.has(workOrder.status) &&
         workOrder.quantity &&
         workOrder.quantity > 0 &&
         workOrder.product_id
