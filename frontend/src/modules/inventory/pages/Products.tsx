@@ -347,6 +347,9 @@ export default function Products() {
                             <div className="text-xs text-muted-foreground">
                               Min: {product.min_stock_level} {product.unit_of_measure}
                             </div>
+                            {product.reserved_stock > 0 && <div className="text-xs text-muted-foreground">
+                              Reserved: {product.reserved_stock} {product.unit_of_measure}
+                            </div>}
                           </div>
                         </div>
                       </TableCell>

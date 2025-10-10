@@ -598,6 +598,10 @@ export default function ProductDetails() {
                   <span className="font-medium">{product.reorder_point ? `${product.reorder_point} ${product.unit_of_measure}` : 'Not set'}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Reserved Stock</span>
+                  <span className="font-medium">{product.reserved_stock ? `${product.reserved_stock} ${product.unit_of_measure}` : 'Not set'}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Tax Rate</span>
                   <span className="font-medium text-sm">{product.tax_rate ? `${product.tax_rate}%` : 'Not set'}</span>
                 </div>

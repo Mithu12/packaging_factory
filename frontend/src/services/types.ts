@@ -203,6 +203,7 @@ export interface Product {
   min_stock_level: number;
   max_stock_level?: number;
   reorder_point?: number;
+  reserved_stock?: number;
   supplier_id: number;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
