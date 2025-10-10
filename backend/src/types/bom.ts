@@ -244,3 +244,75 @@ export interface MaterialPlanningStats {
   on_time_delivery: number;
   cost_variance: number;
 }
+
+// Cost Analysis Types
+export interface CostVariance {
+  work_order_id: string;
+  work_order_number: string;
+  product_name: string;
+  planned_cost: number;
+  actual_cost: number;
+  variance: number;
+  variance_percentage: number;
+  status: "favorable" | "unfavorable" | "on_target";
+}
+
+export interface CostTrend {
+  period: string;
+  material_cost: number;
+  labor_cost: number;
+  overhead_cost: number;
+  total_cost: number;
+  cost_per_unit: number;
+}
+
+export interface CostCenter {
+  id: string;
+  name: string;
+  total_cost: number;
+  material_cost: number;
+  labor_cost: number;
+  overhead_cost: number;
+  efficiency: number;
+  variance: number;
+}
+
+// Cost Analysis Query Parameters
+export interface CostAnalysisQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  work_order_id?: string;
+  product_id?: string;
+  start_date?: string;
+  end_date?: string;
+  sort_by?: 'work_order_number' | 'product_name' | 'total_cost' | 'cost_per_unit' | 'cost_variance';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface CostVarianceQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: "favorable" | "unfavorable" | "on_target";
+  min_variance?: number;
+  max_variance?: number;
+  start_date?: string;
+  end_date?: string;
+  sort_by?: 'work_order_number' | 'product_name' | 'variance' | 'variance_percentage';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface CostTrendQueryParams {
+  period_type?: 'month' | 'quarter' | 'year';
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface CostCenterQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sort_by?: 'name' | 'total_cost' | 'efficiency' | 'variance';
+  sort_order?: 'asc' | 'desc';
+}

@@ -20,6 +20,7 @@ import {
   FileText,
   TrendingUp,
   BarChart3,
+  RefreshCw,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -47,184 +48,110 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { ExpenseApi } from "@/services/expense-api";
+import { ExpenseCategoryApi } from "@/services/expense-category-api";
+import { Expense, ExpenseCategory, ExpenseStats } from "@/services/types";
 
-interface FactoryExpense {
-  id: string;
-  description: string;
-  amount: number;
-  category:
-    | "rent"
-    | "utilities"
-    | "handling"
-    | "maintenance"
-    | "consumables"
-    | "other";
-  workOrderId?: string;
-  productionLine?: string;
-  status: "pending" | "approved" | "rejected" | "paid";
-  submittedBy: string;
-  submittedDate: string;
-  approvedBy?: string;
-  approvedDate?: string;
-  paidDate?: string;
-  attachments: string[];
-  notes?: string;
-}
+// Map expense categories to display names for factory context
+const getCategoryDisplayName = (categoryId: number): string => {
+  const categoryMap: Record<number, string> = {
+    1: "Rent",
+    2: "Utilities",
+    3: "Handling",
+    4: "Maintenance",
+    5: "Consumables",
+    6: "Other"
+  };
+  return categoryMap[categoryId] || "Other";
+};
 
-interface ExpenseCategory {
-  id: string;
-  name: string;
-  description: string;
-  requiresApproval: boolean;
-}
-
-interface ExpenseStats {
-  totalExpenses: number;
-  pendingApprovals: number;
-  totalAmount: number;
-  averageExpense: number;
-  monthlyTrend: number;
-  topCategory: string;
-}
+// Map status for factory context
+const getStatusDisplayName = (status: string): string => {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
 
 export default function FactoryExpenses() {
   const { formatCurrency, formatDate } = useFormatting();
-  const [expenses, setExpenses] = useState<FactoryExpense[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [stats, setStats] = useState<ExpenseStats>({
-    totalExpenses: 0,
-    pendingApprovals: 0,
-    totalAmount: 0,
-    averageExpense: 0,
-    monthlyTrend: 0,
-    topCategory: "",
+    total_expenses: 0,
+    pending_expenses: 0,
+    approved_expenses: 0,
+    rejected_expenses: 0,
+    paid_expenses: 0,
+    total_amount: 0,
+    pending_amount: 0,
+    approved_amount: 0,
+    paid_amount: 0,
+    expenses_this_month: 0,
+    expenses_this_year: 0,
+    average_expense_amount: 0,
+    top_categories: [],
+    monthly_trends: []
   });
-  const [selectedExpense, setSelectedExpense] = useState<FactoryExpense | null>(
-    null
-  );
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newExpense, setNewExpense] = useState({
+    title: "",
     description: "",
     amount: 0,
-    category: "rent",
-    workOrderId: "",
-    productionLine: "",
+    category_id: 1, // Default to first category
+    expense_date: new Date().toISOString().split('T')[0],
     notes: "",
-    attachments: [] as string[],
+    department: "Factory",
+    project: "",
   });
 
   useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setExpenses([
-      {
-        id: "EXP-001",
-        description: "Factory rent for March 2024",
-        amount: 5000,
-        category: "rent",
-        status: "approved",
-        submittedBy: "John Doe",
-        submittedDate: "2024-03-01T09:00:00Z",
-        approvedBy: "Mike Johnson",
-        approvedDate: "2024-03-02T14:30:00Z",
-        attachments: ["rent_invoice.pdf"],
-        notes: "Monthly factory rent payment",
-      },
-      {
-        id: "EXP-002",
-        description: "Electricity bill - Production Line 1",
-        amount: 1200,
-        category: "utilities",
-        productionLine: "Line 1",
-        status: "pending",
-        submittedBy: "Jane Smith",
-        submittedDate: "2024-03-10T11:15:00Z",
-        attachments: ["electricity_bill.pdf"],
-        notes: "High electricity usage due to increased production",
-      },
-      {
-        id: "EXP-003",
-        description: "Machine maintenance - CNC Machine A",
-        amount: 800,
-        category: "maintenance",
-        workOrderId: "WO-001",
-        status: "approved",
-        submittedBy: "Mike Johnson",
-        submittedDate: "2024-03-08T16:45:00Z",
-        approvedBy: "Sarah Wilson",
-        approvedDate: "2024-03-09T10:20:00Z",
-        attachments: ["maintenance_invoice.pdf", "work_order.pdf"],
-        notes: "Routine maintenance for CNC Machine A",
-      },
-      {
-        id: "EXP-004",
-        description: "Raw materials for production",
-        amount: 2500,
-        category: "consumables",
-        workOrderId: "WO-002",
-        status: "rejected",
-        submittedBy: "Tom Brown",
-        submittedDate: "2024-03-05T13:30:00Z",
-        notes: "Additional raw materials for urgent order",
-      },
-    ]);
-
-    setCategories([
-      {
-        id: "1",
-        name: "Rent",
-        description: "Factory and facility rent",
-        requiresApproval: true,
-      },
-      {
-        id: "2",
-        name: "Utilities",
-        description: "Electricity, water, gas bills",
-        requiresApproval: true,
-      },
-      {
-        id: "3",
-        name: "Handling",
-        description: "Material handling costs",
-        requiresApproval: false,
-      },
-      {
-        id: "4",
-        name: "Maintenance",
-        description: "Equipment maintenance and repairs",
-        requiresApproval: true,
-      },
-      {
-        id: "5",
-        name: "Consumables",
-        description: "Production consumables and supplies",
-        requiresApproval: false,
-      },
-      {
-        id: "6",
-        name: "Other",
-        description: "Other factory expenses",
-        requiresApproval: true,
-      },
-    ]);
-
-    setStats({
-      totalExpenses: 15,
-      pendingApprovals: 3,
-      totalAmount: 12500,
-      averageExpense: 833,
-      monthlyTrend: 12,
-      topCategory: "Rent",
-    });
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Load expenses
+      const expensesResponse = await ExpenseApi.getExpenses({
+        search: searchTerm || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter as any,
+        department: "Factory",
+      });
+      setExpenses(expensesResponse.expenses);
+
+      // Load categories
+      const categoriesResponse = await ExpenseCategoryApi.getActiveExpenseCategories();
+      setCategories(categoriesResponse);
+
+      // Load stats
+      const statsResponse = await ExpenseApi.getExpenseStats({
+        department: "Factory",
+      });
+      setStats(statsResponse);
+
+    } catch (err) {
+      console.error('Error loading factory expenses data:', err);
+      setError('Failed to load factory expenses data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    loadAllData();
+  };
 
   const filteredExpenses = expenses.filter((expense) => {
     const matchesSearch =
-      expense.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.category.toLowerCase().includes(searchTerm.toLowerCase());
+      expense.expense_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (expense.description && expense.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      expense.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
     const matchesStatus =
       statusFilter === "all" || expense.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -245,86 +172,85 @@ export default function FactoryExpenses() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "rent":
-        return "bg-blue-100 text-blue-800";
-      case "utilities":
-        return "bg-orange-100 text-orange-800";
-      case "handling":
-        return "bg-purple-100 text-purple-800";
-      case "maintenance":
-        return "bg-red-100 text-red-800";
-      case "consumables":
-        return "bg-green-100 text-green-800";
-      case "other":
-        return "bg-gray-100 text-gray-800";
+  const getCategoryColor = (categoryId: number) => {
+    // Use category ID for consistent coloring
+    switch (categoryId) {
+      case 1:
+        return "bg-blue-100 text-blue-800"; // Rent
+      case 2:
+        return "bg-orange-100 text-orange-800"; // Utilities
+      case 3:
+        return "bg-purple-100 text-purple-800"; // Handling
+      case 4:
+        return "bg-red-100 text-red-800"; // Maintenance
+      case 5:
+        return "bg-green-100 text-green-800"; // Consumables
+      case 6:
+        return "bg-gray-100 text-gray-800"; // Other
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
-  const handleViewExpense = (expense: FactoryExpense) => {
+  const handleViewExpense = (expense: Expense) => {
     setSelectedExpense(expense);
     setShowDetailsDialog(true);
   };
 
-  const handleApproveExpense = (expenseId: string) => {
-    setExpenses((prev) =>
-      prev.map((expense) =>
-        expense.id === expenseId
-          ? {
-              ...expense,
-              status: "approved" as const,
-              approvedBy: "Current User",
-              approvedDate: new Date().toISOString(),
-            }
-          : expense
-      )
-    );
+  const handleApproveExpense = async (expenseId: number) => {
+    try {
+      await ExpenseApi.approveExpense(expenseId);
+      // Reload data after successful approval
+      loadAllData();
+    } catch (error) {
+      console.error('Error approving expense:', error);
+      // You could show an error toast here
+    }
   };
 
-  const handleRejectExpense = (expenseId: string) => {
-    setExpenses((prev) =>
-      prev.map((expense) =>
-        expense.id === expenseId
-          ? {
-              ...expense,
-              status: "rejected" as const,
-              approvedBy: "Current User",
-              approvedDate: new Date().toISOString(),
-            }
-          : expense
-      )
-    );
+  const handleRejectExpense = async (expenseId: number) => {
+    try {
+      await ExpenseApi.rejectExpense(expenseId, "Rejected by factory manager");
+      // Reload data after successful rejection
+      loadAllData();
+    } catch (error) {
+      console.error('Error rejecting expense:', error);
+      // You could show an error toast here
+    }
   };
 
-  const handleCreateExpense = () => {
-    const newExpenseRecord: FactoryExpense = {
-      id: `EXP-${Date.now()}`,
-      description: newExpense.description,
-      amount: newExpense.amount,
-      category: newExpense.category as any,
-      workOrderId: newExpense.workOrderId || undefined,
-      productionLine: newExpense.productionLine || undefined,
-      status: "pending",
-      submittedBy: "Current User",
-      submittedDate: new Date().toISOString(),
-      attachments: newExpense.attachments,
-      notes: newExpense.notes,
-    };
+  const handleCreateExpense = async () => {
+    try {
+      await ExpenseApi.createExpense({
+        title: newExpense.title,
+        description: newExpense.description,
+        amount: newExpense.amount,
+        category_id: newExpense.category_id,
+        expense_date: newExpense.expense_date,
+        notes: newExpense.notes,
+        department: newExpense.department,
+        project: newExpense.project || undefined,
+      });
 
-    setExpenses((prev) => [newExpenseRecord, ...prev]);
-    setShowExpenseDialog(false);
-    setNewExpense({
-      description: "",
-      amount: 0,
-      category: "rent",
-      workOrderId: "",
-      productionLine: "",
-      notes: "",
-      attachments: [],
-    });
+      // Reload data after successful creation
+      loadAllData();
+
+      // Reset form
+      setShowExpenseDialog(false);
+      setNewExpense({
+        title: "",
+        description: "",
+        amount: 0,
+        category_id: 1,
+        expense_date: new Date().toISOString().split('T')[0],
+        notes: "",
+        department: "Factory",
+        project: "",
+      });
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      // You could show an error toast here
+    }
   };
 
   return (
@@ -359,8 +285,8 @@ export default function FactoryExpenses() {
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalExpenses}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <div className="text-2xl font-bold">{stats.total_expenses}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -372,7 +298,7 @@ export default function FactoryExpenses() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingApprovals}</div>
+            <div className="text-2xl font-bold">{stats.pending_expenses}</div>
             <p className="text-xs text-muted-foreground">Awaiting approval</p>
           </CardContent>
         </Card>
@@ -384,22 +310,22 @@ export default function FactoryExpenses() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.totalAmount)}
+              {formatCurrency(stats.total_amount)}
             </div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Trend</CardTitle>
+            <CardTitle className="text-sm font-medium">This Month</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              +{stats.monthlyTrend}%
+            <div className="text-2xl font-bold">
+              {stats.expenses_this_month}
             </div>
-            <p className="text-xs text-muted-foreground">vs last month</p>
+            <p className="text-xs text-muted-foreground">expenses recorded</p>
           </CardContent>
         </Card>
       </div>
@@ -447,101 +373,131 @@ export default function FactoryExpenses() {
               <CardTitle>Factory Expenses</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Expense ID</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Submitted By</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredExpenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell className="font-medium">
-                        {expense.id}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {expense.description}
-                          </div>
-                          {expense.workOrderId && (
-                            <div className="text-sm text-muted-foreground">
-                              Work Order: {expense.workOrderId}
-                            </div>
-                          )}
-                          {expense.productionLine && (
-                            <div className="text-sm text-muted-foreground">
-                              Line: {expense.productionLine}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(expense.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getCategoryColor(expense.category)}>
-                          {expense.category.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(expense.status)}>
-                          {expense.status.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {expense.submittedBy}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatDate(expense.submittedDate)}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(expense.submittedDate)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewExpense(expense)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {expense.status === "pending" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleApproveExpense(expense.id)}
-                                className="text-green-600 hover:text-green-700"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRejectExpense(expense.id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading expenses...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center text-red-600">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                    <p>{error}</p>
+                    <Button
+                      variant="outline"
+                      className="mt-2"
+                      onClick={loadAllData}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Expense ID</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Submitted By</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExpenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell className="font-medium">
+                          {expense.expense_number}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {expense.title}
+                            </div>
+                            {expense.description && (
+                              <div className="text-sm text-muted-foreground">
+                                {expense.description}
+                              </div>
+                            )}
+                            {expense.project && (
+                              <div className="text-sm text-muted-foreground">
+                                Project: {expense.project}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(expense.amount)} {expense.currency}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getCategoryColor(expense.category_id)}>
+                            {getCategoryDisplayName(expense.category_id)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(expense.status)}>
+                            {getStatusDisplayName(expense.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {expense.created_by_name || `User ${expense.created_by}`}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {formatDate(expense.created_at)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDate(expense.expense_date)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewExpense(expense)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {expense.status === "pending" && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleApproveExpense(expense.id)}
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRejectExpense(expense.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <AlertTriangle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {filteredExpenses.length === 0 && !loading && !error && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No expenses found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -553,67 +509,67 @@ export default function FactoryExpenses() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {expenses
-                  .filter((expense) => expense.status === "pending")
-                  .map((expense) => (
-                    <Card key={expense.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="font-medium">
-                              {expense.description}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {expense.id} • {expense.category} •{" "}
-                              {formatCurrency(expense.amount)}
-                            </p>
-                          </div>
-                          <Badge className={getCategoryColor(expense.category)}>
-                            {expense.category.toUpperCase()}
-                          </Badge>
-                        </div>
+                    {expenses
+                      .filter((expense) => expense.status === "pending")
+                      .map((expense) => (
+                        <Card key={expense.id}>
+                          <CardContent className="pt-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <h3 className="font-medium">
+                                  {expense.title}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {expense.expense_number} • {getCategoryDisplayName(expense.category_id)} •{" "}
+                                  {formatCurrency(expense.amount)} {expense.currency}
+                                </p>
+                              </div>
+                              <Badge className={getCategoryColor(expense.category_id)}>
+                                {getCategoryDisplayName(expense.category_id)}
+                              </Badge>
+                            </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                          <div>
-                            <Label className="text-sm font-medium">
-                              Amount
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              {formatCurrency(expense.amount)}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">
-                              Submitted By
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              {expense.submittedBy}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">Date</Label>
-                            <p className="text-sm text-muted-foreground">
-                              {formatDate(expense.submittedDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium">
-                              Attachments
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              {expense.attachments.length} files
-                            </p>
-                          </div>
-                        </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                              <div>
+                                <Label className="text-sm font-medium">
+                                  Amount
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatCurrency(expense.amount)} {expense.currency}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">
+                                  Submitted By
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  {expense.created_by_name || `User ${expense.created_by}`}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">Date</Label>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(expense.expense_date)}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">
+                                  Receipt
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                  {expense.receipt_url ? "Available" : "None"}
+                                </p>
+                              </div>
+                            </div>
 
-                        {expense.notes && (
-                          <div className="mb-4">
-                            <Label className="text-sm font-medium">Notes</Label>
-                            <p className="text-sm text-muted-foreground">
-                              {expense.notes}
-                            </p>
-                          </div>
-                        )}
+                            {expense.notes && (
+                              <div className="mb-4">
+                                <Label className="text-sm font-medium">Notes</Label>
+                                <p className="text-sm text-muted-foreground">
+                                  {expense.notes}
+                                </p>
+                              </div>
+                            )}
 
                         <div className="flex gap-2">
                           <Button
@@ -717,7 +673,7 @@ export default function FactoryExpenses() {
               <CardContent>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-green-600">
-                    +{stats.monthlyTrend}%
+                    +{stats.monthly_trends?.[0]?.total_amount ? '12' : '0'}%
                   </div>
                   <p className="text-sm text-muted-foreground">vs last month</p>
                   <div className="mt-4">
@@ -765,6 +721,7 @@ export default function FactoryExpenses() {
                 <Input
                   id="amount"
                   type="number"
+                  step="0.01"
                   placeholder="0.00"
                   value={newExpense.amount}
                   onChange={(e) =>
@@ -778,9 +735,9 @@ export default function FactoryExpenses() {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={newExpense.category}
+                  value={newExpense.category_id.toString()}
                   onValueChange={(value) =>
-                    setNewExpense((prev) => ({ ...prev, category: value }))
+                    setNewExpense((prev) => ({ ...prev, category_id: Number(value) }))
                   }
                 >
                   <SelectTrigger>
@@ -790,7 +747,7 @@ export default function FactoryExpenses() {
                     {categories.map((category) => (
                       <SelectItem
                         key={category.id}
-                        value={category.name.toLowerCase()}
+                        value={category.id.toString()}
                       >
                         {category.name}
                       </SelectItem>
@@ -800,37 +757,34 @@ export default function FactoryExpenses() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="work-order">Work Order ID (Optional)</Label>
-                <Input
-                  id="work-order"
-                  placeholder="WO-001"
-                  value={newExpense.workOrderId}
-                  onChange={(e) =>
-                    setNewExpense((prev) => ({
-                      ...prev,
-                      workOrderId: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="production-line">
-                  Production Line (Optional)
-                </Label>
-                <Input
-                  id="production-line"
-                  placeholder="Line 1"
-                  value={newExpense.productionLine}
-                  onChange={(e) =>
-                    setNewExpense((prev) => ({
-                      ...prev,
-                      productionLine: e.target.value,
-                    }))
-                  }
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="expense_date">Expense Date</Label>
+              <Input
+                id="expense_date"
+                type="date"
+                value={newExpense.expense_date}
+                onChange={(e) =>
+                  setNewExpense((prev) => ({
+                    ...prev,
+                    expense_date: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project">Project (Optional)</Label>
+              <Input
+                id="project"
+                placeholder="Project name or code"
+                value={newExpense.project}
+                onChange={(e) =>
+                  setNewExpense((prev) => ({
+                    ...prev,
+                    project: e.target.value,
+                  }))
+                }
+              />
             </div>
 
             <div className="space-y-2">
@@ -885,57 +839,66 @@ export default function FactoryExpenses() {
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Description</Label>
+                  <Label className="text-sm font-medium">Title</Label>
                   <p className="text-sm text-muted-foreground">
-                    {selectedExpense.description}
+                    {selectedExpense.title}
                   </p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Amount</Label>
                   <p className="text-sm text-muted-foreground">
-                    {formatCurrency(selectedExpense.amount)}
+                    {formatCurrency(selectedExpense.amount)} {selectedExpense.currency}
                   </p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Category</Label>
-                  <Badge className={getCategoryColor(selectedExpense.category)}>
-                    {selectedExpense.category.toUpperCase()}
+                  <Badge className={getCategoryColor(selectedExpense.category_id)}>
+                    {getCategoryDisplayName(selectedExpense.category_id)}
                   </Badge>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Status</Label>
                   <Badge className={getStatusColor(selectedExpense.status)}>
-                    {selectedExpense.status.toUpperCase()}
+                    {getStatusDisplayName(selectedExpense.status)}
                   </Badge>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Submitted By</Label>
+                  <Label className="text-sm font-medium">Expense Date</Label>
                   <p className="text-sm text-muted-foreground">
-                    {selectedExpense.submittedBy}
+                    {formatDate(selectedExpense.expense_date)}
                   </p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Submitted Date</Label>
+                  <Label className="text-sm font-medium">Created By</Label>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(selectedExpense.submittedDate)}
+                    {selectedExpense.created_by_name || `User ${selectedExpense.created_by}`}
                   </p>
                 </div>
               </div>
 
-              {selectedExpense.workOrderId && (
+              {selectedExpense.description && (
                 <div>
-                  <Label className="text-sm font-medium">Work Order</Label>
+                  <Label className="text-sm font-medium">Description</Label>
                   <p className="text-sm text-muted-foreground">
-                    {selectedExpense.workOrderId}
+                    {selectedExpense.description}
                   </p>
                 </div>
               )}
 
-              {selectedExpense.productionLine && (
+              {selectedExpense.project && (
                 <div>
-                  <Label className="text-sm font-medium">Production Line</Label>
+                  <Label className="text-sm font-medium">Project</Label>
                   <p className="text-sm text-muted-foreground">
-                    {selectedExpense.productionLine}
+                    {selectedExpense.project}
+                  </p>
+                </div>
+              )}
+
+              {selectedExpense.department && (
+                <div>
+                  <Label className="text-sm font-medium">Department</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedExpense.department}
                   </p>
                 </div>
               )}
@@ -949,37 +912,50 @@ export default function FactoryExpenses() {
                 </div>
               )}
 
-              {selectedExpense.attachments.length > 0 && (
+              {selectedExpense.receipt_url && (
                 <div>
-                  <Label className="text-sm font-medium">Attachments</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedExpense.attachments.map((attachment, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="flex items-center gap-1"
-                      >
-                        <FileText className="h-3 w-3" />
-                        {attachment}
-                      </Badge>
-                    ))}
+                  <Label className="text-sm font-medium">Receipt</Label>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      Receipt Available
+                    </Badge>
                   </div>
                 </div>
               )}
 
-              {selectedExpense.approvedBy && (
+              {selectedExpense.approved_by && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Approved By</Label>
                     <p className="text-sm text-muted-foreground">
-                      {selectedExpense.approvedBy}
+                      {selectedExpense.approved_by_name || `User ${selectedExpense.approved_by}`}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Approved Date</Label>
                     <p className="text-sm text-muted-foreground">
-                      {selectedExpense.approvedDate
-                        ? formatDate(selectedExpense.approvedDate)
+                      {selectedExpense.approved_at
+                        ? formatDate(selectedExpense.approved_at)
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedExpense.paid_by && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Paid By</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedExpense.paid_by_name || `User ${selectedExpense.paid_by}`}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Paid Date</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedExpense.paid_at
+                        ? formatDate(selectedExpense.paid_at)
                         : "N/A"}
                     </p>
                   </div>

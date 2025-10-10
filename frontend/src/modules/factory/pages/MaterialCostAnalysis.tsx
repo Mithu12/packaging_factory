@@ -45,6 +45,12 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import type { MaterialCostAnalysis, MaterialCostBreakdown } from "../types/bom";
+import CostAnalysisApi, {
+  CostAnalysisQueryParams,
+  CostVarianceQueryParams,
+  CostTrendQueryParams,
+  CostCenterQueryParams,
+} from "../services/cost-analysis-api";
 
 interface CostVariance {
   workOrderId: string;
@@ -84,160 +90,73 @@ export default function MaterialCostAnalysis() {
   const [costVariances, setCostVariances] = useState<CostVariance[]>([]);
   const [costTrends, setCostTrends] = useState<CostTrend[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [periodFilter, setPeriodFilter] = useState<string>("month");
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedAnalysis, setSelectedAnalysis] =
     useState<MaterialCostAnalysis | null>(null);
 
+  // Load data from APIs
   useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setCostAnalyses([
-      {
-        workOrderId: "WO-001",
-        workOrderNumber: "ORD-2024-001",
-        productName: "Premium Widget A",
-        quantity: 500,
-        materialCost: 2500.0,
-        laborCost: 1200.0,
-        overheadCost: 300.0,
-        totalCost: 4000.0,
-        costPerUnit: 8.0,
-        materialBreakdown: [
-          {
-            materialId: "MAT-001",
-            materialName: "Steel Frame",
-            quantityUsed: 100,
-            unitCost: 25.0,
-            totalCost: 2500.0,
-            costPercentage: 100,
-            wastageQuantity: 5,
-            wastageCost: 125.0,
-          },
-        ],
-        costVariance: -200.0,
-        costVariancePercentage: -4.76,
-      },
-      {
-        workOrderId: "WO-002",
-        workOrderNumber: "ORD-2024-002",
-        productName: "Standard Widget B",
-        quantity: 1000,
-        materialCost: 1500.0,
-        laborCost: 800.0,
-        overheadCost: 200.0,
-        totalCost: 2500.0,
-        costPerUnit: 2.5,
-        materialBreakdown: [
-          {
-            materialId: "MAT-003",
-            materialName: "Aluminum Frame",
-            quantityUsed: 75,
-            unitCost: 15.0,
-            totalCost: 1125.0,
-            costPercentage: 75,
-            wastageQuantity: 3,
-            wastageCost: 45.0,
-          },
-          {
-            materialId: "MAT-004",
-            materialName: "Plastic Housing",
-            quantityUsed: 200,
-            unitCost: 8.5,
-            totalCost: 1700.0,
-            costPercentage: 113.33,
-            wastageQuantity: 10,
-            wastageCost: 85.0,
-          },
-        ],
-        costVariance: 150.0,
-        costVariancePercentage: 6.38,
-      },
-    ]);
-
-    setCostVariances([
-      {
-        workOrderId: "WO-001",
-        workOrderNumber: "ORD-2024-001",
-        productName: "Premium Widget A",
-        plannedCost: 4200.0,
-        actualCost: 4000.0,
-        variance: -200.0,
-        variancePercentage: -4.76,
-        status: "favorable",
-      },
-      {
-        workOrderId: "WO-002",
-        workOrderNumber: "ORD-2024-002",
-        productName: "Standard Widget B",
-        plannedCost: 2350.0,
-        actualCost: 2500.0,
-        variance: 150.0,
-        variancePercentage: 6.38,
-        status: "unfavorable",
-      },
-    ]);
-
-    setCostTrends([
-      {
-        period: "2024-01",
-        materialCost: 45000,
-        laborCost: 25000,
-        overheadCost: 8000,
-        totalCost: 78000,
-        costPerUnit: 15.6,
-      },
-      {
-        period: "2024-02",
-        materialCost: 48000,
-        laborCost: 26000,
-        overheadCost: 8500,
-        totalCost: 82500,
-        costPerUnit: 16.5,
-      },
-      {
-        period: "2024-03",
-        materialCost: 52000,
-        laborCost: 28000,
-        overheadCost: 9000,
-        totalCost: 89000,
-        costPerUnit: 17.8,
-      },
-    ]);
-
-    setCostCenters([
-      {
-        id: "CC-001",
-        name: "Assembly Line 1",
-        totalCost: 25000,
-        materialCost: 15000,
-        laborCost: 8000,
-        overheadCost: 2000,
-        efficiency: 92,
-        variance: -500,
-      },
-      {
-        id: "CC-002",
-        name: "Assembly Line 2",
-        totalCost: 22000,
-        materialCost: 13000,
-        laborCost: 7000,
-        overheadCost: 2000,
-        efficiency: 88,
-        variance: 300,
-      },
-      {
-        id: "CC-003",
-        name: "Quality Control",
-        totalCost: 8000,
-        materialCost: 2000,
-        laborCost: 5000,
-        overheadCost: 1000,
-        efficiency: 95,
-        variance: -200,
-      },
-    ]);
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Load cost analyses
+      const analysesResponse = await CostAnalysisApi.getMaterialCostAnalyses({
+        search: searchTerm || undefined,
+        sort_by: 'total_cost',
+        sort_order: 'desc'
+      });
+      setCostAnalyses(analysesResponse.analyses);
+
+      // Load cost variances
+      const variancesResponse = await CostAnalysisApi.getCostVariances({
+        search: searchTerm || undefined,
+        sort_by: 'variance',
+        sort_order: 'desc'
+      });
+      setCostVariances(variancesResponse.variances);
+
+      // Load cost trends
+      const trendsResponse = await CostAnalysisApi.getCostTrends({
+        period_type: periodFilter as 'month' | 'quarter' | 'year',
+      });
+      setCostTrends(trendsResponse);
+
+      // Load cost centers
+      const costCentersResponse = await CostAnalysisApi.getCostCenters({
+        search: searchTerm || undefined,
+        sort_by: 'total_cost',
+        sort_order: 'desc'
+      });
+      setCostCenters(costCentersResponse.cost_centers);
+
+    } catch (err) {
+      console.error('Error loading cost analysis data:', err);
+      setError('Failed to load cost analysis data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle search and filtering
+  const handleSearch = () => {
+    loadAllData();
+  };
+
+  const handlePeriodFilterChange = (value: string) => {
+    setPeriodFilter(value);
+    // Reload trends when period filter changes
+    CostAnalysisApi.getCostTrends({
+      period_type: value as 'month' | 'quarter' | 'year',
+    }).then(setCostTrends).catch(console.error);
+  };
 
   const handleViewWorkOrder = (workOrderId: string) => {
     navigate(`/factory/work-orders`);
@@ -432,14 +351,17 @@ export default function MaterialCostAnalysis() {
                     />
                   </div>
                 </div>
-                <Tabs value={periodFilter} onValueChange={setPeriodFilter}>
+                <Tabs value={periodFilter} onValueChange={handlePeriodFilterChange}>
                   <TabsList>
-                    <TabsTrigger value="week">Week</TabsTrigger>
                     <TabsTrigger value="month">Month</TabsTrigger>
                     <TabsTrigger value="quarter">Quarter</TabsTrigger>
                     <TabsTrigger value="year">Year</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                <Button onClick={handleSearch} disabled={loading}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -450,77 +372,107 @@ export default function MaterialCostAnalysis() {
               <CardTitle>Material Cost Analysis</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Work Order</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Material Cost</TableHead>
-                    <TableHead>Labor Cost</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Cost/Unit</TableHead>
-                    <TableHead>Variance</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCostAnalyses.map((analysis) => (
-                    <TableRow key={analysis.workOrderId}>
-                      <TableCell className="font-medium">
-                        {analysis.workOrderId}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {analysis.productName}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {analysis.workOrderNumber}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {analysis.quantity.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(analysis.materialCost)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(analysis.laborCost)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(analysis.totalCost)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(analysis.costPerUnit)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getVarianceIcon(analysis.costVariance)}
-                          <span
-                            className={getVarianceColor(analysis.costVariance)}
-                          >
-                            {formatCurrency(analysis.costVariance)}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            ({analysis.costVariancePercentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDetails(analysis)}
-                        >
-                          <BarChart3 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading cost analyses...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center text-red-600">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                    <p>{error}</p>
+                    <Button
+                      variant="outline"
+                      className="mt-2"
+                      onClick={loadAllData}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Work Order</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Material Cost</TableHead>
+                      <TableHead>Labor Cost</TableHead>
+                      <TableHead>Total Cost</TableHead>
+                      <TableHead>Cost/Unit</TableHead>
+                      <TableHead>Variance</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {costAnalyses.map((analysis) => (
+                      <TableRow key={analysis.workOrderId}>
+                        <TableCell className="font-medium">
+                          {analysis.workOrderId}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {analysis.productName}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {analysis.workOrderNumber}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {analysis.quantity.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(analysis.materialCost)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(analysis.laborCost)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(analysis.totalCost)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(analysis.costPerUnit)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getVarianceIcon(analysis.costVariance)}
+                            <span
+                              className={getVarianceColor(analysis.costVariance)}
+                            >
+                              {formatCurrency(analysis.costVariance)}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              ({analysis.costVariancePercentage.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(analysis)}
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {costAnalyses.length === 0 && !loading && !error && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No cost analyses found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
