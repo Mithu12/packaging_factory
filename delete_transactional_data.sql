@@ -80,13 +80,19 @@ DELETE FROM failed_voucher_queue;
 -- Step 2: Delete sales transactions (must be done before vouchers due to foreign key)
 -- =======================================================================================
 
+-- Delete sales return items first (foreign key to sales_order_line_items)
+DELETE FROM sales_return_items;
+
+-- Delete sales returns
+DELETE FROM sales_returns;
+
 -- Delete sales receipts
 DELETE FROM sales_receipts;
 
 -- Delete invoices
 DELETE FROM invoices;
 
--- Delete sales order line items first (foreign key to sales_orders)
+-- Delete sales order line items (after sales_return_items are deleted due to FK constraint)
 DELETE FROM sales_order_line_items;
 
 -- Delete sales orders (BEFORE vouchers due to voucher_id foreign key constraint)
@@ -156,17 +162,7 @@ DELETE FROM payments;
 DELETE FROM customer_due_transactions;
 
 -- =======================================================================================
--- Step 6: Delete sales returns and related transactions
--- =======================================================================================
-
--- Delete sales return items first (foreign key to sales_returns)
-DELETE FROM sales_return_items;
-
--- Delete sales returns
-DELETE FROM sales_returns;
-
--- =======================================================================================
--- Step 7: Delete purchase transactions
+-- Step 6: Delete purchase transactions
 -- =======================================================================================
 
 -- Delete purchase order line items first (foreign key to purchase_orders)
