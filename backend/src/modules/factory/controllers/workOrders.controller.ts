@@ -275,6 +275,38 @@ class WorkOrdersController {
       next(error);
     }
   }
+
+  // Record material consumption for work order completion
+  async recordMaterialConsumptionForCompletion(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/work-orders/:id/complete-with-consumption";
+      const { id } = req.params;
+      const { material_consumptions, notes } = req.body;
+      MyLogger.info(action, { workOrderId: id, consumptionsCount: material_consumptions?.length });
+
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Record material consumptions, then complete work order
+      const result = await UpdateWorkOrderMediator.completeWithMaterialConsumption(
+        id,
+        material_consumptions || [],
+        userId.toString(),
+        notes
+      );
+
+      MyLogger.success(action, {
+        workOrderId: id,
+        materialsConsumed: material_consumptions?.length || 0
+      });
+
+      serializeSuccessResponse(res, result, "Work order completed with material consumption");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const workOrdersController = new WorkOrdersController();

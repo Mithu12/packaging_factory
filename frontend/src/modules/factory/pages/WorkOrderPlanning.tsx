@@ -66,6 +66,7 @@ import { ProductsApiService, Product, ProductQueryParams as ProductQueryParamsTy
 import { CustomerOrdersApiService, FactoryCustomerOrder } from "../services/customer-orders-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workOrdersQueryKeys } from "@/services/work-orders-api";
+import { MaterialConsumptionDialog, MaterialConsumption } from "../components/MaterialConsumptionDialog";
 
 // Using types from API service
 
@@ -79,6 +80,8 @@ export default function WorkOrderPlanning() {
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showMaterialConsumptionDialog, setShowMaterialConsumptionDialog] = useState(false);
+  const [completingWorkOrder, setCompletingWorkOrder] = useState<WorkOrder | null>(null);
 
   // Form state for creating work orders
   const [newWorkOrder, setNewWorkOrder] = useState<Partial<CreateWorkOrderRequest>>({
@@ -105,7 +108,7 @@ export default function WorkOrderPlanning() {
   // API query parameters
   const queryParams: WorkOrderQueryParams = {
     search: searchTerm || undefined,
-    status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : "",
+    status: statusFilter !== "all" ? statusFilter as WorkOrderStatus : undefined,
     sort_by: "created_at",
     sort_order: "desc",
     page: 1,
@@ -223,6 +226,36 @@ export default function WorkOrderPlanning() {
     },
   });
 
+  // Mutation for completing with material consumption
+  const completeWithConsumptionMutation = useMutation({
+    mutationFn: ({
+      workOrderId,
+      consumptions,
+      notes
+    }: {
+      workOrderId: string;
+      consumptions: MaterialConsumption[];
+      notes?: string;
+    }) =>
+      WorkOrdersApiService.completeWorkOrderWithConsumption(workOrderId, {
+        material_consumptions: consumptions,
+        notes
+      }),
+    onSuccess: (result) => {
+      console.log("Work order completed with material consumption:", result);
+      setShowMaterialConsumptionDialog(false);
+      setCompletingWorkOrder(null);
+      // Refresh all relevant data
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+    },
+    onError: (error) => {
+      console.error("Failed to complete work order with material consumption:", error);
+      setError(error instanceof Error ? error.message : 'Failed to complete work order');
+    },
+  });
+
   const handleReleaseWorkOrder = (workOrderId: string) => {
     statusChangeMutation.mutate({ id: workOrderId, status: 'released' });
   };
@@ -231,12 +264,52 @@ export default function WorkOrderPlanning() {
     statusChangeMutation.mutate({ id: workOrderId, status: 'in_progress' });
   };
 
-  const handleCompleteWorkOrder = (workOrderId: string) => {
-    statusChangeMutation.mutate({
-      id: workOrderId,
-      status: 'completed',
-      notes: "Completed via planning interface"
+  const handleCompleteWorkOrder = async (workOrderId: string) => {
+    // Get work order details to show material consumption dialog
+    const workOrder = workOrders.find((wo) => wo.id === workOrderId);
+    if (!workOrder) {
+      console.error("Work order not found");
+      return;
+    }
+
+    // Fetch material requirements for this work order
+    try {
+      const requirements = await WorkOrdersApiService.getWorkOrderById(workOrderId);
+      setCompletingWorkOrder({ ...workOrder, material_requirements: requirements.material_requirements || [] });
+      setShowMaterialConsumptionDialog(true);
+    } catch (error) {
+      console.error("Failed to fetch material requirements:", error);
+      // Fallback to simple completion
+      statusChangeMutation.mutate({
+        id: workOrderId,
+        status: 'completed',
+        notes: "Completed via planning interface"
+      });
+    }
+  };
+
+  const handleCompletionWithConsumption = (consumptions: MaterialConsumption[], notes?: string) => {
+    if (!completingWorkOrder) return;
+    
+    completeWithConsumptionMutation.mutate({
+      workOrderId: completingWorkOrder.id,
+      consumptions,
+      notes
     });
+  };
+
+  const handleCompletionSkip = () => {
+    if (!completingWorkOrder) return;
+    
+    // Complete without providing consumption data - backend will auto-consume based on BOM
+    statusChangeMutation.mutate({
+      id: completingWorkOrder.id,
+      status: 'completed',
+      notes: "Completed via planning interface - materials auto-consumed based on BOM"
+    });
+    
+    setShowMaterialConsumptionDialog(false);
+    setCompletingWorkOrder(null);
   };
 
   const planningMutationsPending = updateWorkOrderMutation.isPending || statusChangeMutation.isPending;
@@ -448,7 +521,7 @@ export default function WorkOrderPlanning() {
       } else {
         // For save-only operations, use the regular update
         const updateData: UpdateWorkOrderRequest = {
-          production_line_id: productionLineId,
+          production_line_id: productionLineId?.toString(),
           assigned_operators: planningData.assigned_operators,
           notes: planningData.notes,
         };
@@ -906,7 +979,7 @@ export default function WorkOrderPlanning() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEditWorkOrder(wo)}
+                          disabled
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -1545,6 +1618,17 @@ export default function WorkOrderPlanning() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Material Consumption Dialog */}
+      <MaterialConsumptionDialog
+        open={showMaterialConsumptionDialog}
+        onOpenChange={setShowMaterialConsumptionDialog}
+        workOrder={completingWorkOrder}
+        materialRequirements={completingWorkOrder?.material_requirements || []}
+        onComplete={handleCompletionWithConsumption}
+        onSkip={handleCompletionSkip}
+        isLoading={completeWithConsumptionMutation.isPending || statusChangeMutation.isPending}
+      />
     </div>
   );
 }

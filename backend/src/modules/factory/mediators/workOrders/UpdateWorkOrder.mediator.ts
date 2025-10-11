@@ -606,6 +606,25 @@ export class UpdateWorkOrderMediator {
             quantity: currentWorkOrder.quantity,
             message: "Work order completed without formal production tracking"
           });
+
+          // Check if materials were consumed
+          const consumptionCheck = await client.query(
+            'SELECT SUM(consumed_quantity) as total_consumed FROM work_order_material_consumptions WHERE work_order_id = $1',
+            [workOrderId]
+          );
+
+          const totalConsumed = parseFloat(consumptionCheck.rows[0]?.total_consumed || '0');
+
+          if (totalConsumed === 0) {
+            // No production run and no consumption recorded - auto-consume based on BOM
+            MyLogger.info("Auto-consuming materials based on BOM for completed work order", {
+              workOrderId,
+              productId: currentWorkOrder.product_id,
+              quantity: currentWorkOrder.quantity
+            });
+
+            await UpdateWorkOrderMediator.autoConsumeMaterialsFromBOM(client, workOrderId, currentWorkOrder, userId);
+          }
         }
       }
 
@@ -1222,6 +1241,377 @@ export class UpdateWorkOrderMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Complete work order with manual material consumption
+   * Allows recording actual material consumption when completing without production run
+   */
+  static async completeWithMaterialConsumption(
+    workOrderId: string,
+    materialConsumptions: Array<{
+      material_id: string;
+      material_name: string;
+      consumed_quantity: number;
+      wastage_quantity?: number;
+      wastage_reason?: string;
+      batch_number?: string;
+    }>,
+    userId: string,
+    notes?: string
+  ): Promise<WorkOrder> {
+    const action = "UpdateWorkOrderMediator.completeWithMaterialConsumption";
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get work order
+      const workOrderResult = await client.query(
+        'SELECT * FROM work_orders WHERE id = $1',
+        [workOrderId]
+      );
+
+      if (workOrderResult.rows.length === 0) {
+        throw new Error('Work order not found');
+      }
+
+      const workOrder = workOrderResult.rows[0];
+
+      // Validate work order can be completed
+      if (workOrder.status !== 'in_progress') {
+        throw new Error(`Cannot complete work order in ${workOrder.status} status`);
+      }
+
+      // Record material consumptions if provided
+      if (materialConsumptions && materialConsumptions.length > 0) {
+        for (const consumption of materialConsumptions) {
+          // Record consumption
+          await client.query(
+            `INSERT INTO work_order_material_consumptions (
+              work_order_id,
+              material_id,
+              material_name,
+              consumed_quantity,
+              wastage_quantity,
+              wastage_reason,
+              batch_number,
+              consumption_date,
+              consumed_by,
+              notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9)`,
+            [
+              workOrderId,
+              consumption.material_id,
+              consumption.material_name,
+              consumption.consumed_quantity,
+              consumption.wastage_quantity || 0,
+              consumption.wastage_reason || null,
+              consumption.batch_number || null,
+              userId,
+              'Manual consumption during work order completion'
+            ]
+          );
+
+          // Update inventory
+          const totalConsumed = consumption.consumed_quantity + (consumption.wastage_quantity || 0);
+          await client.query(
+            `UPDATE products 
+             SET 
+               current_stock = GREATEST(current_stock - $1, 0),
+               updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [totalConsumed, consumption.material_id]
+          );
+
+          // Update requirement
+          await client.query(
+            `UPDATE work_order_material_requirements
+             SET 
+               consumed_quantity = consumed_quantity + $1,
+               status = CASE 
+                 WHEN consumed_quantity + $1 >= required_quantity THEN 'fulfilled'
+                 ELSE 'short'
+               END,
+               updated_at = CURRENT_TIMESTAMP
+             WHERE work_order_id = $2 AND material_id = $3`,
+            [consumption.consumed_quantity, workOrderId, consumption.material_id]
+          );
+
+          MyLogger.info(`${action}: Material consumed`, {
+            workOrderId,
+            materialId: consumption.material_id,
+            consumedQuantity: consumption.consumed_quantity
+          });
+        }
+      }
+
+      // Now complete the work order (within the same transaction)
+      // Build query dynamically based on whether notes exists
+      let updateQuery: string;
+      let queryParams: any[];
+
+      if (notes && notes.trim() !== '') {
+        // Append to existing notes
+        updateQuery = `
+          UPDATE work_orders
+          SET
+            status = $1,
+            completed_at = CURRENT_TIMESTAMP,
+            updated_by = $2,
+            updated_at = CURRENT_TIMESTAMP,
+            notes = CASE
+              WHEN notes IS NOT NULL THEN notes || E'\n' || $3
+              ELSE $3
+            END
+          WHERE id = $4
+          RETURNING *
+        `;
+        queryParams = ['completed', userId, notes, workOrderId];
+      } else {
+        // Just set status and completion fields, keep existing notes
+        updateQuery = `
+          UPDATE work_orders
+          SET
+            status = $1,
+            completed_at = CURRENT_TIMESTAMP,
+            updated_by = $2,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3
+          RETURNING *
+        `;
+        queryParams = ['completed', userId, workOrderId];
+      }
+
+      const updateResult = await client.query(updateQuery, queryParams);
+
+      if (updateResult.rows.length === 0) {
+        throw new Error('Failed to update work order status');
+      }
+
+      const updatedWorkOrder = updateResult.rows[0];
+
+      // Release reserved stock
+      if (workOrder.product_id && workOrder.quantity) {
+        const supportsReservedStock = await hasReservedStockColumn();
+        if (supportsReservedStock) {
+          await client.query(
+            `UPDATE products 
+             SET 
+               reserved_stock = GREATEST(reserved_stock - $1, 0),
+               updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [workOrder.quantity, workOrder.product_id]
+          );
+        }
+      }
+
+      // Free up operators
+      await client.query(`
+        UPDATE operators
+        SET availability_status = 'available', current_work_order_id = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE current_work_order_id = $1
+      `, [workOrderId]);
+
+      // Update production line load
+      if (workOrder.production_line_id) {
+        const lineLoad = calculateProductionLineLoad(parseFloat(workOrder.estimated_hours) || 0);
+        await client.query(`
+          UPDATE production_lines
+          SET
+            current_load = GREATEST(current_load - $1, 0),
+            status = CASE
+              WHEN GREATEST(current_load - $1, 0) <= 0 THEN 'available'
+              ELSE status
+            END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [lineLoad, workOrder.production_line_id]);
+      }
+
+      await client.query('COMMIT');
+
+      // Emit event for accounts integration
+      try {
+        eventBus.emit(EVENT_NAMES.WORK_ORDER_COMPLETED, {
+          workOrderData: {
+            workOrderId: updatedWorkOrder.id,
+            workOrderNumber: updatedWorkOrder.work_order_number,
+            productId: updatedWorkOrder.product_id,
+            productName: updatedWorkOrder.product_name,
+            productSku: updatedWorkOrder.product_sku,
+            quantity: updatedWorkOrder.quantity,
+            unitOfMeasure: updatedWorkOrder.unit_of_measure,
+            totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
+            totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
+            totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
+            totalWipCost: updatedWorkOrder.total_wip_cost || 0,
+            completedDate: new Date().toISOString(),
+            customerOrderId: updatedWorkOrder.customer_order_id
+          },
+          userId: parseInt(userId)
+        });
+      } catch (eventError: any) {
+        MyLogger.error(`${action}.eventEmit`, eventError, {
+          workOrderId: updatedWorkOrder.id,
+          message: 'Failed to emit WORK_ORDER_COMPLETED event, but completion succeeded'
+        });
+      }
+
+      MyLogger.success(action, {
+        workOrderId,
+        materialsConsumed: materialConsumptions.length
+      });
+
+      // Return work order in expected format
+      const completedWorkOrder: WorkOrder = {
+        id: updatedWorkOrder.id,
+        work_order_number: updatedWorkOrder.work_order_number,
+        customer_order_id: updatedWorkOrder.customer_order_id,
+        product_id: updatedWorkOrder.product_id,
+        product_name: updatedWorkOrder.product_name,
+        product_sku: updatedWorkOrder.product_sku,
+        quantity: parseFloat(updatedWorkOrder.quantity),
+        unit_of_measure: updatedWorkOrder.unit_of_measure,
+        deadline: updatedWorkOrder.deadline,
+        status: updatedWorkOrder.status,
+        priority: updatedWorkOrder.priority,
+        progress: parseFloat(updatedWorkOrder.progress),
+        estimated_hours: parseFloat(updatedWorkOrder.estimated_hours),
+        actual_hours: parseFloat(updatedWorkOrder.actual_hours),
+        production_line_id: updatedWorkOrder.production_line_id,
+        production_line_name: updatedWorkOrder.production_line_name,
+        assigned_operator_ids: updatedWorkOrder.assigned_operator_ids || [],
+        created_by: updatedWorkOrder.created_by,
+        created_at: updatedWorkOrder.created_at,
+        updated_by: updatedWorkOrder.updated_by,
+        updated_at: updatedWorkOrder.updated_at,
+        started_at: updatedWorkOrder.started_at,
+        completed_at: updatedWorkOrder.completed_at,
+        notes: updatedWorkOrder.notes,
+        specifications: updatedWorkOrder.specifications
+      };
+
+      return completedWorkOrder;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Auto-consume materials from BOM when work order is completed without production run
+   * This ensures inventory is properly adjusted based on planned requirements
+   */
+  private static async autoConsumeMaterialsFromBOM(
+    client: any,
+    workOrderId: string,
+    workOrder: any,
+    userId: string
+  ): Promise<void> {
+    const action = "UpdateWorkOrderMediator.autoConsumeMaterialsFromBOM";
+
+    try {
+      // Get material requirements for this work order
+      const requirementsResult = await client.query(
+        `SELECT * FROM work_order_material_requirements WHERE work_order_id = $1`,
+        [workOrderId]
+      );
+
+      if (requirementsResult.rows.length === 0) {
+        MyLogger.info(`${action}: No material requirements found for work order`, {
+          workOrderId
+        });
+        return;
+      }
+
+      const requirements = requirementsResult.rows;
+      const workOrderQuantity = parseFloat(workOrder.quantity) || 1;
+
+      // Get user name for logging
+      const userResult = await client.query(
+        'SELECT full_name as name FROM users WHERE id = $1',
+        [userId]
+      );
+      const userName = userResult.rows[0]?.name || 'System';
+
+      for (const requirement of requirements) {
+        const materialId = requirement.material_id;
+        const requiredQuantity = parseFloat(requirement.required_quantity) || 0;
+        
+        if (requiredQuantity <= 0) continue;
+
+        // Calculate actual consumption based on work order quantity
+        const consumedQuantity = requiredQuantity;
+
+        // Record consumption
+        await client.query(
+          `INSERT INTO work_order_material_consumptions (
+            work_order_id,
+            material_id,
+            material_name,
+            consumed_quantity,
+            consumption_date,
+            consumed_by,
+            notes
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6)`,
+          [
+            workOrderId,
+            materialId,
+            requirement.material_name,
+            consumedQuantity,
+            userId,
+            'Auto-consumed based on BOM when work order completed without production run'
+          ]
+        );
+
+        // Update inventory - reduce available quantity
+        await client.query(
+          `UPDATE products 
+           SET 
+             current_stock = GREATEST(current_stock - $1, 0),
+             updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [consumedQuantity, materialId]
+        );
+
+        // Update requirement status
+        await client.query(
+          `UPDATE work_order_material_requirements
+           SET 
+             consumed_quantity = $1,
+             status = 'consumed',
+             updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [consumedQuantity, requirement.id]
+        );
+
+        MyLogger.info(`${action}: Material auto-consumed`, {
+          workOrderId,
+          materialId,
+          materialName: requirement.material_name,
+          consumedQuantity,
+          requiredQuantity
+        });
+      }
+
+      MyLogger.success(`${action}: Successfully auto-consumed ${requirements.length} materials`, {
+        workOrderId,
+        userId,
+        userName
+      });
+
+    } catch (error) {
+      MyLogger.error(`${action}: Error auto-consuming materials`, error, {
+        workOrderId,
+        userId
+      });
+      throw error;
     }
   }
 }

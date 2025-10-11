@@ -114,6 +114,13 @@ router.post(
   expressAsyncHandler(workOrdersController.planWorkOrder)
 );
 
+// Complete work order with material consumption
+router.post(
+  "/:id/complete-with-consumption",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_UPDATE),
+  expressAsyncHandler(workOrdersController.recordMaterialConsumptionForCompletion)
+);
+
 // Delete work order
 router.delete(
   "/:id",

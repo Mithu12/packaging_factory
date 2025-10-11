@@ -487,6 +487,27 @@ export class WorkOrdersApiService {
       body: JSON.stringify(planningData),
     });
   }
+
+  // Complete work order with material consumption
+  static async completeWorkOrderWithConsumption(
+    workOrderId: string,
+    consumptionData: {
+      material_consumptions: Array<{
+        material_id: string;
+        material_name: string;
+        consumed_quantity: number;
+        wastage_quantity?: number;
+        wastage_reason?: string;
+        batch_number?: string;
+      }>;
+      notes?: string;
+    }
+  ): Promise<WorkOrder> {
+    return makeRequest<WorkOrder>(`${this.BASE_URL}/${workOrderId}/complete-with-consumption`, {
+      method: 'POST',
+      body: JSON.stringify(consumptionData),
+    });
+  }
 }
 
 // =====================================================
