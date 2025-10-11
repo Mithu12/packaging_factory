@@ -35,6 +35,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -85,9 +86,16 @@ export default function CustomerOrderManagement() {
   );
   const [showOrderEntry, setShowOrderEntry] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [showShippingDialog, setShowShippingDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shippingData, setShippingData] = useState({
+    notes: "",
+    tracking_number: "",
+    carrier: "",
+    estimated_delivery_date: ""
+  });
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
 
@@ -166,8 +174,37 @@ export default function CustomerOrderManagement() {
       await CustomerOrdersApiService.approveCustomerOrder(orderId, approved, notes);
       await loadOrders(); // Reload orders
       await loadStats(); // Reload stats
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve order');
+    } catch (error) {
+      console.error("Failed to approve order:", error);
+      setError(error instanceof Error ? error.message : 'Failed to approve order');
+    }
+  };
+
+  // Handle order shipping
+  const handleShipOrder = (order: FactoryCustomerOrder) => {
+    setSelectedOrder(order);
+    setShippingData({
+      notes: "",
+      tracking_number: "",
+      carrier: "",
+      estimated_delivery_date: ""
+    });
+    setShowShippingDialog(true);
+  };
+
+  // Handle order shipping submission
+  const handleShipOrderSubmit = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      await CustomerOrdersApiService.shipCustomerOrder(selectedOrder.id, shippingData);
+      setShowShippingDialog(false);
+      setSelectedOrder(null);
+      await loadOrders(); // Reload orders
+      await loadStats(); // Reload stats
+    } catch (error) {
+      console.error("Failed to ship order:", error);
+      setError(error instanceof Error ? error.message : 'Failed to ship order');
     }
   };
 
@@ -483,6 +520,16 @@ export default function CustomerOrderManagement() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {order.status === 'completed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleShipOrder(order)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Package className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -509,6 +556,74 @@ export default function CustomerOrderManagement() {
         order={selectedOrder}
         onEdit={handleEditOrder}
       />
+
+      {/* Shipping Dialog */}
+      <Dialog open={showShippingDialog} onOpenChange={setShowShippingDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ship Order</DialogTitle>
+            <DialogDescription>
+              Record shipping information for order #{selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="tracking-number">Tracking Number</Label>
+                <Input
+                  id="tracking-number"
+                  placeholder="Enter tracking number"
+                  onChange={(e) => setShippingData(prev => ({ ...prev, tracking_number: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="carrier">Carrier</Label>
+                <Select onValueChange={(value) => setShippingData(prev => ({ ...prev, carrier: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select carrier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ups">UPS</SelectItem>
+                    <SelectItem value="fedex">FedEx</SelectItem>
+                    <SelectItem value="dhl">DHL</SelectItem>
+                    <SelectItem value="usps">USPS</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="delivery-date">Estimated Delivery Date</Label>
+              <Input
+                id="delivery-date"
+                type="date"
+                onChange={(e) => setShippingData(prev => ({ ...prev, estimated_delivery_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="shipping-notes">Shipping Notes</Label>
+              <Textarea
+                id="shipping-notes"
+                placeholder="Additional shipping notes..."
+                rows={3}
+                onChange={(e) => setShippingData(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShippingDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => handleShipOrderSubmit(shippingData)}>
+              Ship Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

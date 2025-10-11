@@ -380,6 +380,22 @@ export class CustomerOrdersApiService {
     });
   }
 
+  // Ship customer order
+  static async shipCustomerOrder(
+    orderId: string,
+    shippingData: {
+      notes?: string;
+      tracking_number?: string;
+      carrier?: string;
+      estimated_delivery_date?: string;
+    }
+  ): Promise<FactoryCustomerOrder> {
+    return makeRequest<FactoryCustomerOrder>(`/factory/customer-orders/${orderId}/ship`, {
+      method: 'POST',
+      body: JSON.stringify(shippingData),
+    });
+  }
+
   static async deleteCustomer(id: string): Promise<{ deleted: boolean }> {
     return makeRequest<{ deleted: boolean }>(`/factory/customers/${id}`, {
       method: 'DELETE',

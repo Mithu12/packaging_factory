@@ -6,6 +6,7 @@ import { DeleteCustomerOrderMediator } from "../mediators/customerOrders/DeleteC
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
 import { CreateCustomerOrderRequest, UpdateCustomerOrderRequest, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus } from "@/types/factory";
+import pool from "@/database/connection";
 
 class CustomerOrdersController {
   // Get all customer orders with pagination and filtering
@@ -251,6 +252,82 @@ class CustomerOrdersController {
     }
   }
 
+  // Ship customer order
+  async shipCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/customer-orders/:id/ship";
+      const { id } = req.params;
+      const { notes, tracking_number, carrier, estimated_delivery_date } = req.body;
+      MyLogger.info(action, { orderId: id, shippingData: { notes, tracking_number, carrier, estimated_delivery_date } });
+
+      const userId = req.user?.user_id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use the existing status update method for shipping
+      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(
+        {order_id: Number(id), status: FactoryCustomerOrderStatus.SHIPPED, notes: notes || 'Order shipped' },
+        userId.toString()
+      );
+
+      // Update additional shipping fields if provided
+      if (tracking_number || carrier || estimated_delivery_date) {
+        const updateFields = [];
+        const updateValues = [];
+        let paramIndex = 1;
+
+        if (tracking_number) {
+          updateFields.push(`tracking_number = $${paramIndex}`);
+          updateValues.push(tracking_number);
+          paramIndex++;
+        }
+
+        if (carrier) {
+          updateFields.push(`carrier = $${paramIndex}`);
+          updateValues.push(carrier);
+          paramIndex++;
+        }
+
+        if (estimated_delivery_date) {
+          updateFields.push(`estimated_delivery_date = $${paramIndex}`);
+          updateValues.push(estimated_delivery_date);
+          paramIndex++;
+        }
+
+        if (updateFields.length > 0) {
+          updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+          const updateQuery = `
+            UPDATE factory_customer_orders
+            SET ${updateFields.join(', ')}
+            WHERE id = $${paramIndex}
+          `;
+          updateValues.push(id);
+
+          await pool.query(updateQuery, updateValues);
+        }
+      }
+
+      // Set shipped timestamp and user
+      await pool.query(`
+        UPDATE factory_customer_orders
+        SET shipped_at = CURRENT_TIMESTAMP, shipped_by = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [userId, id]);
+
+      MyLogger.success(action, {
+        orderId: id,
+        shipped: true,
+        trackingNumber: tracking_number,
+        carrier: carrier
+      });
+
+      serializeSuccessResponse(res, result, "Order shipped successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Bulk delete customer orders
   async bulkDeleteCustomerOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -258,11 +335,11 @@ class CustomerOrdersController {
       MyLogger.info(action, { bulkData: req.body });
       const { orderIds, force } = req.body;
       const userId = (req as any).user?.user_id || '1'; // Get from authenticated user
-      
+
       const result = await DeleteCustomerOrderMediator.bulkDeleteCustomerOrders(orderIds, userId!.toString(), force);
-      MyLogger.success(action, { 
+      MyLogger.success(action, {
         deletedCount: result.deleted,
-        force 
+        force
       });
       serializeSuccessResponse(res, { deleted: result.deleted, errors: result.errors }, "SUCCESS");
     } catch (error) {

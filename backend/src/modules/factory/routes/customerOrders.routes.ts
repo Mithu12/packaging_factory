@@ -196,6 +196,16 @@ router.post(
   expressAsyncHandler(CustomerOrdersController.updateOrderStatus)
 );
 
+// POST /api/factory/customer-orders/:id/ship - Ship customer order
+router.post(
+  "/:id/ship",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  validateParams(orderIdSchema),
+  auditMiddleware,
+  expressAsyncHandler(CustomerOrdersController.shipCustomerOrder)
+);
+
 // POST /api/factory/customer-orders/bulk/status - Bulk update order status
 router.post(
   "/bulk/status",

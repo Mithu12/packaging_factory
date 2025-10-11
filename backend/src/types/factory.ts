@@ -42,6 +42,10 @@ export enum FactoryCustomerOrderStatus {
   QUOTED = 'quoted',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  IN_PRODUCTION = 'in_production',
+  COMPLETED = 'completed',
+  SHIPPED = 'shipped',
+  CANCELLED = 'cancelled',
 }
 
 export enum FactoryCustomerOrderPriority {
