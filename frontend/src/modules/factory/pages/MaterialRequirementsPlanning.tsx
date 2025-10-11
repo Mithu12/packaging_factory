@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ export default function MaterialRequirementsPlanning() {
   const navigate = useNavigate();
   const { formatCurrency, formatDate } = useFormatting();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,9 +81,25 @@ export default function MaterialRequirementsPlanning() {
   const [showPODialog, setShowPODialog] = useState(false);
   const queryClient = useQueryClient();
 
+  // Debounce search term to avoid excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== searchTerm) {
+      setCurrentPage(1);
+    }
+  }, [debouncedSearchTerm, searchTerm]);
+
   // API query parameters
   const queryParams: RequirementsQueryParams = {
-    search: searchTerm || undefined,
+    search: debouncedSearchTerm || undefined,
     status: statusFilter === "all" ? "" : statusFilter,
     sort_by: "required_date",
     sort_order: "asc",
@@ -199,12 +216,12 @@ export default function MaterialRequirementsPlanning() {
   // Filter requirements based on search and priority (API handles status filtering)
   const filteredRequirements = requirements
     .filter((req) => {
-      if (!searchTerm) return true;
+      if (!debouncedSearchTerm) return true;
 
       return (
-        req.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.material_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.work_order_id?.toLowerCase().includes(searchTerm.toLowerCase())
+        req.material_name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        req.material_sku?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        req.work_order_id?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     })
     .filter((req) => {
@@ -258,7 +275,7 @@ export default function MaterialRequirementsPlanning() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setCurrentPage(1); // Reset to first page when searching
+    // Page reset is handled in useEffect when debouncedSearchTerm changes
   };
 
   const handleStatusFilter = (status: string) => {
@@ -429,6 +446,11 @@ export default function MaterialRequirementsPlanning() {
                       onChange={(e) => handleSearch(e.target.value)}
                       className="pl-10"
                     />
+                    {searchTerm !== debouncedSearchTerm && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin h-3 w-3 border border-gray-300 border-t-gray-600 rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Tabs value={statusFilter} onValueChange={handleStatusFilter}>
@@ -558,9 +580,15 @@ export default function MaterialRequirementsPlanning() {
               {requirementsData && requirementsData.totalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing {((requirementsData.page - 1) * requirementsData.limit) + 1} to{' '}
-                    {Math.min(requirementsData.page * requirementsData.limit, requirementsData.total)} of{' '}
-                    {requirementsData.total} results
+                    {searchTerm !== debouncedSearchTerm ? (
+                      <span>Searching... ({filteredRequirements.length} results shown)</span>
+                    ) : (
+                      <>
+                        Showing {((requirementsData.page - 1) * requirementsData.limit) + 1} to{' '}
+                        {Math.min(requirementsData.page * requirementsData.limit, requirementsData.total)} of{' '}
+                        {requirementsData.total} results
+                      </>
+                    )}
                   </div>
 
                   <Pagination>
