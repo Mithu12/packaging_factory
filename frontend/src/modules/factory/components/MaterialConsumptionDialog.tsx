@@ -66,23 +66,36 @@ export function MaterialConsumptionDialog({
   const [consumptions, setConsumptions] = useState<MaterialConsumption[]>([]);
   const [notes, setNotes] = useState("");
 
+  // Check if any material requirements are already fulfilled
+  const hasFulfilledRequirements = materialRequirements.some(req => req.status === 'fulfilled');
+  const hasAnyRequirements = materialRequirements.length > 0;
+
+  // If requirements are already fulfilled, auto-skip this dialog
+  useEffect(() => {
+    if (hasFulfilledRequirements && open) {
+      onSkip(); // Auto-skip if requirements are already fulfilled
+    }
+  }, [hasFulfilledRequirements, open, onSkip]);
+
   // Initialize consumptions from material requirements
   useEffect(() => {
-    if (materialRequirements && materialRequirements.length > 0) {
-      const initialConsumptions: MaterialConsumption[] = materialRequirements.map((req) => ({
-        material_id: req.material_id,
-        material_name: req.material_name,
-        material_sku: req.material_sku,
-        required_quantity: req.required_quantity,
-        consumed_quantity: req.required_quantity, // Default to required quantity
-        wastage_quantity: 0,
-        wastage_reason: "",
-        batch_number: "",
-        unit_of_measure: req.unit_of_measure,
-      }));
+    if (materialRequirements && materialRequirements.length > 0 && !hasFulfilledRequirements) {
+      const initialConsumptions: MaterialConsumption[] = materialRequirements
+        .filter(req => req.status !== 'fulfilled') // Only include non-fulfilled requirements
+        .map((req) => ({
+          material_id: req.material_id,
+          material_name: req.material_name,
+          material_sku: req.material_sku,
+          required_quantity: req.required_quantity,
+          consumed_quantity: req.required_quantity, // Default to required quantity
+          wastage_quantity: 0,
+          wastage_reason: "",
+          batch_number: "",
+          unit_of_measure: req.unit_of_measure,
+        }));
       setConsumptions(initialConsumptions);
     }
-  }, [materialRequirements]);
+  }, [materialRequirements, hasFulfilledRequirements]);
 
   const handleConsumptionChange = (
     materialId: string,
@@ -124,6 +137,11 @@ export function MaterialConsumptionDialog({
 
   if (!workOrder) return null;
 
+  // If requirements are already fulfilled, don't show the dialog
+  if (hasFulfilledRequirements) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -144,6 +162,20 @@ export function MaterialConsumptionDialog({
               <AlertCircle className="h-5 w-5 text-blue-600" />
               <p className="text-sm text-blue-900">
                 No material requirements found for this work order. You can complete it without recording consumption.
+              </p>
+            </div>
+          ) : hasFulfilledRequirements ? (
+            <div className="flex items-center gap-2 p-4 bg-green-50 rounded-md">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <p className="text-sm text-green-900">
+                Material consumptions have already been recorded for this work order. Completing directly...
+              </p>
+            </div>
+          ) : consumptions.length === 0 ? (
+            <div className="flex items-center gap-2 p-4 bg-orange-50 rounded-md">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              <p className="text-sm text-orange-900">
+                All material requirements are already fulfilled. No additional consumption recording needed.
               </p>
             </div>
           ) : (
@@ -245,15 +277,17 @@ export function MaterialConsumptionDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            {materialRequirements.length > 0 && (
+            {materialRequirements.length > 0 && !hasFulfilledRequirements && consumptions.length > 0 && (
               <Button variant="secondary" onClick={handleSkip} disabled={isLoading}>
                 Skip & Use BOM Defaults
               </Button>
             )}
           </div>
-          <Button onClick={handleComplete} disabled={isLoading}>
+          <Button onClick={hasFulfilledRequirements ? () => onOpenChange(false) : handleComplete} disabled={isLoading}>
             {isLoading ? (
               <>Processing...</>
+            ) : hasFulfilledRequirements ? (
+              <>Close</>
             ) : (
               <>
                 <CheckCircle className="h-4 w-4 mr-2" />

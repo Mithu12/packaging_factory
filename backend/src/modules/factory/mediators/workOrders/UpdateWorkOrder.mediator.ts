@@ -1618,6 +1618,46 @@ export class UpdateWorkOrderMediator {
         `, [lineLoad, workOrder.production_line_id]);
       }
 
+      // Handle material shortages and factory customer order status based on work order completion
+      if (updatedWorkOrder.customer_order_id) {
+        // Check if all work orders for this factory customer order are completed
+        const workOrderCheckQuery = `
+          SELECT
+            COUNT(*) as total_work_orders,
+            COUNT(*) FILTER (WHERE status = 'completed') as completed_work_orders,
+            COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as active_work_orders
+          FROM work_orders
+          WHERE customer_order_id = $1
+        `;
+
+        const workOrderResult = await client.query(workOrderCheckQuery, [updatedWorkOrder.customer_order_id]);
+
+        if (workOrderResult.rows.length > 0) {
+          const stats = workOrderResult.rows[0];
+          const totalWorkOrders = parseInt(stats.total_work_orders) || 0;
+          const completedWorkOrders = parseInt(stats.completed_work_orders) || 0;
+          const activeWorkOrders = parseInt(stats.active_work_orders) || 0;
+
+          // Mark as completed only if all work orders are completed
+          if (totalWorkOrders > 0 && completedWorkOrders === totalWorkOrders && activeWorkOrders === 0) {
+            await client.query(`
+              UPDATE factory_customer_orders
+              SET status = 'completed',
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = $1 AND status != 'completed'
+            `, [updatedWorkOrder.customer_order_id]);
+
+            MyLogger.info(`${action}: Factory customer order marked as completed`, {
+              workOrderId: updatedWorkOrder.id,
+              factoryCustomerOrderId: updatedWorkOrder.customer_order_id,
+              totalWorkOrders,
+              completedWorkOrders,
+              activeWorkOrders
+            });
+          }
+        }
+      }
+
       await client.query('COMMIT');
 
       // Emit event for accounts integration

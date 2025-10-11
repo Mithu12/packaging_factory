@@ -272,13 +272,29 @@ export default function WorkOrderPlanning() {
       return;
     }
 
-    // Fetch material requirements for this work order
+    // Check if work order already has material requirements that are fulfilled
+    // This indicates that consumptions have likely been recorded
     try {
-      const requirements = await WorkOrdersApiService.getWorkOrderById(workOrderId);
-      setCompletingWorkOrder({ ...workOrder, material_requirements: requirements.material_requirements || [] });
+      const workOrderDetails = await WorkOrdersApiService.getWorkOrderById(workOrderId);
+
+      // Check if any material requirements are already fulfilled
+      const fulfilledRequirements = workOrderDetails.material_requirements?.filter(req => req.status === 'fulfilled') || [];
+
+      if (fulfilledRequirements.length > 0) {
+        // Work order already has fulfilled material requirements - complete directly
+        statusChangeMutation.mutate({
+          id: workOrderId,
+          status: 'completed',
+          notes: "Completed via planning interface - materials already consumed"
+        });
+        return;
+      }
+
+      // No fulfilled requirements - show material consumption dialog
+      setCompletingWorkOrder({ ...workOrder, material_requirements: workOrderDetails.material_requirements || [] });
       setShowMaterialConsumptionDialog(true);
     } catch (error) {
-      console.error("Failed to fetch material requirements:", error);
+      console.error("Failed to check material requirements:", error);
       // Fallback to simple completion
       statusChangeMutation.mutate({
         id: workOrderId,
