@@ -980,7 +980,7 @@ export class UpdateWorkOrderMediator {
             const activeWorkOrders = parseInt(stats.active_work_orders) || 0;
 
             // Mark as completed only if all work orders are completed
-            if (totalWorkOrders > 0 && completedWorkOrders === totalWorkOrders && activeWorkOrders === 0) {
+            if (totalWorkOrders > 0 && completedWorkOrders == totalWorkOrders && activeWorkOrders == 0) {
               await client.query(`
                 UPDATE factory_customer_orders
                 SET status = 'completed',
