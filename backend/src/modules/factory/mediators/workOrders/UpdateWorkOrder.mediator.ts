@@ -763,6 +763,22 @@ export class UpdateWorkOrderMediator {
         // Handle material allocation when work order is released
         if (newStatus === 'released') {
           await allocateMaterialsForWorkOrder(client, workOrderId, productId, quantity, userId);
+
+          // Update factory customer order status to 'in_production' when work order is released
+          if (currentWorkOrder.customer_order_id) {
+            await client.query(`
+              UPDATE factory_customer_orders
+              SET status = 'in_production',
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = $1 AND status = 'approved'
+            `, [currentWorkOrder.customer_order_id]);
+
+            MyLogger.info(`${action}: Factory customer order status updated to in_production`, {
+              workOrderId,
+              factoryCustomerOrderId: currentWorkOrder.customer_order_id,
+              message: "Factory customer order moved to in_production status when work order was released"
+            });
+          }
         }
 
         // Release reservations when leaving reserved state
@@ -788,6 +804,50 @@ export class UpdateWorkOrderMediator {
             quantity,
             newStatus
           });
+
+          // If work order is being cancelled and was previously released, check if factory customer order should be reset
+          if (newStatus === 'cancelled' && currentWorkOrder.customer_order_id) {
+            // This logic is already handled in the cancellation section below
+            // No need to duplicate it here
+          }
+        }
+
+        // Handle factory customer order status updates when work order status changes
+        if (currentWorkOrder.customer_order_id && ['planned', 'draft'].includes(newStatus) && ['released', 'in_progress'].includes(currentWorkOrder.status)) {
+          // Work order moved from released/in_progress back to planned/draft
+          // Check if factory customer order should be reset to approved
+          const activeWorkOrdersQuery = `
+            SELECT COUNT(*) as active_count
+            FROM work_orders
+            WHERE customer_order_id = $1 AND status IN ('released', 'in_progress')
+          `;
+
+          const activeResult = await client.query(activeWorkOrdersQuery, [currentWorkOrder.customer_order_id]);
+
+          if (activeResult.rows.length > 0 && parseInt(activeResult.rows[0].active_count) === 0) {
+            // No active (released/in_progress) work orders - check if order should go back to approved
+            const orderQuery = `
+              SELECT status FROM factory_customer_orders WHERE id = $1
+            `;
+
+            const orderResult = await client.query(orderQuery, [currentWorkOrder.customer_order_id]);
+
+            if (orderResult.rows.length > 0 && orderResult.rows[0].status === 'in_production') {
+              // Set back to approved if it was in production
+              await client.query(`
+                UPDATE factory_customer_orders
+                SET status = 'approved',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+              `, [currentWorkOrder.customer_order_id]);
+
+              MyLogger.info(`${action}: Factory customer order status reset to approved`, {
+                workOrderId,
+                factoryCustomerOrderId: currentWorkOrder.customer_order_id,
+                reason: "Work order moved from released/in_progress back to planned/draft, no active work orders remaining"
+              });
+            }
+          }
         }
       }
 
