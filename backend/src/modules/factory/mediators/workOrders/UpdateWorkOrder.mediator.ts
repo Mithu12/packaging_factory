@@ -878,6 +878,37 @@ export class UpdateWorkOrderMediator {
         newStatus: newStatus
       });
 
+      // Handle material shortages based on work order status change
+      if (newStatus === 'completed') {
+        // Resolve any open material shortages for this work order
+        await client.query(`
+          UPDATE material_shortages
+          SET status = 'resolved',
+              resolved_date = CURRENT_TIMESTAMP,
+              notes = CONCAT(COALESCE(notes, ''), E'\nResolved: work order completed - materials assumed available')
+          WHERE work_order_id = $1 AND status = 'open'
+        `, [workOrderId]);
+
+        MyLogger.info(`${action}: Material shortages resolved for completed work order`, {
+          workOrderId,
+          message: "Material shortages automatically resolved upon work order completion"
+        });
+      } else if (newStatus === 'cancelled') {
+        // Cancel any open material shortages for cancelled work orders
+        await client.query(`
+          UPDATE material_shortages
+          SET status = 'cancelled',
+              resolved_date = CURRENT_TIMESTAMP,
+              notes = CONCAT(COALESCE(notes, ''), E'\nCancelled: work order cancelled - shortages no longer needed')
+          WHERE work_order_id = $1 AND status = 'open'
+        `, [workOrderId]);
+
+        MyLogger.info(`${action}: Material shortages cancelled for cancelled work order`, {
+          workOrderId,
+          message: "Material shortages automatically cancelled upon work order cancellation"
+        });
+      }
+
       // Emit event for accounts integration when work order is completed
       if (newStatus === 'completed') {
         try {
