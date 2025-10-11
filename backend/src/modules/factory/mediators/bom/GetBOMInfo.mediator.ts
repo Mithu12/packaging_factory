@@ -520,13 +520,15 @@ export class GetBOMInfoMediator {
       query += ` ORDER BY wmr.${sortBy} ${sortOrder}`;
 
       // Apply pagination
-      const page = params.page || 1;
-      const limit = params.limit || 20;
+      const pageStr = params.page?.toString() || '1';
+      const limitStr = params.limit?.toString() || '20';
+      const page: number = parseInt(pageStr);
+      const limit: number = parseInt(limitStr);
       const offset = (page - 1) * limit;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      values.push(limit, offset);
+      values.push(limitStr, (offset).toString());
 
-      // Get total count
+      // Get total count - rebuild conditions specifically for count query to avoid parameter indexing issues
       let countQuery = `
         SELECT COUNT(*) as total
         FROM work_order_material_requirements wmr
@@ -534,17 +536,48 @@ export class GetBOMInfoMediator {
         JOIN products p ON wo.product_id = p.id
       `;
 
+      // Build count query conditions separately to avoid parameter conflicts
+      let countValues: any[] = [];
+
+      // Add factory filter for count query
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
+        countQuery += ` WHERE p.factory_id = ANY($1::bigint[])`;
+        countValues.push(userFactoryIds);
+      } else {
+        countQuery += ` WHERE 1=1`;
       }
 
-      if (conditions.length > 0) {
-        countQuery += ` AND ${conditions.slice(0, -2).join(' AND ')}`;
+      // Add other filters for count query (matching the main query conditions)
+      let countParamIndex = userFactoryIds.length > 0 ? 2 : 1;
+
+      if (params.status && params.status !== '') {
+        countQuery += ` AND wmr.status = $${countParamIndex}`;
+        countValues.push(params.status);
+        countParamIndex++;
       }
 
-      const countValues = userFactoryIds.length > 0 ? [...userFactoryIds] : [];
-      for (let i = 0; i < conditions.length - 2; i++) {
-        countValues.push(values[userFactoryIds.length + i]);
+      if (params.work_order_id) {
+        countQuery += ` AND wmr.work_order_id = $${countParamIndex}`;
+        countValues.push(params.work_order_id);
+        countParamIndex++;
+      }
+
+      if (params.material_id) {
+        countQuery += ` AND wmr.material_id = $${countParamIndex}`;
+        countValues.push(params.material_id);
+        countParamIndex++;
+      }
+
+      if (params.required_date_from) {
+        countQuery += ` AND wmr.required_date >= $${countParamIndex}`;
+        countValues.push(params.required_date_from);
+        countParamIndex++;
+      }
+
+      if (params.required_date_to) {
+        countQuery += ` AND wmr.required_date <= $${countParamIndex}`;
+        countValues.push(params.required_date_to);
+        countParamIndex++;
       }
 
       const countResult = await client.query(countQuery, countValues);

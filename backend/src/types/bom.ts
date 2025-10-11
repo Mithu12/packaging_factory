@@ -209,8 +209,8 @@ export interface BOMQueryParams {
 }
 
 export interface MaterialRequirementsQueryParams {
-  page?: number;
-  limit?: number;
+  page?: string | number;
+  limit?: string | number;
   search?: string;
   work_order_id?: string;
   status?: string;
