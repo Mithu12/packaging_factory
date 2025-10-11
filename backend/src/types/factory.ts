@@ -92,6 +92,14 @@ export interface FactoryCustomerOrder {
   updated_at?: string;
   approved_by?: string;
   approved_at?: string;
+  shipped_at?: string;
+  shipped_by?: string;
+  tracking_number?: string;
+  carrier?: string;
+  estimated_delivery_date?: string;
+  actual_delivery_date?: string;
+  shipping_cost?: number;
+  delivery_status?: string;
 }
 
 export interface OrderLineItem {

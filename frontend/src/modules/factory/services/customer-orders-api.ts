@@ -43,6 +43,14 @@ export interface FactoryCustomerOrder {
   line_items: FactoryCustomerOrderLineItem[];
   created_at: string;
   updated_at: string;
+  shipped_at?: string;
+  shipped_by?: string;
+  tracking_number?: string;
+  carrier?: string;
+  estimated_delivery_date?: string;
+  actual_delivery_date?: string;
+  shipping_cost?: number;
+  delivery_status?: string;
 }
 
 export interface FactoryCustomerOrderLineItem {

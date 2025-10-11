@@ -265,64 +265,85 @@ class CustomerOrdersController {
         throw new Error('User not authenticated');
       }
 
-      // Use the existing status update method for shipping
-      const result = await UpdateCustomerOrderInfoMediator.updateOrderStatus(
-        {order_id: Number(id), status: FactoryCustomerOrderStatus.SHIPPED, notes: notes || 'Order shipped' },
-        userId.toString()
-      );
+      // First, check if the order can be shipped (must be completed and not already shipped)
+      const orderCheckQuery = `
+        SELECT id, status, order_number
+        FROM factory_customer_orders
+        WHERE id = $1
+      `;
+      const orderResult = await pool.query(orderCheckQuery, [id]);
 
-      // Update additional shipping fields if provided
-      if (tracking_number || carrier || estimated_delivery_date) {
-        const updateFields = [];
-        const updateValues = [];
-        let paramIndex = 1;
-
-        if (tracking_number) {
-          updateFields.push(`tracking_number = $${paramIndex}`);
-          updateValues.push(tracking_number);
-          paramIndex++;
-        }
-
-        if (carrier) {
-          updateFields.push(`carrier = $${paramIndex}`);
-          updateValues.push(carrier);
-          paramIndex++;
-        }
-
-        if (estimated_delivery_date) {
-          updateFields.push(`estimated_delivery_date = $${paramIndex}`);
-          updateValues.push(estimated_delivery_date);
-          paramIndex++;
-        }
-
-        if (updateFields.length > 0) {
-          updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-          const updateQuery = `
-            UPDATE factory_customer_orders
-            SET ${updateFields.join(', ')}
-            WHERE id = $${paramIndex}
-          `;
-          updateValues.push(id);
-
-          await pool.query(updateQuery, updateValues);
-        }
+      if (orderResult.rows.length === 0) {
+        throw new Error('Customer order not found');
       }
 
-      // Set shipped timestamp and user
-      await pool.query(`
+      const order = orderResult.rows[0];
+
+      if (order.status !== 'completed') {
+        throw new Error(`Cannot ship order in ${order.status} status. Order must be completed first.`);
+      }
+
+      if (order.status === 'shipped') {
+        throw new Error('Order is already shipped');
+      }
+
+      // Update order status to shipped and add shipping details
+      const updateFields = ['status = $1', 'shipped_at = CURRENT_TIMESTAMP', 'shipped_by = $2', 'updated_at = CURRENT_TIMESTAMP'];
+      const updateValues = ['shipped', userId, id];
+      let paramIndex = 4;
+
+      if (tracking_number) {
+        updateFields.push(`tracking_number = $${paramIndex}`);
+        updateValues.push(tracking_number);
+        paramIndex++;
+      }
+
+      if (carrier) {
+        updateFields.push(`carrier = $${paramIndex}`);
+        updateValues.push(carrier);
+        paramIndex++;
+      }
+
+      if (estimated_delivery_date) {
+        updateFields.push(`estimated_delivery_date = $${paramIndex}`);
+        updateValues.push(estimated_delivery_date);
+        paramIndex++;
+      }
+
+      if (notes && notes.trim() !== '') {
+        updateFields.push(`notes = CASE
+          WHEN notes IS NOT NULL THEN notes || E'\n' || $${paramIndex}
+          ELSE $${paramIndex}
+        END`);
+        updateValues.push(notes);
+      }
+
+      const updateQuery = `
         UPDATE factory_customer_orders
-        SET shipped_at = CURRENT_TIMESTAMP, shipped_by = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [userId, id]);
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+      updateValues.push(id);
+
+      const updateResult = await pool.query(updateQuery, updateValues);
+
+      if (updateResult.rows.length === 0) {
+        throw new Error('Failed to update order status');
+      }
+
+      const updatedOrder = updateResult.rows[0];
 
       MyLogger.success(action, {
         orderId: id,
+        orderNumber: updatedOrder.order_number,
         shipped: true,
         trackingNumber: tracking_number,
         carrier: carrier
       });
 
-      serializeSuccessResponse(res, result, "Order shipped successfully");
+      // Return the updated order
+      serializeSuccessResponse(res, updatedOrder, "Order shipped successfully");
     } catch (error) {
       next(error);
     }
