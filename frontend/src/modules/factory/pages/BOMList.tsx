@@ -214,7 +214,7 @@ export default function BOMList() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.average_components}</div>
+            <div className="text-2xl font-bold">{Number(stats.average_components).toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">per BOM</p>
           </CardContent>
         </Card>

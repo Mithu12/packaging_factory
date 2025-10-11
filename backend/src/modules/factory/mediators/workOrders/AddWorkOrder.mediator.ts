@@ -445,6 +445,27 @@ export class AddWorkOrderMediator {
         specifications: completeWorkOrder.specifications
       };
 
+      // Update factory customer order status to 'in_production' if applicable
+      if (completeWorkOrder.customer_order_id) {
+        const updateOrderQuery = `
+          UPDATE factory_customer_orders
+          SET status = CASE
+            WHEN status = 'approved' THEN 'in_production'
+            ELSE status
+          END,
+          updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1 AND status IN ('approved', 'in_production')
+        `;
+
+        await client.query(updateOrderQuery, [completeWorkOrder.customer_order_id]);
+
+        MyLogger.info(`${action}: Factory customer order status updated to in_production`, {
+          workOrderId: workOrder.id,
+          factoryCustomerOrderId: completeWorkOrder.customer_order_id,
+          message: "Factory customer order moved to in_production status"
+        });
+      }
+
       MyLogger.success(action, {
         workOrderId: workOrder.id,
         workOrderNumber: workOrder.work_order_number
