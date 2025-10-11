@@ -341,11 +341,21 @@ export class AddWorkOrderMediator {
 
             await client.query(requirementQuery, requirementValues);
 
-            // No allocations or stock updates for draft work orders
-            // If there's a shortage, we still create a shortage record for visibility
-            if (totalRequiredQuantity > 0) {
-              const availableStock = parseFloat(material.current_stock);
-              const shortfallQuantity = totalRequiredQuantity;
+            // Check for material shortages only if there's insufficient stock
+            const availableStock = parseFloat(material.current_stock || '0');
+
+            // Clean up any existing incorrect shortage records for this material and work order
+            // (This handles cases where shortages were previously created incorrectly)
+            if (totalRequiredQuantity <= availableStock) {
+              await client.query(`
+                UPDATE material_shortages
+                SET status = 'resolved', resolved_date = CURRENT_TIMESTAMP, notes = CONCAT(COALESCE(notes, ''), E'\nAuto-resolved: sufficient stock now available')
+                WHERE material_id = $1 AND work_order_id = $2 AND status = 'open'
+              `, [component.component_product_id, newWorkOrder.id]);
+            }
+
+            if (totalRequiredQuantity > availableStock && totalRequiredQuantity > 0) {
+              const actualShortfallQuantity = totalRequiredQuantity - availableStock;
 
               const shortageQuery = `
                 INSERT INTO material_shortages (
@@ -377,7 +387,7 @@ export class AddWorkOrderMediator {
                 material.sku,
                 totalRequiredQuantity,
                 availableStock,
-                shortfallQuantity,
+                actualShortfallQuantity,
                 newWorkOrder.id,
                 workOrderNumber,
                 workOrderData.deadline,
@@ -387,7 +397,7 @@ export class AddWorkOrderMediator {
                 component.lead_time_days,
                 suggestedAction,
                 'open',
-                `Short ${shortfallQuantity} units for work order ${workOrderNumber}`
+                `Shortage of ${actualShortfallQuantity} units for work order ${workOrderNumber} - insufficient stock available`
               ]);
             }
           }
