@@ -38,6 +38,15 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   BOMApiService,
   bomQueryKeys,
   type MaterialPlanningStats,
@@ -59,6 +68,8 @@ export default function MaterialRequirementsPlanning() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showShortageDialog, setShowShortageDialog] = useState(false);
   const [selectedShortage, setSelectedShortage] =
     useState<MaterialShortage | null>(null);
@@ -75,8 +86,8 @@ export default function MaterialRequirementsPlanning() {
     status: statusFilter === "all" ? "" : statusFilter,
     sort_by: "required_date",
     sort_order: "asc",
-    page: 1,
-    limit: 100,
+    page: currentPage,
+    limit: pageSize,
   };
 
   // Fetch material requirements
@@ -204,6 +215,12 @@ export default function MaterialRequirementsPlanning() {
       return true;
     });
 
+  // Handle pagination edge cases - reset current page if it exceeds total pages
+  const maxPage = requirementsData ? Math.max(1, Math.ceil(requirementsData.total / pageSize)) : 1;
+  if (currentPage > maxPage && requirementsData) {
+    setCurrentPage(maxPage);
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "fulfilled":
@@ -237,6 +254,26 @@ export default function MaterialRequirementsPlanning() {
   const handleViewShortage = (shortage: MaterialShortage) => {
     setSelectedShortage(shortage);
     setShowShortageDialog(true);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleStatusFilter = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handlePriorityFilter = (priority: string) => {
+    setPriorityFilter(priority);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1); // Reset to first page when changing page size
   };
 
   const handleGeneratePOForShortage = (shortage: MaterialShortage) => {
@@ -389,12 +426,12 @@ export default function MaterialRequirementsPlanning() {
                     <Input
                       placeholder="Search requirements..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => handleSearch(e.target.value)}
                       className="pl-10"
                     />
                   </div>
                 </div>
-                <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+                <Tabs value={statusFilter} onValueChange={handleStatusFilter}>
                   <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
                     <TabsTrigger value="pending">Pending</TabsTrigger>
@@ -403,7 +440,7 @@ export default function MaterialRequirementsPlanning() {
                     <TabsTrigger value="fulfilled">Fulfilled</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <Tabs value={priorityFilter} onValueChange={setPriorityFilter}>
+                <Tabs value={priorityFilter} onValueChange={handlePriorityFilter}>
                   <TabsList>
                     <TabsTrigger value="all">All Priority</TabsTrigger>
                     <TabsTrigger value="critical">Critical</TabsTrigger>
@@ -516,6 +553,73 @@ export default function MaterialRequirementsPlanning() {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Pagination Controls */}
+              {requirementsData && requirementsData.totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((requirementsData.page - 1) * requirementsData.limit) + 1} to{' '}
+                    {Math.min(requirementsData.page * requirementsData.limit, requirementsData.total)} of{' '}
+                    {requirementsData.total} results
+                  </div>
+
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, requirementsData.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, requirementsData.page - 2) + i;
+                        if (pageNum > requirementsData.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNum)}
+                              isActive={pageNum === currentPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {requirementsData.totalPages > 5 && requirementsData.page < requirementsData.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage(Math.min(requirementsData.totalPages, currentPage + 1))}
+                          className={currentPage >= requirementsData.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
