@@ -207,17 +207,17 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Manage Users - {factory.name}</DialogTitle>
-            <DialogDescription>
-              Assign users to this factory and manage their roles and permissions.
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="user-assignment-dialog">
+        <DialogHeader>
+          <DialogTitle data-testid="user-assignment-title">Manage Users - {factory.name}</DialogTitle>
+          <DialogDescription data-testid="user-assignment-description">
+            Assign users to this factory and manage their roles and permissions.
+          </DialogDescription>
+        </DialogHeader>
 
           <div className="space-y-4">
             {/* Header with search and add user */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between" data-testid="user-assignment-header">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -225,9 +225,10 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
+                  data-testid="user-search-input"
                 />
               </div>
-              <Button onClick={() => setShowAssignDialog(true)}>
+              <Button onClick={() => setShowAssignDialog(true)} data-testid="assign-user-button">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Assign User
               </Button>
@@ -308,10 +309,10 @@ const UserFactoryAssignment: React.FC<UserFactoryAssignmentProps> = ({
 
       {/* Assign User Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
+        <DialogContent data-testid="assign-user-dialog">
           <DialogHeader>
-            <DialogTitle>Assign User to Factory</DialogTitle>
-            <DialogDescription>
+            <DialogTitle data-testid="assign-user-title">Assign User to Factory</DialogTitle>
+            <DialogDescription data-testid="assign-user-description">
               Add a user to this factory and assign them a role.
             </DialogDescription>
           </DialogHeader>

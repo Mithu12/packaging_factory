@@ -127,16 +127,16 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-details-dialog">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-2xl">Order Details</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl" data-testid="order-details-title">Order Details</DialogTitle>
+              <DialogDescription data-testid="order-details-description">
                 Order #{order.order_number} - {order.factory_customer_name}
               </DialogDescription>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex space-x-2" data-testid="order-details-actions">
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Print

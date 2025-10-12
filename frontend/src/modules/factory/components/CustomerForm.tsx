@@ -163,14 +163,14 @@ function CustomerForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="customer-form-dialog">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle data-testid="customer-form-title">
             {customer ? "Edit Customer" : "Create New Customer"}
           </DialogTitle>
-          <DialogDescription>
-            {customer 
-              ? `Edit details for ${customer.name}` 
+          <DialogDescription data-testid="customer-form-description">
+            {customer
+              ? `Edit details for ${customer.name}`
               : "Fill in the details to create a new customer"
             }
           </DialogDescription>
@@ -179,20 +179,20 @@ function CustomerForm({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             {/* Basic Information */}
-            <Card>
+            <Card data-testid="basic-info-card">
               <CardHeader>
-                <CardTitle className="text-lg">Basic Information</CardTitle>
+                <CardTitle className="text-lg" data-testid="basic-info-title">Basic Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent className="space-y-4" data-testid="basic-info-content">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="name-email-row">
                   <FormField
                     control={form.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Name *</FormLabel>
+                        <FormLabel data-testid="customer-name-label">Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter customer name" {...field} />
+                          <Input placeholder="Enter customer name" {...field} data-testid="customer-name-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -203,9 +203,9 @@ function CustomerForm({
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email *</FormLabel>
+                        <FormLabel data-testid="customer-email-label">Email *</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="customer@example.com" {...field} />
+                          <Input type="email" placeholder="customer@example.com" {...field} data-testid="customer-email-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -249,21 +249,22 @@ function CustomerForm({
                 <CardTitle className="text-lg">Business Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="credit-payment-row">
                   <FormField
                     control={form.control}
                     name="credit_limit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Credit Limit (BDT)</FormLabel>
+                        <FormLabel data-testid="credit-limit-label">Credit Limit (BDT)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             min="0"
                             step="0.01"
                             placeholder="0.00"
                             {...field}
                             onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            data-testid="credit-limit-input"
                           />
                         </FormControl>
                         <FormMessage />
@@ -275,10 +276,10 @@ function CustomerForm({
                     name="payment_terms"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Payment Terms</FormLabel>
+                        <FormLabel data-testid="payment-terms-label">Payment Terms</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger data-testid="payment-terms-select">
                               <SelectValue placeholder="Select payment terms" />
                             </SelectTrigger>
                           </FormControl>
@@ -417,16 +418,17 @@ function CustomerForm({
             </Card>
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-4 pt-6">
+            <div className="flex justify-end space-x-4 pt-6" data-testid="customer-form-actions">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                data-testid="cancel-customer-button"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} data-testid="submit-customer-button">
                 {isSubmitting ? "Saving..." : customer ? "Update Customer" : "Create Customer"}
               </Button>
             </div>

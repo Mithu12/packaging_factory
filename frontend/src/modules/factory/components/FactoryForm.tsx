@@ -165,12 +165,12 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="factory-form-dialog">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle data-testid="factory-form-title">
             {isEditing ? 'Edit Factory' : 'Create New Factory'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription data-testid="factory-form-description">
             {isEditing
               ? 'Update the factory information below.'
               : 'Fill in the details to create a new factory.'
@@ -181,15 +181,15 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Basic Information */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4" data-testid="basic-info-section">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Factory Name *</FormLabel>
+                    <FormLabel data-testid="factory-name-label">Factory Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter factory name" {...field} />
+                      <Input placeholder="Enter factory name" {...field} data-testid="factory-name-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -201,9 +201,9 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Factory Code *</FormLabel>
+                    <FormLabel data-testid="factory-code-label">Factory Code *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter factory code" {...field} />
+                      <Input placeholder="Enter factory code" {...field} data-testid="factory-code-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -216,12 +216,13 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel data-testid="factory-description-label">Description</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Enter factory description"
                       className="min-h-[80px]"
                       {...field}
+                      data-testid="factory-description-textarea"
                     />
                   </FormControl>
                   <FormMessage />
@@ -230,32 +231,32 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
             />
 
             {/* Address Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Address Information</h3>
+            <div className="space-y-4" data-testid="address-info-section">
+              <h3 className="text-lg font-medium" data-testid="address-info-title">Address Information</h3>
 
               <FormField
                 control={form.control}
                 name="address.street"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Street Address *</FormLabel>
+                    <FormLabel data-testid="street-address-label">Street Address *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter street address" {...field} />
+                      <Input placeholder="Enter street address" {...field} data-testid="street-address-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4" data-testid="city-state-row">
                 <FormField
                   control={form.control}
                   name="address.city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City *</FormLabel>
+                      <FormLabel data-testid="city-label">City *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter city" {...field} />
+                        <Input placeholder="Enter city" {...field} data-testid="city-input" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -267,9 +268,9 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
                   name="address.state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State/Province *</FormLabel>
+                      <FormLabel data-testid="state-label">State/Province *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter state/province" {...field} />
+                        <Input placeholder="Enter state/province" {...field} data-testid="state-input" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -339,15 +340,15 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
             </div>
 
             {/* Contact Information */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4" data-testid="contact-info-section">
               <FormField
                 control={form.control}
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel data-testid="phone-label">Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter phone number" {...field} />
+                      <Input placeholder="Enter phone number" {...field} data-testid="phone-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -359,9 +360,9 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel data-testid="email-label">Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter email address" {...field} />
+                      <Input placeholder="Enter email address" {...field} data-testid="email-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -414,11 +415,11 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
               />
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <DialogFooter data-testid="factory-form-footer">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="cancel-factory-button">
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} data-testid="submit-factory-button">
                 {loading ? 'Saving...' : (isEditing ? 'Update Factory' : 'Create Factory')}
               </Button>
             </DialogFooter>

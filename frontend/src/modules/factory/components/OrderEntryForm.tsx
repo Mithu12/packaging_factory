@@ -341,14 +341,14 @@ export default function OrderEntryForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-entry-dialog">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle data-testid="order-entry-title">
             {order ? "Edit Customer Order" : "Create New Customer Order"}
           </DialogTitle>
-          <DialogDescription>
-            {order 
-              ? `Edit order ${order.order_number}` 
+          <DialogDescription data-testid="order-entry-description">
+            {order
+              ? `Edit order ${order.order_number}`
               : "Fill in the details to create a new customer order"
             }
           </DialogDescription>
@@ -357,20 +357,20 @@ export default function OrderEntryForm({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             {/* Customer Information */}
-            <Card>
+            <Card data-testid="customer-info-card">
               <CardHeader>
-                <CardTitle className="text-lg">Customer Information</CardTitle>
+                <CardTitle className="text-lg" data-testid="customer-info-title">Customer Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4" data-testid="customer-info-content">
                 <FormField
                   control={form.control}
                   name="factory_customer_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer *</FormLabel>
+                      <FormLabel data-testid="customer-select-label">Customer *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger data-testid="customer-select-trigger">
                             <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select a customer"} />
                           </SelectTrigger>
                         </FormControl>
@@ -450,20 +450,20 @@ export default function OrderEntryForm({
             </Card>
 
             {/* Order Information */}
-            <Card>
+            <Card data-testid="order-info-card">
               <CardHeader>
-                <CardTitle className="text-lg">Order Information</CardTitle>
+                <CardTitle className="text-lg" data-testid="order-info-title">Order Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="space-y-4" data-testid="order-info-content">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="order-dates-row">
                   <FormField
                     control={form.control}
                     name="order_date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Order Date *</FormLabel>
+                        <FormLabel data-testid="order-date-label">Order Date *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input type="date" {...field} data-testid="order-date-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -474,9 +474,9 @@ export default function OrderEntryForm({
                     name="required_date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Required Date *</FormLabel>
+                        <FormLabel data-testid="required-date-label">Required Date *</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input type="date" {...field} data-testid="required-date-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -749,16 +749,17 @@ export default function OrderEntryForm({
             </Card>
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-4 pt-6">
+            <div className="flex justify-end space-x-4 pt-6" data-testid="order-form-actions">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                data-testid="cancel-order-button"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} data-testid="submit-order-button">
                 {isSubmitting ? "Saving..." : order ? "Update Order" : "Create Order"}
               </Button>
             </div>
