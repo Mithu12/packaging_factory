@@ -316,15 +316,15 @@ class CustomerOrdersController {
           ELSE $${paramIndex}
         END`);
         updateValues.push(notes);
+        paramIndex++;
       }
 
       const updateQuery = `
         UPDATE factory_customer_orders
         SET ${updateFields.join(', ')}
-        WHERE id = $${paramIndex}
+        WHERE id = $3
         RETURNING *
       `;
-      updateValues.push(id);
 
       const updateResult = await pool.query(updateQuery, updateValues);
 
