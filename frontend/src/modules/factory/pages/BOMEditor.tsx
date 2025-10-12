@@ -262,40 +262,41 @@ export default function BOMEditor() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
+      <div className="flex items-center justify-center h-64" data-testid="bom-editor-loading">
+        <Loader2 className="h-8 w-8 animate-spin" data-testid="loading-spinner" />
+        <span className="ml-2" data-testid="loading-text">Loading...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="bom-editor-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="bom-editor-header">
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate("/factory/bom")}
+            data-testid="back-button"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-3xl font-bold" data-testid="bom-editor-title">
               {isEditing ? "Edit BOM" : "Create BOM"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground" data-testid="bom-editor-subtitle">
               {isEditing
                 ? "Modify bill of materials"
                 : "Define product component structure"}
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Preview</Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+        <div className="flex gap-2" data-testid="bom-editor-actions">
+          <Button variant="outline" data-testid="preview-button">Preview</Button>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="save-bom-button">
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -307,76 +308,76 @@ export default function BOMEditor() {
       </div>
 
       {/* BOM Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4" data-testid="bom-summary-stats">
+        <Card data-testid="components-stat-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Components</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="components-stat-title">Components</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" data-testid="components-stat-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{getComponentCount()}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent data-testid="components-stat-content">
+            <div className="text-2xl font-bold" data-testid="components-count">{getComponentCount()}</div>
+            <p className="text-xs text-muted-foreground" data-testid="critical-components-count">
               {getCriticalComponents()} critical
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="total-cost-stat-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="total-cost-stat-title">Total Cost</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" data-testid="total-cost-stat-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="total-cost-stat-content">
+            <div className="text-2xl font-bold" data-testid="total-cost-value">
               {formatCurrency(getTotalCost())}
             </div>
-            <p className="text-xs text-muted-foreground">material cost</p>
+            <p className="text-xs text-muted-foreground" data-testid="total-cost-label">material cost</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="max-lead-time-stat-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Max Lead Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="max-lead-time-stat-title">Max Lead Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" data-testid="max-lead-time-stat-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="max-lead-time-stat-content">
+            <div className="text-2xl font-bold" data-testid="max-lead-time-value">
               {components.length > 0
                 ? Math.max(...components.map((c) => c.lead_time_days))
                 : 0}{" "}
               days
             </div>
-            <p className="text-xs text-muted-foreground">longest component</p>
+            <p className="text-xs text-muted-foreground" data-testid="max-lead-time-label">longest component</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="suppliers-stat-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suppliers</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="suppliers-stat-title">Suppliers</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" data-testid="suppliers-stat-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="suppliers-stat-content">
+            <div className="text-2xl font-bold" data-testid="suppliers-count">
               {
                 new Set(components.map((c) => c.supplier_id).filter(Boolean))
                   .size
               }
             </div>
-            <p className="text-xs text-muted-foreground">unique suppliers</p>
+            <p className="text-xs text-muted-foreground" data-testid="suppliers-label">unique suppliers</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-testid="bom-editor-grid">
         {/* BOM Details Form */}
-        <div className="lg:col-span-1">
-          <Card>
+        <div className="lg:col-span-1" data-testid="bom-details-section">
+          <Card data-testid="bom-details-card">
             <CardHeader>
-              <CardTitle>BOM Details</CardTitle>
+              <CardTitle data-testid="bom-details-title">BOM Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="parentProduct">Parent Product</Label>
+            <CardContent className="space-y-4" data-testid="bom-details-content">
+              <div className="space-y-2" data-testid="parent-product-field">
+                <Label htmlFor="parentProduct" data-testid="parent-product-label">Parent Product</Label>
                 <Select
                   value={formData.parent_product_id}
                   onValueChange={(value) => {
@@ -388,8 +389,9 @@ export default function BOMEditor() {
                       parent_product_sku: product?.sku || "",
                     }));
                   }}
+                  data-testid="parent-product-select"
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="parent-product-select-trigger">
                     <SelectValue placeholder="Select parent product" />
                   </SelectTrigger>
                   <SelectContent>

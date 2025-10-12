@@ -445,23 +445,24 @@ export default function MaterialConsumptionPage() {
   }, [workOrders]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 space-y-6" data-testid="material-consumption-container">
+      <div className="flex items-center justify-between" data-testid="material-consumption-header">
         <div>
-          <h1 className="text-3xl font-bold">Material Consumption</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold" data-testid="material-consumption-title">Material Consumption</h1>
+          <p className="text-muted-foreground" data-testid="material-consumption-subtitle">
             Record material usage and capture wastage for production.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-testid="material-consumption-actions">
           <Button
             onClick={handleOpenCreateDialog}
             disabled={createConsumptionMutation.isPending}
             variant="outline"
+            data-testid="log-consumption-button"
           >
             {createConsumptionMutation.isPending ? (
               <>
-                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="logging-spinner" />
                 Logging...
               </>
             ) : (
@@ -474,10 +475,11 @@ export default function MaterialConsumptionPage() {
           <Button
             onClick={handleOpenBulkCreateDialog}
             disabled={createBulkConsumptionMutation.isPending}
+            data-testid="bulk-consumption-button"
           >
             {createBulkConsumptionMutation.isPending ? (
               <>
-                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="bulk-logging-spinner" />
                 Bulk Logging...
               </>
             ) : (
@@ -490,83 +492,83 @@ export default function MaterialConsumptionPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" data-testid="consumption-stats-grid">
+        <Card data-testid="total-records-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground" data-testid="total-records-title">
               Total Records
             </CardTitle>
-            <ClipboardList className="h-4 w-4 text-primary" />
+            <ClipboardList className="h-4 w-4 text-primary" data-testid="total-records-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="total-records-content">
+            <div className="text-2xl font-bold" data-testid="total-records-count">
               {statsLoading ? "..." : stats.total_consumptions}
             </div>
-            <p className="text-xs text-muted-foreground">Logged entries</p>
+            <p className="text-xs text-muted-foreground" data-testid="total-records-label">Logged entries</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="materials-consumed-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground" data-testid="materials-consumed-title">
               Materials Consumed
             </CardTitle>
-            <Package className="h-4 w-4 text-primary" />
+            <Package className="h-4 w-4 text-primary" data-testid="materials-consumed-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="materials-consumed-content">
+            <div className="text-2xl font-bold" data-testid="materials-consumed-count">
               {statsLoading ? "..." : stats.total_materials_consumed}
             </div>
-            <p className="text-xs text-muted-foreground">Unique items</p>
+            <p className="text-xs text-muted-foreground" data-testid="materials-consumed-label">Unique items</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="total-wastage-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground" data-testid="total-wastage-title">
               Total Wastage
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <AlertTriangle className="h-4 w-4 text-orange-500" data-testid="total-wastage-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="total-wastage-content">
+            <div className="text-2xl font-bold" data-testid="total-wastage-amount">
               {statsLoading ? "..." : formatNumber(stats.total_wastage)}
             </div>
-            <p className="text-xs text-muted-foreground">Units</p>
+            <p className="text-xs text-muted-foreground" data-testid="total-wastage-label">Units</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="avg-wastage-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground" data-testid="avg-wastage-title">
               Avg. Wastage %
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-green-500" data-testid="avg-wastage-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="avg-wastage-content">
+            <div className="text-2xl font-bold" data-testid="avg-wastage-percentage">
               {statsLoading
                 ? "..."
                 : `${stats.average_wastage_percentage.toFixed(2)}%`}
             </div>
-            <p className="text-xs text-muted-foreground">Against consumption</p>
+            <p className="text-xs text-muted-foreground" data-testid="avg-wastage-label">Against consumption</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="consumption-value-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground" data-testid="consumption-value-title">
               Consumption Value
             </CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
+            <Activity className="h-4 w-4 text-blue-500" data-testid="consumption-value-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="consumption-value-content">
+            <div className="text-2xl font-bold" data-testid="consumption-value-amount">
               {statsLoading
                 ? "..."
                 : formatNumber(stats.total_consumption_value)}
             </div>
-            <p className="text-xs text-muted-foreground">Cost basis</p>
+            <p className="text-xs text-muted-foreground" data-testid="consumption-value-label">Cost basis</p>
           </CardContent>
         </Card>
       </div>

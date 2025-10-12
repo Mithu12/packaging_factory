@@ -335,11 +335,11 @@ export default function WorkOrderPlanning() {
   // Handle loading state
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="work-order-planning-loading">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Work Order Planning</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold" data-testid="work-order-planning-loading-title">Work Order Planning</h1>
+            <p className="text-muted-foreground" data-testid="work-order-planning-loading-subtitle">
               Plan and manage production work orders
             </p>
           </div>
@@ -363,11 +363,11 @@ export default function WorkOrderPlanning() {
   // Handle error state
   if (workOrdersError) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="work-order-planning-error">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Work Order Planning</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold" data-testid="work-order-planning-error-title">Work Order Planning</h1>
+            <p className="text-muted-foreground" data-testid="work-order-planning-error-subtitle">
               Plan and manage production work orders
             </p>
           </div>
@@ -575,27 +575,27 @@ export default function WorkOrderPlanning() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="work-order-planning-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="work-order-planning-header">
         <div>
-          <h1 className="text-3xl font-bold">Work Order Planning</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold" data-testid="work-order-planning-title">Work Order Planning</h1>
+          <p className="text-muted-foreground" data-testid="work-order-planning-subtitle">
             Plan and manage production work orders
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-testid="work-order-planning-actions">
           <Button variant="outline" onClick={() => {
             queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
             queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
-          }}>
+          }} data-testid="refresh-work-orders-button">
             <Filter className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateWorkOrder} disabled={createWorkOrderMutation.isPending}>
+          <Button onClick={handleCreateWorkOrder} disabled={createWorkOrderMutation.isPending} data-testid="create-work-order-button">
             {createWorkOrderMutation.isPending ? (
               <>
-                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-spinner" />
                 Creating...
               </>
             ) : (
@@ -633,54 +633,54 @@ export default function WorkOrderPlanning() {
       )}
 
       {/* Production Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="production-overview-stats">
+        <Card data-testid="active-work-orders-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="active-work-orders-title">
               Active Work Orders
             </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-4 w-4 text-muted-foreground" data-testid="active-work-orders-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="active-work-orders-content">
+            <div className="text-2xl font-bold" data-testid="active-work-orders-count">
               {stats?.in_progress_work_orders || workOrders.filter((wo) => wo.status === "in_progress").length}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground" data-testid="active-work-orders-label">
               Currently in production
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="planned-work-orders-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="planned-work-orders-title">
               Planned Work Orders
             </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-muted-foreground" data-testid="planned-work-orders-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="planned-work-orders-content">
+            <div className="text-2xl font-bold" data-testid="planned-work-orders-count">
               {stats?.planned_work_orders || workOrders.filter((wo) => wo.status === "planned").length}
             </div>
-            <p className="text-xs text-muted-foreground">Ready for release</p>
+            <p className="text-xs text-muted-foreground" data-testid="planned-work-orders-label">Ready for release</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="available-lines-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="available-lines-title">
               Available Lines
             </CardTitle>
-            <Factory className="h-4 w-4 text-muted-foreground" />
+            <Factory className="h-4 w-4 text-muted-foreground" data-testid="available-lines-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="available-lines-content">
+            <div className="text-2xl font-bold" data-testid="available-lines-count">
               {
                 productionLines.filter((line) => line.status === "available")
                   .length
               }
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground" data-testid="available-lines-label">
               Production lines available
             </p>
           </CardContent>
@@ -688,11 +688,11 @@ export default function WorkOrderPlanning() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="work-orders" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
-          <TabsTrigger value="production-lines">Production Lines</TabsTrigger>
-          <TabsTrigger value="operators">Operators</TabsTrigger>
+      <Tabs defaultValue="work-orders" className="space-y-4" data-testid="work-order-main-tabs">
+        <TabsList data-testid="work-order-tabs-list">
+          <TabsTrigger value="work-orders" data-testid="work-orders-tab">Work Orders</TabsTrigger>
+          <TabsTrigger value="production-lines" data-testid="production-lines-tab">Production Lines</TabsTrigger>
+          <TabsTrigger value="operators" data-testid="operators-tab">Operators</TabsTrigger>
         </TabsList>
 
         <TabsContent value="work-orders" className="space-y-4">

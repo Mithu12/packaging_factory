@@ -412,20 +412,21 @@ export default function ProductionExecution() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" data-testid="production-execution-container">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center" data-testid="production-execution-header">
         <div>
-          <h1 className="text-3xl font-bold">Production Execution</h1>
-          <p className="text-gray-500">Monitor and control production runs</p>
+          <h1 className="text-3xl font-bold" data-testid="production-execution-title">Production Execution</h1>
+          <p className="text-gray-500" data-testid="production-execution-subtitle">Monitor and control production runs</p>
         </div>
         <Button
           onClick={handleOpenCreateRun}
           disabled={createRunMutation.isPending}
+          data-testid="create-run-button"
         >
           {createRunMutation.isPending ? (
             <>
-              <Clock className="h-4 w-4 mr-2 animate-spin" />
+              <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-spinner" />
               Creating...
             </>
           ) : (
@@ -438,34 +439,34 @@ export default function ProductionExecution() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4" data-testid="production-stats-grid">
+        <Card data-testid="total-runs-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-medium text-gray-500" data-testid="total-runs-title">
               Total Runs
             </CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
+            <Activity className="h-4 w-4 text-blue-500" data-testid="total-runs-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="total-runs-content">
+            <div className="text-2xl font-bold" data-testid="total-runs-count">
               {statsLoading ? "..." : stats.total_runs}
             </div>
-            <p className="text-xs text-gray-500">All time</p>
+            <p className="text-xs text-gray-500" data-testid="total-runs-label">All time</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="active-runs-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
+            <CardTitle className="text-sm font-medium text-gray-500" data-testid="active-runs-title">
               Active Runs
             </CardTitle>
-            <Play className="h-4 w-4 text-green-500" />
+            <Play className="h-4 w-4 text-green-500" data-testid="active-runs-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="active-runs-content">
+            <div className="text-2xl font-bold" data-testid="active-runs-count">
               {statsLoading ? "..." : stats.active_runs}
             </div>
-            <p className="text-xs text-gray-500">In progress</p>
+            <p className="text-xs text-gray-500" data-testid="active-runs-label">In progress</p>
           </CardContent>
         </Card>
 

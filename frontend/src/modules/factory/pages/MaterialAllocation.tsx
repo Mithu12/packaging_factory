@@ -191,11 +191,11 @@ export default function MaterialAllocationPage() {
   // Handle loading state
   if (allocationsLoading || statsLoading || requirementsLoading || inventoryLoading || workOrdersLoading || locationsLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="material-allocation-loading">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Material Allocation</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold" data-testid="material-allocation-loading-title">Material Allocation</h1>
+            <p className="text-muted-foreground" data-testid="material-allocation-loading-subtitle">
               Allocate materials to work orders and track consumption
             </p>
           </div>
@@ -329,24 +329,24 @@ export default function MaterialAllocationPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="material-allocation-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="material-allocation-header">
         <div>
-          <h1 className="text-3xl font-bold">Material Allocation</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold" data-testid="material-allocation-title">Material Allocation</h1>
+          <p className="text-muted-foreground" data-testid="material-allocation-subtitle">
             Allocate materials to work orders and track consumption
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-testid="material-allocation-actions">
           <Button variant="outline" onClick={() => {
             queryClient.invalidateQueries({ queryKey: materialAllocationsQueryKeys.lists() });
             queryClient.invalidateQueries({ queryKey: materialAllocationsQueryKeys.stats() });
-          }}>
+          }} data-testid="refresh-allocations-button">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" data-testid="bulk-allocate-button">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -387,58 +387,58 @@ export default function MaterialAllocationPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="allocation-stats-grid">
+        <Card data-testid="total-allocations-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="total-allocations-title">
               Total Allocations
             </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-4 w-4 text-muted-foreground" data-testid="total-allocations-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total_allocations}</div>
-            <p className="text-xs text-muted-foreground">All time allocations</p>
+          <CardContent data-testid="total-allocations-content">
+            <div className="text-2xl font-bold" data-testid="total-allocations-count">{stats.total_allocations}</div>
+            <p className="text-xs text-muted-foreground" data-testid="total-allocations-label">All time allocations</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="active-allocations-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="active-allocations-title">
               Active Allocations
             </CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle className="h-4 w-4 text-muted-foreground" data-testid="active-allocations-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active_allocations}</div>
-            <p className="text-xs text-muted-foreground">Currently allocated</p>
+          <CardContent data-testid="active-allocations-content">
+            <div className="text-2xl font-bold" data-testid="active-allocations-count">{stats.active_allocations}</div>
+            <p className="text-xs text-muted-foreground" data-testid="active-allocations-label">Currently allocated</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="total-value-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="total-value-title">Total Value</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" data-testid="total-value-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="total-value-content">
+            <div className="text-2xl font-bold" data-testid="total-value-amount">
               {formatCurrency(stats.total_value)}
             </div>
-            <p className="text-xs text-muted-foreground">Allocated value</p>
+            <p className="text-xs text-muted-foreground" data-testid="total-value-label">Allocated value</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="allocation-efficiency-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="allocation-efficiency-title">
               Allocation Efficiency
             </CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <Target className="h-4 w-4 text-muted-foreground" data-testid="allocation-efficiency-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="allocation-efficiency-content">
+            <div className="text-2xl font-bold" data-testid="allocation-efficiency-percentage">
               {stats.allocation_efficiency}%
             </div>
-            <p className="text-xs text-muted-foreground">Target: 90%</p>
+            <p className="text-xs text-muted-foreground" data-testid="allocation-efficiency-target">Target: 90%</p>
           </CardContent>
         </Card>
       </div>

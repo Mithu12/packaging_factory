@@ -189,11 +189,11 @@ export default function ProductionLinesPage() {
   // Handle loading state
   if (productionLinesLoading || statsLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="production-lines-loading">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Production Lines</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold" data-testid="production-lines-loading-title">Production Lines</h1>
+            <p className="text-muted-foreground" data-testid="production-lines-loading-subtitle">
               Manage factory production lines and monitor capacity
             </p>
           </div>
@@ -298,27 +298,27 @@ export default function ProductionLinesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="production-lines-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="production-lines-header">
         <div>
-          <h1 className="text-3xl font-bold">Production Lines</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold" data-testid="production-lines-title">Production Lines</h1>
+          <p className="text-muted-foreground" data-testid="production-lines-subtitle">
             Manage factory production lines and monitor capacity
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-testid="production-lines-actions">
           <Button variant="outline" onClick={() => {
             queryClient.invalidateQueries({ queryKey: productionLinesQueryKeys.lists() });
             queryClient.invalidateQueries({ queryKey: productionLinesQueryKeys.stats() });
-          }}>
+          }} data-testid="refresh-lines-button">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateProductionLine} disabled={createProductionLineMutation.isPending}>
+          <Button onClick={handleCreateProductionLine} disabled={createProductionLineMutation.isPending} data-testid="add-production-line-button">
             {createProductionLineMutation.isPending ? (
               <>
-                <Clock className="h-4 w-4 mr-2 animate-spin" />
+                <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-line-spinner" />
                 Creating...
               </>
             ) : (

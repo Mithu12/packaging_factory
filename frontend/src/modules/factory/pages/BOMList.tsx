@@ -140,11 +140,11 @@ export default function BOMList() {
   // Handle loading states
   if (bomsLoading || statsLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="bom-loading-state">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Bill of Materials</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold" data-testid="bom-loading-title">Bill of Materials</h1>
+            <p className="text-muted-foreground" data-testid="bom-loading-subtitle">
               Manage product component structures and material requirements
             </p>
           </div>
@@ -166,25 +166,25 @@ export default function BOMList() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="bom-list-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="bom-list-header">
         <div>
-          <h1 className="text-3xl font-bold">Bill of Materials</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold" data-testid="bom-list-title">Bill of Materials</h1>
+          <p className="text-muted-foreground" data-testid="bom-list-subtitle">
             Manage product component structures and material requirements
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
+        <div className="flex gap-2" data-testid="bom-list-actions">
+          <Button variant="outline" data-testid="import-bom-button">
             <Upload className="h-4 w-4 mr-2" />
             Import BOM
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" data-testid="export-bom-button">
             <Download className="h-4 w-4 mr-2" />
             Export BOM
           </Button>
-          <Button onClick={handleCreateBOM}>
+          <Button onClick={handleCreateBOM} data-testid="create-bom-button">
             <Plus className="h-4 w-4 mr-2" />
             Create BOM
           </Button>
@@ -192,90 +192,91 @@ export default function BOMList() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="bom-stats-grid">
+        <Card data-testid="total-boms-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total BOMs</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="total-boms-title">Total BOMs</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" data-testid="total-boms-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total_boms}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent data-testid="total-boms-content">
+            <div className="text-2xl font-bold" data-testid="total-boms-count">{stats.total_boms}</div>
+            <p className="text-xs text-muted-foreground" data-testid="active-boms-count">
               {stats.active_boms} active
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="avg-components-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium" data-testid="avg-components-title">
               Avg Components
             </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <BarChart3 className="h-4 w-4 text-muted-foreground" data-testid="avg-components-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Number(stats.average_components).toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">per BOM</p>
+          <CardContent data-testid="avg-components-content">
+            <div className="text-2xl font-bold" data-testid="avg-components-value">{Number(stats.average_components).toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground" data-testid="avg-components-label">per BOM</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="avg-cost-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="avg-cost-title">Avg Cost</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" data-testid="avg-cost-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent data-testid="avg-cost-content">
+            <div className="text-2xl font-bold" data-testid="avg-cost-value">
               {formatCurrency(stats.average_cost)}
             </div>
             <p className="text-xs text-muted-foreground">per BOM</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="bom-issues-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Issues</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium" data-testid="issues-title">Issues</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" data-testid="issues-icon" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent data-testid="issues-content">
+            <div className="text-2xl font-bold text-orange-600" data-testid="issues-count">
               {stats.components_without_supplier + stats.outdated_boms}
             </div>
-            <p className="text-xs text-muted-foreground">need attention</p>
+            <p className="text-xs text-muted-foreground" data-testid="issues-label">need attention</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="all-boms" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all-boms">All BOMs</TabsTrigger>
-          <TabsTrigger value="active-boms">Active BOMs</TabsTrigger>
-          <TabsTrigger value="issues">Issues</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+      <Tabs defaultValue="all-boms" className="space-y-4" data-testid="bom-main-tabs">
+        <TabsList data-testid="bom-tabs-list">
+          <TabsTrigger value="all-boms" data-testid="all-boms-tab">All BOMs</TabsTrigger>
+          <TabsTrigger value="active-boms" data-testid="active-boms-tab">Active BOMs</TabsTrigger>
+          <TabsTrigger value="issues" data-testid="issues-tab">Issues</TabsTrigger>
+          <TabsTrigger value="analytics" data-testid="analytics-tab">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all-boms" className="space-y-4">
+        <TabsContent value="all-boms" className="space-y-4" data-testid="all-boms-tab-content">
           {/* Search and Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex gap-4">
+          <Card data-testid="bom-search-filters-card">
+            <CardContent className="pt-6" data-testid="bom-search-filters-content">
+              <div className="flex gap-4" data-testid="search-filters-row">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" data-testid="search-icon" />
                     <Input
                       placeholder="Search BOMs..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
+                      data-testid="bom-search-input"
                     />
                   </div>
                 </div>
-                <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-                  <TabsList>
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="active">Active</TabsTrigger>
-                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                <Tabs value={statusFilter} onValueChange={setStatusFilter} data-testid="status-filter-tabs">
+                  <TabsList data-testid="status-filter-tabs-list">
+                    <TabsTrigger value="all" data-testid="filter-all-tab">All</TabsTrigger>
+                    <TabsTrigger value="active" data-testid="filter-active-tab">Active</TabsTrigger>
+                    <TabsTrigger value="inactive" data-testid="filter-inactive-tab">Inactive</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -283,27 +284,27 @@ export default function BOMList() {
           </Card>
 
           {/* BOMs Table */}
-          <Card>
+          <Card data-testid="boms-table-card">
             <CardHeader>
-              <CardTitle>Bill of Materials</CardTitle>
+              <CardTitle data-testid="boms-table-title">Bill of Materials</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>BOM ID</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Components</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+            <CardContent data-testid="boms-table-content">
+              <Table data-testid="boms-table">
+                <TableHeader data-testid="boms-table-header">
+                  <TableRow data-testid="boms-table-header-row">
+                    <TableHead data-testid="bom-id-header">BOM ID</TableHead>
+                    <TableHead data-testid="product-header">Product</TableHead>
+                    <TableHead data-testid="version-header">Version</TableHead>
+                    <TableHead data-testid="components-header">Components</TableHead>
+                    <TableHead data-testid="total-cost-header">Total Cost</TableHead>
+                    <TableHead data-testid="status-header">Status</TableHead>
+                    <TableHead data-testid="created-header">Created</TableHead>
+                    <TableHead data-testid="actions-header">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody data-testid="boms-table-body">
                   {filteredBOMs.map((bom) => (
-                    <TableRow key={bom.id}>
+                    <TableRow key={bom.id} data-testid={`bom-row-${bom.id}`}>
                       <TableCell className="font-medium">{bom.id}</TableCell>
                       <TableCell>
                         <div>
