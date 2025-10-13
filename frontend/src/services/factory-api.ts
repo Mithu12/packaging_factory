@@ -21,6 +21,8 @@ export interface Factory {
   };
   phone?: string;
   email?: string;
+  cost_center_id?: number;
+  cost_center_name?: string;
   is_active?: boolean;
   created_at: string;
   updated_at: string;

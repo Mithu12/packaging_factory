@@ -97,9 +97,13 @@ export class FactoryMediator {
 
       // Get factories
       const query = `
-        SELECT * FROM factories
+        SELECT 
+          f.*,
+          cc.name as cost_center_name
+        FROM factories f
+        LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
         ${whereClause}
-        ORDER BY name
+        ORDER BY f.name
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
@@ -114,6 +118,8 @@ export class FactoryMediator {
         phone: row.phone,
         email: row.email,
         manager_id: row.manager_id,
+        cost_center_id: row.cost_center_id,
+        cost_center_name: row.cost_center_name,
         is_active: row.is_active,
         created_at: row.created_at,
         updated_at: row.updated_at
@@ -163,7 +169,14 @@ export class FactoryMediator {
         }
       }
 
-      const query = 'SELECT * FROM factories WHERE id = $1';
+      const query = `
+        SELECT 
+          f.*,
+          cc.name as cost_center_name
+        FROM factories f
+        LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+        WHERE f.id = $1
+      `;
       const result = await client.query(query, [factoryId]);
 
       if (result.rows.length === 0) {
@@ -181,6 +194,8 @@ export class FactoryMediator {
         phone: row.phone,
         email: row.email,
         manager_id: row.manager_id,
+        cost_center_id: row.cost_center_id,
+        cost_center_name: row.cost_center_name,
         is_active: row.is_active,
         created_at: row.created_at,
         updated_at: row.updated_at
@@ -213,8 +228,8 @@ export class FactoryMediator {
       MyLogger.info(action, { factoryData, userId });
 
       const query = `
-        INSERT INTO factories (name, code, description, address, phone, email, manager_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO factories (name, code, description, address, phone, email, manager_id, cost_center_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
@@ -225,7 +240,8 @@ export class FactoryMediator {
         factoryData.address || {},
         factoryData.phone || null,
         factoryData.email || null,
-        factoryData.manager_id || null
+        factoryData.manager_id || null,
+        factoryData.cost_center_id || null
       ];
 
       const result = await client.query(query, values);
@@ -240,6 +256,7 @@ export class FactoryMediator {
         phone: row.phone,
         email: row.email,
         manager_id: row.manager_id,
+        cost_center_id: row.cost_center_id,
         is_active: row.is_active,
         created_at: row.created_at,
         updated_at: row.updated_at
@@ -331,6 +348,12 @@ export class FactoryMediator {
         paramIndex++;
       }
 
+      if (updateData.cost_center_id !== undefined) {
+        updateFields.push(`cost_center_id = $${paramIndex}`);
+        updateValues.push(updateData.cost_center_id);
+        paramIndex++;
+      }
+
       if (updateData.is_active !== undefined) {
         updateFields.push(`is_active = $${paramIndex}`);
         updateValues.push(updateData.is_active);
@@ -362,6 +385,7 @@ export class FactoryMediator {
         phone: row.phone,
         email: row.email,
         manager_id: row.manager_id,
+        cost_center_id: row.cost_center_id,
         is_active: row.is_active,
         created_at: row.created_at,
         updated_at: row.updated_at

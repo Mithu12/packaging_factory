@@ -5,6 +5,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,6 +33,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { FactoriesAPI } from '../services/factories-api';
 import { Factory, CreateFactoryRequest, UpdateFactoryRequest } from '../types';
+import { CostCentersApiService, CostCenter } from '@/services/accounts-api';
 import { useToast } from '@/hooks/use-toast';
 
 const factorySchema = z.object({
@@ -44,6 +52,7 @@ const factorySchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Invalid email format').optional().or(z.literal('')),
   manager_id: z.number().optional(),
+  cost_center_id: z.number().optional(),
   is_active: z.boolean().default(true),
 });
 
@@ -63,6 +72,7 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
   onSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const { toast } = useToast();
   const isEditing = !!factory;
 
@@ -84,9 +94,28 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
       phone: '',
       email: '',
       manager_id: undefined,
+      cost_center_id: undefined,
       is_active: true,
     },
   });
+
+  // Load cost centers when dialog opens
+  useEffect(() => {
+    const loadCostCenters = async () => {
+      if (open) {
+        try {
+          const response = await CostCentersApiService.getCostCenters({ 
+            status: 'Active', 
+            limit: 1000 
+          });
+          setCostCenters(response.data);
+        } catch (error) {
+          console.error('Failed to load cost centers:', error);
+        }
+      }
+    };
+    loadCostCenters();
+  }, [open]);
 
   useEffect(() => {
     if (factory) {
@@ -98,6 +127,7 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
         phone: factory.phone || '',
         email: factory.email || '',
         manager_id: factory.manager_id,
+        cost_center_id: factory.cost_center_id,
         is_active: factory.is_active,
       });
     } else {
@@ -117,6 +147,7 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
         phone: '',
         email: '',
         manager_id: undefined,
+        cost_center_id: undefined,
         is_active: true,
       });
     }
@@ -134,6 +165,7 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
         phone: data.phone,
         email: data.email,
         manager_id: data.manager_id,
+        cost_center_id: data.cost_center_id,
         ...(isEditing && { is_active: data.is_active }),
       };
 
@@ -386,6 +418,38 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
                   </FormControl>
                   <FormDescription>
                     The user ID of the person who manages this factory
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="cost_center_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cost Center</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(value ? Number(value) : undefined)}
+                    value={field.value?.toString() || ''}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a cost center" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id.toString()}>
+                          {cc.code} - {cc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Link this factory to a cost center for expense tracking and budget allocation
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

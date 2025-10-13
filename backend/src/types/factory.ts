@@ -10,6 +10,8 @@ export interface Factory {
   phone?: string;
   email?: string;
   manager_id?: number;
+  cost_center_id?: number;
+  cost_center_name?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -23,6 +25,7 @@ export interface CreateFactoryRequest {
   phone?: string;
   email?: string;
   manager_id?: number;
+  cost_center_id?: number;
 }
 
 export interface UpdateFactoryRequest {
@@ -33,6 +36,7 @@ export interface UpdateFactoryRequest {
   phone?: string;
   email?: string;
   manager_id?: number;
+  cost_center_id?: number;
   is_active?: boolean;
 }
 

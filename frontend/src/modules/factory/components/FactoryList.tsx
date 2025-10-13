@@ -162,6 +162,7 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
                 <TableHead>Code</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Location</TableHead>
+                <TableHead>Cost Center</TableHead>
                 <TableHead>Manager</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -183,6 +184,13 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
                   </TableCell>
                   <TableCell>
                     {factory.address.city}, {factory.address.state}
+                  </TableCell>
+                  <TableCell>
+                    {factory.cost_center_name ? (
+                      <span className="text-sm">{factory.cost_center_name}</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">Not assigned</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {factory.manager_id ? `Manager ID: ${factory.manager_id}` : 'No Manager'}
