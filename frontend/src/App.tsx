@@ -75,6 +75,7 @@ import ProductionExecution from "@/modules/factory/pages/ProductionExecution";
 import WastageTracking from "@/modules/factory/pages/WastageTracking";
 import FactoryExpenses from "@/modules/factory/pages/FactoryExpenses";
 import MaterialConsumptionPage from "@/modules/factory/pages/MaterialConsumption";
+import SalesInvoices from "@/modules/factory/pages/SalesInvoices";
 
 // BOM and Material Management Imports
 import BOMList from "@/modules/factory/pages/BOMList";
@@ -475,6 +476,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <CustomerOrderManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/factory/sales-invoices"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesInvoices />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

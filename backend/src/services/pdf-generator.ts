@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { PurchaseOrderWithDetails } from '@/types/purchaseOrder';
+import { SalesInvoice } from '@/types/salesInvoice';
 import { MyLogger } from '@/utils/new-logger';
 
 export class PDFGenerator {
@@ -485,6 +486,414 @@ export class PDFGenerator {
       return pdfBuffer;
     } catch (error) {
       MyLogger.error(action, error, { poNumber: purchaseOrder.po_number, poId: purchaseOrder.id });
+      throw error;
+    }
+  }
+
+  // Generate HTML template for sales invoice
+  private static generateSalesInvoiceHTML(invoice: SalesInvoice): string {
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(amount);
+    };
+
+    const formatDate = (date: string) => {
+      return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice ${invoice.invoice_number}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11pt;
+            color: #333;
+            line-height: 1.5;
+            padding: 30px;
+        }
+        
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #2563eb;
+        }
+        
+        .company-info h1 {
+            font-size: 28pt;
+            color: #2563eb;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .company-info p {
+            color: #666;
+            font-size: 10pt;
+        }
+        
+        .invoice-title {
+            text-align: right;
+        }
+        
+        .invoice-title h2 {
+            font-size: 32pt;
+            color: #2563eb;
+            font-weight: bold;
+        }
+        
+        .invoice-title p {
+            font-size: 10pt;
+            color: #666;
+        }
+        
+        .invoice-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .bill-to, .invoice-details {
+            width: 48%;
+        }
+        
+        .section-title {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .bill-to p, .invoice-details p {
+            margin: 5px 0;
+            font-size: 10pt;
+        }
+        
+        .invoice-details p strong {
+            color: #000;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 9pt;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-unpaid {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-partial {
+            background-color: #fef3c7;
+            color: #f59e0b;
+        }
+        
+        .status-paid {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+        
+        .status-overdue {
+            background-color: #fecaca;
+            color: #b91c1c;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        thead {
+            background-color: #2563eb;
+            color: white;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10pt;
+            text-transform: uppercase;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 10pt;
+        }
+        
+        tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .totals {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .totals-table {
+            width: 350px;
+        }
+        
+        .totals-table tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .totals-table td {
+            padding: 10px;
+        }
+        
+        .totals-table .total-row {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #2563eb;
+            border-top: 3px solid #2563eb;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #666;
+            font-size: 9pt;
+        }
+        
+        .payment-info {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f9fafb;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .payment-info h3 {
+            color: #2563eb;
+            font-size: 11pt;
+            margin-bottom: 10px;
+        }
+        
+        .payment-info p {
+            font-size: 10pt;
+            margin: 5px 0;
+        }
+        
+        .notes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .notes h3 {
+            color: #f59e0b;
+            font-size: 11pt;
+            margin-bottom: 10px;
+        }
+        
+        .notes p {
+            font-size: 10pt;
+            color: #78350f;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-header">
+        <div class="company-info">
+            <h1>Your Company Name</h1>
+            <p>123 Business Street</p>
+            <p>City, State 12345</p>
+            <p>Phone: (123) 456-7890</p>
+            <p>Email: sales@yourcompany.com</p>
+        </div>
+        <div class="invoice-title">
+            <h2>INVOICE</h2>
+            <p><strong>${invoice.invoice_number}</strong></p>
+            ${invoice.factory_name ? `<p>Factory: ${invoice.factory_name}</p>` : ''}
+        </div>
+    </div>
+    
+    <div class="invoice-meta">
+        <div class="bill-to">
+            <div class="section-title">Bill To:</div>
+            <p><strong>${invoice.factory_customer_name}</strong></p>
+            ${invoice.billing_address ? `
+                <p>${invoice.billing_address.street || ''}</p>
+                <p>${invoice.billing_address.city || ''}, ${invoice.billing_address.state || ''} ${invoice.billing_address.postal_code || ''}</p>
+                ${invoice.billing_address.country ? `<p>${invoice.billing_address.country}</p>` : ''}
+                ${invoice.billing_address.contact_phone ? `<p>Phone: ${invoice.billing_address.contact_phone}</p>` : ''}
+            ` : ''}
+        </div>
+        
+        <div class="invoice-details">
+            <div class="section-title">Invoice Details:</div>
+            <p><strong>Invoice Date:</strong> ${formatDate(invoice.invoice_date)}</p>
+            <p><strong>Due Date:</strong> ${formatDate(invoice.due_date)}</p>
+            <p><strong>Order Number:</strong> ${invoice.customer_order_number || 'N/A'}</p>
+            <p><strong>Payment Terms:</strong> ${invoice.payment_terms || 'Net 30'}</p>
+            <p><strong>Status:</strong> <span class="status-badge status-${invoice.status}">${invoice.status.toUpperCase()}</span></p>
+        </div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Order ${invoice.customer_order_number || invoice.customer_order_id}</td>
+                <td class="text-right">${formatCurrency(invoice.subtotal)}</td>
+            </tr>
+            ${invoice.tax_amount && invoice.tax_amount > 0 ? `
+            <tr>
+                <td>Tax ${invoice.tax_rate ? `(${invoice.tax_rate}%)` : ''}</td>
+                <td class="text-right">${formatCurrency(invoice.tax_amount)}</td>
+            </tr>
+            ` : ''}
+            ${invoice.shipping_cost && invoice.shipping_cost > 0 ? `
+            <tr>
+                <td>Shipping & Handling</td>
+                <td class="text-right">${formatCurrency(invoice.shipping_cost)}</td>
+            </tr>
+            ` : ''}
+        </tbody>
+    </table>
+    
+    <div class="totals">
+        <table class="totals-table">
+            <tr>
+                <td><strong>Subtotal:</strong></td>
+                <td class="text-right">${formatCurrency(invoice.subtotal)}</td>
+            </tr>
+            ${invoice.tax_amount && invoice.tax_amount > 0 ? `
+            <tr>
+                <td><strong>Tax:</strong></td>
+                <td class="text-right">${formatCurrency(invoice.tax_amount)}</td>
+            </tr>
+            ` : ''}
+            ${invoice.shipping_cost && invoice.shipping_cost > 0 ? `
+            <tr>
+                <td><strong>Shipping:</strong></td>
+                <td class="text-right">${formatCurrency(invoice.shipping_cost)}</td>
+            </tr>
+            ` : ''}
+            <tr class="total-row">
+                <td><strong>Total:</strong></td>
+                <td class="text-right"><strong>${formatCurrency(invoice.total_amount)}</strong></td>
+            </tr>
+            ${invoice.paid_amount > 0 ? `
+            <tr>
+                <td><strong>Paid:</strong></td>
+                <td class="text-right">${formatCurrency(invoice.paid_amount)}</td>
+            </tr>
+            <tr>
+                <td><strong>Amount Due:</strong></td>
+                <td class="text-right"><strong>${formatCurrency(invoice.outstanding_amount)}</strong></td>
+            </tr>
+            ` : ''}
+        </table>
+    </div>
+    
+    ${invoice.notes ? `
+    <div class="notes">
+        <h3>Notes</h3>
+        <p>${invoice.notes}</p>
+    </div>
+    ` : ''}
+    
+    <div class="payment-info">
+        <h3>Payment Information</h3>
+        <p><strong>Bank Name:</strong> Your Bank Name</p>
+        <p><strong>Account Name:</strong> Your Company Name</p>
+        <p><strong>Account Number:</strong> XXXX-XXXX-XXXX-1234</p>
+        <p><strong>Routing Number:</strong> 123456789</p>
+        <p><strong>Reference:</strong> ${invoice.invoice_number}</p>
+    </div>
+    
+    <div class="footer">
+        <p>Thank you for your business!</p>
+        <p>If you have any questions about this invoice, please contact us at sales@yourcompany.com</p>
+        <p style="margin-top: 10px;">Invoice generated on ${formatDate(new Date().toISOString())}</p>
+    </div>
+</body>
+</html>
+    `;
+  }
+
+  // Generate PDF for sales invoice
+  static async generateSalesInvoicePDF(invoice: SalesInvoice): Promise<Buffer> {
+    const action = 'Generate Sales Invoice PDF';
+    try {
+      MyLogger.info(action, { invoiceNumber: invoice.invoice_number, invoiceId: invoice.id });
+
+      const browser = await this.getBrowser();
+      const page = await browser.newPage();
+
+      // Generate HTML content
+      const html = this.generateSalesInvoiceHTML(invoice);
+
+      // Set content and wait for it to load
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      // Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+
+      await page.close();
+
+      MyLogger.success(action, { 
+        invoiceNumber: invoice.invoice_number, 
+        invoiceId: invoice.id,
+        pdfSize: pdfBuffer.length 
+      });
+
+      return pdfBuffer;
+    } catch (error) {
+      MyLogger.error(action, error, { invoiceNumber: invoice.invoice_number, invoiceId: invoice.id });
       throw error;
     }
   }

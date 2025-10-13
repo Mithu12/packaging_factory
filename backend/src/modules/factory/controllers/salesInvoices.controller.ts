@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { SalesInvoiceMediator } from '../mediators/salesInvoices/SalesInvoiceMediator';
+import { PDFGenerator } from '@/services/pdf-generator';
 import { MyLogger } from '@/utils/new-logger';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import {
@@ -58,14 +59,59 @@ class SalesInvoicesController {
       const invoice = await SalesInvoiceMediator.getSalesInvoiceById(id);
 
       if (!invoice) {
-        return res.status(404).json({
+        res.status(404).json({
           status: 'ERROR',
           message: 'Sales invoice not found'
         });
+        return;
       }
 
       MyLogger.success(action, { invoiceId: id });
       serializeSuccessResponse(res, invoice, 'SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Download sales invoice as PDF
+   * @route GET /api/factory/sales-invoices/:id/pdf
+   */
+  async downloadInvoicePDF(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'GET /api/factory/sales-invoices/:id/pdf';
+      const { id } = req.params;
+      const userId = req.user?.user_id || 0;
+
+      MyLogger.info(action, { invoiceId: id });
+
+      // Get invoice
+      const invoice = await SalesInvoiceMediator.getSalesInvoiceById(id);
+
+      if (!invoice) {
+        res.status(404).json({
+          status: 'ERROR',
+          message: 'Sales invoice not found'
+        });
+        return;
+      }
+
+      // Generate PDF
+      const pdfBuffer = await PDFGenerator.generateSalesInvoicePDF(invoice);
+
+      const filename = `Invoice_${invoice.invoice_number}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      res.send(pdfBuffer);
+
+      MyLogger.success(action, {
+        invoiceId: id,
+        invoiceNumber: invoice.invoice_number,
+        filename,
+        pdfSize: pdfBuffer.length
+      });
     } catch (error) {
       next(error);
     }

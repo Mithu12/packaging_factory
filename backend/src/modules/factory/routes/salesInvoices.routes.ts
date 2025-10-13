@@ -33,6 +33,18 @@ router.get(
 );
 
 /**
+ * @route   GET /api/factory/sales-invoices/:id/pdf
+ * @desc    Download sales invoice as PDF
+ * @access  Private (FACTORY_ORDERS_READ)
+ */
+router.get(
+  '/:id/pdf',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(salesInvoicesController.downloadInvoicePDF.bind(salesInvoicesController))
+);
+
+/**
  * @route   GET /api/factory/sales-invoices/:id
  * @desc    Get sales invoice by ID
  * @access  Private (FACTORY_ORDERS_VIEW)

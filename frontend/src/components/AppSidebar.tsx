@@ -205,6 +205,12 @@ const menuSections: MenuSection[] = [
         permission: null,
       },
       {
+        title: "Sales Invoices",
+        url: "/factory/sales-invoices",
+        icon: FileText,
+        permission: null,
+      },
+      {
         title: "Order Acceptance",
         url: "/factory/orders",
         icon: Package,
