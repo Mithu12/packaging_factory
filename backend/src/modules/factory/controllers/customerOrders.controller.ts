@@ -334,6 +334,50 @@ class CustomerOrdersController {
 
       const updatedOrder = updateResult.rows[0];
 
+      // Auto-generate invoice for shipped order
+      try {
+        const { SalesInvoiceMediator } = await import('../mediators/salesInvoices/SalesInvoiceMediator');
+        
+        // Check if invoice already exists
+        const existingInvoiceCheck = await pool.query(
+          'SELECT id, invoice_number FROM factory_sales_invoices WHERE customer_order_id = $1',
+          [id]
+        );
+
+        if (existingInvoiceCheck.rows.length === 0) {
+          // Generate invoice
+          const invoice = await SalesInvoiceMediator.createInvoiceFromOrder(
+            {
+              customer_order_id: id,
+              notes: `Invoice for ${updatedOrder.order_number} - Shipped on ${new Date().toISOString().split('T')[0]}`
+            },
+            userId
+          );
+
+          MyLogger.success(`${action}.invoiceGenerated`, {
+            orderId: id,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoice_number
+          });
+
+          updatedOrder.invoice_number = invoice.invoice_number;
+          updatedOrder.invoice_id = invoice.id;
+        } else {
+          MyLogger.info(`${action}.invoiceExists`, {
+            orderId: id,
+            invoiceNumber: existingInvoiceCheck.rows[0].invoice_number
+          });
+          updatedOrder.invoice_number = existingInvoiceCheck.rows[0].invoice_number;
+          updatedOrder.invoice_id = existingInvoiceCheck.rows[0].id;
+        }
+      } catch (invoiceError: any) {
+        MyLogger.error(`${action}.invoiceGenerationFailed`, invoiceError, {
+          orderId: id,
+          message: 'Failed to generate invoice, but order shipping succeeded'
+        });
+        // Don't fail the shipping operation if invoice generation fails
+      }
+
       MyLogger.success(action, {
         orderId: id,
         orderNumber: updatedOrder.order_number,

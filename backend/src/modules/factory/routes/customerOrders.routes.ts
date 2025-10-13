@@ -18,6 +18,7 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
 import { auditMiddleware } from "@/middleware/audit";
+import { serializeSuccessResponse } from "@/utils/responseHelper";
 
 const router = express.Router();
 router.use(authenticate);
@@ -196,7 +197,7 @@ router.post(
   expressAsyncHandler(CustomerOrdersController.updateOrderStatus)
 );
 
-// POST /api/factory/customer-orders/:id/ship - Ship customer order
+// POST /api/factory/customer-orders/:id/ship - Ship customer order (auto-generates invoice)
 router.post(
   "/:id/ship",
   authenticate,
@@ -204,6 +205,28 @@ router.post(
   validateParams(orderIdSchema),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.shipCustomerOrder)
+);
+
+// POST /api/factory/customer-orders/:id/generate-invoice - Manually generate invoice for order
+router.post(
+  "/:id/generate-invoice",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  validateParams(orderIdSchema),
+  auditMiddleware,
+  expressAsyncHandler(async (req, res, next) => {
+    try {
+      const { SalesInvoiceMediator } = await import('../mediators/salesInvoices/SalesInvoiceMediator');
+      const invoice = await SalesInvoiceMediator.createInvoiceFromOrder(
+        { customer_order_id: req.params.id, ...req.body },
+        req.user!.user_id
+      );
+      res.status(201);
+      serializeSuccessResponse(res, invoice, 'Invoice generated successfully');
+    } catch (error) {
+      next(error);
+    }
+  })
 );
 
 // POST /api/factory/customer-orders/bulk/status - Bulk update order status
