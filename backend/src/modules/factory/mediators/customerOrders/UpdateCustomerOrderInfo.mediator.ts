@@ -485,6 +485,8 @@ export class UpdateCustomerOrderInfoMediator {
               currency: updatedOrder.currency || 'BDT',
               orderDate: updatedOrder.order_date || new Date().toISOString(),
               factoryId: updatedOrder.factory_id,
+              factoryName: (updatedOrder as any).factory_name,
+              factoryCostCenterId: (updatedOrder as any).factory_cost_center_id,
               lineItems: updatedOrder.line_items,
               notes: approvalData.notes
             },

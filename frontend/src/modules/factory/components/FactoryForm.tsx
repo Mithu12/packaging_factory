@@ -440,7 +440,7 @@ const FactoryForm: React.FC<FactoryFormProps> = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      {/* <SelectItem value="">None</SelectItem> */}
                       {costCenters.map((cc) => (
                         <SelectItem key={cc.id} value={cc.id.toString()}>
                           {cc.code} - {cc.name}

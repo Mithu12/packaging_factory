@@ -205,6 +205,27 @@ export class MaterialWastageMediator {
 
       MyLogger.success(action, { wastageId });
 
+      // Fetch factory information for accounts integration
+      let factoryInfo: { factory_id: number; factory_name: string; factory_cost_center_id: number | null } | null = null;
+      try {
+        const factoryResult = await pool.query(
+          `SELECT f.id as factory_id, f.name as factory_name, f.cost_center_id as factory_cost_center_id
+           FROM work_orders wo
+           LEFT JOIN factory_customer_orders co ON wo.customer_order_id = co.id
+           LEFT JOIN factories f ON co.factory_id = f.id
+           WHERE wo.id = $1`,
+          [wastage.work_order_id]
+        );
+        if (factoryResult.rows.length > 0 && factoryResult.rows[0].factory_id) {
+          factoryInfo = factoryResult.rows[0];
+        }
+      } catch (factoryError: any) {
+        MyLogger.warn(`${action}.fetchFactory`, {
+          error: factoryError.message,
+          workOrderId: wastage.work_order_id
+        });
+      }
+
       // Emit event for accounts integration
       try {
         eventBus.emit(EVENT_NAMES.MATERIAL_WASTAGE_APPROVED, {
@@ -217,6 +238,9 @@ export class MaterialWastageMediator {
             cost: wastage.cost,
             reason: wastage.wastage_reason,
             approvedDate: new Date().toISOString(),
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id,
             notes
           },
           userId

@@ -272,6 +272,8 @@ MyLogger.info('userFactories',userFactories)
           co.*,
           f.id as factory_id,
           f.name as factory_name,
+          f.cost_center_id as factory_cost_center_id,
+          cc.name as factory_cost_center_name,
           COALESCE(
             json_agg(
               json_build_object(
@@ -298,8 +300,9 @@ MyLogger.info('userFactories',userFactories)
         FROM factory_customer_orders co
         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
         JOIN factories f ON co.factory_id = f.id
+        LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
         WHERE co.id = $1${factoryFilter}
-        GROUP BY co.id, f.id, f.name
+        GROUP BY co.id, f.id, f.name, f.cost_center_id, cc.name
       `;
 
       const result = await client.query(query, queryParams);

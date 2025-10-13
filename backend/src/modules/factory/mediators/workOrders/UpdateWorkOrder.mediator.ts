@@ -1660,6 +1660,28 @@ export class UpdateWorkOrderMediator {
 
       await client.query('COMMIT');
 
+      // Fetch factory information for accounts integration
+      let factoryInfo: { factory_id: number; factory_name: string; factory_cost_center_id: number | null } | null = null;
+      if (updatedWorkOrder.customer_order_id) {
+        try {
+          const factoryResult = await pool.query(
+            `SELECT f.id as factory_id, f.name as factory_name, f.cost_center_id as factory_cost_center_id
+             FROM factory_customer_orders co
+             JOIN factories f ON co.factory_id = f.id
+             WHERE co.id = $1`,
+            [updatedWorkOrder.customer_order_id]
+          );
+          if (factoryResult.rows.length > 0) {
+            factoryInfo = factoryResult.rows[0];
+          }
+        } catch (factoryError: any) {
+          MyLogger.warn(`${action}.fetchFactory`, {
+            error: factoryError.message,
+            workOrderId: updatedWorkOrder.id
+          });
+        }
+      }
+
       // Emit event for accounts integration
       try {
         eventBus.emit(EVENT_NAMES.WORK_ORDER_COMPLETED, {
@@ -1676,7 +1698,10 @@ export class UpdateWorkOrderMediator {
             totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
             totalWipCost: updatedWorkOrder.total_wip_cost || 0,
             completedDate: new Date().toISOString(),
-            customerOrderId: updatedWorkOrder.customer_order_id
+            customerOrderId: updatedWorkOrder.customer_order_id,
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id
           },
           userId: parseInt(userId)
         });

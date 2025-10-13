@@ -23,6 +23,8 @@ export interface OrderAccountingData {
   currency: string;
   orderDate: string;
   factoryId?: number;
+  factoryName?: string;
+  factoryCostCenterId?: number;
   lineItems?: any[];
   notes?: string;
 }
@@ -45,6 +47,9 @@ export interface ReturnAccountingData {
   currency: string;
   returnDate: string;
   returnReason: string;
+  factoryId?: number;
+  factoryName?: string;
+  factoryCostCenterId?: number;
   lineItems?: any[];
   notes?: string;
   // Original voucher IDs to reverse
@@ -188,19 +193,22 @@ class FactoryAccountsIntegrationService {
         payee: orderData.customerName,
         amount: orderData.totalValue,
         currency: orderData.currency,
-        narration: `Customer Order Approved - ${orderData.orderNumber} - ${orderData.customerName}${orderData.notes ? ` - ${orderData.notes}` : ''}`,
+        narration: `Customer Order Approved - ${orderData.orderNumber} - ${orderData.customerName}${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}${orderData.notes ? ` - ${orderData.notes}` : ''}`,
+        costCenterId: orderData.factoryCostCenterId, // Link voucher to factory's cost center
         lines: [
           {
             accountId: receivableAccount.id,
             debit: orderData.totalValue,
             credit: 0,
-            description: `Accounts Receivable for Order ${orderData.orderNumber}`
+            description: `Accounts Receivable for Order ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
           },
           {
             accountId: deferredRevenueAccount.id,
             debit: 0,
             credit: orderData.totalValue,
-            description: `Deferred Revenue for Order ${orderData.orderNumber}`
+            description: `Deferred Revenue for Order ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
           }
         ]
       };
@@ -440,6 +448,7 @@ class FactoryAccountsIntegrationService {
   /**
    * Create voucher for material consumption
    * Debit: WIP, Credit: Raw Materials Inventory
+   * Includes factory cost center if available from production line or work order
    */
   async createMaterialConsumptionVoucher(
     consumptionData: any,
@@ -478,19 +487,22 @@ class FactoryAccountsIntegrationService {
         reference: `WO-${consumptionData.workOrderId}`,
         payee: 'Material Consumption',
         amount: consumptionData.cost,
-        narration: `Material Consumed: ${consumptionData.materialName} (${consumptionData.quantity} units) for Work Order ${consumptionData.workOrderId}`,
+        narration: `Material Consumed: ${consumptionData.materialName} (${consumptionData.quantity} units) for Work Order ${consumptionData.workOrderId}${consumptionData.factoryName ? ` - Factory: ${consumptionData.factoryName}` : ''}`,
+        costCenterId: consumptionData.costCenterId || consumptionData.factoryCostCenterId, // Use line/factory cost center
         lines: [
           {
             accountId: wipAccount.id,
             debit: consumptionData.cost,
             credit: 0,
-            description: `WIP - Material: ${consumptionData.materialName}`
+            description: `WIP - Material: ${consumptionData.materialName}`,
+            costCenterId: consumptionData.costCenterId || consumptionData.factoryCostCenterId
           },
           {
             accountId: rawMaterialsAccount.id,
             debit: 0,
             credit: consumptionData.cost,
-            description: `Raw Materials - ${consumptionData.materialName}`
+            description: `Raw Materials - ${consumptionData.materialName}`,
+            costCenterId: consumptionData.costCenterId || consumptionData.factoryCostCenterId
           }
         ]
       };
@@ -581,19 +593,22 @@ class FactoryAccountsIntegrationService {
         reference: `WO-${wastageData.workOrderId}`,
         payee: 'Material Wastage',
         amount: wastageData.cost,
-        narration: `Wastage Approved: ${wastageData.materialName} (${wastageData.quantity} units) - Reason: ${wastageData.reason}${wastageData.notes ? ` - ${wastageData.notes}` : ''}`,
+        narration: `Wastage Approved: ${wastageData.materialName} (${wastageData.quantity} units) - Reason: ${wastageData.reason}${wastageData.factoryName ? ` - Factory: ${wastageData.factoryName}` : ''}${wastageData.notes ? ` - ${wastageData.notes}` : ''}`,
+        costCenterId: wastageData.costCenterId || wastageData.factoryCostCenterId,
         lines: [
           {
             accountId: wastageExpenseAccount.id,
             debit: wastageData.cost,
             credit: 0,
-            description: `Wastage Expense - ${wastageData.materialName}`
+            description: `Wastage Expense - ${wastageData.materialName}`,
+            costCenterId: wastageData.costCenterId || wastageData.factoryCostCenterId
           },
           {
             accountId: rawMaterialsAccount.id,
             debit: 0,
             credit: wastageData.cost,
-            description: `Raw Materials - ${wastageData.materialName}`
+            description: `Raw Materials - ${wastageData.materialName}`,
+            costCenterId: wastageData.costCenterId || wastageData.factoryCostCenterId
           }
         ]
       };
@@ -722,19 +737,22 @@ class FactoryAccountsIntegrationService {
         reference: `PR-${productionRunData.runNumber}`,
         payee: 'Production Labor',
         amount: productionRunData.laborCost,
-        narration: `Labor Cost - Production Run ${productionRunData.runNumber} (${productionRunData.runtimeMinutes} minutes)`,
+        narration: `Labor Cost - Production Run ${productionRunData.runNumber} (${productionRunData.runtimeMinutes} minutes)${productionRunData.factoryName ? ` - Factory: ${productionRunData.factoryName}` : ''}`,
+        costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId,
         lines: [
           {
             accountId: wipAccount.id,
             debit: productionRunData.laborCost,
             credit: 0,
-            description: `WIP - Labor for Run ${productionRunData.runNumber}`
+            description: `WIP - Labor for Run ${productionRunData.runNumber}`,
+            costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId
           },
           {
             accountId: wagesPayableAccount.id,
             debit: 0,
             credit: productionRunData.laborCost,
-            description: `Wages Payable - Run ${productionRunData.runNumber}`
+            description: `Wages Payable - Run ${productionRunData.runNumber}`,
+            costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId
           }
         ]
       };
@@ -790,19 +808,22 @@ class FactoryAccountsIntegrationService {
         reference: `PR-${productionRunData.runNumber}`,
         payee: 'Factory Overhead',
         amount: productionRunData.overheadCost,
-        narration: `Overhead Cost - Production Run ${productionRunData.runNumber}`,
+        narration: `Overhead Cost - Production Run ${productionRunData.runNumber}${productionRunData.factoryName ? ` - Factory: ${productionRunData.factoryName}` : ''}`,
+        costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId,
         lines: [
           {
             accountId: wipAccount.id,
             debit: productionRunData.overheadCost,
             credit: 0,
-            description: `WIP - Overhead for Run ${productionRunData.runNumber}`
+            description: `WIP - Overhead for Run ${productionRunData.runNumber}`,
+            costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId
           },
           {
             accountId: overheadAppliedAccount.id,
             debit: 0,
             credit: productionRunData.overheadCost,
-            description: `Factory Overhead - Run ${productionRunData.runNumber}`
+            description: `Factory Overhead - Run ${productionRunData.runNumber}`,
+            costCenterId: productionRunData.costCenterId || productionRunData.factoryCostCenterId
           }
         ]
       };
@@ -860,19 +881,22 @@ class FactoryAccountsIntegrationService {
         reference: workOrderData.workOrderNumber,
         payee: 'Finished Goods Transfer',
         amount: totalCost,
-        narration: `Work Order Completed - ${workOrderData.productName} (${workOrderData.quantity} ${workOrderData.unitOfMeasure}) - Cost: $${totalCost}`,
+        narration: `Work Order Completed - ${workOrderData.productName} (${workOrderData.quantity} ${workOrderData.unitOfMeasure}) - Cost: $${totalCost}${workOrderData.factoryName ? ` - Factory: ${workOrderData.factoryName}` : ''}`,
+        costCenterId: workOrderData.factoryCostCenterId,
         lines: [
           {
             accountId: finishedGoodsAccount.id,
             debit: totalCost,
             credit: 0,
-            description: `FG - ${workOrderData.productName} (${workOrderData.quantity} units)`
+            description: `FG - ${workOrderData.productName} (${workOrderData.quantity} units)`,
+            costCenterId: workOrderData.factoryCostCenterId
           },
           {
             accountId: wipAccount.id,
             debit: 0,
             credit: totalCost,
-            description: `WIP Transfer - ${workOrderData.workOrderNumber}`
+            description: `WIP Transfer - ${workOrderData.workOrderNumber}`,
+            costCenterId: workOrderData.factoryCostCenterId
           }
         ]
       };
@@ -953,19 +977,22 @@ class FactoryAccountsIntegrationService {
         reference: orderData.orderNumber,
         payee: orderData.customerName,
         amount: orderData.totalValue,
-        narration: `Revenue Recognition - Order ${orderData.orderNumber} Shipped`,
+        narration: `Revenue Recognition - Order ${orderData.orderNumber} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
+        costCenterId: orderData.factoryCostCenterId,
         lines: [
           {
             accountId: deferredRevenueAccount.id,
             debit: orderData.totalValue,
             credit: 0,
-            description: `Deferred Revenue - ${orderData.orderNumber}`
+            description: `Deferred Revenue - ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
           },
           {
             accountId: salesRevenueAccount.id,
             debit: 0,
             credit: orderData.totalValue,
-            description: `Sales Revenue - ${orderData.orderNumber}`
+            description: `Sales Revenue - ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
           }
         ]
       };
@@ -1067,18 +1094,21 @@ class FactoryAccountsIntegrationService {
         payee: returnData.customerName,
         amount: returnData.totalReturnValue,
         narration: `Credit Note - Return ${returnData.returnNumber} - Reason: ${returnData.returnReason}${returnData.notes ? ` - ${returnData.notes}` : ''}`,
+        costCenterId: returnData.factoryCostCenterId,
         lines: [
           {
             accountId: salesReturnsAccount.id,
             debit: returnData.totalReturnValue,
             credit: 0,
-            description: `Sales Returns - ${returnData.returnNumber}`
+            description: `Sales Returns - ${returnData.returnNumber}`,
+            costCenterId: returnData.factoryCostCenterId
           },
           {
             accountId: receivableAccount.id,
             debit: 0,
             credit: returnData.totalReturnValue,
-            description: `A/R Reduction - ${returnData.returnNumber}`
+            description: `A/R Reduction - ${returnData.returnNumber}`,
+            costCenterId: returnData.factoryCostCenterId
           }
         ]
       };
@@ -1131,18 +1161,21 @@ class FactoryAccountsIntegrationService {
         payee: returnData.customerName,
         amount: returnData.totalReturnValue,
         narration: `Revenue Reversal - Return ${returnData.returnNumber} for Order ${returnData.orderNumber}`,
+        costCenterId: returnData.factoryCostCenterId,
         lines: [
           {
             accountId: deferredRevenueAccount.id,
             debit: returnData.totalReturnValue,
             credit: 0,
-            description: `Deferred Revenue Reversal - ${returnData.returnNumber}`
+            description: `Deferred Revenue Reversal - ${returnData.returnNumber}`,
+            costCenterId: returnData.factoryCostCenterId
           },
           {
             accountId: salesReturnsAccount.id,
             debit: 0,
             credit: returnData.totalReturnValue,
-            description: `Sales Returns - ${returnData.returnNumber}`
+            description: `Sales Returns - ${returnData.returnNumber}`,
+            costCenterId: returnData.factoryCostCenterId
           }
         ]
       };

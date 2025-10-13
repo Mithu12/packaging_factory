@@ -213,6 +213,27 @@ export class AddMaterialConsumptionMediator {
         workOrderId: data.work_order_id
       });
 
+      // Fetch factory information for accounts integration
+      let factoryInfo: { factory_id: number; factory_name: string; factory_cost_center_id: number | null } | null = null;
+      try {
+        const factoryResult = await pool.query(
+          `SELECT f.id as factory_id, f.name as factory_name, f.cost_center_id as factory_cost_center_id
+           FROM work_orders wo
+           LEFT JOIN factory_customer_orders co ON wo.customer_order_id = co.id
+           LEFT JOIN factories f ON co.factory_id = f.id
+           WHERE wo.id = $1`,
+          [data.work_order_id]
+        );
+        if (factoryResult.rows.length > 0 && factoryResult.rows[0].factory_id) {
+          factoryInfo = factoryResult.rows[0];
+        }
+      } catch (factoryError: any) {
+        MyLogger.warn(`${action}.fetchFactory`, {
+          error: factoryError.message,
+          workOrderId: data.work_order_id
+        });
+      }
+
       // Emit event for accounts integration
       try {
         eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
@@ -224,6 +245,10 @@ export class AddMaterialConsumptionMediator {
             quantity: data.consumed_quantity,
             cost: parseFloat(material.current_stock) * data.consumed_quantity, // Basic cost calculation
             productionLineId: data.production_line_id,
+            costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id, // Use production line cost center if available
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id,
             consumptionDate: new Date().toISOString()
           },
           userId

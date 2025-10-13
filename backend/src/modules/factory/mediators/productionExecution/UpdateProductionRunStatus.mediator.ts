@@ -232,6 +232,33 @@ export class UpdateProductionRunStatusMediator {
       const overheadRatePerHour = 10; // TODO: Get from cost center/factory overhead rate
       const overheadCost = laborHours * overheadRatePerHour;
 
+      // Fetch factory information for accounts integration (production line or work order)
+      let factoryInfo: { factory_id: number; factory_name: string; factory_cost_center_id: number | null; line_cost_center_id: number | null } | null = null;
+      try {
+        const factoryResult = await client.query(
+          `SELECT 
+             f.id as factory_id, 
+             f.name as factory_name, 
+             f.cost_center_id as factory_cost_center_id,
+             pl.cost_center_id as line_cost_center_id
+           FROM production_runs pr
+           LEFT JOIN production_lines pl ON pr.production_line_id = pl.id
+           LEFT JOIN work_orders wo ON pr.work_order_id = wo.id
+           LEFT JOIN factory_customer_orders co ON wo.customer_order_id = co.id
+           LEFT JOIN factories f ON co.factory_id = f.id
+           WHERE pr.id = $1`,
+          [runId]
+        );
+        if (factoryResult.rows.length > 0 && factoryResult.rows[0].factory_id) {
+          factoryInfo = factoryResult.rows[0];
+        }
+      } catch (factoryError: any) {
+        MyLogger.warn(`${action}.fetchFactory`, {
+          error: factoryError.message,
+          runId
+        });
+      }
+
       // Emit event for accounts integration
       try {
         eventBus.emit(EVENT_NAMES.PRODUCTION_RUN_COMPLETED, {
@@ -247,7 +274,11 @@ export class UpdateProductionRunStatusMediator {
             runtimeMinutes,
             laborCost,
             overheadCost,
-            completedDate: new Date().toISOString()
+            completedDate: new Date().toISOString(),
+            costCenterId: factoryInfo?.line_cost_center_id, // Prefer production line cost center
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id
           },
           userId
         });
