@@ -159,9 +159,9 @@ MyLogger.info('processedLineItems',processedLineItems)
           order_number, factory_customer_id, factory_customer_name, factory_customer_email, factory_customer_phone,
           order_date, required_date, status, priority, total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
-          attachments, created_by, created_at, factory_id
+          attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
         ) RETURNING *
       `;
 
@@ -186,7 +186,9 @@ MyLogger.info('processedLineItems',processedLineItems)
         JSON.stringify([]), // Empty attachments array
         userId,
         new Date(),
-        orderData.factory_id
+        orderData.factory_id,
+        0, // paid_amount - new orders start unpaid
+        totalValue // outstanding_amount - full amount is outstanding
       ];
 
       const orderResult = await client.query(orderQuery, orderValues);

@@ -309,6 +309,12 @@ export class UpdateCustomerOrderInfoMediator {
         updateFields.push(`total_value = $${paramIndex}`);
         updateValues.push(newTotalValue);
         paramIndex++;
+        
+        // Recalculate outstanding amount when total value changes
+        // outstanding_amount = new_total_value - paid_amount
+        updateFields.push(`outstanding_amount = $${paramIndex} - COALESCE(paid_amount, 0)`);
+        updateValues.push(newTotalValue);
+        paramIndex++;
       }
 
       // Execute update query

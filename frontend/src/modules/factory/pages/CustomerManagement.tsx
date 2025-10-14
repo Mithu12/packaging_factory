@@ -191,7 +191,7 @@ export default function CustomerManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(customers.reduce((sum, c) => sum + (c.total_order_value || 0), 0))}
+              {formatCurrency(customers.reduce((sum, c) => sum + Number(c.total_order_value || 0), 0))}
             </div>
             <p className="text-xs text-muted-foreground">All customer orders</p>
           </CardContent>
@@ -204,7 +204,7 @@ export default function CustomerManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {formatCurrency(customers.reduce((sum, c) => sum + (c.total_outstanding_amount || 0), 0))}
+              {formatCurrency(customers.reduce((sum, c) => sum + Number(c.total_outstanding_amount || 0), 0))}
             </div>
             <p className="text-xs text-muted-foreground">Pending payments</p>
           </CardContent>
@@ -218,8 +218,8 @@ export default function CustomerManagement() {
           <CardContent>
             <div className="text-2xl font-bold">
               {(() => {
-                const totalOrders = customers.reduce((sum, c) => sum + (c.total_order_value || 0), 0);
-                const totalPaid = customers.reduce((sum, c) => sum + (c.total_paid_amount || 0), 0);
+                const totalOrders = customers.reduce((sum, c) => sum + Number(c.total_order_value || 0), 0);
+                const totalPaid = customers.reduce((sum, c) => sum + Number(c.total_paid_amount || 0), 0);
                 return totalOrders > 0 ? `${((totalPaid / totalOrders) * 100).toFixed(1)}%` : '0%';
               })()}
             </div>
