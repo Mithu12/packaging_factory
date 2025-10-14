@@ -368,6 +368,11 @@ class FactoryAccountsIntegrationService {
           searchTerm = 'Sales Returns';
           category = 'Expenses';
           break;
+        case 'cost_of_goods_sold':
+        case 'cogs':
+          searchTerm = 'Cost of Goods Sold';
+          category = 'Expenses';
+          break;
         default:
           return null;
       }
@@ -1053,6 +1058,107 @@ class FactoryAccountsIntegrationService {
   }
 
   /**
+   * Create COGS (Cost of Goods Sold) voucher when order is shipped
+   * Debit: Cost of Goods Sold, Credit: Finished Goods
+   * This records the expense of sold inventory
+   */
+  async createCOGSVoucher(
+    orderData: OrderAccountingData & { costOfGoodsSold?: number },
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create COGS Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available', orderId: orderData.orderId });
+      return null;
+    }
+
+    // Skip if no COGS amount provided
+    if (!orderData.costOfGoodsSold || orderData.costOfGoodsSold <= 0) {
+      MyLogger.info(action, { 
+        message: 'No COGS amount provided, skipping',
+        orderId: orderData.orderId 
+      });
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const cogsAccount = await this.getDefaultAccount('cost_of_goods_sold');
+      const finishedGoodsAccount = await this.getDefaultAccount('finished_goods');
+
+      if (!cogsAccount || !finishedGoodsAccount) {
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: 'Required accounts not configured (COGS, Finished Goods)'
+        };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(),
+        reference: orderData.orderNumber,
+        payee: orderData.customerName,
+        amount: orderData.costOfGoodsSold,
+        narration: `Cost of Goods Sold - Order ${orderData.orderNumber} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
+        costCenterId: orderData.factoryCostCenterId,
+        lines: [
+          {
+            accountId: cogsAccount.id,
+            debit: orderData.costOfGoodsSold,
+            credit: 0,
+            description: `COGS - ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
+          },
+          {
+            accountId: finishedGoodsAccount.id,
+            debit: 0,
+            credit: orderData.costOfGoodsSold,
+            description: `Finished Goods Sold - ${orderData.orderNumber}`,
+            costCenterId: orderData.factoryCostCenterId
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      // Update order with COGS voucher reference
+      try {
+        await pool.query(
+          'UPDATE factory_customer_orders SET cogs_voucher_id = $1 WHERE id = $2',
+          [voucher.id, orderData.orderId]
+        );
+      } catch (updateError) {
+        MyLogger.warn(action, {
+          message: 'Failed to update order with cogs_voucher_id (column may not exist yet)',
+          orderId: orderData.orderId,
+          voucherId: voucher.id
+        });
+      }
+
+      MyLogger.success(action, {
+        orderId: orderData.orderId,
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo,
+        cogsAmount: orderData.costOfGoodsSold
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { orderData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
+
+  /**
    * Create reversal vouchers for customer return
    * Creates credit note and reverses original accounting entries
    */
@@ -1544,7 +1650,7 @@ export const registerFactoryAccountingListeners = (): void => {
   // Listen for order shipment events (revenue recognition if policy = on_shipment)
   eventBus.on(EVENT_NAMES.FACTORY_ORDER_SHIPPED, async (payload: EventPayload) => {
     try {
-      const orderData = payload.orderData as OrderAccountingData;
+      const orderData = payload.orderData as OrderAccountingData & { costOfGoodsSold?: number };
       const userId = payload.userId as number;
       
       // Check revenue recognition policy
@@ -1574,6 +1680,27 @@ export const registerFactoryAccountingListeners = (): void => {
           orderId: orderData?.orderId,
           message: `Revenue recognition policy is ${policy}, skipping revenue voucher on shipment`
         });
+      }
+
+      // ALWAYS create COGS voucher when order is shipped (regardless of revenue policy)
+      if (orderData && orderData.costOfGoodsSold) {
+        const cogsResult = await factoryAccountsIntegrationService.createCOGSVoucher(orderData, userId);
+        
+        if (cogsResult?.success) {
+          MyLogger.success('Factory Accounting Integration', {
+            event: 'ORDER_SHIPPED_COGS',
+            orderId: orderData.orderId,
+            voucherId: cogsResult.voucherId,
+            voucherNo: cogsResult.voucherNo,
+            cogsAmount: orderData.costOfGoodsSold
+          });
+        } else if (cogsResult?.error) {
+          MyLogger.warn('Factory Accounting Integration', {
+            event: 'ORDER_SHIPPED_COGS',
+            orderId: orderData.orderId,
+            error: cogsResult.error
+          });
+        }
       }
     } catch (error) {
       MyLogger.error('Factory Accounting Integration', error, { 
