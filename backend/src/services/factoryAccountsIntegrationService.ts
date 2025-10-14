@@ -186,6 +186,14 @@ class FactoryAccountsIntegrationService {
       }
 
       // Create voucher data
+      MyLogger.info(action, { 
+        message: 'Order data for voucher creation',
+        factoryId: orderData.factoryId,
+        factoryName: orderData.factoryName,
+        factoryCostCenterId: orderData.factoryCostCenterId,
+        orderNumber: orderData.orderNumber
+      });
+      
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(orderData.orderDate),

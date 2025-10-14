@@ -474,6 +474,13 @@ export class UpdateCustomerOrderInfoMediator {
       // Emit event for accounts integration (if order was approved)
       if (approvalData.approved && updatedOrder) {
         try {
+          MyLogger.info(`${action}.eventData`, {
+            factoryId: updatedOrder.factory_id,
+            factoryName: updatedOrder.factory_name,
+            factoryCostCenterId: updatedOrder.factory_cost_center_id,
+            factoryCostCenterName: updatedOrder.factory_cost_center_name
+          });
+          
           eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
             orderData: {
               orderId: updatedOrder.id,
@@ -485,8 +492,8 @@ export class UpdateCustomerOrderInfoMediator {
               currency: updatedOrder.currency || 'BDT',
               orderDate: updatedOrder.order_date || new Date().toISOString(),
               factoryId: updatedOrder.factory_id,
-              factoryName: (updatedOrder as any).factory_name,
-              factoryCostCenterId: (updatedOrder as any).factory_cost_center_id,
+              factoryName: updatedOrder.factory_name,
+              factoryCostCenterId: updatedOrder.factory_cost_center_id,
               lineItems: updatedOrder.line_items,
               notes: approvalData.notes
             },

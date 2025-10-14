@@ -72,6 +72,8 @@ export interface FactoryCustomerOrder {
   order_number: string;
   factory_id?: number;
   factory_name?: string;
+  factory_cost_center_id?: number;
+  factory_cost_center_name?: string;
   factory_customer_id: number;
   factory_customer_name: string;
   factory_customer_email: string;

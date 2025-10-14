@@ -50,14 +50,17 @@ class AddVoucherMediator implements MediatorInterface {
       ].filter(id => id !== undefined && id !== null);
 
       if (costCenterIds.length > 0) {
+        // Get unique cost center IDs for validation
+        const uniqueCostCenterIds = [...new Set(costCenterIds)];
+        
         const costCentersQuery = `
           SELECT id 
           FROM cost_centers 
           WHERE id = ANY($1) AND status = 'Active'
         `;
-        const costCentersResult = await client.query(costCentersQuery, [costCenterIds]);
-        MyLogger.info(action, { costCentersResult:costCentersResult.rows, costCenterIds });
-        if (costCentersResult.rows.length !== costCenterIds.length) {
+        const costCentersResult = await client.query(costCentersQuery, [uniqueCostCenterIds]);
+        MyLogger.info(action, { costCentersResult:costCentersResult.rows, uniqueCostCenterIds });
+        if (costCentersResult.rows.length !== uniqueCostCenterIds.length) {
           throw createError("One or more cost centers not found or inactive", 400);
         }
       }
