@@ -182,9 +182,9 @@ export class UpdateCustomerOrderInfoMediator {
 
       const existingOrder = existingOrderResult.rows[0];
 
-      // Check if order can be updated (not in certain statuses)
-      if (['completed', 'shipped'].includes(existingOrder.status)) {
-        throw new Error(`Cannot update order in ${existingOrder.status} status`);
+      // Check if order can be updated (not approved, completed, or shipped)
+      if (['approved', 'completed', 'shipped'].includes(existingOrder.status)) {
+        throw new Error(`Cannot update order in ${existingOrder.status} status. Only draft and pending orders can be edited.`);
       }
 
       // Build update query dynamically

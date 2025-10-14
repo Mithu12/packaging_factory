@@ -46,6 +46,13 @@ export class FactoryCustomerPaymentsMediator {
       
       const order = orderResult.rows[0];
       
+      // Only allow payments for completed or shipped orders
+      if (!['completed', 'shipped'].includes(order.status)) {
+        throw new Error(
+          `Payments can only be recorded for completed or shipped orders. Current status: ${order.status}`
+        );
+      }
+      
       // Validate payment amount
       if (data.payment_amount > order.outstanding_amount) {
         throw new Error(

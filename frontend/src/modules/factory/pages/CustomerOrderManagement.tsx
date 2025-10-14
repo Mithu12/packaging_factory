@@ -561,10 +561,14 @@ export default function CustomerOrderManagement() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditOrder(order)}
+                            disabled={['approved', 'completed', 'shipped'].includes(order.status)}
+                            title={['approved', 'completed', 'shipped'].includes(order.status) 
+                              ? 'Approved/completed/shipped orders cannot be edited' 
+                              : 'Edit order'}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {order.outstanding_amount > 0 && (
+                          {order.outstanding_amount > 0 && ['completed', 'shipped'].includes(order.status) && (
                             <Button
                               variant="outline"
                               size="sm"
