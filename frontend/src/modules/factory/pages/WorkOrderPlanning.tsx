@@ -180,8 +180,7 @@ export default function WorkOrderPlanning() {
         customer_order_id: undefined,
       });
       // Refresh work orders data and products (for stock updates)
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
@@ -199,8 +198,7 @@ export default function WorkOrderPlanning() {
       setPlanningData({ assigned_operators: [] });
       setEditWorkOrder({});
       // Refresh work orders data and products (for stock updates)
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
@@ -216,8 +214,8 @@ export default function WorkOrderPlanning() {
     onSuccess: (result) => {
       console.log("Work order status updated:", result);
       // Refresh work orders data and products (for stock updates)
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      // Invalidate all work order queries to ensure list updates
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
@@ -246,8 +244,7 @@ export default function WorkOrderPlanning() {
       setShowMaterialConsumptionDialog(false);
       setCompletingWorkOrder(null);
       // Refresh all relevant data
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
     },
     onError: (error) => {
@@ -534,6 +531,8 @@ export default function WorkOrderPlanning() {
 
         await WorkOrdersApiService.planWorkOrder(workOrderId, planningRequest);
         console.log("Work order planned successfully with combined API");
+        // Manually invalidate queries since we're not using a mutation
+        queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       } else {
         // For save-only operations, use the regular update
         const updateData: UpdateWorkOrderRequest = {
@@ -586,8 +585,7 @@ export default function WorkOrderPlanning() {
         </div>
         <div className="flex gap-2" data-testid="work-order-planning-actions">
           <Button variant="outline" onClick={() => {
-            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+            queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
           }} data-testid="refresh-work-orders-button">
             <Filter className="h-4 w-4 mr-2" />
             Refresh
@@ -620,8 +618,7 @@ export default function WorkOrderPlanning() {
                 size="sm"
                 onClick={() => {
                   setError(null);
-                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.lists() });
-                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.stats() });
+                  queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
                 }}
                 className="ml-auto"
               >
