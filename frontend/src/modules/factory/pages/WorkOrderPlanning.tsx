@@ -67,6 +67,37 @@ import { CustomerOrdersApiService, FactoryCustomerOrder } from "../services/cust
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workOrdersQueryKeys } from "@/services/work-orders-api";
 import { MaterialConsumptionDialog, MaterialConsumption } from "../components/MaterialConsumptionDialog";
+import { toast } from "@/components/ui/sonner";
+
+const getStatusLabel = (status: WorkOrderStatus | string | undefined) => {
+  switch (status) {
+    case 'draft':
+      return 'Draft';
+    case 'planned':
+      return 'Planned';
+    case 'released':
+      return 'Released';
+    case 'in_progress':
+      return 'In Progress';
+    case 'completed':
+      return 'Completed';
+    case 'on_hold':
+      return 'On Hold';
+    default:
+      return status ? status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Updated';
+  }
+};
+
+const extractWorkOrder = (response: any): WorkOrder | undefined => {
+  if (!response) return undefined;
+  if (typeof response === 'object' && 'data' in response && response.data) {
+    return response.data as WorkOrder;
+  }
+  return response as WorkOrder;
+};
+
+const getWorkOrderNumber = (workOrder?: WorkOrder | null) =>
+  workOrder?.work_order_number || workOrder?.id?.toString() || 'Work order';
 
 // Using types from API service
 
@@ -180,13 +211,17 @@ export default function WorkOrderPlanning() {
         estimated_hours: 1,
         customer_order_id: undefined,
       });
-      // Refresh work orders data and products (for stock updates)
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+
+      const workOrder = extractWorkOrder(result);
+      toast.success(`${getWorkOrderNumber(workOrder)} created.`);
     },
     onError: (error) => {
       console.error("Failed to create work order:", error);
-      setError(error instanceof Error ? error.message : 'Failed to create work order');
+      const message = error instanceof Error ? error.message : 'Failed to create work order';
+      setError(message);
+      toast.error(message);
     },
   });
 
@@ -198,34 +233,42 @@ export default function WorkOrderPlanning() {
       console.log("Work order updated:", result);
       setPlanningData({ assigned_operators: [] });
       setEditWorkOrder({});
-      // Refresh work orders data and products (for stock updates)
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+
+      const workOrder = extractWorkOrder(result);
+      toast.success(`${getWorkOrderNumber(workOrder)} updated.`);
     },
     onError: (error) => {
       console.error("Failed to update work order:", error);
-      setError(error instanceof Error ? error.message : 'Failed to update work order');
+      const message = error instanceof Error ? error.message : 'Failed to update work order';
+      setError(message);
+      toast.error(message);
     },
   });
 
   // Mutation for status changes
   const statusChangeMutation = useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) => {
+    mutationFn: async ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) => {
       setUpdatingWorkOrderId(id);
       return WorkOrdersApiService.updateWorkOrderStatus(id, status, notes);
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       console.log("Work order status updated:", result);
       setUpdatingWorkOrderId(null);
-      // Refresh work orders data and products (for stock updates)
-      // Invalidate all work order queries to ensure list updates
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+
+      const workOrder = extractWorkOrder(result);
+      const updatedStatus = getStatusLabel(workOrder?.status ?? variables.status);
+      toast.success(`${getWorkOrderNumber(workOrder)} updated to ${updatedStatus}.`);
     },
     onError: (error) => {
       console.error("Failed to update work order status:", error);
       setUpdatingWorkOrderId(null);
-      setError(error instanceof Error ? error.message : 'Failed to update work order status');
+      const message = error instanceof Error ? error.message : 'Failed to update work order status';
+      setError(message);
+      toast.error(message);
     },
   });
 
@@ -248,13 +291,17 @@ export default function WorkOrderPlanning() {
       console.log("Work order completed with material consumption:", result);
       setShowMaterialConsumptionDialog(false);
       setCompletingWorkOrder(null);
-      // Refresh all relevant data
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
+
+      const workOrder = extractWorkOrder(result);
+      toast.success(`${getWorkOrderNumber(workOrder)} completed with material consumption.`);
     },
     onError: (error) => {
       console.error("Failed to complete work order with material consumption:", error);
-      setError(error instanceof Error ? error.message : 'Failed to complete work order');
+      const message = error instanceof Error ? error.message : 'Failed to complete work order';
+      setError(message);
+      toast.error(message);
     },
   });
 
@@ -534,10 +581,13 @@ export default function WorkOrderPlanning() {
           notes: planningData.notes,
         };
 
-        await WorkOrdersApiService.planWorkOrder(workOrderId, planningRequest);
+        const plannedWorkOrder = await WorkOrdersApiService.planWorkOrder(workOrderId, planningRequest);
         console.log("Work order planned successfully with combined API");
         // Manually invalidate queries since we're not using a mutation
         queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
+
+        const workOrder = extractWorkOrder(plannedWorkOrder);
+        toast.success(`${getWorkOrderNumber(workOrder)} updated to ${getStatusLabel(workOrder?.status)}.`);
       } else {
         // For save-only operations, use the regular update
         const updateData: UpdateWorkOrderRequest = {
@@ -546,17 +596,22 @@ export default function WorkOrderPlanning() {
           notes: planningData.notes,
         };
 
-        await updateWorkOrderMutation.mutateAsync({
+        const updatedWorkOrder = await updateWorkOrderMutation.mutateAsync({
           id: workOrderId,
           data: updateData,
         });
+
+        const workOrder = extractWorkOrder(updatedWorkOrder);
+        toast.success(`${getWorkOrderNumber(workOrder)} planning saved.`);
       }
 
       setShowPlanningDialog(false);
     } catch (err) {
       console.error("Planning action failed:", err);
       // The new API handles rollback automatically, so we just show the error
-      setError(err instanceof Error ? err.message : 'Planning failed. Please try again.');
+      const message = err instanceof Error ? err.message : 'Planning failed. Please try again.';
+      setError(message);
+      toast.error(message);
       // Leave dialog open so the planner can adjust and retry
       setShowPlanningDialog(true);
     } finally {
