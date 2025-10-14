@@ -20,6 +20,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
         classNames: {
           toast:
             "group toast group-[.toaster]:bg-background/95 group-[.toaster]:text-foreground group-[.toaster]:border-primary/40 group-[.toaster]:shadow-2xl group-[.toaster]:backdrop-blur-sm",
+          success:
+            "group-[.toaster]:bg-emerald-100 group-[.toaster]:border-emerald-400 group-[.toaster]:text-emerald-900 dark:group-[.toaster]:bg-emerald-950/90 dark:group-[.toaster]:text-emerald-100",
+          error:
+            "group-[.toaster]:bg-red-100 group-[.toaster]:border-red-400 group-[.toaster]:text-red-900 dark:group-[.toaster]:bg-red-950/90 dark:group-[.toaster]:text-red-100",
           title: "group-[.toast]:text-base font-semibold",
           description: "group-[.toast]:text-sm text-muted-foreground",
           icon: "group-[.toast]:text-primary",
