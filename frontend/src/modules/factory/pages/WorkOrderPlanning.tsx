@@ -82,6 +82,7 @@ export default function WorkOrderPlanning() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMaterialConsumptionDialog, setShowMaterialConsumptionDialog] = useState(false);
   const [completingWorkOrder, setCompletingWorkOrder] = useState<WorkOrder | null>(null);
+  const [updatingWorkOrderId, setUpdatingWorkOrderId] = useState<string | null>(null);
 
   // Form state for creating work orders
   const [newWorkOrder, setNewWorkOrder] = useState<Partial<CreateWorkOrderRequest>>({
@@ -209,10 +210,13 @@ export default function WorkOrderPlanning() {
 
   // Mutation for status changes
   const statusChangeMutation = useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) =>
-      WorkOrdersApiService.updateWorkOrderStatus(id, status, notes),
+    mutationFn: ({ id, status, notes }: { id: string; status: WorkOrderStatus; notes?: string }) => {
+      setUpdatingWorkOrderId(id);
+      return WorkOrdersApiService.updateWorkOrderStatus(id, status, notes);
+    },
     onSuccess: (result) => {
       console.log("Work order status updated:", result);
+      setUpdatingWorkOrderId(null);
       // Refresh work orders data and products (for stock updates)
       // Invalidate all work order queries to ensure list updates
       queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
@@ -220,6 +224,7 @@ export default function WorkOrderPlanning() {
     },
     onError: (error) => {
       console.error("Failed to update work order status:", error);
+      setUpdatingWorkOrderId(null);
       setError(error instanceof Error ? error.message : 'Failed to update work order status');
     },
   });
@@ -846,9 +851,10 @@ export default function WorkOrderPlanning() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleReleaseWorkOrder(wo.id.toString())}
-                              disabled={statusChangeMutation.isPending}
+                              disabled={updatingWorkOrderId === wo.id.toString()}
+                              className={updatingWorkOrderId === wo.id.toString() ? 'opacity-50' : ''}
                             >
-                              {statusChangeMutation.isPending ? (
+                              {updatingWorkOrderId === wo.id.toString() ? (
                                 <Clock className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Play className="h-4 w-4" />
@@ -860,9 +866,10 @@ export default function WorkOrderPlanning() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleStartWorkOrder(wo.id.toString())}
-                              disabled={statusChangeMutation.isPending}
+                              disabled={updatingWorkOrderId === wo.id.toString()}
+                              className={updatingWorkOrderId === wo.id.toString() ? 'opacity-50' : ''}
                             >
-                              {statusChangeMutation.isPending ? (
+                              {updatingWorkOrderId === wo.id.toString() ? (
                                 <Clock className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Play className="h-4 w-4" />
@@ -874,10 +881,10 @@ export default function WorkOrderPlanning() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleCompleteWorkOrder(wo.id.toString())}
-                              className="text-green-600 hover:text-green-700"
-                              disabled={statusChangeMutation.isPending}
+                              className={`text-green-600 hover:text-green-700 ${updatingWorkOrderId === wo.id.toString() ? 'opacity-50' : ''}`}
+                              disabled={updatingWorkOrderId === wo.id.toString()}
                             >
-                              {statusChangeMutation.isPending ? (
+                              {updatingWorkOrderId === wo.id.toString() ? (
                                 <Clock className="h-4 w-4 animate-spin" />
                               ) : (
                                 <CheckCircle className="h-4 w-4" />
