@@ -410,6 +410,11 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
                                 {payment.payment_method.replace('_', ' ').toUpperCase()}
                                 {payment.payment_reference && ` - ${payment.payment_reference}`}
                               </div>
+                              {payment.voucher_no && (
+                                <div className="text-xs text-blue-600 font-medium">
+                                  Voucher: {payment.voucher_no}
+                                </div>
+                              )}
                               {payment.notes && (
                                 <div className="text-xs text-muted-foreground italic">{payment.notes}</div>
                               )}

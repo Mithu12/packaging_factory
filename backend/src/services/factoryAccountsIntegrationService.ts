@@ -332,7 +332,12 @@ class FactoryAccountsIntegrationService {
           category = 'Revenue';
           break;
         case 'cash':
+        case 'cash_in_hand':
           searchTerm = 'Cash';
+          category = 'Assets';
+          break;
+        case 'bank_account':
+          searchTerm = 'Bank';
           category = 'Assets';
           break;
         case 'wip':
@@ -1317,6 +1322,21 @@ class FactoryAccountsIntegrationService {
       // Auto-approve the voucher if updateVoucherMediator is available
       if (accountsServices.updateVoucherMediator) {
         await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      // Update payment record with voucher reference
+      try {
+        await pool.query(
+          'UPDATE factory_customer_payments SET voucher_id = $1 WHERE id = $2',
+          [voucher.id, paymentData.paymentId]
+        );
+      } catch (updateError) {
+        MyLogger.warn(action, { 
+          message: 'Failed to update payment with voucher_id', 
+          error: updateError,
+          paymentId: paymentData.paymentId,
+          voucherId: voucher.id
+        });
       }
 
       // Log event success

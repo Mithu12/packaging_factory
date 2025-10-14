@@ -264,6 +264,8 @@ export interface FactoryCustomerPayment {
   recorded_by_username?: string;
   updated_at?: string;
   additional_metadata?: Record<string, unknown>;
+  voucher_id?: number;
+  voucher_no?: string;
 }
 
 export interface PaymentSummary {

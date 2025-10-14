@@ -154,16 +154,17 @@ export class FactoryCustomerPaymentsMediator {
         factory_customer_order_id: payment.factory_customer_order_id,
         factory_customer_id: order.factory_customer_id,
         factory_id: order.factory_id,
-        payment_amount: parseFloat(payment.amount),
+        payment_amount: parseFloat(payment.payment_amount),
         payment_date: payment.payment_date,
         payment_method: payment.payment_method,
         payment_reference: payment.payment_reference,
         notes: payment.notes,
         recorded_by: payment.recorded_by,
-        recorded_at: payment.created_at,
+        recorded_at: payment.recorded_at,
         factory_sales_invoice_id: payment.factory_sales_invoice_id,
         additional_metadata: payment.additional_metadata,
-        updated_at: payment.updated_at
+        updated_at: payment.updated_at,
+        voucher_id: payment.voucher_id
       } as FactoryCustomerPayment;
       
     } catch (error) {
@@ -183,9 +184,11 @@ export class FactoryCustomerPaymentsMediator {
       const query = `
         SELECT 
           fcp.*,
-          u.username as recorded_by_username
+          u.username as recorded_by_username,
+          v.voucher_no as voucher_no
         FROM factory_customer_payments fcp
         LEFT JOIN users u ON fcp.recorded_by = u.id
+        LEFT JOIN vouchers v ON fcp.voucher_id = v.id
         WHERE fcp.factory_customer_order_id = $1
         ORDER BY fcp.payment_date DESC, fcp.created_at DESC
       `;
@@ -197,17 +200,19 @@ export class FactoryCustomerPaymentsMediator {
         factory_customer_order_id: row.factory_customer_order_id,
         factory_customer_id: row.factory_customer_id || '',
         factory_id: row.factory_id,
-        payment_amount: parseFloat(row.amount),
+        payment_amount: parseFloat(row.payment_amount),
         payment_date: row.payment_date,
         payment_method: row.payment_method,
         payment_reference: row.payment_reference,
         notes: row.notes,
         recorded_by: row.recorded_by,
-        recorded_at: row.created_at,
+        recorded_at: row.recorded_at,
         recorded_by_username: row.recorded_by_username,
         factory_sales_invoice_id: row.factory_sales_invoice_id,
         additional_metadata: row.additional_metadata,
-        updated_at: row.updated_at
+        updated_at: row.updated_at,
+        voucher_id: row.voucher_id,
+        voucher_no: row.voucher_no
       } as FactoryCustomerPayment));
       
     } catch (error) {
