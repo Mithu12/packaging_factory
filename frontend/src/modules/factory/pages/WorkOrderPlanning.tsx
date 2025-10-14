@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Target,
+  CheckCircle2,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -215,13 +216,19 @@ export default function WorkOrderPlanning() {
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
 
       const workOrder = extractWorkOrder(result);
-      toast.success(`${getWorkOrderNumber(workOrder)} created.`);
+      toast.success(`${getWorkOrderNumber(workOrder)} created.`, {
+        description: "The work order is now available in planning.",
+        icon: <CheckCircle2 className="h-5 w-5" />,
+      });
     },
     onError: (error) => {
       console.error("Failed to create work order:", error);
       const message = error instanceof Error ? error.message : 'Failed to create work order';
       setError(message);
-      toast.error(message);
+      toast.error(message, {
+        description: "Please review the form and try again.",
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
     },
   });
 
@@ -237,13 +244,19 @@ export default function WorkOrderPlanning() {
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
 
       const workOrder = extractWorkOrder(result);
-      toast.success(`${getWorkOrderNumber(workOrder)} updated.`);
+      toast.success(`${getWorkOrderNumber(workOrder)} updated.`, {
+        description: "Changes have been saved successfully.",
+        icon: <CheckCircle2 className="h-5 w-5" />,
+      });
     },
     onError: (error) => {
       console.error("Failed to update work order:", error);
       const message = error instanceof Error ? error.message : 'Failed to update work order';
       setError(message);
-      toast.error(message);
+      toast.error(message, {
+        description: "Please review and try again.",
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
     },
   });
 
@@ -261,14 +274,20 @@ export default function WorkOrderPlanning() {
 
       const workOrder = extractWorkOrder(result);
       const updatedStatus = getStatusLabel(workOrder?.status ?? variables.status);
-      toast.success(`${getWorkOrderNumber(workOrder)} updated to ${updatedStatus}.`);
+      toast.success(`${getWorkOrderNumber(workOrder)} updated to ${updatedStatus}.`, {
+        description: "Status changes are now reflected in the schedule.",
+        icon: <CheckCircle2 className="h-5 w-5" />,
+      });
     },
     onError: (error) => {
       console.error("Failed to update work order status:", error);
       setUpdatingWorkOrderId(null);
       const message = error instanceof Error ? error.message : 'Failed to update work order status';
       setError(message);
-      toast.error(message);
+      toast.error(message, {
+        description: "Unable to change status. Please try again.",
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
     },
   });
 
@@ -295,13 +314,19 @@ export default function WorkOrderPlanning() {
       queryClient.invalidateQueries({ queryKey: ['products', 'active'] });
 
       const workOrder = extractWorkOrder(result);
-      toast.success(`${getWorkOrderNumber(workOrder)} completed with material consumption.`);
+      toast.success(`${getWorkOrderNumber(workOrder)} completed with material consumption.`, {
+        description: "Inventory updates and journal entries have been triggered.",
+        icon: <CheckCircle2 className="h-5 w-5" />,
+      });
     },
     onError: (error) => {
       console.error("Failed to complete work order with material consumption:", error);
       const message = error instanceof Error ? error.message : 'Failed to complete work order';
       setError(message);
-      toast.error(message);
+      toast.error(message, {
+        description: "Completion failed. Please review the material entries.",
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
     },
   });
 
@@ -587,7 +612,10 @@ export default function WorkOrderPlanning() {
         queryClient.invalidateQueries({ queryKey: workOrdersQueryKeys.all });
 
         const workOrder = extractWorkOrder(plannedWorkOrder);
-        toast.success(`${getWorkOrderNumber(workOrder)} updated to ${getStatusLabel(workOrder?.status)}.`);
+        toast.success(`${getWorkOrderNumber(workOrder)} updated to ${getStatusLabel(workOrder?.status)}.`, {
+          description: "The work order has been scheduled and operators notified.",
+          icon: <CheckCircle2 className="h-5 w-5" />,
+        });
       } else {
         // For save-only operations, use the regular update
         const updateData: UpdateWorkOrderRequest = {
@@ -602,7 +630,10 @@ export default function WorkOrderPlanning() {
         });
 
         const workOrder = extractWorkOrder(updatedWorkOrder);
-        toast.success(`${getWorkOrderNumber(workOrder)} planning saved.`);
+        toast.success(`${getWorkOrderNumber(workOrder)} planning saved.`, {
+          description: "Planning details have been updated successfully.",
+          icon: <CheckCircle2 className="h-5 w-5" />,
+        });
       }
 
       setShowPlanningDialog(false);
@@ -611,7 +642,10 @@ export default function WorkOrderPlanning() {
       // The new API handles rollback automatically, so we just show the error
       const message = err instanceof Error ? err.message : 'Planning failed. Please try again.';
       setError(message);
-      toast.error(message);
+      toast.error(message, {
+        description: "The work order plan could not be saved.",
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
       // Leave dialog open so the planner can adjust and retry
       setShowPlanningDialog(true);
     } finally {
