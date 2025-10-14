@@ -16,6 +16,9 @@ import {
   CreditCard,
   Calendar,
   RefreshCw,
+  DollarSign,
+  TrendingUp,
+  Wallet,
 } from "lucide-react";
 import {
   Table,
@@ -183,44 +186,44 @@ export default function CustomerManagement() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Companies</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Orders Value</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.filter(c => c.company).length}
+              {formatCurrency(customers.reduce((sum, c) => sum + (c.total_order_value || 0), 0))}
             </div>
-            <p className="text-xs text-muted-foreground">With company info</p>
+            <p className="text-xs text-muted-foreground">All customer orders</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Credit Customers</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {customers.filter(c => c.credit_limit && c.credit_limit > 0).length}
+            <div className="text-2xl font-bold text-orange-600">
+              {formatCurrency(customers.reduce((sum, c) => sum + (c.total_outstanding_amount || 0), 0))}
             </div>
-            <p className="text-xs text-muted-foreground">With credit limits</p>
+            <p className="text-xs text-muted-foreground">Pending payments</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.filter(c => {
-                const created = new Date(c.created_at);
-                const now = new Date();
-                return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
-              }).length}
+              {(() => {
+                const totalOrders = customers.reduce((sum, c) => sum + (c.total_order_value || 0), 0);
+                const totalPaid = customers.reduce((sum, c) => sum + (c.total_paid_amount || 0), 0);
+                return totalOrders > 0 ? `${((totalPaid / totalOrders) * 100).toFixed(1)}%` : '0%';
+              })()}
             </div>
-            <p className="text-xs text-muted-foreground">New customers</p>
+            <p className="text-xs text-muted-foreground">Payment collection</p>
           </CardContent>
         </Card>
       </div>
@@ -276,9 +279,10 @@ export default function CustomerManagement() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Company</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Credit Limit</TableHead>
-                <TableHead>Payment Terms</TableHead>
+                <TableHead>Orders</TableHead>
+                <TableHead>Total Value</TableHead>
+                <TableHead>Paid</TableHead>
+                <TableHead>Outstanding</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -295,20 +299,20 @@ export default function CustomerManagement() {
                   </TableCell>
                   <TableCell>{customer.company || "-"}</TableCell>
                   <TableCell>
-                    {customer.phone ? (
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {customer.phone}
-                      </div>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {customer.credit_limit ? formatCurrency(customer.credit_limit) : "-"}
-                  </TableCell>
-                  <TableCell>
                     <Badge variant="outline">
-                      {customer.payment_terms || "net_30"}
+                      {customer.order_count || 0} orders
                     </Badge>
+                  </TableCell>
+                  <TableCell className="font-semibold">
+                    {formatCurrency(customer.total_order_value || 0)}
+                  </TableCell>
+                  <TableCell className="text-green-600 font-semibold">
+                    {formatCurrency(customer.total_paid_amount || 0)}
+                  </TableCell>
+                  <TableCell>
+                    <div className={`font-semibold ${(customer.total_outstanding_amount || 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formatCurrency(customer.total_outstanding_amount || 0)}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge className={customer.is_active !== false ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
@@ -375,6 +379,39 @@ export default function CustomerManagement() {
           </DialogHeader>
           {selectedCustomer && (
             <div className="space-y-4">
+              {/* Financial Summary Card */}
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Financial Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Total Orders</div>
+                      <div className="text-2xl font-bold">{selectedCustomer.order_count || 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Order Value</div>
+                      <div className="text-2xl font-bold">{formatCurrency(selectedCustomer.total_order_value || 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Paid Amount</div>
+                      <div className="text-2xl font-bold text-green-600">{formatCurrency(selectedCustomer.total_paid_amount || 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Outstanding</div>
+                      <div className={`text-2xl font-bold ${(selectedCustomer.total_outstanding_amount || 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                        {formatCurrency(selectedCustomer.total_outstanding_amount || 0)}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Name</label>

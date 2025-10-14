@@ -12,20 +12,27 @@ class CustomersController {
       
       const query = `
         SELECT 
-          id,
-          name,
-          email,
-          phone,
-          company,
-          address,
-          credit_limit,
-          payment_terms,
-          is_active,
-          created_at,
-          updated_at
-        FROM factory_customers 
-        WHERE is_active = true
-        ORDER BY id desc
+          fc.id,
+          fc.name,
+          fc.email,
+          fc.phone,
+          fc.company,
+          fc.address,
+          fc.credit_limit,
+          fc.payment_terms,
+          fc.is_active,
+          fc.created_at,
+          fc.updated_at,
+          COALESCE(SUM(fco.total_value), 0) as total_order_value,
+          COALESCE(SUM(fco.paid_amount), 0) as total_paid_amount,
+          COALESCE(SUM(fco.outstanding_amount), 0) as total_outstanding_amount,
+          COUNT(fco.id) as order_count
+        FROM factory_customers fc
+        LEFT JOIN factory_customer_orders fco ON fc.id = fco.factory_customer_id
+        WHERE fc.is_active = true
+        GROUP BY fc.id, fc.name, fc.email, fc.phone, fc.company, fc.address, 
+                 fc.credit_limit, fc.payment_terms, fc.is_active, fc.created_at, fc.updated_at
+        ORDER BY fc.id desc
       `;
       
       const result = await pool.query(query);
@@ -82,19 +89,26 @@ class CustomersController {
       
       const query = `
         SELECT 
-          id,
-          name,
-          email,
-          phone,
-          company,
-          address,
-          credit_limit,
-          payment_terms,
-          is_active,
-          created_at,
-          updated_at
-        FROM factory_customers 
-        WHERE id = $1
+          fc.id,
+          fc.name,
+          fc.email,
+          fc.phone,
+          fc.company,
+          fc.address,
+          fc.credit_limit,
+          fc.payment_terms,
+          fc.is_active,
+          fc.created_at,
+          fc.updated_at,
+          COALESCE(SUM(fco.total_value), 0) as total_order_value,
+          COALESCE(SUM(fco.paid_amount), 0) as total_paid_amount,
+          COALESCE(SUM(fco.outstanding_amount), 0) as total_outstanding_amount,
+          COUNT(fco.id) as order_count
+        FROM factory_customers fc
+        LEFT JOIN factory_customer_orders fco ON fc.id = fco.factory_customer_id
+        WHERE fc.id = $1
+        GROUP BY fc.id, fc.name, fc.email, fc.phone, fc.company, fc.address, 
+                 fc.credit_limit, fc.payment_terms, fc.is_active, fc.created_at, fc.updated_at
       `;
       
       const result = await pool.query(query, [id]);

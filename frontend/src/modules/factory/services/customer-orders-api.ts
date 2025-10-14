@@ -90,6 +90,10 @@ export interface FactoryCustomer {
   is_active?: boolean;
   created_at: string;
   updated_at: string;
+  total_order_value?: number;
+  total_paid_amount?: number;
+  total_outstanding_amount?: number;
+  order_count?: number;
 }
 
 export interface CreateCustomerRequest {
