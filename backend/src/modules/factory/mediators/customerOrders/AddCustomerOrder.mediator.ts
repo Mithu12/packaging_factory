@@ -6,6 +6,7 @@ import {
     OrderLineItem
 } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
+import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -248,6 +249,8 @@ MyLogger.info('processedLineItems',processedLineItems)
           created_at: lineItemResult.rows[0].created_at.toISOString(),
         });
       }
+
+      await recalcFactoryCustomerFinancials(client, orderResult.rows[0].factory_customer_id);
 
       await client.query('COMMIT');
 

@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { FactoryCustomerPayment, RecordFactoryOrderPaymentRequest } from '@/types/factory';
+import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
 
 export class FactoryCustomerPaymentsMediator {
   /**
@@ -110,6 +111,8 @@ export class FactoryCustomerPaymentsMediator {
         newStatus,
         orderId
       ]);
+
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
 
       await client.query('COMMIT');
 
@@ -222,7 +225,7 @@ export class FactoryCustomerPaymentsMediator {
           MAX(fcp.payment_date) as last_payment_date
         FROM factory_customer_orders fco
         LEFT JOIN factory_customer_payments fcp ON fco.id = fcp.factory_customer_order_id
-        WHERE fco.id = $1 AND fco.deleted_at IS NULL
+        WHERE fco.id = $1
         GROUP BY fco.id, fco.order_number, fco.total_value, fco.paid_amount, fco.outstanding_amount
       `;
       

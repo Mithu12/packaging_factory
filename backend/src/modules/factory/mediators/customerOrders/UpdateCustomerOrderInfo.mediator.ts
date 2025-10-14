@@ -3,6 +3,7 @@ import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, 
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -321,6 +322,9 @@ export class UpdateCustomerOrderInfoMediator {
         `;
 
         const updateResult = await client.query(updateQuery, updateValues);
+
+        await recalcFactoryCustomerFinancials(client, existingOrder.factory_customer_id);
+
         await client.query('COMMIT');
 
         // Get updated order with line items
@@ -424,6 +428,9 @@ export class UpdateCustomerOrderInfoMediator {
       ];
 
       await client.query(updateQuery, updateValues);
+
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+
       await client.query('COMMIT');
       transactionActive = false;
 
@@ -527,8 +534,12 @@ export class UpdateCustomerOrderInfoMediator {
   ): Promise<FactoryCustomerOrder> {
     const action = "UpdateCustomerOrderInfoMediator.updateOrderStatus";
     const client = await pool.connect();
+    let transactionActive = false;
 
     try {
+      await client.query('BEGIN');
+      transactionActive = true;
+
       MyLogger.info(action, {
         orderId: statusData.order_id,
         newStatus: statusData.status,
@@ -601,6 +612,11 @@ export class UpdateCustomerOrderInfoMediator {
 
       await client.query(updateQuery, updateValues);
 
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+
+      await client.query('COMMIT');
+      transactionActive = false;
+
       // Get updated order
       const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
       const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(statusData.order_id.toString());
@@ -614,6 +630,9 @@ export class UpdateCustomerOrderInfoMediator {
       return updatedOrder!;
 
     } catch (error: any) {
+      if (transactionActive) {
+        await client.query('ROLLBACK');
+      }
       MyLogger.error(action, error);
       throw error;
     } finally {

@@ -1,5 +1,6 @@
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
+import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -40,7 +41,7 @@ export class DeleteCustomerOrderMediator {
       }
 
       // Check if order exists and get current status, with factory access control
-      let orderQuery = "SELECT id, order_number, status FROM factory_customer_orders WHERE id = $1";
+      let orderQuery = "SELECT id, order_number, status, factory_customer_id FROM factory_customer_orders WHERE id = $1";
       let queryParams: any[] = [orderId];
 
       if (currentUserId && userFactories.length > 0) {
@@ -74,6 +75,8 @@ export class DeleteCustomerOrderMediator {
         throw new Error(`Failed to delete factory_customer order with ID ${orderId}`);
       }
 
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+
       await client.query('COMMIT');
 
       MyLogger.success(action, { 
@@ -102,7 +105,7 @@ export class DeleteCustomerOrderMediator {
       MyLogger.info(action, { orderId, userId });
 
       // Check if order exists
-      const orderQuery = "SELECT id, order_number, status FROM factory_customer_orders WHERE id = $1";
+      const orderQuery = "SELECT id, order_number, status, factory_customer_id FROM factory_customer_orders WHERE id = $1";
       const orderResult = await client.query(orderQuery, [orderId]);
       
       if (orderResult.rows.length === 0) {
@@ -133,6 +136,8 @@ export class DeleteCustomerOrderMediator {
       if (updateResult.rowCount === 0) {
         throw new Error(`Failed to cancel factory_customer order with ID ${orderId}`);
       }
+
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
 
       MyLogger.success(action, { 
         orderId, 
@@ -170,6 +175,7 @@ export class DeleteCustomerOrderMediator {
 
       let deleted = 0;
       const errors: string[] = [];
+      const customersToRecalc = new Set<number>();
 
       for (const orderId of orderIds) {
         try {
