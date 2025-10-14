@@ -17,6 +17,7 @@ import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
+import licenseRoutes from "./routes/license.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
@@ -116,6 +117,7 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/license", licenseRoutes);
 app.use("/api", inventoryRoutes);
 app.use("/api/accounts", accountsRoutes);
 app.use("/api/factory", factoryRoutes);
