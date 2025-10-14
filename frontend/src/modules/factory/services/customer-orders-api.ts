@@ -35,6 +35,8 @@ export interface FactoryCustomerOrder {
   status: FactoryCustomerOrderStatus;
   priority: OrderPriority;
   total_value: number;
+  paid_amount: number;
+  outstanding_amount: number;
   currency: string;
   sales_person: string;
   notes?: string;
@@ -232,6 +234,44 @@ export interface ExportOrdersRequest {
   order_date_to?: string;
 }
 
+export interface RecordPaymentRequest {
+  payment_amount: number;
+  payment_method: string;
+  payment_date?: string;
+  payment_reference?: string;
+  notes?: string;
+  factory_sales_invoice_id?: number;
+  additional_metadata?: Record<string, unknown>;
+}
+
+export interface FactoryCustomerPayment {
+  id: number;
+  factory_customer_order_id: string;
+  factory_customer_id: string;
+  factory_id?: number;
+  factory_sales_invoice_id?: number;
+  payment_amount: number;
+  payment_date: string;
+  payment_method: string;
+  payment_reference?: string;
+  notes?: string;
+  recorded_by: number;
+  recorded_at: string;
+  recorded_by_username?: string;
+  updated_at?: string;
+  additional_metadata?: Record<string, unknown>;
+}
+
+export interface PaymentSummary {
+  orderId: number;
+  orderNumber: string;
+  totalValue: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  paymentCount: number;
+  lastPaymentDate?: string;
+}
+
 export interface PaginatedResponse<T> {
   orders: T[];
   total: number;
@@ -408,6 +448,24 @@ export class CustomerOrdersApiService {
     return makeRequest<{ deleted: boolean }>(`/factory/customers/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Payment recording
+  static async recordPayment(orderId: string, data: RecordPaymentRequest): Promise<FactoryCustomerPayment> {
+    return makeRequest<FactoryCustomerPayment>(`/factory/customer-orders/${orderId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get payment history
+  static async getPaymentHistory(orderId: string): Promise<{ payments: FactoryCustomerPayment[] }> {
+    return makeRequest<{ payments: FactoryCustomerPayment[] }>(`/factory/customer-orders/${orderId}/payments`);
+  }
+
+  // Get payment summary
+  static async getPaymentSummary(orderId: string): Promise<PaymentSummary> {
+    return makeRequest<PaymentSummary>(`/factory/customer-orders/${orderId}/payments/summary`);
   }
 }
 

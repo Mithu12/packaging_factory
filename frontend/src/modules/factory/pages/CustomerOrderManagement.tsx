@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Download,
   RefreshCw,
+  Wallet,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -87,6 +88,7 @@ export default function CustomerOrderManagement() {
   const [showOrderEntry, setShowOrderEntry] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showShippingDialog, setShowShippingDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,13 @@ export default function CustomerOrderManagement() {
     tracking_number: "",
     carrier: "",
     estimated_delivery_date: ""
+  });
+  const [paymentData, setPaymentData] = useState({
+    payment_amount: 0,
+    payment_method: "cash",
+    payment_reference: "",
+    payment_date: new Date().toISOString().split('T')[0],
+    notes: ""
   });
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -107,7 +116,7 @@ export default function CustomerOrderManagement() {
       
       const queryParams: OrderQueryParams = {
         ...search,
-        status: statusFilter !== "all" ? statusFilter as FactoryCustomerOrderStatus : "",
+        status: statusFilter !== "all" ? (statusFilter as FactoryCustomerOrderStatus) : undefined,
       };
       
       const response = await CustomerOrdersApiService.getCustomerOrders(queryParams);
@@ -197,7 +206,7 @@ export default function CustomerOrderManagement() {
     if (!selectedOrder) return;
 
     try {
-      await CustomerOrdersApiService.shipCustomerOrder(selectedOrder.id, shippingData);
+      await CustomerOrdersApiService.shipCustomerOrder(selectedOrder.id.toString(), shippingData);
       setShowShippingDialog(false);
       setSelectedOrder(null);
       await loadOrders(); // Reload orders
@@ -205,6 +214,35 @@ export default function CustomerOrderManagement() {
     } catch (error) {
       console.error("Failed to ship order:", error);
       setError(error instanceof Error ? error.message : 'Failed to ship order');
+    }
+  };
+
+  // Handle record payment
+  const handleRecordPayment = (order: FactoryCustomerOrder) => {
+    setSelectedOrder(order);
+    setPaymentData({
+      payment_amount: order.outstanding_amount,
+      payment_method: "cash",
+      payment_reference: "",
+      payment_date: new Date().toISOString().split('T')[0],
+      notes: ""
+    });
+    setShowPaymentDialog(true);
+  };
+
+  // Handle payment submission
+  const handlePaymentSubmit = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      await CustomerOrdersApiService.recordPayment(selectedOrder.id.toString(), paymentData);
+      setShowPaymentDialog(false);
+      setSelectedOrder(null);
+      await loadOrders(); // Reload orders
+      await loadStats(); // Reload stats
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      setError(error instanceof Error ? error.message : 'Failed to record payment');
     }
   };
 
@@ -455,6 +493,7 @@ export default function CustomerOrderManagement() {
                     <TableHead>Order Date</TableHead>
                     <TableHead>Required Date</TableHead>
                     <TableHead>Value</TableHead>
+                    <TableHead>Outstanding</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Sales Person</TableHead>
@@ -494,6 +533,11 @@ export default function CustomerOrderManagement() {
                       </TableCell>
                       <TableCell>{formatCurrency(order.total_value)}</TableCell>
                       <TableCell>
+                        <div className={`font-semibold ${order.outstanding_amount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                          {formatCurrency(order.outstanding_amount)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Badge className={getStatusColor(order.status)}>
                           {order.status.replace("_", " ").toUpperCase()}
                         </Badge>
@@ -520,6 +564,17 @@ export default function CustomerOrderManagement() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {order.outstanding_amount > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRecordPayment(order)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Record Payment"
+                            >
+                              <Wallet className="h-4 w-4" />
+                            </Button>
+                          )}
                           {order.status === 'completed' && (
                             <Button
                               variant="outline"
@@ -618,8 +673,124 @@ export default function CustomerOrderManagement() {
             <Button variant="outline" onClick={() => setShowShippingDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={() => handleShipOrderSubmit(shippingData)}>
+            <Button onClick={handleShipOrderSubmit}>
               Ship Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Recording Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            <DialogDescription>
+              Record payment for order #{selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Order Summary */}
+            {selectedOrder && (
+              <Card className="bg-muted">
+                <CardContent className="pt-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Value:</span>
+                      <span className="font-semibold">{formatCurrency(selectedOrder.total_value)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Paid Amount:</span>
+                      <span className="font-semibold text-green-600">{formatCurrency(selectedOrder.paid_amount)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-muted-foreground font-semibold">Outstanding:</span>
+                      <span className="font-bold text-orange-600">{formatCurrency(selectedOrder.outstanding_amount)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div>
+              <Label htmlFor="payment-amount">Payment Amount *</Label>
+              <Input
+                id="payment-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                max={selectedOrder?.outstanding_amount}
+                placeholder="Enter payment amount"
+                value={paymentData.payment_amount}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, payment_amount: parseFloat(e.target.value) || 0 }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Maximum: {formatCurrency(selectedOrder?.outstanding_amount || 0)}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="payment-method">Payment Method *</Label>
+              <Select 
+                value={paymentData.payment_method}
+                onValueChange={(value) => setPaymentData(prev => ({ ...prev, payment_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="mobile_payment">Mobile Payment</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="payment-date">Payment Date</Label>
+              <Input
+                id="payment-date"
+                type="date"
+                value={paymentData.payment_date}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="payment-reference">Payment Reference</Label>
+              <Input
+                id="payment-reference"
+                placeholder="Transaction ID, Cheque #, etc."
+                value={paymentData.payment_reference}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, payment_reference: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="payment-notes">Notes</Label>
+              <Textarea
+                id="payment-notes"
+                placeholder="Additional notes..."
+                rows={3}
+                value={paymentData.notes}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePaymentSubmit}
+              disabled={!paymentData.payment_amount || paymentData.payment_amount <= 0}
+            >
+              Record Payment
             </Button>
           </DialogFooter>
         </DialogContent>

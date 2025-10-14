@@ -262,6 +262,8 @@ MyLogger.info('processedLineItems',processedLineItems)
         required_date: orderResult.rows[0].required_date.toISOString(),
         status: orderResult.rows[0].status,
         priority: orderResult.rows[0].priority,
+        paid_amount: 0,
+        outstanding_amount: parseFloat(orderResult.rows[0].total_value),
         total_value: orderResult.rows[0].total_value,
         currency: orderResult.rows[0].currency,
         sales_person: orderResult.rows[0].sales_person,

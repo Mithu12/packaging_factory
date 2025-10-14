@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,9 +30,12 @@ import {
   Edit,
   Printer,
   Download,
+  Wallet,
+  CreditCard,
 } from "lucide-react";
-import { FactoryCustomerOrder } from "../services/customer-orders-api";
+import { FactoryCustomerOrder, CustomerOrdersApiService, FactoryCustomerPayment } from "../services/customer-orders-api";
 import { useFormatting } from "@/hooks/useFormatting";
+import { Progress } from "@/components/ui/progress";
 
 interface OrderDetailsDialogProps {
   open: boolean;
@@ -48,8 +51,36 @@ export default function OrderDetailsDialog({
   onEdit,
 }: OrderDetailsDialogProps) {
   const { formatCurrency, formatDate } = useFormatting();
+  const [paymentHistory, setPaymentHistory] = useState<FactoryCustomerPayment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+
+  // Load payment history when order changes
+  useEffect(() => {
+    if (order && open) {
+      loadPaymentHistory();
+    }
+  }, [order?.id, open]);
+
+  const loadPaymentHistory = async () => {
+    if (!order) return;
+    
+    try {
+      setLoadingPayments(true);
+      const response = await CustomerOrdersApiService.getPaymentHistory(order.id.toString());
+      setPaymentHistory(response.payments || []);
+    } catch (error) {
+      console.error('Failed to load payment history:', error);
+      setPaymentHistory([]);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
 
   if (!order) return null;
+
+  const paymentProgress = order.total_value > 0 
+    ? (order.paid_amount / order.total_value) * 100 
+    : 0;
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -321,6 +352,86 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
                   <span>Total:</span>
                   <span>{formatCurrency(order.total_value)} {order.currency}</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Wallet className="h-5 w-5 mr-2" />
+                Payment Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Value:</span>
+                    <span className="font-semibold">{formatCurrency(order.total_value)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Paid Amount:</span>
+                    <span className="font-semibold text-green-600">{formatCurrency(order.paid_amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t pt-2">
+                    <span className="text-muted-foreground font-semibold">Outstanding Amount:</span>
+                    <span className={`font-bold ${order.outstanding_amount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formatCurrency(order.outstanding_amount)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Payment Progress</span>
+                    <span>{paymentProgress.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={paymentProgress} className="h-2" />
+                </div>
+
+                {paymentHistory.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold flex items-center">
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Payment History ({paymentHistory.length})
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        {paymentHistory.map((payment) => (
+                          <div key={payment.id} className="flex justify-between items-start p-3 bg-muted rounded-md text-sm">
+                            <div className="space-y-1">
+                              <div className="font-semibold">{formatCurrency(payment.payment_amount)}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {payment.payment_method.replace('_', ' ').toUpperCase()}
+                                {payment.payment_reference && ` - ${payment.payment_reference}`}
+                              </div>
+                              {payment.notes && (
+                                <div className="text-xs text-muted-foreground italic">{payment.notes}</div>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground text-right">
+                              <div>{formatDate(payment.payment_date)}</div>
+                              {payment.recorded_by_username && (
+                                <div className="text-xs">by {payment.recorded_by_username}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {loadingPayments && (
+                  <div className="text-sm text-muted-foreground text-center py-2">
+                    Loading payment history...
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -7,7 +7,8 @@ import {
   updateOrderStatusSchema,
   orderIdSchema,
   bulkUpdateOrderStatusSchema,
-  exportOrdersSchema
+  exportOrdersSchema,
+  recordPaymentSchema
 } from "../validation/customerOrderValidation";
 import { authenticate } from "@/middleware/auth";
 import {
@@ -256,6 +257,35 @@ router.delete(
   requirePermission(PERMISSIONS.FACTORY_ORDERS_DELETE),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.bulkDeleteCustomerOrders)
+);
+
+// POST /api/factory/customer-orders/:id/payments - Record payment against customer order
+router.post(
+  "/:id/payments",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  validateParams(orderIdSchema),
+  validateRequest(recordPaymentSchema),
+  auditMiddleware,
+  expressAsyncHandler(CustomerOrdersController.recordPayment)
+);
+
+// GET /api/factory/customer-orders/:id/payments - Get payment history for customer order
+router.get(
+  "/:id/payments",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  validateParams(orderIdSchema),
+  expressAsyncHandler(CustomerOrdersController.getPaymentHistory)
+);
+
+// GET /api/factory/customer-orders/:id/payments/summary - Get payment summary for customer order
+router.get(
+  "/:id/payments/summary",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  validateParams(orderIdSchema),
+  expressAsyncHandler(CustomerOrdersController.getPaymentSummary)
 );
 
 export default router;

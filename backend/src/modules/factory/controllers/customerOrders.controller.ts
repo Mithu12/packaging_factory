@@ -3,9 +3,10 @@ import { GetCustomerOrderInfoMediator } from "../mediators/customerOrders/GetCus
 import { AddCustomerOrderMediator } from "../mediators/customerOrders/AddCustomerOrder.mediator";
 import { UpdateCustomerOrderInfoMediator } from "../mediators/customerOrders/UpdateCustomerOrderInfo.mediator";
 import { DeleteCustomerOrderMediator } from "../mediators/customerOrders/DeleteCustomerOrder.mediator";
+import FactoryCustomerPaymentsMediator from "../mediators/customerOrders/FactoryCustomerPaymentsMediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
-import { CreateCustomerOrderRequest, UpdateCustomerOrderRequest, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus } from "@/types/factory";
+import { CreateCustomerOrderRequest, UpdateCustomerOrderRequest, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, RecordFactoryOrderPaymentRequest } from "@/types/factory";
 import pool from "@/database/connection";
 
 class CustomerOrdersController {
@@ -407,6 +408,77 @@ class CustomerOrdersController {
         force
       });
       serializeSuccessResponse(res, { deleted: result.deleted, errors: result.errors }, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Record payment against customer order
+  async recordPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/customer-orders/:id/payments";
+      const orderId = req.params.id;
+      const userId = req.user?.user_id;
+      
+      MyLogger.info(action, { orderId, paymentData: req.body });
+
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const paymentData: RecordFactoryOrderPaymentRequest = req.body;
+      const payment = await FactoryCustomerPaymentsMediator.recordPayment(
+        orderId,
+        paymentData,
+        userId
+      );
+
+      MyLogger.success(action, {
+        orderId,
+        paymentId: payment.id,
+        amount: payment.payment_amount
+      });
+
+      serializeSuccessResponse(res, payment, "Payment recorded successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get payment history for customer order
+  async getPaymentHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/payments";
+      const orderId = req.params.id;
+
+      MyLogger.info(action, { orderId });
+
+      const payments = await FactoryCustomerPaymentsMediator.getPaymentHistory(orderId);
+
+      MyLogger.success(action, {
+        orderId,
+        paymentCount: payments.length
+      });
+
+      serializeSuccessResponse(res, { payments }, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get payment summary for customer order
+  async getPaymentSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/payments/summary";
+      const orderId = req.params.id;
+
+      MyLogger.info(action, { orderId });
+
+      const summary = await FactoryCustomerPaymentsMediator.getPaymentSummary(orderId);
+
+      MyLogger.success(action, { orderId, summary });
+
+      serializeSuccessResponse(res, summary, "SUCCESS");
     } catch (error) {
       next(error);
     }

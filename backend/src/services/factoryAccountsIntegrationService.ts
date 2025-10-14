@@ -58,6 +58,23 @@ export interface ReturnAccountingData {
   originalCogsVoucherId?: number;
 }
 
+export interface PaymentAccountingData {
+  orderId: string;
+  orderNumber: string;
+  paymentId: number;
+  amount: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  paymentDate: Date;
+  factoryId?: number;
+  factoryName?: string;
+  factoryCostCenterId?: number;
+  factoryCostCenterName?: string;
+  customerId: number;
+  userId: number;
+  timestamp: Date;
+}
+
 class FactoryAccountsIntegrationService {
   private isAccountsAvailable(): boolean {
     return moduleRegistry.isModuleAvailable(MODULE_NAMES.ACCOUNTS);
@@ -1202,6 +1219,128 @@ class FactoryAccountsIntegrationService {
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
+
+  /**
+   * Create payment receipt voucher
+   * Debit: Cash/Bank, Credit: Accounts Receivable
+   */
+  async createCustomerPaymentVoucher(
+    paymentData: PaymentAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'FactoryAccountsIntegration.createCustomerPaymentVoucher';
+    
+    try {
+      if (!this.isAccountsAvailable()) {
+        MyLogger.info(action, { message: 'Accounts module not available' });
+        return null;
+      }
+
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      // Get required accounts
+      const cashBankAccount = await this.getDefaultAccount(
+        paymentData.paymentMethod === 'cash' ? 'cash_in_hand' : 'bank_account'
+      );
+      const accountsReceivableAccount = await this.getDefaultAccount('accounts_receivable');
+
+      if (!cashBankAccount || !accountsReceivableAccount) {
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: 'Required accounts not configured'
+        };
+      }
+
+      // Generate a unique event ID for deduplication
+      const eventId = factoryEventLogService.generateEventId(
+        'payment_received',
+        paymentData.paymentId
+      );
+
+      // Check if already processed
+      const alreadyProcessed = await factoryEventLogService.isEventProcessed(eventId);
+      if (alreadyProcessed) {
+        MyLogger.info(action, { 
+          paymentId: paymentData.paymentId,
+          message: 'Payment voucher already created',
+          eventId 
+        });
+        return null;
+      }
+
+      // Log event start
+      let eventLogId: number | null = null;
+      try {
+        eventLogId = await factoryEventLogService.logEventStart(
+          eventId,
+          'payment_received',
+          'factory_customer_payment',
+          paymentData.paymentId,
+          paymentData,
+          paymentData.userId
+        );
+      } catch (error) {
+        MyLogger.warn(action, { message: 'Failed to log event start', error });
+      }
+
+      const voucherData = {
+        type: VoucherType.RECEIPT,
+        date: new Date(paymentData.paymentDate),
+        reference: `Payment for Order ${paymentData.orderNumber}`,
+        payee: `Factory Customer - Order ${paymentData.orderNumber}`,
+        amount: paymentData.amount,
+        narration: `Customer Payment - Order ${paymentData.orderNumber} via ${paymentData.paymentMethod}${paymentData.paymentReference ? ` (Ref: ${paymentData.paymentReference})` : ''}`,
+        costCenterId: paymentData.factoryCostCenterId,
+        lines: [
+          {
+            accountId: cashBankAccount.id,
+            debit: paymentData.amount,
+            credit: 0,
+            description: `Payment received for Order ${paymentData.orderNumber}`,
+            costCenterId: paymentData.factoryCostCenterId
+          },
+          {
+            accountId: accountsReceivableAccount.id,
+            debit: 0,
+            credit: paymentData.amount,
+            description: `Payment against Order ${paymentData.orderNumber}`,
+            costCenterId: paymentData.factoryCostCenterId
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      
+      // Auto-approve the voucher if updateVoucherMediator is available
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      // Log event success
+      if (eventLogId) {
+        try {
+          await factoryEventLogService.logEventSuccess(eventLogId, [voucher.id]);
+        } catch (error) {
+          MyLogger.warn(action, { message: 'Failed to log event success', error });
+        }
+      }
+
+      MyLogger.success(action, { 
+        paymentId: paymentData.paymentId,
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo,
+        amount: paymentData.amount
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { paymentData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
 }
 
 // Export singleton instance
@@ -1456,12 +1595,63 @@ export const registerFactoryAccountingListeners = (): void => {
     }
   });
 
+  // Listen for customer payment events
+  eventBus.on(EVENT_NAMES.FACTORY_PAYMENT_RECEIVED, async (payload: any) => {
+    try {
+      const paymentData: PaymentAccountingData = {
+        orderId: payload.orderId,
+        orderNumber: payload.orderNumber,
+        paymentId: payload.paymentId,
+        amount: payload.amount,
+        paymentMethod: payload.paymentMethod,
+        paymentReference: payload.paymentReference,
+        paymentDate: payload.paymentDate,
+        factoryId: payload.factoryId,
+        factoryName: payload.factoryName,
+        factoryCostCenterId: payload.factoryCostCenterId,
+        factoryCostCenterName: payload.factoryCostCenterName,
+        customerId: payload.customerId,
+        userId: payload.userId,
+        timestamp: payload.timestamp
+      };
+
+      const result = await factoryAccountsIntegrationService.createCustomerPaymentVoucher(
+        paymentData,
+        payload.userId
+      );
+
+      if (result?.success) {
+        MyLogger.success('Factory Accounting Integration', {
+          event: 'PAYMENT_RECEIVED',
+          paymentId: paymentData.paymentId,
+          orderId: paymentData.orderId,
+          voucherId: result.voucherId,
+          voucherNo: result.voucherNo,
+          amount: paymentData.amount
+        });
+      } else if (result?.error) {
+        MyLogger.warn('Factory Accounting Integration', {
+          event: 'PAYMENT_RECEIVED',
+          paymentId: paymentData.paymentId,
+          orderId: paymentData.orderId,
+          error: result.error
+        });
+      }
+    } catch (error) {
+      MyLogger.error('Factory Accounting Integration', error, { 
+        event: 'PAYMENT_RECEIVED',
+        payload 
+      });
+    }
+  });
+
   MyLogger.success('Factory Accounting Listeners', { 
     message: 'Event listeners registered successfully',
     events: [
       'FACTORY_ORDER_APPROVED', 
       'FACTORY_ORDER_SHIPPED',
       'FACTORY_RETURN_APPROVED',
+      'FACTORY_PAYMENT_RECEIVED',
       'MATERIAL_CONSUMED', 
       'MATERIAL_WASTAGE_APPROVED',
       'PRODUCTION_RUN_COMPLETED',

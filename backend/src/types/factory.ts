@@ -88,6 +88,8 @@ export interface FactoryCustomerOrder {
   notes?: string;
   terms?: string;
   payment_terms: FactoryCustomerOrderPaymentTerms;
+  paid_amount: number;
+  outstanding_amount: number;
   shipping_address: Address;
   billing_address: Address;
   line_items: OrderLineItem[];
@@ -543,4 +545,36 @@ export interface WorkOrderMaterialRequirement {
   notes?: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface FactoryCustomerPayment {
+  id: number;
+  factory_customer_order_id: string;
+  factory_customer_id: string;
+  factory_id?: number;
+  factory_sales_invoice_id?: number;
+  payment_amount: number;
+  payment_date: string;
+  payment_method: string;
+  payment_reference?: string;
+  notes?: string;
+  recorded_by: number;
+  recorded_at: string;
+  updated_at?: string;
+  additional_metadata?: Record<string, unknown>;
+}
+
+export interface RecordFactoryOrderPaymentRequest {
+  payment_amount: number;
+  payment_date?: string;
+  payment_method: string;
+  payment_reference?: string;
+  notes?: string;
+  factory_sales_invoice_id?: number;
+  additional_metadata?: Record<string, unknown>;
+}
+
+export interface FactoryOrderPaymentHistoryResponse {
+  order: FactoryCustomerOrder;
+  payments: FactoryCustomerPayment[];
 }

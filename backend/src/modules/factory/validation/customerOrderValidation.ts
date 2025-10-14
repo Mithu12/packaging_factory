@@ -116,6 +116,16 @@ export const updateOrderStatusSchema = Joi.object({
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
+export const recordPaymentSchema = Joi.object({
+  payment_amount: Joi.number().positive().precision(2).required(),
+  payment_date: Joi.date().iso().optional(),
+  payment_method: Joi.string().max(50).required(),
+  payment_reference: Joi.string().max(100).optional().allow(''),
+  notes: Joi.string().max(2000).optional().allow(''),
+  factory_sales_invoice_id: Joi.number().integer().positive().optional(),
+  additional_metadata: Joi.object().unknown(true).optional(),
+});
+
 // Order ID parameter validation
 export const orderIdSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
