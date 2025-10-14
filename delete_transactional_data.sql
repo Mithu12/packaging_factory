@@ -136,6 +136,9 @@ DELETE FROM work_orders;
 -- Step 4: Delete factory customer transactions (before vouchers)
 -- =======================================================================================
 
+-- Delete factory sales invoice
+DELETE FROM Factory_SALES_INVOICES;
+
 -- Delete factory return line items first (foreign key to factory_customer_returns)
 DELETE FROM factory_return_line_items;
 
