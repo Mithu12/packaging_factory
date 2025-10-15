@@ -1,5 +1,6 @@
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
+import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
 import {
   StockAdjustment,
   CreateStockAdjustmentRequest,
@@ -84,6 +85,47 @@ export class StockAdjustmentMediator {
       await client.query("COMMIT");
 
       const adjustment = adjustmentResult.rows[0];
+
+      // Emit accounting integration event
+      try {
+        // Get product information for the event
+        const productQuery = `SELECT name, sku FROM products WHERE id = $1`;
+        const productResult = await pool.query(productQuery, [data.product_id]);
+        const product = productResult.rows[0];
+
+        const adjustmentData = {
+          adjustmentId: adjustment.id,
+          productId: data.product_id,
+          productName: product?.name || 'Unknown Product',
+          productSku: product?.sku || 'UNKNOWN',
+          adjustmentType: data.adjustment_type,
+          quantity: data.quantity,
+          previousStock: currentStock,
+          newStock: newStock,
+          reason: data.reason,
+          reference: data.reference || `ADJ-${adjustment.id}`,
+          notes: data.notes,
+          adjustmentDate: new Date().toISOString().split("T")[0]
+        };
+
+        // Emit event for accounting integration
+        eventBus.emit(EVENT_NAMES.STOCK_ADJUSTMENT_CREATED, {
+          adjustmentData,
+          userId: data.adjusted_by || "System User"
+        });
+
+        MyLogger.success("Stock Adjustment Accounting Event Emitted", {
+          adjustmentId: adjustment.id,
+          event: EVENT_NAMES.STOCK_ADJUSTMENT_CREATED,
+          productId: data.product_id
+        });
+      } catch (eventError: any) {
+        MyLogger.error("Failed to emit stock adjustment accounting event", eventError, {
+          adjustmentId: adjustment.id,
+        });
+        // Don't fail the entire operation if event emission fails
+      }
+
       MyLogger.success(action, {
         adjustmentId: adjustment.id,
         productId: data.product_id,

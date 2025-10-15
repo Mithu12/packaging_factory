@@ -155,6 +155,15 @@ export const EVENT_NAMES = {
   
   // Factory events - Expenses
   FACTORY_EXPENSE_APPROVED: 'factory.expense.approved',
+
+  // Inventory events
+  PURCHASE_ORDER_CREATED: 'inventory.purchase.created',
+  PURCHASE_ORDER_UPDATED: 'inventory.purchase.updated',
+  PURCHASE_ORDER_RECEIVED: 'inventory.purchase.received',
+  PURCHASE_ORDER_CANCELLED: 'inventory.purchase.cancelled',
+
+  // Stock events
+  STOCK_ADJUSTMENT_CREATED: 'inventory.stock.adjusted',
 } as const;
 
 export type EventName = typeof EVENT_NAMES[keyof typeof EVENT_NAMES];

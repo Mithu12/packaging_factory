@@ -8,6 +8,7 @@ import {
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
 import { InvoiceMediator } from "../payments/InvoiceMediator";
+import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
 
 class UpdatePurchaseOrderInfoMediator {
   // Helper method to calculate due date based on payment terms
@@ -639,6 +640,63 @@ class UpdatePurchaseOrderInfoMediator {
           });
           // Don't fail the entire transaction if invoice creation fails
         }
+      }
+
+      // Emit accounting integration event for received goods
+      try {
+        // Get supplier information for the event
+        const supplierQuery = `SELECT name FROM suppliers WHERE id = $1`;
+        const supplierResult = await client.query(supplierQuery, [updatedPO.supplier_id]);
+        const supplierName = supplierResult.rows[0]?.name || 'Unknown Supplier';
+
+        // Get line items with product information
+        const lineItemsQuery = `
+          SELECT
+            poli.id as line_item_id,
+            poli.product_id,
+            p.name as product_name,
+            poli.quantity,
+            poli.unit_price,
+            poli.total_price
+          FROM purchase_order_line_items poli
+          JOIN products p ON poli.product_id = p.id
+          WHERE poli.purchase_order_id = $1
+        `;
+        const lineItemsResult = await client.query(lineItemsQuery, [id]);
+
+        const purchaseOrderData = {
+          purchaseOrderId: id,
+          poNumber: updatedPO.po_number,
+          supplierId: updatedPO.supplier_id,
+          supplierName: supplierName,
+          totalAmount: parseFloat(updatedPO.total_amount),
+          receivedDate: data.received_date || new Date().toISOString().split("T")[0],
+          currency: 'USD', // Default currency, should be configurable
+          lineItems: lineItemsResult.rows.map((item: any) => ({
+            productId: item.product_id,
+            productName: item.product_name,
+            quantity: parseFloat(item.quantity),
+            unitPrice: parseFloat(item.unit_price),
+            totalPrice: parseFloat(item.total_price)
+          }))
+        };
+
+        // Emit event for accounting integration
+        eventBus.emit(EVENT_NAMES.PURCHASE_ORDER_RECEIVED, {
+          purchaseOrderData,
+          userId: "System User" // Should be the actual user ID
+        });
+
+        MyLogger.success("Purchase Order Accounting Event Emitted", {
+          purchaseOrderId: id,
+          event: EVENT_NAMES.PURCHASE_ORDER_RECEIVED,
+          totalItems: lineItemsResult.rows.length
+        });
+      } catch (eventError: any) {
+        MyLogger.error("Failed to emit purchase order accounting event", eventError, {
+          purchaseOrderId: id,
+        });
+        // Don't fail the entire transaction if event emission fails
       }
 
       await client.query("COMMIT");

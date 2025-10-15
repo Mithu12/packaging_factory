@@ -9,7 +9,11 @@ import brandsRoutes from "@/modules/inventory/routes/brands.routes";
 import originsRoutes from "@/modules/inventory/routes/origins.routes";
 import paymentsRoutes from "@/modules/inventory/routes/payments.routes";
 import distributionRoutes from "@/modules/inventory/routes/distribution.routes";
+import { registerInventoryAccountingListeners } from "@/services/inventoryAccountsIntegrationService";
 import express from "express";
+
+// Register inventory accounting listeners
+registerInventoryAccountingListeners();
 
 const router = express.Router();
 // Mount inventory-module-routes
