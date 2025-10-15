@@ -37,7 +37,7 @@ done
 # ----------------------------
 log "Building backend..."
 cd "$BACKEND_DIR" || { log "Failed to enter backend directory"; exit 1; }
-npm run build || { log "Backend build failed"; exit 1; }
+npm run build:prod || { log "Backend build failed"; exit 1; }
 
 # Zip backend dist contents only
 log "Zipping backend dist..."
