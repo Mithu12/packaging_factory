@@ -53,13 +53,22 @@ const PORT = process.env.PORT || 3001;
 // Security middleware
 // app.use(helmet());
 
-// Rate limiting
+// Rate limiting - more permissive for testing
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minutes
-  max: 500, // limit each IP to 100 requests per windowMs
+  max: isTestEnvironment ? 5000 : 500, // Higher limit for tests: 5000 vs 500 for production
   message: "Too many requests from this IP, please try again later.",
+  skip: (req) => {
+    // Skip rate limiting for health checks and test requests
+    return req.path === '/health' || isTestEnvironment;
+  }
 });
-app.use(limiter);
+
+// Only apply rate limiting in production
+if (!isTestEnvironment) {
+  app.use(limiter);
+}
 
 // CORS configuration
 const allowedOrigins = process.env.CORS_ORIGIN?.split(",") || [];

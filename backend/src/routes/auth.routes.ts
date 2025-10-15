@@ -21,8 +21,8 @@ const router = express.Router();
 // Public routes (no authentication required)
 
 // Login
-router.post('/login', 
-  authRateLimit(5, 15 * 60 * 1000), // 5 attempts per 15 minutes
+router.post('/login',
+  process.env.NODE_ENV === 'test' ? [] : [authRateLimit(5, 15 * 60 * 1000)], // Skip rate limiting in tests
   auditMiddleware,
   validateAuth(validateLogin),
   expressAsyncHandler(async (req, res, next) => {

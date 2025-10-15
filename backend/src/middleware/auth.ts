@@ -125,22 +125,28 @@ export const ownerOrAdmin = (getUserId: (req: Request) => number) => {
 // Rate limiting for authentication endpoints
 export const authRateLimit = (maxAttempts: number = 5, windowMs: number = 15 * 60 * 1000) => {
   const attempts = new Map<string, { count: number; resetTime: number }>();
-  
+  const isTestEnvironment = process.env.NODE_ENV === 'test';
+
   return (req: Request, res: Response, next: NextFunction) => {
+    // Skip rate limiting in test environment
+    if (isTestEnvironment) {
+      return next();
+    }
+
     const key = req.ip + ':' + (req.body.username || req.body.email || 'unknown');
     const now = Date.now();
-    
+
     const attempt = attempts.get(key);
-    
+
     if (!attempt || now > attempt.resetTime) {
       attempts.set(key, { count: 1, resetTime: now + windowMs });
       return next();
     }
-    
+
     if (attempt.count >= maxAttempts) {
       return next(createError('Too many authentication attempts. Please try again later.', 429));
     }
-    
+
     attempt.count++;
     next();
   };
