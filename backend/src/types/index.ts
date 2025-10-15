@@ -18,3 +18,6 @@ export type {
   StockAdjustmentQueryParams,
   StockAdjustmentStats
 } from './stockAdjustment';
+
+// Export HRM types
+export * from './hrm';

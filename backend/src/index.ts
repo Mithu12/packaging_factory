@@ -28,6 +28,7 @@ import factoryRoutes from "./modules/factory";
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
 import { initializeExpensesModule } from "./modules/expenses/moduleInit";
 import { initializeFactoryModule } from "./modules/factory/moduleInit";
+import { HRMModule } from "./modules/hrm/moduleInit";
 
 // Load environment variables
 dotenv.config();
@@ -180,9 +181,13 @@ const initializeModules = async (): Promise<void> => {
     console.log("🔧 Initializing factory module...");
     initializeFactoryModule();
 
-    MyLogger.success(action, { 
+    // Initialize HRM module
+    console.log("🔧 Initializing HRM module...");
+    HRMModule.init(app);
+
+    MyLogger.success(action, {
       message: "All modules initialized successfully",
-      availableModules: ['accounts', 'expenses', 'factory']
+      availableModules: ['accounts', 'expenses', 'factory', 'hrm']
     });
 
     console.log("✅ Module initialization completed successfully");
