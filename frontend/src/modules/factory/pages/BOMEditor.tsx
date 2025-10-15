@@ -377,7 +377,7 @@ export default function BOMEditor() {
             </CardHeader>
             <CardContent className="space-y-4" data-testid="bom-details-content">
               <div className="space-y-2" data-testid="parent-product-field">
-                <Label htmlFor="parentProduct" data-testid="parent-product-label">Parent Product</Label>
+                <Label htmlFor="parentProduct" data-testid="parent-product-label">Parent Product *</Label>
                 <Select
                   value={formData.parent_product_id}
                   onValueChange={(value) => {
