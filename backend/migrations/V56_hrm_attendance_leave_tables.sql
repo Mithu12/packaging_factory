@@ -1,6 +1,55 @@
 -- Migration V56: HRM Attendance and Leave Tables
 -- Description: Creates attendance tracking and leave management tables
 
+-- Trigger helper functions (defined before triggers are created)
+CREATE OR REPLACE FUNCTION update_work_schedules_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_leave_types_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_leave_applications_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_attendance_records_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_holidays_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_employee_transfers_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
 -- Create work_schedules table
 CREATE TABLE IF NOT EXISTS work_schedules (
     id BIGSERIAL PRIMARY KEY,
@@ -159,15 +208,7 @@ CREATE TABLE IF NOT EXISTS employee_transfers (
     notes TEXT,
     created_by BIGINT REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_employee_transfers_employee FOREIGN KEY (employee_id) REFERENCES employees(id),
-    CONSTRAINT fk_employee_transfers_from_dept FOREIGN KEY (from_department_id) REFERENCES departments(id),
-    CONSTRAINT fk_employee_transfers_to_dept FOREIGN KEY (to_department_id) REFERENCES departments(id),
-    CONSTRAINT fk_employee_transfers_from_desig FOREIGN KEY (from_designation_id) REFERENCES designations(id),
-    CONSTRAINT fk_employee_transfers_to_desig FOREIGN KEY (to_designation_id) REFERENCES designations(id),
-    CONSTRAINT fk_employee_transfers_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
-    CONSTRAINT fk_employee_transfers_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for better performance
@@ -198,28 +239,12 @@ CREATE INDEX IF NOT EXISTS idx_employee_transfers_employee ON employee_transfers
 CREATE INDEX IF NOT EXISTS idx_employee_transfers_transfer_date ON employee_transfers(transfer_date);
 CREATE INDEX IF NOT EXISTS idx_employee_transfers_status ON employee_transfers(status);
 
--- Create triggers for updated_at
-CREATE OR REPLACE FUNCTION update_work_schedules_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
+-- Create triggers for updated_at (simple creation - will be replaced if exists)
 DROP TRIGGER IF EXISTS trigger_work_schedules_updated_at ON work_schedules;
 CREATE TRIGGER trigger_work_schedules_updated_at
     BEFORE UPDATE ON work_schedules
     FOR EACH ROW
     EXECUTE FUNCTION update_work_schedules_updated_at();
-
-CREATE OR REPLACE FUNCTION update_leave_types_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS trigger_leave_types_updated_at ON leave_types;
 CREATE TRIGGER trigger_leave_types_updated_at
@@ -227,27 +252,11 @@ CREATE TRIGGER trigger_leave_types_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_leave_types_updated_at();
 
-CREATE OR REPLACE FUNCTION update_leave_applications_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_leave_applications_updated_at ON leave_applications;
 CREATE TRIGGER trigger_leave_applications_updated_at
     BEFORE UPDATE ON leave_applications
     FOR EACH ROW
     EXECUTE FUNCTION update_leave_applications_updated_at();
-
-CREATE OR REPLACE FUNCTION update_attendance_records_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS trigger_attendance_records_updated_at ON attendance_records;
 CREATE TRIGGER trigger_attendance_records_updated_at
@@ -255,30 +264,23 @@ CREATE TRIGGER trigger_attendance_records_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_attendance_records_updated_at();
 
-CREATE OR REPLACE FUNCTION update_holidays_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_holidays_updated_at ON holidays;
 CREATE TRIGGER trigger_holidays_updated_at
     BEFORE UPDATE ON holidays
     FOR EACH ROW
     EXECUTE FUNCTION update_holidays_updated_at();
 
-CREATE OR REPLACE FUNCTION update_employee_transfers_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_employee_transfers_updated_at ON employee_transfers;
 CREATE TRIGGER trigger_employee_transfers_updated_at
     BEFORE UPDATE ON employee_transfers
     FOR EACH ROW
     EXECUTE FUNCTION update_employee_transfers_updated_at();
+
+-- Add foreign key constraints for employee_transfers table (after all referenced tables are created)
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE;
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_from_dept FOREIGN KEY (from_department_id) REFERENCES departments(id);
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_to_dept FOREIGN KEY (to_department_id) REFERENCES departments(id);
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_from_desig FOREIGN KEY (from_designation_id) REFERENCES designations(id);
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_to_desig FOREIGN KEY (to_designation_id) REFERENCES designations(id);
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_approved_by FOREIGN KEY (approved_by) REFERENCES users(id);
+ALTER TABLE employee_transfers ADD CONSTRAINT fk_employee_transfers_created_by FOREIGN KEY (created_by) REFERENCES users(id);

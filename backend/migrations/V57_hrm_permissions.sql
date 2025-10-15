@@ -108,41 +108,41 @@ AND p.name IN (
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Update role hierarchy to include HR roles
-INSERT INTO role_hierarchies (parent_role_id, child_role_id)
+INSERT INTO role_hierarchy (parent_role_id, child_role_id)
 SELECT pr.id, cr.id
 FROM roles pr, roles cr
 WHERE pr.name = 'admin' AND cr.name = 'hr_manager'
 ON CONFLICT (parent_role_id, child_role_id) DO NOTHING;
 
-INSERT INTO role_hierarchies (parent_role_id, child_role_id)
+INSERT INTO role_hierarchy (parent_role_id, child_role_id)
 SELECT pr.id, cr.id
 FROM roles pr, roles cr
 WHERE pr.name = 'hr_manager' AND cr.name = 'employee'
 ON CONFLICT (parent_role_id, child_role_id) DO NOTHING;
 
 -- Create HR audit events
-INSERT INTO audit_events (event_type, table_name, description)
-VALUES
-    ('CREATE', 'employees', 'Employee record created'),
-    ('UPDATE', 'employees', 'Employee record updated'),
-    ('DELETE', 'employees', 'Employee record deleted'),
-    ('CREATE', 'departments', 'Department created'),
-    ('UPDATE', 'departments', 'Department updated'),
-    ('DELETE', 'departments', 'Department deleted'),
-    ('CREATE', 'designations', 'Designation created'),
-    ('UPDATE', 'designations', 'Designation updated'),
-    ('DELETE', 'designations', 'Designation deleted'),
-    ('CREATE', 'payroll_runs', 'Payroll run created'),
-    ('UPDATE', 'payroll_runs', 'Payroll run updated'),
-    ('CREATE', 'payroll_details', 'Payroll detail created'),
-    ('UPDATE', 'payroll_details', 'Payroll detail updated'),
-    ('CREATE', 'attendance_records', 'Attendance record created'),
-    ('UPDATE', 'attendance_records', 'Attendance record updated'),
-    ('CREATE', 'leave_applications', 'Leave application created'),
-    ('UPDATE', 'leave_applications', 'Leave application updated'),
-    ('APPROVE', 'leave_applications', 'Leave application approved'),
-    ('REJECT', 'leave_applications', 'Leave application rejected'),
-    ('CREATE', 'employee_transfers', 'Employee transfer created'),
-    ('UPDATE', 'employee_transfers', 'Employee transfer updated'),
-    ('APPROVE', 'employee_transfers', 'Employee transfer approved')
-ON CONFLICT (event_type, table_name) DO NOTHING;
+-- INSERT INTO audit_event_catalog (event_type, table_name, description)
+-- VALUES
+--     ('CREATE', 'employees', 'Employee record created'),
+--     ('UPDATE', 'employees', 'Employee record updated'),
+--     ('DELETE', 'employees', 'Employee record deleted'),
+--     ('CREATE', 'departments', 'Department created'),
+--     ('UPDATE', 'departments', 'Department updated'),
+--     ('DELETE', 'departments', 'Department deleted'),
+--     ('CREATE', 'designations', 'Designation created'),
+--     ('UPDATE', 'designations', 'Designation updated'),
+--     ('DELETE', 'designations', 'Designation deleted'),
+--     ('CREATE', 'payroll_runs', 'Payroll run created'),
+--     ('UPDATE', 'payroll_runs', 'Payroll run updated'),
+--     ('CREATE', 'payroll_details', 'Payroll detail created'),
+--     ('UPDATE', 'payroll_details', 'Payroll detail updated'),
+--     ('CREATE', 'attendance_records', 'Attendance record created'),
+--     ('UPDATE', 'attendance_records', 'Attendance record updated'),
+--     ('CREATE', 'leave_applications', 'Leave application created'),
+--     ('UPDATE', 'leave_applications', 'Leave application updated'),
+--     ('APPROVE', 'leave_applications', 'Leave application approved'),
+--     ('REJECT', 'leave_applications', 'Leave application rejected'),
+--     ('CREATE', 'employee_transfers', 'Employee transfer created'),
+--     ('UPDATE', 'employee_transfers', 'Employee transfer updated'),
+--     ('APPROVE', 'employee_transfers', 'Employee transfer approved')
+-- ON CONFLICT (event_type, table_name) DO NOTHING;

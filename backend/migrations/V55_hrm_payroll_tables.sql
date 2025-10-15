@@ -1,6 +1,55 @@
 -- Migration V55: HRM Payroll Tables
 -- Description: Creates payroll-related tables for salary management, payroll processing, and components
 
+-- Create trigger functions first (before any tables that might reference them)
+CREATE OR REPLACE FUNCTION update_payroll_periods_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_payroll_components_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_employee_salary_structure_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_payroll_runs_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_payroll_details_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_employee_loans_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Create payroll_periods table
 CREATE TABLE IF NOT EXISTS payroll_periods (
     id BIGSERIAL PRIMARY KEY,
@@ -109,7 +158,6 @@ CREATE TABLE IF NOT EXISTS payroll_details (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_payroll_details_run FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id),
-    CONSTRAINT fk_payroll_details_employee FOREIGN KEY (employee_id) REFERENCES employees(id),
     CONSTRAINT fk_payroll_details_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
 );
 
@@ -148,9 +196,6 @@ CREATE TABLE IF NOT EXISTS employee_loans (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_employee_loans_employee FOREIGN KEY (employee_id) REFERENCES employees(id),
-    CONSTRAINT fk_employee_loans_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
-    CONSTRAINT fk_employee_loans_created_by FOREIGN KEY (created_by) REFERENCES users(id),
     CONSTRAINT employee_loans_amount_check CHECK (amount > 0 AND monthly_installment > 0),
     CONSTRAINT employee_loans_installments_check CHECK (total_installments > 0)
 );
@@ -183,28 +228,12 @@ CREATE INDEX IF NOT EXISTS idx_employee_loans_employee ON employee_loans(employe
 CREATE INDEX IF NOT EXISTS idx_employee_loans_status ON employee_loans(status);
 CREATE INDEX IF NOT EXISTS idx_employee_loans_start_date ON employee_loans(start_date);
 
--- Create triggers for updated_at
-CREATE OR REPLACE FUNCTION update_payroll_periods_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
+-- Create triggers for updated_at (simple creation - will be replaced if exists)
 DROP TRIGGER IF EXISTS trigger_payroll_periods_updated_at ON payroll_periods;
 CREATE TRIGGER trigger_payroll_periods_updated_at
     BEFORE UPDATE ON payroll_periods
     FOR EACH ROW
     EXECUTE FUNCTION update_payroll_periods_updated_at();
-
-CREATE OR REPLACE FUNCTION update_payroll_components_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS trigger_payroll_components_updated_at ON payroll_components;
 CREATE TRIGGER trigger_payroll_components_updated_at
@@ -212,27 +241,11 @@ CREATE TRIGGER trigger_payroll_components_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_payroll_components_updated_at();
 
-CREATE OR REPLACE FUNCTION update_employee_salary_structure_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_employee_salary_structure_updated_at ON employee_salary_structure;
 CREATE TRIGGER trigger_employee_salary_structure_updated_at
     BEFORE UPDATE ON employee_salary_structure
     FOR EACH ROW
     EXECUTE FUNCTION update_employee_salary_structure_updated_at();
-
-CREATE OR REPLACE FUNCTION update_payroll_runs_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS trigger_payroll_runs_updated_at ON payroll_runs;
 CREATE TRIGGER trigger_payroll_runs_updated_at
@@ -240,30 +253,22 @@ CREATE TRIGGER trigger_payroll_runs_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_payroll_runs_updated_at();
 
-CREATE OR REPLACE FUNCTION update_payroll_details_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_payroll_details_updated_at ON payroll_details;
 CREATE TRIGGER trigger_payroll_details_updated_at
     BEFORE UPDATE ON payroll_details
     FOR EACH ROW
     EXECUTE FUNCTION update_payroll_details_updated_at();
 
-CREATE OR REPLACE FUNCTION update_employee_loans_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
 DROP TRIGGER IF EXISTS trigger_employee_loans_updated_at ON employee_loans;
 CREATE TRIGGER trigger_employee_loans_updated_at
     BEFORE UPDATE ON employee_loans
     FOR EACH ROW
     EXECUTE FUNCTION update_employee_loans_updated_at();
+
+-- Add foreign key constraints for employee_loans table (after all referenced tables are created)
+ALTER TABLE employee_loans ADD CONSTRAINT fk_employee_loans_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE;
+ALTER TABLE employee_loans ADD CONSTRAINT fk_employee_loans_approved_by FOREIGN KEY (approved_by) REFERENCES users(id);
+ALTER TABLE employee_loans ADD CONSTRAINT fk_employee_loans_created_by FOREIGN KEY (created_by) REFERENCES users(id);
+
+-- Add foreign key constraints for payroll_details table (after all referenced tables are created)
+ALTER TABLE payroll_details ADD CONSTRAINT fk_payroll_details_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE;
