@@ -541,6 +541,7 @@ export interface UpdateEmployeeRequest {
     skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    cnic?: string;
     is_active?: boolean;
 }
 

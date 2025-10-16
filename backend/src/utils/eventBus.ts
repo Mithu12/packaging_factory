@@ -121,7 +121,8 @@ class EventBus {
   }
 }
 
-// Export singleton instance
+// Export class and singleton instance
+export { EventBus };
 export const eventBus = new EventBus();
 
 // Event names constants

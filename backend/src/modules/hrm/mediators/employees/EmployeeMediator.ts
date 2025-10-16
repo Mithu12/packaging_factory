@@ -1,16 +1,16 @@
 import { Employee, CreateEmployeeRequest, UpdateEmployeeRequest, EmployeeQueryParams, HRDashboardStats } from '../../../../types/hrm';
 import { MediatorInterface } from '../../../../types';
-import { databaseConnection } from '../../../../database/connection';
+import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
-import { EventBus } from '../../../../utils/eventBus';
+import { eventBus } from '../../../../utils/eventBus';
 
 export class EmployeeMediator implements MediatorInterface {
   private auditService: AuditService;
-  private eventBus: EventBus;
+  private eventBus: any;
 
   constructor() {
     this.auditService = new AuditService();
-    this.eventBus = EventBus.getInstance();
+    this.eventBus = eventBus;
   }
 
   async process(data: any): Promise<any> {
@@ -28,97 +28,95 @@ export class EmployeeMediator implements MediatorInterface {
     limit: number;
     totalPages: number;
   }> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
-      let query = db('employees as e')
-        .select(
-          'e.*',
-          'd.name as department_name',
-          'd.code as department_code',
-          'des.title as designation_title',
-          'des.code as designation_code',
-          'rm.first_name as reporting_manager_first_name',
-          'rm.last_name as reporting_manager_last_name',
-          db.raw(`
-            CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
-            CONCAT(COALESCE(rm.first_name, ''), ' ', COALESCE(rm.last_name, '')) as reporting_manager_name
-          `)
-        )
-        .leftJoin('departments as d', 'e.department_id', 'd.id')
-        .leftJoin('designations as des', 'e.designation_id', 'des.id')
-        .leftJoin('employees as rm', 'e.reporting_manager_id', 'rm.id')
-        .where('e.is_active', true);
+      // Build the main query
+      let query = `
+        SELECT
+          e.*,
+          d.name as department_name,
+          d.code as department_code,
+          des.title as designation_title,
+          des.code as designation_code,
+          rm.first_name as reporting_manager_first_name,
+          rm.last_name as reporting_manager_last_name,
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
+          CONCAT(COALESCE(rm.first_name, ''), ' ', COALESCE(rm.last_name, '')) as reporting_manager_name
+        FROM employees as e
+        LEFT JOIN departments as d ON e.department_id = d.id
+        LEFT JOIN designations as des ON e.designation_id = des.id
+        LEFT JOIN employees as rm ON e.reporting_manager_id = rm.id
+        WHERE e.is_active = true
+      `;
+
+      const values: any[] = [];
+      let paramIndex = 1;
 
       // Apply filters
       if (queryParams.factory_id) {
-        query = query.where('e.factory_id', queryParams.factory_id);
+        query += ` AND e.factory_id = $${paramIndex}`;
+        values.push(queryParams.factory_id);
+        paramIndex++;
       }
 
       if (queryParams.department_id) {
-        query = query.where('e.department_id', queryParams.department_id);
+        query += ` AND e.department_id = $${paramIndex}`;
+        values.push(queryParams.department_id);
+        paramIndex++;
       }
 
       if (queryParams.designation_id) {
-        query = query.where('e.designation_id', queryParams.designation_id);
+        query += ` AND e.designation_id = $${paramIndex}`;
+        values.push(queryParams.designation_id);
+        paramIndex++;
       }
 
       if (queryParams.employment_type) {
-        query = query.where('e.employment_type', queryParams.employment_type);
+        query += ` AND e.employment_type = $${paramIndex}`;
+        values.push(queryParams.employment_type);
+        paramIndex++;
       }
 
       if (queryParams.is_active !== undefined) {
-        query = query.where('e.is_active', queryParams.is_active);
+        query += ` AND e.is_active = $${paramIndex}`;
+        values.push(queryParams.is_active);
+        paramIndex++;
       }
 
       if (queryParams.search) {
-        query = query.where(function() {
-          this.where('e.first_name', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.last_name', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.employee_id', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.cnic', 'ilike', `%${queryParams.search}%`)
-            .orWhere('d.name', 'ilike', `%${queryParams.search}%`);
-        });
+        query += ` AND (
+          e.first_name ILIKE $${paramIndex} OR
+          e.last_name ILIKE $${paramIndex} OR
+          e.employee_id ILIKE $${paramIndex} OR
+          e.cnic ILIKE $${paramIndex} OR
+          d.name ILIKE $${paramIndex}
+        )`;
+        values.push(`%${queryParams.search}%`);
+        paramIndex++;
       }
 
       // Apply sorting
       const sortBy = queryParams.sort_by || 'created_at';
       const sortOrder = queryParams.sort_order || 'desc';
-      query = query.orderBy(sortBy, sortOrder);
+      query += ` ORDER BY ${sortBy} ${sortOrder}`;
 
       // Apply pagination
       const page = queryParams.page || 1;
       const limit = queryParams.limit || 10;
       const offset = (page - 1) * limit;
+      query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      values.push(limit, offset);
 
-      // Get total count
-      const totalQuery = db('employees as e')
-        .count('* as count')
-        .leftJoin('departments as d', 'e.department_id', 'd.id')
-        .where('e.is_active', true);
+      // Execute main query
+      const result = await client.query(query, values);
+      const employees = result.rows;
 
-      // Apply same filters for count
-      if (queryParams.factory_id) totalQuery.where('e.factory_id', queryParams.factory_id);
-      if (queryParams.department_id) totalQuery.where('e.department_id', queryParams.department_id);
-      if (queryParams.designation_id) totalQuery.where('e.designation_id', queryParams.designation_id);
-      if (queryParams.employment_type) totalQuery.where('e.employment_type', queryParams.employment_type);
-      if (queryParams.is_active !== undefined) totalQuery.where('e.is_active', queryParams.is_active);
-
-      if (queryParams.search) {
-        totalQuery.where(function() {
-          this.where('e.first_name', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.last_name', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.employee_id', 'ilike', `%${queryParams.search}%`)
-            .orWhere('e.cnic', 'ilike', `%${queryParams.search}%`)
-            .orWhere('d.name', 'ilike', `%${queryParams.search}%`);
-        });
-      }
-
-      const [{ count }] = await totalQuery;
-      const total = parseInt(count as string);
-
-      // Get paginated results
-      const employees = await query.limit(limit).offset(offset);
+      // Get total count (same query without LIMIT/OFFSET)
+      const countQuery = query.replace(/ LIMIT \$\d+ OFFSET \$\d+$/, '');
+      const countValues = values.slice(0, values.length - 2); // Remove limit and offset values
+      const countResult = await client.query(countQuery, countValues);
+      const total = parseInt(countResult.rows[0].count);
 
       return {
         employees,
@@ -129,6 +127,8 @@ export class EmployeeMediator implements MediatorInterface {
       };
     } catch (error) {
       throw new Error(`Failed to retrieve employees: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -136,37 +136,38 @@ export class EmployeeMediator implements MediatorInterface {
    * Get employee by ID
    */
   async getEmployeeById(employeeId: number): Promise<Employee> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
-      const employee = await db('employees as e')
-        .select(
-          'e.*',
-          'd.name as department_name',
-          'd.code as department_code',
-          'des.title as designation_title',
-          'des.code as designation_code',
-          'rm.first_name as reporting_manager_first_name',
-          'rm.last_name as reporting_manager_last_name',
-          db.raw(`
-            CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
-            CONCAT(COALESCE(rm.first_name, ''), ' ', COALESCE(rm.last_name, '')) as reporting_manager_name
-          `)
-        )
-        .leftJoin('departments as d', 'e.department_id', 'd.id')
-        .leftJoin('designations as des', 'e.designation_id', 'des.id')
-        .leftJoin('employees as rm', 'e.reporting_manager_id', 'rm.id')
-        .where('e.id', employeeId)
-        .where('e.is_active', true)
-        .first();
+      const query = `
+        SELECT
+          e.*,
+          d.name as department_name,
+          d.code as department_code,
+          des.title as designation_title,
+          des.code as designation_code,
+          rm.first_name as reporting_manager_first_name,
+          rm.last_name as reporting_manager_last_name,
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
+          CONCAT(COALESCE(rm.first_name, ''), ' ', COALESCE(rm.last_name, '')) as reporting_manager_name
+        FROM employees as e
+        LEFT JOIN departments as d ON e.department_id = d.id
+        LEFT JOIN designations as des ON e.designation_id = des.id
+        LEFT JOIN employees as rm ON e.reporting_manager_id = rm.id
+        WHERE e.id = $1 AND e.is_active = true
+      `;
 
-      if (!employee) {
+      const result = await client.query(query, [employeeId]);
+
+      if (result.rows.length === 0) {
         throw new Error('Employee not found');
       }
 
-      return employee;
+      return result.rows[0];
     } catch (error) {
       throw new Error(`Failed to retrieve employee: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -174,25 +175,23 @@ export class EmployeeMediator implements MediatorInterface {
    * Create new employee
    */
   async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Check if employee_id already exists
-      const existingEmployee = await db('employees')
-        .where('employee_id', employeeData.employee_id)
-        .first();
+      const existingEmployeeQuery = 'SELECT id FROM employees WHERE employee_id = $1';
+      const existingEmployeeResult = await client.query(existingEmployeeQuery, [employeeData.employee_id]);
 
-      if (existingEmployee) {
+      if (existingEmployeeResult.rows.length > 0) {
         throw new Error('Employee ID already exists');
       }
 
       // Check if CNIC already exists
       if (employeeData.cnic) {
-        const existingCnic = await db('employees')
-          .where('cnic', employeeData.cnic)
-          .first();
+        const existingCnicQuery = 'SELECT id FROM employees WHERE cnic = $1';
+        const existingCnicResult = await client.query(existingCnicQuery, [employeeData.cnic]);
 
-        if (existingCnic) {
+        if (existingCnicResult.rows.length > 0) {
           throw new Error('CNIC already exists');
         }
       }
@@ -204,9 +203,14 @@ export class EmployeeMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [employee] = await db('employees')
-        .insert(newEmployee)
-        .returning('*');
+      const insertQuery = `
+        INSERT INTO employees (${Object.keys(newEmployee).join(', ')})
+        VALUES (${Object.keys(newEmployee).map((_, i) => `$${i + 1}`).join(', ')})
+        RETURNING *
+      `;
+
+      const insertResult = await client.query(insertQuery, Object.values(newEmployee));
+      const employee = insertResult.rows[0];
 
       // Audit log
       await this.auditService.log({
@@ -225,6 +229,8 @@ export class EmployeeMediator implements MediatorInterface {
       return employee;
     } catch (error) {
       throw new Error(`Failed to create employee: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -232,7 +238,7 @@ export class EmployeeMediator implements MediatorInterface {
    * Update employee
    */
   async updateEmployee(employeeId: number, updateData: UpdateEmployeeRequest, updatedBy?: number): Promise<Employee> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Get current employee data
@@ -240,12 +246,10 @@ export class EmployeeMediator implements MediatorInterface {
 
       // Check if CNIC already exists (if being updated)
       if (updateData.cnic && updateData.cnic !== currentEmployee.cnic) {
-        const existingCnic = await db('employees')
-          .where('cnic', updateData.cnic)
-          .whereNot('id', employeeId)
-          .first();
+        const existingCnicQuery = 'SELECT id FROM employees WHERE cnic = $1 AND id != $2';
+        const existingCnicResult = await client.query(existingCnicQuery, [updateData.cnic, employeeId]);
 
-        if (existingCnic) {
+        if (existingCnicResult.rows.length > 0) {
           throw new Error('CNIC already exists');
         }
       }
@@ -255,10 +259,19 @@ export class EmployeeMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [employee] = await db('employees')
-        .where('id', employeeId)
-        .update(updatedEmployeeData)
-        .returning('*');
+      const updateFields = Object.keys(updatedEmployeeData);
+      const updateValues = Object.values(updatedEmployeeData);
+
+      const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      const updateQuery = `
+        UPDATE employees
+        SET ${setClause}
+        WHERE id = $${updateValues.length + 1}
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [...updateValues, employeeId]);
+      const employee = updateResult.rows[0];
 
       // Audit log
       await this.auditService.log({
@@ -277,6 +290,8 @@ export class EmployeeMediator implements MediatorInterface {
       return employee;
     } catch (error) {
       throw new Error(`Failed to update employee: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -284,18 +299,18 @@ export class EmployeeMediator implements MediatorInterface {
    * Delete employee (soft delete)
    */
   async deleteEmployee(employeeId: number, deletedBy?: number): Promise<void> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       const employee = await this.getEmployeeById(employeeId);
 
-      await db('employees')
-        .where('id', employeeId)
-        .update({
-          is_active: false,
-          termination_date: new Date(),
-          updated_at: new Date()
-        });
+      const updateQuery = `
+        UPDATE employees
+        SET is_active = false, termination_date = $1, updated_at = $2
+        WHERE id = $3
+      `;
+
+      await client.query(updateQuery, [new Date(), new Date(), employeeId]);
 
       // Audit log
       await this.auditService.log({
@@ -312,6 +327,8 @@ export class EmployeeMediator implements MediatorInterface {
       this.eventBus.emit('employee.deleted', { employee, deletedBy });
     } catch (error) {
       throw new Error(`Failed to delete employee: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -319,100 +336,134 @@ export class EmployeeMediator implements MediatorInterface {
    * Get employee dashboard statistics
    */
   async getEmployeeDashboard(factoryId?: number): Promise<HRDashboardStats> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Total employees count
-      let totalQuery = db('employees').where('is_active', true);
-      if (factoryId) totalQuery = totalQuery.where('factory_id', factoryId);
+      let totalQuery = 'SELECT COUNT(*) as count FROM employees WHERE is_active = true';
+      const totalValues: any[] = [];
 
-      const totalEmployees = await totalQuery.clone().count('* as count').first();
-      const activeEmployees = parseInt(totalEmployees?.count as string) || 0;
+      if (factoryId) {
+        totalQuery += ' AND factory_id = $1';
+        totalValues.push(factoryId);
+      }
+
+      const totalResult = await client.query(totalQuery, totalValues);
+      const activeEmployees = parseInt(totalResult.rows[0].count);
 
       // Employees on leave
-      const employeesOnLeave = await db('leave_applications as la')
-        .join('employees as e', 'la.employee_id', 'e.id')
-        .where('la.status', 'approved')
-        .where('la.start_date', '<=', new Date())
-        .where('la.end_date', '>=', new Date())
-        .where('e.is_active', true)
-        .count('* as count')
-        .first();
+      const leaveQuery = `
+        SELECT COUNT(*) as count FROM leave_applications la
+        JOIN employees e ON la.employee_id = e.id
+        WHERE la.status = 'approved'
+        AND la.start_date <= $1
+        AND la.end_date >= $1
+        AND e.is_active = true
+        ${factoryId ? 'AND e.factory_id = $2' : ''}
+      `;
+
+      const leaveValues = factoryId ? [new Date(), factoryId] : [new Date()];
+      const leaveResult = await client.query(leaveQuery, leaveValues);
 
       // Pending leave applications
-      const pendingLeaves = await db('leave_applications as la')
-        .join('employees as e', 'la.employee_id', 'e.id')
-        .where('la.status', 'pending')
-        .where('e.is_active', true)
-        .count('* as count')
-        .first();
+      const pendingQuery = `
+        SELECT COUNT(*) as count FROM leave_applications la
+        JOIN employees e ON la.employee_id = e.id
+        WHERE la.status = 'pending'
+        AND e.is_active = true
+        ${factoryId ? 'AND e.factory_id = $1' : ''}
+      `;
+
+      const pendingResult = await client.query(pendingQuery, factoryId ? [factoryId] : []);
 
       // Upcoming payroll runs
-      const upcomingPayroll = await db('payroll_runs as pr')
-        .join('payroll_periods as pp', 'pr.payroll_period_id', 'pp.id')
-        .where('pr.status', 'draft')
-        .where('pp.start_date', '>=', new Date())
-        .count('* as count')
-        .first();
+      const payrollQuery = `
+        SELECT COUNT(*) as count FROM payroll_runs pr
+        JOIN payroll_periods pp ON pr.payroll_period_id = pp.id
+        WHERE pr.status = 'draft'
+        AND pp.start_date >= $1
+      `;
+
+      const payrollResult = await client.query(payrollQuery, [new Date()]);
 
       // Department breakdown
-      const departmentBreakdown = await db('employees as e')
-        .join('departments as d', 'e.department_id', 'd.id')
-        .select('d.name as department')
-        .count('* as count')
-        .where('e.is_active', true)
-        .whereNotNull('e.department_id')
-        .groupBy('d.name')
-        .orderBy('count', 'desc');
+      const deptQuery = `
+        SELECT d.name as department, COUNT(*) as count
+        FROM employees e
+        JOIN departments d ON e.department_id = d.id
+        WHERE e.is_active = true
+        AND e.department_id IS NOT NULL
+        ${factoryId ? 'AND e.factory_id = $1' : ''}
+        GROUP BY d.name
+        ORDER BY count DESC
+      `;
+
+      const deptResult = await client.query(deptQuery, factoryId ? [factoryId] : []);
 
       // Recent hires (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const recentHires = await db('employees')
-        .where('is_active', true)
-        .where('join_date', '>=', thirtyDaysAgo)
-        .orderBy('join_date', 'desc')
-        .limit(5);
+      const recentHiresQuery = `
+        SELECT * FROM employees
+        WHERE is_active = true
+        AND join_date >= $1
+        ORDER BY join_date DESC
+        LIMIT 5
+      `;
+      const recentHiresResult = await client.query(recentHiresQuery, [thirtyDaysAgo]);
+      const recentHires = recentHiresResult.rows;
 
       // Upcoming birthdays (next 30 days)
       const today = new Date();
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const upcomingBirthdays = await db('employees')
-        .where('is_active', true)
-        .whereNotNull('date_of_birth')
-        .whereRaw(`
-          EXTRACT(month FROM date_of_birth) = ? AND EXTRACT(day FROM date_of_birth) >= ?
-          OR EXTRACT(month FROM date_of_birth) = ? AND EXTRACT(day FROM date_of_birth) <= ?
-        `, [today.getMonth() + 1, today.getDate(), thirtyDaysFromNow.getMonth() + 1, thirtyDaysFromNow.getDate()])
-        .orderByRaw(`EXTRACT(month FROM date_of_birth), EXTRACT(day FROM date_of_birth)`)
-        .limit(5);
+      const birthdayQuery = `
+        SELECT * FROM employees
+        WHERE is_active = true
+        AND date_of_birth IS NOT NULL
+        AND (
+          (EXTRACT(month FROM date_of_birth) = $1 AND EXTRACT(day FROM date_of_birth) >= $2)
+          OR (EXTRACT(month FROM date_of_birth) = $3 AND EXTRACT(day FROM date_of_birth) <= $4)
+        )
+        ORDER BY EXTRACT(month FROM date_of_birth), EXTRACT(day FROM date_of_birth)
+        LIMIT 5
+      `;
+      const birthdayResult = await client.query(birthdayQuery, [
+        today.getMonth() + 1,
+        today.getDate(),
+        thirtyDaysFromNow.getMonth() + 1,
+        thirtyDaysFromNow.getDate()
+      ]);
+      const upcomingBirthdays = birthdayResult.rows;
 
       // Leave balance warnings (employees with less than 5 days remaining)
-      const leaveBalanceWarnings = await db('leave_balances as lb')
-        .join('employees as e', 'lb.employee_id', 'e.id')
-        .join('leave_types as lt', 'lb.leave_type_id', 'lt.id')
-        .select(
-          db.raw(`CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee`),
-          'lt.name as leave_type',
-          'lb.remaining_days'
-        )
-        .where('lb.remaining_days', '<', 5)
-        .where('lb.remaining_days', '>', 0)
-        .where('e.is_active', true)
-        .limit(10);
+      const leaveBalanceQuery = `
+        SELECT
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee,
+          lt.name as leave_type,
+          lb.remaining_days
+        FROM leave_balances lb
+        JOIN employees e ON lb.employee_id = e.id
+        JOIN leave_types lt ON lb.leave_type_id = lt.id
+        WHERE lb.remaining_days < 5
+        AND lb.remaining_days > 0
+        AND e.is_active = true
+        LIMIT 10
+      `;
+      const leaveBalanceResult = await client.query(leaveBalanceQuery);
+      const leaveBalanceWarnings = leaveBalanceResult.rows;
 
       return {
         total_employees: activeEmployees,
         active_employees: activeEmployees,
-        employees_on_leave: parseInt(employeesOnLeave?.count as string) || 0,
-        pending_leave_applications: parseInt(pendingLeaves?.count as string) || 0,
-        upcoming_payroll_runs: parseInt(upcomingPayroll?.count as string) || 0,
-        department_breakdown: departmentBreakdown.map(item => ({
+        employees_on_leave: parseInt(leaveResult.rows[0].count),
+        pending_leave_applications: parseInt(pendingResult.rows[0].count),
+        upcoming_payroll_runs: parseInt(payrollResult.rows[0].count),
+        department_breakdown: deptResult.rows.map(item => ({
           department: item.department,
-          count: parseInt(item.count as string)
+          count: parseInt(item.count)
         })),
         recent_hires: recentHires,
         upcoming_birthdays: upcomingBirthdays,
@@ -420,6 +471,8 @@ export class EmployeeMediator implements MediatorInterface {
       };
     } catch (error) {
       throw new Error(`Failed to retrieve employee dashboard: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -427,17 +480,22 @@ export class EmployeeMediator implements MediatorInterface {
    * Get employees by department
    */
   async getEmployeesByDepartment(departmentId: number): Promise<Employee[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
-      const employees = await db('employees')
-        .where('department_id', departmentId)
-        .where('is_active', true)
-        .orderBy('first_name');
+      const query = `
+        SELECT * FROM employees
+        WHERE department_id = $1
+        AND is_active = true
+        ORDER BY first_name
+      `;
 
-      return employees;
+      const result = await client.query(query, [departmentId]);
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to retrieve employees by department: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -445,17 +503,22 @@ export class EmployeeMediator implements MediatorInterface {
    * Get employees by designation
    */
   async getEmployeesByDesignation(designationId: number): Promise<Employee[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
-      const employees = await db('employees')
-        .where('designation_id', designationId)
-        .where('is_active', true)
-        .orderBy('first_name');
+      const query = `
+        SELECT * FROM employees
+        WHERE designation_id = $1
+        AND is_active = true
+        ORDER BY first_name
+      `;
 
-      return employees;
+      const result = await client.query(query, [designationId]);
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to retrieve employees by designation: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -475,29 +538,33 @@ export class EmployeeMediator implements MediatorInterface {
    * Search employees
    */
   async searchEmployees(searchTerm: string, limit: number = 10): Promise<Employee[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
-      const employees = await db('employees')
-        .select(
-          'id',
-          'employee_id',
-          db.raw(`CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) as full_name`),
-          'designation_id',
-          'department_id'
+      const query = `
+        SELECT
+          id,
+          employee_id,
+          CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) as full_name,
+          designation_id,
+          department_id
+        FROM employees
+        WHERE is_active = true
+        AND (
+          first_name ILIKE $1 OR
+          last_name ILIKE $1 OR
+          employee_id ILIKE $1 OR
+          cnic ILIKE $1
         )
-        .where(function() {
-          this.where('first_name', 'ilike', `%${searchTerm}%`)
-            .orWhere('last_name', 'ilike', `%${searchTerm}%`)
-            .orWhere('employee_id', 'ilike', `%${searchTerm}%`)
-            .orWhere('cnic', 'ilike', `%${searchTerm}%`);
-        })
-        .where('is_active', true)
-        .limit(limit);
+        LIMIT $2
+      `;
 
-      return employees;
+      const result = await client.query(query, [`%${searchTerm}%`, limit]);
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to search employees: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
@@ -509,51 +576,60 @@ export class EmployeeMediator implements MediatorInterface {
     failed: number;
     errors: string[];
   }> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     let successful = 0;
     let failed = 0;
     const errors: string[] = [];
 
     try {
-      await db.transaction(async (trx) => {
-        for (let i = 0; i < employeesData.length; i++) {
-          const employeeData = employeesData[i];
+      await client.query('BEGIN');
 
-          try {
-            const newEmployee = {
-              ...employeeData,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date()
-            };
+      for (let i = 0; i < employeesData.length; i++) {
+        const employeeData = employeesData[i];
 
-            const [employee] = await trx('employees')
-              .insert(newEmployee)
-              .returning('*');
+        try {
+          const newEmployee = {
+            ...employeeData,
+            is_active: true,
+            created_at: new Date(),
+            updated_at: new Date()
+          };
 
-            // Audit log
-            await this.auditService.log({
-              user_id: createdBy,
-              action: 'CREATE',
-              table_name: 'employees',
-              record_id: employee.id,
-              old_values: null,
-              new_values: employee,
-              description: `Employee ${employee.first_name} ${employee.last_name} created via bulk import`
-            });
+          const insertQuery = `
+            INSERT INTO employees (${Object.keys(newEmployee).join(', ')})
+            VALUES (${Object.keys(newEmployee).map((_, i) => `$${i + 1}`).join(', ')})
+            RETURNING *
+          `;
 
-            successful++;
-          } catch (error) {
-            failed++;
-            errors.push(`Row ${i + 1}: ${error}`);
-          }
+          const insertResult = await client.query(insertQuery, Object.values(newEmployee));
+          const employee = insertResult.rows[0];
+
+          // Audit log
+          await this.auditService.log({
+            user_id: createdBy,
+            action: 'CREATE',
+            table_name: 'employees',
+            record_id: employee.id,
+            old_values: null,
+            new_values: employee,
+            description: `Employee ${employee.first_name} ${employee.last_name} created via bulk import`
+          });
+
+          successful++;
+        } catch (error) {
+          failed++;
+          errors.push(`Row ${i + 1}: ${error}`);
         }
-      });
+      }
 
+      await client.query('COMMIT');
       return { successful, failed, errors };
     } catch (error) {
+      await client.query('ROLLBACK');
       throw new Error(`Bulk import failed: ${error}`);
+    } finally {
+      client.release();
     }
   }
 
