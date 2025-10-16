@@ -56,6 +56,7 @@ export type PermissionString = `${string}.${string}.${string}`;
 export const MODULES = {
   USER_MANAGEMENT: 'User Management',
   FINANCE: 'Finance',
+  HR: 'HR',
   INVENTORY: 'Inventory',
   SALES: 'Sales',
   PURCHASE: 'Purchase',
@@ -231,11 +232,82 @@ COST_CENTERS_DELETE: createPermissionCheck('Finance', 'delete', 'cost_centers'),
   VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'vouchers'),
   VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'vouchers'),
 
-// ---- Accounts: Reports (read-only) ----
+  // ---- Accounts: Reports (read-only) ----
 GENERAL_LEDGER_READ:       createPermissionCheck('Finance', 'read', 'general_ledger'),
 COST_CENTER_LEDGER_READ:   createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
 INCOME_STATEMENT_READ:     createPermissionCheck('Finance', 'read', 'income_statement'),
 BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_sheet'),
+
+  // ---- HR: Employee Management ----
+  HR_EMPLOYEES_CREATE: createPermissionCheck('HR', 'create', 'employees'),
+  HR_EMPLOYEES_READ: createPermissionCheck('HR', 'read', 'employees'),
+  HR_EMPLOYEES_UPDATE: createPermissionCheck('HR', 'update', 'employees'),
+  HR_EMPLOYEES_DELETE: createPermissionCheck('HR', 'delete', 'employees'),
+  HR_EMPLOYEES_MANAGE: createPermissionCheck('HR', 'manage', 'employees'),
+
+  // HR: Department Management
+  HR_DEPARTMENTS_CREATE: createPermissionCheck('HR', 'create', 'departments'),
+  HR_DEPARTMENTS_READ: createPermissionCheck('HR', 'read', 'departments'),
+  HR_DEPARTMENTS_UPDATE: createPermissionCheck('HR', 'update', 'departments'),
+  HR_DEPARTMENTS_DELETE: createPermissionCheck('HR', 'delete', 'departments'),
+  HR_DEPARTMENTS_MANAGE: createPermissionCheck('HR', 'manage', 'departments'),
+
+  // HR: Designation Management
+  HR_DESIGNATIONS_CREATE: createPermissionCheck('HR', 'create', 'designations'),
+  HR_DESIGNATIONS_READ: createPermissionCheck('HR', 'read', 'designations'),
+  HR_DESIGNATIONS_UPDATE: createPermissionCheck('HR', 'update', 'designations'),
+  HR_DESIGNATIONS_DELETE: createPermissionCheck('HR', 'delete', 'designations'),
+  HR_DESIGNATIONS_MANAGE: createPermissionCheck('HR', 'manage', 'designations'),
+
+  // HR: Payroll Management
+  HR_PAYROLL_CREATE: createPermissionCheck('HR', 'create', 'payroll'),
+  HR_PAYROLL_READ: createPermissionCheck('HR', 'read', 'payroll'),
+  HR_PAYROLL_UPDATE: createPermissionCheck('HR', 'update', 'payroll'),
+  HR_PAYROLL_PROCESS: createPermissionCheck('HR', 'process', 'payroll'),
+  HR_PAYROLL_APPROVE: createPermissionCheck('HR', 'approve', 'payroll'),
+  HR_PAYROLL_MANAGE: createPermissionCheck('HR', 'manage', 'payroll'),
+
+  // HR: Attendance Management
+  HR_ATTENDANCE_CREATE: createPermissionCheck('HR', 'create', 'attendance'),
+  HR_ATTENDANCE_READ: createPermissionCheck('HR', 'read', 'attendance'),
+  HR_ATTENDANCE_UPDATE: createPermissionCheck('HR', 'update', 'attendance'),
+  HR_ATTENDANCE_MANAGE: createPermissionCheck('HR', 'manage', 'attendance'),
+
+  // HR: Leave Management
+  HR_LEAVE_CREATE: createPermissionCheck('HR', 'create', 'leave'),
+  HR_LEAVE_READ: createPermissionCheck('HR', 'read', 'leave'),
+  HR_LEAVE_UPDATE: createPermissionCheck('HR', 'update', 'leave'),
+  HR_LEAVE_APPROVE: createPermissionCheck('HR', 'approve', 'leave'),
+  HR_LEAVE_MANAGE: createPermissionCheck('HR', 'manage', 'leave'),
+
+  // HR: Transfer Management
+  HR_TRANSFERS_CREATE: createPermissionCheck('HR', 'create', 'transfers'),
+  HR_TRANSFERS_READ: createPermissionCheck('HR', 'read', 'transfers'),
+  HR_TRANSFERS_UPDATE: createPermissionCheck('HR', 'update', 'transfers'),
+  HR_TRANSFERS_APPROVE: createPermissionCheck('HR', 'approve', 'transfers'),
+  HR_TRANSFERS_MANAGE: createPermissionCheck('HR', 'manage', 'transfers'),
+
+  // HR: Contract Management
+  HR_CONTRACTS_CREATE: createPermissionCheck('HR', 'create', 'contracts'),
+  HR_CONTRACTS_READ: createPermissionCheck('HR', 'read', 'contracts'),
+  HR_CONTRACTS_UPDATE: createPermissionCheck('HR', 'update', 'contracts'),
+  HR_CONTRACTS_MANAGE: createPermissionCheck('HR', 'manage', 'contracts'),
+
+  // HR: Loan Management
+  HR_LOANS_CREATE: createPermissionCheck('HR', 'create', 'loans'),
+  HR_LOANS_READ: createPermissionCheck('HR', 'read', 'loans'),
+  HR_LOANS_UPDATE: createPermissionCheck('HR', 'update', 'loans'),
+  HR_LOANS_APPROVE: createPermissionCheck('HR', 'approve', 'loans'),
+  HR_LOANS_MANAGE: createPermissionCheck('HR', 'manage', 'loans'),
+
+  // HR: Reports and Analytics
+  HR_REPORTS_READ: createPermissionCheck('HR', 'read', 'reports'),
+  HR_REPORTS_MANAGE: createPermissionCheck('HR', 'manage', 'reports'),
+
+  // HR: Settings and Configuration
+  HR_SETTINGS_READ: createPermissionCheck('HR', 'read', 'settings'),
+  HR_SETTINGS_UPDATE: createPermissionCheck('HR', 'update', 'settings'),
+  HR_SETTINGS_MANAGE: createPermissionCheck('HR', 'manage', 'settings'),
 
 } as const;
 
@@ -254,6 +326,57 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.EXPENSES_UPDATE,
     PERMISSIONS.EXPENSES_DELETE,
     PERMISSIONS.EXPENSES_APPROVE,
+  ],
+  HR: [
+    PERMISSIONS.HR_EMPLOYEES_CREATE,
+    PERMISSIONS.HR_EMPLOYEES_READ,
+    PERMISSIONS.HR_EMPLOYEES_UPDATE,
+    PERMISSIONS.HR_EMPLOYEES_DELETE,
+    PERMISSIONS.HR_EMPLOYEES_MANAGE,
+    PERMISSIONS.HR_DEPARTMENTS_CREATE,
+    PERMISSIONS.HR_DEPARTMENTS_READ,
+    PERMISSIONS.HR_DEPARTMENTS_UPDATE,
+    PERMISSIONS.HR_DEPARTMENTS_DELETE,
+    PERMISSIONS.HR_DEPARTMENTS_MANAGE,
+    PERMISSIONS.HR_DESIGNATIONS_CREATE,
+    PERMISSIONS.HR_DESIGNATIONS_READ,
+    PERMISSIONS.HR_DESIGNATIONS_UPDATE,
+    PERMISSIONS.HR_DESIGNATIONS_DELETE,
+    PERMISSIONS.HR_DESIGNATIONS_MANAGE,
+    PERMISSIONS.HR_PAYROLL_CREATE,
+    PERMISSIONS.HR_PAYROLL_READ,
+    PERMISSIONS.HR_PAYROLL_UPDATE,
+    PERMISSIONS.HR_PAYROLL_PROCESS,
+    PERMISSIONS.HR_PAYROLL_APPROVE,
+    PERMISSIONS.HR_PAYROLL_MANAGE,
+    PERMISSIONS.HR_ATTENDANCE_CREATE,
+    PERMISSIONS.HR_ATTENDANCE_READ,
+    PERMISSIONS.HR_ATTENDANCE_UPDATE,
+    PERMISSIONS.HR_ATTENDANCE_MANAGE,
+    PERMISSIONS.HR_LEAVE_CREATE,
+    PERMISSIONS.HR_LEAVE_READ,
+    PERMISSIONS.HR_LEAVE_UPDATE,
+    PERMISSIONS.HR_LEAVE_APPROVE,
+    PERMISSIONS.HR_LEAVE_MANAGE,
+    PERMISSIONS.HR_TRANSFERS_CREATE,
+    PERMISSIONS.HR_TRANSFERS_READ,
+    PERMISSIONS.HR_TRANSFERS_UPDATE,
+    PERMISSIONS.HR_TRANSFERS_APPROVE,
+    PERMISSIONS.HR_TRANSFERS_MANAGE,
+    PERMISSIONS.HR_CONTRACTS_CREATE,
+    PERMISSIONS.HR_CONTRACTS_READ,
+    PERMISSIONS.HR_CONTRACTS_UPDATE,
+    PERMISSIONS.HR_CONTRACTS_MANAGE,
+    PERMISSIONS.HR_LOANS_CREATE,
+    PERMISSIONS.HR_LOANS_READ,
+    PERMISSIONS.HR_LOANS_UPDATE,
+    PERMISSIONS.HR_LOANS_APPROVE,
+    PERMISSIONS.HR_LOANS_MANAGE,
+    PERMISSIONS.HR_REPORTS_READ,
+    PERMISSIONS.HR_REPORTS_MANAGE,
+    PERMISSIONS.HR_SETTINGS_READ,
+    PERMISSIONS.HR_SETTINGS_UPDATE,
+    PERMISSIONS.HR_SETTINGS_MANAGE,
   ],
   INVENTORY: [
     PERMISSIONS.PRODUCTS_CREATE,
