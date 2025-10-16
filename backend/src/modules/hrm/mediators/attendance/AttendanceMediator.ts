@@ -6,17 +6,18 @@ import {
   CreateWorkScheduleRequest
 } from '../../../../types/hrm';
 import { MediatorInterface } from '../../../../types';
-import { databaseConnection } from '../../../../database/connection';
+import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
-import { EventBus } from '../../../../utils/eventBus';
+import { eventBus } from '../../../../utils/eventBus';
+import { MyLogger } from '@/utils/new-logger';
 
 export class AttendanceMediator implements MediatorInterface {
   private auditService: AuditService;
-  private eventBus: EventBus;
+  private eventBus: any;
 
   constructor() {
     this.auditService = new AuditService();
-    this.eventBus = EventBus.getInstance();
+    this.eventBus = eventBus;
   }
 
   async process(data: any): Promise<any> {
@@ -26,15 +27,16 @@ export class AttendanceMediator implements MediatorInterface {
   /**
    * Create work schedule
    */
-  async createWorkSchedule(scheduleData: CreateWorkScheduleRequest, createdBy?: number): Promise<WorkSchedule> {
-    const { db } = await databaseConnection();
+  static async createWorkSchedule(scheduleData: CreateWorkScheduleRequest, createdBy?: number): Promise<WorkSchedule> {
+    const action = "AttendanceMediator.createWorkSchedule";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { scheduleData, createdBy });
+
       // If this is set as default, unset other default schedules
       if (scheduleData.is_default) {
-        await db('work_schedules')
-          .where('is_default', true)
-          .update({ is_default: false });
+        await client.query('UPDATE work_schedules SET is_default = false WHERE is_default = true');
       }
 
       const newSchedule = {
@@ -44,58 +46,77 @@ export class AttendanceMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [schedule] = await db('work_schedules')
-        .insert(newSchedule)
-        .returning('*');
+      const insertQuery = `
+        INSERT INTO work_schedules (${Object.keys(newSchedule).join(', ')})
+        VALUES (${Object.keys(newSchedule).map((_, i) => `$${i + 1}`).join(', ')})
+        RETURNING *
+      `;
 
-      // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
-        action: 'CREATE',
-        table_name: 'work_schedules',
-        record_id: schedule.id,
-        old_values: null,
-        new_values: schedule,
-        description: `Work schedule ${schedule.name} created`
+      const insertResult = await client.query(insertQuery, Object.values(newSchedule));
+      const schedule = insertResult.rows[0];
+
+      // Note: Audit logging can be added through event emission if needed
+
+      MyLogger.success(action, {
+        scheduleId: schedule.id,
+        scheduleName: schedule.name
       });
 
       return schedule;
     } catch (error) {
-      throw new Error(`Failed to create work schedule: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Get work schedules
    */
-  async getWorkSchedules(includeInactive?: boolean): Promise<WorkSchedule[]> {
-    const { db } = await databaseConnection();
+  static async getWorkSchedules(includeInactive?: boolean): Promise<WorkSchedule[]> {
+    const action = "AttendanceMediator.getWorkSchedules";
+    const client = await pool.connect();
 
     try {
-      let query = db('work_schedules').orderBy('name');
+      MyLogger.info(action, { includeInactive });
+
+      let query = 'SELECT * FROM work_schedules ORDER BY name';
 
       if (!includeInactive) {
-        query = query.where('is_active', true);
+        query += ' WHERE is_active = true';
       }
 
-      return await query;
+      const result = await client.query(query);
+
+      MyLogger.success(action, {
+        count: result.rows.length
+      });
+
+      return result.rows;
     } catch (error) {
-      throw new Error(`Failed to retrieve work schedules: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Create attendance record
    */
-  async createAttendanceRecord(recordData: CreateAttendanceRecordRequest, employeeId: number, createdBy?: number): Promise<AttendanceRecord> {
-    const { db } = await databaseConnection();
+  static async createAttendanceRecord(recordData: CreateAttendanceRecordRequest, employeeId: number, createdBy?: number): Promise<AttendanceRecord> {
+    const action = "AttendanceMediator.createAttendanceRecord";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { recordData, employeeId, createdBy });
+
       // Validate attendance record
-      await this.validateAttendanceRecord(recordData, employeeId);
+      await AttendanceMediator.validateAttendanceRecord(recordData, employeeId);
 
       // Calculate total hours worked
-      const totalHoursWorked = this.calculateHoursWorked(
+      const totalHoursWorked = AttendanceMediator.calculateHoursWorked(
         recordData.check_in_time,
         recordData.check_out_time,
         recordData.break_start_time,
@@ -103,7 +124,7 @@ export class AttendanceMediator implements MediatorInterface {
       );
 
       // Determine status
-      const status = this.determineAttendanceStatus(recordData, totalHoursWorked);
+      const status = AttendanceMediator.determineAttendanceStatus(recordData, totalHoursWorked);
 
       const newRecord = {
         employee_id: employeeId,
@@ -123,95 +144,137 @@ export class AttendanceMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [record] = await db('attendance_records')
-        .insert(newRecord)
-        .returning('*');
+      const insertQuery = `
+        INSERT INTO attendance_records (${Object.keys(newRecord).join(', ')})
+        VALUES (${Object.keys(newRecord).map((_, i) => `$${i + 1}`).join(', ')})
+        RETURNING *
+      `;
 
-      // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
-        action: 'CREATE',
-        table_name: 'attendance_records',
-        record_id: record.id,
-        old_values: null,
-        new_values: record,
-        description: `Attendance record created for ${record.attendance_date}`
-      });
+      const insertResult = await client.query(insertQuery, Object.values(newRecord));
+      const record = insertResult.rows[0];
+
+      // Note: Audit logging can be added through event emission if needed
 
       // Emit event
-      this.eventBus.emit('attendance.record.created', { record, createdBy });
+      eventBus.emit('attendance.record.created', { record, createdBy });
+
+      MyLogger.success(action, {
+        recordId: record.id,
+        employeeId: record.employee_id,
+        attendanceDate: record.attendance_date,
+        status: record.status
+      });
 
       return record;
     } catch (error) {
-      throw new Error(`Failed to create attendance record: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Get attendance records
    */
-  async getAttendanceRecords(filters?: {
+  static async getAttendanceRecords(filters?: {
     employee_id?: number;
     attendance_date?: string;
     start_date?: string;
     end_date?: string;
     status?: string;
   }): Promise<AttendanceRecord[]> {
-    const { db } = await databaseConnection();
+    const action = "AttendanceMediator.getAttendanceRecords";
+    const client = await pool.connect();
 
     try {
-      let query = db('attendance_records as ar')
-        .join('employees as e', 'ar.employee_id', 'e.id')
-        .select(
-          'ar.*',
-          'e.first_name',
-          'e.last_name',
-          'e.employee_id'
-        )
-        .orderBy('ar.attendance_date', 'desc')
-        .orderBy('ar.check_in_time');
+      MyLogger.info(action, { filters });
+
+      let query = `
+        SELECT
+          ar.*,
+          e.first_name,
+          e.last_name,
+          e.employee_id
+        FROM attendance_records as ar
+        JOIN employees as e ON ar.employee_id = e.id
+      `;
+
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      // Build WHERE conditions
+      const conditions: string[] = [];
 
       if (filters?.employee_id) {
-        query = query.where('ar.employee_id', filters.employee_id);
+        conditions.push(`ar.employee_id = $${paramIndex}`);
+        values.push(filters.employee_id);
+        paramIndex++;
       }
 
       if (filters?.attendance_date) {
-        query = query.where('ar.attendance_date', filters.attendance_date);
+        conditions.push(`ar.attendance_date = $${paramIndex}`);
+        values.push(filters.attendance_date);
+        paramIndex++;
       }
 
       if (filters?.start_date) {
-        query = query.where('ar.attendance_date', '>=', filters.start_date);
+        conditions.push(`ar.attendance_date >= $${paramIndex}`);
+        values.push(filters.start_date);
+        paramIndex++;
       }
 
       if (filters?.end_date) {
-        query = query.where('ar.attendance_date', '<=', filters.end_date);
+        conditions.push(`ar.attendance_date <= $${paramIndex}`);
+        values.push(filters.end_date);
+        paramIndex++;
       }
 
       if (filters?.status) {
-        query = query.where('ar.status', filters.status);
+        conditions.push(`ar.status = $${paramIndex}`);
+        values.push(filters.status);
+        paramIndex++;
       }
 
-      return await query;
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+
+      query += ' ORDER BY ar.attendance_date DESC, ar.check_in_time DESC';
+
+      const result = await client.query(query, values);
+
+      MyLogger.success(action, {
+        count: result.rows.length,
+        filters
+      });
+
+      return result.rows;
     } catch (error) {
-      throw new Error(`Failed to retrieve attendance records: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Update attendance record
    */
-  async updateAttendanceRecord(
+  static async updateAttendanceRecord(
     recordId: number,
     updateData: Partial<CreateAttendanceRecordRequest>,
     updatedBy?: number
   ): Promise<AttendanceRecord> {
-    const { db } = await databaseConnection();
+    const action = "AttendanceMediator.updateAttendanceRecord";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { recordId, updateData, updatedBy });
+
       // Get current record
-      const currentRecord = await db('attendance_records')
-        .where('id', recordId)
-        .first();
+      const currentRecordResult = await client.query('SELECT * FROM attendance_records WHERE id = $1', [recordId]);
+      const currentRecord = currentRecordResult.rows[0];
 
       if (!currentRecord) {
         throw new Error('Attendance record not found');
@@ -223,7 +286,7 @@ export class AttendanceMediator implements MediatorInterface {
       let status = currentRecord.status;
 
       if (updateData.check_in_time || updateData.check_out_time || updateData.break_start_time || updateData.break_end_time) {
-        totalHoursWorked = this.calculateHoursWorked(
+        totalHoursWorked = AttendanceMediator.calculateHoursWorked(
           updateData.check_in_time || currentRecord.check_in_time,
           updateData.check_out_time || currentRecord.check_out_time,
           updateData.break_start_time || currentRecord.break_start_time,
@@ -231,7 +294,7 @@ export class AttendanceMediator implements MediatorInterface {
         );
 
         overtimeHours = Math.max(0, totalHoursWorked - 8);
-        status = this.determineAttendanceStatus(updateData, totalHoursWorked);
+        status = AttendanceMediator.determineAttendanceStatus(updateData, totalHoursWorked);
       }
 
       const updatedRecordData = {
@@ -242,48 +305,62 @@ export class AttendanceMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [record] = await db('attendance_records')
-        .where('id', recordId)
-        .update(updatedRecordData)
-        .returning('*');
+      const updateFields = Object.keys(updatedRecordData);
+      const updateValues = Object.values(updatedRecordData);
 
-      // Audit log
-      await this.auditService.log({
-        user_id: updatedBy,
-        action: 'UPDATE',
-        table_name: 'attendance_records',
-        record_id: recordId,
-        old_values: currentRecord,
-        new_values: record,
-        description: `Attendance record updated`
-      });
+      const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      const updateQuery = `
+        UPDATE attendance_records
+        SET ${setClause}
+        WHERE id = $${updateValues.length + 1}
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [...updateValues, recordId]);
+      const record = updateResult.rows[0];
+
+      // Note: Audit logging can be added through event emission if needed
 
       // Emit event
-      this.eventBus.emit('attendance.record.updated', { record, updatedBy });
+      eventBus.emit('attendance.record.updated', { record, updatedBy });
+
+      MyLogger.success(action, {
+        recordId: record.id,
+        employeeId: record.employee_id,
+        attendanceDate: record.attendance_date,
+        status: record.status
+      });
 
       return record;
     } catch (error) {
-      throw new Error(`Failed to update attendance record: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Get attendance summary for a period
    */
-  async getAttendanceSummary(
+  static async getAttendanceSummary(
     employeeId: number,
     startDate: string,
     endDate: string
   ): Promise<AttendanceSummary> {
-    const { db } = await databaseConnection();
+    const action = "AttendanceMediator.getAttendanceSummary";
+    const client = await pool.connect();
 
     try {
-      const records = await db('attendance_records')
-        .where('employee_id', employeeId)
-        .whereBetween('attendance_date', [startDate, endDate])
-        .orderBy('attendance_date');
+      MyLogger.info(action, { employeeId, startDate, endDate });
 
-      const totalWorkingDays = this.calculateWorkingDaysBetweenDates(startDate, endDate);
+      const recordsResult = await client.query(
+        'SELECT * FROM attendance_records WHERE employee_id = $1 AND attendance_date BETWEEN $2 AND $3 ORDER BY attendance_date',
+        [employeeId, startDate, endDate]
+      );
+      const records = recordsResult.rows;
+
+      const totalWorkingDays = AttendanceMediator.calculateWorkingDaysBetweenDates(startDate, endDate);
       const presentDays = records.filter(r => r.status === 'present').length;
       const absentDays = records.filter(r => r.status === 'absent').length;
       const lateDays = records.filter(r => r.status === 'late').length;
@@ -294,28 +371,43 @@ export class AttendanceMediator implements MediatorInterface {
 
       const averageHoursPerDay = presentDays > 0 ? totalHoursWorked / presentDays : 0;
 
-      return {
+      const summary: AttendanceSummary = {
         period_start: startDate,
         period_end: endDate,
         total_working_days: totalWorkingDays,
         average_attendance_rate: totalWorkingDays > 0 ? (presentDays / totalWorkingDays) * 100 : 0,
         total_absenteeism: absentDays,
         overtime_hours: totalOvertimeHours,
+        department_attendance: [], // Will be populated if department data is available
         employee_attendance: [{
           employee: `Employee ${employeeId}`,
           attendance_rate: totalWorkingDays > 0 ? (presentDays / totalWorkingDays) * 100 : 0,
           total_days: totalWorkingDays
         }]
       };
+
+      MyLogger.success(action, {
+        employeeId,
+        periodStart: startDate,
+        periodEnd: endDate,
+        totalWorkingDays,
+        presentDays,
+        averageAttendanceRate: summary.average_attendance_rate
+      });
+
+      return summary;
     } catch (error) {
-      throw new Error(`Failed to get attendance summary: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Get attendance dashboard
    */
-  async getAttendanceDashboard(): Promise<{
+  static async getAttendanceDashboard(): Promise<{
     total_records_today: number;
     present_today: number;
     absent_today: number;
@@ -324,20 +416,25 @@ export class AttendanceMediator implements MediatorInterface {
     recent_records: AttendanceRecord[];
     employee_summary: { employee: string; status: string; hours: number }[];
   }> {
-    const { db } = await databaseConnection();
+    const action = "AttendanceMediator.getAttendanceDashboard";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(action, {});
+
       const today = new Date().toISOString().split('T')[0];
 
       // Today's attendance
-      const todayRecords = await db('attendance_records as ar')
-        .join('employees as e', 'ar.employee_id', 'e.id')
-        .select(
-          'ar.*',
-          'e.first_name',
-          'e.last_name'
-        )
-        .where('ar.attendance_date', today);
+      const todayRecordsResult = await client.query(`
+        SELECT
+          ar.*,
+          e.first_name,
+          e.last_name
+        FROM attendance_records as ar
+        JOIN employees as e ON ar.employee_id = e.id
+        WHERE ar.attendance_date = $1
+      `, [today]);
+      const todayRecords = todayRecordsResult.rows;
 
       const totalRecordsToday = todayRecords.length;
       const presentToday = todayRecords.filter(r => r.status === 'present').length;
@@ -348,16 +445,18 @@ export class AttendanceMediator implements MediatorInterface {
       const averageHoursToday = totalRecordsToday > 0 ? totalHoursToday / totalRecordsToday : 0;
 
       // Recent records (last 10)
-      const recentRecords = await db('attendance_records as ar')
-        .join('employees as e', 'ar.employee_id', 'e.id')
-        .select(
-          'ar.*',
-          'e.first_name',
-          'e.last_name',
-          'e.employee_id'
-        )
-        .orderBy('ar.created_at', 'desc')
-        .limit(10);
+      const recentRecordsResult = await client.query(`
+        SELECT
+          ar.*,
+          e.first_name,
+          e.last_name,
+          e.employee_id
+        FROM attendance_records as ar
+        JOIN employees as e ON ar.employee_id = e.id
+        ORDER BY ar.created_at DESC
+        LIMIT 10
+      `);
+      const recentRecords = recentRecordsResult.rows;
 
       // Employee summary for today
       const employeeSummary = todayRecords.map(record => ({
@@ -366,7 +465,7 @@ export class AttendanceMediator implements MediatorInterface {
         hours: record.total_hours_worked || 0
       }));
 
-      return {
+      const dashboard = {
         total_records_today: totalRecordsToday,
         present_today: presentToday,
         absent_today: absentToday,
@@ -375,32 +474,49 @@ export class AttendanceMediator implements MediatorInterface {
         recent_records: recentRecords,
         employee_summary: employeeSummary
       };
+
+      MyLogger.success(action, {
+        totalRecordsToday,
+        presentToday,
+        absentToday,
+        lateToday,
+        averageHoursToday
+      });
+
+      return dashboard;
     } catch (error) {
-      throw new Error(`Failed to get attendance dashboard: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Mark attendance (check-in/check-out)
    */
-  async markAttendance(
+  static async markAttendance(
     employeeId: number,
     action: 'check_in' | 'check_out' | 'break_start' | 'break_end',
     location?: string,
     notes?: string,
     markedBy?: number
   ): Promise<AttendanceRecord> {
-    const { db } = await databaseConnection();
+    const actionLog = "AttendanceMediator.markAttendance";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(actionLog, { employeeId, action, location, notes, markedBy });
+
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
 
       // Get or create today's attendance record
-      let record = await db('attendance_records')
-        .where('employee_id', employeeId)
-        .where('attendance_date', today)
-        .first();
+      const recordResult = await client.query(
+        'SELECT * FROM attendance_records WHERE employee_id = $1 AND attendance_date = $2',
+        [employeeId, today]
+      );
+      let record = recordResult.rows[0];
 
       if (!record) {
         // Create new record for today
@@ -414,11 +530,14 @@ export class AttendanceMediator implements MediatorInterface {
           updated_at: new Date()
         };
 
-        const [newRecord] = await db('attendance_records')
-          .insert(record)
-          .returning('*');
+        const insertQuery = `
+          INSERT INTO attendance_records (${Object.keys(record).join(', ')})
+          VALUES (${Object.keys(record).map((_, i) => `$${i + 1}`).join(', ')})
+          RETURNING *
+        `;
 
-        record = newRecord;
+        const insertResult = await client.query(insertQuery, Object.values(record));
+        record = insertResult.rows[0];
       }
 
       // Update record based on action
@@ -433,7 +552,7 @@ export class AttendanceMediator implements MediatorInterface {
           updateData.check_out_time = now;
           // Calculate total hours
           if (record.check_in_time) {
-            updateData.total_hours_worked = this.calculateHoursWorked(
+            updateData.total_hours_worked = AttendanceMediator.calculateHoursWorked(
               record.check_in_time,
               now,
               record.break_start_time,
@@ -449,7 +568,7 @@ export class AttendanceMediator implements MediatorInterface {
           updateData.break_end_time = now;
           // Recalculate total hours
           if (record.check_in_time && record.check_out_time) {
-            updateData.total_hours_worked = this.calculateHoursWorked(
+            updateData.total_hours_worked = AttendanceMediator.calculateHoursWorked(
               record.check_in_time,
               record.check_out_time,
               now,
@@ -462,35 +581,46 @@ export class AttendanceMediator implements MediatorInterface {
       if (location) updateData.location = location;
       if (notes) updateData.notes = notes;
 
-      const [updatedRecord] = await db('attendance_records')
-        .where('id', record.id)
-        .update(updateData)
-        .returning('*');
+      const updateFields = Object.keys(updateData);
+      const updateValues = Object.values(updateData);
 
-      // Audit log
-      await this.auditService.log({
-        user_id: markedBy,
-        action: 'UPDATE',
-        table_name: 'attendance_records',
-        record_id: record.id,
-        old_values: record,
-        new_values: updatedRecord,
-        description: `Attendance ${action} marked`
-      });
+      const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      const updateQuery = `
+        UPDATE attendance_records
+        SET ${setClause}
+        WHERE id = $${updateValues.length + 1}
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [...updateValues, record.id]);
+      const updatedRecord = updateResult.rows[0];
+
+      // Note: Audit logging can be added through event emission if needed
 
       // Emit event
-      this.eventBus.emit('attendance.marked', { record: updatedRecord, action, markedBy });
+      eventBus.emit('attendance.marked', { record: updatedRecord, action, markedBy });
+
+      MyLogger.success(actionLog, {
+        recordId: updatedRecord.id,
+        employeeId: updatedRecord.employee_id,
+        attendanceDate: updatedRecord.attendance_date,
+        action,
+        status: updatedRecord.status
+      });
 
       return updatedRecord;
     } catch (error) {
-      throw new Error(`Failed to mark attendance: ${error}`);
+      MyLogger.error(actionLog, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Calculate hours worked between times
    */
-  private calculateHoursWorked(
+  private static calculateHoursWorked(
     checkInTime?: string,
     checkOutTime?: string,
     breakStartTime?: string,
@@ -517,7 +647,7 @@ export class AttendanceMediator implements MediatorInterface {
   /**
    * Determine attendance status
    */
-  private determineAttendanceStatus(recordData: Partial<CreateAttendanceRecordRequest>, totalHours: number): string {
+  private static determineAttendanceStatus(recordData: Partial<CreateAttendanceRecordRequest>, totalHours: number): string {
     if (!recordData.check_in_time || !recordData.check_out_time) {
       return 'absent';
     }
@@ -539,7 +669,7 @@ export class AttendanceMediator implements MediatorInterface {
   /**
    * Calculate working days between two dates
    */
-  private calculateWorkingDaysBetweenDates(startDate: string, endDate: string): number {
+  private static calculateWorkingDaysBetweenDates(startDate: string, endDate: string): number {
     const start = new Date(startDate);
     const end = new Date(endDate);
     let workingDays = 0;
@@ -557,79 +687,87 @@ export class AttendanceMediator implements MediatorInterface {
   /**
    * Validate attendance record
    */
-  private async validateAttendanceRecord(recordData: CreateAttendanceRecordRequest, employeeId: number): Promise<void> {
-    // Check if record already exists for this employee and date
-    const { db } = await databaseConnection();
+  private static async validateAttendanceRecord(recordData: CreateAttendanceRecordRequest, employeeId: number): Promise<void> {
+    const client = await pool.connect();
 
-    const existingRecord = await db('attendance_records')
-      .where('employee_id', employeeId)
-      .where('attendance_date', recordData.attendance_date)
-      .first();
+    try {
+      // Check if record already exists for this employee and date
+      const existingRecordResult = await client.query(
+        'SELECT * FROM attendance_records WHERE employee_id = $1 AND attendance_date = $2',
+        [employeeId, recordData.attendance_date]
+      );
+      const existingRecord = existingRecordResult.rows[0];
 
-    if (existingRecord) {
-      throw new Error('Attendance record already exists for this date');
-    }
-
-    // Validate time logic
-    if (recordData.check_in_time && recordData.check_out_time) {
-      const checkIn = new Date(`1970-01-01T${recordData.check_in_time}:00`);
-      const checkOut = new Date(`1970-01-01T${recordData.check_out_time}:00`);
-
-      if (checkOut <= checkIn) {
-        throw new Error('Check-out time must be after check-in time');
+      if (existingRecord) {
+        throw new Error('Attendance record already exists for this date');
       }
-    }
 
-    if (recordData.break_start_time && recordData.break_end_time) {
-      const breakStart = new Date(`1970-01-01T${recordData.break_start_time}:00`);
-      const breakEnd = new Date(`1970-01-01T${recordData.break_end_time}:00`);
+      // Validate time logic
+      if (recordData.check_in_time && recordData.check_out_time) {
+        const checkIn = new Date(`1970-01-01T${recordData.check_in_time}:00`);
+        const checkOut = new Date(`1970-01-01T${recordData.check_out_time}:00`);
 
-      if (breakEnd <= breakStart) {
-        throw new Error('Break end time must be after break start time');
+        if (checkOut <= checkIn) {
+          throw new Error('Check-out time must be after check-in time');
+        }
       }
+
+      if (recordData.break_start_time && recordData.break_end_time) {
+        const breakStart = new Date(`1970-01-01T${recordData.break_start_time}:00`);
+        const breakEnd = new Date(`1970-01-01T${recordData.break_end_time}:00`);
+
+        if (breakEnd <= breakStart) {
+          throw new Error('Break end time must be after break start time');
+        }
+      }
+    } finally {
+      client.release();
     }
   }
 
   /**
    * Get attendance report for a period
    */
-  async getAttendanceReport(startDate: string, endDate: string): Promise<{
+  static async getAttendanceReport(startDate: string, endDate: string): Promise<{
     total_employees: number;
     total_attendance_records: number;
     average_attendance_rate: number;
     total_overtime_hours: number;
     department_breakdown: { department: string; attendance_rate: number; total_employees: number }[];
   }> {
-    const { db } = await databaseConnection();
+    const action = "AttendanceMediator.getAttendanceReport";
+    const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { startDate, endDate });
+
       // Get total employees
-      const totalEmployees = await db('employees')
-        .where('is_active', true)
-        .count('* as count')
-        .first();
+      const totalEmployeesResult = await client.query('SELECT COUNT(*) as count FROM employees WHERE is_active = true');
+      const totalEmployees = totalEmployeesResult.rows[0];
 
       // Get attendance data for the period
-      const attendanceData = await db('attendance_records as ar')
-        .join('employees as e', 'ar.employee_id', 'e.id')
-        .join('departments as d', 'e.department_id', 'd.id')
-        .select(
-          'd.name as department',
-          db.raw('COUNT(*) as total_records'),
-          db.raw('COUNT(CASE WHEN ar.status = \'present\' THEN 1 END) as present_days'),
-          db.raw('SUM(ar.overtime_hours) as overtime_hours')
-        )
-        .whereBetween('ar.attendance_date', [startDate, endDate])
-        .groupBy('d.name');
+      const attendanceDataResult = await client.query(`
+        SELECT
+          d.name as department,
+          COUNT(*) as total_records,
+          COUNT(CASE WHEN ar.status = 'present' THEN 1 END) as present_days,
+          COALESCE(SUM(ar.overtime_hours), 0) as overtime_hours
+        FROM attendance_records as ar
+        JOIN employees as e ON ar.employee_id = e.id
+        JOIN departments as d ON e.department_id = d.id
+        WHERE ar.attendance_date BETWEEN $1 AND $2
+        GROUP BY d.name
+      `, [startDate, endDate]);
+      const attendanceData = attendanceDataResult.rows;
 
       const totalRecords = attendanceData.reduce((sum, item) => sum + parseInt(item.total_records as string), 0);
       const totalPresent = attendanceData.reduce((sum, item) => sum + parseInt(item.present_days as string), 0);
       const totalOvertime = attendanceData.reduce((sum, item) => sum + parseFloat(item.overtime_hours as string || '0'), 0);
 
-      const workingDays = this.calculateWorkingDaysBetweenDates(startDate, endDate);
+      const workingDays = AttendanceMediator.calculateWorkingDaysBetweenDates(startDate, endDate);
       const averageAttendanceRate = workingDays > 0 ? (totalPresent / (totalEmployees.count * workingDays)) * 100 : 0;
 
-      return {
+      const report = {
         total_employees: parseInt(totalEmployees.count as string),
         total_attendance_records: totalRecords,
         average_attendance_rate: averageAttendanceRate,
@@ -640,8 +778,22 @@ export class AttendanceMediator implements MediatorInterface {
           total_employees: 1 // This would need to be calculated properly
         }))
       };
+
+      MyLogger.success(action, {
+        startDate,
+        endDate,
+        totalEmployees: report.total_employees,
+        totalRecords,
+        averageAttendanceRate: report.average_attendance_rate,
+        totalOvertime: report.total_overtime_hours
+      });
+
+      return report;
     } catch (error) {
-      throw new Error(`Failed to get attendance report: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 }

@@ -11,11 +11,6 @@ import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils
 import { MyLogger } from '../../../utils/new-logger';
 
 export class AttendanceController {
-  private attendanceMediator: AttendanceMediator;
-
-  constructor() {
-    this.attendanceMediator = new AttendanceMediator();
-  }
 
   /**
    * Get all work schedules
@@ -23,7 +18,7 @@ export class AttendanceController {
   async getWorkSchedules(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const includeInactive = req.query.include_inactive === 'true';
-      const schedules = await this.attendanceMediator.getWorkSchedules(includeInactive);
+      const schedules = await AttendanceMediator.getWorkSchedules(includeInactive);
 
       serializeSuccessResponse(res, { work_schedules: schedules }, 'Work schedules retrieved successfully');
     } catch (error) {
@@ -37,7 +32,7 @@ export class AttendanceController {
   async createWorkSchedule(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const scheduleData: CreateWorkScheduleRequest = req.body;
-      const schedule = await this.attendanceMediator.createWorkSchedule(scheduleData, req.user?.user_id);
+      const schedule = await AttendanceMediator.createWorkSchedule(scheduleData, req.user?.user_id);
 
       serializeSuccessResponse(res, { work_schedule: schedule }, 'Work schedule created successfully', 201);
     } catch (error) {
@@ -58,7 +53,7 @@ export class AttendanceController {
         status: req.query.status as string
       };
 
-      const records = await this.attendanceMediator.getAttendanceRecords(filters);
+      const records = await AttendanceMediator.getAttendanceRecords(filters);
 
       serializeSuccessResponse(res, { attendance_records: records }, 'Attendance records retrieved successfully');
     } catch (error) {
@@ -74,7 +69,7 @@ export class AttendanceController {
       const recordData: CreateAttendanceRecordRequest = req.body;
       const employeeId = parseInt(req.params.employeeId);
 
-      const record = await this.attendanceMediator.createAttendanceRecord(
+      const record = await AttendanceMediator.createAttendanceRecord(
         recordData,
         employeeId,
         req.user?.user_id
@@ -94,7 +89,7 @@ export class AttendanceController {
       const recordId = parseInt(req.params.id);
       const updateData: Partial<CreateAttendanceRecordRequest> = req.body;
 
-      const record = await this.attendanceMediator.updateAttendanceRecord(
+      const record = await AttendanceMediator.updateAttendanceRecord(
         recordId,
         updateData,
         req.user?.user_id
@@ -119,7 +114,7 @@ export class AttendanceController {
         throw new Error('Action must be check_in, check_out, break_start, or break_end');
       }
 
-      const record = await this.attendanceMediator.markAttendance(
+      const record = await AttendanceMediator.markAttendance(
         employeeId,
         action,
         location,
@@ -146,7 +141,7 @@ export class AttendanceController {
         return;
       }
 
-      const summary = await this.attendanceMediator.getAttendanceSummary(
+      const summary = await AttendanceMediator.getAttendanceSummary(
         employeeId,
         start_date as string,
         end_date as string
@@ -163,7 +158,7 @@ export class AttendanceController {
    */
   async getAttendanceDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const dashboard = await this.attendanceMediator.getAttendanceDashboard();
+      const dashboard = await AttendanceMediator.getAttendanceDashboard();
 
       serializeSuccessResponse(res, { dashboard }, 'Attendance dashboard retrieved successfully');
     } catch (error) {
@@ -183,7 +178,7 @@ export class AttendanceController {
         throw new Error('Start date and end date are required');
       }
 
-      const report = await this.attendanceMediator.getAttendanceReport(
+      const report = await AttendanceMediator.getAttendanceReport(
         start_date as string,
         end_date as string
       );
@@ -209,7 +204,7 @@ export class AttendanceController {
         status: status as string
       };
 
-      const records = await this.attendanceMediator.getAttendanceRecords(filters);
+      const records = await AttendanceMediator.getAttendanceRecords(filters);
 
       serializeSuccessResponse(res, { attendance_records: records }, 'Your attendance records retrieved successfully');
     } catch (error) {
@@ -223,7 +218,7 @@ export class AttendanceController {
   async getAttendanceRecordById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const recordId = parseInt(req.params.id);
-      const records = await this.attendanceMediator.getAttendanceRecords();
+      const records = await AttendanceMediator.getAttendanceRecords();
 
       const record = records.find(r => r.id === recordId);
 
