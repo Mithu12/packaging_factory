@@ -11,17 +11,17 @@ import {
   CreatePayrollRunRequest
 } from '../../../../types/hrm';
 import { MediatorInterface } from '../../../../types';
-import { databaseConnection } from '../../../../database/connection';
+import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
-import { EventBus } from '../../../../utils/eventBus';
+import { eventBus } from '../../../../utils/eventBus';
 
 export class PayrollMediator implements MediatorInterface {
   private auditService: AuditService;
-  private eventBus: EventBus;
+  private eventBus: any;
 
   constructor() {
     this.auditService = new AuditService();
-    this.eventBus = EventBus.getInstance();
+    this.eventBus = eventBus;
   }
 
   async process(data: any): Promise<any> {
@@ -32,21 +32,11 @@ export class PayrollMediator implements MediatorInterface {
    * Create payroll period
    */
   async createPayrollPeriod(periodData: CreatePayrollPeriodRequest, createdBy?: number): Promise<PayrollPeriod> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Check for overlapping periods
-      const overlappingPeriod = await db('payroll_periods')
-        .where(function() {
-          this.whereBetween('start_date', [periodData.start_date, periodData.end_date])
-            .orWhereBetween('end_date', [periodData.start_date, periodData.end_date])
-            .orWhere(function() {
-              this.where('start_date', '<=', periodData.start_date)
-                .andWhere('end_date', '>=', periodData.end_date);
-            });
-        })
-        .where('period_type', periodData.period_type)
-        .first();
+      const overlappingPeriod = await client.query('SELECT * FROM payroll_periods WHERE start_date BETWEEN $1 AND $2 OR end_date BETWEEN $1 AND $2 OR (start_date <= $1 AND end_date >= $2)', [periodData.start_date, periodData.end_date]);
 
       if (overlappingPeriod) {
         throw new Error('Overlapping payroll period exists');
@@ -90,7 +80,7 @@ export class PayrollMediator implements MediatorInterface {
     start_date?: string;
     end_date?: string;
   }): Promise<PayrollPeriod[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       let query = db('payroll_periods').orderBy('start_date', 'desc');
@@ -121,7 +111,7 @@ export class PayrollMediator implements MediatorInterface {
    * Create payroll component
    */
   async createPayrollComponent(componentData: CreatePayrollComponentRequest, createdBy?: number): Promise<PayrollComponent> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Check if component code already exists
@@ -165,7 +155,7 @@ export class PayrollMediator implements MediatorInterface {
    * Get payroll components
    */
   async getPayrollComponents(componentType?: 'earning' | 'deduction'): Promise<PayrollComponent[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       let query = db('payroll_components').where('is_active', true).orderBy('name');
@@ -188,7 +178,7 @@ export class PayrollMediator implements MediatorInterface {
     components: { component_id: number; amount: number; percentage?: number }[],
     createdBy?: number
   ): Promise<EmployeeSalaryStructure[]> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Remove existing salary structure
@@ -239,7 +229,7 @@ export class PayrollMediator implements MediatorInterface {
    * Calculate payroll for a period
    */
   async calculatePayroll(calcRequest: PayrollCalculationRequest, calculatedBy?: number): Promise<PayrollRun> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       const { payroll_period_id, employee_ids, include_overtime = true, include_loans = true, dry_run = false } = calcRequest;
@@ -352,7 +342,7 @@ export class PayrollMediator implements MediatorInterface {
     includeOvertime: boolean,
     includeLoans: boolean
   ): Promise<PayrollDetail> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       // Get employee salary structure
@@ -520,7 +510,7 @@ export class PayrollMediator implements MediatorInterface {
    * Approve payroll run
    */
   async approvePayrollRun(runId: number, approvedBy?: number): Promise<PayrollRun> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       const run = await db('payroll_runs')
@@ -577,7 +567,7 @@ export class PayrollMediator implements MediatorInterface {
    * Get payroll summary for a period
    */
   async getPayrollSummary(periodId: number): Promise<PayrollSummary> {
-    const { db } = await databaseConnection();
+    const client = await pool.connect();
 
     try {
       const period = await db('payroll_periods')

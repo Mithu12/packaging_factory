@@ -10,8 +10,7 @@ import { AttendanceMediator } from '../mediators/attendance/AttendanceMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
-export class AttendanceController {
-
+class AttendanceController {
   /**
    * Get all work schedules
    */
@@ -306,3 +305,5 @@ export class AttendanceController {
     }
   }
 }
+
+export default new AttendanceController();

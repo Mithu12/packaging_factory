@@ -4,7 +4,7 @@
 export { EmployeeController } from './controllers/employees.controller';
 export { PayrollController } from './controllers/payroll.controller';
 export { LeaveController } from './controllers/leave.controller';
-export { AttendanceController } from './controllers/attendance.controller';
+export { default as AttendanceController } from './controllers/attendance.controller';
 
 export { EmployeeMediator } from './mediators/employees/EmployeeMediator';
 export { PayrollMediator } from './mediators/payroll/PayrollMediator';

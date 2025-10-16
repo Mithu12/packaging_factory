@@ -13,11 +13,6 @@ import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils
 import { MyLogger } from '../../../utils/new-logger';
 
 export class PayrollController {
-  private payrollMediator: PayrollMediator;
-
-  constructor() {
-    this.payrollMediator = new PayrollMediator();
-  }
 
   /**
    * Get all payroll periods
@@ -34,7 +29,7 @@ export class PayrollController {
         end_date: req.query.end_date as string
       };
 
-      const periods = await this.payrollMediator.getPayrollPeriods(filters);
+      const periods = await PayrollMediator.getPayrollPeriods(filters);
 
       MyLogger.success(action, { periodsCount: periods.length });
       serializeSuccessResponse(res, { periods }, "SUCCESS");
@@ -53,7 +48,7 @@ export class PayrollController {
       MyLogger.info(action, { periodData });
 
       const userId = req.user?.user_id;
-      const period = await this.payrollMediator.createPayrollPeriod(periodData, userId);
+      const period = await PayrollMediator.createPayrollPeriod(periodData, userId);
 
       MyLogger.success(action, { periodId: period.id });
       serializeSuccessResponse(res, { period }, "SUCCESS", 201);
@@ -71,7 +66,7 @@ export class PayrollController {
       MyLogger.info(action, { periodId: req.params.id });
 
       const periodId = parseInt(req.params.id);
-      const periods = await this.payrollMediator.getPayrollPeriods({});
+      const periods = await PayrollMediator.getPayrollPeriods({});
 
       const period = periods.find(p => p.id === periodId);
 
@@ -132,7 +127,7 @@ export class PayrollController {
       MyLogger.info(action, { query: req.query });
 
       const componentType = req.query.type as 'earning' | 'deduction';
-      const components = await this.payrollMediator.getPayrollComponents(componentType);
+      const components = await PayrollMediator.getPayrollComponents(componentType);
 
       serializeSuccessResponse(res, { components }, 'Payroll components retrieved successfully');
     } catch (error) {
@@ -149,7 +144,7 @@ export class PayrollController {
       MyLogger.info(action, { body: req.body });
 
       const componentData: CreatePayrollComponentRequest = req.body;
-      const component = await this.payrollMediator.createPayrollComponent(componentData, req.user?.user_id);
+      const component = await PayrollMediator.createPayrollComponent(componentData, req.user?.user_id);
 
       serializeSuccessResponse(res, { component }, 'Payroll component created successfully', 201);
     } catch (error) {
@@ -173,7 +168,7 @@ export class PayrollController {
         dry_run: req.body.dry_run === true
       };
 
-      const payrollRun = await this.payrollMediator.calculatePayroll(calcRequest, req.user?.user_id);
+      const payrollRun = await PayrollMediator.calculatePayroll(calcRequest, req.user?.user_id);
 
       serializeSuccessResponse(res, { payroll_run: payrollRun }, 'Payroll calculated successfully');
     } catch (error) {
@@ -250,7 +245,7 @@ export class PayrollController {
       MyLogger.info(action, { runId: req.params.id });
 
       const runId = parseInt(req.params.id);
-      const approvedRun = await this.payrollMediator.approvePayrollRun(runId, req.user?.user_id);
+      const approvedRun = await PayrollMediator.approvePayrollRun(runId, req.user?.user_id);
 
       serializeSuccessResponse(res, { payroll_run: approvedRun }, 'Payroll run approved successfully');
     } catch (error) {
@@ -267,7 +262,7 @@ export class PayrollController {
       MyLogger.info(action, { periodId: req.params.periodId });
 
       const periodId = parseInt(req.params.periodId);
-      const summary = await this.payrollMediator.getPayrollSummary(periodId);
+      const summary = await PayrollMediator.getPayrollSummary(periodId);
 
       serializeSuccessResponse(res, { summary }, 'Payroll summary retrieved successfully');
     } catch (error) {
@@ -286,7 +281,7 @@ export class PayrollController {
       const employeeId = parseInt(req.params.employeeId);
       const components = req.body.components; // Array of { component_id, amount, percentage }
 
-      const structures = await this.payrollMediator.setupEmployeeSalaryStructure(
+      const structures = await PayrollMediator.setupEmployeeSalaryStructure(
         employeeId,
         components,
         req.user?.user_id
@@ -310,7 +305,7 @@ export class PayrollController {
       const recentRuns = await this.getPayrollRuns(req, res, next);
 
       // Get upcoming payroll periods
-      const upcomingPeriods = await this.payrollMediator.getPayrollPeriods({
+      const upcomingPeriods = await PayrollMediator.getPayrollPeriods({
         status: 'open',
         start_date: new Date().toISOString().split('T')[0]
       });
@@ -320,7 +315,7 @@ export class PayrollController {
       const currentMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const currentMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
 
-      const periods = await this.payrollMediator.getPayrollPeriods({
+      const periods = await PayrollMediator.getPayrollPeriods({
         start_date: currentMonthStart.toISOString().split('T')[0],
         end_date: currentMonthEnd.toISOString().split('T')[0]
       });
@@ -328,7 +323,7 @@ export class PayrollController {
       const dashboard = {
         recent_runs: recentRuns,
         upcoming_periods: upcomingPeriods,
-        current_month_summary: periods.length > 0 ? await this.payrollMediator.getPayrollSummary(periods[0].id) : null
+        current_month_summary: periods.length > 0 ? await PayrollMediator.getPayrollSummary(periods[0].id) : null
       };
 
       serializeSuccessResponse(res, { dashboard }, 'Payroll dashboard retrieved successfully');

@@ -3,6 +3,7 @@ import { MediatorInterface } from '../../../../types';
 import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
+import { MyLogger } from '@/utils/new-logger';
 
 export class EmployeeMediator implements MediatorInterface {
   private auditService: AuditService;
@@ -21,16 +22,18 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Get all employees with filtering and pagination
    */
-  async getEmployees(queryParams: EmployeeQueryParams): Promise<{
+  static async getEmployees(queryParams: EmployeeQueryParams): Promise<{
     employees: Employee[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
   }> {
+    const action = "EmployeeMediator.getEmployees";
     const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { queryParams });
       // Build the main query
       let query = `
         SELECT
@@ -109,8 +112,8 @@ export class EmployeeMediator implements MediatorInterface {
       values.push(limit, offset);
 
       // Execute main query
-      const result = await client.query(query, values);
-      const employees = result.rows;
+      const employeesResult = await client.query(query, values);
+      const employees = employeesResult.rows;
 
       // Get total count (same query without LIMIT/OFFSET)
       const countQuery = query.replace(/ LIMIT \$\d+ OFFSET \$\d+$/, '');
@@ -118,15 +121,26 @@ export class EmployeeMediator implements MediatorInterface {
       const countResult = await client.query(countQuery, countValues);
       const total = parseInt(countResult.rows[0].count);
 
-      return {
+      const result = {
         employees,
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit)
       };
+
+      MyLogger.success(action, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        employeesCount: result.employees.length,
+        queryParams
+      });
+
+      return result;
     } catch (error) {
-      throw new Error(`Failed to retrieve employees: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
     } finally {
       client.release();
     }
@@ -135,10 +149,12 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Get employee by ID
    */
-  async getEmployeeById(employeeId: number): Promise<Employee> {
+  static async getEmployeeById(employeeId: number): Promise<Employee> {
+    const action = "EmployeeMediator.getEmployeeById";
     const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { employeeId });
       const query = `
         SELECT
           e.*,
@@ -163,9 +179,17 @@ export class EmployeeMediator implements MediatorInterface {
         throw new Error('Employee not found');
       }
 
-      return result.rows[0];
+      const employee = result.rows[0];
+
+      MyLogger.success(action, {
+        employeeId: employee.id,
+        employeeCode: employee.employee_id
+      });
+
+      return employee;
     } catch (error) {
-      throw new Error(`Failed to retrieve employee: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
     } finally {
       client.release();
     }
@@ -174,10 +198,13 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Create new employee
    */
-  async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
+  static async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
+    const action = "EmployeeMediator.createEmployee";
     const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { employeeData, createdBy });
+
       // Check if employee_id already exists
       const existingEmployeeQuery = 'SELECT id FROM employees WHERE employee_id = $1';
       const existingEmployeeResult = await client.query(existingEmployeeQuery, [employeeData.employee_id]);
@@ -224,11 +251,18 @@ export class EmployeeMediator implements MediatorInterface {
       });
 
       // Emit event
-      this.eventBus.emit('employee.created', { employee, createdBy });
+      eventBus.emit('employee.created', { employee, createdBy });
+
+      MyLogger.success(action, {
+        employeeId: employee.id,
+        employeeCode: employee.employee_id,
+        employeeName: `${employee.first_name} ${employee.last_name}`
+      });
 
       return employee;
     } catch (error) {
-      throw new Error(`Failed to create employee: ${error}`);
+      MyLogger.error(action, error);
+      throw error;
     } finally {
       client.release();
     }
@@ -237,12 +271,15 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Update employee
    */
-  async updateEmployee(employeeId: number, updateData: UpdateEmployeeRequest, updatedBy?: number): Promise<Employee> {
+  static async updateEmployee(employeeId: number, updateData: UpdateEmployeeRequest, updatedBy?: number): Promise<Employee> {
+    const action = "EmployeeMediator.updateEmployee";
     const client = await pool.connect();
 
     try {
+      MyLogger.info(action, { employeeId, updateData, updatedBy });
+
       // Get current employee data
-      const currentEmployee = await this.getEmployeeById(employeeId);
+      const currentEmployee = await EmployeeMediator.getEmployeeById(employeeId);
 
       // Check if CNIC already exists (if being updated)
       if (updateData.cnic && updateData.cnic !== currentEmployee.cnic) {

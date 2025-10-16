@@ -11,11 +11,6 @@ import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils
 import { MyLogger } from '../../../utils/new-logger';
 
 export class LeaveController {
-  private leaveMediator: LeaveMediator;
-
-  constructor() {
-    this.leaveMediator = new LeaveMediator();
-  }
 
   /**
    * Get all leave types
@@ -25,7 +20,7 @@ export class LeaveController {
       const action = "GET /api/hrm/leave/types";
       MyLogger.info(action, { query: req.query });
 
-      const leaveTypes = await this.leaveMediator.getLeaveTypes();
+      const leaveTypes = await LeaveMediator.getLeaveTypes();
       MyLogger.success(action, { leaveTypesCount: leaveTypes.length });
       serializeSuccessResponse(res, { leave_types: leaveTypes }, 'Leave types retrieved successfully');
     } catch (error) {
@@ -42,7 +37,7 @@ export class LeaveController {
       MyLogger.info(action, { body: req.body });
 
       const leaveTypeData: CreateLeaveTypeRequest = req.body;
-      const leaveType = await this.leaveMediator.createLeaveType(leaveTypeData, req.user?.user_id);
+      const leaveType = await LeaveMediator.createLeaveType(leaveTypeData, req.user?.user_id);
 
       serializeSuccessResponse(res, { leave_type: leaveType }, 'Leave type created successfully', 201);
     } catch (error) {
@@ -58,7 +53,7 @@ export class LeaveController {
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
-      const balances = await this.leaveMediator.getLeaveBalances(employeeId, year);
+      const balances = await LeaveMediator.getLeaveBalances(employeeId, year);
 
       serializeSuccessResponse(res, { leave_balances: balances }, 'Leave balances retrieved successfully');
     } catch (error) {
@@ -74,7 +69,7 @@ export class LeaveController {
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
-      const balances = await this.leaveMediator.calculateLeaveBalances(employeeId, year);
+      const balances = await LeaveMediator.calculateLeaveBalances(employeeId, year);
 
       serializeSuccessResponse(res, { leave_balances: balances }, 'Leave balances calculated successfully');
     } catch (error) {
@@ -95,7 +90,7 @@ export class LeaveController {
         end_date: req.query.end_date as string
       };
 
-      const applications = await this.leaveMediator.getLeaveApplications(filters);
+      const applications = await LeaveMediator.getLeaveApplications(filters);
 
       serializeSuccessResponse(res, { leave_applications: applications }, 'Leave applications retrieved successfully');
     } catch (error) {
@@ -111,7 +106,7 @@ export class LeaveController {
       const applicationData: LeaveApplicationRequest = req.body;
       const employeeId = req.user?.user_id || parseInt(req.params.employeeId);
 
-      const application = await this.leaveMediator.createLeaveApplication(
+      const application = await LeaveMediator.createLeaveApplication(
         applicationData,
         employeeId,
         req.user?.user_id
@@ -139,7 +134,7 @@ export class LeaveController {
         throw new Error('Invalid action');
       }
 
-      const application = await this.leaveMediator.processLeaveApplication(
+      const application = await LeaveMediator.processLeaveApplication(
         applicationId,
         approvalAction,
         req.user?.user_id,
@@ -157,7 +152,7 @@ export class LeaveController {
    */
   async getLeaveDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const dashboard = await this.leaveMediator.getLeaveDashboard();
+      const dashboard = await LeaveMediator.getLeaveDashboard();
 
       serializeSuccessResponse(res, { dashboard }, 'Leave dashboard retrieved successfully');
     } catch (error) {
@@ -186,7 +181,7 @@ export class LeaveController {
         throw new Error('Invalid month');
       }
 
-      const calendar = await this.leaveMediator.getLeaveCalendar(year, month);
+      const calendar = await LeaveMediator.getLeaveCalendar(year, month);
 
       serializeSuccessResponse(res, { calendar }, 'Leave calendar retrieved successfully');
     } catch (error) {
@@ -203,7 +198,7 @@ export class LeaveController {
       MyLogger.info(action, { query: req.query });
 
       const employeeId = req.user?.user_id;
-      const applications = await this.leaveMediator.getLeaveApplications({
+      const applications = await LeaveMediator.getLeaveApplications({
         employee_id: employeeId
       });
 
@@ -222,7 +217,7 @@ export class LeaveController {
       MyLogger.info(action, { applicationId: req.params.id });
 
       const applicationId = parseInt(req.params.id);
-      const applications = await this.leaveMediator.getLeaveApplications();
+      const applications = await LeaveMediator.getLeaveApplications();
 
       const application = applications.find(app => app.id === applicationId);
 
@@ -266,7 +261,7 @@ export class LeaveController {
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
 
-      const balances = await this.leaveMediator.getLeaveBalances(employeeId, year);
+      const balances = await LeaveMediator.getLeaveBalances(employeeId, year);
 
       const summary = {
         employee_id: employeeId,

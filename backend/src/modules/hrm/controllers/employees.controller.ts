@@ -5,11 +5,6 @@ import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils
 import { MyLogger } from '../../../utils/new-logger';
 
 export class EmployeeController {
-  private employeeMediator: EmployeeMediator;
-
-  constructor() {
-    this.employeeMediator = new EmployeeMediator();
-  }
 
   /**
    * Get all employees with filtering and pagination
@@ -33,7 +28,7 @@ export class EmployeeController {
         sort_order: (req.query.sort_order as 'asc' | 'desc') || 'desc'
       };
 
-      const result = await this.employeeMediator.getEmployees(queryParams);
+      const result = await EmployeeMediator.getEmployees(queryParams);
       MyLogger.success(action, {
         total: result.total,
         page: result.page,
@@ -57,7 +52,7 @@ export class EmployeeController {
       MyLogger.info(action, { employeeId: id });
 
       const userId = req.user?.user_id;
-      const employee = await this.employeeMediator.getEmployeeById(parseInt(id));
+      const employee = await EmployeeMediator.getEmployeeById(parseInt(id));
 
       if (!employee) {
         serializeSuccessResponse(res, null, "Employee not found", 404);
@@ -81,7 +76,7 @@ export class EmployeeController {
       MyLogger.info(action, { employeeData });
 
       const userId = req.user?.user_id;
-      const createdEmployee = await this.employeeMediator.createEmployee(employeeData, userId);
+      const createdEmployee = await EmployeeMediator.createEmployee(employeeData, userId);
 
       MyLogger.success(action, { employeeId: createdEmployee.id });
       serializeSuccessResponse(res, { employee: createdEmployee }, "SUCCESS", 201);
@@ -102,7 +97,7 @@ export class EmployeeController {
       const employeeId = parseInt(id);
       const updateData: UpdateEmployeeRequest = req.body;
       const userId = req.user?.user_id;
-      const updatedEmployee = await this.employeeMediator.updateEmployee(employeeId, updateData, userId);
+      const updatedEmployee = await EmployeeMediator.updateEmployee(employeeId, updateData, userId);
 
       MyLogger.success(action, { employeeId: id, updated: true });
       serializeSuccessResponse(res, { employee: updatedEmployee }, "SUCCESS");
@@ -122,7 +117,7 @@ export class EmployeeController {
 
       const employeeId = parseInt(id);
       const userId = req.user?.user_id;
-      await this.employeeMediator.deleteEmployee(employeeId, userId);
+      await EmployeeMediator.deleteEmployee(employeeId, userId);
 
       MyLogger.success(action, { employeeId: id, deleted: true });
       serializeSuccessResponse(res, null, "SUCCESS");
@@ -140,7 +135,7 @@ export class EmployeeController {
       MyLogger.info(action, { query: req.query });
 
       const factoryId = req.query.factory_id ? parseInt(req.query.factory_id as string) : undefined;
-      const stats = await this.employeeMediator.getEmployeeDashboard(factoryId);
+      const stats = await EmployeeMediator.getEmployeeDashboard(factoryId);
 
       MyLogger.success(action, { totalEmployees: stats.total_employees });
       serializeSuccessResponse(res, { stats }, "SUCCESS");
@@ -158,7 +153,7 @@ export class EmployeeController {
       const { departmentId } = req.params;
       MyLogger.info(action, { departmentId });
 
-      const employees = await this.employeeMediator.getEmployeesByDepartment(parseInt(departmentId));
+      const employees = await EmployeeMediator.getEmployeesByDepartment(parseInt(departmentId));
 
       MyLogger.success(action, { departmentId, employeesCount: employees.length });
       serializeSuccessResponse(res, { employees }, "SUCCESS");
@@ -176,7 +171,7 @@ export class EmployeeController {
       const { designationId } = req.params;
       MyLogger.info(action, { designationId });
 
-      const employees = await this.employeeMediator.getEmployeesByDesignation(parseInt(designationId));
+      const employees = await EmployeeMediator.getEmployeesByDesignation(parseInt(designationId));
 
       MyLogger.success(action, { designationId, employeesCount: employees.length });
       serializeSuccessResponse(res, { employees }, "SUCCESS");
@@ -194,7 +189,7 @@ export class EmployeeController {
       const { employeeId } = req.params;
       MyLogger.info(action, { employeeId });
 
-      const hierarchy = await this.employeeMediator.getEmployeeHierarchy(employeeId ? parseInt(employeeId) : undefined);
+      const hierarchy = await EmployeeMediator.getEmployeeHierarchy(employeeId ? parseInt(employeeId) : undefined);
 
       MyLogger.success(action, { employeeId });
       serializeSuccessResponse(res, { hierarchy }, "SUCCESS");
@@ -213,7 +208,7 @@ export class EmployeeController {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       MyLogger.info(action, { searchTerm, limit });
 
-      const employees = await this.employeeMediator.searchEmployees(searchTerm, limit);
+      const employees = await EmployeeMediator.searchEmployees(searchTerm, limit);
 
       MyLogger.success(action, { searchTerm, resultsCount: employees.length });
       serializeSuccessResponse(res, { employees }, "SUCCESS");
@@ -232,7 +227,7 @@ export class EmployeeController {
       MyLogger.info(action, { employeesCount: employeesData.length });
 
       const userId = req.user?.user_id;
-      const result = await this.employeeMediator.bulkImportEmployees(employeesData, userId);
+      const result = await EmployeeMediator.bulkImportEmployees(employeesData, userId);
 
       MyLogger.success(action, { successful: result.successful, failed: result.failed });
       serializeSuccessResponse(res, result, "SUCCESS");
@@ -259,7 +254,7 @@ export class EmployeeController {
       };
 
       const format = (req.query.format as string) || 'excel';
-      const exportData = await this.employeeMediator.exportEmployees(queryParams, format);
+      const exportData = await EmployeeMediator.exportEmployees(queryParams, format);
 
       MyLogger.success(action, { format });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -279,7 +274,7 @@ export class EmployeeController {
       const { id } = req.params;
       MyLogger.info(action, { employeeId: id });
 
-      const documents = await this.employeeMediator.getEmployeeDocuments(parseInt(id));
+      const documents = await EmployeeMediator.getEmployeeDocuments(parseInt(id));
 
       MyLogger.success(action, { employeeId: id, documentsCount: documents.length });
       serializeSuccessResponse(res, { documents }, "SUCCESS");
@@ -309,7 +304,7 @@ export class EmployeeController {
       }
 
       const userId = req.user?.user_id;
-      const document = await this.employeeMediator.uploadEmployeeDocument(
+      const document = await EmployeeMediator.uploadEmployeeDocument(
         parseInt(id),
         file,
         documentType,
@@ -332,7 +327,7 @@ export class EmployeeController {
       const { id } = req.params;
       MyLogger.info(action, { employeeId: id });
 
-      const history = await this.employeeMediator.getEmployeeSalaryHistory(parseInt(id));
+      const history = await EmployeeMediator.getEmployeeSalaryHistory(parseInt(id));
 
       MyLogger.success(action, { employeeId: id, historyCount: history.length });
       serializeSuccessResponse(res, { history }, "SUCCESS");
@@ -352,7 +347,7 @@ export class EmployeeController {
       MyLogger.info(action, { employeeId: id, newSalary, effectiveDate });
 
       const userId = req.user?.user_id;
-      const result = await this.employeeMediator.updateEmployeeSalary(
+      const result = await EmployeeMediator.updateEmployeeSalary(
         parseInt(id),
         newSalary,
         effectiveDate,
