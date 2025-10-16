@@ -356,6 +356,24 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
+  {
+    title: "Human Resources",
+    icon: UserCog,
+    items: [
+      {
+        title: "HR Dashboard",
+        url: "/hrm",
+        icon: BarChart3,
+        permission: null, // Dashboard accessible to all authenticated users
+      },
+      {
+        title: "Employees",
+        url: "/hrm/employees",
+        icon: Users,
+        permission: PERMISSIONS.HR_EMPLOYEES_READ,
+      },
+    ],
+  },
   // {
   //   title: "RBAC Demo",
   //   icon: Shield,

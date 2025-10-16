@@ -84,10 +84,13 @@ import MaterialRequirementsPlanning from "@/modules/factory/pages/MaterialRequir
 import MaterialAllocation from "@/modules/factory/pages/MaterialAllocation";
 import EnhancedWorkOrderPlanning from "@/modules/factory/pages/EnhancedWorkOrderPlanning";
 import MaterialCostAnalysis from "@/modules/factory/pages/MaterialCostAnalysis";
-import RawMaterialsManagement from "@/modules/factory/pages/RawMaterialsManagement";
 import FactoryManagement from "./modules/factory/pages/FactoryManagement";
 import ProductionLines from "@/modules/factory/pages/ProductionLines";
 import Operators from "@/modules/factory/pages/Operators";
+
+// HRM Module Imports
+import HRMDashboard from "@/modules/hrm/pages/HRMDashboard";
+import EmployeeManagement from "@/modules/hrm/pages/EmployeeManagement";
 
 const queryClient = new QueryClient();
 
@@ -797,6 +800,29 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+
+                {/* HRM Routes */}
+                <Route
+                  path="/hrm"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <HRMDashboard />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/employees"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <EmployeeManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* RBAC Management Routes */}
                 <Route
                   path="/rbac"
