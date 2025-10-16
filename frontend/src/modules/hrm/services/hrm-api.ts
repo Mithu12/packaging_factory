@@ -1,5 +1,5 @@
 // HRM API Service
-import { api } from '../../../../services/api';
+import { makeRequest } from '@/services/api-utils';
 import {
   Employee,
   Department,
@@ -21,8 +21,28 @@ import {
   AttendanceSummary
 } from '../types';
 
+// Helper function to build query string
+function buildQueryString(params?: Record<string, any>): string {
+  if (!params) return '';
+  
+  const queryParams = new URLSearchParams(
+    Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null) {
+        acc[key] = String(value);
+      }
+      return acc;
+    }, {} as Record<string, string>)
+  );
+  
+  const queryString = queryParams.toString();
+  return queryString ? `?${queryString}` : '';
+}
+
 export class HRMApiService {
-  // Employee Management
+  private static readonly BASE_URL = '/hrm';
+
+  // ========== Employee Management ==========
+  
   static async getEmployees(params?: {
     factory_id?: number;
     department_id?: number;
@@ -35,43 +55,66 @@ export class HRMApiService {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }): Promise<EmployeeListResponse> {
-    return api.get('/hrm/employees', { params });
+    const queryString = buildQueryString(params);
+    return makeRequest<EmployeeListResponse>(`${this.BASE_URL}/employees${queryString}`);
   }
 
   static async getEmployeeById(id: number): Promise<{ employee: Employee }> {
-    return api.get(`/hrm/employees/${id}`);
+    return makeRequest<{ employee: Employee }>(`${this.BASE_URL}/employees/${id}`);
   }
 
   static async createEmployee(data: CreateEmployeeForm): Promise<{ employee: Employee }> {
-    return api.post('/hrm/employees', data);
+    return makeRequest<{ employee: Employee }>(`${this.BASE_URL}/employees`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async updateEmployee(id: number, data: Partial<CreateEmployeeForm>): Promise<{ employee: Employee }> {
-    return api.put(`/hrm/employees/${id}`, data);
+    return makeRequest<{ employee: Employee }>(`${this.BASE_URL}/employees/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   static async deleteEmployee(id: number): Promise<void> {
-    return api.delete(`/hrm/employees/${id}`);
+    return makeRequest<void>(`${this.BASE_URL}/employees/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   static async getEmployeeDashboard(factoryId?: number): Promise<{ stats: HRDashboardData }> {
-    return api.get('/hrm/employees/dashboard', { params: { factory_id: factoryId } });
+    const queryString = buildQueryString({ factory_id: factoryId });
+    return makeRequest<{ stats: HRDashboardData }>(`${this.BASE_URL}/employees/dashboard${queryString}`);
   }
 
   static async searchEmployees(query: string, limit: number = 10): Promise<{ employees: Employee[] }> {
-    return api.get('/hrm/employees/search', { params: { q: query, limit } });
+    const queryString = buildQueryString({ q: query, limit });
+    return makeRequest<{ employees: Employee[] }>(`${this.BASE_URL}/employees/search${queryString}`);
   }
 
   static async bulkImportEmployees(employees: CreateEmployeeForm[]): Promise<{ successful: number; failed: number; errors: string[] }> {
-    return api.post('/hrm/employees/bulk-import', { employees });
+    return makeRequest<{ successful: number; failed: number; errors: string[] }>(`${this.BASE_URL}/employees/bulk-import`, {
+      method: 'POST',
+      body: JSON.stringify({ employees }),
+    });
   }
 
   static async exportEmployees(params?: Record<string, any>): Promise<Blob> {
-    return api.get('/hrm/employees/export', { params, responseType: 'blob' });
+    const queryString = buildQueryString(params);
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/employees/export${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
   }
 
   static async getEmployeeDocuments(employeeId: number): Promise<{ documents: any[] }> {
-    return api.get(`/hrm/employees/${employeeId}/documents`);
+    return makeRequest<{ documents: any[] }>(`${this.BASE_URL}/employees/${employeeId}/documents`);
   }
 
   static async uploadEmployeeDocument(employeeId: number, file: File, documentType: string): Promise<{ document: any }> {
@@ -79,15 +122,14 @@ export class HRMApiService {
     formData.append('file', file);
     formData.append('document_type', documentType);
 
-    return api.post(`/hrm/employees/${employeeId}/documents`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    return makeRequest<{ document: any }>(`${this.BASE_URL}/employees/${employeeId}/documents`, {
+      method: 'POST',
+      body: formData,
     });
   }
 
   static async getEmployeeSalaryHistory(employeeId: number): Promise<{ history: any[] }> {
-    return api.get(`/hrm/employees/${employeeId}/salary-history`);
+    return makeRequest<{ history: any[] }>(`${this.BASE_URL}/employees/${employeeId}/salary-history`);
   }
 
   static async updateEmployeeSalary(
@@ -96,21 +138,26 @@ export class HRMApiService {
     effectiveDate: string,
     reason: string
   ): Promise<{ result: any }> {
-    return api.put(`/hrm/employees/${employeeId}/salary`, {
-      new_salary: newSalary,
-      effective_date: effectiveDate,
-      reason
+    return makeRequest<{ result: any }>(`${this.BASE_URL}/employees/${employeeId}/salary`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        new_salary: newSalary,
+        effective_date: effectiveDate,
+        reason
+      }),
     });
   }
 
-  // Payroll Management
+  // ========== Payroll Management ==========
+  
   static async getPayrollPeriods(filters?: {
     status?: string;
     period_type?: string;
     start_date?: string;
     end_date?: string;
   }): Promise<{ periods: PayrollPeriod[] }> {
-    return api.get('/hrm/payroll/periods', { params: filters });
+    const queryString = buildQueryString(filters);
+    return makeRequest<{ periods: PayrollPeriod[] }>(`${this.BASE_URL}/payroll/periods${queryString}`);
   }
 
   static async createPayrollPeriod(data: {
@@ -120,11 +167,15 @@ export class HRMApiService {
     period_type: string;
     description?: string;
   }): Promise<{ period: PayrollPeriod }> {
-    return api.post('/hrm/payroll/periods', data);
+    return makeRequest<{ period: PayrollPeriod }>(`${this.BASE_URL}/payroll/periods`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async getPayrollComponents(type?: 'earning' | 'deduction'): Promise<{ components: PayrollComponent[] }> {
-    return api.get('/hrm/payroll/components', { params: { type } });
+    const queryString = buildQueryString({ type });
+    return makeRequest<{ components: PayrollComponent[] }>(`${this.BASE_URL}/payroll/components${queryString}`);
   }
 
   static async createPayrollComponent(data: {
@@ -138,7 +189,10 @@ export class HRMApiService {
     formula?: string;
     description?: string;
   }): Promise<{ component: PayrollComponent }> {
-    return api.post('/hrm/payroll/components', data);
+    return makeRequest<{ component: PayrollComponent }>(`${this.BASE_URL}/payroll/components`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async calculatePayroll(data: {
@@ -148,7 +202,10 @@ export class HRMApiService {
     include_loans?: boolean;
     dry_run?: boolean;
   }): Promise<{ payroll_run: PayrollRun }> {
-    return api.post('/hrm/payroll/calculate', data);
+    return makeRequest<{ payroll_run: PayrollRun }>(`${this.BASE_URL}/payroll/calculate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async getPayrollRuns(params?: {
@@ -156,42 +213,55 @@ export class HRMApiService {
     status?: string;
     processed_by?: number;
   }): Promise<{ runs: PayrollRun[] }> {
-    return api.get('/hrm/payroll/runs', { params });
+    const queryString = buildQueryString(params);
+    return makeRequest<{ runs: PayrollRun[] }>(`${this.BASE_URL}/payroll/runs${queryString}`);
   }
 
   static async getPayrollRunById(id: number): Promise<{ run: PayrollRun }> {
-    return api.get(`/hrm/payroll/runs/${id}`);
+    return makeRequest<{ run: PayrollRun }>(`${this.BASE_URL}/payroll/runs/${id}`);
   }
 
   static async approvePayrollRun(id: number): Promise<{ payroll_run: PayrollRun }> {
-    return api.post(`/hrm/payroll/runs/${id}/approve`);
+    return makeRequest<{ payroll_run: PayrollRun }>(`${this.BASE_URL}/payroll/runs/${id}/approve`, {
+      method: 'POST',
+    });
   }
 
   static async getPayrollSummary(periodId: number): Promise<{ summary: PayrollSummary }> {
-    return api.get(`/hrm/payroll/summary/${periodId}`);
+    return makeRequest<{ summary: PayrollSummary }>(`${this.BASE_URL}/payroll/summary/${periodId}`);
   }
 
   static async setupEmployeeSalaryStructure(
     employeeId: number,
     components: { component_id: number; amount: number; percentage?: number }[]
   ): Promise<{ structures: any[] }> {
-    return api.post(`/hrm/payroll/employees/${employeeId}/structure`, { components });
-  }
-
-  static async getPayrollDashboard(): Promise<{ dashboard: any }> {
-    return api.get('/hrm/payroll/dashboard');
-  }
-
-  static async exportPayroll(runId: number, format: string = 'excel'): Promise<Blob> {
-    return api.get(`/hrm/payroll/export/${runId}`, {
-      params: { format },
-      responseType: 'blob'
+    return makeRequest<{ structures: any[] }>(`${this.BASE_URL}/payroll/employees/${employeeId}/structure`, {
+      method: 'POST',
+      body: JSON.stringify({ components }),
     });
   }
 
-  // Leave Management
+  static async getPayrollDashboard(): Promise<{ dashboard: any }> {
+    return makeRequest<{ dashboard: any }>(`${this.BASE_URL}/payroll/dashboard`);
+  }
+
+  static async exportPayroll(runId: number, format: string = 'excel'): Promise<Blob> {
+    const queryString = buildQueryString({ format });
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/payroll/export/${runId}${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
+  }
+
+  // ========== Leave Management ==========
+  
   static async getLeaveTypes(): Promise<{ leave_types: LeaveType[] }> {
-    return api.get('/hrm/leave/types');
+    return makeRequest<{ leave_types: LeaveType[] }>(`${this.BASE_URL}/leave/types`);
   }
 
   static async createLeaveType(data: {
@@ -206,7 +276,10 @@ export class HRMApiService {
     max_carry_forward_days?: number;
     accrual_rate?: number;
   }): Promise<{ leave_type: LeaveType }> {
-    return api.post('/hrm/leave/types', data);
+    return makeRequest<{ leave_type: LeaveType }>(`${this.BASE_URL}/leave/types`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async getLeaveApplications(params?: {
@@ -216,11 +289,15 @@ export class HRMApiService {
     start_date?: string;
     end_date?: string;
   }): Promise<{ leave_applications: LeaveApplication[] }> {
-    return api.get('/hrm/leave/applications', { params });
+    const queryString = buildQueryString(params);
+    return makeRequest<{ leave_applications: LeaveApplication[] }>(`${this.BASE_URL}/leave/applications${queryString}`);
   }
 
   static async createLeaveApplication(data: CreateLeaveApplicationForm): Promise<{ leave_application: LeaveApplication }> {
-    return api.post('/hrm/leave/applications', data);
+    return makeRequest<{ leave_application: LeaveApplication }>(`${this.BASE_URL}/leave/applications`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async processLeaveApplication(
@@ -228,54 +305,72 @@ export class HRMApiService {
     action: 'approve' | 'reject',
     rejectedReason?: string
   ): Promise<{ leave_application: LeaveApplication }> {
-    return api.post(`/hrm/leave/applications/${applicationId}/process`, {
-      action,
-      rejected_reason: rejectedReason
+    return makeRequest<{ leave_application: LeaveApplication }>(`${this.BASE_URL}/leave/applications/${applicationId}/process`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        rejected_reason: rejectedReason
+      }),
     });
   }
 
   static async getLeaveDashboard(): Promise<{ dashboard: any }> {
-    return api.get('/hrm/leave/dashboard');
+    return makeRequest<{ dashboard: any }>(`${this.BASE_URL}/leave/dashboard`);
   }
 
   static async getLeaveCalendar(year: number, month: number): Promise<{ calendar: any }> {
-    return api.get(`/hrm/leave/calendar/${year}/${month}`);
+    return makeRequest<{ calendar: any }>(`${this.BASE_URL}/leave/calendar/${year}/${month}`);
   }
 
   static async getMyLeaveApplications(): Promise<{ leave_applications: LeaveApplication[] }> {
-    return api.get('/hrm/leave/my-applications');
+    return makeRequest<{ leave_applications: LeaveApplication[] }>(`${this.BASE_URL}/leave/my-applications`);
   }
 
   static async getLeaveApplicationById(id: number): Promise<{ leave_application: LeaveApplication }> {
-    return api.get(`/hrm/leave/applications/${id}`);
+    return makeRequest<{ leave_application: LeaveApplication }>(`${this.BASE_URL}/leave/applications/${id}`);
   }
 
   static async cancelLeaveApplication(id: number): Promise<void> {
-    return api.delete(`/hrm/leave/applications/${id}`);
-  }
-
-  static async getLeaveBalances(employeeId: number, year?: number): Promise<{ leave_balances: LeaveBalance[] }> {
-    return api.get(`/hrm/employees/${employeeId}/leave-balances`, { params: { year } });
-  }
-
-  static async calculateLeaveBalances(employeeId: number, year?: number): Promise<{ leave_balances: LeaveBalance[] }> {
-    return api.post(`/hrm/employees/${employeeId}/leave-balances/calculate`, { year });
-  }
-
-  static async getLeaveSummary(employeeId: number, year?: number): Promise<{ summary: any }> {
-    return api.get(`/hrm/leave/employees/${employeeId}/summary`, { params: { year } });
-  }
-
-  static async exportLeaveData(year?: number, format: string = 'excel'): Promise<Blob> {
-    return api.get('/hrm/leave/export', {
-      params: { year, format },
-      responseType: 'blob'
+    return makeRequest<void>(`${this.BASE_URL}/leave/applications/${id}`, {
+      method: 'DELETE',
     });
   }
 
-  // Attendance Management
+  static async getLeaveBalances(employeeId: number, year?: number): Promise<{ leave_balances: LeaveBalance[] }> {
+    const queryString = buildQueryString({ year });
+    return makeRequest<{ leave_balances: LeaveBalance[] }>(`${this.BASE_URL}/employees/${employeeId}/leave-balances${queryString}`);
+  }
+
+  static async calculateLeaveBalances(employeeId: number, year?: number): Promise<{ leave_balances: LeaveBalance[] }> {
+    return makeRequest<{ leave_balances: LeaveBalance[] }>(`${this.BASE_URL}/employees/${employeeId}/leave-balances/calculate`, {
+      method: 'POST',
+      body: JSON.stringify({ year }),
+    });
+  }
+
+  static async getLeaveSummary(employeeId: number, year?: number): Promise<{ summary: any }> {
+    const queryString = buildQueryString({ year });
+    return makeRequest<{ summary: any }>(`${this.BASE_URL}/leave/employees/${employeeId}/summary${queryString}`);
+  }
+
+  static async exportLeaveData(year?: number, format: string = 'excel'): Promise<Blob> {
+    const queryString = buildQueryString({ year, format });
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/leave/export${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
+  }
+
+  // ========== Attendance Management ==========
+  
   static async getWorkSchedules(includeInactive?: boolean): Promise<{ work_schedules: WorkSchedule[] }> {
-    return api.get('/hrm/attendance/schedules', { params: { include_inactive: includeInactive } });
+    const queryString = buildQueryString({ include_inactive: includeInactive });
+    return makeRequest<{ work_schedules: WorkSchedule[] }>(`${this.BASE_URL}/attendance/schedules${queryString}`);
   }
 
   static async createWorkSchedule(data: {
@@ -299,7 +394,10 @@ export class HRMApiService {
     total_hours_per_week?: number;
     is_default?: boolean;
   }): Promise<{ work_schedule: WorkSchedule }> {
-    return api.post('/hrm/attendance/schedules', data);
+    return makeRequest<{ work_schedule: WorkSchedule }>(`${this.BASE_URL}/attendance/schedules`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async getAttendanceRecords(params?: {
@@ -309,15 +407,22 @@ export class HRMApiService {
     end_date?: string;
     status?: string;
   }): Promise<{ attendance_records: AttendanceRecord[] }> {
-    return api.get('/hrm/attendance/records', { params });
+    const queryString = buildQueryString(params);
+    return makeRequest<{ attendance_records: AttendanceRecord[] }>(`${this.BASE_URL}/attendance/records${queryString}`);
   }
 
   static async createAttendanceRecord(employeeId: number, data: CreateAttendanceRecordForm): Promise<{ attendance_record: AttendanceRecord }> {
-    return api.post(`/hrm/attendance/records`, data); // Note: This might need employeeId in the request body or params
+    return makeRequest<{ attendance_record: AttendanceRecord }>(`${this.BASE_URL}/attendance/records`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   static async updateAttendanceRecord(id: number, data: Partial<CreateAttendanceRecordForm>): Promise<{ attendance_record: AttendanceRecord }> {
-    return api.put(`/hrm/attendance/records/${id}`, data);
+    return makeRequest<{ attendance_record: AttendanceRecord }>(`${this.BASE_URL}/attendance/records/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   static async markAttendance(
@@ -325,27 +430,28 @@ export class HRMApiService {
     location?: string,
     notes?: string
   ): Promise<{ attendance_record: AttendanceRecord }> {
-    return api.post('/hrm/attendance/mark', {
-      action,
-      location,
-      notes
+    return makeRequest<{ attendance_record: AttendanceRecord }>(`${this.BASE_URL}/attendance/mark`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        location,
+        notes
+      }),
     });
   }
 
   static async getAttendanceSummary(employeeId: number, startDate: string, endDate: string): Promise<{ attendance_summary: AttendanceSummary }> {
-    return api.get(`/hrm/attendance/summary/${employeeId}`, {
-      params: { start_date: startDate, end_date: endDate }
-    });
+    const queryString = buildQueryString({ start_date: startDate, end_date: endDate });
+    return makeRequest<{ attendance_summary: AttendanceSummary }>(`${this.BASE_URL}/attendance/summary/${employeeId}${queryString}`);
   }
 
   static async getAttendanceDashboard(): Promise<{ dashboard: any }> {
-    return api.get('/hrm/attendance/dashboard');
+    return makeRequest<{ dashboard: any }>(`${this.BASE_URL}/attendance/dashboard`);
   }
 
   static async getAttendanceReport(startDate: string, endDate: string): Promise<{ attendance_report: any }> {
-    return api.get('/hrm/attendance/report', {
-      params: { start_date: startDate, end_date: endDate }
-    });
+    const queryString = buildQueryString({ start_date: startDate, end_date: endDate });
+    return makeRequest<{ attendance_report: any }>(`${this.BASE_URL}/attendance/report${queryString}`);
   }
 
   static async getMyAttendanceRecords(params?: {
@@ -353,29 +459,39 @@ export class HRMApiService {
     end_date?: string;
     status?: string;
   }): Promise<{ attendance_records: AttendanceRecord[] }> {
-    return api.get('/hrm/attendance/my-records', { params });
+    const queryString = buildQueryString(params);
+    return makeRequest<{ attendance_records: AttendanceRecord[] }>(`${this.BASE_URL}/attendance/my-records${queryString}`);
   }
 
   static async getAttendanceRecordById(id: number): Promise<{ attendance_record: AttendanceRecord }> {
-    return api.get(`/hrm/attendance/records/${id}`);
+    return makeRequest<{ attendance_record: AttendanceRecord }>(`${this.BASE_URL}/attendance/records/${id}`);
   }
 
   static async deleteAttendanceRecord(id: number): Promise<void> {
-    return api.delete(`/hrm/attendance/records/${id}`);
-  }
-
-  static async exportAttendanceData(startDate: string, endDate: string, format: string = 'excel'): Promise<Blob> {
-    return api.get('/hrm/attendance/export', {
-      params: { start_date: startDate, end_date: endDate, format },
-      responseType: 'blob'
+    return makeRequest<void>(`${this.BASE_URL}/attendance/records/${id}`, {
+      method: 'DELETE',
     });
   }
 
-  static async getAttendanceCalendar(year: number, month: number): Promise<{ calendar: any }> {
-    return api.get(`/hrm/attendance/calendar/${year}/${month}`);
+  static async exportAttendanceData(startDate: string, endDate: string, format: string = 'excel'): Promise<Blob> {
+    const queryString = buildQueryString({ start_date: startDate, end_date: endDate, format });
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/attendance/export${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
   }
 
-  // Utility functions
+  static async getAttendanceCalendar(year: number, month: number): Promise<{ calendar: any }> {
+    return makeRequest<{ calendar: any }>(`${this.BASE_URL}/attendance/calendar/${year}/${month}`);
+  }
+
+  // ========== Utility Functions ==========
+  
   static async downloadFile(url: string, filename: string): Promise<void> {
     try {
       const response = await fetch(url);
