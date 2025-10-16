@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import {
   AttendanceRecord,
   WorkSchedule,
@@ -7,8 +7,8 @@ import {
   CreateWorkScheduleRequest
 } from '../../../types/hrm';
 import { AttendanceMediator } from '../mediators/attendance/AttendanceMediator';
-import { responseHelper } from '../../../utils/responseHelper';
-import { AuthenticatedRequest } from '../../../types/rbac';
+import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
+import { MyLogger } from '../../../utils/new-logger';
 
 export class AttendanceController {
   private attendanceMediator: AttendanceMediator;
@@ -20,35 +20,35 @@ export class AttendanceController {
   /**
    * Get all work schedules
    */
-  async getWorkSchedules(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getWorkSchedules(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const includeInactive = req.query.include_inactive === 'true';
       const schedules = await this.attendanceMediator.getWorkSchedules(includeInactive);
 
-      responseHelper.success(res, { work_schedules: schedules }, 'Work schedules retrieved successfully');
+      serializeSuccessResponse(res, { work_schedules: schedules }, 'Work schedules retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve work schedules');
+      next(error);
     }
   }
 
   /**
    * Create new work schedule
    */
-  async createWorkSchedule(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createWorkSchedule(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const scheduleData: CreateWorkScheduleRequest = req.body;
       const schedule = await this.attendanceMediator.createWorkSchedule(scheduleData, req.user?.user_id);
 
-      responseHelper.success(res, { work_schedule: schedule }, 'Work schedule created successfully', 201);
+      serializeSuccessResponse(res, { work_schedule: schedule }, 'Work schedule created successfully', 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create work schedule');
+      next(error);
     }
   }
 
   /**
    * Get attendance records
    */
-  async getAttendanceRecords(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceRecords(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const filters = {
         employee_id: req.query.employee_id ? parseInt(req.query.employee_id as string) : undefined,
@@ -60,16 +60,16 @@ export class AttendanceController {
 
       const records = await this.attendanceMediator.getAttendanceRecords(filters);
 
-      responseHelper.success(res, { attendance_records: records }, 'Attendance records retrieved successfully');
+      serializeSuccessResponse(res, { attendance_records: records }, 'Attendance records retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance records');
+      next(error);
     }
   }
 
   /**
    * Create attendance record
    */
-  async createAttendanceRecord(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createAttendanceRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const recordData: CreateAttendanceRecordRequest = req.body;
       const employeeId = parseInt(req.params.employeeId);
@@ -80,16 +80,16 @@ export class AttendanceController {
         req.user?.user_id
       );
 
-      responseHelper.success(res, { attendance_record: record }, 'Attendance record created successfully', 201);
+      serializeSuccessResponse(res, { attendance_record: record }, 'Attendance record created successfully', 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create attendance record');
+      next(error);
     }
   }
 
   /**
    * Update attendance record
    */
-  async updateAttendanceRecord(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async updateAttendanceRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const recordId = parseInt(req.params.id);
       const updateData: Partial<CreateAttendanceRecordRequest> = req.body;
@@ -100,22 +100,23 @@ export class AttendanceController {
         req.user?.user_id
       );
 
-      responseHelper.success(res, { attendance_record: record }, 'Attendance record updated successfully');
+      serializeSuccessResponse(res, { attendance_record: record }, 'Attendance record updated successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to update attendance record');
+      next(error);
     }
   }
 
   /**
    * Mark attendance (check-in/check-out)
    */
-  async markAttendance(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async markAttendance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const employeeId = req.user?.user_id || parseInt(req.params.employeeId);
       const { action, location, notes } = req.body;
 
       if (!['check_in', 'check_out', 'break_start', 'break_end'].includes(action)) {
-        return responseHelper.error(res, new Error('Invalid action'), 'Action must be check_in, check_out, break_start, or break_end', 400);
+        res.status(400);
+        throw new Error('Action must be check_in, check_out, break_start, or break_end');
       }
 
       const record = await this.attendanceMediator.markAttendance(
@@ -126,22 +127,23 @@ export class AttendanceController {
         req.user?.user_id
       );
 
-      responseHelper.success(res, { attendance_record: record }, `Attendance ${action} marked successfully`);
+      serializeSuccessResponse(res, { attendance_record: record }, `Attendance ${action} marked successfully`);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to mark attendance');
+      next(error);
     }
   }
 
   /**
    * Get attendance summary for an employee
    */
-  async getAttendanceSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const employeeId = parseInt(req.params.employeeId);
       const { start_date, end_date } = req.query;
 
       if (!start_date || !end_date) {
-        return responseHelper.error(res, new Error('Start date and end date are required'), 'Start date and end date are required', 400);
+        serializeErrorResponse(res, null, 'MISSING_START_END_DATE', 'Start date and end date are required');
+        return;
       }
 
       const summary = await this.attendanceMediator.getAttendanceSummary(
@@ -150,34 +152,35 @@ export class AttendanceController {
         end_date as string
       );
 
-      responseHelper.success(res, { attendance_summary: summary }, 'Attendance summary retrieved successfully');
+      serializeSuccessResponse(res, { attendance_summary: summary }, 'Attendance summary retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance summary');
+      next(error);
     }
   }
 
   /**
    * Get attendance dashboard
    */
-  async getAttendanceDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const dashboard = await this.attendanceMediator.getAttendanceDashboard();
 
-      responseHelper.success(res, { dashboard }, 'Attendance dashboard retrieved successfully');
+      serializeSuccessResponse(res, { dashboard }, 'Attendance dashboard retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance dashboard');
+      next(error);
     }
   }
 
   /**
    * Get attendance report for a period
    */
-  async getAttendanceReport(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceReport(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { start_date, end_date } = req.query;
 
       if (!start_date || !end_date) {
-        return responseHelper.error(res, new Error('Start date and end date are required'), 'Start date and end date are required', 400);
+        res.status(400);
+        throw new Error('Start date and end date are required');
       }
 
       const report = await this.attendanceMediator.getAttendanceReport(
@@ -185,16 +188,16 @@ export class AttendanceController {
         end_date as string
       );
 
-      responseHelper.success(res, { attendance_report: report }, 'Attendance report retrieved successfully');
+      serializeSuccessResponse(res, { attendance_report: report }, 'Attendance report retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance report');
+      next(error);
     }
   }
 
   /**
    * Get my attendance records (for logged-in employee)
    */
-  async getMyAttendanceRecords(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getMyAttendanceRecords(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const employeeId = req.user?.user_id;
       const { start_date, end_date, status } = req.query;
@@ -208,16 +211,16 @@ export class AttendanceController {
 
       const records = await this.attendanceMediator.getAttendanceRecords(filters);
 
-      responseHelper.success(res, { attendance_records: records }, 'Your attendance records retrieved successfully');
+      serializeSuccessResponse(res, { attendance_records: records }, 'Your attendance records retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve your attendance records');
+      next(error);
     }
   }
 
   /**
    * Get attendance record by ID
    */
-  async getAttendanceRecordById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceRecordById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const recordId = parseInt(req.params.id);
       const records = await this.attendanceMediator.getAttendanceRecords();
@@ -225,40 +228,42 @@ export class AttendanceController {
       const record = records.find(r => r.id === recordId);
 
       if (!record) {
-        return responseHelper.error(res, new Error('Attendance record not found'), 'Attendance record not found', 404);
+        res.status(404);
+        throw new Error('Attendance record not found');
       }
 
-      responseHelper.success(res, { attendance_record: record }, 'Attendance record retrieved successfully');
+      serializeSuccessResponse(res, { attendance_record: record }, 'Attendance record retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance record');
+      next(error);
     }
   }
 
   /**
    * Delete attendance record
    */
-  async deleteAttendanceRecord(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async deleteAttendanceRecord(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const recordId = parseInt(req.params.id);
 
       // For now, we'll implement a simple delete mechanism
       // In a real implementation, you'd want proper soft delete logic
-      responseHelper.success(res, null, 'Attendance record deleted successfully');
+      serializeSuccessResponse(res, null, 'Attendance record deleted successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to delete attendance record');
+      next(error);
     }
   }
 
   /**
    * Export attendance data
    */
-  async exportAttendanceData(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async exportAttendanceData(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const format = (req.query.format as string) || 'excel';
       const { start_date, end_date } = req.query;
 
       if (!start_date || !end_date) {
-        return responseHelper.error(res, new Error('Start date and end date are required'), 'Start date and end date are required', 400);
+        res.status(400);
+        throw new Error('Start date and end date are required');
       }
 
       // For now, returning mock data
@@ -270,24 +275,26 @@ export class AttendanceController {
 
       res.send(exportData);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to export attendance data');
+      next(error);
     }
   }
 
   /**
    * Get attendance calendar for a month
    */
-  async getAttendanceCalendar(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getAttendanceCalendar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
 
       if (year < 2020 || year > 2100) {
-        return responseHelper.error(res, new Error('Invalid year'), 'Year must be between 2020 and 2100', 400);
+        res.status(400);
+        throw new Error('Invalid year');
       }
 
       if (month < 1 || month > 12) {
-        return responseHelper.error(res, new Error('Invalid month'), 'Month must be between 1 and 12', 400);
+        res.status(400);
+        throw new Error('Invalid month');
       }
 
       // For now, returning mock data
@@ -298,9 +305,9 @@ export class AttendanceController {
         days: []
       };
 
-      responseHelper.success(res, { calendar }, 'Attendance calendar retrieved successfully');
+      serializeSuccessResponse(res, { calendar }, 'Attendance calendar retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve attendance calendar');
+      next(error);
     }
   }
 }

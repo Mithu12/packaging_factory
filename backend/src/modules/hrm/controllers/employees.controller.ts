@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { Employee, CreateEmployeeRequest, UpdateEmployeeRequest, EmployeeQueryParams } from '../../../types/hrm';
 import { EmployeeMediator } from '../mediators/employees/EmployeeMediator';
-import { responseHelper } from '../../../utils/responseHelper';
-import { AuthenticatedRequest } from '../../../types/rbac';
+import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
+import { MyLogger } from '../../../utils/new-logger';
 
 export class EmployeeController {
   private employeeMediator: EmployeeMediator;
@@ -14,8 +14,12 @@ export class EmployeeController {
   /**
    * Get all employees with filtering and pagination
    */
-  async getEmployees(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployees(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/employees";
+      MyLogger.info(action, { query: req.query });
+
+      const userId = req.user?.user_id;
       const queryParams: EmployeeQueryParams = {
         factory_id: req.query.factory_id ? parseInt(req.query.factory_id as string) : undefined,
         department_id: req.query.department_id ? parseInt(req.query.department_id as string) : undefined,
@@ -30,160 +34,221 @@ export class EmployeeController {
       };
 
       const result = await this.employeeMediator.getEmployees(queryParams);
-      responseHelper.success(res, result, 'Employees retrieved successfully');
+      MyLogger.success(action, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        employeesCount: result.employees.length
+      });
+
+      serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employees');
+      next(error);
     }
   }
 
   /**
    * Get employee by ID
    */
-  async getEmployeeById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeeById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
-      const employee = await this.employeeMediator.getEmployeeById(employeeId);
+      const action = "GET /api/hrm/employees/:id";
+      const { id } = req.params;
+      MyLogger.info(action, { employeeId: id });
 
-      responseHelper.success(res, { employee }, 'Employee retrieved successfully');
+      const userId = req.user?.user_id;
+      const employee = await this.employeeMediator.getEmployeeById(parseInt(id));
+
+      if (!employee) {
+        serializeSuccessResponse(res, null, "Employee not found", 404);
+        return;
+      }
+
+      MyLogger.success(action, { employeeId: id, found: true });
+      serializeSuccessResponse(res, { employee }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employee');
+      next(error);
     }
   }
 
   /**
    * Create new employee
    */
-  async createEmployee(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/employees";
       const employeeData: CreateEmployeeRequest = req.body;
-      const createdEmployee = await this.employeeMediator.createEmployee(employeeData, req.user?.user_id);
+      MyLogger.info(action, { employeeData });
 
-      responseHelper.success(res, { employee: createdEmployee }, 'Employee created successfully', 201);
+      const userId = req.user?.user_id;
+      const createdEmployee = await this.employeeMediator.createEmployee(employeeData, userId);
+
+      MyLogger.success(action, { employeeId: createdEmployee.id });
+      serializeSuccessResponse(res, { employee: createdEmployee }, "SUCCESS", 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create employee');
+      next(error);
     }
   }
 
   /**
    * Update employee
    */
-  async updateEmployee(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async updateEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
-      const updateData: UpdateEmployeeRequest = req.body;
-      const updatedEmployee = await this.employeeMediator.updateEmployee(employeeId, updateData, req.user?.user_id);
+      const action = "PUT /api/hrm/employees/:id";
+      const { id } = req.params;
+      MyLogger.info(action, { employeeId: id });
 
-      responseHelper.success(res, { employee: updatedEmployee }, 'Employee updated successfully');
+      const employeeId = parseInt(id);
+      const updateData: UpdateEmployeeRequest = req.body;
+      const userId = req.user?.user_id;
+      const updatedEmployee = await this.employeeMediator.updateEmployee(employeeId, updateData, userId);
+
+      MyLogger.success(action, { employeeId: id, updated: true });
+      serializeSuccessResponse(res, { employee: updatedEmployee }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to update employee');
+      next(error);
     }
   }
 
   /**
    * Delete employee (soft delete)
    */
-  async deleteEmployee(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async deleteEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
-      await this.employeeMediator.deleteEmployee(employeeId, req.user?.user_id);
+      const action = "DELETE /api/hrm/employees/:id";
+      const { id } = req.params;
+      MyLogger.info(action, { employeeId: id });
 
-      responseHelper.success(res, null, 'Employee deleted successfully');
+      const employeeId = parseInt(id);
+      const userId = req.user?.user_id;
+      await this.employeeMediator.deleteEmployee(employeeId, userId);
+
+      MyLogger.success(action, { employeeId: id, deleted: true });
+      serializeSuccessResponse(res, null, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to delete employee');
+      next(error);
     }
   }
 
   /**
    * Get employee dashboard statistics
    */
-  async getEmployeeDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeeDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/employees/dashboard";
+      MyLogger.info(action, { query: req.query });
+
       const factoryId = req.query.factory_id ? parseInt(req.query.factory_id as string) : undefined;
       const stats = await this.employeeMediator.getEmployeeDashboard(factoryId);
 
-      responseHelper.success(res, { stats }, 'Employee dashboard retrieved successfully');
+      MyLogger.success(action, { totalEmployees: stats.total_employees });
+      serializeSuccessResponse(res, { stats }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employee dashboard');
+      next(error);
     }
   }
 
   /**
    * Get employees by department
    */
-  async getEmployeesByDepartment(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeesByDepartment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const departmentId = parseInt(req.params.departmentId);
-      const employees = await this.employeeMediator.getEmployeesByDepartment(departmentId);
+      const action = "GET /api/hrm/employees/department/:departmentId";
+      const { departmentId } = req.params;
+      MyLogger.info(action, { departmentId });
 
-      responseHelper.success(res, { employees }, 'Employees retrieved successfully');
+      const employees = await this.employeeMediator.getEmployeesByDepartment(parseInt(departmentId));
+
+      MyLogger.success(action, { departmentId, employeesCount: employees.length });
+      serializeSuccessResponse(res, { employees }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employees by department');
+      next(error);
     }
   }
 
   /**
    * Get employees by designation
    */
-  async getEmployeesByDesignation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeesByDesignation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const designationId = parseInt(req.params.designationId);
-      const employees = await this.employeeMediator.getEmployeesByDesignation(designationId);
+      const action = "GET /api/hrm/employees/designation/:designationId";
+      const { designationId } = req.params;
+      MyLogger.info(action, { designationId });
 
-      responseHelper.success(res, { employees }, 'Employees retrieved successfully');
+      const employees = await this.employeeMediator.getEmployeesByDesignation(parseInt(designationId));
+
+      MyLogger.success(action, { designationId, employeesCount: employees.length });
+      serializeSuccessResponse(res, { employees }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employees by designation');
+      next(error);
     }
   }
 
   /**
    * Get employee hierarchy (reporting structure)
    */
-  async getEmployeeHierarchy(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeeHierarchy(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = req.params.employeeId ? parseInt(req.params.employeeId) : undefined;
-      const hierarchy = await this.employeeMediator.getEmployeeHierarchy(employeeId);
+      const action = "GET /api/hrm/employees/hierarchy/:employeeId?";
+      const { employeeId } = req.params;
+      MyLogger.info(action, { employeeId });
 
-      responseHelper.success(res, { hierarchy }, 'Employee hierarchy retrieved successfully');
+      const hierarchy = await this.employeeMediator.getEmployeeHierarchy(employeeId ? parseInt(employeeId) : undefined);
+
+      MyLogger.success(action, { employeeId });
+      serializeSuccessResponse(res, { hierarchy }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employee hierarchy');
+      next(error);
     }
   }
 
   /**
    * Search employees
    */
-  async searchEmployees(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async searchEmployees(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/employees/search";
       const searchTerm = req.query.q as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      MyLogger.info(action, { searchTerm, limit });
 
       const employees = await this.employeeMediator.searchEmployees(searchTerm, limit);
 
-      responseHelper.success(res, { employees }, 'Employee search completed successfully');
+      MyLogger.success(action, { searchTerm, resultsCount: employees.length });
+      serializeSuccessResponse(res, { employees }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to search employees');
+      next(error);
     }
   }
 
   /**
    * Bulk import employees
    */
-  async bulkImportEmployees(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async bulkImportEmployees(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/employees/bulk-import";
       const employeesData: CreateEmployeeRequest[] = req.body.employees;
-      const result = await this.employeeMediator.bulkImportEmployees(employeesData, req.user?.user_id);
+      MyLogger.info(action, { employeesCount: employeesData.length });
 
-      responseHelper.success(res, result, 'Bulk import completed successfully');
+      const userId = req.user?.user_id;
+      const result = await this.employeeMediator.bulkImportEmployees(employeesData, userId);
+
+      MyLogger.success(action, { successful: result.successful, failed: result.failed });
+      serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to bulk import employees');
+      next(error);
     }
   }
 
   /**
    * Export employees data
    */
-  async exportEmployees(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async exportEmployees(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/employees/export";
+      MyLogger.info(action, { query: req.query });
+
       const queryParams: EmployeeQueryParams = {
         factory_id: req.query.factory_id ? parseInt(req.query.factory_id as string) : undefined,
         department_id: req.query.department_id ? parseInt(req.query.department_id as string) : undefined,
@@ -196,88 +261,109 @@ export class EmployeeController {
       const format = (req.query.format as string) || 'excel';
       const exportData = await this.employeeMediator.exportEmployees(queryParams, format);
 
+      MyLogger.success(action, { format });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=employees_export.${format}`);
-
       res.send(exportData);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to export employees');
+      next(error);
     }
   }
 
   /**
    * Get employee documents
    */
-  async getEmployeeDocuments(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeeDocuments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
-      const documents = await this.employeeMediator.getEmployeeDocuments(employeeId);
+      const action = "GET /api/hrm/employees/:id/documents";
+      const { id } = req.params;
+      MyLogger.info(action, { employeeId: id });
 
-      responseHelper.success(res, { documents }, 'Employee documents retrieved successfully');
+      const documents = await this.employeeMediator.getEmployeeDocuments(parseInt(id));
+
+      MyLogger.success(action, { employeeId: id, documentsCount: documents.length });
+      serializeSuccessResponse(res, { documents }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve employee documents');
+      next(error);
     }
   }
 
   /**
    * Upload employee document
    */
-  async uploadEmployeeDocument(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async uploadEmployeeDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
+      const action = "POST /api/hrm/employees/:id/documents";
+      const { id } = req.params;
       const file = req.file;
       const documentType = req.body.document_type;
+      MyLogger.info(action, { employeeId: id, documentType });
 
       if (!file) {
-        return responseHelper.error(res, new Error('No file uploaded'), 'File is required');
+        res.status(400).json({
+          success: false,
+          message: "File is required",
+          data: null
+        });
+        return;
       }
 
+      const userId = req.user?.user_id;
       const document = await this.employeeMediator.uploadEmployeeDocument(
-        employeeId,
+        parseInt(id),
         file,
         documentType,
-        req.user?.user_id
+        userId
       );
 
-      responseHelper.success(res, { document }, 'Document uploaded successfully', 201);
+      MyLogger.success(action, { employeeId: id, documentId: document.id });
+      serializeSuccessResponse(res, { document }, "SUCCESS", 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to upload document');
+      next(error);
     }
   }
 
   /**
    * Get employee salary history
    */
-  async getEmployeeSalaryHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getEmployeeSalaryHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
-      const history = await this.employeeMediator.getEmployeeSalaryHistory(employeeId);
+      const action = "GET /api/hrm/employees/:id/salary-history";
+      const { id } = req.params;
+      MyLogger.info(action, { employeeId: id });
 
-      responseHelper.success(res, { history }, 'Salary history retrieved successfully');
+      const history = await this.employeeMediator.getEmployeeSalaryHistory(parseInt(id));
+
+      MyLogger.success(action, { employeeId: id, historyCount: history.length });
+      serializeSuccessResponse(res, { history }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve salary history');
+      next(error);
     }
   }
 
   /**
    * Update employee salary
    */
-  async updateEmployeeSalary(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async updateEmployeeSalary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const employeeId = parseInt(req.params.id);
+      const action = "PUT /api/hrm/employees/:id/salary";
+      const { id } = req.params;
       const { newSalary, effectiveDate, reason } = req.body;
+      MyLogger.info(action, { employeeId: id, newSalary, effectiveDate });
 
+      const userId = req.user?.user_id;
       const result = await this.employeeMediator.updateEmployeeSalary(
-        employeeId,
+        parseInt(id),
         newSalary,
         effectiveDate,
         reason,
-        req.user?.user_id
+        userId
       );
 
-      responseHelper.success(res, result, 'Salary updated successfully');
+      MyLogger.success(action, { employeeId: id });
+      serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to update salary');
+      next(error);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import {
   PayrollPeriod,
   PayrollComponent,
@@ -9,8 +9,8 @@ import {
   PayrollCalculationRequest
 } from '../../../types/hrm';
 import { PayrollMediator } from '../mediators/payroll/PayrollMediator';
-import { responseHelper } from '../../../utils/responseHelper';
-import { AuthenticatedRequest } from '../../../types/rbac';
+import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
+import { MyLogger } from '../../../utils/new-logger';
 
 export class PayrollController {
   private payrollMediator: PayrollMediator;
@@ -22,8 +22,11 @@ export class PayrollController {
   /**
    * Get all payroll periods
    */
-  async getPayrollPeriods(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollPeriods(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/periods";
+      MyLogger.info(action, { query: req.query });
+
       const filters = {
         status: req.query.status as string,
         period_type: req.query.period_type as string,
@@ -32,110 +35,136 @@ export class PayrollController {
       };
 
       const periods = await this.payrollMediator.getPayrollPeriods(filters);
-      responseHelper.success(res, { periods }, 'Payroll periods retrieved successfully');
+
+      MyLogger.success(action, { periodsCount: periods.length });
+      serializeSuccessResponse(res, { periods }, "SUCCESS");
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll periods');
+      next(error);
     }
   }
 
   /**
    * Create new payroll period
    */
-  async createPayrollPeriod(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createPayrollPeriod(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/payroll/periods";
       const periodData: CreatePayrollPeriodRequest = req.body;
-      const period = await this.payrollMediator.createPayrollPeriod(periodData, req.user?.user_id);
+      MyLogger.info(action, { periodData });
 
-      responseHelper.success(res, { period }, 'Payroll period created successfully', 201);
+      const userId = req.user?.user_id;
+      const period = await this.payrollMediator.createPayrollPeriod(periodData, userId);
+
+      MyLogger.success(action, { periodId: period.id });
+      serializeSuccessResponse(res, { period }, "SUCCESS", 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create payroll period');
+      next(error);
     }
   }
 
   /**
    * Get payroll period by ID
    */
-  async getPayrollPeriodById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollPeriodById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/periods/:id";
+      MyLogger.info(action, { periodId: req.params.id });
+
       const periodId = parseInt(req.params.id);
       const periods = await this.payrollMediator.getPayrollPeriods({});
 
       const period = periods.find(p => p.id === periodId);
 
       if (!period) {
-        return responseHelper.error(res, new Error('Payroll period not found'), 'Payroll period not found', 404);
+        res.status(404);
+        throw new Error('Payroll period not found');
       }
 
-      responseHelper.success(res, { period }, 'Payroll period retrieved successfully');
+      serializeSuccessResponse(res, { period }, 'Payroll period retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll period');
+      next(error);
     }
   }
 
   /**
    * Update payroll period
    */
-  async updatePayrollPeriod(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async updatePayrollPeriod(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "PUT /api/hrm/payroll/periods/:id";
+      MyLogger.info(action, { periodId: req.params.id });
+
       const periodId = parseInt(req.params.id);
       const updateData = req.body;
 
       // For now, we'll implement a simple update mechanism
       // In a real implementation, you'd want more sophisticated update logic
-      responseHelper.success(res, { period: { id: periodId, ...updateData } }, 'Payroll period updated successfully');
+      serializeSuccessResponse(res, { period: { id: periodId, ...updateData } }, 'Payroll period updated successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to update payroll period');
+      next(error);
     }
   }
 
   /**
    * Delete payroll period
    */
-  async deletePayrollPeriod(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async deletePayrollPeriod(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "DELETE /api/hrm/payroll/periods/:id";
+      MyLogger.info(action, { periodId: req.params.id });
+
       const periodId = parseInt(req.params.id);
 
       // For now, we'll implement a simple delete mechanism
       // In a real implementation, you'd want proper soft delete logic
-      responseHelper.success(res, null, 'Payroll period deleted successfully');
+      serializeSuccessResponse(res, null, 'Payroll period deleted successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to delete payroll period');
+      next(error);
     }
   }
 
   /**
    * Get all payroll components
    */
-  async getPayrollComponents(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollComponents(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/components";
+      MyLogger.info(action, { query: req.query });
+
       const componentType = req.query.type as 'earning' | 'deduction';
       const components = await this.payrollMediator.getPayrollComponents(componentType);
 
-      responseHelper.success(res, { components }, 'Payroll components retrieved successfully');
+      serializeSuccessResponse(res, { components }, 'Payroll components retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll components');
+      next(error);
     }
   }
 
   /**
    * Create new payroll component
    */
-  async createPayrollComponent(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createPayrollComponent(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/payroll/components";
+      MyLogger.info(action, { body: req.body });
+
       const componentData: CreatePayrollComponentRequest = req.body;
       const component = await this.payrollMediator.createPayrollComponent(componentData, req.user?.user_id);
 
-      responseHelper.success(res, { component }, 'Payroll component created successfully', 201);
+      serializeSuccessResponse(res, { component }, 'Payroll component created successfully', 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create payroll component');
+      next(error);
     }
   }
 
   /**
    * Calculate payroll for a period
    */
-  async calculatePayroll(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async calculatePayroll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/payroll/calculate";
+      MyLogger.info(action, { body: req.body });
+
       const calcRequest: PayrollCalculationRequest = {
         payroll_period_id: parseInt(req.body.payroll_period_id),
         employee_ids: req.body.employee_ids?.map((id: string) => parseInt(id)),
@@ -146,17 +175,20 @@ export class PayrollController {
 
       const payrollRun = await this.payrollMediator.calculatePayroll(calcRequest, req.user?.user_id);
 
-      responseHelper.success(res, { payroll_run: payrollRun }, 'Payroll calculated successfully');
+      serializeSuccessResponse(res, { payroll_run: payrollRun }, 'Payroll calculated successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to calculate payroll');
+      next(error);
     }
   }
 
   /**
    * Get payroll runs
    */
-  async getPayrollRuns(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollRuns(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/runs";
+      MyLogger.info(action, { query: req.query });
+
       const filters = {
         payroll_period_id: req.query.payroll_period_id ? parseInt(req.query.payroll_period_id as string) : undefined,
         status: req.query.status as string,
@@ -167,17 +199,20 @@ export class PayrollController {
       // In a real implementation, you'd query the database
       const runs: PayrollRun[] = [];
 
-      responseHelper.success(res, { runs }, 'Payroll runs retrieved successfully');
+      serializeSuccessResponse(res, { runs }, 'Payroll runs retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll runs');
+      next(error);
     }
   }
 
   /**
    * Get payroll run by ID
    */
-  async getPayrollRunById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollRunById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/runs/:id";
+      MyLogger.info(action, { runId: req.params.id });
+
       const runId = parseInt(req.params.id);
 
       // For now, returning mock data
@@ -200,45 +235,54 @@ export class PayrollController {
         updated_at: new Date().toISOString()
       };
 
-      responseHelper.success(res, { run }, 'Payroll run retrieved successfully');
+      serializeSuccessResponse(res, { run }, 'Payroll run retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll run');
+      next(error);
     }
   }
 
   /**
    * Approve payroll run
    */
-  async approvePayrollRun(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async approvePayrollRun(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/payroll/runs/:id/approve";
+      MyLogger.info(action, { runId: req.params.id });
+
       const runId = parseInt(req.params.id);
       const approvedRun = await this.payrollMediator.approvePayrollRun(runId, req.user?.user_id);
 
-      responseHelper.success(res, { payroll_run: approvedRun }, 'Payroll run approved successfully');
+      serializeSuccessResponse(res, { payroll_run: approvedRun }, 'Payroll run approved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to approve payroll run');
+      next(error);
     }
   }
 
   /**
    * Get payroll summary for a period
    */
-  async getPayrollSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/summary/:periodId";
+      MyLogger.info(action, { periodId: req.params.periodId });
+
       const periodId = parseInt(req.params.periodId);
       const summary = await this.payrollMediator.getPayrollSummary(periodId);
 
-      responseHelper.success(res, { summary }, 'Payroll summary retrieved successfully');
+      serializeSuccessResponse(res, { summary }, 'Payroll summary retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll summary');
+      next(error);
     }
   }
 
   /**
    * Setup employee salary structure
    */
-  async setupEmployeeSalaryStructure(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async setupEmployeeSalaryStructure(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/payroll/setup/:employeeId/salary-structure";
+      MyLogger.info(action, { employeeId: req.params.employeeId });
+
       const employeeId = parseInt(req.params.employeeId);
       const components = req.body.components; // Array of { component_id, amount, percentage }
 
@@ -248,19 +292,22 @@ export class PayrollController {
         req.user?.user_id
       );
 
-      responseHelper.success(res, { structures }, 'Salary structure set up successfully');
+      serializeSuccessResponse(res, { structures }, 'Salary structure set up successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to setup salary structure');
+      next(error);
     }
   }
 
   /**
    * Get payroll dashboard
    */
-  async getPayrollDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getPayrollDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/dashboard";
+      MyLogger.info(action, { query: req.query });
+
       // Get recent payroll runs
-      const recentRuns = await this.getPayrollRuns(req, res);
+      const recentRuns = await this.getPayrollRuns(req, res, next);
 
       // Get upcoming payroll periods
       const upcomingPeriods = await this.payrollMediator.getPayrollPeriods({
@@ -284,17 +331,20 @@ export class PayrollController {
         current_month_summary: periods.length > 0 ? await this.payrollMediator.getPayrollSummary(periods[0].id) : null
       };
 
-      responseHelper.success(res, { dashboard }, 'Payroll dashboard retrieved successfully');
+      serializeSuccessResponse(res, { dashboard }, 'Payroll dashboard retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve payroll dashboard');
+      next(error);
     }
   }
 
   /**
    * Export payroll data
    */
-  async exportPayroll(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async exportPayroll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/payroll/export/:runId";
+      MyLogger.info(action, { runId: req.params.runId });
+
       const runId = parseInt(req.params.runId);
       const format = (req.query.format as string) || 'excel';
 
@@ -307,7 +357,7 @@ export class PayrollController {
 
       res.send(exportData);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to export payroll data');
+      next(error);
     }
   }
 }

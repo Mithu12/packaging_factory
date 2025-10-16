@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import {
   LeaveType,
   LeaveApplication,
@@ -7,8 +7,8 @@ import {
   CreateLeaveTypeRequest
 } from '../../../types/hrm';
 import { LeaveMediator } from '../mediators/leave/LeaveMediator';
-import { responseHelper } from '../../../utils/responseHelper';
-import { AuthenticatedRequest } from '../../../types/rbac';
+import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
+import { MyLogger } from '../../../utils/new-logger';
 
 export class LeaveController {
   private leaveMediator: LeaveMediator;
@@ -20,65 +20,72 @@ export class LeaveController {
   /**
    * Get all leave types
    */
-  async getLeaveTypes(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveTypes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/types";
+      MyLogger.info(action, { query: req.query });
+
       const leaveTypes = await this.leaveMediator.getLeaveTypes();
-      responseHelper.success(res, { leave_types: leaveTypes }, 'Leave types retrieved successfully');
+      MyLogger.success(action, { leaveTypesCount: leaveTypes.length });
+      serializeSuccessResponse(res, { leave_types: leaveTypes }, 'Leave types retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave types');
+      next(error);
     }
   }
 
   /**
    * Create new leave type
    */
-  async createLeaveType(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createLeaveType(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "POST /api/hrm/leave/types";
+      MyLogger.info(action, { body: req.body });
+
       const leaveTypeData: CreateLeaveTypeRequest = req.body;
       const leaveType = await this.leaveMediator.createLeaveType(leaveTypeData, req.user?.user_id);
 
-      responseHelper.success(res, { leave_type: leaveType }, 'Leave type created successfully', 201);
+      serializeSuccessResponse(res, { leave_type: leaveType }, 'Leave type created successfully', 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create leave type');
+      next(error);
     }
   }
 
   /**
    * Get leave balances for an employee
    */
-  async getLeaveBalances(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveBalances(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
       const balances = await this.leaveMediator.getLeaveBalances(employeeId, year);
 
-      responseHelper.success(res, { leave_balances: balances }, 'Leave balances retrieved successfully');
+      serializeSuccessResponse(res, { leave_balances: balances }, 'Leave balances retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave balances');
+      next(error);
     }
   }
 
   /**
    * Calculate leave balances for an employee
    */
-  async calculateLeaveBalances(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async calculateLeaveBalances(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
       const balances = await this.leaveMediator.calculateLeaveBalances(employeeId, year);
 
-      responseHelper.success(res, { leave_balances: balances }, 'Leave balances calculated successfully');
+      serializeSuccessResponse(res, { leave_balances: balances }, 'Leave balances calculated successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to calculate leave balances');
+      next(error);
     }
   }
 
   /**
    * Get leave applications
    */
-  async getLeaveApplications(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const filters = {
         employee_id: req.query.employee_id ? parseInt(req.query.employee_id as string) : undefined,
@@ -90,16 +97,16 @@ export class LeaveController {
 
       const applications = await this.leaveMediator.getLeaveApplications(filters);
 
-      responseHelper.success(res, { leave_applications: applications }, 'Leave applications retrieved successfully');
+      serializeSuccessResponse(res, { leave_applications: applications }, 'Leave applications retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave applications');
+      next(error);
     }
   }
 
   /**
    * Create leave application
    */
-  async createLeaveApplication(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async createLeaveApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const applicationData: LeaveApplicationRequest = req.body;
       const employeeId = req.user?.user_id || parseInt(req.params.employeeId);
@@ -110,130 +117,152 @@ export class LeaveController {
         req.user?.user_id
       );
 
-      responseHelper.success(res, { leave_application: application }, 'Leave application created successfully', 201);
+      serializeSuccessResponse(res, { leave_application: application }, 'Leave application created successfully', 201);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to create leave application');
+      next(error);
     }
   }
 
   /**
    * Approve or reject leave application
    */
-  async processLeaveApplication(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async processLeaveApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const applicationId = parseInt(req.params.applicationId);
-      const { action, rejected_reason } = req.body;
+      const action = "POST /api/hrm/leave/applications/:applicationId/process";
+      MyLogger.info(action, { body: req.body });
 
-      if (!['approve', 'reject'].includes(action)) {
-        return responseHelper.error(res, new Error('Invalid action'), 'Action must be approve or reject', 400);
+      const applicationId = parseInt(req.params.applicationId);
+      const { action: approvalAction, rejected_reason } = req.body;
+
+      if (!['approve', 'reject'].includes(approvalAction)) {
+        res.status(400);
+        throw new Error('Invalid action');
       }
 
       const application = await this.leaveMediator.processLeaveApplication(
         applicationId,
-        action,
+        approvalAction,
         req.user?.user_id,
         rejected_reason
       );
 
-      responseHelper.success(res, { leave_application: application }, `Leave application ${action}d successfully`);
+      serializeSuccessResponse(res, { leave_application: application }, `Leave application ${action}d successfully`);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to process leave application');
+      next(error);
     }
   }
 
   /**
    * Get leave dashboard
    */
-  async getLeaveDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const dashboard = await this.leaveMediator.getLeaveDashboard();
 
-      responseHelper.success(res, { dashboard }, 'Leave dashboard retrieved successfully');
+      serializeSuccessResponse(res, { dashboard }, 'Leave dashboard retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave dashboard');
+      next(error);
     }
   }
 
   /**
    * Get leave calendar for a specific month
    */
-  async getLeaveCalendar(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveCalendar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/calendar/:year/:month";
+      MyLogger.info(action, { year: req.params.year, month: req.params.month });
+
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
 
       if (year < 2020 || year > 2100) {
-        return responseHelper.error(res, new Error('Invalid year'), 'Year must be between 2020 and 2100', 400);
+        res.status(400);
+        throw new Error('Invalid year');
       }
 
       if (month < 1 || month > 12) {
-        return responseHelper.error(res, new Error('Invalid month'), 'Month must be between 1 and 12', 400);
+        res.status(400);
+        throw new Error('Invalid month');
       }
 
       const calendar = await this.leaveMediator.getLeaveCalendar(year, month);
 
-      responseHelper.success(res, { calendar }, 'Leave calendar retrieved successfully');
+      serializeSuccessResponse(res, { calendar }, 'Leave calendar retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave calendar');
+      next(error);
     }
   }
 
   /**
    * Get my leave applications (for logged-in employee)
    */
-  async getMyLeaveApplications(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getMyLeaveApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/my-applications";
+      MyLogger.info(action, { query: req.query });
+
       const employeeId = req.user?.user_id;
       const applications = await this.leaveMediator.getLeaveApplications({
         employee_id: employeeId
       });
 
-      responseHelper.success(res, { leave_applications: applications }, 'Your leave applications retrieved successfully');
+      serializeSuccessResponse(res, { leave_applications: applications }, 'Your leave applications retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve your leave applications');
+      next(error);
     }
   }
 
   /**
    * Get leave application by ID
    */
-  async getLeaveApplicationById(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveApplicationById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/applications/:id";
+      MyLogger.info(action, { applicationId: req.params.id });
+
       const applicationId = parseInt(req.params.id);
       const applications = await this.leaveMediator.getLeaveApplications();
 
       const application = applications.find(app => app.id === applicationId);
 
       if (!application) {
-        return responseHelper.error(res, new Error('Leave application not found'), 'Leave application not found', 404);
+        res.status(404);
+        throw new Error('Leave application not found');
       }
 
-      responseHelper.success(res, { leave_application: application }, 'Leave application retrieved successfully');
+      serializeSuccessResponse(res, { leave_application: application }, 'Leave application retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave application');
+      next(error);
     }
   }
 
   /**
    * Cancel leave application
    */
-  async cancelLeaveApplication(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async cancelLeaveApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "DELETE /api/hrm/leave/applications/:id";
+      MyLogger.info(action, { applicationId: req.params.id });
+
       const applicationId = parseInt(req.params.id);
 
       // For now, we'll implement a simple cancel mechanism
       // In a real implementation, you'd want proper cancellation logic
-      responseHelper.success(res, null, 'Leave application cancelled successfully');
+      serializeSuccessResponse(res, null, 'Leave application cancelled successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to cancel leave application');
+      next(error);
     }
   }
 
   /**
    * Get leave summary for an employee
    */
-  async getLeaveSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getLeaveSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/summary/:employeeId";
+      MyLogger.info(action, { employeeId: req.params.employeeId });
+
       const employeeId = parseInt(req.params.employeeId);
       const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
 
@@ -249,17 +278,20 @@ export class LeaveController {
         leave_balances: balances
       };
 
-      responseHelper.success(res, { summary }, 'Leave summary retrieved successfully');
+      serializeSuccessResponse(res, { summary }, 'Leave summary retrieved successfully');
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to retrieve leave summary');
+      next(error);
     }
   }
 
   /**
    * Export leave data
    */
-  async exportLeaveData(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async exportLeaveData(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const action = "GET /api/hrm/leave/export";
+      MyLogger.info(action, { query: req.query });
+
       const format = (req.query.format as string) || 'excel';
       const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
 
@@ -272,7 +304,7 @@ export class LeaveController {
 
       res.send(exportData);
     } catch (error) {
-      responseHelper.error(res, error, 'Failed to export leave data');
+      next(error);
     }
   }
 }
