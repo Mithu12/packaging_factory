@@ -15,7 +15,7 @@ import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 
-export class PayrollMediator implements MediatorInterface {
+class PayrollMediator implements MediatorInterface {
   private auditService: AuditService;
   private eventBus: any;
 
@@ -54,16 +54,7 @@ export class PayrollMediator implements MediatorInterface {
         .insert(newPeriod)
         .returning('*');
 
-      // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
-        action: 'CREATE',
-        table_name: 'payroll_periods',
-        record_id: period.id,
-        old_values: null,
-        new_values: period,
-        description: `Payroll period ${period.name} created`
-      });
+
 
       return period;
     } catch (error) {
@@ -629,3 +620,5 @@ export class PayrollMediator implements MediatorInterface {
     }
   }
 }
+
+export default new PayrollMediator();

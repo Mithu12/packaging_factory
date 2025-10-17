@@ -10,7 +10,7 @@ import { LeaveMediator } from '../mediators/leave/LeaveMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
-export class LeaveController {
+class LeaveController {
 
   /**
    * Get all leave types
@@ -303,3 +303,4 @@ export class LeaveController {
     }
   }
 }
+export default new LeaveController();

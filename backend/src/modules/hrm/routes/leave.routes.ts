@@ -3,7 +3,7 @@ import { authenticate } from "@/middleware/auth";
 import { requirePermission, PERMISSIONS } from "@/middleware/permission";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
-import { LeaveController } from "../controllers/leave.controller";
+import LeaveController from "../controllers/leave.controller";
 import { auditMiddleware } from "@/middleware/audit";
 
 const router = express.Router();

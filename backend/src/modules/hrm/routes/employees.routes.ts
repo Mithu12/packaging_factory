@@ -3,13 +3,14 @@ import { authenticate } from "@/middleware/auth";
 import { requirePermission, PERMISSIONS } from "@/middleware/permission";
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
-import { EmployeeController } from "../controllers/employees.controller";
+import EmployeeController from "../controllers/employees.controller";
 import { auditMiddleware } from "@/middleware/audit";
 
 const router = express.Router();
 router.use(authenticate);
 
 // Apply audit middleware to all routes
+// TODO: Re-enable after fixing audit middleware issue
 router.use(auditMiddleware);
 
 // =====================================================

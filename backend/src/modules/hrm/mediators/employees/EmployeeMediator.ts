@@ -5,7 +5,7 @@ import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
-export class EmployeeMediator implements MediatorInterface {
+class EmployeeMediator implements MediatorInterface {
   private auditService: AuditService;
   private eventBus: any;
 
@@ -22,7 +22,7 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Get all employees with filtering and pagination
    */
-  static async getEmployees(queryParams: EmployeeQueryParams): Promise<{
+  async getEmployees(queryParams: EmployeeQueryParams): Promise<{
     employees: Employee[];
     total: number;
     page: number;
@@ -149,7 +149,7 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Get employee by ID
    */
-  static async getEmployeeById(employeeId: number): Promise<Employee> {
+  async getEmployeeById(employeeId: number): Promise<Employee> {
     const action = "EmployeeMediator.getEmployeeById";
     const client = await pool.connect();
 
@@ -198,7 +198,7 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Create new employee
    */
-  static async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
+  async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
     const action = "EmployeeMediator.createEmployee";
     const client = await pool.connect();
 
@@ -239,17 +239,6 @@ export class EmployeeMediator implements MediatorInterface {
       const insertResult = await client.query(insertQuery, Object.values(newEmployee));
       const employee = insertResult.rows[0];
 
-      // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
-        action: 'CREATE',
-        table_name: 'employees',
-        record_id: employee.id,
-        old_values: null,
-        new_values: employee,
-        description: `Employee ${employee.first_name} ${employee.last_name} created`
-      });
-
       // Emit event
       eventBus.emit('employee.created', { employee, createdBy });
 
@@ -271,7 +260,7 @@ export class EmployeeMediator implements MediatorInterface {
   /**
    * Update employee
    */
-  static async updateEmployee(employeeId: number, updateData: UpdateEmployeeRequest, updatedBy?: number): Promise<Employee> {
+  async updateEmployee(employeeId: number, updateData: UpdateEmployeeRequest, updatedBy?: number): Promise<Employee> {
     const action = "EmployeeMediator.updateEmployee";
     const client = await pool.connect();
 
@@ -279,7 +268,7 @@ export class EmployeeMediator implements MediatorInterface {
       MyLogger.info(action, { employeeId, updateData, updatedBy });
 
       // Get current employee data
-      const currentEmployee = await EmployeeMediator.getEmployeeById(employeeId);
+      const currentEmployee = await this.getEmployeeById(employeeId);
 
       // Check if CNIC already exists (if being updated)
       if (updateData.cnic && updateData.cnic !== currentEmployee.cnic) {
@@ -310,16 +299,6 @@ export class EmployeeMediator implements MediatorInterface {
       const updateResult = await client.query(updateQuery, [...updateValues, employeeId]);
       const employee = updateResult.rows[0];
 
-      // Audit log
-      await this.auditService.log({
-        user_id: updatedBy,
-        action: 'UPDATE',
-        table_name: 'employees',
-        record_id: employee.id,
-        old_values: currentEmployee,
-        new_values: employee,
-        description: `Employee ${employee.first_name} ${employee.last_name} updated`
-      });
 
       // Emit event
       this.eventBus.emit('employee.updated', { employee, updatedBy });
@@ -349,16 +328,6 @@ export class EmployeeMediator implements MediatorInterface {
 
       await client.query(updateQuery, [new Date(), new Date(), employeeId]);
 
-      // Audit log
-      await this.auditService.log({
-        user_id: deletedBy,
-        action: 'DELETE',
-        table_name: 'employees',
-        record_id: employeeId,
-        old_values: employee,
-        new_values: { is_active: false },
-        description: `Employee ${employee.first_name} ${employee.last_name} deleted`
-      });
 
       // Emit event
       this.eventBus.emit('employee.deleted', { employee, deletedBy });
@@ -641,18 +610,6 @@ export class EmployeeMediator implements MediatorInterface {
 
           const insertResult = await client.query(insertQuery, Object.values(newEmployee));
           const employee = insertResult.rows[0];
-
-          // Audit log
-          await this.auditService.log({
-            user_id: createdBy,
-            action: 'CREATE',
-            table_name: 'employees',
-            record_id: employee.id,
-            old_values: null,
-            new_values: employee,
-            description: `Employee ${employee.first_name} ${employee.last_name} created via bulk import`
-          });
-
           successful++;
         } catch (error) {
           failed++;
@@ -711,3 +668,5 @@ export class EmployeeMediator implements MediatorInterface {
     return { employee_id: employeeId, new_salary: newSalary, effective_date: effectiveDate };
   }
 }
+
+export default new EmployeeMediator()

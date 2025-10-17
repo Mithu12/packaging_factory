@@ -12,7 +12,7 @@ import { PayrollMediator } from '../mediators/payroll/PayrollMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
-export class PayrollController {
+class PayrollController {
 
   /**
    * Get all payroll periods
@@ -356,3 +356,4 @@ export class PayrollController {
     }
   }
 }
+export default new PayrollController();

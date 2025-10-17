@@ -4,7 +4,7 @@ import { EmployeeMediator } from '../mediators/employees/EmployeeMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
-export class EmployeeController {
+class EmployeeController {
 
   /**
    * Get all employees with filtering and pagination
@@ -362,3 +362,5 @@ export class EmployeeController {
     }
   }
 }
+
+export default new EmployeeController();
