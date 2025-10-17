@@ -1,5 +1,5 @@
-import { LeaveType, LeaveBalance, LeaveApplication } from '../../../../../types/hrm';
-import pool from '../../../../../database/connection';
+import { LeaveType, LeaveBalance, LeaveApplication } from '../../../../types/hrm';
+import pool from '../../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
 
 export class GetLeaveInfoMediator {

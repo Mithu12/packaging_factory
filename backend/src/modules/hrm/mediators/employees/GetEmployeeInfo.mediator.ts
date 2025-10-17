@@ -1,5 +1,5 @@
-import { Employee, EmployeeQueryParams, HRDashboardStats } from '../../../../../types/hrm';
-import pool from '../../../../../database/connection';
+import { Employee, EmployeeQueryParams, HRDashboardStats } from '../../../../types/hrm';
+import pool from '../../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
 
 export class GetEmployeeInfoMediator {
@@ -528,6 +528,111 @@ export class GetEmployeeInfoMediator {
       });
 
       return dashboard;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get employee documents
+   */
+  static async getEmployeeDocuments(employeeId: number): Promise<any[]> {
+    const action = "GetEmployeeInfoMediator.getEmployeeDocuments";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { employeeId });
+
+      const query = `
+        SELECT * FROM employee_documents
+        WHERE employee_id = $1
+        ORDER BY uploaded_at DESC
+      `;
+
+      const result = await client.query(query, [employeeId]);
+      const documents = result.rows;
+
+      MyLogger.success(action, {
+        employeeId,
+        documentsCount: documents.length
+      });
+
+      return documents;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get employee salary history
+   */
+  static async getEmployeeSalaryHistory(employeeId: number): Promise<any[]> {
+    const action = "GetEmployeeInfoMediator.getEmployeeSalaryHistory";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { employeeId });
+
+      const query = `
+        SELECT * FROM employee_salary_history
+        WHERE employee_id = $1
+        ORDER BY effective_date DESC
+      `;
+
+      const result = await client.query(query, [employeeId]);
+      const history = result.rows;
+
+      MyLogger.success(action, {
+        employeeId,
+        historyCount: history.length
+      });
+
+      return history;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Export employees data
+   */
+  static async exportEmployees(queryParams: EmployeeQueryParams, format: string): Promise<Buffer> {
+    const action = "GetEmployeeInfoMediator.exportEmployees";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { queryParams, format });
+
+      // Get employees data for export
+      const result = await this.getEmployees(queryParams);
+      const employees = result.employees;
+
+      // For now, return a simple CSV buffer
+      // In a real implementation, you might use a library like 'exceljs' or 'csv-writer'
+      const csvHeaders = 'ID,Employee ID,First Name,Last Name,Department,Designation,Employment Type,Join Date\n';
+      const csvRows = employees.map(emp =>
+        `${emp.id},"${emp.employee_id}","${emp.first_name}","${emp.last_name}","${emp.department_name}","${emp.designation_title}","${emp.employment_type}","${emp.join_date}"`
+      ).join('\n');
+
+      const csvData = csvHeaders + csvRows;
+      const buffer = Buffer.from(csvData, 'utf8');
+
+      MyLogger.success(action, {
+        format,
+        employeesCount: employees.length,
+        bufferSize: buffer.length
+      });
+
+      return buffer;
     } catch (error) {
       MyLogger.error(action, error);
       throw error;

@@ -1,7 +1,7 @@
-import { Employee, UpdateEmployeeRequest } from '../../../../../types/hrm';
-import pool from '../../../../../database/connection';
-import { AuditService } from '../../../../../services/audit-service';
-import { eventBus } from '../../../../../utils/eventBus';
+import { Employee, UpdateEmployeeRequest } from '../../../../types/hrm';
+import pool from '../../../../database/connection';
+import { AuditService } from '../../../../services/audit-service';
+import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class UpdateEmployeeMediator {
@@ -165,5 +165,161 @@ export class UpdateEmployeeMediator {
     }
 
     return result.rows[0];
+  }
+
+  /**
+   * Upload employee document
+   */
+  static async uploadEmployeeDocument(employeeId: number, file: any, documentType: string, uploadedBy?: number): Promise<any> {
+    const action = "UpdateEmployeeMediator.uploadEmployeeDocument";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { employeeId, documentType, fileName: file?.filename, uploadedBy });
+
+      // Get current employee
+      const employee = await this.getEmployeeById(employeeId);
+
+      // Insert document record
+      const insertQuery = `
+        INSERT INTO employee_documents (
+          employee_id, document_type, file_name, file_path, file_size, mime_type, uploaded_by, uploaded_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `;
+
+      const documentResult = await client.query(insertQuery, [
+        employeeId,
+        documentType,
+        file.filename,
+        file.path,
+        file.size,
+        file.mimetype,
+        uploadedBy,
+        new Date()
+      ]);
+
+      // Create audit log
+      if (uploadedBy) {
+        await this.auditService.createAuditLog({
+          table_name: 'employee_documents',
+          record_id: documentResult.rows[0].id,
+          action: 'INSERT',
+          old_values: null,
+          new_values: {
+            employee_id: employeeId,
+            document_type: documentType,
+            file_name: file.filename
+          },
+          user_id: uploadedBy,
+          timestamp: new Date()
+        });
+      }
+
+      // Emit event
+      this.eventBus.publish('employee.document.uploaded', {
+        employee,
+        document: documentResult.rows[0],
+        uploadedBy
+      });
+
+      MyLogger.success(action, {
+        employeeId,
+        employeeCode: employee.employee_id,
+        documentType,
+        fileName: file.filename,
+        uploadedBy
+      });
+
+      return documentResult.rows[0];
+
+    } catch (error) {
+      MyLogger.error(action, error, { employeeId, documentType, uploadedBy });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Update employee salary
+   */
+  static async updateEmployeeSalary(employeeId: number, newSalary: number, effectiveDate: string, reason: string, updatedBy?: number): Promise<any> {
+    const action = "UpdateEmployeeMediator.updateEmployeeSalary";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { employeeId, newSalary, effectiveDate, reason, updatedBy });
+
+      // Get current employee
+      const employee = await this.getEmployeeById(employeeId);
+
+      // Insert salary history record
+      const insertQuery = `
+        INSERT INTO employee_salary_history (
+          employee_id, previous_salary, new_salary, effective_date, reason, updated_by, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `;
+
+      const historyResult = await client.query(insertQuery, [
+        employeeId,
+        employee.hourly_rate,
+        newSalary,
+        effectiveDate,
+        reason,
+        updatedBy,
+        new Date()
+      ]);
+
+      // Update employee salary
+      const updateQuery = `
+        UPDATE employees
+        SET hourly_rate = $1, updated_at = $2
+        WHERE id = $3
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [newSalary, new Date(), employeeId]);
+      const updatedEmployee = updateResult.rows[0];
+
+      // Create audit log
+      if (updatedBy) {
+        await this.auditService.createAuditLog({
+          table_name: 'employees',
+          record_id: employeeId,
+          action: 'UPDATE',
+          old_values: { hourly_rate: employee.hourly_rate },
+          new_values: { hourly_rate: newSalary },
+          user_id: updatedBy,
+          timestamp: new Date()
+        });
+      }
+
+      // Emit event
+      this.eventBus.publish('employee.salary.updated', {
+        employee: updatedEmployee,
+        salaryHistory: historyResult.rows[0],
+        updatedBy
+      });
+
+      MyLogger.success(action, {
+        employeeId,
+        employeeCode: employee.employee_id,
+        newSalary,
+        updatedBy
+      });
+
+      return {
+        employee: updatedEmployee,
+        salaryHistory: historyResult.rows[0]
+      };
+
+    } catch (error) {
+      MyLogger.error(action, error, { employeeId, newSalary, effectiveDate, reason, updatedBy });
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }

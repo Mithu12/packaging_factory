@@ -6,7 +6,7 @@ import {
   CreateAttendanceRecordRequest,
   CreateWorkScheduleRequest
 } from '../../../types/hrm';
-import { AttendanceMediator } from '../mediators/attendance/AttendanceMediator';
+import { AddAttendanceMediator } from '../mediators/attendance/AddAttendance.mediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
@@ -31,7 +31,7 @@ class AttendanceController {
   async createWorkSchedule(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const scheduleData: CreateWorkScheduleRequest = req.body;
-      const schedule = await AttendanceMediator.createWorkSchedule(scheduleData, req.user?.user_id);
+      const schedule = await AddAttendanceMediator.createWorkSchedule(scheduleData, req.user?.user_id);
 
       serializeSuccessResponse(res, { work_schedule: schedule }, 'Work schedule created successfully', 201);
     } catch (error) {
@@ -68,7 +68,7 @@ class AttendanceController {
       const recordData: CreateAttendanceRecordRequest = req.body;
       const employeeId = parseInt(req.params.employeeId);
 
-      const record = await AttendanceMediator.createAttendanceRecord(
+      const record = await AddAttendanceMediator.createAttendanceRecord(
         recordData,
         employeeId,
         req.user?.user_id
@@ -113,10 +113,12 @@ class AttendanceController {
         throw new Error('Action must be check_in, check_out, break_start, or break_end');
       }
 
-      const record = await AttendanceMediator.markAttendance(
-        employeeId,
+      const record = await AddAttendanceMediator.markAttendance(
+        [employeeId],
+        req.body.record_date || new Date().toISOString().split('T')[0],
         action,
-        location,
+        req.body.check_in_time,
+        req.body.check_out_time,
         notes,
         req.user?.user_id
       );

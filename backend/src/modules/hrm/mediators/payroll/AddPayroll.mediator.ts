@@ -1,5 +1,5 @@
-import { PayrollPeriod, CreatePayrollPeriodRequest, PayrollComponent, CreatePayrollComponentRequest } from '../../../../../types/hrm';
-import pool from '../../../../../database/connection';
+import { PayrollPeriod, CreatePayrollPeriodRequest, PayrollComponent, CreatePayrollComponentRequest } from '../../../../types/hrm';
+import pool from '../../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
 
 export class AddPayrollMediator {

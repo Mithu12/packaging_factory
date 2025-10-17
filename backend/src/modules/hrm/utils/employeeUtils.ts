@@ -1,4 +1,4 @@
-import pool from '../../../../database/connection';
+import pool from '../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
 
 /**
