@@ -50,9 +50,11 @@ class PayrollMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [period] = await db('payroll_periods')
-        .insert(newPeriod)
-        .returning('*');
+      const periodResult = await client.query(
+        'INSERT INTO payroll_periods (name, period_type, start_date, end_date, status, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [newPeriod.name, newPeriod.period_type, newPeriod.start_date, newPeriod.end_date, newPeriod.status, newPeriod.created_by, newPeriod.created_at, newPeriod.updated_at]
+      );
+      const period = periodResult.rows[0];
 
 
 
@@ -74,25 +76,40 @@ class PayrollMediator implements MediatorInterface {
     const client = await pool.connect();
 
     try {
-      let query = db('payroll_periods').orderBy('start_date', 'desc');
+      let whereClause = '';
+      let params: any[] = [];
+      let paramIndex = 1;
 
       if (filters?.status) {
-        query = query.where('status', filters.status);
+        whereClause += (whereClause ? ' AND ' : ' WHERE ') + `status = $${paramIndex}`;
+        params.push(filters.status);
+        paramIndex++;
       }
 
       if (filters?.period_type) {
-        query = query.where('period_type', filters.period_type);
+        whereClause += (whereClause ? ' AND ' : ' WHERE ') + `period_type = $${paramIndex}`;
+        params.push(filters.period_type);
+        paramIndex++;
       }
 
       if (filters?.start_date) {
-        query = query.where('start_date', '>=', filters.start_date);
+        whereClause += (whereClause ? ' AND ' : ' WHERE ') + `start_date >= $${paramIndex}`;
+        params.push(filters.start_date);
+        paramIndex++;
       }
 
       if (filters?.end_date) {
-        query = query.where('end_date', '<=', filters.end_date);
+        whereClause += (whereClause ? ' AND ' : ' WHERE ') + `end_date <= $${paramIndex}`;
+        params.push(filters.end_date);
+        paramIndex++;
       }
 
-      return await query;
+      const result = await client.query(
+        `SELECT * FROM payroll_periods${whereClause} ORDER BY start_date DESC`,
+        params
+      );
+
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to retrieve payroll periods: ${error}`);
     }
@@ -106,9 +123,11 @@ class PayrollMediator implements MediatorInterface {
 
     try {
       // Check if component code already exists
-      const existingComponent = await db('payroll_components')
-        .where('code', componentData.code)
-        .first();
+      const existingComponentResult = await client.query(
+        'SELECT * FROM payroll_components WHERE code = $1',
+        [componentData.code]
+      );
+      const existingComponent = existingComponentResult.rows[0];
 
       if (existingComponent) {
         throw new Error('Component code already exists');
@@ -121,19 +140,25 @@ class PayrollMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [component] = await db('payroll_components')
-        .insert(newComponent)
-        .returning('*');
+      const componentResult = await client.query(
+        'INSERT INTO payroll_components (name, code, component_type, category, is_taxable, calculation_method, formula, description, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+        [newComponent.name, newComponent.code, newComponent.component_type, newComponent.category, newComponent.is_taxable, newComponent.calculation_method, newComponent.formula, newComponent.description, newComponent.created_by, newComponent.created_at, newComponent.updated_at]
+      );
+      const component = componentResult.rows[0];
 
       // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
+      await this.auditService.logActivity({
+        userId: createdBy || null,
         action: 'CREATE',
-        table_name: 'payroll_components',
-        record_id: component.id,
-        old_values: null,
-        new_values: component,
-        description: `Payroll component ${component.name} created`
+        resourceType: 'payroll_components',
+        resourceId: component.id,
+        endpoint: '/payroll/components',
+        method: 'POST',
+        oldValues: null,
+        newValues: component,
+        success: true,
+        responseStatus: 201,
+        durationMs: 0,
       });
 
       return component;
@@ -149,13 +174,20 @@ class PayrollMediator implements MediatorInterface {
     const client = await pool.connect();
 
     try {
-      let query = db('payroll_components').where('is_active', true).orderBy('name');
+      let whereClause = ' WHERE is_active = true';
+      let params: any[] = [];
 
       if (componentType) {
-        query = query.where('component_type', componentType);
+        whereClause += ' AND component_type = $1';
+        params.push(componentType);
       }
 
-      return await query;
+      const result = await client.query(
+        `SELECT * FROM payroll_components${whereClause} ORDER BY name`,
+        params
+      );
+
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to retrieve payroll components: ${error}`);
     }
@@ -173,9 +205,10 @@ class PayrollMediator implements MediatorInterface {
 
     try {
       // Remove existing salary structure
-      await db('employee_salary_structure')
-        .where('employee_id', employeeId)
-        .update({ is_active: false, effective_to: new Date() });
+      await client.query(
+        'UPDATE employee_salary_structure SET is_active = false, effective_to = $1 WHERE employee_id = $2',
+        [new Date(), employeeId]
+      );
 
       const structures: EmployeeSalaryStructure[] = [];
 
@@ -192,22 +225,28 @@ class PayrollMediator implements MediatorInterface {
           updated_at: new Date()
         };
 
-        const [created] = await db('employee_salary_structure')
-          .insert(structure)
-          .returning('*');
+        const createdResult = await client.query(
+          'INSERT INTO employee_salary_structure (employee_id, payroll_component_id, amount, percentage, effective_from, is_active, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+          [structure.employee_id, structure.payroll_component_id, structure.amount, structure.percentage, structure.effective_from, structure.is_active, structure.created_by, structure.created_at, structure.updated_at]
+        );
+        const created = createdResult.rows[0];
 
         structures.push(created);
       }
 
       // Audit log
-      await this.auditService.log({
-        user_id: createdBy,
+      await this.auditService.logActivity({
+        userId: createdBy || null,
         action: 'CREATE',
-        table_name: 'employee_salary_structure',
-        record_id: employeeId,
-        old_values: null,
-        new_values: { component_count: structures.length },
-        description: `Salary structure set up for employee ${employeeId}`
+        resourceType: 'employee_salary_structure',
+        resourceId: employeeId,
+        endpoint: '/employees/salary-structure',
+        method: 'POST',
+        oldValues: null,
+        newValues: { component_count: structures.length },
+        success: true,
+        responseStatus: 201,
+        durationMs: 0,
       });
 
       return structures;
@@ -226,9 +265,11 @@ class PayrollMediator implements MediatorInterface {
       const { payroll_period_id, employee_ids, include_overtime = true, include_loans = true, dry_run = false } = calcRequest;
 
       // Get payroll period
-      const period = await db('payroll_periods')
-        .where('id', payroll_period_id)
-        .first();
+      const periodResult = await client.query(
+        'SELECT * FROM payroll_periods WHERE id = $1',
+        [payroll_period_id]
+      );
+      const period = periodResult.rows[0];
 
       if (!period) {
         throw new Error('Payroll period not found');
@@ -239,15 +280,20 @@ class PayrollMediator implements MediatorInterface {
       }
 
       // Get employees for calculation
-      let employeeQuery = db('employees')
-        .where('is_active', true)
-        .where('join_date', '<=', period.end_date);
+      let whereClause = ' WHERE is_active = true AND join_date <= $1';
+      let params: any[] = [period.end_date];
 
       if (employee_ids && employee_ids.length > 0) {
-        employeeQuery = employeeQuery.whereIn('id', employee_ids);
+        const placeholders = employee_ids.map((_, index) => `$${params.length + index + 1}`).join(',');
+        whereClause += ` AND id IN (${placeholders})`;
+        params = params.concat(employee_ids);
       }
 
-      const employees = await employeeQuery;
+      const employeesResult = await client.query(
+        `SELECT * FROM employees${whereClause}`,
+        params
+      );
+      const employees = employeesResult.rows;
 
       if (employees.length === 0) {
         throw new Error('No employees found for payroll calculation');
@@ -268,12 +314,14 @@ class PayrollMediator implements MediatorInterface {
       };
 
       if (!dry_run) {
-        payrollRun.processed_at = new Date();
+        payrollRun.processed_at = new Date().toISOString();
       }
 
-      const [run] = await db('payroll_runs')
-        .insert(payrollRun)
-        .returning('*');
+      const runResult = await client.query(
+        'INSERT INTO payroll_runs (payroll_period_id, run_number, status, total_employees, total_gross_salary, total_deductions, total_net_salary, processed_by, notes, processed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+        [payrollRun.payroll_period_id, payrollRun.run_number, payrollRun.status, payrollRun.total_employees, payrollRun.total_gross_salary, payrollRun.total_deductions, payrollRun.total_net_salary, payrollRun.processed_by, payrollRun.notes, payrollRun.processed_at]
+      );
+      const run = runResult.rows[0];
 
       // Calculate payroll for each employee
       const payrollDetails: PayrollDetail[] = [];
@@ -284,34 +332,34 @@ class PayrollMediator implements MediatorInterface {
 
         // Update run totals
         if (!dry_run) {
-          await db('payroll_runs')
-            .where('id', run.id)
-            .increment('total_gross_salary', detail.total_earnings)
-            .increment('total_deductions', detail.total_deductions)
-            .increment('total_net_salary', detail.net_salary);
+          await client.query(
+            'UPDATE payroll_runs SET total_gross_salary = total_gross_salary + $1, total_deductions = total_deductions + $2, total_net_salary = total_net_salary + $3 WHERE id = $4',
+            [detail.total_earnings, detail.total_deductions, detail.net_salary, run.id]
+          );
         }
       }
 
       // Update run status
       if (!dry_run) {
-        await db('payroll_runs')
-          .where('id', run.id)
-          .update({
-            status: 'completed',
-            total_employees: employees.length,
-            updated_at: new Date()
-          });
+        await client.query(
+          'UPDATE payroll_runs SET status = $1, total_employees = $2, updated_at = $3 WHERE id = $4',
+          ['completed', employees.length, new Date(), run.id]
+        );
       }
 
       // Audit log
-      await this.auditService.log({
-        user_id: calculatedBy,
+      await this.auditService.logActivity({
+        userId: calculatedBy || null,
         action: 'CREATE',
-        table_name: 'payroll_runs',
-        record_id: run.id,
-        old_values: null,
-        new_values: run,
-        description: `Payroll run ${run.run_number} calculated for ${employees.length} employees`
+        resourceType: 'payroll_runs',
+        resourceId: run.id,
+        endpoint: '/payroll/calculate',
+        method: 'POST',
+        oldValues: null,
+        newValues: run,
+        success: true,
+        responseStatus: 201,
+        durationMs: 0,
       });
 
       // Emit event
@@ -337,15 +385,11 @@ class PayrollMediator implements MediatorInterface {
 
     try {
       // Get employee salary structure
-      const salaryStructure = await db('employee_salary_structure as ess')
-        .join('payroll_components as pc', 'ess.payroll_component_id', 'pc.id')
-        .select('ess.*', 'pc.*')
-        .where('ess.employee_id', employeeId)
-        .where('ess.is_active', true)
-        .where('ess.effective_from', '<=', period.end_date)
-        .where(function() {
-          this.whereNull('ess.effective_to').orWhere('ess.effective_to', '>=', period.start_date);
-        });
+      const salaryStructureResult = await client.query(
+        'SELECT ess.*, pc.* FROM employee_salary_structure ess JOIN payroll_components pc ON ess.payroll_component_id = pc.id WHERE ess.employee_id = $1 AND ess.is_active = true AND ess.effective_from <= $2 AND (ess.effective_to IS NULL OR ess.effective_to >= $3)',
+        [employeeId, period.end_date, period.start_date]
+      );
+      const salaryStructure = salaryStructureResult.rows;
 
       // Calculate basic salary (first earning component)
       const basicComponent = salaryStructure.find(s => s.component_type === 'earning' && s.category === 'basic');
@@ -355,10 +399,11 @@ class PayrollMediator implements MediatorInterface {
       const workingDays = this.calculateWorkingDays(period.start_date, period.end_date);
 
       // Get attendance data for the period
-      const attendanceData = await db('attendance_records')
-        .where('employee_id', employeeId)
-        .whereBetween('attendance_date', [period.start_date, period.end_date])
-        .select(db.raw('SUM(total_hours_worked) as total_hours, COUNT(*) as days_present'));
+      const attendanceResult = await client.query(
+        'SELECT SUM(total_hours_worked) as total_hours, COUNT(*) as days_present FROM attendance_records WHERE employee_id = $1 AND attendance_date BETWEEN $2 AND $3',
+        [employeeId, period.start_date, period.end_date]
+      );
+      const attendanceData = attendanceResult.rows;
 
       const totalHours = parseFloat(attendanceData[0]?.total_hours || '0');
       const daysPresent = parseInt(attendanceData[0]?.days_present || '0');
@@ -382,7 +427,7 @@ class PayrollMediator implements MediatorInterface {
         earnings.push({
           component_id: component.payroll_component_id,
           amount,
-          quantity: component.category === 'overtime' ? overtimeHours : 1,
+          quantity: component.category === 'overtime' ? Math.max(0, totalHours - (workingDays * 8)) : 1,
           rate: component.amount
         });
 
@@ -398,11 +443,11 @@ class PayrollMediator implements MediatorInterface {
 
         // Calculate loan deductions if applicable
         if (component.category === 'loan' && includeLoans) {
-          const loanData = await db('employee_loans')
-            .where('employee_id', employeeId)
-            .where('status', 'active')
-            .select(db.raw('SUM(monthly_installment) as total_loan_deduction'))
-            .first();
+          const loanResult = await client.query(
+            'SELECT SUM(monthly_installment) as total_loan_deduction FROM employee_loans WHERE employee_id = $1 AND status = $2',
+            [employeeId, 'active']
+          );
+          const loanData = loanResult.rows[0];
 
           amount = parseFloat(loanData?.total_loan_deduction || '0');
         }
@@ -437,7 +482,7 @@ class PayrollMediator implements MediatorInterface {
         paid_days: daysPresent,
         absent_days: workingDays - daysPresent,
         overtime_hours: Math.max(0, totalHours - (workingDays * 8)),
-        overtime_amount: earnings.find(e => e.component_id === basicComponent?.payroll_component_id)?.amount || 0,
+        overtime_amount: earnings.find(e => e.component_id === salaryStructure.find(s => s.category === 'overtime')?.payroll_component_id)?.amount || 0,
         leave_deductions: deductions.find(d => d.component_id === salaryStructure.find(s => s.category === 'leave')?.payroll_component_id)?.amount || 0,
         loan_deductions: deductions.find(d => d.component_id === salaryStructure.find(s => s.category === 'loan')?.payroll_component_id)?.amount || 0,
         tax_deduction: 0, // Will be calculated based on tax rules
@@ -446,31 +491,25 @@ class PayrollMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const [detail] = await db('payroll_details')
-        .insert(payrollDetail)
-        .returning('*');
+      const detailResult = await client.query(
+        'INSERT INTO payroll_details (payroll_run_id, employee_id, basic_salary, total_earnings, total_deductions, net_salary, working_days, paid_days, absent_days, overtime_hours, overtime_amount, leave_deductions, loan_deductions, tax_deduction, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *',
+        [payrollDetail.payroll_run_id, payrollDetail.employee_id, payrollDetail.basic_salary, payrollDetail.total_earnings, payrollDetail.total_deductions, payrollDetail.net_salary, payrollDetail.working_days, payrollDetail.paid_days, payrollDetail.absent_days, payrollDetail.overtime_hours, payrollDetail.overtime_amount, payrollDetail.leave_deductions, payrollDetail.loan_deductions, payrollDetail.tax_deduction, payrollDetail.status, payrollDetail.created_at, payrollDetail.updated_at]
+      );
+      const detail = detailResult.rows[0];
 
       // Save component details
       for (const earning of earnings) {
-        await db('payroll_component_details').insert({
-          payroll_detail_id: detail.id,
-          payroll_component_id: earning.component_id,
-          amount: earning.amount,
-          quantity: earning.quantity,
-          rate: earning.rate,
-          created_at: new Date()
-        });
+        await client.query(
+          'INSERT INTO payroll_component_details (payroll_detail_id, payroll_component_id, amount, quantity, rate, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [detail.id, earning.component_id, earning.amount, earning.quantity, earning.rate, new Date()]
+        );
       }
 
       for (const deduction of deductions) {
-        await db('payroll_component_details').insert({
-          payroll_detail_id: detail.id,
-          payroll_component_id: deduction.component_id,
-          amount: deduction.amount,
-          quantity: deduction.quantity,
-          rate: deduction.rate,
-          created_at: new Date()
-        });
+        await client.query(
+          'INSERT INTO payroll_component_details (payroll_detail_id, payroll_component_id, amount, quantity, rate, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [detail.id, deduction.component_id, deduction.amount, deduction.quantity, deduction.rate, new Date()]
+        );
       }
 
       return detail;
@@ -504,9 +543,11 @@ class PayrollMediator implements MediatorInterface {
     const client = await pool.connect();
 
     try {
-      const run = await db('payroll_runs')
-        .where('id', runId)
-        .first();
+      const runResult = await client.query(
+        'SELECT * FROM payroll_runs WHERE id = $1',
+        [runId]
+      );
+      const run = runResult.rows[0];
 
       if (!run) {
         throw new Error('Payroll run not found');
@@ -517,32 +558,31 @@ class PayrollMediator implements MediatorInterface {
       }
 
       // Update payroll details status
-      await db('payroll_details')
-        .where('payroll_run_id', runId)
-        .update({
-          status: 'approved',
-          approved_by: approvedBy,
-          approved_at: new Date()
-        });
+      await client.query(
+        'UPDATE payroll_details SET status = $1, approved_by = $2, approved_at = $3 WHERE payroll_run_id = $4',
+        ['approved', approvedBy, new Date(), runId]
+      );
 
       // Update run status
-      const [updatedRun] = await db('payroll_runs')
-        .where('id', runId)
-        .update({
-          status: 'posted',
-          updated_at: new Date()
-        })
-        .returning('*');
+      const updatedRunResult = await client.query(
+        'UPDATE payroll_runs SET status = $1, updated_at = $2 WHERE id = $3 RETURNING *',
+        ['posted', new Date(), runId]
+      );
+      const updatedRun = updatedRunResult.rows[0];
 
       // Audit log
-      await this.auditService.log({
-        user_id: approvedBy,
+      await this.auditService.logActivity({
+        userId: approvedBy || null,
         action: 'UPDATE',
-        table_name: 'payroll_runs',
-        record_id: runId,
-        old_values: run,
-        new_values: updatedRun,
-        description: `Payroll run ${run.run_number} approved`
+        resourceType: 'payroll_runs',
+        resourceId: runId,
+        endpoint: '/payroll/approve',
+        method: 'POST',
+        oldValues: run,
+        newValues: updatedRun,
+        success: true,
+        responseStatus: 200,
+        durationMs: 0,
       });
 
       // Emit event
@@ -561,44 +601,39 @@ class PayrollMediator implements MediatorInterface {
     const client = await pool.connect();
 
     try {
-      const period = await db('payroll_periods')
-        .where('id', periodId)
-        .first();
+      const periodResult = await client.query(
+        'SELECT * FROM payroll_periods WHERE id = $1',
+        [periodId]
+      );
+      const period = periodResult.rows[0];
 
       if (!period) {
         throw new Error('Payroll period not found');
       }
 
-      const run = await db('payroll_runs')
-        .where('payroll_period_id', periodId)
-        .where('status', 'completed')
-        .first();
+      const runResult = await client.query(
+        'SELECT * FROM payroll_runs WHERE payroll_period_id = $1 AND status = $2',
+        [periodId, 'completed']
+      );
+      const run = runResult.rows[0];
 
       if (!run) {
         throw new Error('No completed payroll run found for this period');
       }
 
       // Get department-wise salary breakdown
-      const departmentSalaries = await db('payroll_details as pd')
-        .join('employees as e', 'pd.employee_id', 'e.id')
-        .join('departments as d', 'e.department_id', 'd.id')
-        .select('d.name as department')
-        .sum('pd.net_salary as total_salary')
-        .count('* as employee_count')
-        .where('pd.payroll_run_id', run.id)
-        .whereNotNull('e.department_id')
-        .groupBy('d.name');
+      const departmentResult = await client.query(
+        'SELECT d.name as department, SUM(pd.net_salary) as total_salary, COUNT(*) as employee_count FROM payroll_details pd JOIN employees e ON pd.employee_id = e.id JOIN departments d ON e.department_id = d.id WHERE pd.payroll_run_id = $1 AND e.department_id IS NOT NULL GROUP BY d.name',
+        [run.id]
+      );
+      const departmentSalaries = departmentResult.rows;
 
       // Get top earners
-      const topEarners = await db('payroll_details as pd')
-        .join('employees as e', 'pd.employee_id', 'e.id')
-        .select(
-          db.raw(`CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee`),
-          'pd.net_salary as salary'
-        )
-        .where('pd.payroll_run_id', run.id)
-        .orderBy('pd.net_salary', 'desc')
-        .limit(10);
+      const topEarnersResult = await client.query(
+        "SELECT CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee, pd.net_salary as salary FROM payroll_details pd JOIN employees e ON pd.employee_id = e.id WHERE pd.payroll_run_id = $1 ORDER BY pd.net_salary DESC LIMIT 10",
+        [run.id]
+      );
+      const topEarners = topEarnersResult.rows;
 
       return {
         period_id: periodId,
@@ -608,11 +643,14 @@ class PayrollMediator implements MediatorInterface {
         total_deductions: run.total_deductions,
         total_net_salary: run.total_net_salary,
         average_salary: run.total_employees > 0 ? run.total_net_salary / run.total_employees : 0,
-        top_earners: topEarners,
+        top_earners: topEarners.map((earner: any) => ({
+          employee: earner.employee,
+          salary: parseFloat(earner.salary)
+        })),
         department_salaries: departmentSalaries.map(item => ({
           department: item.department,
-          total_salary: parseFloat(item.total_salary as string),
-          employee_count: parseInt(item.employee_count as string)
+          total_salary: parseFloat(item.total_salary),
+          employee_count: parseInt(item.employee_count)
         }))
       };
     } catch (error) {
