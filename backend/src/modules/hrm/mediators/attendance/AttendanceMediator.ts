@@ -11,7 +11,7 @@ import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
-export class AttendanceMediator implements MediatorInterface {
+class AttendanceMediator implements MediatorInterface {
   private auditService: AuditService;
   private eventBus: any;
 
@@ -797,3 +797,5 @@ export class AttendanceMediator implements MediatorInterface {
     }
   }
 }
+
+export default new AttendanceMediator();

@@ -7,13 +7,16 @@ import {
 } from '../../../../types/hrm';
 import { MediatorInterface } from '../../../../types';
 import pool from '@/database/connection';
+import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '@/utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
-export class LeaveMediator implements MediatorInterface {
+class LeaveMediator implements MediatorInterface {
+  private auditService: AuditService;
   private eventBus: any;
 
   constructor() {
+    this.auditService = new AuditService();
     this.eventBus = eventBus;
   }
 
@@ -55,6 +58,21 @@ export class LeaveMediator implements MediatorInterface {
         [newLeaveType.name, newLeaveType.code, newLeaveType.max_days_per_year, newLeaveType.accrual_rate, newLeaveType.max_consecutive_days, newLeaveType.is_carry_forward, newLeaveType.max_carry_forward_days, newLeaveType.is_active, newLeaveType.description, newLeaveType.created_by, newLeaveType.created_at, newLeaveType.updated_at]
       );
       const leaveType = insertResult.rows[0];
+
+      // Audit log
+      await this.auditService.logActivity({
+        userId: createdBy || null,
+        action: 'CREATE',
+        resourceType: 'leave_types',
+        resourceId: leaveType.id,
+        endpoint: '/leave/types',
+        method: 'POST',
+        oldValues: null,
+        newValues: leaveType,
+        success: true,
+        responseStatus: 201,
+        durationMs: 0
+      });
 
       MyLogger.success(action, {
         leaveTypeId: leaveType.id,
@@ -199,6 +217,21 @@ export class LeaveMediator implements MediatorInterface {
         balances.push(existingBalance);
       }
 
+      // Audit log
+      await this.auditService.logActivity({
+        userId: null,
+        action: 'CREATE',
+        resourceType: 'leave_balances',
+        resourceId: employeeId,
+        endpoint: '/employees/leave-balances/calculate',
+        method: 'POST',
+        oldValues: null,
+        newValues: { balances_count: balances.length, year: currentYear },
+        success: true,
+        responseStatus: 201,
+        durationMs: 0
+      });
+
       MyLogger.success(action, {
         employeeId,
         year: currentYear,
@@ -276,6 +309,21 @@ export class LeaveMediator implements MediatorInterface {
         'UPDATE leave_balances SET pending_days = pending_days + $1 WHERE employee_id = $2 AND leave_type_id = $3 AND year = $4',
         [totalDays, employeeId, applicationData.leave_type_id, currentYear]
       );
+
+      // Audit log
+      await this.auditService.logActivity({
+        userId: appliedBy || null,
+        action: 'CREATE',
+        resourceType: 'leave_applications',
+        resourceId: application.id,
+        endpoint: '/leave/applications',
+        method: 'POST',
+        oldValues: null,
+        newValues: application,
+        success: true,
+        responseStatus: 201,
+        durationMs: 0
+      });
 
       // Emit event
       eventBus.emit('leave.application.created', { application, appliedBy });
@@ -436,6 +484,21 @@ export class LeaveMediator implements MediatorInterface {
 
       const updateResult = await client.query(updateQuery, updateParams);
       const updatedApplication = updateResult.rows[0];
+
+      // Audit log
+      await this.auditService.logActivity({
+        userId: approvedBy || null,
+        action: action === 'approve' ? 'UPDATE' : 'UPDATE',
+        resourceType: 'leave_applications',
+        resourceId: applicationId,
+        endpoint: '/leave/applications/process',
+        method: 'POST',
+        oldValues: application,
+        newValues: updatedApplication,
+        success: true,
+        responseStatus: 200,
+        durationMs: 0
+      });
 
       // Update leave balance
       const currentYear = new Date().getFullYear();
@@ -697,3 +760,5 @@ export class LeaveMediator implements MediatorInterface {
     }
   }
 }
+
+export default new LeaveMediator();
