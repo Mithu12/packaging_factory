@@ -24,7 +24,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Create leave type
    */
-  static async createLeaveType(leaveTypeData: CreateLeaveTypeRequest, createdBy?: number): Promise<LeaveType> {
+  async createLeaveType(leaveTypeData: CreateLeaveTypeRequest, createdBy?: number): Promise<LeaveType> {
     const action = "LeaveMediator.createLeaveType";
     const client = await pool.connect();
 
@@ -44,18 +44,16 @@ export class LeaveMediator implements MediatorInterface {
 
       const newLeaveType = {
         ...leaveTypeData,
+        is_active: true,
         created_by: createdBy,
         created_at: new Date(),
         updated_at: new Date()
       };
 
-      const insertQuery = `
-        INSERT INTO leave_types (${Object.keys(newLeaveType).join(', ')})
-        VALUES (${Object.keys(newLeaveType).map((_, i) => `$${i + 1}`).join(', ')})
-        RETURNING *
-      `;
-
-      const insertResult = await client.query(insertQuery, Object.values(newLeaveType));
+      const insertResult = await client.query(
+        'INSERT INTO leave_types (name, code, max_days_per_year, accrual_rate, max_consecutive_days, is_carry_forward, max_carry_forward_days, is_active, description, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
+        [newLeaveType.name, newLeaveType.code, newLeaveType.max_days_per_year, newLeaveType.accrual_rate, newLeaveType.max_consecutive_days, newLeaveType.is_carry_forward, newLeaveType.max_carry_forward_days, newLeaveType.is_active, newLeaveType.description, newLeaveType.created_by, newLeaveType.created_at, newLeaveType.updated_at]
+      );
       const leaveType = insertResult.rows[0];
 
       MyLogger.success(action, {
@@ -76,7 +74,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Get all leave types
    */
-  static async getLeaveTypes(): Promise<LeaveType[]> {
+  async getLeaveTypes(): Promise<LeaveType[]> {
     const action = "LeaveMediator.getLeaveTypes";
     const client = await pool.connect();
 
@@ -102,7 +100,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Get leave balances for an employee
    */
-  static async getLeaveBalances(employeeId: number, year?: number): Promise<LeaveBalance[]> {
+  async getLeaveBalances(employeeId: number, year?: number): Promise<LeaveBalance[]> {
     const action = "LeaveMediator.getLeaveBalances";
     const client = await pool.connect();
 
@@ -144,7 +142,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Calculate and update leave balances for an employee
    */
-  static async calculateLeaveBalances(employeeId: number, year?: number): Promise<LeaveBalance[]> {
+  async calculateLeaveBalances(employeeId: number, year?: number): Promise<LeaveBalance[]> {
     const action = "LeaveMediator.calculateLeaveBalances";
     const client = await pool.connect();
 
@@ -154,7 +152,7 @@ export class LeaveMediator implements MediatorInterface {
       const currentYear = year || new Date().getFullYear();
 
       // Get all leave types
-      const leaveTypes = await LeaveMediator.getLeaveTypes();
+      const leaveTypes = await this.getLeaveTypes();
 
       const balances: LeaveBalance[] = [];
 
@@ -193,9 +191,8 @@ export class LeaveMediator implements MediatorInterface {
           };
 
           await client.query(
-            `INSERT INTO leave_balances (${Object.keys(existingBalance).join(', ')})
-             VALUES (${Object.keys(existingBalance).map((_, i) => `$${i + 1}`).join(', ')})`,
-            Object.values(existingBalance)
+            'INSERT INTO leave_balances (employee_id, leave_type_id, year, allocated_days, used_days, pending_days, remaining_days, carried_forward_days, last_updated) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [existingBalance.employee_id, existingBalance.leave_type_id, existingBalance.year, existingBalance.allocated_days, existingBalance.used_days, existingBalance.pending_days, existingBalance.remaining_days, existingBalance.carried_forward_days, existingBalance.last_updated]
           );
         }
 
@@ -220,7 +217,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Create leave application
    */
-  static async createLeaveApplication(applicationData: LeaveApplicationRequest, employeeId: number, appliedBy?: number): Promise<LeaveApplication> {
+  async createLeaveApplication(applicationData: LeaveApplicationRequest, employeeId: number, appliedBy?: number): Promise<LeaveApplication> {
     const action = "LeaveMediator.createLeaveApplication";
     const client = await pool.connect();
 
@@ -228,7 +225,7 @@ export class LeaveMediator implements MediatorInterface {
       MyLogger.info(action, { applicationData, employeeId, appliedBy });
 
       // Validate leave application
-      await LeaveMediator.validateLeaveApplication(applicationData, employeeId);
+      await this.validateLeaveApplication(applicationData, employeeId);
 
       // Calculate total days
       const startDate = new Date(applicationData.start_date);
@@ -268,12 +265,10 @@ export class LeaveMediator implements MediatorInterface {
         updated_at: new Date()
       };
 
-      const insertQuery = `
-        INSERT INTO leave_applications (${Object.keys(newApplication).join(', ')})
-        VALUES (${Object.keys(newApplication).map((_, i) => `$${i + 1}`).join(', ')})
-        RETURNING *
-      `;
-      const insertResult = await client.query(insertQuery, Object.values(newApplication));
+      const insertResult = await client.query(
+        'INSERT INTO leave_applications (employee_id, leave_type_id, start_date, end_date, total_days, reason, status, emergency_contact, work_handover_notes, applied_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+        [newApplication.employee_id, newApplication.leave_type_id, newApplication.start_date, newApplication.end_date, newApplication.total_days, newApplication.reason, newApplication.status, newApplication.emergency_contact, newApplication.work_handover_notes, newApplication.applied_at, newApplication.updated_at]
+      );
       const application = insertResult.rows[0];
 
       // Update leave balance (pending days)
@@ -304,7 +299,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Get leave applications
    */
-  static async getLeaveApplications(filters?: {
+  async getLeaveApplications(filters?: {
     employee_id?: number;
     status?: string;
     leave_type_id?: number;
@@ -389,7 +384,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Approve or reject leave application
    */
-  static async processLeaveApplication(
+  async processLeaveApplication(
     applicationId: number,
     action: 'approve' | 'reject',
     approvedBy?: number,
@@ -428,18 +423,18 @@ export class LeaveMediator implements MediatorInterface {
       }
 
       // Update application
-      const updateFields = Object.keys(updateData);
-      const updateValues = Object.values(updateData);
-      const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      let updateQuery: string;
+      let updateParams: any[];
 
-      const updateQuery = `
-        UPDATE leave_applications
-        SET ${setClause}
-        WHERE id = $${updateValues.length + 1}
-        RETURNING *
-      `;
+      if (action === 'reject' && rejectedReason) {
+        updateQuery = 'UPDATE leave_applications SET status = $1, approved_by = $2, approved_at = $3, updated_at = $4, rejected_reason = $5 WHERE id = $6 RETURNING *';
+        updateParams = ['rejected', approvedBy, new Date(), new Date(), rejectedReason, applicationId];
+      } else {
+        updateQuery = 'UPDATE leave_applications SET status = $1, approved_by = $2, approved_at = $3, updated_at = $4 WHERE id = $5 RETURNING *';
+        updateParams = [action === 'approve' ? 'approved' : 'rejected', approvedBy, new Date(), new Date(), applicationId];
+      }
 
-      const updateResult = await client.query(updateQuery, [...updateValues, applicationId]);
+      const updateResult = await client.query(updateQuery, updateParams);
       const updatedApplication = updateResult.rows[0];
 
       // Update leave balance
@@ -484,7 +479,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Get leave dashboard data
    */
-  static async getLeaveDashboard(): Promise<{
+  async getLeaveDashboard(): Promise<{
     total_applications: number;
     pending_applications: number;
     approved_applications: number;
@@ -561,7 +556,7 @@ export class LeaveMediator implements MediatorInterface {
   /**
    * Validate leave application
    */
-  private static async validateLeaveApplication(applicationData: LeaveApplicationRequest, employeeId: number): Promise<void> {
+  private async validateLeaveApplication(applicationData: LeaveApplicationRequest, employeeId: number): Promise<void> {
     const client = await pool.connect();
 
     try {
