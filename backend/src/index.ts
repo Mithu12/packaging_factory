@@ -23,6 +23,7 @@ import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
 import accountsRoutes from "./modules/accounts";
 import factoryRoutes from "./modules/factory";
+import hrmRoutes from "./modules/hrm/routes";
 
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
@@ -131,6 +132,7 @@ app.use("/api/license", licenseRoutes);
 app.use("/api", inventoryRoutes);
 app.use("/api/accounts", accountsRoutes);
 app.use("/api/factory", factoryRoutes);
+app.use("/api/hrm", hrmRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
