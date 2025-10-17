@@ -798,4 +798,4 @@ class AttendanceMediator implements MediatorInterface {
   }
 }
 
-export default new AttendanceMediator();
+export default AttendanceMediator;

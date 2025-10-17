@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class AddEmployeeMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Create a new employee
@@ -69,7 +62,8 @@ export class AddEmployeeMediator {
 
       // Create audit log
       if (createdBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employees',
           record_id: newEmployee.id,
           action: 'INSERT',
@@ -81,7 +75,7 @@ export class AddEmployeeMediator {
       }
 
       // Publish event
-      this.eventBus.publish('employee.created', {
+      eventBus.publish('employee.created', {
         employeeId: newEmployee.id,
         employeeData: newEmployee,
         createdBy

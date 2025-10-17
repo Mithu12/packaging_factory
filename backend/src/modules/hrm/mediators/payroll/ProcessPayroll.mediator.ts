@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class ProcessPayrollMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Calculate payroll for employees
@@ -82,7 +75,7 @@ export class ProcessPayrollMediator {
       };
 
       // Publish event
-      this.eventBus.publish('payroll.calculated', {
+      eventBus.publish('payroll.calculated', {
         periodId: calcRequest.period_id,
         employeeCount: payrollRuns.length,
         totalGrossPay: result.total_gross_pay,
@@ -332,7 +325,8 @@ export class ProcessPayrollMediator {
 
       // Create audit log
       if (setupBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employees',
           record_id: employeeId,
           action: 'UPDATE',
@@ -344,7 +338,7 @@ export class ProcessPayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('employee.salary.structure.updated', {
+      eventBus.publish('employee.salary.structure.updated', {
         employeeId,
         baseSalary,
         componentsCount: components.length,

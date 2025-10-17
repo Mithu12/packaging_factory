@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class UpdateEmployeeMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Update employee information
@@ -57,7 +50,8 @@ export class UpdateEmployeeMediator {
 
       // Create audit log
       if (updatedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employees',
           record_id: employee.id,
           action: 'UPDATE',
@@ -69,7 +63,7 @@ export class UpdateEmployeeMediator {
       }
 
       // Emit event
-      this.eventBus.publish('employee.updated', { employee, updatedBy });
+      eventBus.publish('employee.updated', { employee, updatedBy });
 
       MyLogger.success(action, {
         employeeId: employee.id,
@@ -108,7 +102,8 @@ export class UpdateEmployeeMediator {
 
       // Create audit log
       if (deletedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employees',
           record_id: employeeId,
           action: 'DELETE',
@@ -120,7 +115,7 @@ export class UpdateEmployeeMediator {
       }
 
       // Emit event
-      this.eventBus.publish('employee.deleted', { employee, deletedBy });
+      eventBus.publish('employee.deleted', { employee, deletedBy });
 
       MyLogger.success(action, {
         employeeId,
@@ -201,7 +196,8 @@ export class UpdateEmployeeMediator {
 
       // Create audit log
       if (uploadedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employee_documents',
           record_id: documentResult.rows[0].id,
           action: 'INSERT',
@@ -217,7 +213,7 @@ export class UpdateEmployeeMediator {
       }
 
       // Emit event
-      this.eventBus.publish('employee.document.uploaded', {
+      eventBus.publish('employee.document.uploaded', {
         employee,
         document: documentResult.rows[0],
         uploadedBy
@@ -285,7 +281,8 @@ export class UpdateEmployeeMediator {
 
       // Create audit log
       if (updatedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'employees',
           record_id: employeeId,
           action: 'UPDATE',
@@ -297,7 +294,7 @@ export class UpdateEmployeeMediator {
       }
 
       // Emit event
-      this.eventBus.publish('employee.salary.updated', {
+      eventBus.publish('employee.salary.updated', {
         employee: updatedEmployee,
         salaryHistory: historyResult.rows[0],
         updatedBy

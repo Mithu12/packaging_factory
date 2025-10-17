@@ -139,7 +139,7 @@ class EmployeeController {
       const factoryId = req.query.factory_id ? parseInt(req.query.factory_id as string) : undefined;
       const stats = await GetEmployeeInfoMediator.getEmployeeDashboard(factoryId);
 
-      MyLogger.success(action, { totalEmployees: stats.total_employees });
+      MyLogger.success(action, { total_employees: stats.total_employees });
       serializeSuccessResponse(res, { stats }, "SUCCESS");
     } catch (error) {
       next(error);
@@ -231,7 +231,7 @@ class EmployeeController {
       const userId = req.user?.user_id;
       const result = await AddEmployeeMediator.bulkImportEmployees(employeesData, userId);
 
-      MyLogger.success(action, { successful: result.success, failed: result.failed });
+      MyLogger.success(action, { success: result.success, failed: result.failed });
       serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error) {
       next(error);

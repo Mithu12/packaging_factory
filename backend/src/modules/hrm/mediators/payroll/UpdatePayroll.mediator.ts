@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class UpdatePayrollMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Approve payroll run
@@ -58,7 +51,8 @@ export class UpdatePayrollMediator {
 
       // Create audit log
       if (approvedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'payroll_runs',
           record_id: runId,
           action: 'UPDATE',
@@ -70,7 +64,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('payroll.approved', {
+      eventBus.publish('payroll.approved', {
         runId,
         periodId: run.period_id,
         approvedBy
@@ -135,7 +129,8 @@ export class UpdatePayrollMediator {
 
       // Create audit log for period approval
       if (approvedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'payroll_periods',
           record_id: periodId,
           action: 'UPDATE',
@@ -147,7 +142,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('payroll.period.approved', {
+      eventBus.publish('payroll.period.approved', {
         periodId,
         approvedRuns: approvedCount,
         totalRuns: runIds.length,
@@ -214,7 +209,8 @@ export class UpdatePayrollMediator {
 
       // Create audit log
       if (paidBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'payroll_runs',
           record_id: runId,
           action: 'UPDATE',
@@ -226,7 +222,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('payroll.paid', {
+      eventBus.publish('payroll.paid', {
         runId,
         periodId: run.period_id,
         employeeId: run.employee_id,
@@ -293,7 +289,8 @@ export class UpdatePayrollMediator {
 
       // Create audit log
       if (cancelledBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'payroll_runs',
           record_id: runId,
           action: 'UPDATE',
@@ -305,7 +302,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('payroll.cancelled', {
+      eventBus.publish('payroll.cancelled', {
         runId,
         periodId: run.period_id,
         reason,
@@ -362,7 +359,8 @@ export class UpdatePayrollMediator {
 
       // Create audit log
       if (updatedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'payroll_periods',
           record_id: periodId,
           action: 'UPDATE',
@@ -374,7 +372,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      this.eventBus.publish('payroll.period.status.updated', {
+      eventBus.publish('payroll.period.status.updated', {
         periodId,
         oldStatus: period.status,
         newStatus: status,

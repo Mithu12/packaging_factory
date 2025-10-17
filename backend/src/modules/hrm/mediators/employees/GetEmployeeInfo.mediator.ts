@@ -511,7 +511,7 @@ export class GetEmployeeInfoMediator {
       const recentEmployees = parseInt(recentResult.rows[0].count);
 
       const dashboard: HRDashboardStats = {
-        totalEmployees,
+        total_employees: totalEmployees,
         departmentDistribution,
         designationDistribution,
         employmentTypeDistribution,
@@ -520,7 +520,7 @@ export class GetEmployeeInfoMediator {
       };
 
       MyLogger.success(action, {
-        totalEmployees,
+        total_employees: totalEmployees,
         departmentsCount: departmentDistribution.length,
         designationsCount: designationDistribution.length,
         recentEmployees,
@@ -620,7 +620,7 @@ export class GetEmployeeInfoMediator {
       // In a real implementation, you might use a library like 'exceljs' or 'csv-writer'
       const csvHeaders = 'ID,Employee ID,First Name,Last Name,Department,Designation,Employment Type,Join Date\n';
       const csvRows = employees.map(emp =>
-        `${emp.id},"${emp.employee_id}","${emp.first_name}","${emp.last_name}","${emp.department_name}","${emp.designation_title}","${emp.employment_type}","${emp.join_date}"`
+        `${emp.id},"${emp.employee_id}","${emp.first_name}","${emp.last_name}","${emp.department_name}","${emp.designation_id}","${emp.employment_type}","${emp.join_date}"`
       ).join('\n');
 
       const csvData = csvHeaders + csvRows;

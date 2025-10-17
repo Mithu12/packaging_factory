@@ -7,6 +7,7 @@ import {
   CreateWorkScheduleRequest
 } from '../../../types/hrm';
 import { AddAttendanceMediator } from '../mediators/attendance/AddAttendance.mediator';
+import AttendanceMediator from '../mediators/attendance/AttendanceMediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 
@@ -113,15 +114,46 @@ class AttendanceController {
         throw new Error('Action must be check_in, check_out, break_start, or break_end');
       }
 
-      const record = await AddAttendanceMediator.markAttendance(
-        [employeeId],
-        req.body.record_date || new Date().toISOString().split('T')[0],
-        action,
-        req.body.check_in_time,
-        req.body.check_out_time,
-        notes,
-        req.user?.user_id
-      );
+      // For now, create individual attendance records instead of using markAttendance
+      const attendanceRecords: AttendanceRecord[] = [];
+
+      if (req.body.check_in_time) {
+        const checkInRecord: CreateAttendanceRecordRequest = {
+          attendance_date: req.body.record_date || new Date().toISOString().split('T')[0],
+          check_in_time: req.body.check_in_time,
+          location: location,
+          notes: notes,
+          recorded_by: req.user?.user_id?.toString(),
+          is_manual_entry: true
+        };
+
+        const record = await AddAttendanceMediator.createAttendanceRecord(
+          checkInRecord,
+          employeeId,
+          req.user?.user_id
+        );
+        attendanceRecords.push(record);
+      }
+
+      if (req.body.check_out_time) {
+        const checkOutRecord: CreateAttendanceRecordRequest = {
+          attendance_date: req.body.record_date || new Date().toISOString().split('T')[0],
+          check_out_time: req.body.check_out_time,
+          location: location,
+          notes: notes,
+          recorded_by: req.user?.user_id?.toString(),
+          is_manual_entry: true
+        };
+
+        const record = await AddAttendanceMediator.createAttendanceRecord(
+          checkOutRecord,
+          employeeId,
+          req.user?.user_id
+        );
+        attendanceRecords.push(record);
+      }
+
+      const record = attendanceRecords[0]; // Return the first record for compatibility
 
       serializeSuccessResponse(res, { attendance_record: record }, `Attendance ${action} marked successfully`);
     } catch (error) {
@@ -221,7 +253,7 @@ class AttendanceController {
       const recordId = parseInt(req.params.id);
       const records = await AttendanceMediator.getAttendanceRecords();
 
-      const record = records.find(r => r.id === recordId);
+      const record = records.find((r: any) => r.id === recordId);
 
       if (!record) {
         res.status(404);

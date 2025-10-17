@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class UpdateLeaveMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Process leave application (approve/reject)
@@ -77,7 +70,8 @@ export class UpdateLeaveMediator {
 
       // Create audit log
       if (processedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'leave_applications',
           record_id: applicationId,
           action: 'UPDATE',
@@ -89,7 +83,7 @@ export class UpdateLeaveMediator {
       }
 
       // Publish event
-      this.eventBus.publish('leave.application.processed', {
+      eventBus.publish('leave.application.processed', {
         applicationId,
         employeeId: application.employee_id,
         action,
@@ -247,7 +241,8 @@ export class UpdateLeaveMediator {
 
       // Create audit log
       if (cancelledBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'leave_applications',
           record_id: applicationId,
           action: 'UPDATE',
@@ -259,7 +254,7 @@ export class UpdateLeaveMediator {
       }
 
       // Publish event
-      this.eventBus.publish('leave.application.cancelled', {
+      eventBus.publish('leave.application.cancelled', {
         applicationId,
         employeeId: application.employee_id,
         leaveType: application.leave_type_name,
@@ -363,7 +358,8 @@ export class UpdateLeaveMediator {
 
         // Create audit log
         if (updatedBy) {
-          await this.auditService.createAuditLog({
+          const auditService = new AuditService();
+          await auditService.createAuditLog({
             table_name: 'leave_applications',
             record_id: applicationId,
             action: 'UPDATE',
@@ -375,7 +371,7 @@ export class UpdateLeaveMediator {
         }
 
         // Publish event
-        this.eventBus.publish('leave.application.updated', {
+        eventBus.publish('leave.application.updated', {
           applicationId,
           employeeId: application.employee_id,
           updates: updateData,
@@ -464,25 +460,26 @@ export class UpdateLeaveMediator {
 
         const updatedLeaveType = queryResult.rows[0];
 
-        // Create audit log
-        if (updatedBy) {
-          await this.auditService.createAuditLog({
-            table_name: 'leave_types',
-            record_id: leaveTypeId,
-            action: 'UPDATE',
-            old_values: leaveType,
-            new_values: updateData,
-            user_id: updatedBy,
-            timestamp: new Date()
-          });
-        }
-
-        // Publish event
-        this.eventBus.publish('leave.type.updated', {
-          leaveTypeId,
-          updates: updateData,
-          updatedBy
+      // Create audit log
+      if (updatedBy) {
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
+          table_name: 'leave_types',
+          record_id: leaveTypeId,
+          action: 'UPDATE',
+          old_values: leaveType,
+          new_values: updateData,
+          user_id: updatedBy,
+          timestamp: new Date()
         });
+      }
+
+      // Publish event
+      eventBus.publish('leave.type.updated', {
+        leaveTypeId,
+        updates: updateData,
+        updatedBy
+      });
 
         MyLogger.success(actionName, {
           leaveTypeId,
@@ -539,7 +536,8 @@ export class UpdateLeaveMediator {
 
       // Create audit log
       if (deletedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'leave_types',
           record_id: leaveTypeId,
           action: 'DELETE',
@@ -551,7 +549,7 @@ export class UpdateLeaveMediator {
       }
 
       // Publish event
-      this.eventBus.publish('leave.type.deleted', {
+      eventBus.publish('leave.type.deleted', {
         leaveTypeId,
         code: leaveType.code,
         deletedBy

@@ -5,13 +5,6 @@ import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
 export class AddLeaveMediator {
-  private auditService: AuditService;
-  private eventBus: any;
-
-  constructor() {
-    this.auditService = new AuditService();
-    this.eventBus = eventBus;
-  }
 
   /**
    * Create leave type
@@ -66,7 +59,8 @@ export class AddLeaveMediator {
 
       // Create audit log
       if (createdBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'leave_types',
           record_id: leaveType.id,
           action: 'INSERT',
@@ -78,7 +72,7 @@ export class AddLeaveMediator {
       }
 
       // Publish event
-      this.eventBus.publish('leave.type.created', {
+      eventBus.publish('leave.type.created', {
         leaveTypeId: leaveType.id,
         leaveTypeData: leaveType,
         createdBy
@@ -173,7 +167,8 @@ export class AddLeaveMediator {
 
       // Create audit log
       if (appliedBy) {
-        await this.auditService.createAuditLog({
+        const auditService = new AuditService();
+        await auditService.createAuditLog({
           table_name: 'leave_applications',
           record_id: application.id,
           action: 'INSERT',
@@ -185,7 +180,7 @@ export class AddLeaveMediator {
       }
 
       // Publish event
-      this.eventBus.publish('leave.application.created', {
+      eventBus.publish('leave.application.created', {
         applicationId: application.id,
         employeeId,
         leaveType: leaveType.name,
