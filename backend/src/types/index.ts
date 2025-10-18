@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import { UserRole } from './auth';
 
 // Extend Express Request interface to include user property added by auth middleware
 declare global {
@@ -7,9 +8,10 @@ declare global {
       user?: {
         user_id: number;
         username: string;
-        role: string;
+        role: UserRole;
         role_id?: number;
         permissions?: string[];
+        factory_id?: number;
       };
     }
   }

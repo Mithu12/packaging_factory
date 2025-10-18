@@ -282,6 +282,10 @@ export const PERMISSIONS = {
   CUSTOMERS_UPDATE: createPermissionCheck('Sales', 'update', 'customers'),
   CUSTOMERS_DELETE: createPermissionCheck('Sales', 'delete', 'customers'),
 
+  // Sales Reports
+  SALES_REPORTS_READ: createPermissionCheck('Sales', 'read', 'sales_reports'),
+  SALES_REPORTS_EXPORT: createPermissionCheck('Sales', 'export', 'sales_reports'),
+
   // Purchase
   PURCHASE_ORDERS_CREATE: createPermissionCheck('Purchase', 'create', 'purchase_orders'),
   PURCHASE_ORDERS_READ: createPermissionCheck('Purchase', 'read', 'purchase_orders'),
@@ -417,6 +421,7 @@ export const PERMISSIONS = {
   HR_PAYROLL_PROCESS: createPermissionCheck('HR', 'process', 'payroll'),
   HR_PAYROLL_APPROVE: createPermissionCheck('HR', 'approve', 'payroll'),
   HR_PAYROLL_MANAGE: createPermissionCheck('HR', 'manage', 'payroll'),
+  HR_PAYROLL_DELETE: createPermissionCheck('HR', 'delete', 'payroll'),
 
   // HR: Attendance Management
   HR_ATTENDANCE_CREATE: createPermissionCheck('HR', 'create', 'attendance'),
@@ -430,6 +435,10 @@ export const PERMISSIONS = {
   HR_LEAVE_UPDATE: createPermissionCheck('HR', 'update', 'leave'),
   HR_LEAVE_APPROVE: createPermissionCheck('HR', 'approve', 'leave'),
   HR_LEAVE_MANAGE: createPermissionCheck('HR', 'manage', 'leave'),
+  HR_LEAVE_DELETE: createPermissionCheck('HR', 'delete', 'leave'),
+
+  // Self Service Leave
+  SELF_SERVICE_LEAVE_READ: createPermissionCheck('Self Service', 'read', 'leave'),
 
   // HR: Transfer Management
   HR_TRANSFERS_CREATE: createPermissionCheck('HR', 'create', 'transfers'),

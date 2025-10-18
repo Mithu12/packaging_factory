@@ -53,7 +53,7 @@ export class UpdatePayrollMediator {
       if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'MARK_PAYROLL_AS_PAID',
           resourceType: 'payroll_run',
           resourceId: runId,
@@ -135,7 +135,7 @@ export class UpdatePayrollMediator {
       if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'APPROVE_PAYROLL_PERIOD',
           resourceType: 'payroll_period',
           resourceId: periodId,
@@ -144,10 +144,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: 'calculated' },
-          new_values: { status: 'approved' },
-          user_id: approvedBy,
-          timestamp: new Date()
+          oldValues: { status: 'calculated' },
+          newValues: { status: 'approved' }
         });
       }
 
@@ -230,10 +228,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: run.status },
-          new_values: { status: 'paid', paid_at: new Date() },
-          user_id: paidBy,
-          timestamp: new Date()
+          oldValues: { status: run.status },
+          newValues: { status: 'paid', paid_at: new Date() }
         });
       }
 
@@ -307,18 +303,18 @@ export class UpdatePayrollMediator {
       if (cancelledBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
-          action: 'MARK_PAYROLL_AS_PAID',
+          userId: cancelledBy,
+          action: 'CANCEL_PAYROLL_RUN',
           resourceType: 'payroll_run',
           resourceId: runId,
-          endpoint: '/api/hrm/payroll/runs/paid',
+          endpoint: '/api/hrm/payroll/runs/cancel',
           method: 'POST',
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: run.status },
-          new_values: { status: 'cancelled', cancellation_reason: reason },
-          user_id: cancelledBy,
+          oldValues: { status: run.status },
+          newValues: { status: 'cancelled', cancellation_reason: reason },
+          userId: cancelledBy,
           timestamp: new Date()
         });
       }
@@ -383,18 +379,18 @@ export class UpdatePayrollMediator {
       if (updatedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
-          action: 'APPROVE_PAYROLL_PERIOD',
+          userId: updatedBy,
+          action: 'UPDATE_PAYROLL_PERIOD_STATUS',
           resourceType: 'payroll_period',
           resourceId: periodId,
-          endpoint: '/api/hrm/payroll/periods/approve',
+          endpoint: '/api/hrm/payroll/periods/status',
           method: 'POST',
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: period.status },
-          new_values: { status },
-          user_id: updatedBy,
+          oldValues: { status: period.status },
+          newValues: { status },
+          userId: updatedBy,
           timestamp: new Date()
         });
       }

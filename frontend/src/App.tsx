@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useFormatting } from "@/hooks/useFormatting";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
@@ -25,6 +25,7 @@ import PurchaseOrders from "@/modules/inventory/pages/PurchaseOrders";
 import Inventory from "@/modules/inventory/pages/Inventory";
 import Payments from "@/modules/sales/pages/Payments";
 import PaymentDetails from "@/modules/sales/pages/PaymentDetails";
+import SalesReports from "@/modules/sales/pages/reports/SalesReports";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -365,6 +366,17 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <GenerateStatement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/sales/reports" element={<Navigate to="/sales-reports" replace />} />
+                <Route
+                  path="/sales-reports"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesReports />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

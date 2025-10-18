@@ -11,6 +11,8 @@ declare global {
         user_id: number;
         username: string;
         role: UserRole;
+        role_id?: number;
+        permissions?: string[];
         factory_id?: number;
       };
     }

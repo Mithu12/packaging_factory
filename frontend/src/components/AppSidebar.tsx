@@ -84,12 +84,12 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
-      // {
-      //   title: "Reports",
-      //   url: "/reports",
-      //   icon: FileText,
-      //   permission: null, // Reports might be accessible to all users
-      // },
+      {
+        title: "Sales Reports",
+        url: "/sales-reports",
+        icon: FileText,
+        permission: PERMISSIONS.SALES_REPORTS_READ,
+      },
     ],
   },
   {
@@ -101,6 +101,12 @@ const menuSections: MenuSection[] = [
         url: "/pos-manager",
         icon: Calculator,
         permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
+      },
+      {
+        title: "Reports",
+        url: "/sales/reports",
+        icon: BarChart3,
+        permission: PERMISSIONS.SALES_REPORTS_READ,
       },
     ],
   },
