@@ -292,9 +292,25 @@ export interface CreateAttendanceRecordForm {
   is_manual_entry?: boolean;
 }
 
+export interface CreateDepartmentForm {
+  name: string;
+  code: string;
+  description?: string;
+  manager_id?: number;
+  parent_department_id?: number;
+}
+
 // API Response Types
 export interface EmployeeListResponse {
   employees: Employee[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface DepartmentListResponse {
+  departments: Department[];
   total: number;
   page: number;
   limit: number;
@@ -340,6 +356,13 @@ export interface AttendanceSummary {
 export interface EmployeeFormProps {
   employee?: Employee;
   onSubmit: (data: CreateEmployeeForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface DepartmentFormProps {
+  department?: Department;
+  onSubmit: (data: CreateDepartmentForm) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
 }
