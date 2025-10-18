@@ -71,7 +71,7 @@ export class UpdateLeaveMediator {
       // Create audit log
       if (processedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
+        await auditService.logActivity({
           table_name: 'leave_applications',
           record_id: applicationId,
           action: 'UPDATE',
@@ -242,7 +242,7 @@ export class UpdateLeaveMediator {
       // Create audit log
       if (cancelledBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
+        await auditService.logActivity({
           table_name: 'leave_applications',
           record_id: applicationId,
           action: 'UPDATE',
@@ -359,7 +359,7 @@ export class UpdateLeaveMediator {
         // Create audit log
         if (updatedBy) {
           const auditService = new AuditService();
-          await auditService.createAuditLog({
+          await auditService.logActivity({
             table_name: 'leave_applications',
             record_id: applicationId,
             action: 'UPDATE',
@@ -463,7 +463,7 @@ export class UpdateLeaveMediator {
       // Create audit log
       if (updatedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
+        await auditService.logActivity({
           table_name: 'leave_types',
           record_id: leaveTypeId,
           action: 'UPDATE',
@@ -537,7 +537,7 @@ export class UpdateLeaveMediator {
       // Create audit log
       if (deletedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
+        await auditService.logActivity({
           table_name: 'leave_types',
           record_id: leaveTypeId,
           action: 'DELETE',

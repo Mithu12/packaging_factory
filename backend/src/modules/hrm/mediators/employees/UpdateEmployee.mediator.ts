@@ -51,19 +51,23 @@ export class UpdateEmployeeMediator {
       // Create audit log
       if (updatedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employees',
-          record_id: employee.id,
-          action: 'UPDATE',
-          old_values: currentEmployee,
-          new_values: updateData,
-          user_id: updatedBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: updatedBy,
+          action: 'UPDATE_EMPLOYEE',
+          resourceType: 'employee',
+          resourceId: employee.id,
+          endpoint: '/api/hrm/employees',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: currentEmployee,
+          newValues: updateData
         });
       }
 
       // Emit event
-      eventBus.publish('employee.updated', { employee, updatedBy });
+      eventBus.emit('employee.updated', { employee, updatedBy });
 
       MyLogger.success(action, {
         employeeId: employee.id,
@@ -74,7 +78,7 @@ export class UpdateEmployeeMediator {
       return employee;
     } catch (error) {
       MyLogger.error(action, error, { employeeId, updateData, updatedBy });
-      throw new Error(`Failed to update employee: ${error.message}`);
+      throw new Error(`Failed to update employee: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       client.release();
     }
@@ -103,19 +107,23 @@ export class UpdateEmployeeMediator {
       // Create audit log
       if (deletedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employees',
-          record_id: employeeId,
-          action: 'DELETE',
-          old_values: employee,
-          new_values: { is_active: false, termination_date: new Date() },
-          user_id: deletedBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: deletedBy,
+          action: 'DELETE_EMPLOYEE',
+          resourceType: 'employee',
+          resourceId: employeeId,
+          endpoint: '/api/hrm/employees',
+          method: 'DELETE',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: employee,
+          newValues: { is_active: false, termination_date: new Date() }
         });
       }
 
       // Emit event
-      eventBus.publish('employee.deleted', { employee, deletedBy });
+      eventBus.emit('employee.deleted', { employee, deletedBy });
 
       MyLogger.success(action, {
         employeeId,
@@ -125,7 +133,7 @@ export class UpdateEmployeeMediator {
 
     } catch (error) {
       MyLogger.error(action, error, { employeeId, deletedBy });
-      throw new Error(`Failed to delete employee: ${error.message}`);
+      throw new Error(`Failed to delete employee: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       client.release();
     }
@@ -197,23 +205,27 @@ export class UpdateEmployeeMediator {
       // Create audit log
       if (uploadedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employee_documents',
-          record_id: documentResult.rows[0].id,
-          action: 'INSERT',
-          old_values: null,
-          new_values: {
+        await auditService.logActivity({
+          userId: uploadedBy,
+          action: 'UPLOAD_EMPLOYEE_DOCUMENT',
+          resourceType: 'employee_document',
+          resourceId: documentResult.rows[0].id,
+          endpoint: '/api/hrm/employees/documents',
+          method: 'POST',
+          responseStatus: 201,
+          success: true,
+          durationMs: 0,
+          oldValues: null,
+          newValues: {
             employee_id: employeeId,
             document_type: documentType,
             file_name: file.filename
-          },
-          user_id: uploadedBy,
-          timestamp: new Date()
+          }
         });
       }
 
       // Emit event
-      eventBus.publish('employee.document.uploaded', {
+      eventBus.emit('employee.document.uploaded', {
         employee,
         document: documentResult.rows[0],
         uploadedBy
@@ -282,19 +294,23 @@ export class UpdateEmployeeMediator {
       // Create audit log
       if (updatedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employees',
-          record_id: employeeId,
-          action: 'UPDATE',
-          old_values: { hourly_rate: employee.hourly_rate },
-          new_values: { hourly_rate: newSalary },
-          user_id: updatedBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: updatedBy,
+          action: 'UPDATE_EMPLOYEE_SALARY',
+          resourceType: 'employee',
+          resourceId: employeeId,
+          endpoint: '/api/hrm/employees/salary',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { hourly_rate: employee.hourly_rate },
+          newValues: { hourly_rate: newSalary }
         });
       }
 
       // Emit event
-      eventBus.publish('employee.salary.updated', {
+      eventBus.emit('employee.salary.updated', {
         employee: updatedEmployee,
         salaryHistory: historyResult.rows[0],
         updatedBy

@@ -69,14 +69,17 @@ export class GetLeaveInfoMediator {
         const usedDays = parseFloat(usedResult.rows[0]?.used_days || '0');
 
         const balance: LeaveBalance = {
+          id: 0, // Will be set by database
           employee_id: employeeId,
           leave_type_id: leaveType.id,
-          leave_type_name: leaveType.name,
-          leave_type_code: leaveType.code,
+          leave_type: leaveType,
+          year: targetYear,
           allocated_days: leaveType.days_per_year,
           used_days: usedDays,
-          available_days: leaveType.days_per_year - usedDays,
-          year: targetYear
+          pending_days: 0,
+          remaining_days: leaveType.days_per_year - usedDays,
+          carried_forward_days: 0,
+          last_updated: new Date().toISOString()
         };
 
         balances.push(balance);

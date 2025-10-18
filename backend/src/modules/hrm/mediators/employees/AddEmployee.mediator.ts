@@ -50,7 +50,7 @@ export class AddEmployeeMediator {
         employeeData.blood_group, employeeData.cnic, employeeData.passport_number,
         employeeData.tax_id, employeeData.designation_id, employeeData.reporting_manager_id,
         employeeData.department_id, employeeData.employment_type, employeeData.join_date,
-        employeeData.confirmation_date, employeeData.termination_date,
+        null, null,
         employeeData.probation_period_months, employeeData.notice_period_days,
         employeeData.work_location, employeeData.shift_type, employeeData.bank_account_number,
         employeeData.bank_name, employeeData.skill_level, employeeData.availability_status,
@@ -63,19 +63,23 @@ export class AddEmployeeMediator {
       // Create audit log
       if (createdBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employees',
-          record_id: newEmployee.id,
-          action: 'INSERT',
-          old_values: null,
-          new_values: employeeData,
-          user_id: createdBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: createdBy,
+          action: 'CREATE_EMPLOYEE',
+          resourceType: 'employee',
+          resourceId: newEmployee.id,
+          endpoint: '/api/hrm/employees',
+          method: 'POST',
+          responseStatus: 201,
+          success: true,
+          durationMs: 0,
+          oldValues: null,
+          newValues: employeeData
         });
       }
 
       // Publish event
-      eventBus.publish('employee.created', {
+      eventBus.emit('employee.created', {
         employeeId: newEmployee.id,
         employeeData: newEmployee,
         createdBy
@@ -115,8 +119,8 @@ export class AddEmployeeMediator {
       const results = {
         success: 0,
         failed: 0,
-        errors: [],
-        employees: []
+        errors: [] as any[],
+        employees: [] as Employee[]
       };
 
       await client.query('BEGIN');
@@ -133,7 +137,7 @@ export class AddEmployeeMediator {
           results.errors.push({
             index: i,
             data: employeeData,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       }

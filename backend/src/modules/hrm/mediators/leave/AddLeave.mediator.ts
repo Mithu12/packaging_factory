@@ -42,16 +42,16 @@ export class AddLeaveMediator {
       `;
 
       const values = [
-        newLeaveType.name,
-        newLeaveType.code,
-        newLeaveType.days_per_year,
-        newLeaveType.max_consecutive_days,
-        newLeaveType.requires_approval !== false,
-        newLeaveType.is_active,
-        newLeaveType.description,
-        newLeaveType.created_by,
-        newLeaveType.created_at,
-        newLeaveType.updated_at
+        leaveTypeData.name,
+        leaveTypeData.code,
+        leaveTypeData.max_days_per_year,
+        leaveTypeData.max_consecutive_days,
+        leaveTypeData.requires_approval !== false,
+        true, // is_active
+        leaveTypeData.description,
+        createdBy,
+        new Date(),
+        new Date()
       ];
 
       const result = await client.query(insertQuery, values);
@@ -60,19 +60,23 @@ export class AddLeaveMediator {
       // Create audit log
       if (createdBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'leave_types',
-          record_id: leaveType.id,
-          action: 'INSERT',
-          old_values: null,
-          new_values: leaveTypeData,
-          user_id: createdBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: createdBy,
+          action: 'CREATE_LEAVE_TYPE',
+          resourceType: 'leave_type',
+          resourceId: leaveType.id,
+          endpoint: '/api/hrm/leave/types',
+          method: 'POST',
+          responseStatus: 201,
+          success: true,
+          durationMs: 0,
+          oldValues: null,
+          newValues: leaveTypeData
         });
       }
 
       // Publish event
-      eventBus.publish('leave.type.created', {
+      eventBus.emit('leave.type.created', {
         leaveTypeId: leaveType.id,
         leaveTypeData: leaveType,
         createdBy
@@ -129,21 +133,19 @@ export class AddLeaveMediator {
         leave_type_id: applicationData.leave_type_id,
         start_date: applicationData.start_date,
         end_date: applicationData.end_date,
-        application_type: applicationData.application_type || 'full_day',
+        total_days: leaveDays,
         reason: applicationData.reason,
-        contact_number: applicationData.contact_number,
         emergency_contact: applicationData.emergency_contact,
-        status: 'submitted',
-        leave_days: leaveDays,
-        applied_by: appliedBy,
+        work_handover_notes: applicationData.work_handover_notes,
+        status: 'pending',
         applied_at: new Date()
       };
 
       const insertQuery = `
         INSERT INTO leave_applications (
-          employee_id, leave_type_id, start_date, end_date, application_type, reason,
-          contact_number, emergency_contact, status, leave_days, applied_by, applied_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          employee_id, leave_type_id, start_date, end_date, total_days, reason,
+          emergency_contact, work_handover_notes, status, applied_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
 
@@ -152,13 +154,11 @@ export class AddLeaveMediator {
         newApplication.leave_type_id,
         newApplication.start_date,
         newApplication.end_date,
-        newApplication.application_type,
+        newApplication.total_days,
         newApplication.reason,
-        newApplication.contact_number,
         newApplication.emergency_contact,
+        newApplication.work_handover_notes,
         newApplication.status,
-        newApplication.leave_days,
-        newApplication.applied_by,
         newApplication.applied_at
       ];
 
@@ -168,19 +168,23 @@ export class AddLeaveMediator {
       // Create audit log
       if (appliedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'leave_applications',
-          record_id: application.id,
-          action: 'INSERT',
-          old_values: null,
-          new_values: applicationData,
-          user_id: appliedBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: appliedBy,
+          action: 'CREATE_LEAVE_APPLICATION',
+          resourceType: 'leave_application',
+          resourceId: application.id,
+          endpoint: '/api/hrm/leave/applications',
+          method: 'POST',
+          responseStatus: 201,
+          success: true,
+          durationMs: 0,
+          oldValues: null,
+          newValues: applicationData
         });
       }
 
       // Publish event
-      eventBus.publish('leave.application.created', {
+      eventBus.emit('leave.application.created', {
         applicationId: application.id,
         employeeId,
         leaveType: leaveType.name,

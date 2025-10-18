@@ -512,11 +512,14 @@ export class GetEmployeeInfoMediator {
 
       const dashboard: HRDashboardStats = {
         total_employees: totalEmployees,
-        departmentDistribution,
-        designationDistribution,
-        employmentTypeDistribution,
-        recentEmployees,
-        factoryId
+        active_employees: totalEmployees, // Assuming all are active for now
+        employees_on_leave: 0, // TODO: Calculate actual leave count
+        pending_leave_applications: 0, // TODO: Calculate pending applications
+        upcoming_payroll_runs: 0, // TODO: Calculate upcoming payroll runs
+        department_breakdown: departmentDistribution.map(d => ({ department: d.name, count: d.count })),
+        recent_hires: [], // TODO: Implement recent hires
+        upcoming_birthdays: [], // TODO: Implement birthdays
+        leave_balance_warnings: [] // TODO: Implement leave warnings
       };
 
       MyLogger.success(action, {
