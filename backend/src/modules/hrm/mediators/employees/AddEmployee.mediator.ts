@@ -104,10 +104,10 @@ export class AddEmployeeMediator {
   /**
    * Bulk import employees
    */
-  static async bulkImportEmployees(employeesData: CreateEmployeeRequest[], createdBy?: number): Promise<{
+  static async bulkImportEmployees(employeesData: CreateEmployeeRequest[], createdBy?: number  ): Promise<{
     success: number;
     failed: number;
-    errors: any[];
+    errors: Array<{ index: number; data: CreateEmployeeRequest; error: string }>;
     employees: Employee[];
   }> {
     const action = "AddEmployeeMediator.bulkImportEmployees";

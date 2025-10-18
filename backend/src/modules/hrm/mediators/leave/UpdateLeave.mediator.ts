@@ -72,18 +72,22 @@ export class UpdateLeaveMediator {
       if (processedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          table_name: 'leave_applications',
-          record_id: applicationId,
-          action: 'UPDATE',
-          old_values: { status: application.status },
-          new_values: { status: updatedApplication.status, notes },
-          user_id: processedBy,
-          timestamp: new Date()
+          userId: processedBy,
+          action: 'UPDATE_LEAVE_APPLICATION',
+          resourceType: 'leave_application',
+          resourceId: applicationId,
+          endpoint: '/api/hrm/leave/applications',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { status: application.status },
+          newValues: { status: updatedApplication.status, notes }
         });
       }
 
       // Publish event
-      eventBus.publish('leave.application.processed', {
+      eventBus.emit('leave.application.processed', {
         applicationId,
         employeeId: application.employee_id,
         action,
@@ -121,7 +125,7 @@ export class UpdateLeaveMediator {
   ): Promise<{
     success: number;
     failed: number;
-    errors: any[];
+    errors: Array<{ applicationId: number; error: string }>;
     processedApplications: LeaveApplication[];
   }> {
     const actionName = "UpdateLeaveMediator.bulkProcessLeaveApplications";
@@ -138,8 +142,8 @@ export class UpdateLeaveMediator {
       const results = {
         success: 0,
         failed: 0,
-        errors: [],
-        processedApplications: []
+        errors: [] as Array<{ applicationId: number; error: string }>,
+        processedApplications: [] as LeaveApplication[]
       };
 
       await client.query('BEGIN');
@@ -155,7 +159,7 @@ export class UpdateLeaveMediator {
           results.failed++;
           results.errors.push({
             applicationId,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       }
@@ -243,18 +247,22 @@ export class UpdateLeaveMediator {
       if (cancelledBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          table_name: 'leave_applications',
-          record_id: applicationId,
-          action: 'UPDATE',
-          old_values: { status: application.status },
-          new_values: { status: 'cancelled', cancellation_reason: reason },
-          user_id: cancelledBy,
-          timestamp: new Date()
+          userId: cancelledBy,
+          action: 'CANCEL_LEAVE_APPLICATION',
+          resourceType: 'leave_application',
+          resourceId: applicationId,
+          endpoint: '/api/hrm/leave/applications',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { status: application.status },
+          newValues: { status: 'cancelled', cancellation_reason: reason }
         });
       }
 
       // Publish event
-      eventBus.publish('leave.application.cancelled', {
+      eventBus.emit('leave.application.cancelled', {
         applicationId,
         employeeId: application.employee_id,
         leaveType: application.leave_type_name,
@@ -359,19 +367,23 @@ export class UpdateLeaveMediator {
         // Create audit log
         if (updatedBy) {
           const auditService = new AuditService();
-          await auditService.logActivity({
-            table_name: 'leave_applications',
-            record_id: applicationId,
-            action: 'UPDATE',
-            old_values: application,
-            new_values: updateData,
-            user_id: updatedBy,
-            timestamp: new Date()
-          });
+        await auditService.logActivity({
+          userId: updatedBy,
+          action: 'UPDATE_LEAVE_APPLICATION',
+          resourceType: 'leave_application',
+          resourceId: applicationId,
+          endpoint: '/api/hrm/leave/applications',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: application,
+          newValues: updateData
+        });
         }
 
         // Publish event
-        eventBus.publish('leave.application.updated', {
+        eventBus.emit('leave.application.updated', {
           applicationId,
           employeeId: application.employee_id,
           updates: updateData,
@@ -464,18 +476,22 @@ export class UpdateLeaveMediator {
       if (updatedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          table_name: 'leave_types',
-          record_id: leaveTypeId,
-          action: 'UPDATE',
-          old_values: leaveType,
-          new_values: updateData,
-          user_id: updatedBy,
-          timestamp: new Date()
+          userId: updatedBy,
+          action: 'UPDATE_LEAVE_TYPE',
+          resourceType: 'leave_type',
+          resourceId: leaveTypeId,
+          endpoint: '/api/hrm/leave/types',
+          method: 'PUT',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: leaveType,
+          newValues: updateData
         });
       }
 
       // Publish event
-      eventBus.publish('leave.type.updated', {
+      eventBus.emit('leave.type.updated', {
         leaveTypeId,
         updates: updateData,
         updatedBy
@@ -538,18 +554,22 @@ export class UpdateLeaveMediator {
       if (deletedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          table_name: 'leave_types',
-          record_id: leaveTypeId,
-          action: 'DELETE',
-          old_values: leaveType,
-          new_values: { is_active: false },
-          user_id: deletedBy,
-          timestamp: new Date()
+          userId: deletedBy,
+          action: 'DELETE_LEAVE_TYPE',
+          resourceType: 'leave_type',
+          resourceId: leaveTypeId,
+          endpoint: '/api/hrm/leave/types',
+          method: 'DELETE',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: leaveType,
+          newValues: { is_active: false }
         });
       }
 
       // Publish event
-      eventBus.publish('leave.type.deleted', {
+      eventBus.emit('leave.type.deleted', {
         leaveTypeId,
         code: leaveType.code,
         deletedBy

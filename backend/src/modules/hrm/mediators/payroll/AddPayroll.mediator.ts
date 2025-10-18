@@ -24,7 +24,7 @@ export class AddPayrollMediator {
         periodData.name,
         periodData.start_date,
         periodData.end_date,
-        periodData.status || 'draft',
+        'open', // status defaults to open
         periodData.description,
         createdBy,
         new Date()
@@ -60,8 +60,8 @@ export class AddPayrollMediator {
 
       const insertQuery = `
         INSERT INTO payroll_components (
-          name, code, component_type, calculation_type, amount, percentage,
-          is_taxable, is_active, description, created_by, created_at
+          name, code, component_type, calculation_method, formula,
+          is_taxable, is_mandatory, description, created_by, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `;
@@ -70,11 +70,10 @@ export class AddPayrollMediator {
         componentData.name,
         componentData.code,
         componentData.component_type,
-        componentData.calculation_type || 'fixed',
-        componentData.amount,
-        componentData.percentage,
+        componentData.calculation_method || 'fixed',
+        componentData.formula || '0',
         componentData.is_taxable !== false,
-        componentData.is_active !== false,
+        componentData.is_mandatory !== false,
         componentData.description,
         createdBy,
         new Date()

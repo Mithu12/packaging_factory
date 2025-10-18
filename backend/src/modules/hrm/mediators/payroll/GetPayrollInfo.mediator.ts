@@ -150,19 +150,19 @@ export class GetPayrollInfoMediator {
         period_id: periodId,
         period_name: period.name,
         total_employees: parseInt(summary.total_employees || '0'),
-        total_gross_pay: parseFloat(summary.total_gross_pay || '0'),
-        total_net_pay: parseFloat(summary.total_net_pay || '0'),
-        total_tax: parseFloat(summary.total_tax || '0'),
-        total_bonuses: parseFloat(summary.total_bonuses || '0'),
+        total_gross_salary: parseFloat(summary.total_gross_pay || '0'),
         total_deductions: parseFloat(summary.total_deductions || '0'),
+        total_net_salary: parseFloat(summary.total_net_pay || '0'),
         average_salary: summary.total_employees > 0 ?
-          parseFloat(summary.total_net_pay || '0') / parseInt(summary.total_employees) : 0
+          parseFloat(summary.total_net_pay || '0') / parseInt(summary.total_employees) : 0,
+        top_earners: [],
+        department_salaries: []
       };
 
       MyLogger.success(action, {
         periodId,
         totalEmployees: payrollSummary.total_employees,
-        totalGrossPay: payrollSummary.total_gross_pay
+        totalGrossSalary: payrollSummary.total_gross_salary
       });
 
       return payrollSummary;

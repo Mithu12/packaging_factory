@@ -20,7 +20,7 @@ export class ProcessPayrollMediator {
 
       // Get payroll period
       const periodQuery = 'SELECT * FROM payroll_periods WHERE id = $1';
-      const periodResult = await client.query(periodQuery, [calcRequest.period_id]);
+      const periodResult = await client.query(periodQuery, [calcRequest.payroll_period_id]);
 
       if (periodResult.rows.length === 0) {
         throw new Error('Payroll period not found');
@@ -44,7 +44,7 @@ export class ProcessPayrollMediator {
       for (const employeeId of employeeIds) {
         try {
           const payrollData = await this.calculateEmployeePayroll(employeeId, period, calcRequest);
-          const run = await this.createPayrollRun(employeeId, calcRequest.period_id, payrollData, calculatedBy);
+          const run = await this.createPayrollRun(employeeId, calcRequest.payroll_period_id, payrollData, calculatedBy);
           payrollRuns.push(run);
         } catch (error) {
           MyLogger.error(`Payroll calculation failed for employee ${employeeId}`, error);
@@ -57,35 +57,38 @@ export class ProcessPayrollMediator {
       // Update period status to calculated
       await client.query(
         'UPDATE payroll_periods SET status = $1, updated_at = $2 WHERE id = $3',
-        ['calculated', new Date(), calcRequest.period_id]
+        ['completed', new Date(), calcRequest.payroll_period_id]
       );
 
       const result: PayrollRun = {
         id: 0, // This would be set if we created a master run record
-        period_id: calcRequest.period_id,
-        employee_runs: payrollRuns.length,
-        total_gross_pay: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.grossPay || 0), 0),
-        total_net_pay: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.netPay || 0), 0),
-        status: 'calculated',
-        calculated_by: calculatedBy,
-        calculated_at: new Date(),
-        approved_by: null,
-        approved_at: null,
-        paid_at: null
+        payroll_period_id: calcRequest.payroll_period_id,
+        run_number: `RUN-${Date.now()}`, // Generate a run number
+        status: 'completed',
+        total_employees: payrollRuns.length,
+        total_gross_salary: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.grossPay || 0), 0),
+        total_deductions: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.deductions || 0), 0),
+        total_net_salary: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.netPay || 0), 0),
+        processed_by: calculatedBy,
+        processed_at: new Date().toISOString(),
+        posted_to_accounting: false,
+        created_by: calculatedBy,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       // Publish event
-      eventBus.publish('payroll.calculated', {
-        periodId: calcRequest.period_id,
+      eventBus.emit('payroll.calculated', {
+        periodId: calcRequest.payroll_period_id,
         employeeCount: payrollRuns.length,
-        totalGrossPay: result.total_gross_pay,
+        totalGrossSalary: result.total_gross_salary,
         calculatedBy
       });
 
       MyLogger.success(action, {
-        periodId: calcRequest.period_id,
+        periodId: calcRequest.payroll_period_id,
         employeeCount: payrollRuns.length,
-        totalGrossPay: result.total_gross_pay,
+        totalGrossSalary: result.total_gross_salary,
         calculatedBy
       });
 
@@ -167,7 +170,7 @@ export class ProcessPayrollMediator {
       let bonuses = 0;
       let overtimePay = 0;
 
-      if (calcRequest.include_bonuses !== false) {
+      if (calcRequest.include_loans !== false) {
         bonuses = this.calculateBonuses(employeeId, period.start_date, period.end_date);
         totalEarnings += bonuses;
       }
@@ -179,7 +182,7 @@ export class ProcessPayrollMediator {
 
       // Calculate deductions
       let totalDeductions = 0;
-      if (calcRequest.include_deductions !== false) {
+      if (calcRequest.include_loans !== false) {
         totalDeductions = this.calculateDeductions(employeeId, period.start_date, period.end_date);
       }
 
@@ -326,19 +329,23 @@ export class ProcessPayrollMediator {
       // Create audit log
       if (setupBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'employees',
-          record_id: employeeId,
-          action: 'UPDATE',
-          old_values: { hourly_rate: 'previous_value' }, // This would be fetched from before update
-          new_values: { hourly_rate: baseSalary },
-          user_id: setupBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: setupBy,
+          action: 'SETUP_EMPLOYEE_SALARY_STRUCTURE',
+          resourceType: 'employee_salary_structure',
+          resourceId: employeeId,
+          endpoint: '/api/hrm/payroll/setup/salary-structure',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { hourly_rate: 'previous_value' }, // This would be fetched from before update
+          newValues: { hourly_rate: baseSalary }
         });
       }
 
       // Publish event
-      eventBus.publish('employee.salary.structure.updated', {
+      eventBus.emit('employee.salary.structure.updated', {
         employeeId,
         baseSalary,
         componentsCount: components.length,
