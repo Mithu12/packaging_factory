@@ -24,12 +24,6 @@ router.get(
   expressAsyncHandler(EmployeeController.getEmployees)
 );
 
-// Get employee by ID
-router.get(
-  "/:id",
-  requirePermission(PERMISSIONS.HR_EMPLOYEES_READ),
-  expressAsyncHandler(EmployeeController.getEmployeeById)
-);
 
 // Create new employee
 router.post(
@@ -61,6 +55,14 @@ router.get(
   "/dashboard",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_READ),
   expressAsyncHandler(EmployeeController.getEmployeeDashboard)
+);
+
+
+// Get employee by ID
+router.get(
+  "/:id",
+  requirePermission(PERMISSIONS.HR_EMPLOYEES_READ),
+  expressAsyncHandler(EmployeeController.getEmployeeById)
 );
 
 // =====================================================
