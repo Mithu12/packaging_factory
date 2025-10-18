@@ -106,7 +106,7 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Reports",
-        url: "/sales/reports",
+        url: "/sales-reports",
         icon: BarChart3,
         permission: PERMISSIONS.SALES_REPORTS_READ,
       },
