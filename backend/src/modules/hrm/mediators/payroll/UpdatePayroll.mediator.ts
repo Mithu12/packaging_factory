@@ -53,7 +53,7 @@ export class UpdatePayrollMediator {
       if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'MARK_PAYROLL_AS_PAID',
           resourceType: 'payroll_run',
           resourceId: runId,
@@ -135,7 +135,7 @@ export class UpdatePayrollMediator {
       if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'APPROVE_PAYROLL_PERIOD',
           resourceType: 'payroll_period',
           resourceId: periodId,
@@ -144,10 +144,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: 'calculated' },
-          new_values: { status: 'approved' },
-          user_id: approvedBy,
-          timestamp: new Date()
+          oldValues: { status: 'calculated' },
+          newValues: { status: 'approved' }
         });
       }
 
@@ -178,12 +176,12 @@ export class UpdatePayrollMediator {
   /**
    * Mark payroll as paid
    */
-  static async markPayrollAsPaid(runId: number, paidBy?: number): Promise<PayrollRun> {
+  static async markPayrollAsPaid(runId: number, approvedBy?: number): Promise<PayrollRun> {
     const action = "UpdatePayrollMediator.markPayrollAsPaid";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { runId, paidBy });
+      MyLogger.info(action, { runId, approvedBy });
 
       // Get current payroll run
       const runQuery = 'SELECT * FROM payroll_runs WHERE id = $1';
@@ -218,10 +216,10 @@ export class UpdatePayrollMediator {
       const updatedRun = updateResult.rows[0];
 
       // Create audit log
-      if (paidBy) {
+      if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'MARK_PAYROLL_AS_PAID',
           resourceType: 'payroll_run',
           resourceId: runId,
@@ -230,10 +228,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: run.status },
-          new_values: { status: 'paid', paid_at: new Date() },
-          user_id: paidBy,
-          timestamp: new Date()
+          oldValues: { status: run.status },
+          newValues: { status: 'paid', paid_at: new Date() }
         });
       }
 
@@ -243,19 +239,19 @@ export class UpdatePayrollMediator {
         periodId: run.period_id,
         employeeId: run.employee_id,
         amount: run.payroll_data?.netPay,
-        paidBy
+        approvedBy
       });
 
       MyLogger.success(action, {
         runId,
         periodId: run.period_id,
         amount: run.payroll_data?.netPay,
-        paidBy
+        approvedBy
       });
 
       return updatedRun;
     } catch (error) {
-      MyLogger.error(action, error, { runId, paidBy });
+      MyLogger.error(action, error, { runId, approvedBy });
       throw error;
     } finally {
       client.release();
@@ -307,7 +303,7 @@ export class UpdatePayrollMediator {
       if (cancelledBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: cancelledBy,
           action: 'MARK_PAYROLL_AS_PAID',
           resourceType: 'payroll_run',
           resourceId: runId,
@@ -316,10 +312,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: run.status },
-          new_values: { status: 'cancelled', cancellation_reason: reason },
-          user_id: cancelledBy,
-          timestamp: new Date()
+          oldValues: { status: run.status },
+          newValues: { status: 'cancelled', cancellation_reason: reason }
         });
       }
 
@@ -383,7 +377,7 @@ export class UpdatePayrollMediator {
       if (updatedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: updatedBy,
           action: 'APPROVE_PAYROLL_PERIOD',
           resourceType: 'payroll_period',
           resourceId: periodId,
@@ -392,10 +386,8 @@ export class UpdatePayrollMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          old_values: { status: period.status },
-          new_values: { status },
-          user_id: updatedBy,
-          timestamp: new Date()
+          oldValues: { status: period.status },
+          newValues: { status }
         });
       }
 

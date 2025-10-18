@@ -1,19 +1,6 @@
 import { Request } from 'express';
 
-// Extend Express Request interface to include user property added by auth middleware
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        user_id: number;
-        username: string;
-        role: string;
-        role_id?: number;
-        permissions?: string[];
-      };
-    }
-  }
-}
+// Note: Express Request interface is extended in middleware/auth.ts
 
 export interface MediatorInterface{
     process(data:any): Promise<any>

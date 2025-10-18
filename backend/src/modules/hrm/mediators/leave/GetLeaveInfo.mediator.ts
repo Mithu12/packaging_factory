@@ -111,6 +111,7 @@ export class GetLeaveInfoMediator {
     start_date_to?: string;
     end_date_from?: string;
     end_date_to?: string;
+    search?: string;
     page?: number;
     limit?: number;
     sort_by?: string;
@@ -187,6 +188,16 @@ export class GetLeaveInfoMediator {
         paramIndex++;
       }
 
+      if (filters?.search) {
+        query += ` AND (
+          e.first_name ILIKE $${paramIndex} OR
+          e.last_name ILIKE $${paramIndex} OR
+          lt.name ILIKE $${paramIndex}
+        )`;
+        values.push(`%${filters.search}%`);
+        paramIndex++;
+      }
+
       // Apply sorting
       const sortBy = filters?.sort_by || 'la.created_at';
       const sortOrder = filters?.sort_order || 'desc';
@@ -203,9 +214,70 @@ export class GetLeaveInfoMediator {
       const applicationsResult = await client.query(query, values);
       const applications = applicationsResult.rows;
 
-      // Get total count (same query without LIMIT/OFFSET)
-      const countQuery = query.replace(/ LIMIT \$\d+ OFFSET \$\d+$/, '');
-      const countValues = values.slice(0, values.length - 2); // Remove limit and offset values
+      // Get total count - construct count query from the original query parts
+      let countQuery = `
+        SELECT COUNT(*) as count
+        FROM leave_applications la
+        JOIN leave_types lt ON la.leave_type_id = lt.id
+        JOIN employees e ON la.employee_id = e.id
+        WHERE 1=1
+      `;
+
+      let countParamIndex = 1;
+      const countValues: any[] = [];
+
+      // Apply the same filters as the main query
+      if (filters?.employee_id) {
+        countQuery += ` AND la.employee_id = $${countParamIndex}`;
+        countValues.push(filters.employee_id);
+        countParamIndex++;
+      }
+
+      if (filters?.leave_type_id) {
+        countQuery += ` AND la.leave_type_id = $${countParamIndex}`;
+        countValues.push(filters.leave_type_id);
+        countParamIndex++;
+      }
+
+      if (filters?.status) {
+        countQuery += ` AND la.status = $${countParamIndex}`;
+        countValues.push(filters.status);
+        countParamIndex++;
+      }
+
+      if (filters?.start_date_from) {
+        countQuery += ` AND la.start_date >= $${countParamIndex}`;
+        countValues.push(filters.start_date_from);
+        countParamIndex++;
+      }
+
+      if (filters?.start_date_to) {
+        countQuery += ` AND la.start_date <= $${countParamIndex}`;
+        countValues.push(filters.start_date_to);
+        countParamIndex++;
+      }
+
+      if (filters?.end_date_from) {
+        countQuery += ` AND la.end_date >= $${countParamIndex}`;
+        countValues.push(filters.end_date_from);
+        countParamIndex++;
+      }
+
+      if (filters?.end_date_to) {
+        countQuery += ` AND la.end_date <= $${countParamIndex}`;
+        countValues.push(filters.end_date_to);
+        countParamIndex++;
+      }
+
+      if (filters?.search) {
+        countQuery += ` AND (
+          e.first_name ILIKE $${countParamIndex} OR
+          e.last_name ILIKE $${countParamIndex} OR
+          lt.name ILIKE $${countParamIndex}
+        )`;
+        countValues.push(`%${filters.search}%`);
+      }
+
       const countResult = await client.query(countQuery, countValues);
       const total = parseInt(countResult.rows[0]?.count || '0');
 
