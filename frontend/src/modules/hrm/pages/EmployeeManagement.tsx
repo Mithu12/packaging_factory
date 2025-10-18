@@ -258,7 +258,7 @@ const EmployeeManagement: React.FC = () => {
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Departments</SelectItem>
+                {/* <SelectItem value="">All Departments</SelectItem> */}
                 {/* Add department options */}
               </SelectContent>
             </Select>
@@ -267,7 +267,7 @@ const EmployeeManagement: React.FC = () => {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                {/* <SelectItem value="">All Types</SelectItem> */}
                 <SelectItem value="permanent">Permanent</SelectItem>
                 <SelectItem value="contract">Contract</SelectItem>
                 <SelectItem value="intern">Intern</SelectItem>
@@ -279,7 +279,7 @@ const EmployeeManagement: React.FC = () => {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                {/* <SelectItem value="">All Status</SelectItem> */}
                 <SelectItem value="true">Active</SelectItem>
                 <SelectItem value="false">Inactive</SelectItem>
               </SelectContent>
