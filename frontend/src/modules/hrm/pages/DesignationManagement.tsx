@@ -64,6 +64,7 @@ import {
 } from 'lucide-react';
 import { Designation, DesignationListResponse, CreateDesignationForm, Department, DesignationHierarchyNode } from '../types';
 import DesignationForm from '../components/DesignationForm';
+import HRMApiService from '../services/hrm-api';
 
 // Dummy data for designations
 const DUMMY_DESIGNATIONS: Designation[] = [
@@ -216,6 +217,7 @@ const generateEmployeeCounts = (designations: Designation[]) => {
 
 const DesignationManagement: React.FC = () => {
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -241,57 +243,55 @@ const DesignationManagement: React.FC = () => {
 
   useEffect(() => {
     loadDesignations();
+    loadDepartments();
   }, [pagination.page, searchTerm, filters]);
+
+  const loadDepartments = async () => {
+    try {
+      const response = await HRMApiService.getDepartments({ is_active: true });
+      setDepartments(response.departments);
+    } catch (err) {
+      console.error('Failed to load departments:', err);
+    }
+  };
 
   const loadDesignations = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // Simulate API call with dummy data
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const params: any = {
+        page: pagination.page,
+        limit: pagination.limit,
+      };
 
-      let filteredDesignations = generateEmployeeCounts(DUMMY_DESIGNATIONS);
-
-      // Apply search filter
       if (searchTerm) {
-        filteredDesignations = filteredDesignations.filter(desg =>
-          desg.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          desg.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          desg.grade_level?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        params.search = searchTerm;
       }
 
-      // Apply department filter
-      if (filters.department !== '') {
-        filteredDesignations = filteredDesignations.filter(desg =>
-          filters.department === 'none' ? !desg.department_id : desg.department_id?.toString() === filters.department
-        );
+      if (filters.department && filters.department !== 'all') {
+        if (filters.department === 'none') {
+          // Handle "no department" filter if needed by backend
+        } else {
+          params.department_id = parseInt(filters.department);
+        }
       }
 
-      // Apply grade level filter
-      if (filters.grade_level !== '') {
-        filteredDesignations = filteredDesignations.filter(desg =>
-          desg.grade_level === filters.grade_level
-        );
+      if (filters.grade_level && filters.grade_level !== 'all') {
+        params.grade_level = filters.grade_level;
       }
 
-      // Apply status filter
-      if (filters.status !== '') {
-        filteredDesignations = filteredDesignations.filter(desg =>
-          filters.status === 'active' ? desg.is_active : !desg.is_active
-        );
+      if (filters.status && filters.status !== 'all') {
+        params.is_active = filters.status === 'active';
       }
 
-      // Apply pagination
-      const startIndex = (pagination.page - 1) * pagination.limit;
-      const endIndex = startIndex + pagination.limit;
-      const paginatedDesignations = filteredDesignations.slice(startIndex, endIndex);
-
-      setDesignations(paginatedDesignations);
+      const response = await HRMApiService.getDesignations(params);
+      
+      setDesignations(response.designations);
       setPagination(prev => ({
         ...prev,
-        total: filteredDesignations.length,
-        totalPages: Math.ceil(filteredDesignations.length / pagination.limit)
+        total: response.total,
+        totalPages: response.totalPages
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load designations');
@@ -302,27 +302,7 @@ const DesignationManagement: React.FC = () => {
 
   const handleCreateDesignation = async (data: CreateDesignationForm) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const newDesignation: Designation = {
-        id: Math.max(...DUMMY_DESIGNATIONS.map(d => d.id)) + 1,
-        title: data.title,
-        code: data.code,
-        department_id: data.department_id,
-        grade_level: data.grade_level,
-        description: data.description,
-        min_salary: data.min_salary,
-        max_salary: data.max_salary,
-        reports_to_id: data.reports_to_id,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      // Add to dummy data
-      DUMMY_DESIGNATIONS.push(newDesignation);
-
+      await HRMApiService.createDesignation(data);
       setIsFormOpen(false);
       loadDesignations();
     } catch (err) {
@@ -332,18 +312,7 @@ const DesignationManagement: React.FC = () => {
 
   const handleUpdateDesignation = async (id: number, data: Partial<CreateDesignationForm>) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DESIGNATIONS[index] = {
-          ...DUMMY_DESIGNATIONS[index],
-          ...data,
-          updated_at: new Date().toISOString()
-        };
-      }
-
+      await HRMApiService.updateDesignation(id, data);
       setIsFormOpen(false);
       setSelectedDesignation(null);
       loadDesignations();
@@ -354,14 +323,7 @@ const DesignationManagement: React.FC = () => {
 
   const handleDeleteDesignation = async (id: number) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DESIGNATIONS.splice(index, 1);
-      }
-
+      await HRMApiService.deleteDesignation(id);
       loadDesignations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete designation');
@@ -370,15 +332,7 @@ const DesignationManagement: React.FC = () => {
 
   const handleToggleStatus = async (id: number) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DESIGNATIONS[index].is_active = !DUMMY_DESIGNATIONS[index].is_active;
-        DUMMY_DESIGNATIONS[index].updated_at = new Date().toISOString();
-      }
-
+      await HRMApiService.toggleDesignationStatus(id);
       loadDesignations();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update designation status');
@@ -397,11 +351,22 @@ const DesignationManagement: React.FC = () => {
 
   const handleExportDesignations = async () => {
     try {
-      // Simulate API call for export
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // In a real implementation, this would trigger a file download
-      console.log('Exporting designations...');
+      const params = {
+        search: searchTerm,
+        department_id: filters.department && filters.department !== 'all' ? parseInt(filters.department) : undefined,
+        grade_level: filters.grade_level && filters.grade_level !== 'all' ? filters.grade_level : undefined,
+        is_active: filters.status && filters.status !== 'all' ? filters.status === 'active' : undefined,
+      };
+      
+      const blob = await HRMApiService.exportDesignations(params);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `designations-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError('Failed to export designations');
     }
@@ -411,38 +376,7 @@ const DesignationManagement: React.FC = () => {
     if (selectedDesignations.length === 0) return;
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      switch (action) {
-        case 'activate':
-          selectedDesignations.forEach(id => {
-            const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DESIGNATIONS[index].is_active = true;
-              DUMMY_DESIGNATIONS[index].updated_at = new Date().toISOString();
-            }
-          });
-          break;
-        case 'deactivate':
-          selectedDesignations.forEach(id => {
-            const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DESIGNATIONS[index].is_active = false;
-              DUMMY_DESIGNATIONS[index].updated_at = new Date().toISOString();
-            }
-          });
-          break;
-        case 'delete':
-          selectedDesignations.forEach(id => {
-            const index = DUMMY_DESIGNATIONS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DESIGNATIONS.splice(index, 1);
-            }
-          });
-          break;
-      }
-
+      await HRMApiService.bulkUpdateDesignations(action, selectedDesignations);
       setSelectedDesignations([]);
       setBulkAction('');
       loadDesignations();
@@ -470,8 +404,9 @@ const DesignationManagement: React.FC = () => {
   };
 
   const getDepartmentName = (departmentId?: number) => {
-    const department = DUMMY_DEPARTMENTS.find(d => d.id === departmentId);
-    return department ? department.name : 'No Department';
+    if (!departmentId) return 'No Department';
+    const department = departments.find(d => d.id === departmentId);
+    return department ? department.name : 'Unknown Department';
   };
 
   const getSalaryRange = (designation: Designation) => {
@@ -634,7 +569,7 @@ const DesignationManagement: React.FC = () => {
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
                 <SelectItem value="none">No Department</SelectItem>
-                {DUMMY_DEPARTMENTS.map((dept) => (
+                {departments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id.toString()}>
                     {dept.name}
                   </SelectItem>

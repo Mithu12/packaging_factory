@@ -13,9 +13,14 @@ import {
   AttendanceRecord,
   WorkSchedule,
   CreateEmployeeForm,
+  CreateDepartmentForm,
+  CreateDesignationForm,
   CreateLeaveApplicationForm,
   CreateAttendanceRecordForm,
   EmployeeListResponse,
+  DepartmentListResponse,
+  DesignationListResponse,
+  DesignationHierarchyNode,
   HRDashboardData,
   PayrollSummary,
   AttendanceSummary
@@ -40,6 +45,140 @@ function buildQueryString(params?: Record<string, any>): string {
 
 export class HRMApiService {
   private static readonly BASE_URL = '/hrm';
+
+  // ========== Department Management ==========
+  
+  static async getDepartments(params?: {
+    search?: string;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }): Promise<DepartmentListResponse> {
+    const queryString = buildQueryString(params);
+    return makeRequest<DepartmentListResponse>(`${this.BASE_URL}/departments${queryString}`);
+  }
+
+  static async getDepartmentById(id: number): Promise<{ department: Department }> {
+    return makeRequest<{ department: Department }>(`${this.BASE_URL}/departments/${id}`);
+  }
+
+  static async createDepartment(data: CreateDepartmentForm): Promise<{ department: Department }> {
+    return makeRequest<{ department: Department }>(`${this.BASE_URL}/departments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateDepartment(id: number, data: Partial<CreateDepartmentForm>): Promise<{ department: Department }> {
+    return makeRequest<{ department: Department }>(`${this.BASE_URL}/departments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteDepartment(id: number): Promise<void> {
+    return makeRequest<void>(`${this.BASE_URL}/departments/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async toggleDepartmentStatus(id: number): Promise<{ department: Department }> {
+    return makeRequest<{ department: Department }>(`${this.BASE_URL}/departments/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
+  static async bulkUpdateDepartments(action: string, departmentIds: number[]): Promise<{ message: string; updated_count: number }> {
+    return makeRequest<{ message: string; updated_count: number }>(`${this.BASE_URL}/departments/bulk-update`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, department_ids: departmentIds }),
+    });
+  }
+
+  static async exportDepartments(params?: Record<string, any>): Promise<Blob> {
+    const queryString = buildQueryString(params);
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/departments/export${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
+  }
+
+  // ========== Designation Management ==========
+  
+  static async getDesignations(params?: {
+    search?: string;
+    department_id?: number;
+    grade_level?: string;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }): Promise<DesignationListResponse> {
+    const queryString = buildQueryString(params);
+    return makeRequest<DesignationListResponse>(`${this.BASE_URL}/designations${queryString}`);
+  }
+
+  static async getDesignationById(id: number): Promise<{ designation: Designation }> {
+    return makeRequest<{ designation: Designation }>(`${this.BASE_URL}/designations/${id}`);
+  }
+
+  static async createDesignation(data: CreateDesignationForm): Promise<{ designation: Designation }> {
+    return makeRequest<{ designation: Designation }>(`${this.BASE_URL}/designations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateDesignation(id: number, data: Partial<CreateDesignationForm>): Promise<{ designation: Designation }> {
+    return makeRequest<{ designation: Designation }>(`${this.BASE_URL}/designations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteDesignation(id: number): Promise<void> {
+    return makeRequest<void>(`${this.BASE_URL}/designations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async toggleDesignationStatus(id: number): Promise<{ designation: Designation }> {
+    return makeRequest<{ designation: Designation }>(`${this.BASE_URL}/designations/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  }
+
+  static async bulkUpdateDesignations(action: string, designationIds: number[]): Promise<{ message: string; updated_count: number }> {
+    return makeRequest<{ message: string; updated_count: number }>(`${this.BASE_URL}/designations/bulk-update`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, designation_ids: designationIds }),
+    });
+  }
+
+  static async exportDesignations(params?: Record<string, any>): Promise<Blob> {
+    const queryString = buildQueryString(params);
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/designations/export${queryString}`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return response.blob();
+  }
+
+  static async getDesignationHierarchy(): Promise<{ hierarchy: DesignationHierarchyNode[] }> {
+    return makeRequest<{ hierarchy: DesignationHierarchyNode[] }>(`${this.BASE_URL}/designations/hierarchy`);
+  }
 
   // ========== Employee Management ==========
   

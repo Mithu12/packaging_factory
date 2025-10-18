@@ -384,6 +384,35 @@ export interface EmployeeTransfer {
     updated_at: string;
 }
 
+// Request/Response Types for Departments
+export interface CreateDepartmentRequest {
+    name: string;
+    code: string;
+    description?: string;
+    manager_id?: number;
+    parent_department_id?: number;
+}
+
+export interface UpdateDepartmentRequest {
+    name?: string;
+    code?: string;
+    description?: string;
+    manager_id?: number;
+    parent_department_id?: number;
+    is_active?: boolean;
+}
+
+export interface DepartmentQueryParams {
+    search?: string;
+    manager_id?: number;
+    parent_department_id?: number;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+}
+
 // Request/Response Types for Payroll
 export interface CreatePayrollPeriodRequest {
   name: string;

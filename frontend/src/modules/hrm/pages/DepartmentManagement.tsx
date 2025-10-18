@@ -62,6 +62,7 @@ import {
 } from 'lucide-react';
 import { Department, DepartmentListResponse, CreateDepartmentForm } from '../types';
 import DepartmentForm from '../components/DepartmentForm';
+import HRMApiService from '../services/hrm-api';
 
 // Dummy data for departments
 const DUMMY_DEPARTMENTS: Department[] = [
@@ -218,38 +219,28 @@ const DepartmentManagement: React.FC = () => {
   const loadDepartments = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // Simulate API call with dummy data
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const params: any = {
+        page: pagination.page,
+        limit: pagination.limit,
+      };
 
-      let filteredDepartments = generateEmployeeCounts(DUMMY_DEPARTMENTS);
-
-      // Apply search filter
       if (searchTerm) {
-        filteredDepartments = filteredDepartments.filter(dept =>
-          dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          dept.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (dept.manager?.first_name + ' ' + dept.manager?.last_name).toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        params.search = searchTerm;
       }
 
-      // Apply status filter
-      if (filters.status !== '') {
-        filteredDepartments = filteredDepartments.filter(dept =>
-          filters.status === 'active' ? dept.is_active : !dept.is_active
-        );
+      if (filters.status && filters.status !== 'all') {
+        params.is_active = filters.status === 'active';
       }
 
-      // Apply pagination
-      const startIndex = (pagination.page - 1) * pagination.limit;
-      const endIndex = startIndex + pagination.limit;
-      const paginatedDepartments = filteredDepartments.slice(startIndex, endIndex);
-
-      setDepartments(paginatedDepartments);
+      const response = await HRMApiService.getDepartments(params);
+      
+      setDepartments(response.departments);
       setPagination(prev => ({
         ...prev,
-        total: filteredDepartments.length,
-        totalPages: Math.ceil(filteredDepartments.length / pagination.limit)
+        total: response.total,
+        totalPages: response.totalPages
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load departments');
@@ -260,23 +251,7 @@ const DepartmentManagement: React.FC = () => {
 
   const handleCreateDepartment = async (data: CreateDepartmentForm) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const newDepartment: Department = {
-        id: Math.max(...DUMMY_DEPARTMENTS.map(d => d.id)) + 1,
-        name: data.name,
-        code: data.code,
-        description: data.description,
-        manager_id: data.manager_id,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      // Add to dummy data
-      DUMMY_DEPARTMENTS.push(newDepartment);
-
+      await HRMApiService.createDepartment(data);
       setIsFormOpen(false);
       loadDepartments();
     } catch (err) {
@@ -286,18 +261,7 @@ const DepartmentManagement: React.FC = () => {
 
   const handleUpdateDepartment = async (id: number, data: Partial<CreateDepartmentForm>) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DEPARTMENTS[index] = {
-          ...DUMMY_DEPARTMENTS[index],
-          ...data,
-          updated_at: new Date().toISOString()
-        };
-      }
-
+      await HRMApiService.updateDepartment(id, data);
       setIsFormOpen(false);
       setSelectedDepartment(null);
       loadDepartments();
@@ -308,14 +272,7 @@ const DepartmentManagement: React.FC = () => {
 
   const handleDeleteDepartment = async (id: number) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DEPARTMENTS.splice(index, 1);
-      }
-
+      await HRMApiService.deleteDepartment(id);
       loadDepartments();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete department');
@@ -324,15 +281,7 @@ const DepartmentManagement: React.FC = () => {
 
   const handleToggleStatus = async (id: number) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-      if (index !== -1) {
-        DUMMY_DEPARTMENTS[index].is_active = !DUMMY_DEPARTMENTS[index].is_active;
-        DUMMY_DEPARTMENTS[index].updated_at = new Date().toISOString();
-      }
-
+      await HRMApiService.toggleDepartmentStatus(id);
       loadDepartments();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update department status');
@@ -351,11 +300,20 @@ const DepartmentManagement: React.FC = () => {
 
   const handleExportDepartments = async () => {
     try {
-      // Simulate API call for export
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // In a real implementation, this would trigger a file download
-      console.log('Exporting departments...');
+      const params = {
+        search: searchTerm,
+        is_active: filters.status && filters.status !== 'all' ? filters.status === 'active' : undefined,
+      };
+      
+      const blob = await HRMApiService.exportDepartments(params);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `departments-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError('Failed to export departments');
     }
@@ -365,38 +323,7 @@ const DepartmentManagement: React.FC = () => {
     if (selectedDepartments.length === 0) return;
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      switch (action) {
-        case 'activate':
-          selectedDepartments.forEach(id => {
-            const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DEPARTMENTS[index].is_active = true;
-              DUMMY_DEPARTMENTS[index].updated_at = new Date().toISOString();
-            }
-          });
-          break;
-        case 'deactivate':
-          selectedDepartments.forEach(id => {
-            const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DEPARTMENTS[index].is_active = false;
-              DUMMY_DEPARTMENTS[index].updated_at = new Date().toISOString();
-            }
-          });
-          break;
-        case 'delete':
-          selectedDepartments.forEach(id => {
-            const index = DUMMY_DEPARTMENTS.findIndex(d => d.id === id);
-            if (index !== -1) {
-              DUMMY_DEPARTMENTS.splice(index, 1);
-            }
-          });
-          break;
-      }
-
+      await HRMApiService.bulkUpdateDepartments(action, selectedDepartments);
       setSelectedDepartments([]);
       setBulkAction('');
       loadDepartments();
@@ -531,7 +458,7 @@ const DepartmentManagement: React.FC = () => {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedDepartments.length === departments.length && departments.length > 0}
+                    checked={selectedDepartments?.length === departments?.length && departments?.length > 0}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -543,7 +470,7 @@ const DepartmentManagement: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {departments.map((department) => (
+              {departments?.map((department) => (
                 <TableRow key={department.id}>
                   <TableCell>
                     <Checkbox
