@@ -98,6 +98,7 @@ import SalaryUpdatePage from "@/modules/hrm/pages/SalaryUpdatePage";
 import PayrollPage from "@/modules/hrm/pages/PayrollPage";
 import LeaveTypeConfigurationPage from "@/modules/hrm/pages/LeaveTypeConfigurationPage";
 import LeaveApplicationPage from "@/modules/hrm/pages/LeaveApplicationPage";
+import LeaveCalendarPage from "@/modules/hrm/pages/LeaveCalendarPage";
 
 const queryClient = new QueryClient();
 
@@ -898,6 +899,46 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <LeaveApplicationPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-calendar"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveCalendarPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-calendar/:view"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveCalendarPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-calendar/:view/:departmentId"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveCalendarPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-calendar/:view/:departmentId/:employeeId"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveCalendarPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
