@@ -605,3 +605,210 @@ export interface SalaryHistoryProps {
   employees: Employee[];
   loading?: boolean;
 }
+
+// Payroll and Payment Types
+export interface PayrollPeriod {
+  id: number;
+  month: number; // 1-12
+  year: number;
+  name: string; // e.g., "January 2024"
+  status: 'draft' | 'calculated' | 'approved' | 'processed' | 'closed';
+  total_employees: number;
+  total_gross_salary: number;
+  total_deductions: number;
+  total_net_salary: number;
+  processed_by?: number;
+  processed_at?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayrollComponent {
+  id: number;
+  name: string;
+  code: string;
+  component_type: 'earning' | 'deduction';
+  category?: string;
+  is_taxable: boolean;
+  is_mandatory: boolean;
+  calculation_method: 'fixed' | 'percentage' | 'formula';
+  default_value?: number;
+  formula?: string;
+  description?: string;
+  is_active: boolean;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeePayrollRecord {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  payroll_period_id: number;
+  payroll_period?: PayrollPeriod;
+
+  // Earnings
+  basic_salary: number;
+  house_rent_allowance: number;
+  transport_allowance: number;
+  medical_allowance: number;
+  bonus: number;
+  overtime_pay: number;
+  other_earnings: number;
+
+  // Deductions
+  income_tax: number;
+  provident_fund: number;
+  insurance: number;
+  loan_deduction: number;
+  other_deductions: number;
+
+  // Calculated totals
+  total_earnings: number;
+  total_deductions: number;
+  net_salary: number;
+
+  status: 'draft' | 'calculated' | 'approved' | 'paid' | 'cancelled';
+  calculated_by?: number;
+  calculated_at?: string;
+  approved_by?: number;
+  approved_at?: string;
+  paid_by?: number;
+  paid_at?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentRecord {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  payroll_period_id: number;
+  payroll_period?: PayrollPeriod;
+  payroll_record_id?: number;
+  payroll_record?: EmployeePayrollRecord;
+
+  payment_method: 'bank_transfer' | 'check' | 'cash' | 'other';
+  payment_date: string;
+  amount: number;
+  bank_account_number?: string;
+  bank_name?: string;
+  check_number?: string;
+  transaction_reference?: string;
+
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  failure_reason?: string;
+  processed_by?: number;
+  processed_at?: string;
+
+  // Audit fields
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayrollSummary {
+  period_id: number;
+  period_name: string;
+  total_employees: number;
+  total_gross_salary: number;
+  total_deductions: number;
+  total_net_salary: number;
+  total_paid: number;
+  pending_payments: number;
+  failed_payments: number;
+  department_breakdown: {
+    department_id: number;
+    department_name: string;
+    employee_count: number;
+    total_salary: number;
+  }[];
+  payment_method_breakdown: {
+    method: string;
+    count: number;
+    total_amount: number;
+  }[];
+}
+
+// Form Types
+export interface PayrollCalculationForm {
+  month: number;
+  year: number;
+  employee_ids?: number[];
+  recalculate_all?: boolean;
+}
+
+export interface PaymentProcessingForm {
+  payroll_period_id: number;
+  employee_ids: number[];
+  payment_method: 'bank_transfer' | 'check' | 'cash' | 'other';
+  payment_date: string;
+  bank_account_number?: string;
+  bank_name?: string;
+  check_number?: string;
+  notes?: string;
+}
+
+export interface PayrollFilter {
+  department_ids?: number[];
+  designation_ids?: number[];
+  payment_status?: string[];
+  date_from?: string;
+  date_to?: string;
+  min_salary?: number;
+  max_salary?: number;
+  search_term?: string;
+}
+
+// Component Props Types
+export interface PayrollPageProps {
+  employees: Employee[];
+  departments: Department[];
+  payrollPeriods: PayrollPeriod[];
+  payrollRecords: EmployeePayrollRecord[];
+  paymentRecords: PaymentRecord[];
+  onCalculatePayroll: (data: PayrollCalculationForm) => Promise<void>;
+  onProcessPayments: (data: PaymentProcessingForm) => Promise<void>;
+  onExportData: (format: 'excel' | 'pdf', filters?: PayrollFilter) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface EmployeePayrollCardProps {
+  employee: Employee;
+  payrollRecord?: EmployeePayrollRecord;
+  paymentRecord?: PaymentRecord;
+  isSelected?: boolean;
+  onSelect?: (selected: boolean) => void;
+  onViewPayslip?: () => void;
+  loading?: boolean;
+}
+
+export interface PayrollCalculatorProps {
+  employees: Employee[];
+  selectedEmployeeIds: number[];
+  onCalculate: (data: PayrollCalculationForm) => Promise<void>;
+  onSelectAll: (selected: boolean) => void;
+  loading?: boolean;
+}
+
+export interface PaymentFormProps {
+  selectedEmployees: Employee[];
+  selectedPayrollRecords: EmployeePayrollRecord[];
+  onSubmit: (data: PaymentProcessingForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface PayrollHistoryProps {
+  payrollRecords: EmployeePayrollRecord[];
+  paymentRecords: PaymentRecord[];
+  employees: Employee[];
+  departments: Department[];
+  filters?: PayrollFilter;
+  onFilterChange?: (filters: PayrollFilter) => void;
+  onExport?: (format: 'excel' | 'pdf') => Promise<void>;
+  loading?: boolean;
+}

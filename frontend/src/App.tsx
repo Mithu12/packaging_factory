@@ -94,6 +94,7 @@ import EmployeeManagement from "@/modules/hrm/pages/EmployeeManagement";
 import DepartmentManagement from "@/modules/hrm/pages/DepartmentManagement";
 import DesignationManagement from "@/modules/hrm/pages/DesignationManagement";
 import SalaryUpdatePage from "@/modules/hrm/pages/SalaryUpdatePage";
+import PayrollPage from "@/modules/hrm/pages/PayrollPage";
 
 const queryClient = new QueryClient();
 
@@ -851,6 +852,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <SalaryUpdatePage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/payroll"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <PayrollPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

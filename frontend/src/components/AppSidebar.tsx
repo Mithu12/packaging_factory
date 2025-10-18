@@ -392,6 +392,12 @@ const menuSections: MenuSection[] = [
         icon: TrendingUp,
         permission: PERMISSIONS.HR_SALARY_UPDATES_READ,
       },
+      {
+        title: "Payroll",
+        url: "/hrm/payroll",
+        icon: Receipt,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
+      },
     ],
   },
   // {
