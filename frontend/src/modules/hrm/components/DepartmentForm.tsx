@@ -7,17 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Department, CreateDepartmentForm, DepartmentFormProps } from '../types';
 import { HRMApiService } from '../services/hrm-api';
 
-// Dummy employee data for manager selection
-const DUMMY_EMPLOYEES = [
-  { id: 1, first_name: 'John', last_name: 'Doe', employee_id: 'EMP001', is_active: true },
-  { id: 2, first_name: 'Sarah', last_name: 'Johnson', employee_id: 'EMP002', is_active: true },
-  { id: 3, first_name: 'Michael', last_name: 'Chen', employee_id: 'EMP003', is_active: true },
-  { id: 4, first_name: 'Emily', last_name: 'Davis', employee_id: 'EMP004', is_active: true },
-  { id: 5, first_name: 'David', last_name: 'Wilson', employee_id: 'EMP005', is_active: true },
-  { id: 6, first_name: 'Lisa', last_name: 'Anderson', employee_id: 'EMP006', is_active: true },
-  { id: 7, first_name: 'Robert', last_name: 'Taylor', employee_id: 'EMP007', is_active: true },
-];
-
 const DepartmentForm: React.FC<DepartmentFormProps> = ({
   department,
   onSubmit,
@@ -33,7 +22,8 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [headOfDepartmentUsers, setHeadOfDepartmentUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     if (department) {
@@ -46,9 +36,26 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
       });
     }
 
-    // Load employees for manager selection (simulated)
-    setEmployees(DUMMY_EMPLOYEES.filter(emp => emp.is_active));
+    // Load Head of Department users
+    loadHeadOfDepartmentUsers();
   }, [department]);
+
+  const loadHeadOfDepartmentUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      // For now, we'll use a hardcoded role ID for "Head Of Department"
+      // In the future, we should fetch this dynamically
+      const headOfDepartmentRoleId = 60; // This should be fetched from the database
+      const response = await HRMApiService.getUsersByRole(headOfDepartmentRoleId);
+      setHeadOfDepartmentUsers(response.users);
+    } catch (error) {
+      console.error('Error loading Head of Department users:', error);
+      // Fallback to empty list - users can still create departments without managers
+      setHeadOfDepartmentUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -147,15 +154,16 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
           <Select
             value={formData.manager_id?.toString() || ''}
             onValueChange={(value) => handleInputChange('manager_id', value ? parseInt(value) : undefined)}
+            disabled={loadingUsers}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select a manager (optional)" />
+              <SelectValue placeholder={loadingUsers ? "Loading..." : "Select a manager (optional)"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No manager assigned</SelectItem>
-              {employees.map((employee) => (
-                <SelectItem key={employee.id} value={employee.id.toString()}>
-                  {employee.first_name} {employee.last_name} ({employee.employee_id})
+              {headOfDepartmentUsers.map((user) => (
+                <SelectItem key={user.id} value={user.id.toString()}>
+                  {user.full_name} ({user.username})
                 </SelectItem>
               ))}
             </SelectContent>

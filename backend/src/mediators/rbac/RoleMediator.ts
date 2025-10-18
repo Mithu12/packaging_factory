@@ -950,9 +950,72 @@ export class RoleMediator {
       });
       
       return departmentStats;
-      
+
     } catch (error) {
       MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ==================== USER-ROLE MANAGEMENT ====================
+
+  /**
+   * Get all users with a specific role
+   */
+  static async getUsersByRole(roleId: number): Promise<any[]> {
+    const action = 'RoleMediator.getUsersByRole';
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { roleId });
+
+      if (isNaN(roleId) || roleId <= 0) {
+        throw createError('Invalid role ID', 400);
+      }
+
+      // Verify role exists
+      const roleQuery = 'SELECT id, name, display_name FROM roles WHERE id = $1 AND is_active = true';
+      const roleResult = await client.query(roleQuery, [roleId]);
+
+      if (roleResult.rows.length === 0) {
+        throw createError('Role not found', 404);
+      }
+
+      const role = roleResult.rows[0];
+
+      // Get users with this role
+      const usersQuery = `
+        SELECT
+          u.id,
+          u.username,
+          u.email,
+          u.full_name,
+          u.mobile_number,
+          u.is_active,
+          u.created_at,
+          u.updated_at,
+          r.name as role_name,
+          r.display_name as role_display_name
+        FROM users u
+        INNER JOIN roles r ON r.id = u.role_id
+        WHERE u.role_id = $1 AND u.is_active = true
+        ORDER BY u.full_name ASC
+      `;
+
+      const usersResult = await client.query(usersQuery, [roleId]);
+
+      MyLogger.success(action, {
+        roleId,
+        roleName: role.name,
+        userCount: usersResult.rows.length
+      });
+
+      return usersResult.rows;
+
+    } catch (error) {
+      MyLogger.error(action, error, { roleId });
       throw error;
     } finally {
       client.release();

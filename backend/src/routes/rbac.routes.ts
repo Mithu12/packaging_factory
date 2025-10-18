@@ -4,6 +4,8 @@ import { authenticate } from '@/middleware/auth';
 import { requireSystemAdmin, requirePermission, PERMISSIONS } from '@/middleware/permission';
 import { auditMiddleware } from '@/middleware/audit';
 import { validateRequest, validateQuery } from '@/middleware/validation';
+import { serializeSuccessResponse, serializeErrorResponse } from '@/utils/responseHelper';
+import { MyLogger } from '@/utils/new-logger';
 import { RolesController } from '@/controllers/rbac/roles.controller';
 import { PermissionsController } from '@/controllers/rbac/permissions.controller';
 import { UserPermissionsController } from '@/controllers/rbac/user-permissions.controller';
@@ -397,6 +399,51 @@ router.get('/users/with-permission',
   authenticate,
   requireSystemAdmin(),
   expressAsyncHandler(UserPermissionsController.getUsersWithPermission)
+);
+
+/**
+ * @route GET /api/rbac/roles/:roleId/users
+ * @desc Get all users who have a specific role
+ * @access System Admin
+ */
+router.get('/roles/:roleId/users',
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res) => {
+    const action = 'GET /api/rbac/roles/:roleId/users';
+    const roleId = parseInt(req.params.roleId);
+
+    try {
+      MyLogger.info(action, { roleId });
+
+      if (isNaN(roleId)) {
+        serializeErrorResponse(res, {}, '400', 'Invalid role ID');
+        return;
+      }
+
+      const users = await RoleMediator.getUsersByRole(roleId);
+
+      MyLogger.success(action, {
+        roleId,
+        userCount: users.length
+      });
+
+      serializeSuccessResponse(res, {
+        role_id: roleId,
+        users,
+        summary: {
+          total_users: users.length,
+          active_users: users.filter(u => u.is_active).length,
+          inactive_users: users.filter(u => !u.is_active).length
+        }
+      }, 'Users with role retrieved successfully');
+
+    } catch (error: any) {
+      MyLogger.error(action, error, { roleId });
+      const statusCode = error.statusCode || 500;
+      serializeErrorResponse(res, {}, statusCode.toString(), error.message || 'Error retrieving users with role');
+    }
+  })
 );
 
 // ==================== UTILITY ROUTES ====================

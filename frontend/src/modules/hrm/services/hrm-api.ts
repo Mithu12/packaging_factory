@@ -672,6 +672,12 @@ export class HRMApiService {
       minute: '2-digit'
     }).format(new Date(date));
   }
+
+  // ========== Role-Based User Management ==========
+
+  static async getUsersByRole(roleId: number): Promise<{ users: any[] }> {
+    return makeRequest<{ users: any[] }>(`/rbac/roles/${roleId}/users`);
+  }
 }
 
 export default HRMApiService;
