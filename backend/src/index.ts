@@ -25,6 +25,7 @@ import inventoryRoutes from "./modules/inventory";
 import accountsRoutes from "./modules/accounts";
 import factoryRoutes from "./modules/factory";
 import hrmRoutes from "./modules/hrm/routes";
+import salesRoutes from "./modules/sales";
 
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
@@ -137,6 +138,7 @@ app.use("/api/hrm", hrmRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
+app.use("/api/sales", salesRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
