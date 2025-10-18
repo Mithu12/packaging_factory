@@ -213,7 +213,7 @@ const DepartmentManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    loadDepartments();
+    loadDepartments().then(r => console.log(r));
   }, [pagination.page, searchTerm, filters]);
 
   const loadDepartments = async () => {
@@ -250,24 +250,16 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleCreateDepartment = async (data: CreateDepartmentForm) => {
-    try {
       await HRMApiService.createDepartment(data);
       setIsFormOpen(false);
-      loadDepartments();
-    } catch (err) {
-      throw err;
-    }
+      await loadDepartments();
   };
 
   const handleUpdateDepartment = async (id: number, data: Partial<CreateDepartmentForm>) => {
-    try {
       await HRMApiService.updateDepartment(id, data);
       setIsFormOpen(false);
       setSelectedDepartment(null);
-      loadDepartments();
-    } catch (err) {
-      throw err;
-    }
+      await loadDepartments();
   };
 
   const handleDeleteDepartment = async (id: number) => {
