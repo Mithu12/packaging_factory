@@ -52,19 +52,23 @@ export class UpdatePayrollMediator {
       // Create audit log
       if (approvedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'payroll_runs',
-          record_id: runId,
-          action: 'UPDATE',
-          old_values: { status: run.status },
-          new_values: { status: 'approved', approved_by: approvedBy },
-          user_id: approvedBy,
-          timestamp: new Date()
+        await auditService.logActivity({
+          userId: paidBy,
+          action: 'MARK_PAYROLL_AS_PAID',
+          resourceType: 'payroll_run',
+          resourceId: runId,
+          endpoint: '/api/hrm/payroll/runs/paid',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { status: run.status },
+          newValues: { status: 'approved', approved_by: approvedBy }
         });
       }
 
       // Publish event
-      eventBus.publish('payroll.approved', {
+      eventBus.emit('payroll.approved', {
         runId,
         periodId: run.period_id,
         approvedBy
@@ -130,10 +134,16 @@ export class UpdatePayrollMediator {
       // Create audit log for period approval
       if (approvedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'payroll_periods',
-          record_id: periodId,
-          action: 'UPDATE',
+        await auditService.logActivity({
+          userId: paidBy,
+          action: 'APPROVE_PAYROLL_PERIOD',
+          resourceType: 'payroll_period',
+          resourceId: periodId,
+          endpoint: '/api/hrm/payroll/periods/approve',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
           old_values: { status: 'calculated' },
           new_values: { status: 'approved' },
           user_id: approvedBy,
@@ -142,7 +152,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      eventBus.publish('payroll.period.approved', {
+      eventBus.emit('payroll.period.approved', {
         periodId,
         approvedRuns: approvedCount,
         totalRuns: runIds.length,
@@ -210,10 +220,16 @@ export class UpdatePayrollMediator {
       // Create audit log
       if (paidBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'payroll_runs',
-          record_id: runId,
-          action: 'UPDATE',
+        await auditService.logActivity({
+          userId: paidBy,
+          action: 'MARK_PAYROLL_AS_PAID',
+          resourceType: 'payroll_run',
+          resourceId: runId,
+          endpoint: '/api/hrm/payroll/runs/paid',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
           old_values: { status: run.status },
           new_values: { status: 'paid', paid_at: new Date() },
           user_id: paidBy,
@@ -222,7 +238,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      eventBus.publish('payroll.paid', {
+      eventBus.emit('payroll.paid', {
         runId,
         periodId: run.period_id,
         employeeId: run.employee_id,
@@ -290,10 +306,16 @@ export class UpdatePayrollMediator {
       // Create audit log
       if (cancelledBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'payroll_runs',
-          record_id: runId,
-          action: 'UPDATE',
+        await auditService.logActivity({
+          userId: paidBy,
+          action: 'MARK_PAYROLL_AS_PAID',
+          resourceType: 'payroll_run',
+          resourceId: runId,
+          endpoint: '/api/hrm/payroll/runs/paid',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
           old_values: { status: run.status },
           new_values: { status: 'cancelled', cancellation_reason: reason },
           user_id: cancelledBy,
@@ -302,7 +324,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      eventBus.publish('payroll.cancelled', {
+      eventBus.emit('payroll.cancelled', {
         runId,
         periodId: run.period_id,
         reason,
@@ -360,10 +382,16 @@ export class UpdatePayrollMediator {
       // Create audit log
       if (updatedBy) {
         const auditService = new AuditService();
-        await auditService.createAuditLog({
-          table_name: 'payroll_periods',
-          record_id: periodId,
-          action: 'UPDATE',
+        await auditService.logActivity({
+          userId: paidBy,
+          action: 'APPROVE_PAYROLL_PERIOD',
+          resourceType: 'payroll_period',
+          resourceId: periodId,
+          endpoint: '/api/hrm/payroll/periods/approve',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
           old_values: { status: period.status },
           new_values: { status },
           user_id: updatedBy,
@@ -372,7 +400,7 @@ export class UpdatePayrollMediator {
       }
 
       // Publish event
-      eventBus.publish('payroll.period.status.updated', {
+      eventBus.emit('payroll.period.status.updated', {
         periodId,
         oldStatus: period.status,
         newStatus: status,

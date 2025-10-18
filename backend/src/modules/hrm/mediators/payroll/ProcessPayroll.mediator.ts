@@ -298,7 +298,7 @@ export class ProcessPayrollMediator {
     baseSalary: number,
     components: Array<{ component_id: number; amount?: number; percentage?: number }>,
     setupBy?: number
-  ): Promise<EmployeeSalaryStructure> {
+  ): Promise<any> {
     const action = "ProcessPayrollMediator.setupEmployeeSalaryStructure";
     const client = await pool.connect();
 
