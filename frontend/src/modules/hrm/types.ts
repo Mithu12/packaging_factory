@@ -380,6 +380,139 @@ export interface AttendanceSummary {
   employee_attendance: { employee: string; attendance_rate: number; total_days: number }[];
 }
 
+// Salary and Promotion Types
+export interface SalaryIncrement {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  current_salary: number;
+  new_salary: number;
+  increment_amount: number;
+  increment_percentage: number;
+  effective_date: string;
+  reason: string;
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  approved_by?: number;
+  approved_at?: string;
+  rejection_reason?: string;
+  notes?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Promotion {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  current_designation_id?: number;
+  current_designation?: Designation;
+  current_department_id?: number;
+  current_department?: Department;
+  new_designation_id: number;
+  new_designation?: Designation;
+  new_department_id?: number;
+  new_department?: Department;
+  current_salary: number;
+  new_salary: number;
+  salary_adjustment: number;
+  adjustment_percentage?: number;
+  effective_date: string;
+  promotion_letter_content?: string;
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  approved_by?: number;
+  approved_at?: string;
+  rejection_reason?: string;
+  reason: string;
+  notes?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalaryHistory {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  action_type: 'increment' | 'promotion' | 'adjustment' | 'initial';
+  previous_salary?: number;
+  new_salary: number;
+  change_amount: number;
+  change_percentage?: number;
+  effective_date: string;
+  reason?: string;
+  reference_id?: number; // Reference to increment or promotion record
+  reference_type?: 'increment' | 'promotion';
+  created_by: number;
+  created_at: string;
+}
+
+export interface BulkSalaryUpdate {
+  id: number;
+  name: string;
+  description?: string;
+  increment_type: 'fixed_amount' | 'percentage' | 'custom';
+  increment_value: number; // Amount or percentage
+  effective_date: string;
+  criteria: {
+    department_ids?: number[];
+    designation_ids?: number[];
+    employee_ids?: number[];
+    min_salary?: number;
+    max_salary?: number;
+    employment_types?: string[];
+  };
+  status: 'draft' | 'processing' | 'completed' | 'cancelled';
+  total_employees_affected: number;
+  total_cost_impact: number;
+  applied_count: number;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Form Types for Salary Updates
+export interface SalaryIncrementForm {
+  employee_id: number;
+  current_salary: number;
+  new_salary: number;
+  increment_amount?: number;
+  increment_percentage?: number;
+  effective_date: string;
+  reason: string;
+  notes?: string;
+}
+
+export interface PromotionForm {
+  employee_id: number;
+  current_designation_id?: number;
+  current_department_id?: number;
+  new_designation_id: number;
+  new_department_id?: number;
+  current_salary: number;
+  new_salary: number;
+  salary_adjustment?: number;
+  adjustment_percentage?: number;
+  effective_date: string;
+  reason: string;
+  notes?: string;
+  promotion_letter_content?: string;
+}
+
+export interface BulkSalaryUpdateForm {
+  name: string;
+  description?: string;
+  increment_type: 'fixed_amount' | 'percentage' | 'custom';
+  increment_value: number;
+  effective_date: string;
+  department_ids?: number[];
+  designation_ids?: number[];
+  employee_ids?: number[];
+  min_salary?: number;
+  max_salary?: number;
+  employment_types?: string[];
+}
+
 // Component Props Types
 export interface EmployeeFormProps {
   employee?: Employee;
@@ -428,5 +561,47 @@ export interface AttendanceTrackerProps {
   employee?: Employee;
   onMarkAttendance: (action: 'check_in' | 'check_out' | 'break_start' | 'break_end', location?: string, notes?: string) => Promise<void>;
   currentRecord?: AttendanceRecord;
+  loading?: boolean;
+}
+
+export interface SalaryUpdatePageProps {
+  employees: Employee[];
+  departments: Department[];
+  designations: Designation[];
+  salaryHistory: SalaryHistory[];
+  onSalaryIncrement: (data: SalaryIncrementForm) => Promise<void>;
+  onPromotion: (data: PromotionForm) => Promise<void>;
+  onBulkSalaryUpdate: (data: BulkSalaryUpdateForm) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface SalaryIncrementFormProps {
+  employees: Employee[];
+  onSubmit: (data: SalaryIncrementForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface PromotionFormProps {
+  employees: Employee[];
+  departments: Department[];
+  designations: Designation[];
+  onSubmit: (data: PromotionForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface BulkSalaryUpdateFormProps {
+  employees: Employee[];
+  departments: Department[];
+  designations: Designation[];
+  onSubmit: (data: BulkSalaryUpdateForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface SalaryHistoryProps {
+  history: SalaryHistory[];
+  employees: Employee[];
   loading?: boolean;
 }

@@ -386,6 +386,12 @@ const menuSections: MenuSection[] = [
         icon: UserCheck,
         permission: PERMISSIONS.HR_DESIGNATIONS_READ,
       },
+      {
+        title: "Salary Updates",
+        url: "/hrm/salary-updates",
+        icon: TrendingUp,
+        permission: PERMISSIONS.HR_SALARY_UPDATES_READ,
+      },
     ],
   },
   // {
