@@ -36,6 +36,7 @@ import {
   TrendingUp,
   Package2,
   Calculator as CalculatorIcon,
+  UserCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -378,6 +379,12 @@ const menuSections: MenuSection[] = [
         url: "/hrm/departments",
         icon: Building,
         permission: PERMISSIONS.HR_DEPARTMENTS_READ,
+      },
+      {
+        title: "Designations",
+        url: "/hrm/designations",
+        icon: UserCheck,
+        permission: PERMISSIONS.HR_DESIGNATIONS_READ,
       },
     ],
   },

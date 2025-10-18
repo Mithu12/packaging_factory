@@ -71,12 +71,21 @@ export interface Designation {
   code: string;
   department_id?: number;
   department?: Department;
+  grade_level?: string;
   description?: string;
   min_salary?: number;
   max_salary?: number;
+  reports_to_id?: number;
+  reports_to?: Designation;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DesignationHierarchyNode {
+  designation: Designation;
+  children: DesignationHierarchyNode[];
+  employee_count?: number;
 }
 
 export interface PayrollPeriod {
@@ -300,6 +309,17 @@ export interface CreateDepartmentForm {
   parent_department_id?: number;
 }
 
+export interface CreateDesignationForm {
+  title: string;
+  code: string;
+  department_id?: number;
+  grade_level?: string;
+  description?: string;
+  min_salary?: number;
+  max_salary?: number;
+  reports_to_id?: number;
+}
+
 // API Response Types
 export interface EmployeeListResponse {
   employees: Employee[];
@@ -311,6 +331,14 @@ export interface EmployeeListResponse {
 
 export interface DepartmentListResponse {
   departments: Department[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface DesignationListResponse {
+  designations: Designation[];
   total: number;
   page: number;
   limit: number;
@@ -363,6 +391,13 @@ export interface EmployeeFormProps {
 export interface DepartmentFormProps {
   department?: Department;
   onSubmit: (data: CreateDepartmentForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface DesignationFormProps {
+  designation?: Designation;
+  onSubmit: (data: CreateDesignationForm) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
 }

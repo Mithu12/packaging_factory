@@ -92,6 +92,7 @@ import Operators from "@/modules/factory/pages/Operators";
 import HRMDashboard from "@/modules/hrm/pages/HRMDashboard";
 import EmployeeManagement from "@/modules/hrm/pages/EmployeeManagement";
 import DepartmentManagement from "@/modules/hrm/pages/DepartmentManagement";
+import DesignationManagement from "@/modules/hrm/pages/DesignationManagement";
 
 const queryClient = new QueryClient();
 
@@ -829,6 +830,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <DepartmentManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/designations"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <DesignationManagement />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
