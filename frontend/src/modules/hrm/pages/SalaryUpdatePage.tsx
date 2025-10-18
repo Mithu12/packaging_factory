@@ -1,34 +1,47 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { DollarSign, TrendingUp, Users, FileText, History, PlusCircle } from 'lucide-react';
-import { SalaryUpdatePageProps } from '../types';
-import SalaryIncrementForm from '../components/SalaryIncrementForm';
-import PromotionForm from '../components/PromotionForm';
-import BulkSalaryUpdateForm from '../components/BulkSalaryUpdateForm';
-import SalaryHistory from '../components/SalaryHistory';
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  DollarSign,
+  TrendingUp,
+  Users,
+  FileText,
+  History,
+  PlusCircle,
+} from "lucide-react";
+import { SalaryUpdatePageProps } from "../types";
+import SalaryIncrementForm from "../components/SalaryIncrementForm";
+import PromotionForm from "../components/PromotionForm";
+import BulkSalaryUpdateForm from "../components/BulkSalaryUpdateForm";
+import SalaryHistory from "../components/SalaryHistory";
 import {
   mockEmployees,
   mockDepartments,
   mockDesignations,
   mockSalaryHistory,
   mockSalaryIncrements,
-  mockPromotions
-} from '../data/salary-update-data';
+  mockPromotions,
+} from "../data/salary-update-data";
 
 const SalaryUpdatePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('increment');
+  const [activeTab, setActiveTab] = useState("increment");
   const [loading, setLoading] = useState(false);
 
   // Mock handlers for form submissions
   const handleSalaryIncrement = async (data: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Salary increment submitted:', data);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Salary increment submitted:", data);
     setLoading(false);
     // In real implementation, this would make an API call
   };
@@ -36,8 +49,8 @@ const SalaryUpdatePage: React.FC = () => {
   const handlePromotion = async (data: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Promotion submitted:', data);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Promotion submitted:", data);
     setLoading(false);
     // In real implementation, this would make an API call
   };
@@ -45,21 +58,25 @@ const SalaryUpdatePage: React.FC = () => {
   const handleBulkSalaryUpdate = async (data: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Bulk salary update submitted:', data);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Bulk salary update submitted:", data);
     setLoading(false);
     // In real implementation, this would make an API call
   };
 
   // Calculate summary statistics
   const totalEmployees = mockEmployees.length;
-  const pendingIncrements = mockSalaryIncrements.filter(inc => inc.status === 'pending_approval').length;
-  const pendingPromotions = mockPromotions.filter(pro => pro.status === 'pending_approval').length;
+  const pendingIncrements = mockSalaryIncrements.filter(
+    (inc) => inc.status === "pending_approval"
+  ).length;
+  const pendingPromotions = mockPromotions.filter(
+    (pro) => pro.status === "pending_approval"
+  ).length;
   const totalIncrements = mockSalaryIncrements.length;
   const totalPromotions = mockPromotions.length;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -77,7 +94,9 @@ const SalaryUpdatePage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Employees
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -87,11 +106,15 @@ const SalaryUpdatePage: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Increments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Increments
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{pendingIncrements}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {pendingIncrements}
+            </div>
             <p className="text-xs text-muted-foreground">
               {totalIncrements} total increments
             </p>
@@ -100,11 +123,15 @@ const SalaryUpdatePage: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Promotions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Promotions
+            </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{pendingPromotions}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {pendingPromotions}
+            </div>
             <p className="text-xs text-muted-foreground">
               {totalPromotions} total promotions
             </p>
@@ -113,7 +140,9 @@ const SalaryUpdatePage: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">History Records</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              History Records
+            </CardTitle>
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -161,7 +190,7 @@ const SalaryUpdatePage: React.FC = () => {
               <SalaryIncrementForm
                 employees={mockEmployees}
                 onSubmit={handleSalaryIncrement}
-                onCancel={() => setActiveTab('history')}
+                onCancel={() => setActiveTab("history")}
                 loading={loading}
               />
             </CardContent>
@@ -185,7 +214,7 @@ const SalaryUpdatePage: React.FC = () => {
                 departments={mockDepartments}
                 designations={mockDesignations}
                 onSubmit={handlePromotion}
-                onCancel={() => setActiveTab('history')}
+                onCancel={() => setActiveTab("history")}
                 loading={loading}
               />
             </CardContent>
@@ -200,7 +229,8 @@ const SalaryUpdatePage: React.FC = () => {
                 Bulk Salary Update
               </CardTitle>
               <CardDescription>
-                Apply salary increments to multiple employees at once (e.g., annual increments)
+                Apply salary increments to multiple employees at once (e.g.,
+                annual increments)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -209,7 +239,7 @@ const SalaryUpdatePage: React.FC = () => {
                 departments={mockDepartments}
                 designations={mockDesignations}
                 onSubmit={handleBulkSalaryUpdate}
-                onCancel={() => setActiveTab('history')}
+                onCancel={() => setActiveTab("history")}
                 loading={loading}
               />
             </CardContent>

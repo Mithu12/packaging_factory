@@ -9,8 +9,8 @@ export interface Employee {
   last_name?: string;
   full_name?: string;
   date_of_birth?: string;
-  gender?: 'male' | 'female' | 'other';
-  marital_status?: 'single' | 'married' | 'divorced' | 'widowed';
+  gender?: "male" | "female" | "other";
+  marital_status?: "single" | "married" | "divorced" | "widowed";
   nationality?: string;
   address?: string;
   city?: string;
@@ -31,20 +31,20 @@ export interface Employee {
   reporting_manager?: Employee;
   department_id?: number;
   department?: Department;
-  employment_type: 'permanent' | 'contract' | 'intern' | 'consultant';
+  employment_type: "permanent" | "contract" | "intern" | "consultant";
   join_date?: string;
   confirmation_date?: string;
   termination_date?: string;
   probation_period_months: number;
   notice_period_days: number;
   work_location?: string;
-  shift_type: 'day' | 'night' | 'rotating';
+  shift_type: "day" | "night" | "rotating";
   bank_account_number?: string;
   bank_name?: string;
-  skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
+  skill_level: "beginner" | "intermediate" | "expert" | "master";
   department_name?: string;
   current_work_order_id?: number;
-  availability_status: 'available' | 'busy' | 'off_duty' | 'on_leave';
+  availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
   is_active: boolean;
   created_at: string;
@@ -93,8 +93,8 @@ export interface PayrollPeriod {
   name: string;
   start_date: string;
   end_date: string;
-  period_type: 'monthly' | 'bi-weekly' | 'weekly' | 'daily';
-  status: 'open' | 'processing' | 'closed' | 'cancelled';
+  period_type: "monthly" | "bi-weekly" | "weekly" | "daily";
+  status: "open" | "processing" | "closed" | "cancelled";
   description?: string;
   created_by?: number;
   created_at: string;
@@ -105,7 +105,7 @@ export interface PayrollComponent {
   id: number;
   name: string;
   code: string;
-  component_type: 'earning' | 'deduction';
+  component_type: "earning" | "deduction";
   category?: string;
   is_taxable: boolean;
   is_mandatory: boolean;
@@ -123,7 +123,7 @@ export interface PayrollRun {
   payroll_period_id: number;
   period?: PayrollPeriod;
   run_number: string;
-  status: 'draft' | 'processing' | 'completed' | 'cancelled' | 'posted';
+  status: "draft" | "processing" | "completed" | "cancelled" | "posted";
   total_employees: number;
   total_gross_salary: number;
   total_deductions: number;
@@ -165,13 +165,19 @@ export interface LeaveApplication {
   start_date: string;
   end_date: string;
   total_days: number;
+  half_day?: boolean;
+  half_day_date?: string;
   reason?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: "pending" | "approved" | "rejected" | "cancelled";
   approved_by?: number;
   approved_at?: string;
   rejected_reason?: string;
   emergency_contact?: string;
+  contact_details?: string;
   work_handover_notes?: string;
+  work_coverage_notes?: string;
+  handover_notes?: string;
+  uploaded_documents?: string[];
   applied_at: string;
   updated_at: string;
 }
@@ -202,7 +208,7 @@ export interface AttendanceRecord {
   break_end_time?: string;
   total_hours_worked?: number;
   overtime_hours: number;
-  status: 'present' | 'absent' | 'late' | 'half_day' | 'holiday';
+  status: "present" | "absent" | "late" | "half_day" | "holiday";
   location?: string;
   notes?: string;
   recorded_by: string;
@@ -216,7 +222,7 @@ export interface WorkSchedule {
   id: number;
   name: string;
   description?: string;
-  schedule_type: 'fixed' | 'flexible' | 'rotating';
+  schedule_type: "fixed" | "flexible" | "rotating";
   monday_start?: string;
   monday_end?: string;
   tuesday_start?: string;
@@ -247,8 +253,8 @@ export interface CreateEmployeeForm {
   first_name: string;
   last_name: string;
   date_of_birth?: string;
-  gender?: 'male' | 'female' | 'other';
-  marital_status?: 'single' | 'married' | 'divorced' | 'widowed';
+  gender?: "male" | "female" | "other";
+  marital_status?: "single" | "married" | "divorced" | "widowed";
   nationality?: string;
   address?: string;
   city?: string;
@@ -266,16 +272,16 @@ export interface CreateEmployeeForm {
   designation_id?: number;
   reporting_manager_id?: number;
   department_id?: number;
-  employment_type: 'permanent' | 'contract' | 'intern' | 'consultant';
+  employment_type: "permanent" | "contract" | "intern" | "consultant";
   join_date?: string;
   probation_period_months: number;
   notice_period_days: number;
   work_location?: string;
-  shift_type: 'day' | 'night' | 'rotating';
+  shift_type: "day" | "night" | "rotating";
   bank_account_number?: string;
   bank_name?: string;
-  skill_level: 'beginner' | 'intermediate' | 'expert' | 'master';
-  availability_status: 'available' | 'busy' | 'off_duty' | 'on_leave';
+  skill_level: "beginner" | "intermediate" | "expert" | "master";
+  availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
 }
 
@@ -354,7 +360,11 @@ export interface HRDashboardData {
   department_breakdown: { department: string; count: number }[];
   recent_hires: Employee[];
   upcoming_birthdays: Employee[];
-  leave_balance_warnings: { employee: string; leave_type: string; remaining_days: number }[];
+  leave_balance_warnings: {
+    employee: string;
+    leave_type: string;
+    remaining_days: number;
+  }[];
 }
 
 export interface PayrollSummary {
@@ -366,7 +376,11 @@ export interface PayrollSummary {
   total_net_salary: number;
   average_salary: number;
   top_earners: { employee: string; salary: number }[];
-  department_salaries: { department: string; total_salary: number; employee_count: number }[];
+  department_salaries: {
+    department: string;
+    total_salary: number;
+    employee_count: number;
+  }[];
 }
 
 export interface AttendanceSummary {
@@ -376,8 +390,16 @@ export interface AttendanceSummary {
   average_attendance_rate: number;
   total_absenteeism: number;
   overtime_hours: number;
-  department_attendance: { department: string; attendance_rate: number; total_employees: number }[];
-  employee_attendance: { employee: string; attendance_rate: number; total_days: number }[];
+  department_attendance: {
+    department: string;
+    attendance_rate: number;
+    total_employees: number;
+  }[];
+  employee_attendance: {
+    employee: string;
+    attendance_rate: number;
+    total_days: number;
+  }[];
 }
 
 // Salary and Promotion Types
@@ -391,7 +413,7 @@ export interface SalaryIncrement {
   increment_percentage: number;
   effective_date: string;
   reason: string;
-  status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  status: "draft" | "pending_approval" | "approved" | "rejected";
   approved_by?: number;
   approved_at?: string;
   rejection_reason?: string;
@@ -419,7 +441,7 @@ export interface Promotion {
   adjustment_percentage?: number;
   effective_date: string;
   promotion_letter_content?: string;
-  status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  status: "draft" | "pending_approval" | "approved" | "rejected";
   approved_by?: number;
   approved_at?: string;
   rejection_reason?: string;
@@ -434,7 +456,7 @@ export interface SalaryHistory {
   id: number;
   employee_id: number;
   employee?: Employee;
-  action_type: 'increment' | 'promotion' | 'adjustment' | 'initial';
+  action_type: "increment" | "promotion" | "adjustment" | "initial";
   previous_salary?: number;
   new_salary: number;
   change_amount: number;
@@ -442,7 +464,7 @@ export interface SalaryHistory {
   effective_date: string;
   reason?: string;
   reference_id?: number; // Reference to increment or promotion record
-  reference_type?: 'increment' | 'promotion';
+  reference_type?: "increment" | "promotion";
   created_by: number;
   created_at: string;
 }
@@ -451,7 +473,7 @@ export interface BulkSalaryUpdate {
   id: number;
   name: string;
   description?: string;
-  increment_type: 'fixed_amount' | 'percentage' | 'custom';
+  increment_type: "fixed_amount" | "percentage" | "custom";
   increment_value: number; // Amount or percentage
   effective_date: string;
   criteria: {
@@ -462,7 +484,7 @@ export interface BulkSalaryUpdate {
     max_salary?: number;
     employment_types?: string[];
   };
-  status: 'draft' | 'processing' | 'completed' | 'cancelled';
+  status: "draft" | "processing" | "completed" | "cancelled";
   total_employees_affected: number;
   total_cost_impact: number;
   applied_count: number;
@@ -502,7 +524,7 @@ export interface PromotionForm {
 export interface BulkSalaryUpdateForm {
   name: string;
   description?: string;
-  increment_type: 'fixed_amount' | 'percentage' | 'custom';
+  increment_type: "fixed_amount" | "percentage" | "custom";
   increment_value: number;
   effective_date: string;
   department_ids?: number[];
@@ -559,7 +581,11 @@ export interface LeaveApplicationFormProps {
 
 export interface AttendanceTrackerProps {
   employee?: Employee;
-  onMarkAttendance: (action: 'check_in' | 'check_out' | 'break_start' | 'break_end', location?: string, notes?: string) => Promise<void>;
+  onMarkAttendance: (
+    action: "check_in" | "check_out" | "break_start" | "break_end",
+    location?: string,
+    notes?: string
+  ) => Promise<void>;
   currentRecord?: AttendanceRecord;
   loading?: boolean;
 }
@@ -612,7 +638,7 @@ export interface PayrollPeriod {
   month: number; // 1-12
   year: number;
   name: string; // e.g., "January 2024"
-  status: 'draft' | 'calculated' | 'approved' | 'processed' | 'closed';
+  status: "draft" | "calculated" | "approved" | "processed" | "closed";
   total_employees: number;
   total_gross_salary: number;
   total_deductions: number;
@@ -628,11 +654,11 @@ export interface PayrollComponent {
   id: number;
   name: string;
   code: string;
-  component_type: 'earning' | 'deduction';
+  component_type: "earning" | "deduction";
   category?: string;
   is_taxable: boolean;
   is_mandatory: boolean;
-  calculation_method: 'fixed' | 'percentage' | 'formula';
+  calculation_method: "fixed" | "percentage" | "formula";
   default_value?: number;
   formula?: string;
   description?: string;
@@ -670,7 +696,7 @@ export interface EmployeePayrollRecord {
   total_deductions: number;
   net_salary: number;
 
-  status: 'draft' | 'calculated' | 'approved' | 'paid' | 'cancelled';
+  status: "draft" | "calculated" | "approved" | "paid" | "cancelled";
   calculated_by?: number;
   calculated_at?: string;
   approved_by?: number;
@@ -691,7 +717,7 @@ export interface PaymentRecord {
   payroll_record_id?: number;
   payroll_record?: EmployeePayrollRecord;
 
-  payment_method: 'bank_transfer' | 'check' | 'cash' | 'other';
+  payment_method: "bank_transfer" | "check" | "cash" | "other";
   payment_date: string;
   amount: number;
   bank_account_number?: string;
@@ -699,7 +725,7 @@ export interface PaymentRecord {
   check_number?: string;
   transaction_reference?: string;
 
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
   failure_reason?: string;
   processed_by?: number;
   processed_at?: string;
@@ -744,7 +770,7 @@ export interface PayrollCalculationForm {
 export interface PaymentProcessingForm {
   payroll_period_id: number;
   employee_ids: number[];
-  payment_method: 'bank_transfer' | 'check' | 'cash' | 'other';
+  payment_method: "bank_transfer" | "check" | "cash" | "other";
   payment_date: string;
   bank_account_number?: string;
   bank_name?: string;
@@ -772,7 +798,10 @@ export interface PayrollPageProps {
   paymentRecords: PaymentRecord[];
   onCalculatePayroll: (data: PayrollCalculationForm) => Promise<void>;
   onProcessPayments: (data: PaymentProcessingForm) => Promise<void>;
-  onExportData: (format: 'excel' | 'pdf', filters?: PayrollFilter) => Promise<void>;
+  onExportData: (
+    format: "excel" | "pdf",
+    filters?: PayrollFilter
+  ) => Promise<void>;
   loading?: boolean;
 }
 
@@ -809,6 +838,484 @@ export interface PayrollHistoryProps {
   departments: Department[];
   filters?: PayrollFilter;
   onFilterChange?: (filters: PayrollFilter) => void;
-  onExport?: (format: 'excel' | 'pdf') => Promise<void>;
+  onExport?: (format: "excel" | "pdf") => Promise<void>;
+  loading?: boolean;
+}
+
+// Leave Type Configuration Types
+export interface LeaveType {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  color_code: string; // Hex color for calendar display
+  is_active: boolean;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method:
+    | "beginning_of_year"
+    | "monthly_accrual"
+    | "anniversary_based"
+    | "custom";
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: "male" | "female" | "both";
+  employment_type_restrictions?: string[];
+
+  // Documentation
+  requires_documentation: boolean;
+  mandatory_document_types?: string[];
+  optional_document_types?: string[];
+
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaveEntitlementRule {
+  id: number;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method:
+    | "beginning_of_year"
+    | "monthly_accrual"
+    | "anniversary_based"
+    | "custom";
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability Rules
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: "male" | "female" | "both";
+  employment_type_restrictions?: string[];
+
+  effective_from: string;
+  effective_to?: string;
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaveDocumentationRequirement {
+  id: number;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  requires_documentation: boolean;
+  mandatory_document_types: string[];
+  optional_document_types: string[];
+
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Form Types
+export interface CreateLeaveTypeForm {
+  name: string;
+  code: string;
+  description?: string;
+  color_code: string;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method:
+    | "beginning_of_year"
+    | "monthly_accrual"
+    | "anniversary_based"
+    | "custom";
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: "male" | "female" | "both";
+  employment_type_restrictions?: string[];
+
+  // Documentation
+  requires_documentation: boolean;
+  mandatory_document_types?: string[];
+  optional_document_types?: string[];
+}
+
+export interface LeaveTypeConfigurationPageProps {
+  leaveTypes: LeaveType[];
+  departments: Department[];
+  designations: Designation[];
+  onCreateLeaveType: (data: CreateLeaveTypeForm) => Promise<void>;
+  onUpdateLeaveType: (
+    id: number,
+    data: Partial<CreateLeaveTypeForm>
+  ) => Promise<void>;
+  onDeleteLeaveType: (id: number) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveTypeFormProps {
+  leaveType?: LeaveType;
+  departments: Department[];
+  designations: Designation[];
+  onSubmit: (data: CreateLeaveTypeForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface LeaveTypeListProps {
+  leaveTypes: LeaveType[];
+  onEdit: (leaveType: LeaveType) => void;
+  onDelete: (id: number) => void;
+  onToggleStatus: (id: number, isActive: boolean) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveEntitlementRulesProps {
+  leaveType: LeaveType;
+  onUpdate: (rules: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveApplicabilityProps {
+  leaveType: LeaveType;
+  departments: Department[];
+  designations: Designation[];
+  onUpdate: (applicability: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveDocumentationProps {
+  leaveType: LeaveType;
+  onUpdate: (documentation: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
+
+// Leave Application and Approval Types
+export interface LeaveApplication {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  // Application Details
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  half_day: boolean;
+  half_day_date?: string;
+  reason: string;
+  contact_details: string;
+  handover_notes?: string;
+
+  // Document Uploads
+  uploaded_documents?: string[];
+
+  // Status and Workflow
+  status:
+    | "draft"
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "partially_approved";
+  current_approver_id?: number;
+  current_approver?: Employee;
+  workflow_stage: number;
+  total_workflow_stages: number;
+
+  // Timestamps
+  applied_at: string;
+  approved_at?: string;
+  rejected_at?: string;
+  cancelled_at?: string;
+
+  // Approval Details
+  approved_by?: number;
+  rejected_by?: number;
+  rejection_reason?: string;
+  approver_comments?: string;
+
+  // Additional Info
+  emergency_contact?: string;
+  work_coverage_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaveBalance {
+  employee_id: number;
+  employee?: Employee;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  // Balance Information
+  allocated_days: number;
+  used_days: number;
+  pending_days: number;
+  available_days: number;
+  carried_forward_days: number;
+
+  // Period Information
+  period_start: string;
+  period_end: string;
+
+  last_updated: string;
+}
+
+export interface ApprovalWorkflow {
+  id: number;
+  name: string;
+  description?: string;
+
+  // Workflow Configuration
+  workflow_type: "sequential" | "parallel" | "hybrid";
+  max_approval_days: number;
+  auto_escalate: boolean;
+  escalation_days: number;
+
+  // Approval Levels
+  approval_levels: ApprovalLevel[];
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApprovalLevel {
+  id: number;
+  workflow_id: number;
+  level_number: number;
+  level_name: string;
+
+  // Approver Configuration
+  approver_type:
+    | "specific_employee"
+    | "manager"
+    | "department_head"
+    | "hr_manager"
+    | "role_based";
+  approver_id?: number; // For specific employee
+  approver_role?: string; // For role-based
+  department_id?: number; // For department head
+
+  // Conditions
+  requires_all_approvals: boolean;
+  min_approvals_required: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApprovalRecord {
+  id: number;
+  application_id: number;
+  application?: LeaveApplication;
+  approver_id: number;
+  approver?: Employee;
+  level_number: number;
+
+  // Decision
+  decision: "approved" | "rejected" | "pending";
+  comments?: string;
+  rejection_reason?: string;
+
+  // Timestamps
+  action_date: string;
+  response_time_hours?: number;
+
+  created_at: string;
+}
+
+export interface LeaveCalendarEvent {
+  id: string;
+  employee_id: number;
+  employee?: Employee;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+  application_id: number;
+
+  // Event Details
+  title: string;
+  start_date: string;
+  end_date: string;
+  is_half_day: boolean;
+  status: "pending" | "approved" | "rejected";
+
+  // Styling
+  background_color: string;
+  text_color: string;
+}
+
+export interface TeamAvailability {
+  date: string;
+  total_employees: number;
+  on_leave: number;
+  available: number;
+  critical_staffing: boolean;
+  leave_events: LeaveCalendarEvent[];
+}
+
+// Form Types
+export interface CreateLeaveApplicationForm {
+  leave_type_id: number;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  half_day: boolean;
+  half_day_date?: string;
+  reason: string;
+  contact_details: string;
+  handover_notes?: string;
+  emergency_contact?: string;
+  work_coverage_notes?: string;
+  uploaded_documents?: string[];
+}
+
+export interface LeaveApplicationFilter {
+  employee_id?: number;
+  leave_type_ids?: number[];
+  status?: string[];
+  date_from?: string;
+  date_to?: string;
+  department_ids?: number[];
+  approver_id?: number;
+  search_term?: string;
+}
+
+export interface ApprovalActionForm {
+  application_id: number;
+  decision: "approved" | "rejected";
+  comments?: string;
+  rejection_reason?: string;
+}
+
+// Component Props Types
+export interface LeaveApplicationPageProps {
+  currentUser: Employee;
+  employees: Employee[];
+  departments: Department[];
+  designations: Designation[];
+  leaveTypes: LeaveType[];
+  leaveApplications: LeaveApplication[];
+  leaveBalances: LeaveBalance[];
+  approvalWorkflows: ApprovalWorkflow[];
+  onCreateApplication: (data: CreateLeaveApplicationForm) => Promise<void>;
+  onUpdateApplication: (
+    id: number,
+    data: Partial<CreateLeaveApplicationForm>
+  ) => Promise<void>;
+  onCancelApplication: (id: number) => Promise<void>;
+  onApproveApplication: (data: ApprovalActionForm) => Promise<void>;
+  onRejectApplication: (data: ApprovalActionForm) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface EmployeeLeaveFormProps {
+  employee: Employee;
+  leaveTypes: LeaveType[];
+  leaveBalances: LeaveBalance[];
+  onSubmit: (data: CreateLeaveApplicationForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+  initialData?: Partial<CreateLeaveApplicationForm>;
+  isEdit?: boolean;
+}
+
+export interface LeaveBalanceDisplayProps {
+  employee: Employee;
+  leaveBalances: LeaveBalance[];
+  leaveTypes: LeaveType[];
+  loading?: boolean;
+}
+
+export interface ApplicationStatusTrackerProps {
+  application: LeaveApplication;
+  approvalRecords: ApprovalRecord[];
+  loading?: boolean;
+}
+
+export interface LeaveHistoryProps {
+  applications: LeaveApplication[];
+  employees: Employee[];
+  leaveTypes: LeaveType[];
+  filters?: LeaveApplicationFilter;
+  onFilterChange?: (filters: LeaveApplicationFilter) => void;
+  onExport?: (format: "excel" | "pdf") => Promise<void>;
+  onViewApplication?: (application: LeaveApplication) => void;
+  onEditApplication?: (application: LeaveApplication) => void;
+  onCancelApplication?: (applicationId: number) => void;
+  onAddComment?: (applicationId: number) => void;
+  loading?: boolean;
+}
+
+export interface ApprovalDashboardProps {
+  currentUser: Employee;
+  pendingApplications: LeaveApplication[];
+  teamMembers: Employee[];
+  leaveCalendar: LeaveCalendarEvent[];
+  approvalWorkflows: ApprovalWorkflow[];
+  onApprove: (data: ApprovalActionForm) => Promise<void>;
+  onReject: (data: ApprovalActionForm) => Promise<void>;
+  onBulkApprove: (applicationIds: number[]) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface TeamCalendarProps {
+  teamMembers: Employee[];
+  leaveEvents: LeaveCalendarEvent[];
+  selectedDate?: string;
+  onDateSelect?: (date: string) => void;
+  loading?: boolean;
+}
+
+export interface ApprovalWorkflowConfigProps {
+  workflows: ApprovalWorkflow[];
+  departments: Department[];
+  designations: Designation[];
+  onCreateWorkflow: (
+    data: Omit<ApprovalWorkflow, "id" | "created_at" | "updated_at">
+  ) => Promise<void>;
+  onUpdateWorkflow: (
+    id: number,
+    data: Partial<ApprovalWorkflow>
+  ) => Promise<void>;
+  onDeleteWorkflow: (id: number) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface AdminLeaveToolsProps {
+  employees: Employee[];
+  leaveTypes: LeaveType[];
+  leaveApplications: LeaveApplication[];
+  onManualAdjustment: (applicationId: number, adjustment: any) => Promise<void>;
+  onResetQuotas: (year: number) => Promise<void>;
+  onProcessEncashment: (
+    employeeId: number,
+    leaveTypeId: number,
+    days: number
+  ) => Promise<void>;
   loading?: boolean;
 }
