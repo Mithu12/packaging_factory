@@ -12,7 +12,6 @@ import authRoutes from "./routes/auth.routes";
 import settingsRoutes from "./routes/settings.routes";
 import customerRoutes from "./routes/customers.routes";
 import salesOrderRoutes from "./routes/salesOrders.routes";
-import reportsRoutes from "./routes/reports.routes";
 import expenseRoutes from "./routes/expenses.routes";
 import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
@@ -25,6 +24,7 @@ import inventoryRoutes from "./modules/inventory";
 import accountsRoutes from "./modules/accounts";
 import factoryRoutes from "./modules/factory";
 import hrmRoutes from "./modules/hrm/routes";
+import salesRoutes from "./modules/sales";
 
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
@@ -137,7 +137,7 @@ app.use("/api/hrm", hrmRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
-app.use("/api/reports", reportsRoutes);
+app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
