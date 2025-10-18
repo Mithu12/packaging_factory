@@ -410,6 +410,12 @@ const menuSections: MenuSection[] = [
         icon: Calendar,
         permission: PERMISSIONS.HR_LEAVE_TYPES_READ,
       },
+      {
+        title: "Leave Applications",
+        url: "/hrm/leave-applications",
+        icon: FileText,
+        permission: PERMISSIONS.HR_LEAVE_APPLICATIONS_READ,
+      },
     ],
   },
   // {

@@ -97,6 +97,7 @@ import DesignationManagement from "@/modules/hrm/pages/DesignationManagement";
 import SalaryUpdatePage from "@/modules/hrm/pages/SalaryUpdatePage";
 import PayrollPage from "@/modules/hrm/pages/PayrollPage";
 import LeaveTypeConfigurationPage from "@/modules/hrm/pages/LeaveTypeConfigurationPage";
+import LeaveApplicationPage from "@/modules/hrm/pages/LeaveApplicationPage";
 
 const queryClient = new QueryClient();
 
@@ -375,7 +376,10 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/sales/reports" element={<Navigate to="/sales-reports" replace />} />
+                <Route
+                  path="/sales/reports"
+                  element={<Navigate to="/sales-reports" replace />}
+                />
                 <Route
                   path="/sales-reports"
                   element={
@@ -663,7 +667,6 @@ const App = () => {
                   }
                 />
 
-
                 {/* Expense Routes */}
                 <Route
                   path="/expenses"
@@ -885,6 +888,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <LeaveTypeConfigurationPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-applications"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveApplicationPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

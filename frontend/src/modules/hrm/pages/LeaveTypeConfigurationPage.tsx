@@ -6,6 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -464,28 +471,24 @@ const LeaveTypeConfigurationPage: React.FC = () => {
       </Tabs>
 
       {/* Create/Edit Form Modal */}
-      {showCreateForm && (
-        <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>Add New Leave Type</CardTitle>
-              <CardDescription>
-                Create a new leave type with custom entitlement rules and
-                applicability
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LeaveTypeForm
-                departments={mockDepartments}
-                designations={mockDesignations}
-                onSubmit={handleCreateLeaveType}
-                onCancel={() => setShowCreateForm(false)}
-                loading={loading}
-              />
-            </CardContent>
-          </Card>
-        </Card>
-      )}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Leave Type</DialogTitle>
+            <DialogDescription>
+              Create a new leave type with custom entitlement rules and
+              applicability
+            </DialogDescription>
+          </DialogHeader>
+          <LeaveTypeForm
+            departments={mockDepartments}
+            designations={mockDesignations}
+            onSubmit={handleCreateLeaveType}
+            onCancel={() => setShowCreateForm(false)}
+            loading={loading}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
