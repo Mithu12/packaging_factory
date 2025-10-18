@@ -96,6 +96,7 @@ import DepartmentManagement from "@/modules/hrm/pages/DepartmentManagement";
 import DesignationManagement from "@/modules/hrm/pages/DesignationManagement";
 import SalaryUpdatePage from "@/modules/hrm/pages/SalaryUpdatePage";
 import PayrollPage from "@/modules/hrm/pages/PayrollPage";
+import LeaveTypeConfigurationPage from "@/modules/hrm/pages/LeaveTypeConfigurationPage";
 
 const queryClient = new QueryClient();
 
@@ -874,6 +875,16 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <PayrollPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/leave-types"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <LeaveTypeConfigurationPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

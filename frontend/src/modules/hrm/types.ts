@@ -812,3 +812,158 @@ export interface PayrollHistoryProps {
   onExport?: (format: 'excel' | 'pdf') => Promise<void>;
   loading?: boolean;
 }
+
+// Leave Type Configuration Types
+export interface LeaveType {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  color_code: string; // Hex color for calendar display
+  is_active: boolean;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method: 'beginning_of_year' | 'monthly_accrual' | 'anniversary_based' | 'custom';
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: 'male' | 'female' | 'both';
+  employment_type_restrictions?: string[];
+
+  // Documentation
+  requires_documentation: boolean;
+  mandatory_document_types?: string[];
+  optional_document_types?: string[];
+
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaveEntitlementRule {
+  id: number;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method: 'beginning_of_year' | 'monthly_accrual' | 'anniversary_based' | 'custom';
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability Rules
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: 'male' | 'female' | 'both';
+  employment_type_restrictions?: string[];
+
+  effective_from: string;
+  effective_to?: string;
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeaveDocumentationRequirement {
+  id: number;
+  leave_type_id: number;
+  leave_type?: LeaveType;
+
+  requires_documentation: boolean;
+  mandatory_document_types: string[];
+  optional_document_types: string[];
+
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Form Types
+export interface CreateLeaveTypeForm {
+  name: string;
+  code: string;
+  description?: string;
+  color_code: string;
+
+  // Entitlement Rules
+  annual_allocation_days: number;
+  accrual_method: 'beginning_of_year' | 'monthly_accrual' | 'anniversary_based' | 'custom';
+  prorated_for_new_joiners: boolean;
+  max_accumulation_days?: number;
+  max_carry_forward_days?: number;
+  encashment_eligible: boolean;
+  min_days_per_request?: number;
+  max_days_per_request?: number;
+
+  // Applicability
+  applicable_department_ids?: number[];
+  applicable_designation_ids?: number[];
+  gender_restriction?: 'male' | 'female' | 'both';
+  employment_type_restrictions?: string[];
+
+  // Documentation
+  requires_documentation: boolean;
+  mandatory_document_types?: string[];
+  optional_document_types?: string[];
+}
+
+export interface LeaveTypeConfigurationPageProps {
+  leaveTypes: LeaveType[];
+  departments: Department[];
+  designations: Designation[];
+  onCreateLeaveType: (data: CreateLeaveTypeForm) => Promise<void>;
+  onUpdateLeaveType: (id: number, data: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  onDeleteLeaveType: (id: number) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveTypeFormProps {
+  leaveType?: LeaveType;
+  departments: Department[];
+  designations: Designation[];
+  onSubmit: (data: CreateLeaveTypeForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface LeaveTypeListProps {
+  leaveTypes: LeaveType[];
+  onEdit: (leaveType: LeaveType) => void;
+  onDelete: (id: number) => void;
+  onToggleStatus: (id: number, isActive: boolean) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveEntitlementRulesProps {
+  leaveType: LeaveType;
+  onUpdate: (rules: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveApplicabilityProps {
+  leaveType: LeaveType;
+  departments: Department[];
+  designations: Designation[];
+  onUpdate: (applicability: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface LeaveDocumentationProps {
+  leaveType: LeaveType;
+  onUpdate: (documentation: Partial<CreateLeaveTypeForm>) => Promise<void>;
+  loading?: boolean;
+}
