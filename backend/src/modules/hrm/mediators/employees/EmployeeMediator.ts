@@ -115,9 +115,61 @@ class EmployeeMediator implements MediatorInterface {
       const employeesResult = await client.query(query, values);
       const employees = employeesResult.rows;
 
-      // Get total count (same query without LIMIT/OFFSET)
-      const countQuery = query.replace(/ LIMIT \$\d+ OFFSET \$\d+$/, '');
-      const countValues = values.slice(0, values.length - 2); // Remove limit and offset values
+      // Get total count - construct count query from the original query parts
+      let countQuery = `
+        SELECT COUNT(*) as count
+        FROM employees as e
+        LEFT JOIN departments as d ON e.department_id = d.id
+        LEFT JOIN designations as des ON e.designation_id = des.id
+        LEFT JOIN employees as rm ON e.reporting_manager_id = rm.id
+        WHERE e.is_active = true
+      `;
+
+      let countParamIndex = 1;
+      const countValues: any[] = [];
+
+      // Apply the same filters as the main query
+      if (queryParams.factory_id) {
+        countQuery += ` AND e.factory_id = $${countParamIndex}`;
+        countValues.push(queryParams.factory_id);
+        countParamIndex++;
+      }
+
+      if (queryParams.department_id) {
+        countQuery += ` AND e.department_id = $${countParamIndex}`;
+        countValues.push(queryParams.department_id);
+        countParamIndex++;
+      }
+
+      if (queryParams.designation_id) {
+        countQuery += ` AND e.designation_id = $${countParamIndex}`;
+        countValues.push(queryParams.designation_id);
+        countParamIndex++;
+      }
+
+      if (queryParams.employment_type) {
+        countQuery += ` AND e.employment_type = $${countParamIndex}`;
+        countValues.push(queryParams.employment_type);
+        countParamIndex++;
+      }
+
+      if (queryParams.is_active !== undefined) {
+        countQuery += ` AND e.is_active = $${countParamIndex}`;
+        countValues.push(queryParams.is_active);
+        countParamIndex++;
+      }
+
+      if (queryParams.search) {
+        countQuery += ` AND (
+          e.first_name ILIKE $${countParamIndex} OR
+          e.last_name ILIKE $${countParamIndex} OR
+          e.employee_id ILIKE $${countParamIndex} OR
+          e.cnic ILIKE $${countParamIndex} OR
+          d.name ILIKE $${countParamIndex}
+        )`;
+        countValues.push(`%${queryParams.search}%`);
+      }
+
       const countResult = await client.query(countQuery, countValues);
       const total = parseInt(countResult.rows[0].count);
 

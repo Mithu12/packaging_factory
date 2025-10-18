@@ -176,12 +176,12 @@ export class UpdatePayrollMediator {
   /**
    * Mark payroll as paid
    */
-  static async markPayrollAsPaid(runId: number, paidBy?: number): Promise<PayrollRun> {
+  static async markPayrollAsPaid(runId: number, approvedBy?: number): Promise<PayrollRun> {
     const action = "UpdatePayrollMediator.markPayrollAsPaid";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { runId, paidBy });
+      MyLogger.info(action, { runId, approvedBy });
 
       // Get current payroll run
       const runQuery = 'SELECT * FROM payroll_runs WHERE id = $1';
@@ -216,10 +216,10 @@ export class UpdatePayrollMediator {
       const updatedRun = updateResult.rows[0];
 
       // Create audit log
-      if (paidBy) {
+      if (approvedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
-          userId: paidBy,
+          userId: approvedBy,
           action: 'MARK_PAYROLL_AS_PAID',
           resourceType: 'payroll_run',
           resourceId: runId,
@@ -239,19 +239,19 @@ export class UpdatePayrollMediator {
         periodId: run.period_id,
         employeeId: run.employee_id,
         amount: run.payroll_data?.netPay,
-        paidBy
+        approvedBy
       });
 
       MyLogger.success(action, {
         runId,
         periodId: run.period_id,
         amount: run.payroll_data?.netPay,
-        paidBy
+        approvedBy
       });
 
       return updatedRun;
     } catch (error) {
-      MyLogger.error(action, error, { runId, paidBy });
+      MyLogger.error(action, error, { runId, approvedBy });
       throw error;
     } finally {
       client.release();
@@ -314,8 +314,6 @@ export class UpdatePayrollMediator {
           durationMs: 0,
           oldValues: { status: run.status },
           newValues: { status: 'cancelled', cancellation_reason: reason },
-          userId: cancelledBy,
-          timestamp: new Date()
         });
       }
 
@@ -390,8 +388,6 @@ export class UpdatePayrollMediator {
           durationMs: 0,
           oldValues: { status: period.status },
           newValues: { status },
-          userId: updatedBy,
-          timestamp: new Date()
         });
       }
 

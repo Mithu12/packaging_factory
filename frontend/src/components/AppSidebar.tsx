@@ -18,6 +18,7 @@ import {
   Receipt,
   Layers,
   GitBranch,
+  Building,
   Building2,
   Wallet,
   Banknote,
@@ -35,6 +36,7 @@ import {
   TrendingUp,
   Package2,
   Calculator as CalculatorIcon,
+  UserCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -377,6 +379,30 @@ const menuSections: MenuSection[] = [
         url: "/hrm/employees",
         icon: Users,
         permission: PERMISSIONS.HR_EMPLOYEES_READ,
+      },
+      {
+        title: "Departments",
+        url: "/hrm/departments",
+        icon: Building,
+        permission: PERMISSIONS.HR_DEPARTMENTS_READ,
+      },
+      {
+        title: "Designations",
+        url: "/hrm/designations",
+        icon: UserCheck,
+        permission: PERMISSIONS.HR_DESIGNATIONS_READ,
+      },
+      {
+        title: "Salary Updates",
+        url: "/hrm/salary-updates",
+        icon: TrendingUp,
+        permission: PERMISSIONS.HR_SALARY_UPDATES_READ,
+      },
+      {
+        title: "Payroll",
+        url: "/hrm/payroll",
+        icon: Receipt,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
       },
     ],
   },

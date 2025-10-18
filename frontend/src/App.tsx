@@ -92,6 +92,10 @@ import Operators from "@/modules/factory/pages/Operators";
 // HRM Module Imports
 import HRMDashboard from "@/modules/hrm/pages/HRMDashboard";
 import EmployeeManagement from "@/modules/hrm/pages/EmployeeManagement";
+import DepartmentManagement from "@/modules/hrm/pages/DepartmentManagement";
+import DesignationManagement from "@/modules/hrm/pages/DesignationManagement";
+import SalaryUpdatePage from "@/modules/hrm/pages/SalaryUpdatePage";
+import PayrollPage from "@/modules/hrm/pages/PayrollPage";
 
 const queryClient = new QueryClient();
 
@@ -830,6 +834,46 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <EmployeeManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/departments"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <DepartmentManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/designations"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <DesignationManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/salary-updates"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalaryUpdatePage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/payroll"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <PayrollPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
