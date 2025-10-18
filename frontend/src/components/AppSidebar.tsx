@@ -396,7 +396,7 @@ const menuSections: MenuSection[] = [
         title: "Salary Updates",
         url: "/hrm/salary-updates",
         icon: TrendingUp,
-        permission: PERMISSIONS.HR_SALARY_UPDATES_READ,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
       },
       {
         title: "Payroll",
