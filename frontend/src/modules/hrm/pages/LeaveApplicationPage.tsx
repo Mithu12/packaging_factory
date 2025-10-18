@@ -86,13 +86,19 @@ const LeaveApplicationPage: React.FC = () => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Create new application
-    const newApplication = {
-      id: Math.max(...applications.map((app) => app.id)) + 1,
+    const maxId =
+      applications.length > 0
+        ? Math.max(...applications.map((app) => app.id))
+        : 0;
+    const newApplication: LeaveApplication = {
+      id: maxId + 1,
       employee_id: mockCurrentUser.id,
       leave_type_id: parseInt(data.leave_type_id),
       start_date: data.start_date,
       end_date: data.end_date,
       total_days: data.total_days,
+      half_day: data.half_day,
+      half_day_date: data.half_day_date,
       reason: data.reason,
       status: "pending" as const,
       applied_at: new Date().toISOString(),
@@ -101,7 +107,11 @@ const LeaveApplicationPage: React.FC = () => {
       approved_at: undefined,
       rejected_reason: undefined,
       emergency_contact: data.emergency_contact,
+      contact_details: data.contact_details,
       work_handover_notes: data.handover_notes,
+      work_coverage_notes: data.work_coverage_notes,
+      handover_notes: data.handover_notes,
+      uploaded_documents: data.uploaded_documents,
     };
 
     setApplications((prev) => [...prev, newApplication]);
@@ -123,7 +133,18 @@ const LeaveApplicationPage: React.FC = () => {
         app.id === id
           ? {
               ...app,
-              ...data,
+              leave_type_id: data.leave_type_id,
+              start_date: data.start_date,
+              end_date: data.end_date,
+              total_days: data.total_days,
+              half_day: data.half_day,
+              half_day_date: data.half_day_date,
+              reason: data.reason,
+              contact_details: data.contact_details,
+              handover_notes: data.handover_notes,
+              emergency_contact: data.emergency_contact,
+              work_coverage_notes: data.work_coverage_notes,
+              uploaded_documents: data.uploaded_documents,
               updated_at: new Date().toISOString(),
             }
           : app
@@ -266,11 +287,19 @@ const LeaveApplicationPage: React.FC = () => {
 
   // Action handlers for leave history actions
   const handleViewApplication = (application: LeaveApplication) => {
+    if (!application || !application.employee_id) {
+      console.error("Invalid application data:", application);
+      return;
+    }
     setSelectedApplication(application);
     setShowViewDialog(true);
   };
 
   const handleEditApplication = (application: LeaveApplication) => {
+    if (!application || !application.employee_id) {
+      console.error("Invalid application data:", application);
+      return;
+    }
     setSelectedApplication(application);
     setShowEditDialog(true);
   };
@@ -734,240 +763,269 @@ const LeaveApplicationPage: React.FC = () => {
               View complete details of the leave application
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            {/* Employee Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Employee Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-muted-foreground">Employee:</span>
-                    <p className="font-medium">
-                      {(() => {
-                        const employee = mockEmployees.find(
-                          (emp) => emp.id === selectedApplication.employee_id
-                        );
-                        return employee?.full_name || "Unknown";
-                      })()}
-                    </p>
+          {selectedApplication ? (
+            <div className="space-y-6">
+              {/* Employee Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    Employee Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground">Employee:</span>
+                      <p className="font-medium">
+                        {(() => {
+                          if (!selectedApplication) return "Unknown";
+                          const employee = mockEmployees.find(
+                            (emp) => emp.id === selectedApplication.employee_id
+                          );
+                          return employee?.full_name || "Unknown";
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Employee ID:
+                      </span>
+                      <p className="font-medium">
+                        {(() => {
+                          if (!selectedApplication) return "Unknown";
+                          const employee = mockEmployees.find(
+                            (emp) => emp.id === selectedApplication.employee_id
+                          );
+                          return employee?.employee_id || "Unknown";
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Department:</span>
+                      <p className="font-medium">
+                        {(() => {
+                          if (!selectedApplication) return "Unknown";
+                          const employee = mockEmployees.find(
+                            (emp) => emp.id === selectedApplication.employee_id
+                          );
+                          return employee?.department?.name || "Unknown";
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Designation:
+                      </span>
+                      <p className="font-medium">
+                        {(() => {
+                          if (!selectedApplication) return "Unknown";
+                          const employee = mockEmployees.find(
+                            (emp) => emp.id === selectedApplication.employee_id
+                          );
+                          return employee?.designation?.title || "Unknown";
+                        })()}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Employee ID:</span>
-                    <p className="font-medium">
-                      {(() => {
-                        const employee = mockEmployees.find(
-                          (emp) => emp.id === selectedApplication.employee_id
-                        );
-                        return employee?.employee_id || "Unknown";
-                      })()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Department:</span>
-                    <p className="font-medium">
-                      {(() => {
-                        const employee = mockEmployees.find(
-                          (emp) => emp.id === selectedApplication.employee_id
-                        );
-                        return employee?.department?.name || "Unknown";
-                      })()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Designation:</span>
-                    <p className="font-medium">
-                      {(() => {
-                        const employee = mockEmployees.find(
-                          (emp) => emp.id === selectedApplication.employee_id
-                        );
-                        return employee?.designation?.title || "Unknown";
-                      })()}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Leave Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Leave Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-muted-foreground">Leave Type:</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{
-                          backgroundColor: (() => {
+              {/* Leave Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Leave Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground">Leave Type:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{
+                            backgroundColor: (() => {
+                              if (!selectedApplication) return "#gray";
+                              const leaveType = mockLeaveTypes.find(
+                                (lt) =>
+                                  lt.id === selectedApplication.leave_type_id
+                              );
+                              return leaveType?.color_code || "#gray";
+                            })(),
+                          }}
+                        />
+                        <span className="font-medium">
+                          {(() => {
+                            if (!selectedApplication) return "Unknown";
                             const leaveType = mockLeaveTypes.find(
                               (lt) =>
                                 lt.id === selectedApplication.leave_type_id
                             );
-                            return leaveType?.color_code || "#gray";
-                          })(),
-                        }}
-                      />
-                      <span className="font-medium">
-                        {(() => {
-                          const leaveType = mockLeaveTypes.find(
-                            (lt) => lt.id === selectedApplication.leave_type_id
-                          );
-                          return leaveType?.name || "Unknown";
-                        })()}
-                      </span>
+                            return leaveType?.name || "Unknown";
+                          })()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Duration:</span>
-                    <p className="font-medium">
-                      {selectedApplication.total_days} days
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Start Date:</span>
-                    <p className="font-medium">
-                      {new Date(
-                        selectedApplication.start_date
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">End Date:</span>
-                    <p className="font-medium">
-                      {new Date(
-                        selectedApplication.end_date
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-                  {/* Half day information not available in current interface */}
-                </div>
-
-                <div className="mt-4">
-                  <span className="text-muted-foreground">Reason:</span>
-                  <p className="mt-1">{selectedApplication.reason}</p>
-                </div>
-
-                <div className="mt-4">
-                  <span className="text-muted-foreground">Status:</span>
-                  <div className="mt-1">
-                    {(() => {
-                      switch (selectedApplication.status) {
-                        case "approved":
-                          return (
-                            <Badge className="bg-green-100 text-green-800">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Approved
-                            </Badge>
-                          );
-                        case "rejected":
-                          return (
-                            <Badge variant="destructive">
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Rejected
-                            </Badge>
-                          );
-                        case "pending":
-                          return (
-                            <Badge variant="secondary">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Pending
-                            </Badge>
-                          );
-                        case "cancelled":
-                          return <Badge variant="outline">Cancelled</Badge>;
-                        default:
-                          return (
-                            <Badge variant="outline">
-                              {selectedApplication.status}
-                            </Badge>
-                          );
-                      }
-                    })()}
-                  </div>
-                </div>
-
-                {selectedApplication.status === "rejected" &&
-                  selectedApplication.rejection_reason && (
-                    <div className="mt-4">
-                      <span className="text-muted-foreground">
-                        Rejection Reason:
-                      </span>
-                      <p className="mt-1 text-red-600">
-                        {selectedApplication.rejection_reason}
+                    <div>
+                      <span className="text-muted-foreground">Duration:</span>
+                      <p className="font-medium">
+                        {selectedApplication.total_days} days
                       </p>
                     </div>
-                  )}
-              </CardContent>
-            </Card>
-
-            {/* Additional Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Additional Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-muted-foreground">Applied On:</span>
-                    <p className="font-medium">
-                      {new Date(
-                        selectedApplication.applied_at
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                  {selectedApplication.approved_at && (
                     <div>
-                      <span className="text-muted-foreground">
-                        Approved On:
-                      </span>
+                      <span className="text-muted-foreground">Start Date:</span>
                       <p className="font-medium">
                         {new Date(
-                          selectedApplication.approved_at
+                          selectedApplication.start_date
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">End Date:</span>
+                      <p className="font-medium">
+                        {new Date(
+                          selectedApplication.end_date
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {/* Half day information not available in current interface */}
+                  </div>
+
+                  <div className="mt-4">
+                    <span className="text-muted-foreground">Reason:</span>
+                    <p className="mt-1">{selectedApplication.reason}</p>
+                  </div>
+
+                  <div className="mt-4">
+                    <span className="text-muted-foreground">Status:</span>
+                    <div className="mt-1">
+                      {(() => {
+                        switch (selectedApplication.status) {
+                          case "approved":
+                            return (
+                              <Badge className="bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Approved
+                              </Badge>
+                            );
+                          case "rejected":
+                            return (
+                              <Badge variant="destructive">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Rejected
+                              </Badge>
+                            );
+                          case "pending":
+                            return (
+                              <Badge variant="secondary">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Pending
+                              </Badge>
+                            );
+                          case "cancelled":
+                            return <Badge variant="outline">Cancelled</Badge>;
+                          default:
+                            return (
+                              <Badge variant="outline">
+                                {selectedApplication.status}
+                              </Badge>
+                            );
+                        }
+                      })()}
+                    </div>
+                  </div>
+
+                  {selectedApplication.status === "rejected" &&
+                    selectedApplication.rejection_reason && (
+                      <div className="mt-4">
+                        <span className="text-muted-foreground">
+                          Rejection Reason:
+                        </span>
+                        <p className="mt-1 text-red-600">
+                          {selectedApplication.rejection_reason}
+                        </p>
+                      </div>
+                    )}
+                </CardContent>
+              </Card>
+
+              {/* Additional Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    Additional Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground">Applied On:</span>
+                      <p className="font-medium">
+                        {new Date(
+                          selectedApplication.applied_at
                         ).toLocaleString()}
                       </p>
                     </div>
+                    {selectedApplication.approved_at && (
+                      <div>
+                        <span className="text-muted-foreground">
+                          Approved On:
+                        </span>
+                        <p className="font-medium">
+                          {new Date(
+                            selectedApplication.approved_at
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-muted-foreground">
+                        Emergency Contact:
+                      </span>
+                      <p className="font-medium">
+                        {selectedApplication.emergency_contact ||
+                          "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedApplication.work_handover_notes && (
+                    <div className="mt-4">
+                      <span className="text-muted-foreground">
+                        Handover Notes:
+                      </span>
+                      <p className="mt-1">
+                        {selectedApplication.work_handover_notes}
+                      </p>
+                    </div>
                   )}
-                  <div>
-                    <span className="text-muted-foreground">
-                      Emergency Contact:
-                    </span>
-                    <p className="font-medium">
-                      {selectedApplication.emergency_contact || "Not provided"}
-                    </p>
-                  </div>
-                </div>
 
-                {selectedApplication.work_handover_notes && (
-                  <div className="mt-4">
-                    <span className="text-muted-foreground">
-                      Handover Notes:
-                    </span>
-                    <p className="mt-1">
-                      {selectedApplication.work_handover_notes}
-                    </p>
-                  </div>
-                )}
+                  {selectedApplication.comments && (
+                    <div className="mt-4">
+                      <span className="text-muted-foreground">Comments:</span>
+                      <p className="mt-1">{selectedApplication.comments}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-                {selectedApplication.comments && (
-                  <div className="mt-4">
-                    <span className="text-muted-foreground">Comments:</span>
-                    <p className="mt-1">{selectedApplication.comments}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end">
-              <Button onClick={() => setShowViewDialog(false)}>Close</Button>
+              <div className="flex justify-end">
+                <Button onClick={() => setShowViewDialog(false)}>Close</Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <p className="text-muted-foreground">No application selected</p>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowViewDialog(false)}
+                  className="mt-4"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -980,39 +1038,74 @@ const LeaveApplicationPage: React.FC = () => {
               Modify the leave application details
             </DialogDescription>
           </DialogHeader>
-          <EmployeeLeaveForm
-            employee={(() => {
-              const employee = mockEmployees.find(
-                (emp) => emp.id === selectedApplication.employee_id
-              );
-              return employee || mockCurrentUser;
-            })()}
-            leaveTypes={mockLeaveTypes}
-            leaveBalances={mockLeaveBalances.filter(
-              (balance) =>
-                balance.employee_id === selectedApplication.employee_id
-            )}
-            initialData={{
-              leave_type_id: selectedApplication.leave_type_id.toString(),
-              start_date: selectedApplication.start_date,
-              end_date: selectedApplication.end_date,
-              half_day: false, // Not in the interface, use default
-              half_day_date: undefined,
-              reason: selectedApplication.reason || "",
-              contact_details: selectedApplication.emergency_contact || "",
-              handover_notes: selectedApplication.work_handover_notes || "",
-              emergency_contact: selectedApplication.emergency_contact || "",
-              work_coverage_notes: undefined, // Not in the interface
-              uploaded_documents: undefined, // Not in the interface
-            }}
-            onSubmit={(data) => {
-              handleUpdateApplication(selectedApplication.id, data);
-              setShowEditDialog(false);
-            }}
-            onCancel={() => setShowEditDialog(false)}
-            loading={loading}
-            isEdit={true}
-          />
+          {selectedApplication ? (
+            <EmployeeLeaveForm
+              employee={(() => {
+                if (!selectedApplication) return mockCurrentUser;
+                const employee = mockEmployees.find(
+                  (emp) => emp.id === selectedApplication.employee_id
+                );
+                return employee || mockCurrentUser;
+              })()}
+              leaveTypes={mockLeaveTypes}
+              leaveBalances={mockLeaveBalances.filter(
+                (balance) =>
+                  selectedApplication &&
+                  balance.employee_id === selectedApplication.employee_id
+              )}
+              initialData={
+                selectedApplication
+                  ? {
+                      leave_type_id:
+                        selectedApplication.leave_type_id.toString(),
+                      start_date: selectedApplication.start_date,
+                      end_date: selectedApplication.end_date,
+                      total_days: selectedApplication.total_days,
+                      half_day: selectedApplication.half_day || false,
+                      half_day_date:
+                        selectedApplication.half_day_date || undefined,
+                      reason: selectedApplication.reason || "",
+                      contact_details:
+                        selectedApplication.contact_details || "",
+                      handover_notes:
+                        selectedApplication.handover_notes ||
+                        selectedApplication.work_handover_notes ||
+                        "",
+                      emergency_contact:
+                        selectedApplication.emergency_contact || "",
+                      work_coverage_notes:
+                        selectedApplication.work_coverage_notes || "",
+                      uploaded_documents:
+                        selectedApplication.uploaded_documents || [],
+                    }
+                  : undefined
+              }
+              onSubmit={(data) => {
+                if (selectedApplication) {
+                  handleUpdateApplication(selectedApplication.id, data);
+                }
+                setShowEditDialog(false);
+              }}
+              onCancel={() => setShowEditDialog(false)}
+              loading={loading}
+              isEdit={true}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <p className="text-muted-foreground">
+                  No application selected for editing
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                  className="mt-4"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

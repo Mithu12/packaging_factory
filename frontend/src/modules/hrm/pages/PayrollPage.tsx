@@ -1,10 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import {
   Calculator,
   CreditCard,
@@ -18,65 +30,69 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  Receipt
-} from 'lucide-react';
-import { PayrollPageProps } from '../types';
-import PayrollCalculator from '../components/PayrollCalculator';
-import PaymentForm from '../components/PaymentForm';
-import PayrollHistory from '../components/PayrollHistory';
-import EmployeePayrollCard from '../components/EmployeePayrollCard';
-import { mockEmployees, mockDepartments } from '../data/salary-update-data';
+  Receipt,
+} from "lucide-react";
+import { PayrollPageProps } from "../types";
+import PayrollCalculator from "../components/PayrollCalculator";
+import PaymentForm from "../components/PaymentForm";
+import PayrollHistory from "../components/PayrollHistory";
+import EmployeePayrollCard from "../components/EmployeePayrollCard";
+import { mockEmployees, mockDepartments } from "../data/salary-update-data";
 import {
   mockPayrollPeriods,
   mockEmployeePayrollRecords,
   mockPaymentRecords,
-  mockPayrollSummary
-} from '../data/payroll-data';
+  mockPayrollSummary,
+} from "../data/payroll-data";
 
 const PayrollPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('payroll');
-  const [selectedPeriodId, setSelectedPeriodId] = useState('1');
+  const [activeTab, setActiveTab] = useState("payroll");
+  const [selectedPeriodId, setSelectedPeriodId] = useState("1");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const currentPeriod = mockPayrollPeriods.find(p => p.id.toString() === selectedPeriodId);
+  const currentPeriod = mockPayrollPeriods.find(
+    (p) => p.id.toString() === selectedPeriodId
+  );
   const currentPayrollRecords = mockEmployeePayrollRecords.filter(
-    record => record.payroll_period_id.toString() === selectedPeriodId
+    (record) => record.payroll_period_id.toString() === selectedPeriodId
   );
   const currentPaymentRecords = mockPaymentRecords.filter(
-    payment => payment.payroll_period_id.toString() === selectedPeriodId
+    (payment) => payment.payroll_period_id.toString() === selectedPeriodId
   );
 
   // Mock handlers for form submissions
   const handleCalculatePayroll = async (data: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Payroll calculation submitted:', data);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Payroll calculation submitted:", data);
     setLoading(false);
   };
 
   const handleProcessPayments = async (data: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Payment processing submitted:', data);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Payment processing submitted:", data);
     setLoading(false);
     setShowPaymentForm(false);
   };
 
-  const handleExportData = async (format: 'excel' | 'pdf', filters?: any) => {
+  const handleExportData = async (format: "excel" | "pdf", filters?: any) => {
     setLoading(true);
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Export data:', format, filters);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log("Export data:", format, filters);
     setLoading(false);
   };
 
   const handleSelectAll = (selected: boolean) => {
     if (selected) {
-      setSelectedEmployeeIds(currentPayrollRecords.map(record => record.employee_id));
+      setSelectedEmployeeIds(
+        currentPayrollRecords.map((record) => record.employee_id)
+      );
     } else {
       setSelectedEmployeeIds([]);
     }
@@ -84,25 +100,37 @@ const PayrollPage: React.FC = () => {
 
   const handleSelectEmployee = (employeeId: number, selected: boolean) => {
     if (selected) {
-      setSelectedEmployeeIds(prev => [...prev, employeeId]);
+      setSelectedEmployeeIds((prev) => [...prev, employeeId]);
     } else {
-      setSelectedEmployeeIds(prev => prev.filter(id => id !== employeeId));
+      setSelectedEmployeeIds((prev) => prev.filter((id) => id !== employeeId));
     }
   };
 
   // Calculate summary statistics
   const summaryStats = {
     totalEmployees: currentPayrollRecords.length,
-    totalGrossSalary: currentPayrollRecords.reduce((sum, record) => sum + record.total_earnings, 0),
-    totalDeductions: currentPayrollRecords.reduce((sum, record) => sum + record.total_deductions, 0),
-    totalNetSalary: currentPayrollRecords.reduce((sum, record) => sum + record.net_salary, 0),
-    paidEmployees: currentPaymentRecords.filter(p => p.status === 'completed').length,
-    pendingPayments: currentPaymentRecords.filter(p => p.status === 'pending').length,
-    failedPayments: currentPaymentRecords.filter(p => p.status === 'failed').length,
+    totalGrossSalary: currentPayrollRecords.reduce(
+      (sum, record) => sum + record.total_earnings,
+      0
+    ),
+    totalDeductions: currentPayrollRecords.reduce(
+      (sum, record) => sum + record.total_deductions,
+      0
+    ),
+    totalNetSalary: currentPayrollRecords.reduce(
+      (sum, record) => sum + record.net_salary,
+      0
+    ),
+    paidEmployees: currentPaymentRecords.filter((p) => p.status === "completed")
+      .length,
+    pendingPayments: currentPaymentRecords.filter((p) => p.status === "pending")
+      .length,
+    failedPayments: currentPaymentRecords.filter((p) => p.status === "failed")
+      .length,
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -113,7 +141,7 @@ const PayrollPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-sm">
-            {currentPeriod?.name || 'No Period Selected'}
+            {currentPeriod?.name || "No Period Selected"}
           </Badge>
         </div>
       </div>
@@ -133,12 +161,15 @@ const PayrollPage: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Payroll Period</label>
-              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+              <Select
+                value={selectedPeriodId}
+                onValueChange={setSelectedPeriodId}
+              >
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPayrollPeriods.map(period => (
+                  {mockPayrollPeriods.map((period) => (
                     <SelectItem key={period.id} value={period.id.toString()}>
                       {period.name} - {period.status}
                     </SelectItem>
@@ -150,26 +181,34 @@ const PayrollPage: React.FC = () => {
             {currentPeriod && (
               <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">{summaryStats.totalEmployees}</div>
+                  <div className="text-2xl font-bold">
+                    {summaryStats.totalEmployees}
+                  </div>
                   <div className="text-sm text-muted-foreground">Employees</div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
                     PKR {summaryStats.totalGrossSalary.toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground">Gross Salary</div>
+                  <div className="text-sm text-muted-foreground">
+                    Gross Salary
+                  </div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-red-600">
                     PKR {summaryStats.totalDeductions.toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground">Deductions</div>
+                  <div className="text-sm text-muted-foreground">
+                    Deductions
+                  </div>
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
                     PKR {summaryStats.totalNetSalary.toLocaleString()}
                   </div>
-                  <div className="text-sm text-muted-foreground">Net Salary</div>
+                  <div className="text-sm text-muted-foreground">
+                    Net Salary
+                  </div>
                 </div>
               </div>
             )}
@@ -182,11 +221,15 @@ const PayrollPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Paid Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Paid Employees
+              </CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summaryStats.paidEmployees}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {summaryStats.paidEmployees}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {summaryStats.totalEmployees} total employees
               </p>
@@ -195,11 +238,15 @@ const PayrollPage: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Pending Payments
+              </CardTitle>
               <Clock className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{summaryStats.pendingPayments}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {summaryStats.pendingPayments}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Awaiting processing
               </p>
@@ -208,31 +255,38 @@ const PayrollPage: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Failed Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Failed Payments
+              </CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{summaryStats.failedPayments}</div>
-              <p className="text-xs text-muted-foreground">
-                Require attention
-              </p>
+              <div className="text-2xl font-bold text-red-600">
+                {summaryStats.failedPayments}
+              </div>
+              <p className="text-xs text-muted-foreground">Require attention</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Payment Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Payment Rate
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {summaryStats.totalEmployees > 0
-                  ? Math.round((summaryStats.paidEmployees / summaryStats.totalEmployees) * 100)
-                  : 0}%
+                  ? Math.round(
+                      (summaryStats.paidEmployees /
+                        summaryStats.totalEmployees) *
+                        100
+                    )
+                  : 0}
+                %
               </div>
-              <p className="text-xs text-muted-foreground">
-                Completion rate
-              </p>
+              <p className="text-xs text-muted-foreground">Completion rate</p>
             </CardContent>
           </Card>
         </div>
@@ -296,8 +350,12 @@ const PayrollPage: React.FC = () => {
             <CardContent>
               {showPaymentForm ? (
                 <PaymentForm
-                  selectedEmployees={mockEmployees.filter(emp => selectedEmployeeIds.includes(emp.id))}
-                  selectedPayrollRecords={currentPayrollRecords.filter(record => selectedEmployeeIds.includes(record.employee_id))}
+                  selectedEmployees={mockEmployees.filter((emp) =>
+                    selectedEmployeeIds.includes(emp.id)
+                  )}
+                  selectedPayrollRecords={currentPayrollRecords.filter(
+                    (record) => selectedEmployeeIds.includes(record.employee_id)
+                  )}
                   onSubmit={handleProcessPayments}
                   onCancel={() => setShowPaymentForm(false)}
                   loading={loading}
@@ -305,13 +363,17 @@ const PayrollPage: React.FC = () => {
               ) : (
                 <div className="text-center py-8">
                   <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">Process Employee Payments</h3>
+                  <h3 className="text-lg font-medium mb-2">
+                    Process Employee Payments
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    Select employees from the payroll list and process their payments
+                    Select employees from the payroll list and process their
+                    payments
                   </p>
                   {selectedEmployeeIds.length > 0 && (
                     <Button onClick={() => setShowPaymentForm(true)}>
-                      Process Payment for {selectedEmployeeIds.length} Employee{selectedEmployeeIds.length > 1 ? 's' : ''}
+                      Process Payment for {selectedEmployeeIds.length} Employee
+                      {selectedEmployeeIds.length > 1 ? "s" : ""}
                     </Button>
                   )}
                 </div>
@@ -334,7 +396,9 @@ const PayrollPage: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {currentPayrollRecords.map((record) => {
-                  const employee = mockEmployees.find(emp => emp.id === record.employee_id);
+                  const employee = mockEmployees.find(
+                    (emp) => emp.id === record.employee_id
+                  );
                   if (!employee) return null;
 
                   return (
@@ -342,10 +406,16 @@ const PayrollPage: React.FC = () => {
                       key={record.id}
                       employee={employee}
                       payrollRecord={record}
-                      paymentRecord={currentPaymentRecords.find(p => p.employee_id === employee.id)}
+                      paymentRecord={currentPaymentRecords.find(
+                        (p) => p.employee_id === employee.id
+                      )}
                       isSelected={selectedEmployeeIds.includes(employee.id)}
-                      onSelect={(selected) => handleSelectEmployee(employee.id, selected)}
-                      onViewPayslip={() => console.log('View payslip for', employee.id)}
+                      onSelect={(selected) =>
+                        handleSelectEmployee(employee.id, selected)
+                      }
+                      onViewPayslip={() =>
+                        console.log("View payslip for", employee.id)
+                      }
                       loading={loading}
                     />
                   );

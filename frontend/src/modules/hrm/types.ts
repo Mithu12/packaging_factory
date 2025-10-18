@@ -165,13 +165,19 @@ export interface LeaveApplication {
   start_date: string;
   end_date: string;
   total_days: number;
+  half_day?: boolean;
+  half_day_date?: string;
   reason?: string;
   status: "pending" | "approved" | "rejected" | "cancelled";
   approved_by?: number;
   approved_at?: string;
   rejected_reason?: string;
   emergency_contact?: string;
+  contact_details?: string;
   work_handover_notes?: string;
+  work_coverage_notes?: string;
+  handover_notes?: string;
+  uploaded_documents?: string[];
   applied_at: string;
   updated_at: string;
 }
@@ -1177,6 +1183,7 @@ export interface CreateLeaveApplicationForm {
   leave_type_id: number;
   start_date: string;
   end_date: string;
+  total_days: number;
   half_day: boolean;
   half_day_date?: string;
   reason: string;
@@ -1257,6 +1264,10 @@ export interface LeaveHistoryProps {
   filters?: LeaveApplicationFilter;
   onFilterChange?: (filters: LeaveApplicationFilter) => void;
   onExport?: (format: "excel" | "pdf") => Promise<void>;
+  onViewApplication?: (application: LeaveApplication) => void;
+  onEditApplication?: (application: LeaveApplication) => void;
+  onCancelApplication?: (applicationId: number) => void;
+  onAddComment?: (applicationId: number) => void;
   loading?: boolean;
 }
 
