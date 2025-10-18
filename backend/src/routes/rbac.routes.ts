@@ -446,6 +446,51 @@ router.get('/roles/:roleId/users',
   })
 );
 
+/**
+ * @route GET /api/rbac/roles/:roleId/employees
+ * @desc Get all employees who are users with a specific role
+ * @access System Admin
+ */
+router.get('/roles/:roleId/employees',
+  authenticate,
+  requireSystemAdmin(),
+  expressAsyncHandler(async (req, res) => {
+    const action = 'GET /api/rbac/roles/:roleId/employees';
+    const roleId = parseInt(req.params.roleId);
+
+    try {
+      MyLogger.info(action, { roleId });
+
+      if (isNaN(roleId)) {
+        serializeErrorResponse(res, {}, '400', 'Invalid role ID');
+        return;
+      }
+
+      const employees = await RoleMediator.getEmployeesByUserRole(roleId);
+
+      MyLogger.success(action, {
+        roleId,
+        employeeCount: employees.length
+      });
+
+      serializeSuccessResponse(res, {
+        role_id: roleId,
+        employees,
+        summary: {
+          total_employees: employees.length,
+          active_employees: employees.filter(emp => emp.employee_active).length,
+          active_users: employees.filter(emp => emp.user_active).length
+        }
+      }, 'Employees with user role retrieved successfully');
+
+    } catch (error: any) {
+      MyLogger.error(action, error, { roleId });
+      const statusCode = error.statusCode || 500;
+      serializeErrorResponse(res, {}, statusCode.toString(), error.message || 'Error retrieving employees with user role');
+    }
+  })
+);
+
 // ==================== UTILITY ROUTES ====================
 
 /**

@@ -678,6 +678,10 @@ export class HRMApiService {
   static async getUsersByRole(roleId: number): Promise<{ users: any[] }> {
     return makeRequest<{ users: any[] }>(`/rbac/roles/${roleId}/users`);
   }
+
+  static async getEmployeesByUserRole(roleId: number): Promise<{ employees: any[] }> {
+    return makeRequest<{ employees: any[] }>(`/rbac/roles/${roleId}/employees`);
+  }
 }
 
 export default HRMApiService;

@@ -1021,4 +1021,73 @@ export class RoleMediator {
       client.release();
     }
   }
+
+  /**
+   * Get all employees who are users with a specific role
+   */
+  static async getEmployeesByUserRole(roleId: number): Promise<any[]> {
+    const action = 'RoleMediator.getEmployeesByUserRole';
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { roleId });
+
+      if (isNaN(roleId) || roleId <= 0) {
+        throw createError('Invalid role ID', 400);
+      }
+
+      // Verify role exists
+      const roleQuery = 'SELECT id, name, display_name FROM roles WHERE id = $1 AND is_active = true';
+      const roleResult = await client.query(roleQuery, [roleId]);
+
+      if (roleResult.rows.length === 0) {
+        throw createError('Role not found', 404);
+      }
+
+      const role = roleResult.rows[0];
+
+      // Get employees who are users with this role
+      const employeesQuery = `
+        SELECT
+          e.id as employee_id,
+          e.employee_id,
+          e.first_name,
+          e.last_name,
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
+          e.user_id,
+          u.username,
+          u.email,
+          u.mobile_number,
+          u.is_active as user_active,
+          e.is_active as employee_active,
+          r.name as role_name,
+          r.display_name as role_display_name,
+          d.name as department_name,
+          des.title as designation_title
+        FROM employees e
+        INNER JOIN users u ON u.id = e.user_id
+        INNER JOIN roles r ON r.id = u.role_id
+        LEFT JOIN departments d ON e.department_id = d.id
+        LEFT JOIN designations des ON e.designation_id = des.id
+        WHERE u.role_id = $1 AND u.is_active = true AND e.is_active = true
+        ORDER BY e.first_name ASC, e.last_name ASC
+      `;
+
+      const employeesResult = await client.query(employeesQuery, [roleId]);
+
+      MyLogger.success(action, {
+        roleId,
+        roleName: role.name,
+        employeeCount: employeesResult.rows.length
+      });
+
+      return employeesResult.rows;
+
+    } catch (error) {
+      MyLogger.error(action, error, { roleId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

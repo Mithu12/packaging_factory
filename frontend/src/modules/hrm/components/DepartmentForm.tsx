@@ -46,8 +46,8 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
       // For now, we'll use a hardcoded role ID for "Head Of Department"
       // In the future, we should fetch this dynamically
       const headOfDepartmentRoleId = 60; // This should be fetched from the database
-      const response = await HRMApiService.getUsersByRole(headOfDepartmentRoleId);
-      setHeadOfDepartmentUsers(response.users);
+      const response = await HRMApiService.getEmployeesByUserRole(headOfDepartmentRoleId);
+      setHeadOfDepartmentUsers(response.employees);
     } catch (error) {
       console.error('Error loading Head of Department users:', error);
       // Fallback to empty list - users can still create departments without managers
@@ -161,9 +161,9 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No manager assigned</SelectItem>
-              {headOfDepartmentUsers.map((user) => (
-                <SelectItem key={user.id} value={user.id.toString()}>
-                  {user.full_name} ({user.username})
+              {headOfDepartmentUsers.map((employee) => (
+                <SelectItem key={employee.employee_id} value={employee.employee_id.toString()}>
+                  {employee.full_name} ({employee.employee_id})
                 </SelectItem>
               ))}
             </SelectContent>
