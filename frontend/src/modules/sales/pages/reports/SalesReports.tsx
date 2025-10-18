@@ -100,10 +100,10 @@ export default function SalesReports() {
       };
 
       const [summaryRes, customerRes, paymentRes, fulfillmentRes] = await Promise.all([
-        apiClient.get('/reports/sales-summary', { params }),
-        apiClient.get('/reports/customer-performance', { params: { ...params, limit: 20 } }),
-        apiClient.get('/reports/payment-analysis', { params }),
-        apiClient.get('/reports/order-fulfillment', { params }),
+        apiClient.get('/sales/reports/sales-summary', { params }),
+        apiClient.get('/sales/reports/customer-performance', { params: { ...params, limit: 20 } }),
+        apiClient.get('/sales/reports/payment-analysis', { params }),
+        apiClient.get('/sales/reports/order-fulfillment', { params }),
       ]);
 
       setSalesSummary(summaryRes.data.data);
@@ -130,7 +130,7 @@ export default function SalesReports() {
         format: 'pdf'
       };
 
-      const response = await apiClient.post('/reports/export', params, {
+      const response = await apiClient.post('/sales/reports/export', params, {
         responseType: 'blob'
       });
 

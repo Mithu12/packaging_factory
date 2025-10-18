@@ -106,7 +106,7 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Reports",
-        url: "/sales/reports",
+        url: "/sales-reports",
         icon: BarChart3,
         permission: PERMISSIONS.SALES_REPORTS_READ,
       },
@@ -396,7 +396,7 @@ const menuSections: MenuSection[] = [
         title: "Salary Updates",
         url: "/hrm/salary-updates",
         icon: TrendingUp,
-        permission: PERMISSIONS.HR_SALARY_UPDATES_READ,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
       },
       {
         title: "Payroll",
