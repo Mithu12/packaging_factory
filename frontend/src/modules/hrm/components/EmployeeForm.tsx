@@ -491,7 +491,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Department</SelectItem>
                       {/* Add department options */}
                     </SelectContent>
                   </Select>
@@ -504,7 +503,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Designation</SelectItem>
                       {/* Add designation options */}
                     </SelectContent>
                   </Select>
@@ -517,7 +515,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select reporting manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Manager</SelectItem>
                       {/* Add manager options */}
                     </SelectContent>
                   </Select>
