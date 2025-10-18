@@ -73,15 +73,10 @@ logger.add(new winston.transports.Console({
         winston.format.colorize({ all: true }), // Ensure colorization is applied to message and level
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.printf(({ timestamp, level, message, stack, data, traceId }) => {
-            let logEntry = `${timestamp} [${level}]: ${message}`;
-            if (traceId) logEntry += ` | TraceID: ${traceId}`;
-            if (stack && typeof stack === 'object') {
-                logEntry += ` | Stack: ${stack.methodName || 'Unknown'}@${stack.fileName || 'Unknown'}:${stack.lineNumber || 'Unknown'}`;
-            }
-            if (data && typeof data === 'object') {
-                const dataStr = Object.entries(data).map(([key, value]) => `${key}=${value}`).join(' ');
-                logEntry += ` | ${dataStr}`;
-            }
+            let logEntry = `${timestamp} [${level}]: ${message}`; // Winston applies color to `level` automatically
+            if (traceId) logEntry += `\nTrace ID: ${traceId}`;
+            if (stack) logEntry += `\nStack: ${JSON.stringify(stack)}`;
+            if (data) logEntry += `\nData: ${JSON.stringify(data, null, 2)}`;
             return logEntry;
         })
     ),
