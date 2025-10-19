@@ -100,6 +100,13 @@ import LeaveTypeConfigurationPage from "@/modules/hrm/pages/LeaveTypeConfigurati
 import LeaveApplicationPage from "@/modules/hrm/pages/LeaveApplicationPage";
 import LeaveCalendarPage from "@/modules/hrm/pages/LeaveCalendarPage";
 
+// Attendance Module Imports
+import AttendanceDashboardPage from "@/modules/hrm/pages/AttendanceDashboardPage";
+import AttendanceMarkingPage from "@/modules/hrm/pages/AttendanceMarkingPage";
+import ShiftManagementPage from "@/modules/hrm/pages/ShiftManagementPage";
+import AttendanceRegularizationPage from "@/modules/hrm/pages/AttendanceRegularizationPage";
+import AttendanceReportsPage from "@/modules/hrm/pages/AttendanceReportsPage";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -939,6 +946,58 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <LeaveCalendarPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Attendance Routes */}
+                <Route
+                  path="/hrm/attendance"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <AttendanceDashboardPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/attendance/marking"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <AttendanceMarkingPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/attendance/shifts"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <ShiftManagementPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/attendance/regularization"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <AttendanceRegularizationPage />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hrm/attendance/reports"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <AttendanceReportsPage />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

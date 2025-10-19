@@ -208,12 +208,165 @@ export interface AttendanceRecord {
   break_end_time?: string;
   total_hours_worked?: number;
   overtime_hours: number;
-  status: "present" | "absent" | "late" | "half_day" | "holiday";
+  status:
+    | "present"
+    | "absent"
+    | "late"
+    | "half_day"
+    | "early_going"
+    | "work_from_home"
+    | "on_leave"
+    | "holiday"
+    | "week_off"
+    | "compensatory_off";
   location?: string;
+  ip_address?: string;
+  device_info?: string;
+  selfie_url?: string;
+  qr_code_scanned?: boolean;
   notes?: string;
   recorded_by: string;
   is_manual_entry: boolean;
   approved_by?: number;
+  shift_id?: number;
+  shift?: Shift;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Shift {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  working_hours: number;
+  is_flexible: boolean;
+  grace_period_minutes: number;
+  late_threshold_minutes: number;
+  early_going_threshold_minutes: number;
+  is_active: boolean;
+  color_code: string;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShiftAssignment {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  shift_id: number;
+  shift?: Shift;
+  effective_from: string;
+  effective_to?: string;
+  is_primary: boolean;
+  assigned_by?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceConfiguration {
+  id: number;
+  name: string;
+  working_days_per_week: number;
+  working_hours_per_day: number;
+  grace_period_late_minutes: number;
+  grace_period_early_going_minutes: number;
+  half_day_hours_threshold: number;
+  full_day_hours_threshold: number;
+  overtime_start_after_hours: number;
+  week_off_pattern: "fixed" | "rotating";
+  fixed_week_off_days?: number[]; // 0-6 (Sunday-Saturday)
+  auto_approve_absent: boolean;
+  require_location_check: boolean;
+  require_selfie: boolean;
+  allow_qr_code: boolean;
+  ip_restriction_enabled: boolean;
+  allowed_ip_ranges?: string[];
+  geofencing_enabled: boolean;
+  office_latitude?: number;
+  office_longitude?: number;
+  geofence_radius_meters?: number;
+  is_active: boolean;
+  effective_from: string;
+  effective_to?: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceRegularizationRequest {
+  id: number;
+  employee_id: number;
+  employee?: Employee;
+  request_date: string;
+  original_date: string;
+  original_check_in_time?: string;
+  original_check_out_time?: string;
+  requested_check_in_time?: string;
+  requested_check_out_time?: string;
+  reason: string;
+  supporting_document_urls?: string[];
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  reviewed_by?: number;
+  reviewed_at?: string;
+  review_comments?: string;
+  rejection_reason?: string;
+  manager_id?: number;
+  manager?: Employee;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceSummary {
+  period_start: string;
+  period_end: string;
+  total_employees: number;
+  present_count: number;
+  absent_count: number;
+  late_count: number;
+  half_day_count: number;
+  work_from_home_count: number;
+  on_leave_count: number;
+  total_attendance_percentage: number;
+  department_breakdown: {
+    department_id: number;
+    department_name: string;
+    total_employees: number;
+    present_count: number;
+    absent_count: number;
+    attendance_percentage: number;
+  }[];
+  daily_trends: {
+    date: string;
+    present: number;
+    absent: number;
+    late: number;
+    total: number;
+  }[];
+}
+
+export interface AttendanceReport {
+  id: number;
+  name: string;
+  type: "daily" | "weekly" | "monthly" | "custom";
+  start_date: string;
+  end_date: string;
+  filters: {
+    employee_ids?: number[];
+    department_ids?: number[];
+    designation_ids?: number[];
+    status?: string[];
+  };
+  generated_by: number;
+  generated_at: string;
+  file_url?: string;
+  status: "generating" | "completed" | "failed";
   created_at: string;
   updated_at: string;
 }
@@ -1324,4 +1477,229 @@ export interface AdminLeaveToolsProps {
     days: number
   ) => Promise<void>;
   loading?: boolean;
+}
+
+// Attendance Form Types
+export interface CreateAttendanceRecordForm {
+  employee_id: number;
+  attendance_date: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  status: AttendanceRecord["status"];
+  location?: string;
+  ip_address?: string;
+  notes?: string;
+  recorded_by?: string;
+  is_manual_entry?: boolean;
+  shift_id?: number;
+}
+
+export interface CreateShiftForm {
+  name: string;
+  code: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  working_hours: number;
+  is_flexible: boolean;
+  grace_period_minutes: number;
+  late_threshold_minutes: number;
+  early_going_threshold_minutes: number;
+  color_code: string;
+}
+
+export interface CreateShiftAssignmentForm {
+  employee_id: number;
+  shift_id: number;
+  effective_from: string;
+  effective_to?: string;
+  is_primary: boolean;
+  notes?: string;
+}
+
+export interface CreateAttendanceConfigurationForm {
+  name: string;
+  working_days_per_week: number;
+  working_hours_per_day: number;
+  grace_period_late_minutes: number;
+  grace_period_early_going_minutes: number;
+  half_day_hours_threshold: number;
+  full_day_hours_threshold: number;
+  overtime_start_after_hours: number;
+  week_off_pattern: "fixed" | "rotating";
+  fixed_week_off_days?: number[];
+  auto_approve_absent: boolean;
+  require_location_check: boolean;
+  require_selfie: boolean;
+  allow_qr_code: boolean;
+  ip_restriction_enabled: boolean;
+  allowed_ip_ranges?: string[];
+  geofencing_enabled: boolean;
+  office_latitude?: number;
+  office_longitude?: number;
+  geofence_radius_meters?: number;
+  effective_from: string;
+  effective_to?: string;
+}
+
+export interface CreateAttendanceRegularizationForm {
+  employee_id: number;
+  original_date: string;
+  original_check_in_time?: string;
+  original_check_out_time?: string;
+  requested_check_in_time?: string;
+  requested_check_out_time?: string;
+  reason: string;
+  supporting_document_urls?: string[];
+}
+
+export interface BulkAttendanceMarkForm {
+  employee_ids: number[];
+  attendance_date: string;
+  status: AttendanceRecord["status"];
+  check_in_time?: string;
+  check_out_time?: string;
+  notes?: string;
+}
+
+// Component Props Types
+export interface AttendanceDashboardProps {
+  employees: Employee[];
+  attendanceRecords: AttendanceRecord[];
+  shifts: Shift[];
+  attendanceSummary: AttendanceSummary;
+  onMarkAttendance: (data: CreateAttendanceRecordForm) => Promise<void>;
+  onBulkMarkAttendance: (data: BulkAttendanceMarkForm) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface AttendanceMarkingProps {
+  employees: Employee[];
+  departments: Department[];
+  shifts: Shift[];
+  attendanceRecords: AttendanceRecord[];
+  onMarkAttendance: (data: CreateAttendanceRecordForm) => Promise<void>;
+  onBulkMarkAttendance: (data: BulkAttendanceMarkForm) => Promise<void>;
+  onRegularizeAttendance: (
+    data: CreateAttendanceRegularizationForm
+  ) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface ShiftManagementProps {
+  shifts: Shift[];
+  shiftAssignments: ShiftAssignment[];
+  employees: Employee[];
+  onCreateShift: (data: CreateShiftForm) => Promise<void>;
+  onUpdateShift: (id: number, data: Partial<CreateShiftForm>) => Promise<void>;
+  onDeleteShift: (id: number) => Promise<void>;
+  onAssignShift: (data: CreateShiftAssignmentForm) => Promise<void>;
+  onUpdateAssignment: (
+    id: number,
+    data: Partial<CreateShiftAssignmentForm>
+  ) => Promise<void>;
+  onDeleteAssignment: (id: number) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface AttendanceRegularizationProps {
+  regularizationRequests: AttendanceRegularizationRequest[];
+  employees: Employee[];
+  onCreateRequest: (data: CreateAttendanceRegularizationForm) => Promise<void>;
+  onApproveRequest: (id: number, comments?: string) => Promise<void>;
+  onRejectRequest: (id: number, reason: string) => Promise<void>;
+  onCancelRequest: (id: number) => Promise<void>;
+  loading?: boolean;
+}
+
+export interface AttendanceReportsProps {
+  employees: Employee[];
+  departments: Department[];
+  attendanceRecords: AttendanceRecord[];
+  attendanceReports: AttendanceReport[];
+  onGenerateReport: (data: {
+    name: string;
+    type: "daily" | "weekly" | "monthly" | "custom";
+    start_date: string;
+    end_date: string;
+    filters: AttendanceReport["filters"];
+  }) => Promise<void>;
+  onDownloadReport: (reportId: number) => Promise<void>;
+  onExportData: (format: "excel" | "pdf", filters: any) => Promise<void>;
+  loading?: boolean;
+}
+
+// Attendance Component Props
+export interface AttendanceCardProps {
+  attendance: AttendanceRecord;
+  employee?: Employee;
+  shift?: Shift;
+  onEdit?: (attendance: AttendanceRecord) => void;
+  onDelete?: (id: number) => void;
+  onRegularize?: (attendance: AttendanceRecord) => void;
+  compact?: boolean;
+}
+
+export interface AttendanceTableProps {
+  attendanceRecords: AttendanceRecord[];
+  employees: Employee[];
+  shifts: Shift[];
+  loading?: boolean;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+  };
+  onEdit?: (attendance: AttendanceRecord) => void;
+  onDelete?: (id: number) => void;
+  onRegularize?: (attendance: AttendanceRecord) => void;
+}
+
+export interface ShiftFormProps {
+  shift?: Shift;
+  onSubmit: (data: CreateShiftForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface ShiftAssignmentFormProps {
+  employees: Employee[];
+  shifts: Shift[];
+  assignment?: ShiftAssignment;
+  onSubmit: (data: CreateShiftAssignmentForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface AttendanceConfigurationFormProps {
+  configuration?: AttendanceConfiguration;
+  onSubmit: (data: CreateAttendanceConfigurationForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface AttendanceRegularizationFormProps {
+  employees: Employee[];
+  attendanceRecords: AttendanceRecord[];
+  onSubmit: (data: CreateAttendanceRegularizationForm) => Promise<void>;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export interface AttendanceFilter {
+  employee_id?: number;
+  department_ids?: number[];
+  designation_ids?: number[];
+  status?: string[];
+  date_from?: string;
+  date_to?: string;
+  shift_ids?: number[];
+  is_manual_entry?: boolean;
+  search_term?: string;
 }

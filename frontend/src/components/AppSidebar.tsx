@@ -31,6 +31,7 @@ import {
   Calendar,
   Activity,
   AlertTriangle,
+  Clock,
   Wrench,
   ClipboardList,
   TrendingUp,
@@ -421,6 +422,36 @@ const menuSections: MenuSection[] = [
         url: "/hrm/leave-calendar",
         icon: Calendar,
         permission: PERMISSIONS.HR_LEAVE_READ,
+      },
+      {
+        title: "Attendance Dashboard",
+        url: "/hrm/attendance",
+        icon: Clock,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Mark Attendance",
+        url: "/hrm/attendance/marking",
+        icon: Calendar,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Shift Management",
+        url: "/hrm/attendance/shifts",
+        icon: Activity,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Attendance Regularization",
+        url: "/hrm/attendance/regularization",
+        icon: FileText,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Attendance Reports",
+        url: "/hrm/attendance/reports",
+        icon: BarChart3,
+        permission: null, // Accessible to all authenticated users
       },
     ],
   },
