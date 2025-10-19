@@ -26,15 +26,11 @@ export class AddEmployeeMediator {
       let newUser = null;
       if (!employeeData.user_id) {
         try {
-          // Get the EMPLOYEE role ID
-          const roleQuery = 'SELECT id FROM roles WHERE name = $1 AND is_active = true';
-          const roleResult = await client.query(roleQuery, ['Employee']);
+          const employeeRoleId = employeeData.role_id;
 
-          if (roleResult.rows.length === 0) {
-            throw new Error('Employee role not found');
+          if (!employeeRoleId) {
+            throw new Error('Role ID is required to create a user account for the employee.');
           }
-
-          const employeeRoleId = roleResult.rows[0].id;
 
           // Use form data for username, email, and password if provided, otherwise use defaults
           const username = employeeData.username || employeeId.toLowerCase();

@@ -534,6 +534,11 @@ export interface CreateEmployeeRequest {
     skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    create_user_account?: boolean;
+    username?: string;
+    email?: string;
+    password?: string;
+    role_id?: number;
 }
 
 export interface UpdateEmployeeRequest {
