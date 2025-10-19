@@ -13,7 +13,6 @@ import {
 } from '@/types/auth';
 import { UserWithPermissions, PermissionCheck } from '@/types/rbac';
 import { RoleMediator } from '@/mediators/rbac/RoleMediator';
-import { AddEmployeeMediator } from '@/modules/hrm/mediators/employees/AddEmployee.mediator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -115,25 +114,12 @@ export class AuthMediator {
         registerData.full_name,
         registerData.mobile_number || null,
         registerData.departments || null,
-        registerData.role || UserRole.EMPLOYEE,
+        registerData.role,
         true,
         false
       ]);
       
       const user = userResult.rows[0];
-
-      // Create employee record for the new user (but don't fail if it fails)
-      try {
-        await this.createEmployeeForUser(user);
-        MyLogger.info('Employee record created for new user', { user_id: user.id, username: user.username });
-      } catch (error) {
-        MyLogger.warn('Failed to create employee record for new user (continuing with user creation)', {
-          user_id: user.id,
-          username: user.username,
-          error: error
-        });
-        // Continue with user creation even if employee creation fails
-      }
 
       // Generate JWT token
       const token = this.generateToken({
@@ -769,19 +755,6 @@ export class AuthMediator {
 
       const newUser = result.rows[0];
 
-      // Create employee record for the new user (but don't fail if it fails)
-      try {
-        await this.createEmployeeForUser(newUser);
-        MyLogger.info('Employee record created for new user', { user_id: newUser.id, username: newUser.username });
-      } catch (error) {
-        MyLogger.warn('Failed to create employee record for new user (continuing with user creation)', {
-          user_id: newUser.id,
-          username: newUser.username,
-          error: error
-        });
-        // Continue with user creation even if employee creation fails
-      }
-
       await client.query('COMMIT');
 
       MyLogger.success(action, {
@@ -902,76 +875,4 @@ export class AuthMediator {
     }
   }
 
-  /**
-   * Create employee record for a newly created user
-   * This method is called after user creation to maintain the relationship
-   * between users and employees without making user creation dependent on employee creation
-   */
-  private static async createEmployeeForUser(user: any): Promise<void> {
-    try {
-      // Extract first and last name from full_name
-      const nameParts = user.full_name ? user.full_name.trim().split(' ') : [user.username, ''];
-      const firstName = nameParts[0] || user.username;
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Generate employee ID based on user ID
-      const employeeId = `EMP${user.id.toString().padStart(6, '0')}`;
-
-      // Create employee data with all required fields and defaults
-      const employeeData = {
-        employee_id: employeeId,
-        user_id: user.id,
-        first_name: firstName,
-        last_name: lastName,
-        // Set defaults for all fields to ensure employee creation doesn't fail
-        employment_type: 'permanent' as const,
-        probation_period_months: 6,
-        notice_period_days: 30,
-        skill_level: 'intermediate' as const,
-        availability_status: 'available' as const,
-        is_active: true,
-        // Optional fields with null defaults
-        factory_id: null,
-        date_of_birth: null,
-        gender: null,
-        marital_status: null,
-        nationality: null,
-        address: null,
-        city: null,
-        state: null,
-        postal_code: null,
-        country: null,
-        phone: user.mobile_number || null,
-        emergency_contact_name: null,
-        emergency_contact_phone: null,
-        emergency_contact_relationship: null,
-        blood_group: null,
-        cnic: null,
-        passport_number: null,
-        tax_id: null,
-        designation_id: null,
-        reporting_manager_id: null,
-        department_id: null,
-        join_date: new Date().toISOString().split('T')[0], // Today's date
-        confirmation_date: null,
-        termination_date: null,
-        work_location: null,
-        shift_type: null,
-        bank_account_number: null,
-        bank_name: null,
-        hourly_rate: null
-      };
-
-      // Create the employee record (this will not fail user creation if it fails)
-      await AddEmployeeMediator.createEmployee(employeeData, user.id);
-
-    } catch (error) {
-      MyLogger.error('Failed to create employee for user', {
-        user_id: user.id,
-        username: user.username,
-        error: error
-      });
-      throw error; // Re-throw so the calling method can handle it
-    }
-  }
 }
