@@ -29,6 +29,7 @@ router.get(
 router.post(
   "/",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_CREATE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.createEmployee)
 );
 
@@ -36,6 +37,7 @@ router.post(
 router.put(
   "/:id",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_UPDATE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.updateEmployee)
 );
 
@@ -43,6 +45,7 @@ router.put(
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_DELETE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.deleteEmployee)
 );
 
@@ -105,6 +108,7 @@ router.get(
 router.post(
   "/bulk-import",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_CREATE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.bulkImportEmployees)
 );
 
@@ -130,6 +134,7 @@ router.get(
 router.post(
   "/:id/documents",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_CREATE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.uploadEmployeeDocument)
 );
 
@@ -148,6 +153,7 @@ router.get(
 router.put(
   "/:id/salary",
   requirePermission(PERMISSIONS.HR_EMPLOYEES_UPDATE),
+  auditMiddleware,
   expressAsyncHandler(EmployeeController.updateEmployeeSalary)
 );
 

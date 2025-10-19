@@ -22,7 +22,61 @@ export class AddEmployeeMediator {
       // Generate employee ID if not provided
       const employeeId = employeeData.employee_id || await this.generateEmployeeId();
 
-      // Insert employee
+      // Create user account first if employee doesn't already have a user_id
+      let newUser = null;
+      if (!employeeData.user_id) {
+        try {
+          // Generate user data for the employee
+          const roleQuery = 'SELECT id FROM roles WHERE name = $1 AND is_active = true';
+          const roleResult = await client.query(roleQuery, ['Employee']);
+
+          if (roleResult.rows.length === 0) {
+            throw new Error('Employee role not found');
+          }
+
+          const employeeRoleId = roleResult.rows[0].id;
+
+          // Generate username from employee data
+          const baseUsername = employeeId.toLowerCase();
+          const username = baseUsername; // Use employee_id as username
+
+          // Generate email from employee data (if phone exists, use it as base)
+          const email = `${baseUsername}@company.com`;
+
+          // Generate temporary password
+          const tempPassword = `TempPass${Date.now()}${Math.floor(Math.random() * 10000)}`;
+
+          // Create user data
+          const userData = {
+            username: username,
+            email: email,
+            full_name: `${employeeData.first_name || ''} ${employeeData.last_name || ''}`.trim(),
+            mobile_number: employeeData.phone || undefined,
+            departments: [], // Empty departments array for now
+            role_id: employeeRoleId, // Use the actual Employee role ID
+            password: tempPassword
+          };
+
+          // Create the user account using AuthMediator (which handles its own transaction internally)
+          newUser = await AuthMediator.createUser(userData);
+
+          MyLogger.info('User account created for new employee', {
+            employee_id: employeeId,
+            user_id: newUser.id,
+            username: newUser.username
+          });
+
+        } catch (error) {
+          MyLogger.error('Failed to create user account for new employee, rolling back employee creation', {
+            employee_id: employeeId,
+            error: error
+          });
+          throw error; // Re-throw to trigger transaction rollback
+        }
+      }
+
+      // Insert employee with the user_id (either provided or newly created)
+      const userId = employeeData.user_id || newUser?.id;
       const insertQuery = `
         INSERT INTO employees (
           employee_id, factory_id, user_id, first_name, last_name, date_of_birth,
@@ -42,7 +96,7 @@ export class AddEmployeeMediator {
       `;
 
       const values = [
-        employeeId, employeeData.factory_id, employeeData.user_id,
+        employeeId, employeeData.factory_id, userId,
         employeeData.first_name, employeeData.last_name, employeeData.date_of_birth,
         employeeData.gender, employeeData.marital_status, employeeData.nationality,
         employeeData.address, employeeData.city, employeeData.state, employeeData.postal_code,
@@ -61,52 +115,12 @@ export class AddEmployeeMediator {
       const result = await client.query(insertQuery, values);
       const newEmployee = result.rows[0];
 
-      // Create audit log
-      if (createdBy) {
-        const auditService = new AuditService();
-        await auditService.logActivity({
-          userId: createdBy,
-          action: 'CREATE_EMPLOYEE',
-          resourceType: 'employee',
-          resourceId: newEmployee.id,
-          endpoint: '/api/hrm/employees',
-          method: 'POST',
-          responseStatus: 201,
-          success: true,
-          durationMs: 0,
-          oldValues: null,
-          newValues: employeeData
-        });
-      }
-
       // Publish event
       eventBus.emit('employee.created', {
         employeeId: newEmployee.id,
         employeeData: newEmployee,
         createdBy
       });
-
-      // Create user account for the new employee (but don't fail if it fails)
-      // Only create user if employee doesn't already have a user_id
-      if (!newEmployee.user_id) {
-        try {
-          await this.createUserForEmployee(newEmployee, createdBy);
-          MyLogger.info('User account created for new employee', { employee_id: newEmployee.id, employee_id_text: newEmployee.employee_id });
-        } catch (error) {
-          MyLogger.warn('Failed to create user account for new employee (continuing with employee creation)', {
-            employee_id: newEmployee.id,
-            employee_id_text: newEmployee.employee_id,
-            error: error
-          });
-          // Continue with employee creation even if user creation fails
-        }
-      } else {
-        MyLogger.info('Employee already has a user account, skipping user creation', {
-          employee_id: newEmployee.id,
-          employee_id_text: newEmployee.employee_id,
-          user_id: newEmployee.user_id
-        });
-      }
 
       await client.query('COMMIT');
 
@@ -225,54 +239,4 @@ export class AddEmployeeMediator {
     return result.rows[0];
   }
 
-  /**
-   * Create user account for a newly created employee
-   * This method is called after employee creation to maintain the relationship
-   * between employees and users without making employee creation dependent on user creation
-   */
-  private static async createUserForEmployee(employee: Employee, createdBy?: number): Promise<void> {
-    try {
-      // Get the EMPLOYEE role ID
-      const roleQuery = 'SELECT id FROM roles WHERE name = $1 AND is_active = true';
-      const roleResult = await pool.query(roleQuery, ['Employee']);
-
-      if (roleResult.rows.length === 0) {
-        throw new Error('Employee role not found');
-      }
-
-      const employeeRoleId = roleResult.rows[0].id;
-
-      // Generate username from employee data
-      const baseUsername = employee.employee_id.toLowerCase();
-      const username = baseUsername; // Use employee_id as username
-
-      // Generate email from employee data (if phone exists, use it as base)
-      const email = `${baseUsername}@company.com`;
-
-      // Generate temporary password
-      const tempPassword = `TempPass${employee.id}${Date.now()}`;
-
-      // Create user data
-      const userData = {
-        username: username,
-        email: email,
-        full_name: `${employee.first_name || ''} ${employee.last_name || ''}`.trim(),
-        mobile_number: employee.phone || null,
-        departments: [], // Empty departments array for now
-        role_id: employeeRoleId, // Use the actual Employee role ID
-        password: tempPassword
-      };
-
-      // Create the user account (this will not fail employee creation if it fails)
-      await AuthMediator.createUser(userData);
-
-    } catch (error) {
-      MyLogger.error('Failed to create user for employee', {
-        employee_id: employee.id,
-        employee_id_text: employee.employee_id,
-        error: error
-      });
-      throw error; // Re-throw so the calling method can handle it
-    }
-  }
 }
