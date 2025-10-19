@@ -67,6 +67,8 @@ const EmployeeManagement: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -133,12 +135,23 @@ const EmployeeManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteEmployee = async (id: number) => {
+  const handleDeleteEmployee = (id: number) => {
+    setEmployeeToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
+
     try {
-      await HRMApiService.deleteEmployee(id);
+      await HRMApiService.deleteEmployee(employeeToDelete);
+      setIsDeleteDialogOpen(false);
+      setEmployeeToDelete(null);
       loadEmployees();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete employee');
+      setIsDeleteDialogOpen(false);
+      setEmployeeToDelete(null);
     }
   };
 
@@ -219,7 +232,7 @@ const EmployeeManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-testid="employee-management-header">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Employee Management</h1>
           <p className="text-muted-foreground">
@@ -227,11 +240,11 @@ const EmployeeManagement: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportEmployees}>
+          <Button variant="outline" onClick={handleExportEmployees} data-testid="export-button">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button onClick={() => setIsFormOpen(true)} data-testid="add-employee-button">
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
@@ -250,11 +263,12 @@ const EmployeeManagement: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
+                  data-testid="employee-search-input"
                 />
               </div>
             </div>
             <Select value={filters.department_id} onValueChange={(value) => setFilters(prev => ({ ...prev, department_id: value }))}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px]" data-testid="department-filter-select">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
@@ -263,7 +277,7 @@ const EmployeeManagement: React.FC = () => {
               </SelectContent>
             </Select>
             <Select value={filters.employment_type} onValueChange={(value) => setFilters(prev => ({ ...prev, employment_type: value }))}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px]" data-testid="employment-type-filter-select">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -275,7 +289,7 @@ const EmployeeManagement: React.FC = () => {
               </SelectContent>
             </Select>
             <Select value={filters.is_active} onValueChange={(value) => setFilters(prev => ({ ...prev, is_active: value }))}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px]" data-testid="status-filter-select">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -285,6 +299,9 @@ const EmployeeManagement: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
+          <Button onClick={() => loadEmployees()} data-testid="apply-filter-button">
+            Apply Filters
+          </Button>
         </CardContent>
       </Card>
 
@@ -297,7 +314,7 @@ const EmployeeManagement: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table data-testid="employee-list">
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
@@ -311,7 +328,7 @@ const EmployeeManagement: React.FC = () => {
             </TableHeader>
             <TableBody>
               {employees.map((employee) => (
-                <TableRow key={employee.id}>
+                <TableRow key={employee.id} data-testid={`employee-row-${employee.employee_id}`}>
                   <TableCell>
                     <div>
                       <p className="font-medium">
@@ -343,11 +360,11 @@ const EmployeeManagement: React.FC = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleViewEmployee(employee)}>
+                        <DropdownMenuItem onClick={() => handleViewEmployee(employee)} data-testid={`view-employee-${employee.employee_id}`}>
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
+                        <DropdownMenuItem onClick={() => handleEditEmployee(employee)} data-testid={`edit-employee-${employee.employee_id}`}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
@@ -355,6 +372,7 @@ const EmployeeManagement: React.FC = () => {
                         <DropdownMenuItem
                           onClick={() => handleDeleteEmployee(employee.id)}
                           className="text-destructive"
+                          data-testid={`delete-employee-${employee.employee_id}`}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
@@ -400,9 +418,9 @@ const EmployeeManagement: React.FC = () => {
 
       {/* Employee Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="employee-form-dialog">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle data-testid="employee-form-title">
               {selectedEmployee ? 'Edit Employee' : 'Add New Employee'}
             </DialogTitle>
             <DialogDescription>
@@ -556,15 +574,53 @@ const EmployeeManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent data-testid="delete-confirmation-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this employee? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="cancel-delete-button">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteEmployee}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete-button"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success Message */}
+      {null && (
+        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded" data-testid="success-message">
+          <p>Operation completed successfully</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {}} // This would be handled by parent component
+            className="mt-2"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
-        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded">
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded" data-testid="error-message">
           <p>{error}</p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setError(null)}
             className="mt-2"
+            data-testid="dismiss-error-button"
           >
             Dismiss
           </Button>

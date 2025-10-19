@@ -181,12 +181,12 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs defaultValue="personal" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="personal">Personal Information</TabsTrigger>
-          <TabsTrigger value="employment">Employment Details</TabsTrigger>
-          <TabsTrigger value="banking">Banking & Additional</TabsTrigger>
+          <TabsTrigger value="personal" data-testid="personal-tab">Personal Information</TabsTrigger>
+          <TabsTrigger value="employment" data-testid="employment-tab">Employment Details</TabsTrigger>
+          <TabsTrigger value="banking" data-testid="banking-tab">Banking & Additional</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="personal" className="space-y-4">
+        <TabsContent value="personal" className="space-y-4" data-testid="personal-tab-content">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employee_id">Employee ID *</Label>
@@ -387,7 +387,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
           </Card>
         </TabsContent>
 
-        <TabsContent value="employment" className="space-y-4">
+        <TabsContent value="employment" className="space-y-4" data-testid="employment-tab-content">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employment_type">Employment Type *</Label>
@@ -642,7 +642,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 <div className="space-y-2">
                   <Label htmlFor="department_id">Department</Label>
                   <Select value={formData.department_id?.toString()} onValueChange={(value) => handleInputChange('department_id', value ? parseInt(value) : undefined)}>
-                    <SelectTrigger data-testid="department-select">
+                    <SelectTrigger data-testid="department-select" id="department_id">
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
@@ -654,7 +654,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 <div className="space-y-2">
                   <Label htmlFor="designation_id">Designation</Label>
                   <Select value={formData.designation_id?.toString()} onValueChange={(value) => handleInputChange('designation_id', value ? parseInt(value) : undefined)}>
-                    <SelectTrigger data-testid="designation-select">
+                    <SelectTrigger data-testid="designation-select" id="designation_id">
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -679,7 +679,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
           </Card>
         </TabsContent>
 
-        <TabsContent value="banking" className="space-y-4">
+        <TabsContent value="banking" className="space-y-4" data-testid="banking-tab-content">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Banking Information</CardTitle>

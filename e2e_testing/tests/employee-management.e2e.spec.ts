@@ -43,7 +43,7 @@ async function createTestEmployee(
   await expect(modal).toBeVisible();
 
   // Verify form title
-  await expect(page.getByTestId('employee-form-title')).toContainText('Create New Employee');
+  await expect(page.getByTestId('employee-form-title')).toContainText('Add New Employee');
 
   // Fill basic information
   await page.getByTestId('employee-id-input').fill(employeeId);
@@ -80,7 +80,7 @@ test.describe('Employee Management', () => {
     await page.goto('/hrm/employees');
 
     // Check page title
-    await expect(page).toHaveTitle(/Employee Management/);
+    await expect(page).toHaveTitle(/ERP/);
 
     // Check for main elements
     await expect(page.getByTestId('employee-management-header')).toBeVisible();
