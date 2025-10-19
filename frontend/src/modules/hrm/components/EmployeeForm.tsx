@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { CalendarIcon, Save, X } from 'lucide-react';
 import { EmployeeFormProps, CreateEmployeeForm } from '../types';
+import { RBACApi } from '@/services/rbac-api';
+import { Role } from '@/services/rbac-types';
 
 const EmployeeForm: React.FC<EmployeeFormProps> = ({
   employee,
@@ -55,9 +57,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     create_user_account: true,
     username: '',
     email: '',
-    password: ''
+    password: '',
+    role_id: undefined,
   });
 
+  const [roles, setRoles] = useState<Role[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -101,10 +105,25 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         create_user_account: true,
         username: '',
         email: '',
-        password: ''
+        password: '',
+        role_id: undefined,
       });
     }
   }, [employee]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await RBACApi.getAllRoles({ is_active: true });
+        if (response && response.roles) {
+          setRoles(response.roles);
+        }
+      } catch (error) {
+        console.error("Failed to fetch roles", error);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -135,7 +154,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
       newErrors.join_date = 'Join date is required';
     }
 
-    // Validate user account creation fields if create_user_account is true (default)
     if (formData.create_user_account !== false) {
       if (!formData.username?.trim()) {
         newErrors.username = 'Username is required for user account creation';
@@ -147,6 +165,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
       if (!formData.password?.trim()) {
         newErrors.password = 'Password is required for user account creation';
+      }
+
+      if (!formData.role_id) {
+        newErrors.role_id = 'Role is required for user account creation';
       }
     }
 
@@ -171,7 +193,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   const handleInputChange = (field: keyof CreateEmployeeForm, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
 
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -612,7 +633,27 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     <p className="text-sm text-destructive" data-testid="email-error">{errors.email}</p>
                   )}
                 </div>
-
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="role_id">Role *</Label>
+                  <Select
+                    value={formData.role_id?.toString()}
+                    onValueChange={(value) => handleInputChange('role_id', value ? parseInt(value) : undefined)}
+                  >
+                    <SelectTrigger data-testid="role-select" id="role_id">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id.toString()}>
+                          {role.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.role_id && (
+                    <p className="text-sm text-destructive" data-testid="role-id-error">{errors.role_id}</p>
+                  )}
+                </div>
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="password">Password *</Label>
                   <Input
