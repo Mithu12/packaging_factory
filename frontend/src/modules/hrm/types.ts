@@ -274,6 +274,7 @@ export interface CreateEmployeeForm {
   department_id?: number;
   employment_type: "permanent" | "contract" | "intern" | "consultant";
   join_date?: string;
+  confirmation_date?: string;
   probation_period_months: number;
   notice_period_days: number;
   work_location?: string;
@@ -283,6 +284,11 @@ export interface CreateEmployeeForm {
   skill_level: "beginner" | "intermediate" | "expert" | "master";
   availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
+  // User account creation fields
+  create_user_account?: boolean;
+  username?: string;
+  email?: string;
+  password?: string;
 }
 
 export interface CreateLeaveApplicationForm {

@@ -26,7 +26,7 @@ export class AddEmployeeMediator {
       let newUser = null;
       if (!employeeData.user_id) {
         try {
-          // Generate user data for the employee
+          // Get the EMPLOYEE role ID
           const roleQuery = 'SELECT id FROM roles WHERE name = $1 AND is_active = true';
           const roleResult = await client.query(roleQuery, ['Employee']);
 
@@ -36,17 +36,12 @@ export class AddEmployeeMediator {
 
           const employeeRoleId = roleResult.rows[0].id;
 
-          // Generate username from employee data
-          const baseUsername = employeeId.toLowerCase();
-          const username = baseUsername; // Use employee_id as username
+          // Use form data for username, email, and password if provided, otherwise use defaults
+          const username = employeeData.username || employeeId.toLowerCase();
+          const email = employeeData.email || `${employeeId.toLowerCase()}@company.com`;
+          const password = employeeData.password || `TempPass${Date.now()}${Math.floor(Math.random() * 10000)}`;
 
-          // Generate email from employee data (if phone exists, use it as base)
-          const email = `${baseUsername}@company.com`;
-
-          // Generate temporary password
-          const tempPassword = `TempPass${Date.now()}${Math.floor(Math.random() * 10000)}`;
-
-          // Create user data
+          // Create user data using form data where available
           const userData = {
             username: username,
             email: email,
@@ -54,7 +49,7 @@ export class AddEmployeeMediator {
             mobile_number: employeeData.phone || undefined,
             departments: [], // Empty departments array for now
             role_id: employeeRoleId, // Use the actual Employee role ID
-            password: tempPassword
+            password: password
           };
 
           // Create the user account using AuthMediator (which handles its own transaction internally)
@@ -63,7 +58,8 @@ export class AddEmployeeMediator {
           MyLogger.info('User account created for new employee', {
             employee_id: employeeId,
             user_id: newUser.id,
-            username: newUser.username
+            username: newUser.username,
+            email: newUser.email
           });
 
         } catch (error) {
@@ -87,11 +83,11 @@ export class AddEmployeeMediator {
           employment_type, join_date, confirmation_date, termination_date,
           probation_period_months, notice_period_days, work_location, shift_type,
           bank_account_number, bank_name, skill_level, availability_status,
-          hourly_rate, is_active
+          hourly_rate, department, current_work_order_id, is_active
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
           $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29,
-          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39
+          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
         ) RETURNING *
       `;
 
@@ -105,11 +101,11 @@ export class AddEmployeeMediator {
         employeeData.blood_group, employeeData.cnic, employeeData.passport_number,
         employeeData.tax_id, employeeData.designation_id, employeeData.reporting_manager_id,
         employeeData.department_id, employeeData.employment_type, employeeData.join_date,
-        null, null,
+        employeeData.confirmation_date, employeeData.termination_date,
         employeeData.probation_period_months, employeeData.notice_period_days,
         employeeData.work_location, employeeData.shift_type, employeeData.bank_account_number,
         employeeData.bank_name, employeeData.skill_level, employeeData.availability_status,
-        employeeData.hourly_rate, true
+        employeeData.hourly_rate, employeeData.department, employeeData.current_work_order_id, true
       ];
 
       const result = await client.query(insertQuery, values);

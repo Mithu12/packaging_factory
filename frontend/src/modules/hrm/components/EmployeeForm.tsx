@@ -42,6 +42,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     department_id: undefined,
     employment_type: 'permanent',
     join_date: '',
+    confirmation_date: '',
     probation_period_months: 6,
     notice_period_days: 30,
     work_location: '',
@@ -50,7 +51,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     bank_name: '',
     skill_level: 'beginner',
     availability_status: 'available',
-    hourly_rate: undefined
+    hourly_rate: undefined,
+    create_user_account: true,
+    username: '',
+    email: '',
+    password: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -83,6 +88,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         department_id: employee.department_id,
         employment_type: employee.employment_type,
         join_date: employee.join_date || '',
+        confirmation_date: employee.confirmation_date || '',
         probation_period_months: employee.probation_period_months,
         notice_period_days: employee.notice_period_days,
         work_location: employee.work_location || '',
@@ -91,7 +97,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         bank_name: employee.bank_name || '',
         skill_level: employee.skill_level,
         availability_status: employee.availability_status,
-        hourly_rate: employee.hourly_rate
+        hourly_rate: employee.hourly_rate,
+        create_user_account: true,
+        username: '',
+        email: '',
+        password: ''
       });
     }
   }, [employee]);
@@ -123,6 +133,21 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
     if (!formData.join_date) {
       newErrors.join_date = 'Join date is required';
+    }
+
+    // Validate user account creation fields if create_user_account is true (default)
+    if (formData.create_user_account !== false) {
+      if (!formData.username?.trim()) {
+        newErrors.username = 'Username is required for user account creation';
+      }
+
+      if (!formData.email?.trim()) {
+        newErrors.email = 'Email is required for user account creation';
+      }
+
+      if (!formData.password?.trim()) {
+        newErrors.password = 'Password is required for user account creation';
+      }
     }
 
     setErrors(newErrors);
@@ -475,6 +500,75 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               />
             </div>
           </div>
+
+          <Separator />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Employment Dates</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="confirmation_date">Confirmation Date</Label>
+                  <Input
+                    id="confirmation_date"
+                    type="date"
+                    value={formData.confirmation_date}
+                    onChange={(e) => handleInputChange('confirmation_date', e.target.value)}
+                  />
+                </div>
+
+                
+              </div>
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">User Account Creation</CardTitle>
+              <CardDescription>
+                Create a user account for this employee to enable system access
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username *</Label>
+                  <Input
+                    id="username"
+                    value={formData.username}
+                    onChange={(e) => handleInputChange('username', e.target.value)}
+                    placeholder="Username for login"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="user@company.com"
+                  />
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    placeholder="Temporary password"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <Separator />
 
