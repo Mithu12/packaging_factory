@@ -483,6 +483,12 @@ export const PERMISSIONS = {
   FACTORY_ORDERS_DELETE: createPermissionCheck('Factory', 'delete', 'factory_customer_orders'),
   FACTORY_ORDERS_APPROVE: createPermissionCheck('Factory', 'approve', 'factory_customer_orders'),
 
+  // ---- Factory: Sales Rep Workflow ----
+  FACTORY_ORDERS_SUBMIT: createPermissionCheck('Factory', 'submit', 'factory_customer_orders'),
+  FACTORY_ORDERS_APPROVE_WORKFLOW: createPermissionCheck('Factory', 'approve_workflow', 'factory_customer_orders'),
+  FACTORY_ORDERS_ROUTE: createPermissionCheck('Factory', 'route', 'factory_customer_orders'),
+  FACTORY_ORDERS_VIEW_OWN: createPermissionCheck('Factory', 'view_own', 'factory_customer_orders'),
+
   // Work Orders
   FACTORY_WORK_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'work_orders'),
   FACTORY_WORK_ORDERS_READ: createPermissionCheck('Factory', 'read', 'work_orders'),

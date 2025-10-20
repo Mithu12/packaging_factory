@@ -172,6 +172,33 @@ class CustomerOrdersController {
     }
   }
 
+  // Route order to factory
+  async routeOrderToFactory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/customer-orders/:id/route";
+      MyLogger.info(action, { orderId: req.params.id, routeData: req.body });
+      const orderId = Number(req.params.id);
+      const { factory_id, notes } = req.body;
+      const userId = req.user?.user_id; // Get from authenticated user
+
+      const routeRequest = {
+        order_id: orderId,
+        factory_id,
+        notes
+      };
+
+      const result = await UpdateCustomerOrderInfoMediator.routeOrder(routeRequest, userId!.toString());
+      MyLogger.success(action, { 
+        orderId, 
+        factoryId: factory_id,
+        newStatus: result.status 
+      });
+      serializeSuccessResponse(res, result, "Order routed to factory successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Bulk update order status
   async bulkUpdateOrderStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

@@ -22,6 +22,9 @@ import {
   Download,
   RefreshCw,
   Wallet,
+  UserCheck,
+  XCircle,
+  Route,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -60,9 +63,12 @@ import {
 } from "../services/customer-orders-api";
 import OrderEntryForm from "../components/OrderEntryForm";
 import OrderDetailsDialog from "../components/OrderDetailsDialog";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PERMISSIONS } from "@/types/rbac";
 
 export default function CustomerOrderManagement() {
   const { formatCurrency, formatDate } = useFormatting();
+  const { userPermissions, hasPermission } = useRBAC();
   const [orders, setOrders] = useState<FactoryCustomerOrder[]>([]);
   const [stats, setStats] = useState<ApiOrderStats>({
     total_orders: 0,
@@ -107,6 +113,19 @@ export default function CustomerOrderManagement() {
   });
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
+
+  // Check if user is sales rep (can only see own orders)
+  const isSalesRep = userPermissions && (
+    userPermissions.role === 'sales_executive' || 
+    userPermissions.role === 'sales_manager' ||
+    hasPermission(PERMISSIONS.FACTORY_ORDERS_VIEW_OWN)
+  );
+
+  // Check if user can approve orders
+  const canApproveOrders = hasPermission(PERMISSIONS.FACTORY_ORDERS_APPROVE_WORKFLOW);
+
+  // Check if user can route orders
+  const canRouteOrders = hasPermission(PERMISSIONS.FACTORY_ORDERS_ROUTE);
 
   // Load orders from API
   const loadOrders = useCallback(async () => {
@@ -267,12 +286,16 @@ export default function CustomerOrderManagement() {
         return "bg-gray-100 text-gray-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
+      case "pending_approval":
+        return "bg-orange-100 text-orange-800";
       case "quoted":
         return "bg-blue-100 text-blue-800";
       case "approved":
         return "bg-green-100 text-green-800";
       case "rejected":
         return "bg-red-100 text-red-800";
+      case "routed":
+        return "bg-indigo-100 text-indigo-800";
       case "in_production":
         return "bg-purple-100 text-purple-800";
       case "completed":
@@ -281,6 +304,33 @@ export default function CustomerOrderManagement() {
         return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "draft":
+        return <FileText className="h-3 w-3" />;
+      case "pending":
+        return <Clock className="h-3 w-3" />;
+      case "pending_approval":
+        return <UserCheck className="h-3 w-3" />;
+      case "quoted":
+        return <FileText className="h-3 w-3" />;
+      case "approved":
+        return <CheckCircle className="h-3 w-3" />;
+      case "rejected":
+        return <XCircle className="h-3 w-3" />;
+      case "routed":
+        return <Route className="h-3 w-3" />;
+      case "in_production":
+        return <Package className="h-3 w-3" />;
+      case "completed":
+        return <CheckCircle className="h-3 w-3" />;
+      case "shipped":
+        return <Package className="h-3 w-3" />;
+      default:
+        return <FileText className="h-3 w-3" />;
     }
   };
 
@@ -378,13 +428,15 @@ export default function CustomerOrderManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pending Orders
+              {isSalesRep ? "My Pending Orders" : "Pending Orders"}
             </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pending_orders}</div>
-            <p className="text-xs text-muted-foreground">Awaiting approval</p>
+            <p className="text-xs text-muted-foreground">
+              {isSalesRep ? "Your orders awaiting approval" : "Awaiting approval"}
+            </p>
           </CardContent>
         </Card>
 
@@ -442,12 +494,27 @@ export default function CustomerOrderManagement() {
                 <Tabs value={statusFilter} onValueChange={handleStatusFilter}>
                   <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
-                    <TabsTrigger value="quoted">Quoted</TabsTrigger>
-                    <TabsTrigger value="approved">Approved</TabsTrigger>
-                    <TabsTrigger value="in_production">
-                      In Production
-                    </TabsTrigger>
+                    {isSalesRep ? (
+                      // Sales rep view - focus on workflow statuses
+                      <>
+                        <TabsTrigger value="draft">Draft</TabsTrigger>
+                        <TabsTrigger value="pending_approval">Pending Approval</TabsTrigger>
+                        <TabsTrigger value="approved">Approved</TabsTrigger>
+                        <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                        <TabsTrigger value="routed">Routed</TabsTrigger>
+                      </>
+                    ) : (
+                      // Admin view - all statuses
+                      <>
+                        <TabsTrigger value="pending_approval">Pending Approval</TabsTrigger>
+                        <TabsTrigger value="approved">Approved</TabsTrigger>
+                        <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                        <TabsTrigger value="routed">Routed</TabsTrigger>
+                        <TabsTrigger value="pending">Pending</TabsTrigger>
+                        <TabsTrigger value="quoted">Quoted</TabsTrigger>
+                        <TabsTrigger value="in_production">In Production</TabsTrigger>
+                      </>
+                    )}
                   </TabsList>
                 </Tabs>
                 <Button variant="outline">
@@ -481,7 +548,14 @@ export default function CustomerOrderManagement() {
           {/* Orders Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Customer Orders {loading && "(Loading...)"}</CardTitle>
+              <CardTitle>
+                {isSalesRep ? "My Customer Orders" : "Customer Orders"} {loading && "(Loading...)"}
+              </CardTitle>
+              {isSalesRep && (
+                <p className="text-sm text-muted-foreground">
+                  You can only view and manage your own orders
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <Table>
@@ -501,7 +575,7 @@ export default function CustomerOrderManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
+                  {filteredOrders?.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">
                         {order.order_number}
@@ -538,7 +612,8 @@ export default function CustomerOrderManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(order.status)}>
+                        <Badge className={`${getStatusColor(order.status)} flex items-center gap-1`}>
+                          {getStatusIcon(order.status)}
                           {order.status.replace("_", " ").toUpperCase()}
                         </Badge>
                       </TableCell>
@@ -614,6 +689,10 @@ export default function CustomerOrderManagement() {
         onOpenChange={setShowOrderDetails}
         order={selectedOrder}
         onEdit={handleEditOrder}
+        onOrderUpdate={() => {
+          loadOrders();
+          loadStats();
+        }}
       />
 
       {/* Shipping Dialog */}

@@ -60,6 +60,7 @@ export const MODULES = {
   INVENTORY: 'Inventory',
   SALES: 'Sales',
   PURCHASE: 'Purchase',
+  FACTORY: 'Factory',
   SYSTEM: 'System',
 } as const;
 
@@ -74,6 +75,10 @@ export const ACTIONS = {
   MANAGE: 'manage',
   TRACK: 'track',
   ADJUST: 'adjust',
+  SUBMIT: 'submit',
+  APPROVE_WORKFLOW: 'approve_workflow',
+  ROUTE: 'route',
+  VIEW_OWN: 'view_own',
 } as const;
 
 // Permission helper function
@@ -317,6 +322,19 @@ BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_she
   HR_SETTINGS_READ: createPermissionCheck('HR', 'read', 'settings'),
   HR_SETTINGS_UPDATE: createPermissionCheck('HR', 'update', 'settings'),
   HR_SETTINGS_MANAGE: createPermissionCheck('HR', 'manage', 'settings'),
+
+  // ---- Factory: Customer Orders ----
+  FACTORY_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'factory_customer_orders'),
+  FACTORY_ORDERS_READ: createPermissionCheck('Factory', 'read', 'factory_customer_orders'),
+  FACTORY_ORDERS_UPDATE: createPermissionCheck('Factory', 'update', 'factory_customer_orders'),
+  FACTORY_ORDERS_DELETE: createPermissionCheck('Factory', 'delete', 'factory_customer_orders'),
+  FACTORY_ORDERS_APPROVE: createPermissionCheck('Factory', 'approve', 'factory_customer_orders'),
+
+  // ---- Factory: Sales Rep Workflow ----
+  FACTORY_ORDERS_SUBMIT: createPermissionCheck('Factory', 'submit', 'factory_customer_orders'),
+  FACTORY_ORDERS_APPROVE_WORKFLOW: createPermissionCheck('Factory', 'approve_workflow', 'factory_customer_orders'),
+  FACTORY_ORDERS_ROUTE: createPermissionCheck('Factory', 'route', 'factory_customer_orders'),
+  FACTORY_ORDERS_VIEW_OWN: createPermissionCheck('Factory', 'view_own', 'factory_customer_orders'),
 
 } as const;
 

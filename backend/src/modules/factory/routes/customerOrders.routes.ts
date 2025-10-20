@@ -8,11 +8,13 @@ import {
   orderIdSchema,
   bulkUpdateOrderStatusSchema,
   exportOrdersSchema,
-  recordPaymentSchema
+  recordPaymentSchema,
+  routeOrderSchema
 } from "../validation/customerOrderValidation";
 import { authenticate } from "@/middleware/auth";
 import {
   requirePermission,
+  requireAnyPermission,
   PERMISSIONS,
 } from "@/middleware/permission";
 import expressAsyncHandler from "express-async-handler";
@@ -120,7 +122,7 @@ const validateParams = (schema: any) => {
 router.get(
   "/",
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  requireAnyPermission([PERMISSIONS.FACTORY_ORDERS_READ, PERMISSIONS.FACTORY_ORDERS_VIEW_OWN]),
   validateQuery(orderQuerySchema),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getAllCustomerOrders)
@@ -130,7 +132,7 @@ router.get(
 router.get(
   "/stats",
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  requireAnyPermission([PERMISSIONS.FACTORY_ORDERS_READ, PERMISSIONS.FACTORY_ORDERS_VIEW_OWN]),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getOrderStats)
 );
@@ -149,7 +151,7 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  requireAnyPermission([PERMISSIONS.FACTORY_ORDERS_READ, PERMISSIONS.FACTORY_ORDERS_VIEW_OWN]),
   validateParams(orderIdSchema),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.getCustomerOrderById)
@@ -159,7 +161,7 @@ router.get(
 router.post(
   "/",
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_ORDERS_CREATE),
+  requireAnyPermission([PERMISSIONS.FACTORY_ORDERS_CREATE, PERMISSIONS.FACTORY_ORDERS_SUBMIT]),
   validateRequest(createCustomerOrderSchema),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.createCustomerOrder)
@@ -180,7 +182,7 @@ router.put(
 router.post(
   "/:id/approve",
   authenticate,
-  requirePermission(PERMISSIONS.FACTORY_ORDERS_APPROVE),
+  requireAnyPermission([PERMISSIONS.FACTORY_ORDERS_APPROVE, PERMISSIONS.FACTORY_ORDERS_APPROVE_WORKFLOW]),
   validateParams(orderIdSchema),
   validateRequest(approveOrderSchema),
   auditMiddleware,
@@ -196,6 +198,17 @@ router.post(
   validateRequest(updateOrderStatusSchema),
   auditMiddleware,
   expressAsyncHandler(CustomerOrdersController.updateOrderStatus)
+);
+
+// POST /api/factory/customer-orders/:id/route - Route order to factory
+router.post(
+  "/:id/route",
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_ROUTE),
+  validateParams(orderIdSchema),
+  validateRequest(routeOrderSchema),
+  auditMiddleware,
+  expressAsyncHandler(CustomerOrdersController.routeOrderToFactory)
 );
 
 // POST /api/factory/customer-orders/:id/ship - Ship customer order (auto-generates invoice)

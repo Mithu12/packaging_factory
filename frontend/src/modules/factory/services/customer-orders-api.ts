@@ -11,9 +11,11 @@ import { makeRequest } from '@/services/api-utils';
 export type FactoryCustomerOrderStatus =
   | 'draft'
   | 'pending'
+  | 'pending_approval'
   | 'quoted'
   | 'approved'
   | 'rejected'
+  | 'routed'
   | 'in_production'
   | 'completed'
   | 'shipped'

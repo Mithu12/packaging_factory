@@ -24,25 +24,79 @@ async function isUserAdmin(userId: number): Promise<boolean> {
   // Assuming role_id 1 is admin based on common patterns
   return result.rows[0].role_id === 1;
 }
+
+// Helper function to check if user is a sales representative
+async function isUserSalesRep(userId: number): Promise<boolean> {
+  const query = `
+    SELECT r.name as role_name 
+    FROM users u 
+    JOIN roles r ON u.role_id = r.id 
+    WHERE u.id = $1
+  `;
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return false;
+
+  const roleName = result.rows[0].role_name;
+  const salesRepRoles = ['sales_manager', 'sales_executive'];
+  return salesRepRoles.includes(roleName);
+}
+
+// Helper function to get user role name
+async function getUserRole(userId: number): Promise<string | null> {
+  const query = `
+    SELECT r.name as role_name 
+    FROM users u 
+    JOIN roles r ON u.role_id = r.id 
+    WHERE u.id = $1
+  `;
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return null;
+
+  return result.rows[0].role_name;
+}
 export class AddCustomerOrderMediator {
-  static async generateOrderNumber(): Promise<string> {
+  static async generateOrderNumber(prefix: string = 'ORD'): Promise<string> {
     const action = "AddCustomerOrderMediator.generateOrderNumber";
     try {
-      MyLogger.info(action);
+      MyLogger.info(action, { prefix });
 
       // Get next value from PostgreSQL sequence
       const query = "SELECT nextval('factory_customer_order_sequence') as next_number";
       const result = await pool.query(query);
       const nextNumber = result.rows[0].next_number;
 
-      const orderNumber = `ORD-${new Date().getFullYear()}-${nextNumber.toString().padStart(4, "0")}`;
+      const orderNumber = `${prefix}-${new Date().getFullYear()}-${nextNumber.toString().padStart(4, "0")}`;
 
       MyLogger.success(action, {
         generatedOrderNumber: orderNumber,
         sequenceNumber: nextNumber,
+        prefix
       });
 
       return orderNumber;
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  static async validateSalesRepRestrictions(orderData: CreateCustomerOrderRequest, userId: number): Promise<void> {
+    const action = "AddCustomerOrderMediator.validateSalesRepRestrictions";
+    try {
+      MyLogger.info(action, { userId });
+
+      const isSalesRep = await isUserSalesRep(userId);
+      
+      if (isSalesRep) {
+        // Sales reps cannot set factory_id during creation
+        if (orderData.factory_id) {
+          throw new Error('Sales representatives cannot assign orders to factories during creation. Factory assignment will be done during the approval process.');
+        }
+        
+        MyLogger.success(action, { message: "Sales rep restrictions validated successfully" });
+      } else {
+        MyLogger.info(action, { message: "User is not a sales rep, no restrictions applied" });
+      }
     } catch (error: any) {
       MyLogger.error(action, error);
       throw error;
@@ -129,9 +183,43 @@ MyLogger.info('userFactories',userFactories)
       }
       // Validate references
       await this.validateReferences(orderData);
-      // Generate order number
-      const orderNumber = await this.generateOrderNumber();
-MyLogger.info('orderNumber',orderNumber)
+      
+      // Validate sales rep restrictions
+      await this.validateSalesRepRestrictions(orderData, currentUserId);
+      
+      // Check if user is sales rep to determine order behavior
+      const isSalesRep = await isUserSalesRep(currentUserId);
+      const userRole = await getUserRole(currentUserId);
+      
+      MyLogger.info(action, { 
+        userId: currentUserId, 
+        isSalesRep, 
+        userRole 
+      });
+
+      // Validate sales rep restrictions
+      if (isSalesRep) {
+        // Sales reps cannot set factory_id during creation
+        if (orderData.factory_id) {
+          throw new Error('Sales representatives cannot assign orders to factories during creation. Factory assignment will be done during the approval process.');
+        }
+        
+        // Sales reps can only create orders in pending_approval status
+        // This is enforced by the status logic below, but we log it for clarity
+        MyLogger.info(action, { 
+          message: 'Sales rep creating order - will be set to pending_approval status',
+          userId: currentUserId 
+        });
+      }
+
+      // Generate order number with appropriate prefix
+      const orderPrefix = isSalesRep ? 'SR' : 'ORD';
+      const orderNumber = await this.generateOrderNumber(orderPrefix);
+      
+      // Determine initial order status based on user role
+      const initialStatus = isSalesRep ? FactoryCustomerOrderStatus.PENDING_APPROVAL : FactoryCustomerOrderStatus.DRAFT;
+      
+      MyLogger.info('orderNumber', { orderNumber, initialStatus, orderPrefix });
       // Get factory_customer details
       const factory_customerQuery = "SELECT name, email, phone FROM factory_customers WHERE id = $1";
       const factory_customerResult = await client.query(factory_customerQuery, [orderData.factory_customer_id]);
@@ -154,26 +242,29 @@ MyLogger.info('factory_customer',factory_customer)
       });
 MyLogger.info('processedLineItems',processedLineItems)
       // Insert factory_customer order
+      // Note: Using existing schema fields. Workflow fields (submitted_by, submitted_at, order_prefix) 
+      // will be added when database migration task 1 is completed
       const orderQuery = `
         INSERT INTO factory_customer_orders (
           order_number, factory_customer_id, factory_customer_name, factory_customer_email, factory_customer_phone,
           order_date, required_date, status, priority, total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
-          attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount
+          attachments, created_by, created_at, factory_id
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
         ) RETURNING *
       `;
 
+      const currentTimestamp = new Date();
       const orderValues = [
         orderNumber,
         orderData.factory_customer_id,
         factory_customer.name,
         factory_customer.email,
         factory_customer.phone,
-        new Date(),
+        currentTimestamp,
         new Date(orderData.required_date),
-        FactoryCustomerOrderStatus.DRAFT,
+        initialStatus, // Use determined status instead of hardcoded DRAFT
         orderData.priority,
         totalValue,
         'BDT', // Default currency
@@ -185,11 +276,21 @@ MyLogger.info('processedLineItems',processedLineItems)
         JSON.stringify(orderData.billing_address),
         JSON.stringify([]), // Empty attachments array
         userId,
-        new Date(),
-        orderData.factory_id,
-        0, // paid_amount - new orders start unpaid
-        totalValue // outstanding_amount - full amount is outstanding
+        currentTimestamp,
+        isSalesRep ? null : orderData.factory_id // Sales reps cannot set factory_id
       ];
+
+      // Log workflow information for when database schema is updated
+      MyLogger.info(action, {
+        workflowInfo: {
+          isSalesRep,
+          orderPrefix,
+          initialStatus,
+          submitted_by: isSalesRep ? userId : null,
+          submitted_at: isSalesRep ? currentTimestamp : null,
+          factory_id_restriction: isSalesRep ? 'Sales rep cannot set factory_id' : 'Factory ID allowed'
+        }
+      });
 
       const orderResult = await client.query(orderQuery, orderValues);
 

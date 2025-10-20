@@ -27,7 +27,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, UserCheck } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -43,11 +43,13 @@ import {
 import FactoryApiService, { Factory } from "@/services/factory-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/hooks/useAuth";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PERMISSIONS } from "@/types/rbac";
 
 // Form validation schema factory function
-const createOrderFormSchema = (isAdmin: boolean) => z.object({
+const createOrderFormSchema = (canSelectFactory: boolean) => z.object({
   factory_customer_id: z.string().min(1, "Customer is required"),
-  factory_id: isAdmin ? z.string().min(1, "Factory is required") : z.string().optional(),
+  factory_id: canSelectFactory ? z.string().min(1, "Factory is required") : z.string().optional(),
   order_date: z.string().min(1, "Order date is required"),
   required_date: z.string().min(1, "Required date is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
@@ -101,15 +103,22 @@ export default function OrderEntryForm({
   const [loadingFactories, setLoadingFactories] = useState(false);
   const { formatCurrency } = useFormatting();
   const { user } = useAuth();
+  const { hasPermission } = useRBAC();
 
-  // Determine if user is admin (no factory_id)
+  // Determine user role and permissions
   const isAdmin = !user?.factory_id;
+  const isSalesRep = user && (
+    user.role === 'sales_executive' || 
+    user.role === 'sales_manager' ||
+    hasPermission(PERMISSIONS.FACTORY_ORDERS_VIEW_OWN)
+  );
+  const canSelectFactory = isAdmin && !isSalesRep;
 
   const form = useForm<OrderFormData>({
-    resolver: zodResolver(createOrderFormSchema(isAdmin)),
+    resolver: zodResolver(createOrderFormSchema(canSelectFactory)),
     defaultValues: {
       factory_customer_id: "",
-      ...(isAdmin ? {} : { factory_id: user?.factory_id }),
+      ...(canSelectFactory ? {} : { factory_id: user?.factory_id }),
       order_date: new Date().toISOString().split('T')[0],
       required_date: "",
       priority: "medium",
@@ -196,14 +205,12 @@ export default function OrderEntryForm({
 
   // Reset form when order changes
   useEffect(() => {
-    const isAdmin = !user?.factory_id;
-
     if (order) {
       // Editing existing order - use factory_id from order if available
       const orderFactoryId = order.factory_id || user?.factory_id;
       form.reset({
         factory_customer_id: order.factory_customer_id.toString(),
-        ...(isAdmin ? { factory_id: orderFactoryId } : { factory_id: user?.factory_id }),
+        ...(canSelectFactory ? { factory_id: orderFactoryId } : { factory_id: user?.factory_id }),
         order_date: order.order_date.split('T')[0],
         required_date: order.required_date.split('T')[0],
         priority: order.priority,
@@ -221,13 +228,13 @@ export default function OrderEntryForm({
       // Creating new order
       form.reset({
         factory_customer_id: "",
-        ...(isAdmin ? {} : { factory_id: user?.factory_id }),
+        ...(canSelectFactory ? {} : { factory_id: user?.factory_id }),
         order_date: new Date().toISOString().split('T')[0],
         required_date: "",
         priority: "medium",
         currency: "BDT",
         sales_person: user?.full_name || user?.username || "",
-        notes: "",
+        notes: isSalesRep ? "Order created by sales representative - pending approval" : "",
         line_items: [
           {
             product_id: "",
@@ -238,7 +245,7 @@ export default function OrderEntryForm({
         ],
       });
     }
-  }, [order, form, user]);
+  }, [order, form, user, canSelectFactory, isSalesRep]);
 
   const handleSubmit = async (data: OrderFormData) => {
     try {
@@ -253,12 +260,12 @@ export default function OrderEntryForm({
         factory_customer_email: selectedCustomer?.email || "",
         factory_customer_phone: selectedCustomer?.phone,
         payment_terms: selectedCustomer?.payment_terms,
-        factory_id: data.factory_id, // Include factory_id only if it exists
+        factory_id: canSelectFactory ? data.factory_id : undefined, // Only include factory_id if user can select it
         order_date: data.order_date,
         required_date: data.required_date,
         priority: data.priority,
-        // currency: data.currency,
-        // sales_person: data.sales_person,
+        currency: data.currency,
+        sales_person: data.sales_person,
         notes: data.notes,
         shipping_address: {
           city: selectedCustomer?.address?.city || "",
@@ -404,8 +411,8 @@ export default function OrderEntryForm({
                   </div>
                 )}
 
-                {/* Factory Selection - only for admin users */}
-                {!user?.factory_id && (
+                {/* Factory Selection - only for admin users who can select factories */}
+                {canSelectFactory && (
                   <FormField
                     control={form.control}
                     name="factory_id"
@@ -435,14 +442,23 @@ export default function OrderEntryForm({
                   />
                 )}
 
-                {/* Factory Display - for regular users */}
-                {user?.factory_id && (
+                {/* Factory Display - for regular users and sales reps */}
+                {!canSelectFactory && (
                   <div className="bg-muted p-3 rounded-md">
                     <div className="space-y-1 text-sm">
-                      <div><strong>Factory:</strong> {
-                        factories.find(f => f.id.toString() === user.factory_id.toString())?.name ||
-                        `Factory ID: ${user.factory_id}`
-                      }</div>
+                      {isSalesRep ? (
+                        <div>
+                          <strong>Factory Assignment:</strong> Will be assigned after approval
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Sales representatives cannot select factories during order creation
+                          </div>
+                        </div>
+                      ) : (
+                        <div><strong>Factory:</strong> {
+                          factories.find(f => f.id.toString() === user?.factory_id?.toString())?.name ||
+                          `Factory ID: ${user?.factory_id}`
+                        }</div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -574,6 +590,30 @@ export default function OrderEntryForm({
                 />
               </CardContent>
             </Card>
+
+            {/* Sales Rep Workflow Information */}
+            {isSalesRep && !order && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <UserCheck className="h-5 w-5 text-orange-600 mt-0.5" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-orange-800 mb-1">
+                        Sales Representative Workflow
+                      </h4>
+                      <div className="text-sm text-orange-700 space-y-1">
+                        <p>• Your order will be submitted with "Pending Approval" status</p>
+                        <p>• An administrator will review and approve/reject your order</p>
+                        <p>• Once approved, the order will be routed to an appropriate factory</p>
+                        <p>• You will receive notifications about status changes</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Line Items */}
             <Card>
@@ -760,7 +800,14 @@ export default function OrderEntryForm({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting} data-testid="submit-order-button">
-                {isSubmitting ? "Saving..." : order ? "Update Order" : "Create Order"}
+                {isSubmitting 
+                  ? "Saving..." 
+                  : order 
+                    ? "Update Order" 
+                    : isSalesRep 
+                      ? "Submit for Approval" 
+                      : "Create Order"
+                }
               </Button>
             </div>
           </form>

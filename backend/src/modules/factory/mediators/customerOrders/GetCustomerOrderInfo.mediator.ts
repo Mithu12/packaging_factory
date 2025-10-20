@@ -11,13 +11,36 @@ async function getUserFactories(userId: number): Promise<{factory_id: string, fa
 
 // Helper function to check if user is admin
 async function isUserAdmin(userId: number): Promise<boolean> {
-  const query = 'SELECT role_id FROM users WHERE id = $1';
+  const query = `
+    SELECT r.name as role_name 
+    FROM users u 
+    JOIN roles r ON u.role_id = r.id 
+    WHERE u.id = $1
+  `;
   const result = await pool.query(query, [userId]);
   if (result.rows.length === 0) return false;
 
-  // Assuming role_id 1 is admin based on common patterns
-  // You might need to adjust this based on your actual role structure
-  return result.rows[0].role_id === 1;
+  const roleName = result.rows[0].role_name;
+  // Admin roles that can see all orders
+  const adminRoles = ['admin', 'executive', 'factory_manager'];
+  return adminRoles.includes(roleName);
+}
+
+// Helper function to check if user is sales rep
+async function isUserSalesRep(userId: number): Promise<boolean> {
+  const query = `
+    SELECT r.name as role_name 
+    FROM users u 
+    JOIN roles r ON u.role_id = r.id 
+    WHERE u.id = $1
+  `;
+  const result = await pool.query(query, [userId]);
+  if (result.rows.length === 0) return false;
+
+  const roleName = result.rows[0].role_name;
+  // Sales rep roles that can only see their own orders
+  const salesRepRoles = ['sales_manager', 'sales_executive'];
+  return salesRepRoles.includes(roleName);
 }
 
 export class GetCustomerOrderInfoMediator {
@@ -34,16 +57,21 @@ export class GetCustomerOrderInfoMediator {
     try {
       MyLogger.info(action, { params, userId });
 
-      // Get user's accessible factories
+      // Get user's accessible factories and role-based access
       let userFactories: string[] = [];
+      let isSalesRep = false;
+      let isAdmin = false;
+      
       if (userId) {
-        const isAdmin = await isUserAdmin(userId);
+        isAdmin = await isUserAdmin(userId);
+        isSalesRep = await isUserSalesRep(userId);
+        
         if (!isAdmin) {
           const factories = await getUserFactories(userId);
           userFactories = factories.map(f => f.factory_id);
         }
       }
-MyLogger.info('userFactories',userFactories)
+      MyLogger.info('userAccess', { userFactories, isSalesRep, isAdmin, userId });
       const {
         page = 1,
         limit = 20,
@@ -71,6 +99,13 @@ MyLogger.info('userFactories',userFactories)
         whereClause += ` AND co.factory_id IN (${factoryIds.join(', ')})`;
         queryParams.push(...userFactories);
         paramIndex += userFactories.length;
+      }
+
+      // Add sales rep filtering - sales reps can only see their own orders
+      if (userId && isSalesRep) {
+        whereClause += ` AND co.created_by = $${paramIndex}`;
+        queryParams.push(userId);
+        paramIndex++;
       }
 
       if (search) {
@@ -272,6 +307,14 @@ MyLogger.info('userFactories',userFactories)
             queryParams.push(...userFactories);
           }
         }
+        
+        // Sales reps can only see their own orders
+        const isSalesRep = await isUserSalesRep(userId);
+        if (isSalesRep) {
+          const salesRepFilter = ` AND co.created_by = $${queryParams.length + 1}`;
+          factoryFilter += salesRepFilter;
+          queryParams.push(userId);
+        }
       }
 
       const query = `
@@ -393,6 +436,14 @@ MyLogger.info('userFactories',userFactories)
             factoryFilter = ` AND factory_id IN (${factoryIds.join(', ')})`;
             queryParams.push(...userFactories);
           }
+        }
+        
+        // Sales reps can only see their own orders
+        const isSalesRep = await isUserSalesRep(userId);
+        if (isSalesRep) {
+          const salesRepFilter = ` AND created_by = $${queryParams.length + 1}`;
+          factoryFilter += salesRepFilter;
+          queryParams.push(userId);
         }
       }
 

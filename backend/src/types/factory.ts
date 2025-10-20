@@ -43,9 +43,11 @@ export interface UpdateFactoryRequest {
 export enum FactoryCustomerOrderStatus {
   DRAFT = 'draft',
   PENDING = 'pending',
+  PENDING_APPROVAL = 'pending_approval',
   QUOTED = 'quoted',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  ROUTED = 'routed',
   IN_PRODUCTION = 'in_production',
   COMPLETED = 'completed',
   SHIPPED = 'shipped',
@@ -98,8 +100,15 @@ export interface FactoryCustomerOrder {
   created_at: string;
   updated_by?: string;
   updated_at?: string;
+  // Workflow tracking fields
+  submitted_by?: number;
+  submitted_at?: string;
   approved_by?: string;
   approved_at?: string;
+  rejection_reason?: string;
+  routed_by?: number;
+  routed_at?: string;
+  // Shipping fields
   shipped_at?: string;
   shipped_by?: string;
   tracking_number?: string;
@@ -255,6 +264,7 @@ export interface ApproveOrderRequest {
   factory_id?: number;
   approved: boolean;
   notes?: string;
+  rejection_reason?: string;
 }
 
 export interface UpdateOrderStatusRequest {
@@ -579,4 +589,47 @@ export interface RecordFactoryOrderPaymentRequest {
 export interface FactoryOrderPaymentHistoryResponse {
   order: FactoryCustomerOrder;
   payments: FactoryCustomerPayment[];
+}
+
+// Order Workflow History Types
+export interface OrderWorkflowHistory {
+  id: number;
+  order_id: number;
+  from_status: string;
+  to_status: string;
+  changed_by: number;
+  changed_by_name: string;
+  changed_at: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateWorkflowHistoryRequest {
+  order_id: number;
+  from_status: string;
+  to_status: string;
+  changed_by: number;
+  notes?: string;
+  metadata?: Record<string, any>;
+}
+
+// Factory Routing Types
+export interface RouteOrderRequest {
+  order_id: number;
+  factory_id: string;
+  notes?: string;
+}
+
+export interface FactoryCapacity {
+  factory_id: number;
+  factory_name: string;
+  factory_code: string;
+  current_orders: number;
+  active_work_orders: number;
+  production_lines_count: number;
+  available_production_lines: number;
+  capacity_utilization: number;
+  estimated_completion_date?: string;
+  is_over_capacity: boolean;
+  warning_message?: string;
 }

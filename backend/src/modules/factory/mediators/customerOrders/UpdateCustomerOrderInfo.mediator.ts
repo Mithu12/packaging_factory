@@ -1,9 +1,11 @@
 import pool from "@/database/connection";
-import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest } from "@/types/factory";
+import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest, RouteOrderRequest } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
 import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
+import { validateStatusTransition } from "@/utils/orderStatusTransitions";
+import { FactoryCapacityService } from "../../utils/factoryCapacity";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -407,11 +409,20 @@ export class UpdateCustomerOrderInfoMediator {
       const previousStatus = order.status;
       const previousNotes = order.notes;
       
-      if (!['pending', 'quoted'].includes(order.status)) {
-        throw new Error(`Order cannot be approved from ${order.status} status`);
+      const newStatus = approvalData.approved ? 'approved' : 'rejected';
+      
+      // Validate status transition using the new workflow validation
+      validateStatusTransition(
+        order.status as FactoryCustomerOrderStatus,
+        newStatus as FactoryCustomerOrderStatus,
+        approvalData.order_id
+      );
+
+      // For rejections, require rejection_reason
+      if (!approvalData.approved && (!approvalData.rejection_reason || approvalData.rejection_reason.trim() === '')) {
+        throw new Error('Rejection reason is required when rejecting an order');
       }
 
-      const newStatus = approvalData.approved ? 'approved' : 'rejected';
       const updateQuery = `
         UPDATE factory_customer_orders 
         SET 
@@ -420,8 +431,9 @@ export class UpdateCustomerOrderInfoMediator {
           approved_at = $3,
           updated_by = $2,
           updated_at = $3,
-          notes = $4
-        WHERE id = $5
+          notes = $4,
+          rejection_reason = $5
+        WHERE id = $6
         RETURNING *
       `;
 
@@ -430,10 +442,25 @@ export class UpdateCustomerOrderInfoMediator {
         userId,
         new Date(),
         approvalData.notes && approvalData.notes.trim() !== '' ? approvalData.notes : null,
+        !approvalData.approved ? approvalData.rejection_reason : null,
         approvalData.order_id
       ];
 
       await client.query(updateQuery, updateValues);
+
+      // Log workflow history
+      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
+      await OrderWorkflowHistoryMediator.logWorkflowChange({
+        order_id: approvalData.order_id,
+        from_status: previousStatus,
+        to_status: newStatus,
+        changed_by: currentUserId,
+        notes: approvalData.approved ? approvalData.notes : approvalData.rejection_reason,
+        metadata: {
+          approved: approvalData.approved,
+          factory_id: approvalData.factory_id
+        }
+      });
 
       await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
 
@@ -461,6 +488,7 @@ export class UpdateCustomerOrderInfoMediator {
                 approved_by = NULL,
                 approved_at = NULL,
                 notes = $2,
+                rejection_reason = NULL,
                 updated_by = $3,
                 updated_at = $4
               WHERE id = $5
@@ -580,22 +608,14 @@ export class UpdateCustomerOrderInfoMediator {
       }
 
       const order = orderResult.rows[0];
+      const previousStatus = order.status;
 
-      // Validate status transition
-      const validTransitions: { [key: string]: string[] } = {
-        'draft': ['pending', 'cancelled'],
-        'pending': ['quoted', 'approved', 'rejected'],
-        'quoted': ['approved', 'rejected', 'pending'],
-        'approved': ['in_production', 'rejected'],
-        'rejected': ['pending', 'quoted'],
-        'in_production': ['completed'],
-        'completed': ['shipped'],
-        'shipped': [] // Final status
-      };
-
-      if (!validTransitions[order.status]?.includes(statusData.status)) {
-        throw new Error(`Invalid status transition from ${order.status} to ${statusData.status}`);
-      }
+      // Validate status transition using the new workflow validation
+      validateStatusTransition(
+        order.status as FactoryCustomerOrderStatus,
+        statusData.status,
+        statusData.order_id
+      );
 
       const updateQuery = `
         UPDATE factory_customer_orders 
@@ -617,6 +637,16 @@ export class UpdateCustomerOrderInfoMediator {
       ];
 
       await client.query(updateQuery, updateValues);
+
+      // Log workflow history
+      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
+      await OrderWorkflowHistoryMediator.logWorkflowChange({
+        order_id: statusData.order_id,
+        from_status: previousStatus,
+        to_status: statusData.status,
+        changed_by: currentUserId,
+        notes: statusData.notes
+      });
 
       await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
 
@@ -643,6 +673,192 @@ export class UpdateCustomerOrderInfoMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  static async routeOrder(
+    routeData: RouteOrderRequest,
+    userId: string
+  ): Promise<FactoryCustomerOrder> {
+    const action = "UpdateCustomerOrderInfoMediator.routeOrder";
+    const client = await pool.connect();
+    let transactionActive = false;
+
+    try {
+      await client.query('BEGIN');
+      transactionActive = true;
+
+      MyLogger.info(action, {
+        orderId: routeData.order_id,
+        factoryId: routeData.factory_id,
+        userId
+      });
+
+      const currentUserId = parseInt(userId);
+
+      // Check if order exists and is in correct status for routing
+      const orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+      const orderResult = await client.query(orderQuery, [routeData.order_id]);
+
+      if (orderResult.rows.length === 0) {
+        throw new Error(`Customer order with ID ${routeData.order_id} not found`);
+      }
+
+      const order = orderResult.rows[0];
+      const previousStatus = order.status;
+
+      // Validate that order is in approved status
+      if (order.status !== 'approved') {
+        throw new Error(`Order must be in 'approved' status to be routed. Current status: ${order.status}`);
+      }
+
+      // Validate factory exists and is active
+      const factoryQuery = "SELECT id, name, code, is_active FROM factories WHERE id = $1";
+      const factoryResult = await client.query(factoryQuery, [routeData.factory_id]);
+
+      if (factoryResult.rows.length === 0) {
+        throw new Error(`Factory with ID ${routeData.factory_id} not found`);
+      }
+
+      const factory = factoryResult.rows[0];
+      if (!factory.is_active) {
+        throw new Error(`Factory ${factory.name} is not active`);
+      }
+
+      // Validate factory capacity and get warnings
+      const capacityValidation = await FactoryCapacityService.validateFactoryForRouting(parseInt(routeData.factory_id));
+      
+      if (!capacityValidation.canRoute) {
+        throw new Error(`Cannot route to factory: ${capacityValidation.warnings.join(', ')}`);
+      }
+
+      // Log capacity warnings if any
+      if (capacityValidation.warnings.length > 0) {
+        MyLogger.warn(action, {
+          orderId: routeData.order_id,
+          factoryId: routeData.factory_id,
+          warnings: capacityValidation.warnings,
+          message: "Factory capacity warnings detected"
+        });
+      }
+
+      // Validate status transition
+      validateStatusTransition(
+        order.status as FactoryCustomerOrderStatus,
+        FactoryCustomerOrderStatus.ROUTED,
+        routeData.order_id
+      );
+
+      // Update order with factory assignment and routed status
+      const updateQuery = `
+        UPDATE factory_customer_orders 
+        SET 
+          factory_id = $1,
+          status = $2,
+          routed_by = $3,
+          routed_at = $4,
+          notes = $5,
+          updated_by = $3,
+          updated_at = $4
+        WHERE id = $6
+        RETURNING *
+      `;
+
+      const updateValues = [
+        routeData.factory_id,
+        FactoryCustomerOrderStatus.ROUTED,
+        userId,
+        new Date(),
+        routeData.notes && routeData.notes.trim() !== '' ? routeData.notes : null,
+        routeData.order_id
+      ];
+
+      await client.query(updateQuery, updateValues);
+
+      // Log workflow history
+      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
+      await OrderWorkflowHistoryMediator.logWorkflowChange({
+        order_id: routeData.order_id,
+        from_status: previousStatus,
+        to_status: FactoryCustomerOrderStatus.ROUTED,
+        changed_by: currentUserId,
+        notes: routeData.notes,
+        metadata: {
+          factory_id: routeData.factory_id,
+          factory_name: factory.name,
+          factory_code: factory.code,
+          capacity_info: capacityValidation.capacity,
+          capacity_warnings: capacityValidation.warnings
+        }
+      });
+
+      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+
+      await client.query('COMMIT');
+      transactionActive = false;
+
+      // Get updated order
+      const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(routeData.order_id.toString());
+
+      MyLogger.success(action, { 
+        orderId: routeData.order_id, 
+        factoryId: routeData.factory_id,
+        factoryName: factory.name,
+        capacityUtilization: capacityValidation.capacity.capacity_utilization,
+        warnings: capacityValidation.warnings
+      });
+
+      return updatedOrder!;
+
+    } catch (error: any) {
+      if (transactionActive) {
+        await client.query('ROLLBACK');
+      }
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getFactoryCapacity(factoryId: number): Promise<import("@/types/factory").FactoryCapacity> {
+    const action = "UpdateCustomerOrderInfoMediator.getFactoryCapacity";
+    
+    try {
+      MyLogger.info(action, { factoryId });
+      
+      const capacity = await FactoryCapacityService.getFactoryCapacity(factoryId);
+      
+      MyLogger.success(action, { 
+        factoryId, 
+        capacityUtilization: capacity.capacity_utilization 
+      });
+      
+      return capacity;
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
+    }
+  }
+
+  static async getMultipleFactoryCapacities(factoryIds: number[]): Promise<import("@/types/factory").FactoryCapacity[]> {
+    const action = "UpdateCustomerOrderInfoMediator.getMultipleFactoryCapacities";
+    
+    try {
+      MyLogger.info(action, { factoryCount: factoryIds.length });
+      
+      const capacities = await FactoryCapacityService.getMultipleFactoryCapacities(factoryIds);
+      
+      MyLogger.success(action, { 
+        requestedFactories: factoryIds.length,
+        successfulFactories: capacities.length 
+      });
+      
+      return capacities;
+    } catch (error: any) {
+      MyLogger.error(action, error);
+      throw error;
     }
   }
 
