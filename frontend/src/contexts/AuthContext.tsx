@@ -1,5 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AuthApi, User, LoginRequest, RegisterRequest } from '@/services/auth-api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import {
+  AuthApi,
+  User,
+  LoginRequest,
+  RegisterRequest,
+} from "@/services/auth-api";
 
 interface AuthContextType {
   user: User | null;
@@ -30,14 +41,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Try to get user profile to check if still authenticated
         const userProfile = await Promise.race([
           AuthApi.getProfile(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout')), 5000)
-          )
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 5000)
+          ),
         ]);
         setUser(userProfile as User);
       } catch (error) {
         // User is not authenticated or token is invalid
-        console.warn('User not authenticated:', error);
+        console.warn("User not authenticated:", error);
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -51,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await AuthApi.login(credentials);
       const { user: userData } = response;
-      
+
       setUser(userData);
       // Token is now stored in HTTP-only cookie, no need to store it locally
     } catch (error) {
@@ -63,7 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await AuthApi.register(userData);
       const { user: newUser } = response;
-      
+
       setUser(newUser);
       // Token is now stored in HTTP-only cookie, no need to store it locally
     } catch (error) {
@@ -75,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await AuthApi.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       setUser(null);
     }
@@ -86,7 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userProfile = await AuthApi.getProfile();
       setUser(userProfile);
     } catch (error) {
-      console.error('Failed to refresh user:', error);
+      console.error("Failed to refresh user:", error);
       setUser(null);
     }
   };
@@ -101,17 +112,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
