@@ -293,6 +293,9 @@ BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_she
 
   // Self Service Leave
   SELF_SERVICE_LEAVE_READ: createPermissionCheck('Self Service', 'read', 'leave'),
+  SELF_SERVICE_LEAVE_READ_OWN: createPermissionCheck('Self Service', 'read', 'own_leave'),
+  SELF_SERVICE_LEAVE_CREATE: createPermissionCheck('Self Service', 'create', 'own_leave'),
+  SELF_SERVICE_LEAVE_UPDATE: createPermissionCheck('Self Service', 'update', 'own_leave'),
 
   // HR: Transfer Management
   HR_TRANSFERS_CREATE: createPermissionCheck('HR', 'create', 'transfers'),
