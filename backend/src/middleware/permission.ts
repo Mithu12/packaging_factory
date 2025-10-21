@@ -422,7 +422,6 @@ export const PERMISSIONS = {
   HR_PAYROLL_PROCESS: createPermissionCheck('HR', 'process', 'payroll'),
   HR_PAYROLL_APPROVE: createPermissionCheck('HR', 'approve', 'payroll'),
   HR_PAYROLL_MANAGE: createPermissionCheck('HR', 'manage', 'payroll'),
-  HR_PAYROLL_DELETE: createPermissionCheck('HR', 'delete', 'payroll'),
 
   // HR: Attendance Management
   HR_ATTENDANCE_CREATE: createPermissionCheck('HR', 'create', 'attendance'),
@@ -437,13 +436,10 @@ export const PERMISSIONS = {
   HR_LEAVE_DELETE: createPermissionCheck('HR', 'delete', 'leave'),
   HR_LEAVE_APPROVE: createPermissionCheck('HR', 'approve', 'leave'),
   HR_LEAVE_MANAGE: createPermissionCheck('HR', 'manage', 'leave'),
-  HR_LEAVE_DELETE: createPermissionCheck('HR', 'delete', 'leave'),
 
   // Self Service Leave
   SELF_SERVICE_LEAVE_READ: createPermissionCheck('Self Service', 'read', 'leave'),
-
-  // Self Service Leave
-  SELF_SERVICE_LEAVE_READ: createPermissionCheck('Self Service', 'read', 'own_leave'),
+  SELF_SERVICE_LEAVE_READ_OWN: createPermissionCheck('Self Service', 'read', 'own_leave'),
   SELF_SERVICE_LEAVE_CREATE: createPermissionCheck('Self Service', 'create', 'own_leave'),
   SELF_SERVICE_LEAVE_UPDATE: createPermissionCheck('Self Service', 'update', 'own_leave'),
 

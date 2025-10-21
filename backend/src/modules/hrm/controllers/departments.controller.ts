@@ -115,7 +115,7 @@ export const createDepartment = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const createdBy = req.user?.id;
+    const createdBy = req.user?.user_id;
     const department = await DepartmentMediator.createDepartment(departmentData, createdBy);
 
     MyLogger.success(action, {
@@ -164,7 +164,7 @@ export const updateDepartment = async (req: Request, res: Response): Promise<voi
     }
 
     const updateData: UpdateDepartmentRequest = req.body;
-    const updatedBy = req.user?.id;
+    const updatedBy = req.user?.user_id;
 
     const department = await DepartmentMediator.updateDepartment(departmentId, updateData, updatedBy);
 
@@ -217,7 +217,7 @@ export const deleteDepartment = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const deletedBy = req.user?.id;
+    const deletedBy = req.user?.user_id;
     await DepartmentMediator.deleteDepartment(departmentId, deletedBy);
 
     MyLogger.success(action, {

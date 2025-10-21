@@ -525,6 +525,8 @@ export interface CreateEmployeeRequest {
     department_id?: number;
     employment_type?: 'permanent' | 'contract' | 'intern' | 'consultant';
     join_date?: string;
+    confirmation_date?: string;
+    termination_date?: string;
     probation_period_months?: number;
     notice_period_days?: number;
     work_location?: string;
@@ -534,6 +536,8 @@ export interface CreateEmployeeRequest {
     skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    department?: string; // Legacy field for backward compatibility
+    current_work_order_id?: number;
     create_user_account?: boolean;
     username?: string;
     email?: string;
