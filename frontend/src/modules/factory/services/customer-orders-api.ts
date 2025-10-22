@@ -140,7 +140,7 @@ export interface CreateCustomerOrderRequest {
     order_date: string;
     required_date: string;
     priority: OrderPriority;
-    currency: string;
+    currency?: string;
     sales_person: string;
     notes?: string;
     terms?: string;

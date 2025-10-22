@@ -164,7 +164,7 @@ export default function OrderEntryForm({
             setLoadingFactories(true);
             // For admin users (no factory_id), load all factories
             // For regular users, load their assigned factories
-            if (user?.factory_id) {
+            if (user?.role != ROLE_NAMES.SYSTEM_ADMIN) {
                 const data = await FactoryApiService.getUserFactories();
                 setFactories(data.factories);
             } else {
@@ -197,7 +197,6 @@ export default function OrderEntryForm({
 
     // Reset form when order changes
     useEffect(() => {
-        const isAdmin = !user?.factory_id;
 
         if (order) {
             // Editing existing order - use factory_id from order if available
@@ -259,7 +258,7 @@ export default function OrderEntryForm({
                 required_date: data.required_date,
                 priority: data.priority,
                 // currency: data.currency,
-                // sales_person: data.sales_person,
+                sales_person: data.sales_person,
                 notes: data.notes,
                 shipping_address: {
                     city: selectedCustomer?.address?.city || "",
@@ -406,7 +405,7 @@ export default function OrderEntryForm({
                                 )}
 
                                 {/* Factory Selection - only for admin users */}
-                                {!user?.factory_id && (
+                                {isAdmin && (
                                     <FormField
                                         control={form.control}
                                         name="factory_id"
@@ -437,7 +436,7 @@ export default function OrderEntryForm({
                                 )}
 
                                 {/* Factory Display - for regular users */}
-                                {user?.factory_id && (
+                                {!isAdmin && (
                                     <div className="bg-muted p-3 rounded-md">
                                         <div className="space-y-1 text-sm">
                                             <div><strong>Factory:</strong> {
