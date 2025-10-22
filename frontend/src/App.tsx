@@ -107,6 +107,16 @@ import ShiftManagementPage from "@/modules/hrm/pages/ShiftManagementPage";
 import AttendanceRegularizationPage from "@/modules/hrm/pages/AttendanceRegularizationPage";
 import AttendanceReportsPage from "@/modules/hrm/pages/AttendanceReportsPage";
 
+// Sales Rep Module Imports
+import SalesRepDashboard from "@/modules/salesrep/pages/SalesRepDashboard";
+import SalesRepCustomers from "@/modules/salesrep/pages/SalesRepCustomers";
+import SalesRepOrders from "@/modules/salesrep/pages/SalesRepOrders";
+import SalesRepInvoices from "@/modules/salesrep/pages/SalesRepInvoices";
+import SalesRepPayments from "@/modules/salesrep/pages/SalesRepPayments";
+import SalesRepDeliveries from "@/modules/salesrep/pages/SalesRepDeliveries";
+import SalesRepReports from "@/modules/salesrep/pages/SalesRepReports";
+import SalesRepNotifications from "@/modules/salesrep/pages/SalesRepNotifications";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -1032,6 +1042,88 @@ const App = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <RBACDemo />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Sales Rep Routes */}
+                <Route
+                  path="/sr/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepDashboard />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/customers"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepCustomers />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/orders"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepOrders />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/invoices"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepInvoices />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/payments"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepPayments />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/deliveries"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepDeliveries />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/reports"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepReports />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sr/notifications"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <SalesRepNotifications />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }
