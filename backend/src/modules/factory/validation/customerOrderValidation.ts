@@ -30,6 +30,7 @@ export const createCustomerOrderSchema = Joi.object({
     factory_customer_email: Joi.string().email().required(),
     factory_customer_phone: Joi.string().max(20).required(),
     order_date:Joi.allow(),
+    sales_person: Joi.string().max(255).required(),
     required_date: Joi.date().iso().greater('now').required(),
     priority: Joi.string().valid('low', 'medium', 'high', 'urgent').required(),
     notes: Joi.string().max(2000).optional().allow(''),
