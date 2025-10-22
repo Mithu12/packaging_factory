@@ -13,6 +13,7 @@ export interface User {
   last_login?: string;
   created_at: string;
   updated_at: string;
+  factory_id?: number;
 }
 
 export interface LoginRequest {

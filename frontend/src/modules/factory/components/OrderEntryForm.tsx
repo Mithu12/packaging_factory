@@ -42,9 +42,27 @@ import {
 } from "../services/customer-orders-api";
 import FactoryApiService, { Factory } from "@/services/factory-api";
 import { useFormatting } from "@/hooks/useFormatting";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRBAC } from "@/contexts/RBACContext";
 import { PERMISSIONS } from "@/types/rbac";
+
+type OrderFormData = {
+  factory_customer_id: string;
+  factory_id?: number;
+  order_date: string;
+  required_date: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  currency: string;
+  sales_person: string;
+  notes?: string;
+  line_items: Array<{
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    specifications?: string;
+  }>;
+};
+
 
 // Form validation schema factory function
 const createOrderFormSchema = (canSelectFactory: boolean) => z.object({
@@ -63,23 +81,6 @@ const createOrderFormSchema = (canSelectFactory: boolean) => z.object({
     specifications: z.string().optional(),
   })).min(1, "At least one line item is required"),
 });
-
-type OrderFormData = {
-  factory_customer_id: string;
-  factory_id?: number;
-  order_date: string;
-  required_date: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  currency: string;
-  sales_person: string;
-  notes?: string;
-  line_items: Array<{
-    product_id: string;
-    quantity: number;
-    unit_price: number;
-    specifications?: string;
-  }>;
-};
 
 interface OrderEntryFormProps {
   open: boolean;
@@ -105,14 +106,12 @@ export default function OrderEntryForm({
   const { user } = useAuth();
   const { hasPermission } = useRBAC();
 
+  
+
   // Determine user role and permissions
-  const isAdmin = !user?.factory_id;
-  const isSalesRep = user && (
-    user.role === 'sales_executive' || 
-    user.role === 'sales_manager' ||
-    hasPermission(PERMISSIONS.FACTORY_ORDERS_VIEW_OWN)
-  );
-  const canSelectFactory = isAdmin && !isSalesRep;
+  const isAdmin = user?.role === 'admin';
+  const canSelectFactory = isAdmin;
+  console.log('isSalesRep:', user);
 
   const form = useForm<OrderFormData>({
     resolver: zodResolver(createOrderFormSchema(canSelectFactory)),
@@ -234,7 +233,7 @@ export default function OrderEntryForm({
         priority: "medium",
         currency: "BDT",
         sales_person: user?.full_name || user?.username || "",
-        notes: isSalesRep ? "Order created by sales representative - pending approval" : "",
+        notes: "",
         line_items: [
           {
             product_id: "",
@@ -245,7 +244,7 @@ export default function OrderEntryForm({
         ],
       });
     }
-  }, [order, form, user, canSelectFactory, isSalesRep]);
+  }, [order, form, user, canSelectFactory]);
 
   const handleSubmit = async (data: OrderFormData) => {
     try {
@@ -446,19 +445,10 @@ export default function OrderEntryForm({
                 {!canSelectFactory && (
                   <div className="bg-muted p-3 rounded-md">
                     <div className="space-y-1 text-sm">
-                      {isSalesRep ? (
-                        <div>
-                          <strong>Factory Assignment:</strong> Will be assigned after approval
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Sales representatives cannot select factories during order creation
-                          </div>
-                        </div>
-                      ) : (
-                        <div><strong>Factory:</strong> {
-                          factories.find(f => f.id.toString() === user?.factory_id?.toString())?.name ||
-                          `Factory ID: ${user?.factory_id}`
-                        }</div>
-                      )}
+                      <div><strong>Factory:</strong> {
+                        factories.find(f => f.id.toString() === user?.factory_id?.toString())?.name ||
+                        `Factory ID: ${user?.factory_id}`
+                      }</div>
                     </div>
                   </div>
                 )}
