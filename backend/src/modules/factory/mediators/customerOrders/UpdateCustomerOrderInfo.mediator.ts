@@ -1,429 +1,418 @@
 import pool from "@/database/connection";
-import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest, RouteOrderRequest } from "@/types/factory";
+import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
 import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
-import { validateStatusTransition } from "@/utils/orderStatusTransitions";
-import { FactoryCapacityService } from "../../utils/factoryCapacity";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
-  const query = 'SELECT * FROM get_user_factories($1)';
-  const result = await pool.query(query, [userId]);
-  return result.rows;
+    const query = 'SELECT * FROM get_user_factories($1)';
+    const result = await pool.query(query, [userId]);
+    return result.rows;
 }
 
 // Helper function to check if user is admin
 async function isUserAdmin(userId: number): Promise<boolean> {
-  const query = 'SELECT role_id FROM users WHERE id = $1';
-  const result = await pool.query(query, [userId]);
-  if (result.rows.length === 0) return false;
+    const query = 'SELECT role_id FROM users WHERE id = $1';
+    const result = await pool.query(query, [userId]);
+    if (result.rows.length === 0) return false;
 
 // Assuming role_id 1 is admin based on common patterns
-  return result.rows[0].role_id === 1;
+    return result.rows[0].role_id === 1;
 }
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000;
 
 function ensureFutureIsoDate(dateValue?: string | null): string {
-  const fallback = new Date(Date.now() + ONE_HOUR_IN_MS);
+    const fallback = new Date(Date.now() + ONE_HOUR_IN_MS);
 
-  if (!dateValue) {
-    return fallback.toISOString();
-  }
+    if (!dateValue) {
+        return fallback.toISOString();
+    }
 
-  const parsedDate = new Date(dateValue);
-  if (Number.isNaN(parsedDate.getTime()) || parsedDate.getTime() <= Date.now()) {
-    return fallback.toISOString();
-  }
+    const parsedDate = new Date(dateValue);
+    if (Number.isNaN(parsedDate.getTime()) || parsedDate.getTime() <= Date.now()) {
+        return fallback.toISOString();
+    }
 
-  return parsedDate.toISOString();
+    return parsedDate.toISOString();
 }
 
 async function autoCreateDraftWorkOrders(order: FactoryCustomerOrder, userId: string): Promise<void> {
-  const action = "UpdateCustomerOrderInfoMediator.autoCreateDraftWorkOrders";
+    const action = "UpdateCustomerOrderInfoMediator.autoCreateDraftWorkOrders";
 
-  if (!order.line_items || order.line_items.length === 0) {
-    MyLogger.info(action, {
-      orderId: order.id,
-      message: "No line items found; skipping work order generation",
-    });
-    return;
-  }
-
-  const existingWorkOrders = await pool.query(
-    "SELECT id FROM work_orders WHERE customer_order_id = $1 LIMIT 1",
-    [order.id]
-  );
-
-  if (existingWorkOrders.rows.length > 0) {
-    MyLogger.info(action, {
-      orderId: order.id,
-      message: "Work orders already exist for this customer order; skipping auto-generation",
-    });
-    return;
-  }
-
-  const generatedWorkOrderIds: string[] = [];
-
-  try {
-    for (const lineItem of order.line_items) {
-      const productId = lineItem.product_id?.toString();
-      const quantity = Number(lineItem.quantity);
-
-      if (!productId) {
-        MyLogger.warn(action, {
-          orderId: order.id,
-          lineItemId: lineItem.id,
-          message: "Line item missing product reference; skipping work order generation for this item",
+    if (!order.line_items || order.line_items.length === 0) {
+        MyLogger.info(action, {
+            orderId: order.id,
+            message: "No line items found; skipping work order generation",
         });
-        continue;
-      }
-
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        MyLogger.warn(action, {
-          orderId: order.id,
-          lineItemId: lineItem.id,
-          productId,
-          quantity,
-          message: "Invalid quantity detected; skipping work order generation for this item",
-        });
-        continue;
-      }
-
-      const deadlineSource = lineItem.delivery_date || order.required_date;
-      const workOrderPayload: CreateWorkOrderRequest = {
-        customer_order_id: order.id,
-        product_id: productId,
-        quantity,
-        deadline: ensureFutureIsoDate(deadlineSource),
-        priority: order.priority || "medium",
-        estimated_hours: Math.max(1, Math.round(quantity)),
-        notes: `Auto-generated from customer order ${order.order_number} (line: ${lineItem.product_name}).`,
-        specifications: lineItem.specifications || undefined,
-      };
-
-      const createdWorkOrder = await AddWorkOrderMediator.createWorkOrder(workOrderPayload, userId);
-      generatedWorkOrderIds.push(createdWorkOrder.id);
-
-      MyLogger.info(action, {
-        orderId: order.id,
-        lineItemId: lineItem.id,
-        workOrderId: createdWorkOrder.id,
-        workOrderNumber: createdWorkOrder.work_order_number,
-      });
-    }
-  } catch (error) {
-    MyLogger.error(action, error, {
-      orderId: order.id,
-      generatedCount: generatedWorkOrderIds.length,
-    });
-
-    // Attempt to clean up any partially created work orders to keep state consistent
-    for (const workOrderId of generatedWorkOrderIds) {
-      try {
-        await pool.query("DELETE FROM work_orders WHERE id = $1", [workOrderId]);
-        MyLogger.warn(action, {
-          orderId: order.id,
-          workOrderId,
-          message: "Rolled back auto-generated work order after failure",
-        });
-      } catch (cleanupError: any) {
-        MyLogger.error(`${action}.cleanup`, cleanupError, {
-          orderId: order.id,
-          workOrderId,
-        });
-      }
+        return;
     }
 
-    throw error;
-  }
+    const existingWorkOrders = await pool.query(
+        "SELECT id FROM work_orders WHERE customer_order_id = $1 LIMIT 1",
+        [order.id]
+    );
+
+    if (existingWorkOrders.rows.length > 0) {
+        MyLogger.info(action, {
+            orderId: order.id,
+            message: "Work orders already exist for this customer order; skipping auto-generation",
+        });
+        return;
+    }
+
+    const generatedWorkOrderIds: string[] = [];
+
+    try {
+        for (const lineItem of order.line_items) {
+            const productId = lineItem.product_id?.toString();
+            const quantity = Number(lineItem.quantity);
+
+            if (!productId) {
+                MyLogger.warn(action, {
+                    orderId: order.id,
+                    lineItemId: lineItem.id,
+                    message: "Line item missing product reference; skipping work order generation for this item",
+                });
+                continue;
+            }
+
+            if (!Number.isFinite(quantity) || quantity <= 0) {
+                MyLogger.warn(action, {
+                    orderId: order.id,
+                    lineItemId: lineItem.id,
+                    productId,
+                    quantity,
+                    message: "Invalid quantity detected; skipping work order generation for this item",
+                });
+                continue;
+            }
+
+            const deadlineSource = lineItem.delivery_date || order.required_date;
+            const workOrderPayload: CreateWorkOrderRequest = {
+                customer_order_id: order.id,
+                product_id: productId,
+                quantity,
+                deadline: ensureFutureIsoDate(deadlineSource),
+                priority: order.priority || "medium",
+                estimated_hours: Math.max(1, Math.round(quantity)),
+                notes: `Auto-generated from customer order ${order.order_number} (line: ${lineItem.product_name}).`,
+                specifications: lineItem.specifications || undefined,
+            };
+
+            const createdWorkOrder = await AddWorkOrderMediator.createWorkOrder(workOrderPayload, userId);
+            generatedWorkOrderIds.push(createdWorkOrder.id);
+
+            MyLogger.info(action, {
+                orderId: order.id,
+                lineItemId: lineItem.id,
+                workOrderId: createdWorkOrder.id,
+                workOrderNumber: createdWorkOrder.work_order_number,
+            });
+        }
+    } catch (error) {
+        MyLogger.error(action, error, {
+            orderId: order.id,
+            generatedCount: generatedWorkOrderIds.length,
+        });
+
+        // Attempt to clean up any partially created work orders to keep state consistent
+        for (const workOrderId of generatedWorkOrderIds) {
+            try {
+                await pool.query("DELETE FROM work_orders WHERE id = $1", [workOrderId]);
+                MyLogger.warn(action, {
+                    orderId: order.id,
+                    workOrderId,
+                    message: "Rolled back auto-generated work order after failure",
+                });
+            } catch (cleanupError: any) {
+                MyLogger.error(`${action}.cleanup`, cleanupError, {
+                    orderId: order.id,
+                    workOrderId,
+                });
+            }
+        }
+
+        throw error;
+    }
 }
 
 export class UpdateCustomerOrderInfoMediator {
-  static async updateCustomerOrder(
-    orderId: string,
-    updateData: UpdateCustomerOrderRequest,
-    userId: string
-  ): Promise<FactoryCustomerOrder> {
-    const action = "UpdateCustomerOrderInfoMediator.updateCustomerOrder";
-    const client = await pool.connect();
+    static async updateCustomerOrder(
+        orderId: string,
+        updateData: UpdateCustomerOrderRequest,
+        userId: string
+    ): Promise<FactoryCustomerOrder> {
+        const action = "UpdateCustomerOrderInfoMediator.updateCustomerOrder";
+        const client = await pool.connect();
 
-    try {
-      await client.query('BEGIN');
+        try {
+            await client.query('BEGIN');
 
-      MyLogger.info(action, { orderId, userId, updateFields: Object.keys(updateData) });
+            MyLogger.info(action, { orderId, userId, updateFields: Object.keys(updateData) });
 
-      // Get user's accessible factories for filtering
-      const currentUserId = parseInt(userId);
-      let userFactories: string[] = [];
-      if (currentUserId) {
-        const isAdmin = await isUserAdmin(currentUserId);
-        if (!isAdmin) {
-          const factories = await getUserFactories(currentUserId);
-          userFactories = factories.map(f => f.factory_id);
-        }
-      }
+            // Get user's accessible factories for filtering
+            const currentUserId = parseInt(userId);
+            let userFactories: string[] = [];
+            if (currentUserId) {
+                const isAdmin = await isUserAdmin(currentUserId);
+                if (!isAdmin) {
+                    const factories = await getUserFactories(currentUserId);
+                    userFactories = factories.map(f => f.factory_id);
+                }
+            }
 
-      // Check if order exists and get current data, with factory access control
-      let existingOrderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      let queryParams: any[] = [orderId];
+            // Check if order exists and get current data, with factory access control
+            let existingOrderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+            let queryParams: any[] = [orderId];
 
-      if (currentUserId && userFactories.length > 0) {
-        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
-        existingOrderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
-        queryParams.push(...userFactories);
-      }
+            if (currentUserId && userFactories.length > 0) {
+                const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+                existingOrderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+                queryParams.push(...userFactories);
+            }
 
-      const existingOrderResult = await client.query(existingOrderQuery, queryParams);
+            const existingOrderResult = await client.query(existingOrderQuery, queryParams);
 
-      if (existingOrderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${orderId} not found or access denied`);
-      }
+            if (existingOrderResult.rows.length === 0) {
+                throw new Error(`Customer order with ID ${orderId} not found or access denied`);
+            }
 
-      const existingOrder = existingOrderResult.rows[0];
+            const existingOrder = existingOrderResult.rows[0];
 
-      // Check if order can be updated (not approved, completed, or shipped)
-      if (['approved', 'completed', 'shipped'].includes(existingOrder.status)) {
-        throw new Error(`Cannot update order in ${existingOrder.status} status. Only draft and pending orders can be edited.`);
-      }
+            // Check if order can be updated (not approved, completed, or shipped)
+            if (['approved', 'completed', 'shipped'].includes(existingOrder.status)) {
+                throw new Error(`Cannot update order in ${existingOrder.status} status. Only draft and pending orders can be edited.`);
+            }
 
-      // Build update query dynamically
-      const updateFields: string[] = [];
-      const updateValues: any[] = [];
-      let paramIndex = 1;
+            // Build update query dynamically
+            const updateFields: string[] = [];
+            const updateValues: any[] = [];
+            let paramIndex = 1;
 
-      if (updateData.required_date) {
-        updateFields.push(`required_date = $${paramIndex}`);
-        updateValues.push(new Date(updateData.required_date));
-        paramIndex++;
-      }
+            if (updateData.required_date) {
+                updateFields.push(`required_date = $${paramIndex}`);
+                updateValues.push(new Date(updateData.required_date));
+                paramIndex++;
+            }
 
-      if (updateData.factory_id) {
-        updateFields.push(`factory_id = $${paramIndex}`);
-        updateValues.push(updateData.factory_id);
-        paramIndex++;
-      }
+            if (updateData.factory_id) {
+                updateFields.push(`factory_id = $${paramIndex}`);
+                updateValues.push(updateData.factory_id);
+                paramIndex++;
+            }
 
-      if (updateData.priority) {
-        updateFields.push(`priority = $${paramIndex}`);
-        updateValues.push(updateData.priority);
-        paramIndex++;
-      }
+            if (updateData.priority) {
+                updateFields.push(`priority = $${paramIndex}`);
+                updateValues.push(updateData.priority);
+                paramIndex++;
+            }
 
-      if (updateData.notes !== undefined) {
-        updateFields.push(`notes = $${paramIndex}`);
-        updateValues.push(updateData.notes && updateData.notes.trim() !== '' ? updateData.notes : null);
-        paramIndex++;
-      }
+            if (updateData.notes !== undefined) {
+                updateFields.push(`notes = $${paramIndex}`);
+                updateValues.push(updateData.notes && updateData.notes.trim() !== '' ? updateData.notes : null);
+                paramIndex++;
+            }
 
-      if (updateData.terms !== undefined) {
-        updateFields.push(`terms = $${paramIndex}`);
-        updateValues.push(updateData.terms && updateData.terms.trim() !== '' ? updateData.terms : null);
-        paramIndex++;
-      }
+            if (updateData.terms !== undefined) {
+                updateFields.push(`terms = $${paramIndex}`);
+                updateValues.push(updateData.terms && updateData.terms.trim() !== '' ? updateData.terms : null);
+                paramIndex++;
+            }
 
-      if (updateData.payment_terms) {
-        updateFields.push(`payment_terms = $${paramIndex}`);
-        updateValues.push(updateData.payment_terms);
-        paramIndex++;
-      }
+            if (updateData.payment_terms) {
+                updateFields.push(`payment_terms = $${paramIndex}`);
+                updateValues.push(updateData.payment_terms);
+                paramIndex++;
+            }
 
-      if (updateData.shipping_address) {
-        updateFields.push(`shipping_address = $${paramIndex}`);
-        updateValues.push(JSON.stringify(updateData.shipping_address));
-        paramIndex++;
-      }
+            if (updateData.shipping_address) {
+                updateFields.push(`shipping_address = $${paramIndex}`);
+                updateValues.push(JSON.stringify(updateData.shipping_address));
+                paramIndex++;
+            }
 
-      if (updateData.billing_address) {
-        updateFields.push(`billing_address = $${paramIndex}`);
-        updateValues.push(JSON.stringify(updateData.billing_address));
-        paramIndex++;
-      }
+            if (updateData.billing_address) {
+                updateFields.push(`billing_address = $${paramIndex}`);
+                updateValues.push(JSON.stringify(updateData.billing_address));
+                paramIndex++;
+            }
 
-      // Always update the updated_by and updated_at fields
-      updateFields.push(`updated_by = $${paramIndex}`, `updated_at = $${paramIndex + 1}`);
-      updateValues.push(userId, new Date());
-      paramIndex += 2;
+            // Always update the updated_by and updated_at fields
+            updateFields.push(`updated_by = $${paramIndex}`, `updated_at = $${paramIndex + 1}`);
+            updateValues.push(userId, new Date());
+            paramIndex += 2;
 
-      // Handle line items update if provided
-      let newTotalValue = existingOrder.total_value;
-      if (updateData.line_items) {
-        // Delete existing line items
-        await client.query('DELETE FROM factory_customer_order_line_items WHERE order_id = $1', [orderId]);
+            // Handle line items update if provided
+            let newTotalValue = existingOrder.total_value;
+            if (updateData.line_items) {
+                // Delete existing line items
+                await client.query('DELETE FROM factory_customer_order_line_items WHERE order_id = $1', [orderId]);
 
-        // Insert new line items and calculate new total
-        newTotalValue = 0;
-        for (const item of updateData.line_items) {
-          
-          // Get product details
-          const productQuery = "SELECT name, sku, unit_of_measure, status FROM products WHERE id = $1";
-          const productResult = await client.query(productQuery, [item.product_id]);
-          
-          if (productResult.rows.length === 0) {
-            throw new Error(`Product with ID ${item.product_id} not found`);
-          }
+                // Insert new line items and calculate new total
+                newTotalValue = 0;
+                for (const item of updateData.line_items) {
 
-          if (productResult.rows[0].status !== 'active') {
-            throw new Error(`Product ${productResult.rows[0].name} is not active`);
-          }
+                    // Get product details
+                    const productQuery = "SELECT name, sku, unit_of_measure, status FROM products WHERE id = $1";
+                    const productResult = await client.query(productQuery, [item.product_id]);
 
-          const product = productResult.rows[0];
-          const discountAmount = item.discount_percentage 
-            ? (item.unit_price * item.quantity * item.discount_percentage) / 100 
-            : 0;
-          const lineTotal = (item.unit_price * item.quantity) - discountAmount;
-          newTotalValue += lineTotal;
+                    if (productResult.rows.length === 0) {
+                        throw new Error(`Product with ID ${item.product_id} not found`);
+                    }
 
-          const lineItemQuery = `
-            INSERT INTO factory_customer_order_line_items (
-              order_id, product_id, product_name, product_sku, description,
-              quantity, unit_price, discount_percentage, discount_amount, line_total,
-              unit_of_measure, specifications, delivery_date, is_optional, created_at
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-            )
-          `;
+                    if (productResult.rows[0].status !== 'active') {
+                        throw new Error(`Product ${productResult.rows[0].name} is not active`);
+                    }
 
-          const lineItemValues = [
-            orderId,
-            item.product_id,
-            product.name,
-            product.sku,
-            item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
-            item.quantity,
-            item.unit_price,
-            item.discount_percentage && item.discount_percentage > 0 ? item.discount_percentage : null,
-            discountAmount,
-            lineTotal,
-            product.unit_of_measure,
-            item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
-            item.delivery_date ? new Date(item.delivery_date) : null,
-            item.is_optional || false,
-            new Date()
-          ];
+                    const product = productResult.rows[0];
+                    const discountAmount = item.discount_percentage
+                        ? (item.unit_price * item.quantity * item.discount_percentage) / 100
+                        : 0;
+                    const lineTotal = (item.unit_price * item.quantity) - discountAmount;
+                    newTotalValue += lineTotal;
 
-          await client.query(lineItemQuery, lineItemValues);
-        }
+                    const lineItemQuery = `
+                        INSERT INTO factory_customer_order_line_items (
+                            order_id, product_id, product_name, product_sku, description,
+                            quantity, unit_price, discount_percentage, discount_amount, line_total,
+                            unit_of_measure, specifications, delivery_date, is_optional, created_at
+                        ) VALUES (
+                                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                                 )
+                    `;
 
-        // Update total value
-        updateFields.push(`total_value = $${paramIndex}`);
-        updateValues.push(newTotalValue);
-        paramIndex++;
-        
-        // Recalculate outstanding amount when total value changes
-        // outstanding_amount = new_total_value - paid_amount
-        updateFields.push(`outstanding_amount = $${paramIndex} - COALESCE(paid_amount, 0)`);
-        updateValues.push(newTotalValue);
-        paramIndex++;
-      }
+                    const lineItemValues = [
+                        orderId,
+                        item.product_id,
+                        product.name,
+                        product.sku,
+                        item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
+                        item.quantity,
+                        item.unit_price,
+                        item.discount_percentage && item.discount_percentage > 0 ? item.discount_percentage : null,
+                        discountAmount,
+                        lineTotal,
+                        product.unit_of_measure,
+                        item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
+                        item.delivery_date ? new Date(item.delivery_date) : null,
+                        item.is_optional || false,
+                        new Date()
+                    ];
 
-      // Execute update query
-      if (updateFields.length > 2) { // More than just updated_by and updated_at
-        updateValues.push(orderId); // Add orderId for WHERE clause
-        const updateQuery = `
-          UPDATE factory_customer_orders 
-          SET ${updateFields.join(', ')}
-          WHERE id = $${paramIndex}
+                    await client.query(lineItemQuery, lineItemValues);
+                }
+
+                // Update total value
+                updateFields.push(`total_value = $${paramIndex}`);
+                updateValues.push(newTotalValue);
+                paramIndex++;
+
+                // Recalculate outstanding amount when total value changes
+                // outstanding_amount = new_total_value - paid_amount
+                updateFields.push(`outstanding_amount = $${paramIndex} - COALESCE(paid_amount, 0)`);
+                updateValues.push(newTotalValue);
+                paramIndex++;
+            }
+
+            // Execute update query
+            if (updateFields.length > 2) { // More than just updated_by and updated_at
+                updateValues.push(orderId); // Add orderId for WHERE clause
+                const updateQuery = `
+                    UPDATE factory_customer_orders
+                    SET ${updateFields.join(', ')}
+                    WHERE id = $${paramIndex}
           RETURNING *
         `;
 
-        const updateResult = await client.query(updateQuery, updateValues);
+                const updateResult = await client.query(updateQuery, updateValues);
 
-        await recalcFactoryCustomerFinancials(client, existingOrder.factory_customer_id);
+                await recalcFactoryCustomerFinancials(client, existingOrder.factory_customer_id);
 
-        await client.query('COMMIT');
+                await client.query('COMMIT');
 
-        // Get updated order with line items
-        const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-        const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(orderId);
+                // Get updated order with line items
+                const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+                const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(orderId);
 
-        MyLogger.success(action, { 
-          orderId, 
-          updatedFields: updateFields.length - 2, // Exclude updated_by and updated_at
-          newTotalValue: updatedOrder?.total_value 
-        });
+                MyLogger.success(action, {
+                    orderId,
+                    updatedFields: updateFields.length - 2, // Exclude updated_by and updated_at
+                    newTotalValue: updatedOrder?.total_value
+                });
 
-        return updatedOrder!;
-      } else {
-        await client.query('ROLLBACK');
-        throw new Error('No fields to update');
-      }
+                return updatedOrder!;
+            } else {
+                await client.query('ROLLBACK');
+                throw new Error('No fields to update');
+            }
 
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  static async approveOrder(
-    approvalData: ApproveOrderRequest,
-    userId: string
-  ): Promise<FactoryCustomerOrder> {
-    const action = "UpdateCustomerOrderInfoMediator.approveOrder";
-    const client = await pool.connect();
-    let transactionActive = false;
-
-    try {
-      await client.query('BEGIN');
-      transactionActive = true;
-
-      MyLogger.info(action, {
-        orderId: approvalData.order_id,
-        approved: approvalData.approved,
-        userId
-      });
-
-      // Get user's accessible factories for filtering
-      const currentUserId = parseInt(userId);
-      let userFactories: string[] = [];
-      if (currentUserId) {
-        const isAdmin = await isUserAdmin(currentUserId);
-        if (!isAdmin) {
-          const factories = await getUserFactories(currentUserId);
-          userFactories = factories.map(f => f.factory_id);
+        } catch (error: any) {
+            await client.query('ROLLBACK');
+            MyLogger.error(action, error);
+            throw error;
+        } finally {
+            client.release();
         }
-      }
+    }
 
-      // Check if order exists and is in correct status, with factory access control
-      let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      let queryParams: any[] = [approvalData.order_id];
+    static async approveOrder(
+        approvalData: ApproveOrderRequest,
+        userId: string
+    ): Promise<FactoryCustomerOrder> {
+        const action = "UpdateCustomerOrderInfoMediator.approveOrder";
+        const client = await pool.connect();
+        let transactionActive = false;
 
-      if (currentUserId && userFactories.length > 0) {
-        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
-        orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
-        queryParams.push(...userFactories);
-      }
+        try {
+            await client.query('BEGIN');
+            transactionActive = true;
 
-      const orderResult = await client.query(orderQuery, queryParams);
+            MyLogger.info(action, {
+                orderId: approvalData.order_id,
+                approved: approvalData.approved,
+                userId
+            });
 
-      if (orderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${approvalData.order_id} not found or access denied`);
-      }
+            // Get user's accessible factories for filtering
+            const currentUserId = parseInt(userId);
+            let userFactories: string[] = [];
+            if (currentUserId) {
+                const isAdmin = await isUserAdmin(currentUserId);
+                if (!isAdmin) {
+                    const factories = await getUserFactories(currentUserId);
+                    userFactories = factories.map(f => f.factory_id);
+                }
+            }
 
-      const order = orderResult.rows[0];
-      const previousStatus = order.status;
-      const previousNotes = order.notes;
-      
-      const newStatus = approvalData.approved ? 'approved' : 'rejected';
-      
-      // Validate status transition using the new workflow validation
-      validateStatusTransition(
-        order.status as FactoryCustomerOrderStatus,
-        newStatus as FactoryCustomerOrderStatus,
-        approvalData.order_id
-      );
+            // Check if order exists and is in correct status, with factory access control
+            let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+            let queryParams: any[] = [approvalData.order_id];
 
-      // For rejections, require rejection_reason
-      if (!approvalData.approved && (!approvalData.rejection_reason || approvalData.rejection_reason.trim() === '')) {
-        throw new Error('Rejection reason is required when rejecting an order');
-      }
+            if (currentUserId && userFactories.length > 0) {
+                const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+                orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+                queryParams.push(...userFactories);
+            }
 
-      const updateQuery = `
+            const orderResult = await client.query(orderQuery, queryParams);
+
+            if (orderResult.rows.length === 0) {
+                throw new Error(`Customer order with ID ${approvalData.order_id} not found or access denied`);
+            }
+
+            const order = orderResult.rows[0];
+            const previousStatus = order.status;
+            const previousNotes = order.notes;
+
+            if (!['pending', 'quoted'].includes(order.status)) {
+                throw new Error(`Order cannot be approved from ${order.status} status`);
+            }
+
+            const newStatus = approvalData.approved ? 'approved' : 'rejected';
+            const updateQuery = `
         UPDATE factory_customer_orders 
         SET 
           status = $1,
@@ -431,485 +420,280 @@ export class UpdateCustomerOrderInfoMediator {
           approved_at = $3,
           updated_by = $2,
           updated_at = $3,
-          notes = $4,
-          rejection_reason = $5
-        WHERE id = $6
-        RETURNING *
-      `;
-
-      const updateValues = [
-        newStatus,
-        userId,
-        new Date(),
-        approvalData.notes && approvalData.notes.trim() !== '' ? approvalData.notes : null,
-        !approvalData.approved ? approvalData.rejection_reason : null,
-        approvalData.order_id
-      ];
-
-      await client.query(updateQuery, updateValues);
-
-      // Log workflow history
-      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
-      await OrderWorkflowHistoryMediator.logWorkflowChange({
-        order_id: approvalData.order_id,
-        from_status: previousStatus,
-        to_status: newStatus,
-        changed_by: currentUserId,
-        notes: approvalData.approved ? approvalData.notes : approvalData.rejection_reason,
-        metadata: {
-          approved: approvalData.approved,
-          factory_id: approvalData.factory_id
-        }
-      });
-
-      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
-
-      await client.query('COMMIT');
-      transactionActive = false;
-
-      // Get updated order
-      const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id.toString());
-
-      if (approvalData.approved && updatedOrder) {
-        try {
-          await autoCreateDraftWorkOrders(updatedOrder, userId);
-        } catch (autoCreationError: any) {
-          MyLogger.error(`${action}.autoCreate`, autoCreationError, {
-            orderId: approvalData.order_id,
-            message: "Auto-generation of work orders failed; reverting customer order status",
-          });
-
-          await pool.query(
-            `
-              UPDATE factory_customer_orders
-              SET
-                status = $1,
-                approved_by = NULL,
-                approved_at = NULL,
-                notes = $2,
-                rejection_reason = NULL,
-                updated_by = $3,
-                updated_at = $4
-              WHERE id = $5
-            `,
-            [
-              previousStatus,
-              previousNotes || null,
-              userId,
-              new Date(),
-              approvalData.order_id,
-            ]
-          );
-
-          throw autoCreationError;
-        }
-      }
-
-      MyLogger.success(action, { 
-        orderId: approvalData.order_id, 
-        newStatus,
-        approved: approvalData.approved 
-      });
-
-      // Emit event for accounts integration (if order was approved)
-      if (approvalData.approved && updatedOrder) {
-        try {
-          MyLogger.info(`${action}.eventData`, {
-            factoryId: updatedOrder.factory_id,
-            factoryName: updatedOrder.factory_name,
-            factoryCostCenterId: updatedOrder.factory_cost_center_id,
-            factoryCostCenterName: updatedOrder.factory_cost_center_name
-          });
-          
-          eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
-            orderData: {
-              orderId: updatedOrder.id,
-              orderNumber: updatedOrder.order_number,
-              customerId: updatedOrder.factory_customer_id,
-              customerName: updatedOrder.factory_customer_name,
-              customerEmail: updatedOrder.factory_customer_email,
-              totalValue: updatedOrder.total_value,
-              currency: updatedOrder.currency || 'BDT',
-              orderDate: updatedOrder.order_date || new Date().toISOString(),
-              factoryId: updatedOrder.factory_id,
-              factoryName: updatedOrder.factory_name,
-              factoryCostCenterId: updatedOrder.factory_cost_center_id,
-              lineItems: updatedOrder.line_items,
-              notes: approvalData.notes
-            },
-            userId: parseInt(userId)
-          });
-        } catch (eventError: any) {
-          // Log error but don't fail the operation
-          MyLogger.error(`${action}.eventEmit`, eventError, {
-            orderId: approvalData.order_id,
-            message: 'Failed to emit FACTORY_ORDER_APPROVED event, but order approval succeeded'
-          });
-        }
-      }
-
-      return updatedOrder!;
-
-    } catch (error: any) {
-      if (transactionActive) {
-        await client.query('ROLLBACK');
-      }
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  static async updateOrderStatus(
-    statusData: UpdateOrderStatusRequest,
-    userId: string
-  ): Promise<FactoryCustomerOrder> {
-    const action = "UpdateCustomerOrderInfoMediator.updateOrderStatus";
-    const client = await pool.connect();
-    let transactionActive = false;
-
-    try {
-      await client.query('BEGIN');
-      transactionActive = true;
-
-      MyLogger.info(action, {
-        orderId: statusData.order_id,
-        newStatus: statusData.status,
-        userId
-      });
-
-      // Get user's accessible factories for filtering
-      const currentUserId = parseInt(userId);
-      let userFactories: string[] = [];
-      if (currentUserId) {
-        const isAdmin = await isUserAdmin(currentUserId);
-        if (!isAdmin) {
-          const factories = await getUserFactories(currentUserId);
-          userFactories = factories.map(f => f.factory_id);
-        }
-      }
-
-      // Check if order exists, with factory access control
-      let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      let queryParams: any[] = [statusData.order_id];
-
-      if (currentUserId && userFactories.length > 0) {
-        const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
-        orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
-        queryParams.push(...userFactories);
-      }
-
-      const orderResult = await client.query(orderQuery, queryParams);
-
-      if (orderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${statusData.order_id} not found or access denied`);
-      }
-
-      const order = orderResult.rows[0];
-      const previousStatus = order.status;
-
-      // Validate status transition using the new workflow validation
-      validateStatusTransition(
-        order.status as FactoryCustomerOrderStatus,
-        statusData.status,
-        statusData.order_id
-      );
-
-      const updateQuery = `
-        UPDATE factory_customer_orders 
-        SET 
-          status = $1,
-          notes = $2,
-          updated_by = $3,
-          updated_at = $4
+          notes = $4
         WHERE id = $5
         RETURNING *
       `;
 
-      const updateValues = [
-        statusData.status,
-        statusData.notes && statusData.notes.trim() !== '' ? statusData.notes : null,
-        userId,
-        new Date(),
-        statusData.order_id
-      ];
+            const updateValues = [
+                newStatus,
+                userId,
+                new Date(),
+                approvalData.notes && approvalData.notes.trim() !== '' ? approvalData.notes : null,
+                approvalData.order_id
+            ];
 
-      await client.query(updateQuery, updateValues);
+            await client.query(updateQuery, updateValues);
 
-      // Log workflow history
-      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
-      await OrderWorkflowHistoryMediator.logWorkflowChange({
-        order_id: statusData.order_id,
-        from_status: previousStatus,
-        to_status: statusData.status,
-        changed_by: currentUserId,
-        notes: statusData.notes
-      });
+            await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
 
-      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+            await client.query('COMMIT');
+            transactionActive = false;
 
-      await client.query('COMMIT');
-      transactionActive = false;
+            // Get updated order
+            const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+            const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id.toString());
 
-      // Get updated order
-      const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(statusData.order_id.toString());
+            if (approvalData.approved && updatedOrder) {
+                try {
+                    await autoCreateDraftWorkOrders(updatedOrder, userId);
+                } catch (autoCreationError: any) {
+                    MyLogger.error(`${action}.autoCreate`, autoCreationError, {
+                        orderId: approvalData.order_id,
+                        message: "Auto-generation of work orders failed; reverting customer order status",
+                    });
 
-      MyLogger.success(action, { 
-        orderId: statusData.order_id, 
-        oldStatus: order.status,
-        newStatus: statusData.status 
-      });
+                    await pool.query(
+                        `
+                            UPDATE factory_customer_orders
+                            SET
+                                status = $1,
+                                approved_by = NULL,
+                                approved_at = NULL,
+                                notes = $2,
+                                updated_by = $3,
+                                updated_at = $4
+                            WHERE id = $5
+                        `,
+                        [
+                            previousStatus,
+                            previousNotes || null,
+                            userId,
+                            new Date(),
+                            approvalData.order_id,
+                        ]
+                    );
 
-      return updatedOrder!;
+                    throw autoCreationError;
+                }
+            }
 
-    } catch (error: any) {
-      if (transactionActive) {
-        await client.query('ROLLBACK');
-      }
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+            MyLogger.success(action, {
+                orderId: approvalData.order_id,
+                newStatus,
+                approved: approvalData.approved
+            });
 
-  static async routeOrder(
-    routeData: RouteOrderRequest,
-    userId: string
-  ): Promise<FactoryCustomerOrder> {
-    const action = "UpdateCustomerOrderInfoMediator.routeOrder";
-    const client = await pool.connect();
-    let transactionActive = false;
+            // Emit event for accounts integration (if order was approved)
+            if (approvalData.approved && updatedOrder) {
+                try {
+                    MyLogger.info(`${action}.eventData`, {
+                        factoryId: updatedOrder.factory_id,
+                        factoryName: updatedOrder.factory_name,
+                        factoryCostCenterId: updatedOrder.factory_cost_center_id,
+                        factoryCostCenterName: updatedOrder.factory_cost_center_name
+                    });
 
-    try {
-      await client.query('BEGIN');
-      transactionActive = true;
+                    eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
+                        orderData: {
+                            orderId: updatedOrder.id,
+                            orderNumber: updatedOrder.order_number,
+                            customerId: updatedOrder.factory_customer_id,
+                            customerName: updatedOrder.factory_customer_name,
+                            customerEmail: updatedOrder.factory_customer_email,
+                            totalValue: updatedOrder.total_value,
+                            currency: updatedOrder.currency || 'BDT',
+                            orderDate: updatedOrder.order_date || new Date().toISOString(),
+                            factoryId: updatedOrder.factory_id,
+                            factoryName: updatedOrder.factory_name,
+                            factoryCostCenterId: updatedOrder.factory_cost_center_id,
+                            lineItems: updatedOrder.line_items,
+                            notes: approvalData.notes
+                        },
+                        userId: parseInt(userId)
+                    });
+                } catch (eventError: any) {
+                    // Log error but don't fail the operation
+                    MyLogger.error(`${action}.eventEmit`, eventError, {
+                        orderId: approvalData.order_id,
+                        message: 'Failed to emit FACTORY_ORDER_APPROVED event, but order approval succeeded'
+                    });
+                }
+            }
 
-      MyLogger.info(action, {
-        orderId: routeData.order_id,
-        factoryId: routeData.factory_id,
-        userId
-      });
+            return updatedOrder!;
 
-      const currentUserId = parseInt(userId);
-
-      // Check if order exists and is in correct status for routing
-      const orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
-      const orderResult = await client.query(orderQuery, [routeData.order_id]);
-
-      if (orderResult.rows.length === 0) {
-        throw new Error(`Customer order with ID ${routeData.order_id} not found`);
-      }
-
-      const order = orderResult.rows[0];
-      const previousStatus = order.status;
-
-      // Validate that order is in approved status
-      if (order.status !== 'approved') {
-        throw new Error(`Order must be in 'approved' status to be routed. Current status: ${order.status}`);
-      }
-
-      // Validate factory exists and is active
-      const factoryQuery = "SELECT id, name, code, is_active FROM factories WHERE id = $1";
-      const factoryResult = await client.query(factoryQuery, [routeData.factory_id]);
-
-      if (factoryResult.rows.length === 0) {
-        throw new Error(`Factory with ID ${routeData.factory_id} not found`);
-      }
-
-      const factory = factoryResult.rows[0];
-      if (!factory.is_active) {
-        throw new Error(`Factory ${factory.name} is not active`);
-      }
-
-      // Validate factory capacity and get warnings
-      const capacityValidation = await FactoryCapacityService.validateFactoryForRouting(parseInt(routeData.factory_id));
-      
-      if (!capacityValidation.canRoute) {
-        throw new Error(`Cannot route to factory: ${capacityValidation.warnings.join(', ')}`);
-      }
-
-      // Log capacity warnings if any
-      if (capacityValidation.warnings.length > 0) {
-        MyLogger.warn(action, {
-          orderId: routeData.order_id,
-          factoryId: routeData.factory_id,
-          warnings: capacityValidation.warnings,
-          message: "Factory capacity warnings detected"
-        });
-      }
-
-      // Validate status transition
-      validateStatusTransition(
-        order.status as FactoryCustomerOrderStatus,
-        FactoryCustomerOrderStatus.ROUTED,
-        routeData.order_id
-      );
-
-      // Update order with factory assignment and routed status
-      const updateQuery = `
-        UPDATE factory_customer_orders 
-        SET 
-          factory_id = $1,
-          status = $2,
-          routed_by = $3,
-          routed_at = $4,
-          notes = $5,
-          updated_by = $3,
-          updated_at = $4
-        WHERE id = $6
-        RETURNING *
-      `;
-
-      const updateValues = [
-        routeData.factory_id,
-        FactoryCustomerOrderStatus.ROUTED,
-        userId,
-        new Date(),
-        routeData.notes && routeData.notes.trim() !== '' ? routeData.notes : null,
-        routeData.order_id
-      ];
-
-      await client.query(updateQuery, updateValues);
-
-      // Log workflow history
-      const { OrderWorkflowHistoryMediator } = await import('./OrderWorkflowHistory.mediator');
-      await OrderWorkflowHistoryMediator.logWorkflowChange({
-        order_id: routeData.order_id,
-        from_status: previousStatus,
-        to_status: FactoryCustomerOrderStatus.ROUTED,
-        changed_by: currentUserId,
-        notes: routeData.notes,
-        metadata: {
-          factory_id: routeData.factory_id,
-          factory_name: factory.name,
-          factory_code: factory.code,
-          capacity_info: capacityValidation.capacity,
-          capacity_warnings: capacityValidation.warnings
-        }
-      });
-
-      await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
-
-      await client.query('COMMIT');
-      transactionActive = false;
-
-      // Get updated order
-      const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
-      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(routeData.order_id.toString());
-
-      MyLogger.success(action, { 
-        orderId: routeData.order_id, 
-        factoryId: routeData.factory_id,
-        factoryName: factory.name,
-        capacityUtilization: capacityValidation.capacity.capacity_utilization,
-        warnings: capacityValidation.warnings
-      });
-
-      return updatedOrder!;
-
-    } catch (error: any) {
-      if (transactionActive) {
-        await client.query('ROLLBACK');
-      }
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  static async getFactoryCapacity(factoryId: number): Promise<import("@/types/factory").FactoryCapacity> {
-    const action = "UpdateCustomerOrderInfoMediator.getFactoryCapacity";
-    
-    try {
-      MyLogger.info(action, { factoryId });
-      
-      const capacity = await FactoryCapacityService.getFactoryCapacity(factoryId);
-      
-      MyLogger.success(action, { 
-        factoryId, 
-        capacityUtilization: capacity.capacity_utilization 
-      });
-      
-      return capacity;
-    } catch (error: any) {
-      MyLogger.error(action, error);
-      throw error;
-    }
-  }
-
-  static async getMultipleFactoryCapacities(factoryIds: number[]): Promise<import("@/types/factory").FactoryCapacity[]> {
-    const action = "UpdateCustomerOrderInfoMediator.getMultipleFactoryCapacities";
-    
-    try {
-      MyLogger.info(action, { factoryCount: factoryIds.length });
-      
-      const capacities = await FactoryCapacityService.getMultipleFactoryCapacities(factoryIds);
-      
-      MyLogger.success(action, { 
-        requestedFactories: factoryIds.length,
-        successfulFactories: capacities.length 
-      });
-      
-      return capacities;
-    } catch (error: any) {
-      MyLogger.error(action, error);
-      throw error;
-    }
-  }
-
-  static async bulkUpdateOrderStatus(
-    orderIds: string[],
-    status: string,
-    userId: string,
-    notes?: string
-  ): Promise<{ updated: number; errors: string[] }> {
-    const action = "UpdateCustomerOrderInfoMediator.bulkUpdateOrderStatus";
-    const client = await pool.connect();
-
-    try {
-      await client.query('BEGIN');
-
-      MyLogger.info(action, { 
-        orderCount: orderIds.length, 
-        newStatus: status, 
-        userId 
-      });
-
-      let updated = 0;
-      const errors: string[] = [];
-
-      for (const orderId of orderIds) {
-        try {
-          await this.updateOrderStatus({ order_id: Number(orderId), status: status as FactoryCustomerOrderStatus, notes }, userId);
-          updated++;
         } catch (error: any) {
-          errors.push(`Order ${orderId}: ${error.message}`);
+            if (transactionActive) {
+                await client.query('ROLLBACK');
+            }
+            MyLogger.error(action, error);
+            throw error;
+        } finally {
+            client.release();
         }
-      }
-
-      await client.query('COMMIT');
-
-      MyLogger.success(action, { 
-        totalOrders: orderIds.length,
-        updated, 
-        errors: errors.length 
-      });
-
-      return { updated, errors };
-
-    } catch (error: any) {
-      await client.query('ROLLBACK');
-      MyLogger.error(action, error);
-      throw error;
-    } finally {
-      client.release();
     }
-  }
+
+    static async updateOrderStatus(
+        statusData: UpdateOrderStatusRequest,
+        userId: string
+    ): Promise<FactoryCustomerOrder> {
+        const action = "UpdateCustomerOrderInfoMediator.updateOrderStatus";
+        const client = await pool.connect();
+        let transactionActive = false;
+
+        try {
+            await client.query('BEGIN');
+            transactionActive = true;
+
+            MyLogger.info(action, {
+                orderId: statusData.order_id,
+                newStatus: statusData.status,
+                userId
+            });
+
+            // Get user's accessible factories for filtering
+            const currentUserId = parseInt(userId);
+            let userFactories: string[] = [];
+            if (currentUserId) {
+                const isAdmin = await isUserAdmin(currentUserId);
+                if (!isAdmin) {
+                    const factories = await getUserFactories(currentUserId);
+                    userFactories = factories.map(f => f.factory_id);
+                }
+            }
+
+            // Check if order exists, with factory access control
+            let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+            let queryParams: any[] = [statusData.order_id];
+
+            if (currentUserId && userFactories.length > 0) {
+                const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+                orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+                queryParams.push(...userFactories);
+            }
+
+            const orderResult = await client.query(orderQuery, queryParams);
+
+            if (orderResult.rows.length === 0) {
+                throw new Error(`Customer order with ID ${statusData.order_id} not found or access denied`);
+            }
+
+            const order = orderResult.rows[0];
+
+            // Validate status transition
+            const validTransitions: { [key: string]: string[] } = {
+                'draft': ['pending', 'cancelled'],
+                'pending': ['quoted', 'approved', 'rejected'],
+                'quoted': ['approved', 'rejected', 'pending'],
+                'approved': ['in_production', 'rejected'],
+                'rejected': ['pending', 'quoted'],
+                'in_production': ['completed'],
+                'completed': ['shipped'],
+                'shipped': [] // Final status
+            };
+
+            if (!validTransitions[order.status]?.includes(statusData.status)) {
+                throw new Error(`Invalid status transition from ${order.status} to ${statusData.status}`);
+            }
+
+            const updateQuery = `
+                UPDATE factory_customer_orders
+                SET
+                    status = $1,
+                    notes = $2,
+                    updated_by = $3,
+                    updated_at = $4
+                WHERE id = $5
+                RETURNING *
+            `;
+
+            const updateValues = [
+                statusData.status,
+                statusData.notes && statusData.notes.trim() !== '' ? statusData.notes : null,
+                userId,
+                new Date(),
+                statusData.order_id
+            ];
+
+            await client.query(updateQuery, updateValues);
+
+            await recalcFactoryCustomerFinancials(client, order.factory_customer_id);
+
+            await client.query('COMMIT');
+            transactionActive = false;
+
+            // Get updated order
+            const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+            const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(statusData.order_id.toString());
+
+            MyLogger.success(action, {
+                orderId: statusData.order_id,
+                oldStatus: order.status,
+                newStatus: statusData.status
+            });
+
+            return updatedOrder!;
+
+        } catch (error: any) {
+            if (transactionActive) {
+                await client.query('ROLLBACK');
+            }
+            MyLogger.error(action, error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    static async bulkUpdateOrderStatus(
+        orderIds: string[],
+        status: string,
+        userId: string,
+        notes?: string
+    ): Promise<{ updated: number; errors: string[] }> {
+        const action = "UpdateCustomerOrderInfoMediator.bulkUpdateOrderStatus";
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            MyLogger.info(action, {
+                orderCount: orderIds.length,
+                newStatus: status,
+                userId
+            });
+
+            let updated = 0;
+            const errors: string[] = [];
+
+            for (const orderId of orderIds) {
+                try {
+                    await this.updateOrderStatus({ order_id: Number(orderId), status: status as FactoryCustomerOrderStatus, notes }, userId);
+                    updated++;
+                } catch (error: any) {
+                    errors.push(`Order ${orderId}: ${error.message}`);
+                }
+            }
+
+            await client.query('COMMIT');
+
+            MyLogger.success(action, {
+                totalOrders: orderIds.length,
+                updated,
+                errors: errors.length
+            });
+
+            return { updated, errors };
+
+        } catch (error: any) {
+            await client.query('ROLLBACK');
+            MyLogger.error(action, error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
 }
 
 export default UpdateCustomerOrderInfoMediator;
