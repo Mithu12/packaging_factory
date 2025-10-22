@@ -41,6 +41,7 @@ import {
     FactoryProduct,
 } from "../services/customer-orders-api";
 import FactoryApiService, { Factory } from "@/services/factory-api";
+import { UsersApiService, User } from "@/services/users-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_NAMES } from "@/services/rbac-types";
@@ -97,9 +98,11 @@ export default function OrderEntryForm({
     const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
     const [products, setProducts] = useState<FactoryProduct[]>([]);
     const [factories, setFactories] = useState<Factory[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [loadingCustomers, setLoadingCustomers] = useState(false);
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [loadingFactories, setLoadingFactories] = useState(false);
+    const [loadingUsers, setLoadingUsers] = useState(false);
     const { formatCurrency } = useFormatting();
     const { user } = useAuth();
 
@@ -177,7 +180,19 @@ export default function OrderEntryForm({
         } finally {
             setLoadingFactories(false);
         }
-    }, [user?.factory_id]);
+    }, [user?.role, user?.factory_id]);
+
+    const loadUsers = useCallback(async () => {
+        try {
+            setLoadingUsers(true);
+            const data = await UsersApiService.getUsers();
+            setUsers(data);
+        } catch (error) {
+            console.error('Error loading users:', error);
+        } finally {
+            setLoadingUsers(false);
+        }
+    }, []);
 
     // Load data when dialog opens
     useEffect(() => {
@@ -185,13 +200,15 @@ export default function OrderEntryForm({
             loadCustomers();
             loadProducts();
             loadFactories();
+            loadUsers();
         }
-    }, [open, user, loadCustomers, loadProducts, loadFactories]);
+    }, [open, user, loadCustomers, loadProducts, loadFactories, loadUsers]);
 
-    // Update sales person when user changes
+    // Update sales person when user changes (for new orders, default to current user)
     useEffect(() => {
         if (user && !order) {
-            form.setValue('sales_person', user.full_name || user.username || '');
+            const defaultSalesPerson = `${user.full_name || user.username} (${user.username})`;
+            form.setValue('sales_person', defaultSalesPerson);
         }
     }, [user, order, form]);
 
@@ -219,6 +236,7 @@ export default function OrderEntryForm({
             });
         } else {
             // Creating new order
+            const defaultSalesPerson = user ? `${user.full_name || user.username} (${user.username})` : "";
             form.reset({
                 factory_customer_id: "",
                 ...(isAdmin ? {} : { factory_id: user?.factory_id }),
@@ -226,7 +244,7 @@ export default function OrderEntryForm({
                 required_date: "",
                 priority: "medium",
                 currency: "BDT",
-                sales_person: user?.full_name || user?.username || "",
+                sales_person: defaultSalesPerson,
                 notes: "",
                 line_items: [
                     {
@@ -238,7 +256,7 @@ export default function OrderEntryForm({
                 ],
             });
         }
-    }, [order, form, user]);
+    }, [order, form, user, isAdmin]);
 
     const handleSubmit = async (data: OrderFormData) => {
         try {
@@ -521,14 +539,23 @@ export default function OrderEntryForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Sales Person *</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="Auto-filled from current user"
-                                                        {...field}
-                                                        readOnly
-                                                        className="bg-muted"
-                                                    />
-                                                </FormControl>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select a sales person"} />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {users.map((user) => (
+                                                            <SelectItem key={user.id} value={`${user.full_name} (${user.username})`}>
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-medium">{user.full_name} ({user.role})</span>
+                                                                    <span className="text-sm text-muted-foreground">{user.username} - {user.email}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

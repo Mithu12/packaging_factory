@@ -9,7 +9,7 @@ export interface User {
   mobile_number?: string;
   departments?: string[];
   role_id: number;
-  role_name?: string;
+  role?: string;
   is_active: boolean;
   factory_id?: number;
   factory_name?: string;
