@@ -116,8 +116,8 @@ class AddReportMediator implements MediatorInterface {
     const ordersResult = await client.query(ordersQuery, [dateFrom, dateTo]);
 
     const summary = ordersResult.rows;
-    const totalOrders = summary.reduce((sum, row) => sum + parseInt(row.total_orders), 0);
-    const totalSales = summary.reduce((sum, row) => sum + parseFloat(row.total_sales), 0);
+    const totalOrders = summary.reduce((sum: number, row: any) => sum + parseInt(row.total_orders), 0);
+    const totalSales = summary.reduce((sum: number, row: any) => sum + parseFloat(row.total_sales), 0);
 
     return {
       summary,
@@ -125,8 +125,8 @@ class AddReportMediator implements MediatorInterface {
       totals: {
         total_orders: totalOrders,
         total_sales: totalSales,
-        delivered_orders: summary.find(s => s.status === 'delivered')?.delivered_orders || 0,
-        cancelled_orders: summary.find(s => s.status === 'cancelled')?.cancelled_orders || 0
+        delivered_orders: summary.find((s: any) => s.status === 'delivered')?.delivered_orders || 0,
+        cancelled_orders: summary.find((s: any) => s.status === 'cancelled')?.cancelled_orders || 0
       }
     };
   }
@@ -160,7 +160,7 @@ class AddReportMediator implements MediatorInterface {
       date_range: { from: dateFrom, to: dateTo },
       summary: {
         total_customers: customersResult.rows.length,
-        active_customers: customersResult.rows.filter(c => parseInt(c.total_orders) > 0).length,
+        active_customers: customersResult.rows.filter((c: any) => parseInt(c.total_orders) > 0).length,
         top_customer: customersResult.rows[0] || null
       }
     };
@@ -200,9 +200,9 @@ class AddReportMediator implements MediatorInterface {
       date_range: { from: dateFrom, to: dateTo },
       summary: {
         total_orders: ordersResult.rows.length,
-        total_revenue: ordersResult.rows.reduce((sum, order) => sum + parseFloat(order.final_amount), 0),
+        total_revenue: ordersResult.rows.reduce((sum: number, order: any) => sum + parseFloat(order.final_amount), 0),
         average_order_value: ordersResult.rows.length > 0
-          ? ordersResult.rows.reduce((sum, order) => sum + parseFloat(order.final_amount), 0) / ordersResult.rows.length
+          ? ordersResult.rows.reduce((sum: number, order: any) => sum + parseFloat(order.final_amount), 0) / ordersResult.rows.length
           : 0
       }
     };
@@ -234,7 +234,7 @@ class AddReportMediator implements MediatorInterface {
 
     const paymentsResult = await client.query(paymentsQuery, [dateFrom, dateTo]);
 
-    const totalAmount = paymentsResult.rows.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+    const totalAmount = paymentsResult.rows.reduce((sum: number, payment: any) => sum + parseFloat(payment.amount), 0);
 
     return {
       payments: paymentsResult.rows,

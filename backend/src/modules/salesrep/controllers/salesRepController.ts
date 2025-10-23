@@ -24,7 +24,7 @@ import { ApiResponse } from '../types';
 
 export class SalesRepController {
   // Dashboard
-  async getDashboardStats(req: Request, res: Response<ApiResponse<any>>) {
+  async getDashboardStats(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const userId = req.user?.user_id;
       const stats = await GetDashboardStatsMediator.getDashboardStats(userId);
@@ -43,7 +43,7 @@ export class SalesRepController {
   }
 
   // Customers
-  async getCustomers(req: Request, res: Response<ApiResponse<any>>) {
+  async getCustomers(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -64,18 +64,18 @@ export class SalesRepController {
     }
   }
 
-  async getCustomer(req: Request, res: Response<ApiResponse<any>>) {
+  async getCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const customer = await GetCustomerInfoMediator.getCustomer(parseInt(id));
 
       if (!customer) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Customer not found',
         });
+        return;
       }
-
 
       res.json({
         success: true,
@@ -90,7 +90,7 @@ export class SalesRepController {
     }
   }
 
-  async createCustomer(req: Request, res: Response<ApiResponse<any>>) {
+  async createCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const customerData = req.body;
       const userId = req.user?.user_id;
@@ -110,17 +110,18 @@ export class SalesRepController {
     }
   }
 
-  async updateCustomer(req: Request, res: Response<ApiResponse<any>>) {
+  async updateCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const customerData = req.body;
       const customer = await UpdateCustomerMediator.updateCustomer(parseInt(id), customerData);
 
       if (!customer) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Customer not found',
         });
+        return;
       }
 
       res.json({
@@ -137,7 +138,7 @@ export class SalesRepController {
     }
   }
 
-  async deleteCustomer(req: Request, res: Response<ApiResponse<any>>) {
+  async deleteCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteCustomerMediator.deleteCustomer(parseInt(id));
@@ -156,7 +157,7 @@ export class SalesRepController {
   }
 
   // Orders
-  async getOrders(req: Request, res: Response<ApiResponse<any>>) {
+  async getOrders(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -177,16 +178,17 @@ export class SalesRepController {
     }
   }
 
-  async getOrder(req: Request, res: Response<ApiResponse<any>>) {
+  async getOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const order = await GetOrderInfoMediator.getOrder(parseInt(id));
 
       if (!order) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Order not found',
         });
+        return;
       }
 
       res.json({
@@ -202,7 +204,7 @@ export class SalesRepController {
     }
   }
 
-  async createOrder(req: Request, res: Response<ApiResponse<any>>) {
+  async createOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const orderData = req.body;
       const userId = req.user?.user_id;
@@ -222,17 +224,18 @@ export class SalesRepController {
     }
   }
 
-  async updateOrder(req: Request, res: Response<ApiResponse<any>>) {
+  async updateOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const orderData = req.body;
       const order = await UpdateOrderMediator.updateOrder(parseInt(id), orderData);
 
       if (!order) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Order not found',
         });
+        return;
       }
 
       res.json({
@@ -249,17 +252,18 @@ export class SalesRepController {
     }
   }
 
-  async updateOrderStatus(req: Request, res: Response<ApiResponse<any>>) {
+  async updateOrderStatus(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
       const order = await UpdateOrderMediator.updateOrderStatus(parseInt(id), status, notes);
 
       if (!order) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Order not found',
         });
+        return;
       }
 
       res.json({
@@ -276,7 +280,7 @@ export class SalesRepController {
     }
   }
 
-  async deleteOrder(req: Request, res: Response<ApiResponse<any>>) {
+  async deleteOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteOrderMediator.deleteOrder(parseInt(id));
@@ -295,7 +299,7 @@ export class SalesRepController {
   }
 
   // Invoices
-  async getInvoices(req: Request, res: Response<ApiResponse<any>>) {
+  async getInvoices(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -316,16 +320,17 @@ export class SalesRepController {
     }
   }
 
-  async getInvoice(req: Request, res: Response<ApiResponse<any>>) {
+  async getInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const invoice = await GetInvoiceInfoMediator.getInvoice(parseInt(id));
 
       if (!invoice) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Invoice not found',
         });
+        return;
       }
 
       res.json({
@@ -341,7 +346,7 @@ export class SalesRepController {
     }
   }
 
-  async createInvoice(req: Request, res: Response<ApiResponse<any>>) {
+  async createInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const invoiceData = req.body;
       const userId = req.user?.user_id;
@@ -361,16 +366,17 @@ export class SalesRepController {
     }
   }
 
-  async sendInvoice(req: Request, res: Response<ApiResponse<any>>) {
+  async sendInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const invoice = await AddInvoiceMediator.sendInvoice(parseInt(id));
 
       if (!invoice) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Invoice not found',
         });
+        return;
       }
 
       res.json({
@@ -388,7 +394,7 @@ export class SalesRepController {
   }
 
   // Payments
-  async getPayments(req: Request, res: Response<ApiResponse<any>>) {
+  async getPayments(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -409,16 +415,17 @@ export class SalesRepController {
     }
   }
 
-  async getPayment(req: Request, res: Response<ApiResponse<any>>) {
+  async getPayment(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const payment = await GetPaymentInfoMediator.getPayment(parseInt(id));
 
       if (!payment) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Payment not found',
         });
+        return;
       }
 
       res.json({
@@ -434,7 +441,7 @@ export class SalesRepController {
     }
   }
 
-  async createPayment(req: Request, res: Response<ApiResponse<any>>) {
+  async createPayment(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const paymentData = req.body;
       const userId = req.user?.user_id;
@@ -455,7 +462,7 @@ export class SalesRepController {
   }
 
   // Deliveries
-  async getDeliveries(req: Request, res: Response<ApiResponse<any>>) {
+  async getDeliveries(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -476,16 +483,17 @@ export class SalesRepController {
     }
   }
 
-  async getDelivery(req: Request, res: Response<ApiResponse<any>>) {
+  async getDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const delivery = await GetDeliveryInfoMediator.getDelivery(parseInt(id));
 
       if (!delivery) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Delivery not found',
         });
+        return;
       }
 
       res.json({
@@ -501,7 +509,7 @@ export class SalesRepController {
     }
   }
 
-  async createDelivery(req: Request, res: Response<ApiResponse<any>>) {
+  async createDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const deliveryData = req.body;
       const userId = req.user?.user_id;
@@ -521,17 +529,18 @@ export class SalesRepController {
     }
   }
 
-  async updateDelivery(req: Request, res: Response<ApiResponse<any>>) {
+  async updateDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const deliveryData = req.body;
       const delivery = await UpdateDeliveryMediator.updateDelivery(parseInt(id), deliveryData);
 
       if (!delivery) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Delivery not found',
         });
+        return;
       }
 
       res.json({
@@ -548,17 +557,18 @@ export class SalesRepController {
     }
   }
 
-  async updateDeliveryStatus(req: Request, res: Response<ApiResponse<any>>) {
+  async updateDeliveryStatus(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
       const delivery = await UpdateDeliveryMediator.updateDeliveryStatus(parseInt(id), status);
 
       if (!delivery) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Delivery not found',
         });
+        return;
       }
 
       res.json({
@@ -576,7 +586,7 @@ export class SalesRepController {
   }
 
   // Notifications
-  async getNotifications(req: Request, res: Response<ApiResponse<any>>) {
+  async getNotifications(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
@@ -597,16 +607,17 @@ export class SalesRepController {
     }
   }
 
-  async markNotificationAsRead(req: Request, res: Response<ApiResponse<any>>) {
+  async markNotificationAsRead(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       const notification = await MarkNotificationAsReadMediator.markNotificationAsRead(parseInt(id));
 
       if (!notification) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Notification not found',
         });
+        return;
       }
 
       res.json({
@@ -623,7 +634,7 @@ export class SalesRepController {
     }
   }
 
-  async markAllNotificationsAsRead(req: Request, res: Response<ApiResponse<any>>) {
+  async markAllNotificationsAsRead(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const userId = req.user?.user_id;
       await MarkNotificationAsReadMediator.markAllNotificationsAsRead(userId);
@@ -641,7 +652,7 @@ export class SalesRepController {
     }
   }
 
-  async deleteNotification(req: Request, res: Response<ApiResponse<any>>) {
+  async deleteNotification(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteNotificationMediator.deleteNotification(parseInt(id));
@@ -660,7 +671,7 @@ export class SalesRepController {
   }
 
   // Reports
-  async getReports(req: Request, res: Response<ApiResponse<any>>) {
+  async getReports(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { report_type, date_from, date_to } = req.query;
       const reports = await GetReportInfoMediator.getReports(
@@ -682,7 +693,7 @@ export class SalesRepController {
     }
   }
 
-  async generateReport(req: Request, res: Response<ApiResponse<any>>) {
+  async generateReport(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { report_type, date_from, date_to } = req.body;
       const userId = req.user?.user_id;
@@ -702,7 +713,7 @@ export class SalesRepController {
     }
   }
 
-  async exportReport(req: Request, res: Response) {
+  async exportReport(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { format = 'pdf' } = req.query;
@@ -712,10 +723,11 @@ export class SalesRepController {
       const report = await GetReportInfoMediator.getReport(parseInt(id));
 
       if (!report) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           error: 'Report not found',
         });
+        return;
       }
 
       // Set appropriate headers based on format

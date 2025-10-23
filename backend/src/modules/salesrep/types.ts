@@ -199,6 +199,8 @@ export interface OrderFilters {
   date_to?: string;
   min_amount?: number;
   max_amount?: number;
+  page?: number;
+  limit?: number;
 }
 
 export interface InvoiceFilters {
@@ -237,6 +239,8 @@ export interface DeliveryFilters {
 export interface NotificationFilters {
   unread_only?: boolean;
   type?: string;
+  page?: number;
+  limit?: number;
 }
 
 // Pagination types
