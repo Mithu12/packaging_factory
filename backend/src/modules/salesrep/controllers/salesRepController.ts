@@ -1,5 +1,16 @@
 import { Request, Response } from 'express';
-import salesRepService from '../services/salesRepService';
+import GetCustomerInfoMediator from '../mediators/customers/GetCustomerInfo.mediator';
+import AddCustomerMediator from '../mediators/customers/AddCustomer.mediator';
+import UpdateCustomerMediator from '../mediators/customers/UpdateCustomer.mediator';
+import DeleteCustomerMediator from '../mediators/customers/DeleteCustomer.mediator';
+import GetOrderInfoMediator from '../mediators/orders/GetOrderInfo.mediator';
+import AddOrderMediator from '../mediators/orders/AddOrder.mediator';
+import UpdateOrderMediator from '../mediators/orders/UpdateOrder.mediator';
+import DeleteOrderMediator from '../mediators/orders/DeleteOrder.mediator';
+import GetNotificationInfoMediator from '../mediators/notifications/GetNotificationInfo.mediator';
+import MarkNotificationAsReadMediator from '../mediators/notifications/MarkNotificationAsRead.mediator';
+import DeleteNotificationMediator from '../mediators/notifications/DeleteNotification.mediator';
+import GetDashboardStatsMediator from '../mediators/dashboard/GetDashboardStats.mediator';
 import { ApiResponse } from '../types';
 
 export class SalesRepController {
@@ -7,7 +18,7 @@ export class SalesRepController {
   async getDashboardStats(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const userId = req.user?.user_id;
-      const stats = await salesRepService.getDashboardStats(userId);
+      const stats = await GetDashboardStatsMediator.getDashboardStats(userId);
 
       res.json({
         success: true,
@@ -29,7 +40,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getCustomers(filters, { page, limit });
+      const result = await GetCustomerInfoMediator.getCustomers(filters, { page, limit });
 
       res.json({
         success: true,
@@ -47,7 +58,7 @@ export class SalesRepController {
   async getCustomer(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const customer = await salesRepService.getCustomer(parseInt(id));
+      const customer = await GetCustomerInfoMediator.getCustomer(parseInt(id));
 
       if (!customer) {
         return res.status(404).json({
@@ -74,7 +85,7 @@ export class SalesRepController {
     try {
       const customerData = req.body;
       const userId = req.user?.user_id;
-      const customer = await salesRepService.createCustomer(customerData, userId);
+      const customer = await AddCustomerMediator.createCustomer(customerData, userId);
 
       res.status(201).json({
         success: true,
@@ -94,7 +105,7 @@ export class SalesRepController {
     try {
       const { id } = req.params;
       const customerData = req.body;
-      const customer = await salesRepService.updateCustomer(parseInt(id), customerData);
+      const customer = await UpdateCustomerMediator.updateCustomer(parseInt(id), customerData);
 
       if (!customer) {
         return res.status(404).json({
@@ -120,7 +131,7 @@ export class SalesRepController {
   async deleteCustomer(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      await salesRepService.deleteCustomer(parseInt(id));
+      await DeleteCustomerMediator.deleteCustomer(parseInt(id));
 
       res.json({
         success: true,
@@ -142,7 +153,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getOrders(filters, { page, limit });
+      const result = await GetOrderInfoMediator.getOrders(filters, { page, limit });
 
       res.json({
         success: true,
@@ -160,7 +171,7 @@ export class SalesRepController {
   async getOrder(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const order = await salesRepService.getOrder(parseInt(id));
+      const order = await GetOrderInfoMediator.getOrder(parseInt(id));
 
       if (!order) {
         return res.status(404).json({
@@ -186,7 +197,7 @@ export class SalesRepController {
     try {
       const orderData = req.body;
       const userId = req.user?.user_id;
-      const order = await salesRepService.createOrder(orderData, userId);
+      const order = await AddOrderMediator.createOrder(orderData, userId);
 
       res.status(201).json({
         success: true,
@@ -206,7 +217,7 @@ export class SalesRepController {
     try {
       const { id } = req.params;
       const orderData = req.body;
-      const order = await salesRepService.updateOrder(parseInt(id), orderData);
+      const order = await UpdateOrderMediator.updateOrder(parseInt(id), orderData);
 
       if (!order) {
         return res.status(404).json({
@@ -233,7 +244,7 @@ export class SalesRepController {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const order = await salesRepService.updateOrderStatus(parseInt(id), status, notes);
+      const order = await UpdateOrderMediator.updateOrderStatus(parseInt(id), status, notes);
 
       if (!order) {
         return res.status(404).json({
@@ -259,7 +270,7 @@ export class SalesRepController {
   async deleteOrder(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      await salesRepService.deleteOrder(parseInt(id));
+      await DeleteOrderMediator.deleteOrder(parseInt(id));
 
       res.json({
         success: true,
@@ -562,7 +573,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getNotifications(filters, { page, limit });
+      const result = await GetNotificationInfoMediator.getNotifications(filters, { page, limit });
 
       res.json({
         success: true,
@@ -580,7 +591,7 @@ export class SalesRepController {
   async markNotificationAsRead(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const notification = await salesRepService.markNotificationAsRead(parseInt(id));
+      const notification = await MarkNotificationAsReadMediator.markNotificationAsRead(parseInt(id));
 
       if (!notification) {
         return res.status(404).json({
@@ -606,7 +617,7 @@ export class SalesRepController {
   async markAllNotificationsAsRead(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const userId = req.user?.user_id;
-      await salesRepService.markAllNotificationsAsRead(userId);
+      await MarkNotificationAsReadMediator.markAllNotificationsAsRead(userId);
 
       res.json({
         success: true,
@@ -624,7 +635,7 @@ export class SalesRepController {
   async deleteNotification(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      await salesRepService.deleteNotification(parseInt(id));
+      await DeleteNotificationMediator.deleteNotification(parseInt(id));
 
       res.json({
         success: true,

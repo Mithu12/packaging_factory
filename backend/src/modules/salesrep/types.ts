@@ -182,6 +182,8 @@ export interface CustomerFilters {
   search?: string;
   city?: string;
   state?: string;
+  page?: number;
+  limit?: number;
   credit_limit_min?: number;
   credit_limit_max?: number;
   balance_min?: number;
@@ -237,12 +239,10 @@ export interface PaginationParams {
 
 export interface PaginatedResponse<T> {
   data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    total_pages: number;
-  };
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 // Dashboard stats
