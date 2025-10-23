@@ -25,12 +25,14 @@ import accountsRoutes from "./modules/accounts";
 import factoryRoutes from "./modules/factory";
 import hrmRoutes from "./modules/hrm/routes";
 import salesRoutes from "./modules/sales";
+import salesRepRoutes from "./modules/salesrep";
 
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
 import { initializeExpensesModule } from "./modules/expenses/moduleInit";
 import { initializeFactoryModule } from "./modules/factory/moduleInit";
 import { initializeHRMModule } from "./modules/hrm/moduleInit";
+import { initializeSalesRepModule } from "./modules/salesrep/moduleInit";
 
 // Load environment variables
 dotenv.config();
@@ -134,10 +136,11 @@ app.use("/api", inventoryRoutes);
 app.use("/api/accounts", accountsRoutes);
 app.use("/api/factory", factoryRoutes);
 app.use("/api/hrm", hrmRoutes);
+app.use("/api/sales", salesRoutes);
+app.use("/api/salesrep", salesRepRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
-app.use("/api/sales", salesRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
@@ -189,9 +192,13 @@ const initializeModules = async (): Promise<void> => {
     console.log("🔧 Initializing HRM module...");
     initializeHRMModule();
 
+    // Initialize Sales Rep module
+    console.log("🔧 Initializing Sales Rep module...");
+    initializeSalesRepModule();
+
     MyLogger.success(action, {
       message: "All modules initialized successfully",
-      availableModules: ['accounts', 'expenses', 'factory', 'hrm']
+      availableModules: ['accounts', 'expenses', 'factory', 'hrm', 'salesrep']
     });
 
     console.log("✅ Module initialization completed successfully");
