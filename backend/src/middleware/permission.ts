@@ -540,6 +540,30 @@ export const PERMISSIONS = {
 
   // Cost Analysis
   FACTORY_COST_ANALYSIS_READ: createPermissionCheck('Factory', 'read', 'cost_analysis'),
+
+  // Sales Rep Module
+  SALES_REP_DASHBOARD_READ: createPermissionCheck('Sales Rep', 'read', 'dashboard'),
+  SALES_REP_CUSTOMERS_CREATE: createPermissionCheck('Sales Rep', 'create', 'customers'),
+  SALES_REP_CUSTOMERS_READ: createPermissionCheck('Sales Rep', 'read', 'customers'),
+  SALES_REP_CUSTOMERS_UPDATE: createPermissionCheck('Sales Rep', 'update', 'customers'),
+  SALES_REP_CUSTOMERS_DELETE: createPermissionCheck('Sales Rep', 'delete', 'customers'),
+  SALES_REP_ORDERS_CREATE: createPermissionCheck('Sales Rep', 'create', 'orders'),
+  SALES_REP_ORDERS_READ: createPermissionCheck('Sales Rep', 'read', 'orders'),
+  SALES_REP_ORDERS_UPDATE: createPermissionCheck('Sales Rep', 'update', 'orders'),
+  SALES_REP_ORDERS_DELETE: createPermissionCheck('Sales Rep', 'delete', 'orders'),
+  SALES_REP_INVOICES_CREATE: createPermissionCheck('Sales Rep', 'create', 'invoices'),
+  SALES_REP_INVOICES_READ: createPermissionCheck('Sales Rep', 'read', 'invoices'),
+  SALES_REP_INVOICES_UPDATE: createPermissionCheck('Sales Rep', 'update', 'invoices'),
+  SALES_REP_PAYMENTS_CREATE: createPermissionCheck('Sales Rep', 'create', 'payments'),
+  SALES_REP_PAYMENTS_READ: createPermissionCheck('Sales Rep', 'read', 'payments'),
+  SALES_REP_PAYMENTS_UPDATE: createPermissionCheck('Sales Rep', 'update', 'payments'),
+  SALES_REP_DELIVERIES_CREATE: createPermissionCheck('Sales Rep', 'create', 'deliveries'),
+  SALES_REP_DELIVERIES_READ: createPermissionCheck('Sales Rep', 'read', 'deliveries'),
+  SALES_REP_DELIVERIES_UPDATE: createPermissionCheck('Sales Rep', 'update', 'deliveries'),
+  SALES_REP_REPORTS_READ: createPermissionCheck('Sales Rep', 'read', 'reports'),
+  SALES_REP_REPORTS_EXPORT: createPermissionCheck('Sales Rep', 'export', 'reports'),
+  SALES_REP_NOTIFICATIONS_READ: createPermissionCheck('Sales Rep', 'read', 'notifications'),
+  SALES_REP_NOTIFICATIONS_UPDATE: createPermissionCheck('Sales Rep', 'update', 'notifications'),
 };
 
 // Export permission middleware functions

@@ -1,65 +1,166 @@
-import * as yup from 'yup';
+import Joi from 'joi';
 
-export const createOrderValidation = yup.object({
-  body: yup.object({
-    customer_id: yup.number().required('Customer ID is required').positive('Invalid customer ID'),
-    items: yup.array().of(
-      yup.object({
-        product_id: yup.number().positive('Invalid product ID').nullable(),
-        product_name: yup.string().required('Product name is required'),
-        quantity: yup.number().required('Quantity is required').positive('Quantity must be positive'),
-        unit_price: yup.number().required('Unit price is required').min(0, 'Unit price must be non-negative'),
-        discount: yup.number().min(0, 'Discount must be non-negative').default(0),
-      })
-    ).min(1, 'Order must have at least one item'),
-    discount_amount: yup.number().min(0, 'Discount amount must be non-negative').default(0),
-    tax_amount: yup.number().min(0, 'Tax amount must be non-negative').default(0),
-    notes: yup.string().nullable(),
+// Order item validation schema
+const orderItemSchema = Joi.object({
+  product_id: Joi.number().integer().positive().optional().allow(null).messages({
+    'number.base': 'Product ID must be a number',
+    'number.integer': 'Product ID must be an integer',
+    'number.positive': 'Product ID must be positive',
+  }),
+  product_name: Joi.string().min(1).max(255).required().messages({
+    'string.empty': 'Product name is required',
+    'string.min': 'Product name must be at least 1 character',
+    'string.max': 'Product name must not exceed 255 characters',
+  }),
+  quantity: Joi.number().positive().precision(2).required().messages({
+    'number.base': 'Quantity must be a number',
+    'number.positive': 'Quantity must be positive',
+    'number.precision': 'Quantity must have at most 2 decimal places',
+  }),
+  unit_price: Joi.number().min(0).precision(2).required().messages({
+    'number.base': 'Unit price must be a number',
+    'number.min': 'Unit price must be non-negative',
+    'number.precision': 'Unit price must have at most 2 decimal places',
+  }),
+  discount: Joi.number().min(0).precision(2).optional().default(0).messages({
+    'number.base': 'Discount must be a number',
+    'number.min': 'Discount must be non-negative',
+    'number.precision': 'Discount must have at most 2 decimal places',
   }),
 });
 
-export const updateOrderValidation = yup.object({
-  params: yup.object({
-    id: yup.number().required('Order ID is required').positive('Invalid order ID'),
+// Create order validation schema
+export const createOrderSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().required().messages({
+    'number.base': 'Customer ID must be a number',
+    'number.integer': 'Customer ID must be an integer',
+    'number.positive': 'Customer ID must be positive',
+    'any.required': 'Customer ID is required',
   }),
-  body: yup.object({
-    customer_id: yup.number().positive('Invalid customer ID'),
-    items: yup.array().of(
-      yup.object({
-        product_id: yup.number().positive('Invalid product ID').nullable(),
-        product_name: yup.string().required('Product name is required'),
-        quantity: yup.number().required('Quantity is required').positive('Quantity must be positive'),
-        unit_price: yup.number().required('Unit price is required').min(0, 'Unit price must be non-negative'),
-        discount: yup.number().min(0, 'Discount must be non-negative').default(0),
-      })
-    ).min(1, 'Order must have at least one item'),
-    discount_amount: yup.number().min(0, 'Discount amount must be non-negative'),
-    tax_amount: yup.number().min(0, 'Tax amount must be non-negative'),
-    status: yup.string().oneOf(['draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
-    notes: yup.string().nullable(),
+  items: Joi.array().items(orderItemSchema).min(1).required().messages({
+    'array.min': 'Order must have at least one item',
+    'any.required': 'Items are required',
   }),
-});
-
-export const updateOrderStatusValidation = yup.object({
-  params: yup.object({
-    id: yup.number().required('Order ID is required').positive('Invalid order ID'),
+  discount_amount: Joi.number().min(0).precision(2).optional().default(0).messages({
+    'number.base': 'Discount amount must be a number',
+    'number.min': 'Discount amount must be non-negative',
+    'number.precision': 'Discount amount must have at most 2 decimal places',
   }),
-  body: yup.object({
-    status: yup.string().required('Status is required').oneOf(['draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
-    notes: yup.string().nullable(),
+  tax_amount: Joi.number().min(0).precision(2).optional().default(0).messages({
+    'number.base': 'Tax amount must be a number',
+    'number.min': 'Tax amount must be non-negative',
+    'number.precision': 'Tax amount must have at most 2 decimal places',
+  }),
+  notes: Joi.string().max(2000).optional().allow(null, '').messages({
+    'string.max': 'Notes must not exceed 2000 characters',
   }),
 });
 
-export const orderFiltersValidation = yup.object({
-  query: yup.object({
-    customer_id: yup.number().positive('Invalid customer ID'),
-    status: yup.string().oneOf(['draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
-    date_from: yup.string().matches(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
-    date_to: yup.string().matches(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
-    min_amount: yup.number().min(0),
-    max_amount: yup.number().min(0),
-    page: yup.number().min(1).default(1),
-    limit: yup.number().min(1).max(100).default(10),
+// Update order validation schema
+export const updateOrderSchema = Joi.object({
+  id: Joi.number().integer().positive().required().messages({
+    'number.base': 'Order ID must be a number',
+    'number.integer': 'Order ID must be an integer',
+    'number.positive': 'Order ID must be positive',
+    'any.required': 'Order ID is required',
+  }),
+  customer_id: Joi.number().integer().positive().optional().messages({
+    'number.base': 'Customer ID must be a number',
+    'number.integer': 'Customer ID must be an integer',
+    'number.positive': 'Customer ID must be positive',
+  }),
+  items: Joi.array().items(orderItemSchema).min(1).optional().messages({
+    'array.min': 'Order must have at least one item',
+  }),
+  discount_amount: Joi.number().min(0).precision(2).optional().messages({
+    'number.base': 'Discount amount must be a number',
+    'number.min': 'Discount amount must be non-negative',
+    'number.precision': 'Discount amount must have at most 2 decimal places',
+  }),
+  tax_amount: Joi.number().min(0).precision(2).optional().messages({
+    'number.base': 'Tax amount must be a number',
+    'number.min': 'Tax amount must be non-negative',
+    'number.precision': 'Tax amount must have at most 2 decimal places',
+  }),
+  status: Joi.string().valid('draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled').optional().messages({
+    'any.only': 'Status must be one of: draft, confirmed, processing, shipped, delivered, cancelled',
+  }),
+  notes: Joi.string().max(2000).optional().allow(null, '').messages({
+    'string.max': 'Notes must not exceed 2000 characters',
+  }),
+}).min(1).messages({
+  'object.min': 'At least one field must be provided for update',
+});
+
+// Update order status validation schema
+export const updateOrderStatusSchema = Joi.object({
+  id: Joi.number().integer().positive().required().messages({
+    'number.base': 'Order ID must be a number',
+    'number.integer': 'Order ID must be an integer',
+    'number.positive': 'Order ID must be positive',
+    'any.required': 'Order ID is required',
+  }),
+  status: Joi.string().valid('draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled').required().messages({
+    'any.only': 'Status must be one of: draft, confirmed, processing, shipped, delivered, cancelled',
+    'any.required': 'Status is required',
+  }),
+  notes: Joi.string().max(1000).optional().allow(null, '').messages({
+    'string.max': 'Notes must not exceed 1000 characters',
+  }),
+});
+
+// Order filters validation schema
+export const orderFiltersSchema = Joi.object({
+  customer_id: Joi.number().integer().positive().optional().messages({
+    'number.base': 'Customer ID must be a number',
+    'number.integer': 'Customer ID must be an integer',
+    'number.positive': 'Customer ID must be positive',
+  }),
+  status: Joi.string().valid('draft', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled').optional().messages({
+    'any.only': 'Status must be one of: draft, confirmed, processing, shipped, delivered, cancelled',
+  }),
+  date_from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().messages({
+    'string.pattern.base': 'Date must be in YYYY-MM-DD format',
+  }),
+  date_to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().messages({
+    'string.pattern.base': 'Date must be in YYYY-MM-DD format',
+  }),
+  min_amount: Joi.number().min(0).optional().messages({
+    'number.base': 'Minimum amount must be a number',
+    'number.min': 'Minimum amount must be non-negative',
+  }),
+  max_amount: Joi.number().min(0).optional().messages({
+    'number.base': 'Maximum amount must be a number',
+    'number.min': 'Maximum amount must be non-negative',
+  }),
+  page: Joi.number().integer().min(1).optional().default(1).messages({
+    'number.base': 'Page must be a number',
+    'number.integer': 'Page must be an integer',
+    'number.min': 'Page must be at least 1',
+  }),
+  limit: Joi.number().integer().min(1).max(100).optional().default(10).messages({
+    'number.base': 'Limit must be a number',
+    'number.integer': 'Limit must be an integer',
+    'number.min': 'Limit must be at least 1',
+    'number.max': 'Limit must not exceed 100',
+  }),
+}).custom((value, helpers) => {
+  // Validate date range
+  if (value.date_from && value.date_to && new Date(value.date_from) > new Date(value.date_to)) {
+    return helpers.error('custom.invalidDateRange');
+  }
+  return value;
+}, 'Date range validation').messages({
+  'custom.invalidDateRange': 'date_from cannot be after date_to',
+});
+
+// Parameter validation schemas
+export const orderIdSchema = Joi.object({
+  id: Joi.number().integer().positive().required().messages({
+    'number.base': 'Order ID must be a number',
+    'number.integer': 'Order ID must be an integer',
+    'number.positive': 'Order ID must be positive',
+    'any.required': 'Order ID is required',
   }),
 });
 

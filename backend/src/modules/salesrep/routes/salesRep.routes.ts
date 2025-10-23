@@ -1,44 +1,52 @@
 import { Router } from 'express';
-import { body, param, query } from 'express-validator';
 import salesRepController from '../controllers/salesRepController';
 import { requirePermission } from '../../../middleware/permission';
 import { PERMISSIONS } from '../../../middleware/permission';
+import { validateRequest, validateQuery, validateParams } from '../../../middleware/validation';
 import {
-  createCustomerValidation,
-  updateCustomerValidation,
-  customerFiltersValidation,
+  createCustomerSchema,
+  updateCustomerSchema,
+  customerFiltersSchema,
+  customerIdSchema,
 } from '../validation/customerValidation';
 import {
-  createOrderValidation,
-  updateOrderValidation,
-  updateOrderStatusValidation,
-  orderFiltersValidation,
+  createOrderSchema,
+  updateOrderSchema,
+  updateOrderStatusSchema,
+  orderFiltersSchema,
+  orderIdSchema,
 } from '../validation/orderValidation';
 import {
-  createInvoiceValidation,
-  sendInvoiceValidation,
-  invoiceFiltersValidation,
+  createInvoiceSchema,
+  sendInvoiceSchema,
+  invoiceFiltersSchema,
+  invoiceIdSchema,
 } from '../validation/invoiceValidation';
 import {
-  createPaymentValidation,
-  paymentFiltersValidation,
+  createPaymentSchema,
+  paymentFiltersSchema,
+  paymentIdSchema,
 } from '../validation/paymentValidation';
 import {
-  createDeliveryValidation,
-  updateDeliveryValidation,
-  updateDeliveryStatusValidation,
-  deliveryFiltersValidation,
+  createDeliverySchema,
+  updateDeliverySchema,
+  updateDeliveryStatusSchema,
+  deliveryFiltersSchema,
+  deliveryIdSchema,
 } from '../validation/deliveryValidation';
 import {
-  markNotificationAsReadValidation,
-  markAllNotificationsAsReadValidation,
-  notificationFiltersValidation,
+  markNotificationAsReadSchema,
+  markAllNotificationsAsReadSchema,
+  notificationFiltersSchema,
+  notificationIdSchema,
 } from '../validation/notificationValidation';
 import {
-  generateReportValidation,
-  exportReportValidation,
-  reportFiltersValidation,
+  generateReportSchema,
+  exportReportSchema,
+  reportFiltersSchema,
+  reportIdSchema,
 } from '../validation/reportValidation';
+import { auditMiddleware } from '@/middleware/audit';
 
 const router = Router();
 
@@ -53,35 +61,39 @@ router.get(
 router.get(
   '/customers',
   requirePermission(PERMISSIONS.SALES_REP_CUSTOMERS_READ),
-  customerFiltersValidation,
+  validateQuery(customerFiltersSchema),
   salesRepController.getCustomers
 );
 
 router.get(
   '/customers/:id',
   requirePermission(PERMISSIONS.SALES_REP_CUSTOMERS_READ),
-  param('id').isInt({ min: 1 }).withMessage('Invalid customer ID'),
+  validateParams(customerIdSchema),
   salesRepController.getCustomer
 );
 
 router.post(
   '/customers',
   requirePermission(PERMISSIONS.SALES_REP_CUSTOMERS_CREATE),
-  createCustomerValidation,
+  validateRequest(createCustomerSchema),
+  auditMiddleware,
   salesRepController.createCustomer
 );
 
 router.put(
   '/customers/:id',
   requirePermission(PERMISSIONS.SALES_REP_CUSTOMERS_UPDATE),
-  updateCustomerValidation,
+  validateParams(customerIdSchema),
+  validateRequest(updateCustomerSchema),
+  auditMiddleware,
   salesRepController.updateCustomer
 );
 
 router.delete(
   '/customers/:id',
   requirePermission(PERMISSIONS.SALES_REP_CUSTOMERS_DELETE),
-  param('id').isInt({ min: 1 }).withMessage('Invalid customer ID'),
+  validateParams(customerIdSchema),
+  auditMiddleware,
   salesRepController.deleteCustomer
 );
 
@@ -89,42 +101,48 @@ router.delete(
 router.get(
   '/orders',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_READ),
-  orderFiltersValidation,
+  validateQuery(orderFiltersSchema),
   salesRepController.getOrders
 );
 
 router.get(
   '/orders/:id',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_READ),
-  param('id').isInt({ min: 1 }).withMessage('Invalid order ID'),
+  validateParams(orderIdSchema),
   salesRepController.getOrder
 );
 
 router.post(
   '/orders',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_CREATE),
-  createOrderValidation,
+  validateRequest(createOrderSchema),
+  auditMiddleware,
   salesRepController.createOrder
 );
 
 router.put(
   '/orders/:id',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_UPDATE),
-  updateOrderValidation,
+  validateParams(orderIdSchema),
+  validateRequest(updateOrderSchema),
+  auditMiddleware,
   salesRepController.updateOrder
 );
 
 router.patch(
   '/orders/:id/status',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_UPDATE),
-  updateOrderStatusValidation,
+  validateParams(orderIdSchema),
+  validateRequest(updateOrderStatusSchema),
+  auditMiddleware,
   salesRepController.updateOrderStatus
 );
 
 router.delete(
   '/orders/:id',
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_DELETE),
-  param('id').isInt({ min: 1 }).withMessage('Invalid order ID'),
+  validateParams(orderIdSchema),
+  auditMiddleware,
   salesRepController.deleteOrder
 );
 
@@ -132,28 +150,31 @@ router.delete(
 router.get(
   '/invoices',
   requirePermission(PERMISSIONS.SALES_REP_INVOICES_READ),
-  invoiceFiltersValidation,
+  validateQuery(invoiceFiltersSchema),
   salesRepController.getInvoices
 );
 
 router.get(
   '/invoices/:id',
   requirePermission(PERMISSIONS.SALES_REP_INVOICES_READ),
-  param('id').isInt({ min: 1 }).withMessage('Invalid invoice ID'),
+  validateParams(invoiceIdSchema),
   salesRepController.getInvoice
 );
 
 router.post(
   '/invoices',
   requirePermission(PERMISSIONS.SALES_REP_INVOICES_CREATE),
-  createInvoiceValidation,
+  validateRequest(createInvoiceSchema),
+  auditMiddleware,
   salesRepController.createInvoice
 );
 
 router.post(
   '/invoices/:id/send',
   requirePermission(PERMISSIONS.SALES_REP_INVOICES_UPDATE),
-  sendInvoiceValidation,
+  validateParams(invoiceIdSchema),
+  validateRequest(sendInvoiceSchema),
+  auditMiddleware,
   salesRepController.sendInvoice
 );
 
@@ -161,21 +182,22 @@ router.post(
 router.get(
   '/payments',
   requirePermission(PERMISSIONS.SALES_REP_PAYMENTS_READ),
-  paymentFiltersValidation,
+  validateQuery(paymentFiltersSchema),
   salesRepController.getPayments
 );
 
 router.get(
   '/payments/:id',
   requirePermission(PERMISSIONS.SALES_REP_PAYMENTS_READ),
-  param('id').isInt({ min: 1 }).withMessage('Invalid payment ID'),
+  validateParams(paymentIdSchema),
   salesRepController.getPayment
 );
 
 router.post(
   '/payments',
   requirePermission(PERMISSIONS.SALES_REP_PAYMENTS_CREATE),
-  createPaymentValidation,
+  validateRequest(createPaymentSchema),
+  auditMiddleware,
   salesRepController.createPayment
 );
 
@@ -183,35 +205,40 @@ router.post(
 router.get(
   '/deliveries',
   requirePermission(PERMISSIONS.SALES_REP_DELIVERIES_READ),
-  deliveryFiltersValidation,
+  validateQuery(deliveryFiltersSchema),
   salesRepController.getDeliveries
 );
 
 router.get(
   '/deliveries/:id',
   requirePermission(PERMISSIONS.SALES_REP_DELIVERIES_READ),
-  param('id').isInt({ min: 1 }).withMessage('Invalid delivery ID'),
+  validateParams(deliveryIdSchema),
   salesRepController.getDelivery
 );
 
 router.post(
   '/deliveries',
   requirePermission(PERMISSIONS.SALES_REP_DELIVERIES_CREATE),
-  createDeliveryValidation,
+  validateRequest(createDeliverySchema),
+  auditMiddleware,
   salesRepController.createDelivery
 );
 
 router.put(
   '/deliveries/:id',
   requirePermission(PERMISSIONS.SALES_REP_DELIVERIES_UPDATE),
-  updateDeliveryValidation,
+  validateParams(deliveryIdSchema),
+  validateRequest(updateDeliverySchema),
+  auditMiddleware,
   salesRepController.updateDelivery
 );
 
 router.patch(
   '/deliveries/:id/status',
   requirePermission(PERMISSIONS.SALES_REP_DELIVERIES_UPDATE),
-  updateDeliveryStatusValidation,
+  validateParams(deliveryIdSchema),
+  validateRequest(updateDeliveryStatusSchema),
+  auditMiddleware,
   salesRepController.updateDeliveryStatus
 );
 
@@ -219,28 +246,32 @@ router.patch(
 router.get(
   '/notifications',
   requirePermission(PERMISSIONS.SALES_REP_NOTIFICATIONS_READ),
-  notificationFiltersValidation,
+  validateQuery(notificationFiltersSchema),
   salesRepController.getNotifications
 );
 
 router.patch(
   '/notifications/:id/read',
   requirePermission(PERMISSIONS.SALES_REP_NOTIFICATIONS_UPDATE),
-  markNotificationAsReadValidation,
+  validateParams(notificationIdSchema),
+  validateRequest(markNotificationAsReadSchema),
+  auditMiddleware,
   salesRepController.markNotificationAsRead
 );
 
 router.patch(
   '/notifications/mark-all-read',
   requirePermission(PERMISSIONS.SALES_REP_NOTIFICATIONS_UPDATE),
-  markAllNotificationsAsReadValidation,
+  validateRequest(markAllNotificationsAsReadSchema),
+  auditMiddleware,
   salesRepController.markAllNotificationsAsRead
 );
 
 router.delete(
   '/notifications/:id',
   requirePermission(PERMISSIONS.SALES_REP_NOTIFICATIONS_UPDATE),
-  param('id').isInt({ min: 1 }).withMessage('Invalid notification ID'),
+  validateParams(notificationIdSchema),
+  auditMiddleware,
   salesRepController.deleteNotification
 );
 
@@ -248,21 +279,23 @@ router.delete(
 router.get(
   '/reports',
   requirePermission(PERMISSIONS.SALES_REP_REPORTS_READ),
-  reportFiltersValidation,
+  validateQuery(reportFiltersSchema),
   salesRepController.getReports
 );
 
 router.post(
   '/reports/generate',
   requirePermission(PERMISSIONS.SALES_REP_REPORTS_READ),
-  generateReportValidation,
+  validateRequest(generateReportSchema),
+  auditMiddleware,
   salesRepController.generateReport
 );
 
 router.get(
   '/reports/:id/export',
   requirePermission(PERMISSIONS.SALES_REP_REPORTS_EXPORT),
-  exportReportValidation,
+  validateParams(reportIdSchema),
+  validateQuery(exportReportSchema),
   salesRepController.exportReport
 );
 
