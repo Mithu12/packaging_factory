@@ -100,33 +100,6 @@ FROM roles pr, roles cr
 WHERE pr.name = 'executive' AND cr.name = 'sales_rep'
 ON CONFLICT (parent_role_id, child_role_id) DO NOTHING;
 
--- Create Sales Rep audit events
-INSERT INTO audit_event_catalog (event_type, table_name, description)
-VALUES
-    ('CREATE', 'sales_rep_customers', 'Sales rep customer record created'),
-    ('UPDATE', 'sales_rep_customers', 'Sales rep customer record updated'),
-    ('DELETE', 'sales_rep_customers', 'Sales rep customer record deleted'),
-
-    ('CREATE', 'sales_rep_orders', 'Sales rep order created'),
-    ('UPDATE', 'sales_rep_orders', 'Sales rep order updated'),
-    ('DELETE', 'sales_rep_orders', 'Sales rep order deleted'),
-
-    ('CREATE', 'sales_rep_invoices', 'Sales rep invoice generated'),
-    ('UPDATE', 'sales_rep_invoices', 'Sales rep invoice updated'),
-
-    ('CREATE', 'sales_rep_payments', 'Sales rep payment recorded'),
-    ('UPDATE', 'sales_rep_payments', 'Sales rep payment updated'),
-
-    ('CREATE', 'sales_rep_deliveries', 'Sales rep delivery scheduled'),
-    ('UPDATE', 'sales_rep_deliveries', 'Sales rep delivery updated'),
-
-    ('CREATE', 'sales_rep_notifications', 'Sales rep notification created'),
-    ('UPDATE', 'sales_rep_notifications', 'Sales rep notification updated'),
-
-    ('CREATE', 'sales_rep_reports', 'Sales rep report generated'),
-    ('UPDATE', 'sales_rep_reports', 'Sales rep report updated')
-
-ON CONFLICT (event_type, table_name) DO NOTHING;
 
 -- Add comments for documentation
 COMMENT ON COLUMN permissions.name IS 'Permission name in snake_case format (e.g., sales_rep_customers_read)';
