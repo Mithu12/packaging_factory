@@ -78,7 +78,12 @@ const SalesRepPayments = () => {
   };
 
   const payments = paymentsData?.data || [];
-  const pagination = paymentsData?.pagination;
+  const pagination = paymentsData ? {
+    page: paymentsData.page,
+    limit: paymentsData.limit,
+    total: paymentsData.total,
+    total_pages: paymentsData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">

@@ -131,10 +131,15 @@ const SalesRepNotifications = () => {
   const handleMarkAllAsRead = () => {
     markAllReadMutation.mutate();
   };
-
+  console.log(notificationsData);
   const unreadCount = notificationsData?.data?.filter(n => !n.is_read).length || 0;
   const notifications = notificationsData?.data || [];
-  const pagination = notificationsData?.pagination;
+  const pagination = notificationsData ? {
+    page: notificationsData.page,
+    limit: notificationsData.limit,
+    total: notificationsData.total,
+    total_pages: notificationsData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">

@@ -47,8 +47,11 @@ import {
   reportIdSchema,
 } from '../validation/reportValidation';
 import { auditMiddleware } from '@/middleware/audit';
+import { authenticate } from '@/middleware/auth';
 
 const router = Router();
+
+router.use(authenticate);
 
 // Dashboard routes
 router.get(

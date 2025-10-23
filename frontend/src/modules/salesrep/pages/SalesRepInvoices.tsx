@@ -117,7 +117,12 @@ const SalesRepInvoices = () => {
   };
 
   const invoices = invoicesData?.data || [];
-  const pagination = invoicesData?.pagination;
+  const pagination = invoicesData ? {
+    page: invoicesData.page,
+    limit: invoicesData.limit,
+    total: invoicesData.total,
+    total_pages: invoicesData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">

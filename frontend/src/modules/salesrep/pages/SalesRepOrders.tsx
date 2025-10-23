@@ -207,7 +207,12 @@ const SalesRepOrders = () => {
   };
 
   const orders = ordersData?.data || [];
-  const pagination = ordersData?.pagination;
+  const pagination = ordersData ? {
+    page: ordersData.page,
+    limit: ordersData.limit,
+    total: ordersData.total,
+    total_pages: ordersData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">

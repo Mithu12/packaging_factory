@@ -78,7 +78,12 @@ const SalesRepDeliveries = () => {
   };
 
   const deliveries = deliveriesData?.data || [];
-  const pagination = deliveriesData?.pagination;
+  const pagination = deliveriesData ? {
+    page: deliveriesData.page,
+    limit: deliveriesData.limit,
+    total: deliveriesData.total,
+    total_pages: deliveriesData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">

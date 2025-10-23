@@ -203,7 +203,12 @@ const SalesRepCustomers = () => {
   };
 
   const customers = customersData?.data || [];
-  const pagination = customersData?.pagination;
+  const pagination = customersData ? {
+    page: customersData.page,
+    limit: customersData.limit,
+    total: customersData.total,
+    total_pages: customersData.totalPages
+  } : undefined;
 
   return (
     <div className="p-6 space-y-6">
