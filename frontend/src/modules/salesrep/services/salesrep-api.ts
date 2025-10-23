@@ -26,7 +26,7 @@ import type {
 } from "../types";
 
 class SalesRepApiService {
-  private baseUrl = "/api/salesrep";
+  private baseUrl = "/salesrep";
 
   // Dashboard
   async getDashboardStats(): Promise<SalesRepDashboardStats> {

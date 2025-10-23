@@ -165,7 +165,7 @@ const SalesRepDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats.monthly_sales.toLocaleString()}
+              ${stats.monthly_sales?.toLocaleString()}
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               {stats.monthly_target > 0 && (
@@ -175,7 +175,7 @@ const SalesRepDashboard = () => {
                   ) : (
                     <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
                   )}
-                  Target: ${stats.monthly_target.toLocaleString()}
+                  Target: ${stats.monthly_target?.toLocaleString()}
                 </>
               )}
             </div>
@@ -268,9 +268,9 @@ const SalesRepDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {stats.recent_orders.length > 0 ? (
+              {stats.recent_orders?.length > 0 ? (
                 <div className="space-y-4">
-                  {stats.recent_orders.slice(0, 5).map((order: SalesRepOrder) => (
+                  {stats.recent_orders?.slice(0, 5).map((order: SalesRepOrder) => (
                     <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="space-y-1">
                         <p className="font-medium">{order.order_number}</p>
@@ -282,7 +282,7 @@ const SalesRepDashboard = () => {
                         </p>
                       </div>
                       <div className="text-right space-y-1">
-                        <p className="font-medium">${order.final_amount.toLocaleString()}</p>
+                        <p className="font-medium">${order.final_amount?.toLocaleString()}</p>
                         {getStatusBadge(order.status)}
                       </div>
                     </div>
@@ -306,9 +306,9 @@ const SalesRepDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {stats.upcoming_deliveries.length > 0 ? (
+              {stats.upcoming_deliveries?.length > 0 ? (
                 <div className="space-y-4">
-                  {stats.upcoming_deliveries.slice(0, 5).map((delivery: SalesRepDelivery) => (
+                  {stats.upcoming_deliveries?.slice(0, 5).map((delivery: SalesRepDelivery) => (
                     <div key={delivery.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="space-y-1">
                         <p className="font-medium">{delivery.delivery_number}</p>
@@ -344,7 +344,7 @@ const SalesRepDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {notifications?.data && notifications.data.length > 0 ? (
+              {notifications?.data && notifications.data?.length > 0 ? (
                 <div className="space-y-4">
                   {notifications.data.slice(0, 5).map((notification: SalesRepNotification) => (
                     <div key={notification.id} className="flex items-start space-x-3 p-3 border rounded-lg">
