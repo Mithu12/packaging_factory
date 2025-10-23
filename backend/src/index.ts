@@ -26,7 +26,7 @@ import factoryRoutes from "./modules/factory";
 import hrmRoutes from "./modules/hrm/routes";
 import salesRoutes from "./modules/sales";
 import salesRepRoutes from "./modules/salesrep";
-
+import { logRoutes } from "./utils/RouteLogger";
 // Import module initializers
 import { initializeAccountsModule } from "./modules/accounts/moduleInit";
 import { initializeExpensesModule } from "./modules/expenses/moduleInit";
@@ -228,6 +228,8 @@ app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+    // Log all registered routes
+    logRoutes(app);
   } catch (error: any) {
     MyLogger.error(action, error, { port: PORT });
     console.error("Failed to start server:", error);
