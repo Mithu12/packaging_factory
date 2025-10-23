@@ -59,8 +59,8 @@ import { format } from "date-fns";
 
 const SalesRepOrders = () => {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [customerFilter, setCustomerFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all-status");
+  const [customerFilter, setCustomerFilter] = useState("all-customers");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -80,7 +80,11 @@ const SalesRepOrders = () => {
     queryKey: ["salesrep-orders", search, statusFilter, customerFilter, currentPage],
     queryFn: () =>
       salesRepApi.getOrders(
-        { search, status: statusFilter, customer_id: customerFilter ? Number(customerFilter) : undefined },
+        {
+          search,
+          status: statusFilter === "all-status" ? "" : statusFilter,
+          customer_id: customerFilter === "all-customers" ? undefined : Number(customerFilter)
+        },
         { page: currentPage, limit }
       ),
   });
@@ -412,7 +416,7 @@ const SalesRepOrders = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all-status">All Status</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="processing">Processing</SelectItem>
@@ -426,7 +430,7 @@ const SalesRepOrders = () => {
                 <SelectValue placeholder="Filter by customer" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Customers</SelectItem>
+                <SelectItem value="all-customers">All Customers</SelectItem>
                 <SelectItem value="1">Customer 1</SelectItem>
                 <SelectItem value="2">Customer 2</SelectItem>
                 <SelectItem value="3">Customer 3</SelectItem>
@@ -436,8 +440,8 @@ const SalesRepOrders = () => {
               variant="outline"
               onClick={() => {
                 setSearch("");
-                setStatusFilter("");
-                setCustomerFilter("");
+                setStatusFilter("all-status");
+                setCustomerFilter("all-customers");
                 setCurrentPage(1);
               }}
             >

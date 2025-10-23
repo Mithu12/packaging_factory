@@ -41,10 +41,11 @@ import { salesRepApi } from "../services/salesrep-api";
 import type { SalesRepPayment } from "../types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 const SalesRepPayments = () => {
   const [search, setSearch] = useState("");
-  const [methodFilter, setMethodFilter] = useState("");
+  const [methodFilter, setMethodFilter] = useState("all-methods");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPayment, setSelectedPayment] = useState<SalesRepPayment | null>(null);
 
@@ -56,7 +57,7 @@ const SalesRepPayments = () => {
     queryKey: ["salesrep-payments", search, methodFilter, currentPage],
     queryFn: () =>
       salesRepApi.getPayments(
-        { search, payment_method: methodFilter },
+        { search, payment_method: methodFilter === "all-methods" ? "" : methodFilter },
         { page: currentPage, limit }
       ),
   });
@@ -158,7 +159,7 @@ const SalesRepPayments = () => {
                 <SelectValue placeholder="Payment method" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Methods</SelectItem>
+                <SelectItem value="all-methods">All Methods</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cheque">Cheque</SelectItem>
@@ -169,7 +170,7 @@ const SalesRepPayments = () => {
               variant="outline"
               onClick={() => {
                 setSearch("");
-                setMethodFilter("");
+                setMethodFilter("all-methods");
                 setCurrentPage(1);
               }}
             >

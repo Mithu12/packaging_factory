@@ -41,10 +41,11 @@ import { salesRepApi } from "../services/salesrep-api";
 import type { SalesRepDelivery } from "../types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 const SalesRepDeliveries = () => {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all-status");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDelivery, setSelectedDelivery] = useState<SalesRepDelivery | null>(null);
 
@@ -56,7 +57,7 @@ const SalesRepDeliveries = () => {
     queryKey: ["salesrep-deliveries", search, statusFilter, currentPage],
     queryFn: () =>
       salesRepApi.getDeliveries(
-        { search, status: statusFilter },
+        { search, status: statusFilter === "all-status" ? "" : statusFilter },
         { page: currentPage, limit }
       ),
   });
@@ -159,7 +160,7 @@ const SalesRepDeliveries = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all-status">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="in_transit">In Transit</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
@@ -170,7 +171,7 @@ const SalesRepDeliveries = () => {
               variant="outline"
               onClick={() => {
                 setSearch("");
-                setStatusFilter("");
+                setStatusFilter("all-status");
                 setCurrentPage(1);
               }}
             >

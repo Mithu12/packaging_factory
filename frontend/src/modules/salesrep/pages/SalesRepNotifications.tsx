@@ -43,7 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const SalesRepNotifications = () => {
-  const [typeFilter, setTypeFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all-types");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedNotification, setSelectedNotification] = useState<SalesRepNotification | null>(null);
 
@@ -166,7 +166,7 @@ const SalesRepNotifications = () => {
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all-types">All Types</SelectItem>
                 <SelectItem value="info">Info</SelectItem>
                 <SelectItem value="warning">Warning</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
@@ -176,7 +176,7 @@ const SalesRepNotifications = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setTypeFilter("");
+                setTypeFilter("all-types");
                 setCurrentPage(1);
               }}
             >

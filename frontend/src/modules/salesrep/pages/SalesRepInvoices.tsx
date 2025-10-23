@@ -43,10 +43,11 @@ import { salesRepApi } from "../services/salesrep-api";
 import type { SalesRepInvoice } from "../types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 const SalesRepInvoices = () => {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all-status");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesRepInvoice | null>(null);
 
@@ -58,7 +59,7 @@ const SalesRepInvoices = () => {
     queryKey: ["salesrep-invoices", search, statusFilter, currentPage],
     queryFn: () =>
       salesRepApi.getInvoices(
-        { search, status: statusFilter },
+        { search, status: statusFilter === "all-status" ? "" : statusFilter },
         { page: currentPage, limit }
       ),
   });
@@ -185,7 +186,7 @@ const SalesRepInvoices = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all-status">All Status</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
@@ -197,7 +198,7 @@ const SalesRepInvoices = () => {
               variant="outline"
               onClick={() => {
                 setSearch("");
-                setStatusFilter("");
+                setStatusFilter("all-status");
                 setCurrentPage(1);
               }}
             >

@@ -59,8 +59,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const SalesRepCustomers = () => {
   const [search, setSearch] = useState("");
-  const [cityFilter, setCityFilter] = useState("");
-  const [stateFilter, setStateFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("all-cities");
+  const [stateFilter, setStateFilter] = useState("all-states");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -84,7 +84,11 @@ const SalesRepCustomers = () => {
     queryKey: ["salesrep-customers", search, cityFilter, stateFilter, currentPage],
     queryFn: () =>
       salesRepApi.getCustomers(
-        { search, city: cityFilter, state: stateFilter },
+        {
+          search,
+          city: cityFilter === "all-cities" ? "" : cityFilter,
+          state: stateFilter === "all-states" ? "" : stateFilter
+        },
         { page: currentPage, limit }
       ),
   });
@@ -342,7 +346,7 @@ const SalesRepCustomers = () => {
                 <SelectValue placeholder="Filter by city" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Cities</SelectItem>
+                <SelectItem value="all-cities">All Cities</SelectItem>
                 <SelectItem value="New York">New York</SelectItem>
                 <SelectItem value="Los Angeles">Los Angeles</SelectItem>
                 <SelectItem value="Chicago">Chicago</SelectItem>
@@ -354,7 +358,7 @@ const SalesRepCustomers = () => {
                 <SelectValue placeholder="Filter by state" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All States</SelectItem>
+                <SelectItem value="all-states">All States</SelectItem>
                 <SelectItem value="NY">New York</SelectItem>
                 <SelectItem value="CA">California</SelectItem>
                 <SelectItem value="IL">Illinois</SelectItem>
@@ -365,8 +369,8 @@ const SalesRepCustomers = () => {
               variant="outline"
               onClick={() => {
                 setSearch("");
-                setCityFilter("");
-                setStateFilter("");
+                setCityFilter("all-cities");
+                setStateFilter("all-states");
                 setCurrentPage(1);
               }}
             >
