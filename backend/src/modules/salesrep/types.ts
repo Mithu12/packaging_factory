@@ -164,6 +164,7 @@ export interface CreatePaymentRequest {
 
 export interface CreateDeliveryRequest {
   order_id: number;
+  delivery_date?: Date;
   delivery_address: string;
   contact_person: string;
   contact_phone: string;
@@ -175,6 +176,7 @@ export interface CreateDeliveryRequest {
 export interface UpdateDeliveryRequest extends CreateDeliveryRequest {
   id: number;
   status?: string;
+  delivery_date?: Date;
 }
 
 // Filter types
@@ -202,6 +204,8 @@ export interface OrderFilters {
 export interface InvoiceFilters {
   customer_id?: number;
   status?: string;
+  limit?: number;
+  page?: number;
   date_from?: string;
   date_to?: string;
   min_amount?: number;
@@ -212,6 +216,8 @@ export interface InvoiceFilters {
 export interface PaymentFilters {
   customer_id?: number;
   payment_method?: string;
+  limit?: number;
+  page?: number;
   date_from?: string;
   date_to?: string;
   min_amount?: number;
@@ -221,6 +227,8 @@ export interface PaymentFilters {
 export interface DeliveryFilters {
   customer_id?: number;
   status?: string;
+  limit?: number;
+  page?: number;
   date_from?: string;
   date_to?: string;
   courier_service?: string;

@@ -7,10 +7,19 @@ import GetOrderInfoMediator from '../mediators/orders/GetOrderInfo.mediator';
 import AddOrderMediator from '../mediators/orders/AddOrder.mediator';
 import UpdateOrderMediator from '../mediators/orders/UpdateOrder.mediator';
 import DeleteOrderMediator from '../mediators/orders/DeleteOrder.mediator';
+import GetInvoiceInfoMediator from '../mediators/invoices/GetInvoiceInfo.mediator';
+import AddInvoiceMediator from '../mediators/invoices/AddInvoice.mediator';
+import GetPaymentInfoMediator from '../mediators/payments/GetPaymentInfo.mediator';
+import AddPaymentMediator from '../mediators/payments/AddPayment.mediator';
+import GetDeliveryInfoMediator from '../mediators/deliveries/GetDeliveryInfo.mediator';
+import AddDeliveryMediator from '../mediators/deliveries/AddDelivery.mediator';
+import UpdateDeliveryMediator from '../mediators/deliveries/UpdateDelivery.mediator';
 import GetNotificationInfoMediator from '../mediators/notifications/GetNotificationInfo.mediator';
 import MarkNotificationAsReadMediator from '../mediators/notifications/MarkNotificationAsRead.mediator';
 import DeleteNotificationMediator from '../mediators/notifications/DeleteNotification.mediator';
 import GetDashboardStatsMediator from '../mediators/dashboard/GetDashboardStats.mediator';
+import GetReportInfoMediator from '../mediators/reports/GetReportInfo.mediator';
+import AddReportMediator from '../mediators/reports/AddReport.mediator';
 import { ApiResponse } from '../types';
 
 export class SalesRepController {
@@ -292,7 +301,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getInvoices(filters, { page, limit });
+      const result = await GetInvoiceInfoMediator.getInvoices(filters, { page, limit });
 
       res.json({
         success: true,
@@ -310,7 +319,7 @@ export class SalesRepController {
   async getInvoice(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const invoice = await salesRepService.getInvoice(parseInt(id));
+      const invoice = await GetInvoiceInfoMediator.getInvoice(parseInt(id));
 
       if (!invoice) {
         return res.status(404).json({
@@ -336,7 +345,7 @@ export class SalesRepController {
     try {
       const invoiceData = req.body;
       const userId = req.user?.user_id;
-      const invoice = await salesRepService.createInvoice(invoiceData, userId);
+      const invoice = await AddInvoiceMediator.createInvoice(invoiceData, userId);
 
       res.status(201).json({
         success: true,
@@ -355,7 +364,7 @@ export class SalesRepController {
   async sendInvoice(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const invoice = await salesRepService.sendInvoice(parseInt(id));
+      const invoice = await AddInvoiceMediator.sendInvoice(parseInt(id));
 
       if (!invoice) {
         return res.status(404).json({
@@ -385,7 +394,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getPayments(filters, { page, limit });
+      const result = await GetPaymentInfoMediator.getPayments(filters, { page, limit });
 
       res.json({
         success: true,
@@ -403,7 +412,7 @@ export class SalesRepController {
   async getPayment(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const payment = await salesRepService.getPayment(parseInt(id));
+      const payment = await GetPaymentInfoMediator.getPayment(parseInt(id));
 
       if (!payment) {
         return res.status(404).json({
@@ -429,7 +438,7 @@ export class SalesRepController {
     try {
       const paymentData = req.body;
       const userId = req.user?.user_id;
-      const payment = await salesRepService.createPayment(paymentData, userId);
+      const payment = await AddPaymentMediator.createPayment(paymentData, userId);
 
       res.status(201).json({
         success: true,
@@ -452,7 +461,7 @@ export class SalesRepController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await salesRepService.getDeliveries(filters, { page, limit });
+      const result = await GetDeliveryInfoMediator.getDeliveries(filters, { page, limit });
 
       res.json({
         success: true,
@@ -470,7 +479,7 @@ export class SalesRepController {
   async getDelivery(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { id } = req.params;
-      const delivery = await salesRepService.getDelivery(parseInt(id));
+      const delivery = await GetDeliveryInfoMediator.getDelivery(parseInt(id));
 
       if (!delivery) {
         return res.status(404).json({
@@ -496,7 +505,7 @@ export class SalesRepController {
     try {
       const deliveryData = req.body;
       const userId = req.user?.user_id;
-      const delivery = await salesRepService.createDelivery(deliveryData, userId);
+      const delivery = await AddDeliveryMediator.createDelivery(deliveryData, userId);
 
       res.status(201).json({
         success: true,
@@ -516,7 +525,7 @@ export class SalesRepController {
     try {
       const { id } = req.params;
       const deliveryData = req.body;
-      const delivery = await salesRepService.updateDelivery(parseInt(id), deliveryData);
+      const delivery = await UpdateDeliveryMediator.updateDelivery(parseInt(id), deliveryData);
 
       if (!delivery) {
         return res.status(404).json({
@@ -543,7 +552,7 @@ export class SalesRepController {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const delivery = await salesRepService.updateDeliveryStatus(parseInt(id), status);
+      const delivery = await UpdateDeliveryMediator.updateDeliveryStatus(parseInt(id), status);
 
       if (!delivery) {
         return res.status(404).json({
@@ -654,7 +663,7 @@ export class SalesRepController {
   async getReports(req: Request, res: Response<ApiResponse<any>>) {
     try {
       const { report_type, date_from, date_to } = req.query;
-      const reports = await salesRepService.getReports(
+      const reports = await GetReportInfoMediator.getReports(
         report_type as string,
         date_from as string,
         date_to as string
@@ -677,7 +686,7 @@ export class SalesRepController {
     try {
       const { report_type, date_from, date_to } = req.body;
       const userId = req.user?.user_id;
-      const report = await salesRepService.generateReport(report_type, date_from, date_to, userId);
+      const report = await AddReportMediator.generateReport(report_type, date_from, date_to, userId);
 
       res.status(201).json({
         success: true,
@@ -700,9 +709,7 @@ export class SalesRepController {
 
       // For now, return a placeholder response
       // In a real implementation, you would generate the actual PDF/Excel/CSV file
-      const report = await salesRepService.getReports().then(reports =>
-        reports.find(r => r.id === parseInt(id))
-      );
+      const report = await GetReportInfoMediator.getReport(parseInt(id));
 
       if (!report) {
         return res.status(404).json({
