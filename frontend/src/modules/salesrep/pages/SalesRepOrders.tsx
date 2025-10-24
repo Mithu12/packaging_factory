@@ -344,7 +344,7 @@ const SalesRepOrders = () => {
               New Order
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Order</DialogTitle>
               <DialogDescription>
@@ -374,6 +374,41 @@ const SalesRepOrders = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="order-date">Order Date</Label>
+                  <Input
+                    id="order-date"
+                    type="date"
+                    value={formData.order_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, order_date: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, status: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="shipped">Shipped</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Order Items */}
@@ -582,7 +617,7 @@ const SalesRepOrders = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="discount">Order Discount</Label>
                   <Input
@@ -600,15 +635,54 @@ const SalesRepOrders = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="tax">Tax Amount</Label>
+                  <Input
+                    id="tax"
+                    type="number"
+                    step="0.01"
+                    value={formData.tax_amount}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tax_amount: Number(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Order Total</Label>
-                  <div className="text-lg font-semibold">
-                    {formatCurrency(
-                      formData.items.reduce(
-                        (total, item) =>
-                          total + (Number(item.total_price) || 0),
-                        0
-                      )
-                    )}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span>
+                        {formatCurrency(
+                          formData.items.reduce(
+                            (total, item) =>
+                              total + (Number(item.total_price) || 0),
+                            0
+                          )
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax:</span>
+                      <span>
+                        {formatCurrency(Number(formData.tax_amount) || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-lg font-semibold border-t pt-1">
+                      <span>Total:</span>
+                      <span>
+                        {formatCurrency(
+                          formData.items.reduce(
+                            (total, item) =>
+                              total + (Number(item.total_price) || 0),
+                            0
+                          ) + (Number(formData.tax_amount) || 0)
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1167,13 +1241,37 @@ const SalesRepOrders = () => {
 
             <div className="space-y-2">
               <Label>Order Total</Label>
-              <div className="text-lg font-semibold">
-                {formatCurrency(
-                  formData.items.reduce(
-                    (total, item) => total + (Number(item.total_price) || 0),
-                    0
-                  )
-                )}
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>
+                    {formatCurrency(
+                      formData.items.reduce(
+                        (total, item) =>
+                          total + (Number(item.total_price) || 0),
+                        0
+                      )
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax:</span>
+                  <span>
+                    {formatCurrency(Number(formData.tax_amount) || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-lg font-semibold border-t pt-1">
+                  <span>Total:</span>
+                  <span>
+                    {formatCurrency(
+                      formData.items.reduce(
+                        (total, item) =>
+                          total + (Number(item.total_price) || 0),
+                        0
+                      ) + (Number(formData.tax_amount) || 0)
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
