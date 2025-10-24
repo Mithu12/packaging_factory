@@ -22,14 +22,14 @@ class GetDashboardStatsMediator implements MediatorInterface {
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
       // Build sales rep filter
-      const salesRepCondition = salesRepId ? 'WHERE sales_rep_id = $1' : '';
+      const salesRepCondition = salesRepId ? 'sales_rep_id = $1' : '';
       const salesRepParams = salesRepId ? [salesRepId] : [];
 
       // Get total customers
       const totalCustomersQuery = `
         SELECT COUNT(*) as total
         FROM sales_rep_customers
-        ${salesRepCondition}
+        ${salesRepCondition ? 'WHERE ' + salesRepCondition : ''}
       `;
 
       const totalCustomersResult = await client.query(totalCustomersQuery, salesRepParams);
@@ -51,7 +51,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
         SELECT COUNT(*) as total
         FROM sales_rep_invoices
         WHERE status = 'sent'
-        ${salesRepCondition ? 'AND ' + salesRepCondition.replace('sales_rep_id', 'sales_rep_id') : ''}
+        ${salesRepCondition ? 'AND ' + salesRepCondition : ''}
       `;
 
       const pendingInvoicesResult = await client.query(pendingInvoicesQuery, salesRepParams);
@@ -63,7 +63,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
         FROM sales_rep_invoices
         WHERE due_date < CURRENT_DATE
         AND status IN ('sent', 'overdue')
-        ${salesRepCondition ? 'AND ' + salesRepCondition.replace('sales_rep_id', 'sales_rep_id') : ''}
+        ${salesRepCondition ? 'AND ' + salesRepCondition : ''}
       `;
 
       const overduePaymentsResult = await client.query(overduePaymentsQuery, salesRepParams);
@@ -73,18 +73,20 @@ class GetDashboardStatsMediator implements MediatorInterface {
       const monthlySalesQuery = `
         SELECT COALESCE(SUM(final_amount), 0) as total
         FROM sales_rep_orders
-        WHERE order_date >= $1
+        WHERE order_date::date >= $1::date
         AND status != 'cancelled'
         ${salesRepCondition ? 'AND ' + salesRepCondition : ''}
       `;
 
       const monthlySalesParams = [startOfMonth, ...salesRepParams];
+      console.log('monthlySalesParams',monthlySalesQuery, monthlySalesParams);
+      
       const monthlySalesResult = await client.query(monthlySalesQuery, monthlySalesParams);
       const monthlySales = parseFloat(monthlySalesResult.rows[0].total);
 
       // Get recent orders (last 5)
       const recentOrdersQuery = `
-        SELECT
+        SELECT 
           o.id,
           o.customer_id,
           o.order_number,
@@ -103,7 +105,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
           c.phone as customer_phone
         FROM sales_rep_orders o
         LEFT JOIN sales_rep_customers c ON o.customer_id = c.id
-        ${salesRepCondition}
+        ${salesRepCondition ? 'WHERE ' + salesRepCondition : ''}
         ORDER BY o.created_at DESC
         LIMIT 5
       `;
@@ -159,7 +161,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
         LEFT JOIN sales_rep_orders o ON d.order_id = o.id
         LEFT JOIN sales_rep_customers c ON o.customer_id = c.id
         WHERE d.status IN ('pending', 'in_transit')
-        ${salesRepCondition ? 'AND ' + salesRepCondition.replace('sales_rep_id', 'd.sales_rep_id') : ''}
+        ${salesRepCondition ? 'AND d.' + salesRepCondition : ''}
         ORDER BY d.delivery_date ASC
         LIMIT 5
       `;
@@ -171,7 +173,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
         SELECT COUNT(*) as total
         FROM sales_rep_notifications
         WHERE is_read = false
-        ${salesRepCondition ? 'AND ' + salesRepCondition.replace('sales_rep_id', 'sales_rep_id') : ''}
+        ${salesRepCondition ? 'AND ' + salesRepCondition : ''}
       `;
 
       const unreadNotificationsResult = await client.query(unreadNotificationsQuery, salesRepParams);

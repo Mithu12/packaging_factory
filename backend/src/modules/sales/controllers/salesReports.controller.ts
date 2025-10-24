@@ -167,8 +167,7 @@ class SalesReportsController {
                     SUM(total_amount - cash_received) as total_outstanding,
                     COUNT(*) as outstanding_orders
                 FROM sales_orders
-                ${whereClause.replace('WHERE', 'WHERE payment_status != \'paid\' AND')}
-                AND payment_status != 'paid'
+                ${whereClause ? whereClause + ' AND payment_status != \'paid\'' : 'WHERE payment_status != \'paid\''}
             `;
 
             const [paymentMethodsResult, outstandingResult] = await Promise.all([
