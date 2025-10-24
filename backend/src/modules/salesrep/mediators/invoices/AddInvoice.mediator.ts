@@ -183,21 +183,17 @@ class AddInvoiceMediator implements MediatorInterface {
     }
   }
 
-  // Generate unique invoice number
+  // Generate unique invoice number using database sequence
   private async generateInvoiceNumber(client: any): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
 
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM sales_rep_invoices
-      WHERE invoice_date::date = $1
-    `;
+    // Get next value from sequence
+    const sequenceQuery = `SELECT nextval('sales_rep_invoice_number_seq') as seq_num`;
+    const sequenceResult = await client.query(sequenceQuery);
+    const sequenceNumber = sequenceResult.rows[0].seq_num;
 
-    const countResult = await client.query(countQuery, [today]);
-    const count = parseInt(countResult.rows[0].count);
-
-    return `INV-${dateStr}-${String(count + 1).padStart(4, "0")}`;
+    return `INV-${dateStr}-${String(sequenceNumber).padStart(4, "0")}`;
   }
 
   // Get invoice by ID (helper method)

@@ -146,21 +146,17 @@ class AddOrderMediator implements MediatorInterface {
     }
   }
 
-  // Generate unique order number
+  // Generate unique order number using database sequence
   private async generateOrderNumber(client: any): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
 
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM sales_rep_orders
-      WHERE order_date::date = $1
-    `;
+    // Get next value from sequence
+    const sequenceQuery = `SELECT nextval('sales_rep_order_number_seq') as seq_num`;
+    const sequenceResult = await client.query(sequenceQuery);
+    const sequenceNumber = sequenceResult.rows[0].seq_num;
 
-    const countResult = await client.query(countQuery, [today]);
-    const count = parseInt(countResult.rows[0].count);
-
-    return `SR-${dateStr}-${String(count + 1).padStart(4, "0")}`;
+    return `SR-${dateStr}-${String(sequenceNumber).padStart(4, "0")}`;
   }
 
   // Create order items

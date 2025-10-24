@@ -418,7 +418,7 @@ class SalesRepApiService {
   // Submit draft order for admin approval
   async submitDraftOrderForApproval(orderId: number): Promise<SalesRepOrder> {
     const response = await apiClient.post(
-      `/api/salesrep/orders/${orderId}/submit-for-approval`
+      `/salesrep/orders/${orderId}/submit-for-approval`
     );
     return response.data.data;
   }
@@ -433,7 +433,7 @@ class SalesRepApiService {
     }
   ): Promise<SalesRepOrder> {
     const response = await apiClient.post(
-      `/api/salesrep/orders/${orderId}/admin-approve`,
+      `/salesrep/orders/${orderId}/admin-approve`,
       approvalData
     );
     return response.data.data;
@@ -448,7 +448,7 @@ class SalesRepApiService {
     }
   ): Promise<SalesRepOrder> {
     const response = await apiClient.post(
-      `/api/salesrep/orders/${orderId}/factory-accept`,
+      `/salesrep/orders/${orderId}/factory-accept`,
       acceptanceData
     );
     return response.data.data;

@@ -1,23 +1,23 @@
-import {
-  SalesRepDelivery,
-  CreateDeliveryRequest,
-} from '../../types';
-import { MediatorInterface } from '@/types';
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import { SalesRepDelivery, CreateDeliveryRequest } from "../../types";
+import { MediatorInterface } from "@/types";
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 
 class AddDeliveryMediator implements MediatorInterface {
   async process(data: any): Promise<any> {
-    throw new Error('Not Implemented');
+    throw new Error("Not Implemented");
   }
 
   // Create new delivery
-  async createDelivery(data: CreateDeliveryRequest, salesRepId?: number): Promise<SalesRepDelivery> {
-    let action = 'Create Delivery';
+  async createDelivery(
+    data: CreateDeliveryRequest,
+    salesRepId?: number
+  ): Promise<SalesRepDelivery> {
+    let action = "Create Delivery";
     const client = await pool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { deliveryData: data, salesRepId });
 
       // Validate order exists and can be shipped
@@ -30,22 +30,27 @@ class AddDeliveryMediator implements MediatorInterface {
       const orderResult = await client.query(orderQuery, [data.order_id]);
 
       if (orderResult.rows.length === 0) {
-        throw new Error('Order not found');
+        throw new Error("Order not found");
       }
 
       const order = orderResult.rows[0];
 
       // Check if order can be shipped (must be confirmed or processing)
-      if (!['confirmed', 'processing'].includes(order.status)) {
-        throw new Error(`Order must be confirmed or processing to schedule delivery. Current status: ${order.status}`);
+      if (!["confirmed", "processing"].includes(order.status)) {
+        throw new Error(
+          `Order must be confirmed or processing to schedule delivery. Current status: ${order.status}`
+        );
       }
 
       // Check if delivery already exists for this order
-      const existingDeliveryQuery = 'SELECT id FROM sales_rep_deliveries WHERE order_id = $1';
-      const existingDeliveryResult = await client.query(existingDeliveryQuery, [data.order_id]);
+      const existingDeliveryQuery =
+        "SELECT id FROM sales_rep_deliveries WHERE order_id = $1";
+      const existingDeliveryResult = await client.query(existingDeliveryQuery, [
+        data.order_id,
+      ]);
 
       if (existingDeliveryResult.rows.length > 0) {
-        throw new Error('Delivery already exists for this order');
+        throw new Error("Delivery already exists for this order");
       }
 
       // Generate delivery number
@@ -87,25 +92,25 @@ class AddDeliveryMediator implements MediatorInterface {
         data.order_id,
         deliveryNumber,
         data.delivery_date || new Date(Date.now() + 24 * 60 * 60 * 1000), // Default to tomorrow
-        'pending',
+        "pending",
         data.tracking_number || null,
         data.courier_service || null,
         data.delivery_address,
         data.contact_person,
         data.contact_phone,
         data.notes || null,
-        salesRepId || null
+        salesRepId || null,
       ]);
 
       const delivery = deliveryResult.rows[0];
 
       // Update order status to shipped
       await client.query(
-        'UPDATE sales_rep_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        ['shipped', data.order_id]
+        "UPDATE sales_rep_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        ["shipped", data.order_id]
       );
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       MyLogger.success(action, {
         deliveryId: delivery.id,
         deliveryNumber: delivery.delivery_number,
@@ -113,13 +118,13 @@ class AddDeliveryMediator implements MediatorInterface {
         customerName: order.customer_name,
         status: delivery.status,
         courierService: delivery.courier_service,
-        salesRepId: delivery.sales_rep_id
+        salesRepId: delivery.sales_rep_id,
       });
 
       // Return the complete delivery with order and customer data
       return await this.getCompleteDelivery(client, delivery.id);
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { deliveryData: data, salesRepId });
       throw error;
     } finally {
@@ -127,25 +132,24 @@ class AddDeliveryMediator implements MediatorInterface {
     }
   }
 
-  // Generate unique delivery number
+  // Generate unique delivery number using database sequence
   private async generateDeliveryNumber(client: any): Promise<string> {
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
 
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM sales_rep_deliveries
-      WHERE delivery_date::date = $1
-    `;
+    // Get next value from sequence
+    const sequenceQuery = `SELECT nextval('sales_rep_delivery_number_seq') as seq_num`;
+    const sequenceResult = await client.query(sequenceQuery);
+    const sequenceNumber = sequenceResult.rows[0].seq_num;
 
-    const countResult = await client.query(countQuery, [today]);
-    const count = parseInt(countResult.rows[0].count);
-
-    return `DEL-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    return `DEL-${dateStr}-${String(sequenceNumber).padStart(4, "0")}`;
   }
 
   // Get complete delivery with order and customer data (helper method)
-  private async getCompleteDelivery(client: any, deliveryId: number): Promise<SalesRepDelivery> {
+  private async getCompleteDelivery(
+    client: any,
+    deliveryId: number
+  ): Promise<SalesRepDelivery> {
     const deliveryQuery = `
       SELECT
         d.id,
@@ -186,22 +190,24 @@ class AddDeliveryMediator implements MediatorInterface {
         id: deliveryRow.order_id,
         order_number: deliveryRow.order_number,
         customer_id: deliveryRow.customer_id,
-        customer: deliveryRow.customer_id ? {
-          id: deliveryRow.customer_id,
-          name: deliveryRow.customer_name,
-          email: deliveryRow.customer_email,
-          phone: deliveryRow.customer_phone,
-          address: deliveryRow.customer_address,
-          city: deliveryRow.customer_city,
-          state: deliveryRow.customer_state,
-          postal_code: deliveryRow.customer_postal_code,
-          credit_limit: 0,
-          current_balance: 0,
-          sales_rep_id: null,
-          created_at: new Date(),
-          updated_at: new Date()
-        } : undefined
-      }
+        customer: deliveryRow.customer_id
+          ? {
+              id: deliveryRow.customer_id,
+              name: deliveryRow.customer_name,
+              email: deliveryRow.customer_email,
+              phone: deliveryRow.customer_phone,
+              address: deliveryRow.customer_address,
+              city: deliveryRow.customer_city,
+              state: deliveryRow.customer_state,
+              postal_code: deliveryRow.customer_postal_code,
+              credit_limit: 0,
+              current_balance: 0,
+              sales_rep_id: null,
+              created_at: new Date(),
+              updated_at: new Date(),
+            }
+          : undefined,
+      },
     };
   }
 }
