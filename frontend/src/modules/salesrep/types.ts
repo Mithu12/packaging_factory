@@ -162,6 +162,7 @@ export interface UpdateCustomerRequest extends CreateCustomerRequest {
 
 export interface CreateOrderRequest {
   customer_id: number;
+  order_date?: string;
   items: {
     product_id: number;
     product_name: string;
@@ -170,6 +171,8 @@ export interface CreateOrderRequest {
     discount: number;
   }[];
   discount_amount?: number;
+  tax_amount?: number;
+  status?: string;
   notes?: string;
 }
 
@@ -288,6 +291,7 @@ export interface CustomerFormData {
 
 export interface OrderFormData {
   customer_id: number;
+  order_date: string;
   items: {
     product_id: number;
     product_name: string;
@@ -297,6 +301,8 @@ export interface OrderFormData {
     total_price?: number; // Optional for frontend calculations only
   }[];
   discount_amount: number;
+  tax_amount: number;
+  status: string;
   notes: string;
 }
 

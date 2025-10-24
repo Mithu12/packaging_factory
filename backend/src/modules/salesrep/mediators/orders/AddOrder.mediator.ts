@@ -68,7 +68,7 @@ class AddOrderMediator implements MediatorInterface {
 
       if (data.items && data.items.length > 0) {
         totalAmount = data.items.reduce((sum, item) => {
-          return sum + item.quantity * item.unit_price;
+          return sum + (item.quantity * item.unit_price - (item.discount || 0));
         }, 0);
       }
 
@@ -105,14 +105,14 @@ class AddOrderMediator implements MediatorInterface {
       `;
 
       const orderResult = await client.query(insertOrderQuery, [
-        data.customer_id,
+        Number(data.customer_id),
         orderNumber,
-        new Date(),
-        "draft",
-        totalAmount,
-        discountAmount,
-        taxAmount,
-        finalAmount,
+        data.order_date ? new Date(data.order_date) : new Date(),
+        data.status || "draft",
+        Number(totalAmount),
+        Number(discountAmount),
+        Number(taxAmount),
+        Number(finalAmount),
         salesRepId || null,
         data.notes || null,
       ]);
@@ -182,16 +182,17 @@ class AddOrderMediator implements MediatorInterface {
     `;
 
     for (const item of items) {
-      const totalPrice = item.quantity * item.unit_price - item.discount;
+      const totalPrice =
+        Number(item.quantity) * Number(item.unit_price) - Number(item.discount);
 
       await client.query(insertItemQuery, [
-        orderId,
-        item.product_id || null,
+        Number(orderId),
+        item.product_id ? Number(item.product_id) : null,
         item.product_name,
-        item.quantity,
-        item.unit_price,
-        item.discount || 0,
-        totalPrice,
+        Number(item.quantity),
+        Number(item.unit_price),
+        Number(item.discount || 0),
+        Number(totalPrice),
       ]);
     }
   }

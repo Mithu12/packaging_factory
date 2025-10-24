@@ -1,40 +1,46 @@
-import {
-  SalesRepOrder,
-  UpdateOrderRequest,
-} from '../../types';
-import { MediatorInterface } from '@/types';
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import { SalesRepOrder, UpdateOrderRequest } from "../../types";
+import { MediatorInterface } from "@/types";
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 
 class UpdateOrderMediator implements MediatorInterface {
   async process(data: any): Promise<any> {
-    throw new Error('Not Implemented');
+    throw new Error("Not Implemented");
   }
 
   // Update order
-  async updateOrder(id: number, data: UpdateOrderRequest): Promise<SalesRepOrder | null> {
-    let action = 'Update Order';
+  async updateOrder(
+    id: number,
+    data: UpdateOrderRequest
+  ): Promise<SalesRepOrder | null> {
+    let action = "Update Order";
     const client = await pool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { orderId: id, updateData: data });
 
       // Check if order exists
       const existingOrder = await this.getOrder(id);
       if (!existingOrder) {
-        throw new Error('Order not found');
+        throw new Error("Order not found");
       }
 
       // Calculate new totals
       let totalAmount = existingOrder.total_amount;
-      let discountAmount = data.discount_amount !== undefined ? data.discount_amount : existingOrder.discount_amount;
-      let taxAmount = data.tax_amount !== undefined ? data.tax_amount : existingOrder.tax_amount;
+      let discountAmount =
+        data.discount_amount !== undefined
+          ? data.discount_amount
+          : existingOrder.discount_amount;
+      let taxAmount =
+        data.tax_amount !== undefined
+          ? data.tax_amount
+          : existingOrder.tax_amount;
 
       // If items are updated, recalculate total
       if (data.items) {
         totalAmount = data.items.reduce((sum, item) => {
-          return sum + (item.quantity * item.unit_price);
+          return sum + (item.quantity * item.unit_price - (item.discount || 0));
         }, 0);
       }
 
@@ -44,14 +50,15 @@ class UpdateOrderMediator implements MediatorInterface {
       const updateQuery = `
         UPDATE sales_rep_orders SET
           customer_id = $1,
-          total_amount = $2,
-          discount_amount = $3,
-          tax_amount = $4,
-          final_amount = $5,
-          notes = $6,
-          status = COALESCE($7, status),
+          order_date = COALESCE($2, order_date),
+          total_amount = $3,
+          discount_amount = $4,
+          tax_amount = $5,
+          final_amount = $6,
+          notes = $7,
+          status = COALESCE($8, status),
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $8
+        WHERE id = $9
         RETURNING
           id,
           customer_id,
@@ -69,14 +76,15 @@ class UpdateOrderMediator implements MediatorInterface {
       `;
 
       const result = await client.query(updateQuery, [
-        data.customer_id,
-        totalAmount,
-        discountAmount,
-        taxAmount,
-        finalAmount,
+        Number(data.customer_id),
+        data.order_date,
+        Number(totalAmount),
+        Number(discountAmount),
+        Number(taxAmount),
+        Number(finalAmount),
         data.notes || existingOrder.notes,
         data.status,
-        id
+        Number(id),
       ]);
 
       const order = result.rows[0];
@@ -86,19 +94,19 @@ class UpdateOrderMediator implements MediatorInterface {
         await this.updateOrderItems(client, id, data.items);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       MyLogger.success(action, {
         orderId: id,
         orderNumber: order.order_number,
         status: order.status,
         updatedFields: Object.keys(data),
-        finalAmount: order.final_amount
+        finalAmount: order.final_amount,
       });
 
       // Return the complete order with customer and items
       return await this.getCompleteOrder(client, id);
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { orderId: id, updateData: data });
       throw error;
     } finally {
@@ -107,18 +115,22 @@ class UpdateOrderMediator implements MediatorInterface {
   }
 
   // Update order status
-  async updateOrderStatus(id: number, status: string, notes?: string): Promise<SalesRepOrder | null> {
-    let action = 'Update Order Status';
+  async updateOrderStatus(
+    id: number,
+    status: string,
+    notes?: string
+  ): Promise<SalesRepOrder | null> {
+    let action = "Update Order Status";
     const client = await pool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { orderId: id, status, notes });
 
       // Check if order exists
       const existingOrder = await this.getOrder(id);
       if (!existingOrder) {
-        throw new Error('Order not found');
+        throw new Error("Order not found");
       }
 
       // Update order status and notes
@@ -147,19 +159,19 @@ class UpdateOrderMediator implements MediatorInterface {
       const result = await client.query(updateQuery, [status, notes, id]);
       const order = result.rows[0];
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       MyLogger.success(action, {
         orderId: id,
         orderNumber: order.order_number,
         oldStatus: existingOrder.status,
         newStatus: status,
-        updated: true
+        updated: true,
       });
 
       // Return the complete order with customer and items
       return await this.getCompleteOrder(client, id);
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { orderId: id, status, notes });
       throw error;
     } finally {
@@ -193,9 +205,13 @@ class UpdateOrderMediator implements MediatorInterface {
   }
 
   // Update order items
-  private async updateOrderItems(client: any, orderId: number, items: any[]): Promise<void> {
+  private async updateOrderItems(
+    client: any,
+    orderId: number,
+    items: any[]
+  ): Promise<void> {
     // Delete existing items
-    const deleteQuery = 'DELETE FROM sales_rep_order_items WHERE order_id = $1';
+    const deleteQuery = "DELETE FROM sales_rep_order_items WHERE order_id = $1";
     await client.query(deleteQuery, [orderId]);
 
     // Insert new items
@@ -212,22 +228,26 @@ class UpdateOrderMediator implements MediatorInterface {
     `;
 
     for (const item of items) {
-      const totalPrice = (item.quantity * item.unit_price) - item.discount;
+      const totalPrice =
+        Number(item.quantity) * Number(item.unit_price) - Number(item.discount);
 
       await client.query(insertItemQuery, [
-        orderId,
-        item.product_id || null,
+        Number(orderId),
+        item.product_id ? Number(item.product_id) : null,
         item.product_name,
-        item.quantity,
-        item.unit_price,
-        item.discount || 0,
-        totalPrice
+        Number(item.quantity),
+        Number(item.unit_price),
+        Number(item.discount || 0),
+        Number(totalPrice),
       ]);
     }
   }
 
   // Get complete order with customer and items (helper method)
-  private async getCompleteOrder(client: any, orderId: number): Promise<SalesRepOrder> {
+  private async getCompleteOrder(
+    client: any,
+    orderId: number
+  ): Promise<SalesRepOrder> {
     const orderQuery = `
       SELECT
         o.id,
@@ -280,22 +300,24 @@ class UpdateOrderMediator implements MediatorInterface {
 
     return {
       ...orderRow,
-      customer: orderRow.customer_id ? {
-        id: orderRow.customer_id,
-        name: orderRow.customer_name,
-        email: orderRow.customer_email,
-        phone: orderRow.customer_phone,
-        address: orderRow.customer_address,
-        city: orderRow.customer_city,
-        state: orderRow.customer_state,
-        postal_code: orderRow.customer_postal_code,
-        credit_limit: 0,
-        current_balance: 0,
-        sales_rep_id: null,
-        created_at: new Date(),
-        updated_at: new Date()
-      } : undefined,
-      items: itemsResult.rows
+      customer: orderRow.customer_id
+        ? {
+            id: orderRow.customer_id,
+            name: orderRow.customer_name,
+            email: orderRow.customer_email,
+            phone: orderRow.customer_phone,
+            address: orderRow.customer_address,
+            city: orderRow.customer_city,
+            state: orderRow.customer_state,
+            postal_code: orderRow.customer_postal_code,
+            credit_limit: 0,
+            current_balance: 0,
+            sales_rep_id: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }
+        : undefined,
+      items: itemsResult.rows,
     };
   }
 }

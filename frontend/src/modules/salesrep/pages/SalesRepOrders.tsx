@@ -80,8 +80,11 @@ const SalesRepOrders = () => {
   );
   const [formData, setFormData] = useState<OrderFormData>({
     customer_id: 0,
+    order_date: new Date().toISOString().split("T")[0],
     items: [],
     discount_amount: 0,
+    tax_amount: 0,
+    status: "draft",
     notes: "",
   });
 
@@ -136,15 +139,18 @@ const SalesRepOrders = () => {
   const createMutation = useMutation({
     mutationFn: (data: OrderFormData) => {
       const createData: CreateOrderRequest = {
-        customer_id: data.customer_id,
+        customer_id: Number(data.customer_id) || 0,
+        order_date: data.order_date,
         items: data.items.map((item) => ({
-          product_id: item.product_id,
+          product_id: Number(item.product_id) || 0,
           product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
+          quantity: Number(item.quantity) || 0,
+          unit_price: Number(item.unit_price) || 0,
+          discount: Number(item.discount) || 0,
         })),
-        discount_amount: data.discount_amount,
+        discount_amount: Number(data.discount_amount) || 0,
+        tax_amount: Number(data.tax_amount) || 0,
+        status: data.status,
         notes: data.notes,
       };
       return salesRepApi.createOrder(createData);
@@ -171,15 +177,18 @@ const SalesRepOrders = () => {
     mutationFn: ({ id, data }: { id: number; data: OrderFormData }) => {
       const updateData: UpdateOrderRequest = {
         id,
-        customer_id: data.customer_id,
+        customer_id: Number(data.customer_id) || 0,
+        order_date: data.order_date,
         items: data.items.map((item) => ({
-          product_id: item.product_id,
+          product_id: Number(item.product_id) || 0,
           product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
+          quantity: Number(item.quantity) || 0,
+          unit_price: Number(item.unit_price) || 0,
+          discount: Number(item.discount) || 0,
         })),
-        discount_amount: data.discount_amount,
+        discount_amount: Number(data.discount_amount) || 0,
+        tax_amount: Number(data.tax_amount) || 0,
+        status: data.status,
         notes: data.notes,
       };
       return salesRepApi.updateOrder(id, updateData);
@@ -224,8 +233,11 @@ const SalesRepOrders = () => {
   const resetForm = () => {
     setFormData({
       customer_id: 0,
+      order_date: new Date().toISOString().split("T")[0],
       items: [],
       discount_amount: 0,
+      tax_amount: 0,
+      status: "draft",
       notes: "",
     });
   };
@@ -241,9 +253,21 @@ const SalesRepOrders = () => {
   };
 
   const handleEdit = (order: SalesRepOrder) => {
+    // Only allow editing draft orders
+    if (order.status !== "draft") {
+      toast({
+        title: "Cannot Edit Order",
+        description:
+          "Only draft orders can be edited. Current status: " + order.status,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedOrder(order);
     setFormData({
       customer_id: order.customer_id,
+      order_date: order.order_date.split("T")[0], // Convert to YYYY-MM-DD format
       items: order.items.map((item) => ({
         product_id: item.product_id,
         product_name: item.product_name,
@@ -253,6 +277,8 @@ const SalesRepOrders = () => {
         total_price: item.total_price,
       })),
       discount_amount: order.discount_amount,
+      tax_amount: order.tax_amount,
+      status: order.status,
       notes: "", // Assuming notes aren't stored in the order object
     });
     setIsEditDialogOpen(true);
@@ -394,10 +420,12 @@ const SalesRepOrders = () => {
                                     newItems[index].product_name = product.name;
                                     newItems[index].unit_price =
                                       product.selling_price || 0;
-                                    newItems[index].total_price =
-                                      newItems[index].quantity *
-                                        (product.selling_price || 0) -
-                                      newItems[index].discount;
+                                    newItems[index].total_price = Math.max(
+                                      0,
+                                      (Number(newItems[index].quantity) || 0) *
+                                        (Number(product.selling_price) || 0) -
+                                        (Number(newItems[index].discount) || 0)
+                                    );
                                     setFormData({
                                       ...formData,
                                       items: newItems,
@@ -461,11 +489,14 @@ const SalesRepOrders = () => {
                           value={item.quantity}
                           onChange={(e) => {
                             const newItems = [...formData.items];
-                            newItems[index].quantity = Number(e.target.value);
-                            newItems[index].total_price =
-                              Number(e.target.value) *
-                                newItems[index].unit_price -
-                              newItems[index].discount;
+                            newItems[index].quantity =
+                              Number(e.target.value) || 0;
+                            newItems[index].total_price = Math.max(
+                              0,
+                              (Number(e.target.value) || 0) *
+                                (Number(newItems[index].unit_price) || 0) -
+                                (Number(newItems[index].discount) || 0)
+                            );
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
@@ -476,11 +507,14 @@ const SalesRepOrders = () => {
                           value={item.unit_price}
                           onChange={(e) => {
                             const newItems = [...formData.items];
-                            newItems[index].unit_price = Number(e.target.value);
-                            newItems[index].total_price =
-                              newItems[index].quantity *
-                                Number(e.target.value) -
-                              newItems[index].discount;
+                            newItems[index].unit_price =
+                              Number(e.target.value) || 0;
+                            newItems[index].total_price = Math.max(
+                              0,
+                              (Number(newItems[index].quantity) || 0) *
+                                (Number(e.target.value) || 0) -
+                                (Number(newItems[index].discount) || 0)
+                            );
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
@@ -491,11 +525,14 @@ const SalesRepOrders = () => {
                           value={item.discount}
                           onChange={(e) => {
                             const newItems = [...formData.items];
-                            newItems[index].discount = Number(e.target.value);
-                            newItems[index].total_price =
-                              newItems[index].quantity *
-                                newItems[index].unit_price -
-                              Number(e.target.value);
+                            newItems[index].discount =
+                              Number(e.target.value) || 0;
+                            newItems[index].total_price = Math.max(
+                              0,
+                              (Number(newItems[index].quantity) || 0) *
+                                (Number(newItems[index].unit_price) || 0) -
+                                (Number(e.target.value) || 0)
+                            );
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
@@ -556,7 +593,7 @@ const SalesRepOrders = () => {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        discount_amount: Number(e.target.value),
+                        discount_amount: Number(e.target.value) || 0,
                       })
                     }
                     placeholder="0.00"
@@ -567,7 +604,8 @@ const SalesRepOrders = () => {
                   <div className="text-lg font-semibold">
                     {formatCurrency(
                       formData.items.reduce(
-                        (total, item) => total + (item.total_price || 0),
+                        (total, item) =>
+                          total + (Number(item.total_price) || 0),
                         0
                       )
                     )}
@@ -765,6 +803,12 @@ const SalesRepOrders = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(order)}
+                          disabled={order.status !== "draft"}
+                          title={
+                            order.status !== "draft"
+                              ? "Only draft orders can be edited"
+                              : "Edit order"
+                          }
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -818,11 +862,11 @@ const SalesRepOrders = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Order</DialogTitle>
             <DialogDescription>
-              Update order details and items.
+              Update order details and items. Only draft orders can be edited.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -851,20 +895,286 @@ const SalesRepOrders = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-discount">Order Discount</Label>
+              <Label htmlFor="edit-order-date">Order Date</Label>
               <Input
-                id="edit-discount"
-                type="number"
-                step="0.01"
-                value={formData.discount_amount}
+                id="edit-order-date"
+                type="date"
+                value={formData.order_date}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    discount_amount: Number(e.target.value),
-                  })
+                  setFormData({ ...formData, order_date: e.target.value })
                 }
-                placeholder="0.00"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, status: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Order Items */}
+            <div className="space-y-4">
+              <Label>Order Items</Label>
+              <div className="border rounded-lg p-4">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-5 gap-2 text-sm font-medium">
+                    <span>Product</span>
+                    <span>Quantity</span>
+                    <span>Unit Price</span>
+                    <span>Discount</span>
+                    <span>Total</span>
+                  </div>
+                  {formData.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-5 gap-2 items-center"
+                    >
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Search products..."
+                          value={item.product_name}
+                          onChange={(e) => {
+                            const newItems = [...formData.items];
+                            newItems[index].product_name = e.target.value;
+                            setFormData({ ...formData, items: newItems });
+                          }}
+                          onFocus={() => {
+                            // You could add product search dropdown here
+                          }}
+                        />
+                        {productsData?.products && (
+                          <div className="relative">
+                            <Select
+                              value={item.product_id.toString()}
+                              onValueChange={(value) => {
+                                const product = productsData.products.find(
+                                  (p) => p.id.toString() === value
+                                );
+                                if (product) {
+                                  const newItems = [...formData.items];
+                                  newItems[index].product_id = product.id;
+                                  newItems[index].product_name = product.name;
+                                  newItems[index].unit_price =
+                                    product.selling_price || 0;
+                                  newItems[index].total_price =
+                                    newItems[index].quantity *
+                                      (product.selling_price || 0) -
+                                    newItems[index].discount;
+                                  setFormData({
+                                    ...formData,
+                                    items: newItems,
+                                  });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue placeholder="Select product" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {productsData.products
+                                  .filter(
+                                    (product) =>
+                                      product.name
+                                        .toLowerCase()
+                                        .includes(
+                                          item.product_name.toLowerCase()
+                                        ) ||
+                                      product.sku
+                                        .toLowerCase()
+                                        .includes(
+                                          item.product_name.toLowerCase()
+                                        )
+                                  )
+                                  .slice(0, 10)
+                                  .map((product) => (
+                                    <SelectItem
+                                      key={product.id}
+                                      value={product.id.toString()}
+                                    >
+                                      {product.name} ({product.sku}) -
+                                      {product.selling_price}
+                                    </SelectItem>
+                                  ))}
+                                {productsData.products.filter(
+                                  (product) =>
+                                    product.name
+                                      .toLowerCase()
+                                      .includes(
+                                        item.product_name.toLowerCase()
+                                      ) ||
+                                    product.sku
+                                      .toLowerCase()
+                                      .includes(item.product_name.toLowerCase())
+                                ).length === 0 && (
+                                  <div className="p-2 text-sm text-muted-foreground">
+                                    No products found
+                                  </div>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...formData.items];
+                          newItems[index].quantity =
+                            Number(e.target.value) || 0;
+                          newItems[index].total_price = Math.max(
+                            0,
+                            (Number(e.target.value) || 0) *
+                              (Number(newItems[index].unit_price) || 0) -
+                              (Number(newItems[index].discount) || 0)
+                          );
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={item.unit_price}
+                        onChange={(e) => {
+                          const newItems = [...formData.items];
+                          newItems[index].unit_price =
+                            Number(e.target.value) || 0;
+                          newItems[index].total_price = Math.max(
+                            0,
+                            (Number(newItems[index].quantity) || 0) *
+                              (Number(e.target.value) || 0) -
+                              (Number(newItems[index].discount) || 0)
+                          );
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Discount"
+                        value={item.discount}
+                        onChange={(e) => {
+                          const newItems = [...formData.items];
+                          newItems[index].discount =
+                            Number(e.target.value) || 0;
+                          newItems[index].total_price = Math.max(
+                            0,
+                            (Number(newItems[index].quantity) || 0) *
+                              (Number(newItems[index].unit_price) || 0) -
+                              (Number(e.target.value) || 0)
+                          );
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                      />
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm">
+                          {formatCurrency(item.total_price || 0)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newItems = formData.items.filter(
+                              (_, i) => i !== index
+                            );
+                            setFormData({ ...formData, items: newItems });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        items: [
+                          ...formData.items,
+                          {
+                            product_id: 0,
+                            product_name: "",
+                            quantity: 1,
+                            unit_price: 0,
+                            discount: 0,
+                            total_price: 0,
+                          },
+                        ],
+                      });
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-discount">Order Discount</Label>
+                <Input
+                  id="edit-discount"
+                  type="number"
+                  step="0.01"
+                  value={formData.discount_amount}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      discount_amount: Number(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-tax">Tax Amount</Label>
+                <Input
+                  id="edit-tax"
+                  type="number"
+                  step="0.01"
+                  value={formData.tax_amount}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      tax_amount: Number(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Order Total</Label>
+              <div className="text-lg font-semibold">
+                {formatCurrency(
+                  formData.items.reduce(
+                    (total, item) => total + (Number(item.total_price) || 0),
+                    0
+                  )
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -20,7 +20,13 @@ export interface SalesRepOrder {
   customer_id: number;
   order_number: string;
   order_date: Date;
-  status: 'draft' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status:
+    | "draft"
+    | "confirmed"
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   total_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -52,7 +58,7 @@ export interface SalesRepInvoice {
   invoice_number: string;
   invoice_date: Date;
   due_date: Date;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   total_amount: number;
   paid_amount: number;
   balance_amount: number;
@@ -68,7 +74,7 @@ export interface SalesRepPayment {
   payment_number: string;
   payment_date: Date;
   amount: number;
-  payment_method: 'cash' | 'bank_transfer' | 'cheque' | 'credit_card';
+  payment_method: "cash" | "bank_transfer" | "cheque" | "credit_card";
   reference_number: string | null;
   notes: string | null;
   sales_rep_id: number | null;
@@ -82,7 +88,7 @@ export interface SalesRepDelivery {
   order_id: number;
   delivery_number: string;
   delivery_date: Date;
-  status: 'pending' | 'in_transit' | 'delivered' | 'cancelled';
+  status: "pending" | "in_transit" | "delivered" | "cancelled";
   tracking_number: string | null;
   courier_service: string | null;
   delivery_address: string;
@@ -99,9 +105,15 @@ export interface SalesRepNotification {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'error' | 'success';
+  type: "info" | "warning" | "error" | "success";
   is_read: boolean;
-  related_entity_type: 'customer' | 'order' | 'invoice' | 'payment' | 'delivery' | null;
+  related_entity_type:
+    | "customer"
+    | "order"
+    | "invoice"
+    | "payment"
+    | "delivery"
+    | null;
   related_entity_id: number | null;
   sales_rep_id: number | null;
   created_at: Date;
@@ -139,15 +151,19 @@ export interface UpdateCustomerRequest extends CreateCustomerRequest {
 
 export interface CreateOrderRequest {
   customer_id: number;
-  items: Omit<SalesRepOrderItem, 'id' | 'order_id' | 'created_at' | 'updated_at'>[];
+  order_date?: string;
+  items: Omit<
+    SalesRepOrderItem,
+    "id" | "order_id" | "created_at" | "updated_at"
+  >[];
   discount_amount?: number;
   tax_amount?: number;
+  status?: string;
   notes?: string;
 }
 
 export interface UpdateOrderRequest extends CreateOrderRequest {
   id: number;
-  status?: string;
 }
 
 export interface CreateInvoiceRequest {
@@ -157,7 +173,7 @@ export interface CreateInvoiceRequest {
 export interface CreatePaymentRequest {
   invoice_id: number;
   amount: number;
-  payment_method: 'cash' | 'bank_transfer' | 'cheque' | 'credit_card';
+  payment_method: "cash" | "bank_transfer" | "cheque" | "credit_card";
   reference_number?: string;
   notes?: string;
 }
@@ -277,4 +293,3 @@ export interface ApiResponse<T> {
   message?: string;
   error?: string;
 }
-
