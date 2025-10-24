@@ -114,7 +114,7 @@ class SalesRepApiService {
     }
 
     const response = await apiClient.get(`${this.baseUrl}/orders?${params}`);
-    return response.data;
+    return response.data.data;
   }
 
   async getOrder(id: number): Promise<SalesRepOrder> {
@@ -380,7 +380,13 @@ class SalesRepApiService {
       status?: string;
     },
     pagination?: PaginationParams
-  ): Promise<PaginatedResponse<Product>> {
+  ): Promise<{
+    products: Product[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const params = new URLSearchParams();
 
     if (filters) {
