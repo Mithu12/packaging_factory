@@ -253,3 +253,31 @@ export const orderIdSchema = Joi.object({
     "any.required": "Order ID is required",
   }),
 });
+
+// Draft Order Approval Workflow Validation Schemas
+export const submitDraftOrderSchema = Joi.object({
+  // No additional fields needed - order_id comes from URL params
+});
+
+export const adminApprovalSchema = Joi.object({
+  approved: Joi.boolean().required(),
+  assigned_factory_id: Joi.when("approved", {
+    is: true,
+    then: Joi.number().integer().positive().required(),
+    otherwise: Joi.number().integer().positive().optional(),
+  }),
+  rejection_reason: Joi.when("approved", {
+    is: false,
+    then: Joi.string().max(1000).optional().allow(""),
+    otherwise: Joi.forbidden(),
+  }),
+});
+
+export const factoryManagerAcceptanceSchema = Joi.object({
+  accepted: Joi.boolean().required(),
+  rejection_reason: Joi.when("accepted", {
+    is: false,
+    then: Joi.string().max(1000).optional().allow(""),
+    otherwise: Joi.forbidden(),
+  }),
+});

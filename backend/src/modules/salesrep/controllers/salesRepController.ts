@@ -22,6 +22,7 @@ import DeleteNotificationMediator from "../mediators/notifications/DeleteNotific
 import GetDashboardStatsMediator from "../mediators/dashboard/GetDashboardStats.mediator";
 import GetReportInfoMediator from "../mediators/reports/GetReportInfo.mediator";
 import AddReportMediator from "../mediators/reports/AddReport.mediator";
+import OrderApprovalWorkflowMediator from "../mediators/orders/OrderApprovalWorkflow.mediator";
 import { ApiResponse } from "../types";
 
 export class SalesRepController {
@@ -977,6 +978,119 @@ export class SalesRepController {
       res.status(500).json({
         success: false,
         error: "Failed to export report",
+      });
+    }
+  }
+
+  // Draft Order Approval Workflow Methods
+
+  // Submit draft order for admin approval
+  async submitDraftOrderForApproval(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
+    try {
+      const orderId = Number(req.params.id);
+      const userId = req.user?.user_id;
+
+      const submissionData = {
+        order_id: orderId,
+      };
+
+      const result =
+        await OrderApprovalWorkflowMediator.submitDraftOrderForApproval(
+          submissionData,
+          userId!.toString()
+        );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: "Order submitted for approval successfully",
+      });
+    } catch (error) {
+      console.error("Error submitting order for approval:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to submit order for approval",
+      });
+    }
+  }
+
+  // Admin approval/rejection with factory selection
+  async adminApproveOrder(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
+    try {
+      const orderId = Number(req.params.id);
+      const approvalData = {
+        ...req.body,
+        order_id: orderId,
+      };
+      const userId = req.user?.user_id;
+
+      const result = await OrderApprovalWorkflowMediator.adminApproveOrder(
+        approvalData,
+        userId!.toString()
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: approvalData.approved
+          ? "Order approved successfully"
+          : "Order rejected successfully",
+      });
+    } catch (error) {
+      console.error("Error processing admin approval:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to process admin approval",
+      });
+    }
+  }
+
+  // Factory manager acceptance
+  async factoryManagerAcceptOrder(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
+    try {
+      const orderId = Number(req.params.id);
+      const acceptanceData = {
+        ...req.body,
+        order_id: orderId,
+      };
+      const userId = req.user?.user_id;
+
+      const result =
+        await OrderApprovalWorkflowMediator.factoryManagerAcceptOrder(
+          acceptanceData,
+          userId!.toString()
+        );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: acceptanceData.accepted
+          ? "Order accepted by factory manager"
+          : "Order rejected by factory manager",
+      });
+    } catch (error) {
+      console.error("Error processing factory manager acceptance:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to process factory manager acceptance",
       });
     }
   }

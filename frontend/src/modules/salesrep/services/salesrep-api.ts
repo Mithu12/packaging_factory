@@ -412,6 +412,47 @@ class SalesRepApiService {
     );
     return response.data.data;
   }
+
+  // Draft Order Approval Workflow Methods
+
+  // Submit draft order for admin approval
+  async submitDraftOrderForApproval(orderId: number): Promise<SalesRepOrder> {
+    const response = await apiClient.post(
+      `/api/salesrep/orders/${orderId}/submit-for-approval`
+    );
+    return response.data.data;
+  }
+
+  // Admin approval/rejection with factory selection
+  async adminApproveOrder(
+    orderId: number,
+    approvalData: {
+      approved: boolean;
+      assigned_factory_id?: number;
+      rejection_reason?: string;
+    }
+  ): Promise<SalesRepOrder> {
+    const response = await apiClient.post(
+      `/api/salesrep/orders/${orderId}/admin-approve`,
+      approvalData
+    );
+    return response.data.data;
+  }
+
+  // Factory manager acceptance
+  async factoryManagerAcceptOrder(
+    orderId: number,
+    acceptanceData: {
+      accepted: boolean;
+      rejection_reason?: string;
+    }
+  ): Promise<SalesRepOrder> {
+    const response = await apiClient.post(
+      `/api/salesrep/orders/${orderId}/factory-accept`,
+      acceptanceData
+    );
+    return response.data.data;
+  }
 }
 
 export const salesRepApi = new SalesRepApiService();

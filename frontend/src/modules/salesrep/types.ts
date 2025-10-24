@@ -21,11 +21,15 @@ export interface SalesRepOrder {
   order_date: string;
   status:
     | "draft"
+    | "submitted_for_approval"
     | "confirmed"
     | "processing"
     | "shipped"
     | "delivered"
-    | "cancelled";
+    | "cancelled"
+    | "approved"
+    | "rejected"
+    | "factory_accepted";
   total_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -35,6 +39,17 @@ export interface SalesRepOrder {
   items: SalesRepOrderItem[];
   created_at: string;
   updated_at: string;
+  // Draft Order Approval Workflow Fields
+  submitted_for_approval_at?: string;
+  submitted_for_approval_by?: string;
+  admin_approved_by?: string;
+  admin_approved_at?: string;
+  admin_rejection_reason?: string;
+  assigned_factory_id?: number;
+  assigned_factory_name?: string;
+  factory_manager_accepted_by?: string;
+  factory_manager_accepted_at?: string;
+  factory_manager_rejection_reason?: string;
 }
 
 export interface SalesRepOrderItem {
@@ -339,4 +354,22 @@ export interface Product {
   category_id?: number;
   brand_id?: number;
   image_url?: string;
+}
+
+// Draft Order Approval Workflow Request Types
+export interface SubmitDraftOrderRequest {
+  order_id: number;
+}
+
+export interface AdminApprovalRequest {
+  order_id: number;
+  approved: boolean;
+  assigned_factory_id?: number;
+  rejection_reason?: string;
+}
+
+export interface FactoryManagerAcceptanceRequest {
+  order_id: number;
+  accepted: boolean;
+  rejection_reason?: string;
 }

@@ -67,6 +67,8 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 import { useFormatting } from "@/hooks/useFormatting";
 import { format } from "date-fns";
+import OrderApprovalWorkflow from "../components/OrderApprovalWorkflow";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SalesRepOrders = () => {
   const [search, setSearch] = useState("");
@@ -76,6 +78,10 @@ const SalesRepOrders = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SalesRepOrder | null>(
+    null
+  );
+  const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
+  const [approvalOrder, setApprovalOrder] = useState<SalesRepOrder | null>(
     null
   );
   const [formData, setFormData] = useState<OrderFormData>({
@@ -91,7 +97,15 @@ const SalesRepOrders = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { formatCurrency } = useFormatting();
+  const { user } = useAuth();
   const limit = 10;
+
+  // Determine user role for approval workflow
+  const getUserRole = (): "admin" | "factory_manager" | "sales_rep" => {
+    if (user?.role === "admin") return "admin";
+    if (user?.role === "manager") return "factory_manager";
+    return "sales_rep";
+  };
 
   const { data: ordersData, isLoading } = useQuery({
     queryKey: [
@@ -288,12 +302,47 @@ const SalesRepOrders = () => {
     deleteMutation.mutate(id);
   };
 
+  const handleOpenApprovalWorkflow = (order: SalesRepOrder) => {
+    setApprovalOrder(order);
+    setShowApprovalWorkflow(true);
+  };
+
+  const handleOrderUpdated = (updatedOrder: SalesRepOrder) => {
+    // Update the order in the cache
+    queryClient.setQueryData(
+      ["salesrep-orders", search, statusFilter, customerFilter, currentPage],
+      (
+        oldData:
+          | {
+              data: SalesRepOrder[];
+              total: number;
+              page: number;
+              limit: number;
+            }
+          | undefined
+      ) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          data: oldData.data.map((order: SalesRepOrder) =>
+            order.id === updatedOrder.id ? updatedOrder : order
+          ),
+        };
+      }
+    );
+    setApprovalOrder(updatedOrder);
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<
       string,
       "default" | "secondary" | "destructive" | "outline"
     > = {
       draft: "outline",
+      submitted_for_approval: "secondary",
+      approved: "default",
+      rejected: "destructive",
+      factory_accepted: "default",
       confirmed: "default",
       processing: "secondary",
       shipped: "default",
@@ -886,6 +935,14 @@ const SalesRepOrders = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenApprovalWorkflow(order)}
+                          title="Open approval workflow"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm">
@@ -1300,6 +1357,30 @@ const SalesRepOrders = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Order Approval Workflow Dialog */}
+      {approvalOrder && (
+        <Dialog
+          open={showApprovalWorkflow}
+          onOpenChange={setShowApprovalWorkflow}
+        >
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Order Approval Workflow</DialogTitle>
+              <DialogDescription>
+                Manage the approval process for order{" "}
+                {approvalOrder.order_number}
+              </DialogDescription>
+            </DialogHeader>
+            <OrderApprovalWorkflow
+              order={approvalOrder}
+              onOrderUpdated={handleOrderUpdated}
+              userRole={getUserRole()}
+              availableFactories={[]} // TODO: Load factories for admin approval
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
