@@ -4,19 +4,22 @@ import {
   PaginationParams,
   PaginatedResponse,
   SalesRepOrderItem,
-} from '../../types';
-import { MediatorInterface } from '@/types';
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+} from "../../types";
+import { MediatorInterface } from "@/types";
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 
 class GetOrderInfoMediator implements MediatorInterface {
   async process(data: any): Promise<any> {
-    throw new Error('Not Implemented');
+    throw new Error("Not Implemented");
   }
 
   // Get paginated list of orders with filters
-  async getOrders(filters?: OrderFilters, pagination?: PaginationParams): Promise<PaginatedResponse<SalesRepOrder>> {
-    let action = 'Get Orders';
+  async getOrders(
+    filters?: OrderFilters,
+    pagination?: PaginationParams
+  ): Promise<PaginatedResponse<SalesRepOrder>> {
+    let action = "Get Orders";
     const client = await pool.connect();
 
     try {
@@ -76,7 +79,8 @@ class GetOrderInfoMediator implements MediatorInterface {
         paramIndex++;
       }
 
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
       // Get total count
       const countQuery = `
@@ -88,7 +92,7 @@ class GetOrderInfoMediator implements MediatorInterface {
       const countResult = await client.query(countQuery, values);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get orders with related data
+      // Get orders with related data - check both sales_rep_customers and shared customers
       const ordersQuery = `
         SELECT
           o.id,
@@ -104,11 +108,12 @@ class GetOrderInfoMediator implements MediatorInterface {
           o.notes,
           o.created_at,
           o.updated_at,
-          c.name as customer_name,
-          c.email as customer_email,
-          c.phone as customer_phone
+          COALESCE(src.name, sc.name) as customer_name,
+          COALESCE(src.email, sc.email) as customer_email,
+          COALESCE(src.phone, sc.phone) as customer_phone
         FROM sales_rep_orders o
-        LEFT JOIN sales_rep_customers c ON o.customer_id = c.id
+        LEFT JOIN sales_rep_customers src ON o.customer_id = src.id
+        LEFT JOIN factory_customers sc ON o.customer_id = sc.id
         ${whereClause}
         ORDER BY o.created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -124,22 +129,24 @@ class GetOrderInfoMediator implements MediatorInterface {
 
         orders.push({
           ...orderRow,
-          customer: orderRow.customer_id ? {
-            id: orderRow.customer_id,
-            name: orderRow.customer_name,
-            email: orderRow.customer_email,
-            phone: orderRow.customer_phone,
-            address: null,
-            city: null,
-            state: null,
-            postal_code: null,
-            credit_limit: 0,
-            current_balance: 0,
-            sales_rep_id: null,
-            created_at: new Date(),
-            updated_at: new Date()
-          } : undefined,
-          items
+          customer: orderRow.customer_id
+            ? {
+                id: orderRow.customer_id,
+                name: orderRow.customer_name,
+                email: orderRow.customer_email,
+                phone: orderRow.customer_phone,
+                address: null,
+                city: null,
+                state: null,
+                postal_code: null,
+                credit_limit: 0,
+                current_balance: 0,
+                sales_rep_id: null,
+                created_at: new Date(),
+                updated_at: new Date(),
+              }
+            : undefined,
+          items,
         });
       }
 
@@ -151,7 +158,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         limit,
         totalPages,
         returnedCount: orders.length,
-        filters: Object.keys(filters || {}).length
+        filters: Object.keys(filters || {}).length,
       });
 
       return {
@@ -159,7 +166,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         page,
         limit,
         total,
-        totalPages
+        totalPages,
       };
     } catch (error: any) {
       MyLogger.error(action, error, { filters, pagination });
@@ -171,7 +178,7 @@ class GetOrderInfoMediator implements MediatorInterface {
 
   // Get single order by ID
   async getOrder(id: number): Promise<SalesRepOrder | null> {
-    let action = 'Get Order By ID';
+    let action = "Get Order By ID";
     const client = await pool.connect();
 
     try {
@@ -216,22 +223,24 @@ class GetOrderInfoMediator implements MediatorInterface {
 
       const order: SalesRepOrder = {
         ...orderRow,
-        customer: orderRow.customer_id ? {
-          id: orderRow.customer_id,
-          name: orderRow.customer_name,
-          email: orderRow.customer_email,
-          phone: orderRow.customer_phone,
-          address: orderRow.customer_address,
-          city: orderRow.customer_city,
-          state: orderRow.customer_state,
-          postal_code: orderRow.customer_postal_code,
-          credit_limit: 0,
-          current_balance: 0,
-          sales_rep_id: null,
-          created_at: new Date(),
-          updated_at: new Date()
-        } : undefined,
-        items
+        customer: orderRow.customer_id
+          ? {
+              id: orderRow.customer_id,
+              name: orderRow.customer_name,
+              email: orderRow.customer_email,
+              phone: orderRow.customer_phone,
+              address: orderRow.customer_address,
+              city: orderRow.customer_city,
+              state: orderRow.customer_state,
+              postal_code: orderRow.customer_postal_code,
+              credit_limit: 0,
+              current_balance: 0,
+              sales_rep_id: null,
+              created_at: new Date(),
+              updated_at: new Date(),
+            }
+          : undefined,
+        items,
       };
 
       MyLogger.success(action, {
@@ -239,7 +248,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         orderNumber: order.order_number,
         status: order.status,
         itemsCount: items?.length || 0,
-        found: true
+        found: true,
       });
 
       return order;
@@ -253,7 +262,7 @@ class GetOrderInfoMediator implements MediatorInterface {
 
   // Get order statistics
   async getOrderStats(): Promise<any> {
-    let action = 'Get Order Statistics';
+    let action = "Get Order Statistics";
     const client = await pool.connect();
 
     try {
@@ -285,7 +294,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         deliveredOrders: parseInt(stats.delivered_orders),
         cancelledOrders: parseInt(stats.cancelled_orders),
         totalOrderValue: parseFloat(stats.total_order_value),
-        averageOrderValue: parseFloat(stats.average_order_value)
+        averageOrderValue: parseFloat(stats.average_order_value),
       });
 
       return {
@@ -297,7 +306,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         deliveredOrders: parseInt(stats.delivered_orders),
         cancelledOrders: parseInt(stats.cancelled_orders),
         totalOrderValue: parseFloat(stats.total_order_value),
-        averageOrderValue: parseFloat(stats.average_order_value)
+        averageOrderValue: parseFloat(stats.average_order_value),
       };
     } catch (error: any) {
       MyLogger.error(action, error);

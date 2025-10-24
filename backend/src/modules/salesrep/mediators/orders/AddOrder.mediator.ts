@@ -1,34 +1,62 @@
-import {
-  SalesRepOrder,
-  CreateOrderRequest,
-} from '../../types';
-import { MediatorInterface } from '@/types';
-import pool from '@/database/connection';
-import { MyLogger } from '@/utils/new-logger';
+import { SalesRepOrder, CreateOrderRequest } from "../../types";
+import { MediatorInterface } from "@/types";
+import pool from "@/database/connection";
+import { MyLogger } from "@/utils/new-logger";
 
 class AddOrderMediator implements MediatorInterface {
   async process(data: any): Promise<any> {
-    throw new Error('Not Implemented');
+    throw new Error("Not Implemented");
   }
 
   // Create new order
-  async createOrder(data: CreateOrderRequest, salesRepId?: number): Promise<SalesRepOrder> {
-    let action = 'Create Order';
+  async createOrder(
+    data: CreateOrderRequest,
+    salesRepId?: number
+  ): Promise<SalesRepOrder> {
+    let action = "Create Order";
     const client = await pool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       MyLogger.info(action, { orderData: data, salesRepId });
 
-      // Validate customer exists
-      const customerQuery = 'SELECT id, name FROM sales_rep_customers WHERE id = $1';
-      const customerResult = await client.query(customerQuery, [data.customer_id]);
+      // Validate customer exists - check both sales_rep_customers and shared customers
+      let customer;
 
-      if (customerResult.rows.length === 0) {
-        throw new Error('Customer not found');
+      // First check sales_rep_customers table
+      const salesRepCustomerQuery =
+        "SELECT id, name FROM sales_rep_customers WHERE id = $1";
+      const salesRepCustomerResult = await client.query(salesRepCustomerQuery, [
+        data.customer_id,
+      ]);
+
+      if (salesRepCustomerResult.rows.length > 0) {
+        customer = salesRepCustomerResult.rows[0];
+      } else {
+        // Check if factory module is available and look in shared customers
+        const { moduleRegistry } = await import("@/utils/moduleRegistry");
+        const { MODULE_NAMES } = await import("@/utils/moduleRegistry");
+        const isFactoryAvailable = moduleRegistry.isModuleAvailable(
+          MODULE_NAMES.FACTORY
+        );
+
+        if (isFactoryAvailable) {
+          // Check factory_customers table (shared customers)
+          const sharedCustomerQuery =
+            "SELECT id, name FROM factory_customers WHERE id = $1";
+          const sharedCustomerResult = await client.query(sharedCustomerQuery, [
+            data.customer_id,
+          ]);
+
+          if (sharedCustomerResult.rows.length > 0) {
+            customer = sharedCustomerResult.rows[0];
+          } else {
+            throw new Error("Customer not found");
+          }
+        } else {
+          throw new Error("Customer not found");
+        }
       }
-
-      const customer = customerResult.rows[0];
 
       // Generate order number
       const orderNumber = await this.generateOrderNumber(client);
@@ -40,7 +68,7 @@ class AddOrderMediator implements MediatorInterface {
 
       if (data.items && data.items.length > 0) {
         totalAmount = data.items.reduce((sum, item) => {
-          return sum + (item.quantity * item.unit_price);
+          return sum + item.quantity * item.unit_price;
         }, 0);
       }
 
@@ -80,13 +108,13 @@ class AddOrderMediator implements MediatorInterface {
         data.customer_id,
         orderNumber,
         new Date(),
-        'draft',
+        "draft",
         totalAmount,
         discountAmount,
         taxAmount,
         finalAmount,
         salesRepId || null,
-        data.notes || null
+        data.notes || null,
       ]);
 
       const order = orderResult.rows[0];
@@ -96,7 +124,7 @@ class AddOrderMediator implements MediatorInterface {
         await this.createOrderItems(client, order.id, data.items);
       }
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       MyLogger.success(action, {
         orderId: order.id,
         orderNumber: order.order_number,
@@ -104,13 +132,13 @@ class AddOrderMediator implements MediatorInterface {
         totalAmount: order.total_amount,
         finalAmount: order.final_amount,
         itemsCount: data.items?.length || 0,
-        salesRepId: order.sales_rep_id
+        salesRepId: order.sales_rep_id,
       });
 
       // Return the complete order with customer and items
       return await this.getCompleteOrder(client, order.id);
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, { orderData: data, salesRepId });
       throw error;
     } finally {
@@ -121,7 +149,7 @@ class AddOrderMediator implements MediatorInterface {
   // Generate unique order number
   private async generateOrderNumber(client: any): Promise<string> {
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
 
     const countQuery = `
       SELECT COUNT(*) as count
@@ -132,11 +160,15 @@ class AddOrderMediator implements MediatorInterface {
     const countResult = await client.query(countQuery, [today]);
     const count = parseInt(countResult.rows[0].count);
 
-    return `SR-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    return `SR-${dateStr}-${String(count + 1).padStart(4, "0")}`;
   }
 
   // Create order items
-  private async createOrderItems(client: any, orderId: number, items: any[]): Promise<void> {
+  private async createOrderItems(
+    client: any,
+    orderId: number,
+    items: any[]
+  ): Promise<void> {
     const insertItemQuery = `
       INSERT INTO sales_rep_order_items (
         order_id,
@@ -150,7 +182,7 @@ class AddOrderMediator implements MediatorInterface {
     `;
 
     for (const item of items) {
-      const totalPrice = (item.quantity * item.unit_price) - item.discount;
+      const totalPrice = item.quantity * item.unit_price - item.discount;
 
       await client.query(insertItemQuery, [
         orderId,
@@ -159,13 +191,16 @@ class AddOrderMediator implements MediatorInterface {
         item.quantity,
         item.unit_price,
         item.discount || 0,
-        totalPrice
+        totalPrice,
       ]);
     }
   }
 
   // Get complete order with customer and items (helper method)
-  private async getCompleteOrder(client: any, orderId: number): Promise<SalesRepOrder> {
+  private async getCompleteOrder(
+    client: any,
+    orderId: number
+  ): Promise<SalesRepOrder> {
     const orderQuery = `
       SELECT
         o.id,
@@ -218,22 +253,24 @@ class AddOrderMediator implements MediatorInterface {
 
     return {
       ...orderRow,
-      customer: orderRow.customer_id ? {
-        id: orderRow.customer_id,
-        name: orderRow.customer_name,
-        email: orderRow.customer_email,
-        phone: orderRow.customer_phone,
-        address: orderRow.customer_address,
-        city: orderRow.customer_city,
-        state: orderRow.customer_state,
-        postal_code: orderRow.customer_postal_code,
-        credit_limit: 0,
-        current_balance: 0,
-        sales_rep_id: null,
-        created_at: new Date(),
-        updated_at: new Date()
-      } : undefined,
-      items: itemsResult.rows
+      customer: orderRow.customer_id
+        ? {
+            id: orderRow.customer_id,
+            name: orderRow.customer_name,
+            email: orderRow.customer_email,
+            phone: orderRow.customer_phone,
+            address: orderRow.customer_address,
+            city: orderRow.customer_city,
+            state: orderRow.customer_state,
+            postal_code: orderRow.customer_postal_code,
+            credit_limit: 0,
+            current_balance: 0,
+            sales_rep_id: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }
+        : undefined,
+      items: itemsResult.rows,
     };
   }
 }

@@ -96,7 +96,7 @@ class GetDashboardStatsMediator implements MediatorInterface {
       );
       const monthlySales = parseFloat(monthlySalesResult.rows[0].total);
 
-      // Get recent orders (last 5)
+      // Get recent orders (last 5) - check both sales_rep_customers and shared customers
       const recentOrdersQuery = `
         SELECT 
           o.id,
@@ -112,11 +112,12 @@ class GetDashboardStatsMediator implements MediatorInterface {
           o.notes,
           o.created_at,
           o.updated_at,
-          c.name as customer_name,
-          c.email as customer_email,
-          c.phone as customer_phone
+          COALESCE(src.name, sc.name) as customer_name,
+          COALESCE(src.email, sc.email) as customer_email,
+          COALESCE(src.phone, sc.phone) as customer_phone
         FROM sales_rep_orders o
-        LEFT JOIN sales_rep_customers c ON o.customer_id = c.id
+        LEFT JOIN sales_rep_customers src ON o.customer_id = src.id
+        LEFT JOIN factory_customers sc ON o.customer_id = sc.id
         ${salesRepCondition ? "WHERE o." + salesRepCondition : ""}
         ORDER BY o.created_at DESC
         LIMIT 5
