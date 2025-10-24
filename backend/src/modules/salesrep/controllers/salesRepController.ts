@@ -1,30 +1,35 @@
-import { Request, Response } from 'express';
-import GetCustomerInfoMediator from '../mediators/customers/GetCustomerInfo.mediator';
-import AddCustomerMediator from '../mediators/customers/AddCustomer.mediator';
-import UpdateCustomerMediator from '../mediators/customers/UpdateCustomer.mediator';
-import DeleteCustomerMediator from '../mediators/customers/DeleteCustomer.mediator';
-import GetOrderInfoMediator from '../mediators/orders/GetOrderInfo.mediator';
-import AddOrderMediator from '../mediators/orders/AddOrder.mediator';
-import UpdateOrderMediator from '../mediators/orders/UpdateOrder.mediator';
-import DeleteOrderMediator from '../mediators/orders/DeleteOrder.mediator';
-import GetInvoiceInfoMediator from '../mediators/invoices/GetInvoiceInfo.mediator';
-import AddInvoiceMediator from '../mediators/invoices/AddInvoice.mediator';
-import GetPaymentInfoMediator from '../mediators/payments/GetPaymentInfo.mediator';
-import AddPaymentMediator from '../mediators/payments/AddPayment.mediator';
-import GetDeliveryInfoMediator from '../mediators/deliveries/GetDeliveryInfo.mediator';
-import AddDeliveryMediator from '../mediators/deliveries/AddDelivery.mediator';
-import UpdateDeliveryMediator from '../mediators/deliveries/UpdateDelivery.mediator';
-import GetNotificationInfoMediator from '../mediators/notifications/GetNotificationInfo.mediator';
-import MarkNotificationAsReadMediator from '../mediators/notifications/MarkNotificationAsRead.mediator';
-import DeleteNotificationMediator from '../mediators/notifications/DeleteNotification.mediator';
-import GetDashboardStatsMediator from '../mediators/dashboard/GetDashboardStats.mediator';
-import GetReportInfoMediator from '../mediators/reports/GetReportInfo.mediator';
-import AddReportMediator from '../mediators/reports/AddReport.mediator';
-import { ApiResponse } from '../types';
+import { Request, Response } from "express";
+import GetCustomerInfoMediator from "../mediators/customers/GetCustomerInfo.mediator";
+import AddCustomerMediator from "../mediators/customers/AddCustomer.mediator";
+import UpdateCustomerMediator from "../mediators/customers/UpdateCustomer.mediator";
+import DeleteCustomerMediator from "../mediators/customers/DeleteCustomer.mediator";
+import sharedCustomerService from "../../../services/sharedCustomerService";
+import { moduleRegistry, MODULE_NAMES } from "../../../utils/moduleRegistry";
+import GetOrderInfoMediator from "../mediators/orders/GetOrderInfo.mediator";
+import AddOrderMediator from "../mediators/orders/AddOrder.mediator";
+import UpdateOrderMediator from "../mediators/orders/UpdateOrder.mediator";
+import DeleteOrderMediator from "../mediators/orders/DeleteOrder.mediator";
+import GetInvoiceInfoMediator from "../mediators/invoices/GetInvoiceInfo.mediator";
+import AddInvoiceMediator from "../mediators/invoices/AddInvoice.mediator";
+import GetPaymentInfoMediator from "../mediators/payments/GetPaymentInfo.mediator";
+import AddPaymentMediator from "../mediators/payments/AddPayment.mediator";
+import GetDeliveryInfoMediator from "../mediators/deliveries/GetDeliveryInfo.mediator";
+import AddDeliveryMediator from "../mediators/deliveries/AddDelivery.mediator";
+import UpdateDeliveryMediator from "../mediators/deliveries/UpdateDelivery.mediator";
+import GetNotificationInfoMediator from "../mediators/notifications/GetNotificationInfo.mediator";
+import MarkNotificationAsReadMediator from "../mediators/notifications/MarkNotificationAsRead.mediator";
+import DeleteNotificationMediator from "../mediators/notifications/DeleteNotification.mediator";
+import GetDashboardStatsMediator from "../mediators/dashboard/GetDashboardStats.mediator";
+import GetReportInfoMediator from "../mediators/reports/GetReportInfo.mediator";
+import AddReportMediator from "../mediators/reports/AddReport.mediator";
+import { ApiResponse } from "../types";
 
 export class SalesRepController {
   // Dashboard
-  async getDashboardStats(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getDashboardStats(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const userId = req.user?.user_id;
       const stats = await GetDashboardStatsMediator.getDashboardStats(userId);
@@ -34,45 +39,88 @@ export class SalesRepController {
         data: stats,
       });
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error("Error fetching dashboard stats:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch dashboard statistics',
+        error: "Failed to fetch dashboard statistics",
       });
     }
   }
 
   // Customers
-  async getCustomers(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getCustomers(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
-      const filters = req.query;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isFactoryAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.FACTORY
+      );
 
-      const result = await GetCustomerInfoMediator.getCustomers(filters, { page, limit });
+      if (isFactoryAvailable) {
+        // Use shared customer service when both modules are available
+        const customers = await sharedCustomerService.getAllCustomers();
+        res.json({
+          success: true,
+          data: {
+            customers,
+            total: customers.length,
+            page: 1,
+            limit: customers.length,
+            shared: true,
+          },
+        });
+      } else {
+        // Use sales-rep specific logic when only sales-rep module is available
+        const filters = req.query;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
 
-      res.json({
-        success: true,
-        data: result,
-      });
+        const result = await GetCustomerInfoMediator.getCustomers(filters, {
+          page,
+          limit,
+        });
+
+        res.json({
+          success: true,
+          data: result,
+        });
+      }
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      console.error("Error fetching customers:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch customers',
+        error: "Failed to fetch customers",
       });
     }
   }
 
-  async getCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getCustomer(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
-      const customer = await GetCustomerInfoMediator.getCustomer(parseInt(id));
+
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isFactoryAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.FACTORY
+      );
+
+      let customer;
+      if (isFactoryAvailable) {
+        // Use shared customer service when both modules are available
+        customer = await sharedCustomerService.getCustomerById(parseInt(id));
+      } else {
+        // Use sales-rep specific logic when only sales-rep module is available
+        customer = await GetCustomerInfoMediator.getCustomer(parseInt(id));
+      }
 
       if (!customer) {
         res.status(404).json({
           success: false,
-          error: 'Customer not found',
+          error: "Customer not found",
         });
         return;
       }
@@ -82,44 +130,91 @@ export class SalesRepController {
         data: customer,
       });
     } catch (error) {
-      console.error('Error fetching customer:', error);
+      console.error("Error fetching customer:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch customer',
+        error: "Failed to fetch customer",
       });
     }
   }
 
-  async createCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async createCustomer(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const customerData = req.body;
       const userId = req.user?.user_id;
-      const customer = await AddCustomerMediator.createCustomer(customerData, userId);
+
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isFactoryAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.FACTORY
+      );
+
+      let customer;
+      if (isFactoryAvailable) {
+        // Use shared customer service when both modules are available
+        const sharedCustomerData = {
+          ...customerData,
+          sales_rep_id: userId ? parseInt(String(userId)) : undefined,
+        };
+        customer = await sharedCustomerService.createCustomer(
+          sharedCustomerData
+        );
+      } else {
+        // Use sales-rep specific logic when only sales-rep module is available
+        customer = await AddCustomerMediator.createCustomer(
+          customerData,
+          userId
+        );
+      }
 
       res.status(201).json({
         success: true,
         data: customer,
-        message: 'Customer created successfully',
+        message: "Customer created successfully",
       });
     } catch (error) {
-      console.error('Error creating customer:', error);
+      console.error("Error creating customer:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to create customer',
+        error: "Failed to create customer",
       });
     }
   }
 
-  async updateCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async updateCustomer(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const customerData = req.body;
-      const customer = await UpdateCustomerMediator.updateCustomer(parseInt(id), customerData);
+
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isFactoryAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.FACTORY
+      );
+
+      let customer;
+      if (isFactoryAvailable) {
+        // Use shared customer service when both modules are available
+        customer = await sharedCustomerService.updateCustomer(
+          parseInt(id),
+          customerData
+        );
+      } else {
+        // Use sales-rep specific logic when only sales-rep module is available
+        customer = await UpdateCustomerMediator.updateCustomer(
+          parseInt(id),
+          customerData
+        );
+      }
 
       if (!customer) {
         res.status(404).json({
           success: false,
-          error: 'Customer not found',
+          error: "Customer not found",
         });
         return;
       }
@@ -127,53 +222,62 @@ export class SalesRepController {
       res.json({
         success: true,
         data: customer,
-        message: 'Customer updated successfully',
+        message: "Customer updated successfully",
       });
     } catch (error) {
-      console.error('Error updating customer:', error);
+      console.error("Error updating customer:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update customer',
+        error: "Failed to update customer",
       });
     }
   }
 
-  async deleteCustomer(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async deleteCustomer(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteCustomerMediator.deleteCustomer(parseInt(id));
 
       res.json({
         success: true,
-        message: 'Customer deleted successfully',
+        message: "Customer deleted successfully",
       });
     } catch (error) {
-      console.error('Error deleting customer:', error);
+      console.error("Error deleting customer:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to delete customer',
+        error: "Failed to delete customer",
       });
     }
   }
 
   // Orders
-  async getOrders(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getOrders(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await GetOrderInfoMediator.getOrders(filters, { page, limit });
+      const result = await GetOrderInfoMediator.getOrders(filters, {
+        page,
+        limit,
+      });
 
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error("Error fetching orders:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch orders',
+        error: "Failed to fetch orders",
       });
     }
   }
@@ -186,7 +290,7 @@ export class SalesRepController {
       if (!order) {
         res.status(404).json({
           success: false,
-          error: 'Order not found',
+          error: "Order not found",
         });
         return;
       }
@@ -196,15 +300,18 @@ export class SalesRepController {
         data: order,
       });
     } catch (error) {
-      console.error('Error fetching order:', error);
+      console.error("Error fetching order:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch order',
+        error: "Failed to fetch order",
       });
     }
   }
 
-  async createOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async createOrder(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const orderData = req.body;
       const userId = req.user?.user_id;
@@ -213,27 +320,34 @@ export class SalesRepController {
       res.status(201).json({
         success: true,
         data: order,
-        message: 'Order created successfully',
+        message: "Order created successfully",
       });
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error("Error creating order:", error);
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create order',
+        error:
+          error instanceof Error ? error.message : "Failed to create order",
       });
     }
   }
 
-  async updateOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async updateOrder(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const orderData = req.body;
-      const order = await UpdateOrderMediator.updateOrder(parseInt(id), orderData);
+      const order = await UpdateOrderMediator.updateOrder(
+        parseInt(id),
+        orderData
+      );
 
       if (!order) {
         res.status(404).json({
           success: false,
-          error: 'Order not found',
+          error: "Order not found",
         });
         return;
       }
@@ -241,27 +355,34 @@ export class SalesRepController {
       res.json({
         success: true,
         data: order,
-        message: 'Order updated successfully',
+        message: "Order updated successfully",
       });
     } catch (error) {
-      console.error('Error updating order:', error);
+      console.error("Error updating order:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update order',
+        error: "Failed to update order",
       });
     }
   }
 
-  async updateOrderStatus(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async updateOrderStatus(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const order = await UpdateOrderMediator.updateOrderStatus(parseInt(id), status, notes);
+      const order = await UpdateOrderMediator.updateOrderStatus(
+        parseInt(id),
+        status,
+        notes
+      );
 
       if (!order) {
         res.status(404).json({
           success: false,
-          error: 'Order not found',
+          error: "Order not found",
         });
         return;
       }
@@ -269,58 +390,70 @@ export class SalesRepController {
       res.json({
         success: true,
         data: order,
-        message: 'Order status updated successfully',
+        message: "Order status updated successfully",
       });
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error("Error updating order status:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update order status',
+        error: "Failed to update order status",
       });
     }
   }
 
-  async deleteOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async deleteOrder(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteOrderMediator.deleteOrder(parseInt(id));
 
       res.json({
         success: true,
-        message: 'Order deleted successfully',
+        message: "Order deleted successfully",
       });
     } catch (error) {
-      console.error('Error deleting order:', error);
+      console.error("Error deleting order:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to delete order',
+        error: "Failed to delete order",
       });
     }
   }
 
   // Invoices
-  async getInvoices(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getInvoices(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await GetInvoiceInfoMediator.getInvoices(filters, { page, limit });
+      const result = await GetInvoiceInfoMediator.getInvoices(filters, {
+        page,
+        limit,
+      });
 
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error('Error fetching invoices:', error);
+      console.error("Error fetching invoices:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch invoices',
+        error: "Failed to fetch invoices",
       });
     }
   }
 
-  async getInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getInvoice(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const invoice = await GetInvoiceInfoMediator.getInvoice(parseInt(id));
@@ -328,7 +461,7 @@ export class SalesRepController {
       if (!invoice) {
         res.status(404).json({
           success: false,
-          error: 'Invoice not found',
+          error: "Invoice not found",
         });
         return;
       }
@@ -338,35 +471,45 @@ export class SalesRepController {
         data: invoice,
       });
     } catch (error) {
-      console.error('Error fetching invoice:', error);
+      console.error("Error fetching invoice:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch invoice',
+        error: "Failed to fetch invoice",
       });
     }
   }
 
-  async createInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async createInvoice(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const invoiceData = req.body;
       const userId = req.user?.user_id;
-      const invoice = await AddInvoiceMediator.createInvoice(invoiceData, userId);
+      const invoice = await AddInvoiceMediator.createInvoice(
+        invoiceData,
+        userId
+      );
 
       res.status(201).json({
         success: true,
         data: invoice,
-        message: 'Invoice generated successfully',
+        message: "Invoice generated successfully",
       });
     } catch (error) {
-      console.error('Error creating invoice:', error);
+      console.error("Error creating invoice:", error);
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate invoice',
+        error:
+          error instanceof Error ? error.message : "Failed to generate invoice",
       });
     }
   }
 
-  async sendInvoice(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async sendInvoice(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const invoice = await AddInvoiceMediator.sendInvoice(parseInt(id));
@@ -374,7 +517,7 @@ export class SalesRepController {
       if (!invoice) {
         res.status(404).json({
           success: false,
-          error: 'Invoice not found',
+          error: "Invoice not found",
         });
         return;
       }
@@ -382,40 +525,49 @@ export class SalesRepController {
       res.json({
         success: true,
         data: invoice,
-        message: 'Invoice sent successfully',
+        message: "Invoice sent successfully",
       });
     } catch (error) {
-      console.error('Error sending invoice:', error);
+      console.error("Error sending invoice:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to send invoice',
+        error: "Failed to send invoice",
       });
     }
   }
 
   // Payments
-  async getPayments(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getPayments(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await GetPaymentInfoMediator.getPayments(filters, { page, limit });
+      const result = await GetPaymentInfoMediator.getPayments(filters, {
+        page,
+        limit,
+      });
 
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      console.error("Error fetching payments:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch payments',
+        error: "Failed to fetch payments",
       });
     }
   }
 
-  async getPayment(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getPayment(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const payment = await GetPaymentInfoMediator.getPayment(parseInt(id));
@@ -423,7 +575,7 @@ export class SalesRepController {
       if (!payment) {
         res.status(404).json({
           success: false,
-          error: 'Payment not found',
+          error: "Payment not found",
         });
         return;
       }
@@ -433,57 +585,72 @@ export class SalesRepController {
         data: payment,
       });
     } catch (error) {
-      console.error('Error fetching payment:', error);
+      console.error("Error fetching payment:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch payment',
+        error: "Failed to fetch payment",
       });
     }
   }
 
-  async createPayment(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async createPayment(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const paymentData = req.body;
       const userId = req.user?.user_id;
-      const payment = await AddPaymentMediator.createPayment(paymentData, userId);
+      const payment = await AddPaymentMediator.createPayment(
+        paymentData,
+        userId
+      );
 
       res.status(201).json({
         success: true,
         data: payment,
-        message: 'Payment recorded successfully',
+        message: "Payment recorded successfully",
       });
     } catch (error) {
-      console.error('Error creating payment:', error);
+      console.error("Error creating payment:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to record payment',
+        error: "Failed to record payment",
       });
     }
   }
 
   // Deliveries
-  async getDeliveries(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getDeliveries(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await GetDeliveryInfoMediator.getDeliveries(filters, { page, limit });
+      const result = await GetDeliveryInfoMediator.getDeliveries(filters, {
+        page,
+        limit,
+      });
 
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error('Error fetching deliveries:', error);
+      console.error("Error fetching deliveries:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch deliveries',
+        error: "Failed to fetch deliveries",
       });
     }
   }
 
-  async getDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getDelivery(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const delivery = await GetDeliveryInfoMediator.getDelivery(parseInt(id));
@@ -491,7 +658,7 @@ export class SalesRepController {
       if (!delivery) {
         res.status(404).json({
           success: false,
-          error: 'Delivery not found',
+          error: "Delivery not found",
         });
         return;
       }
@@ -501,44 +668,59 @@ export class SalesRepController {
         data: delivery,
       });
     } catch (error) {
-      console.error('Error fetching delivery:', error);
+      console.error("Error fetching delivery:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch delivery',
+        error: "Failed to fetch delivery",
       });
     }
   }
 
-  async createDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async createDelivery(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const deliveryData = req.body;
       const userId = req.user?.user_id;
-      const delivery = await AddDeliveryMediator.createDelivery(deliveryData, userId);
+      const delivery = await AddDeliveryMediator.createDelivery(
+        deliveryData,
+        userId
+      );
 
       res.status(201).json({
         success: true,
         data: delivery,
-        message: 'Delivery scheduled successfully',
+        message: "Delivery scheduled successfully",
       });
     } catch (error) {
-      console.error('Error creating delivery:', error);
+      console.error("Error creating delivery:", error);
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to schedule delivery',
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to schedule delivery",
       });
     }
   }
 
-  async updateDelivery(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async updateDelivery(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const deliveryData = req.body;
-      const delivery = await UpdateDeliveryMediator.updateDelivery(parseInt(id), deliveryData);
+      const delivery = await UpdateDeliveryMediator.updateDelivery(
+        parseInt(id),
+        deliveryData
+      );
 
       if (!delivery) {
         res.status(404).json({
           success: false,
-          error: 'Delivery not found',
+          error: "Delivery not found",
         });
         return;
       }
@@ -546,27 +728,33 @@ export class SalesRepController {
       res.json({
         success: true,
         data: delivery,
-        message: 'Delivery updated successfully',
+        message: "Delivery updated successfully",
       });
     } catch (error) {
-      console.error('Error updating delivery:', error);
+      console.error("Error updating delivery:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update delivery',
+        error: "Failed to update delivery",
       });
     }
   }
 
-  async updateDeliveryStatus(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async updateDeliveryStatus(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const delivery = await UpdateDeliveryMediator.updateDeliveryStatus(parseInt(id), status);
+      const delivery = await UpdateDeliveryMediator.updateDeliveryStatus(
+        parseInt(id),
+        status
+      );
 
       if (!delivery) {
         res.status(404).json({
           success: false,
-          error: 'Delivery not found',
+          error: "Delivery not found",
         });
         return;
       }
@@ -574,48 +762,60 @@ export class SalesRepController {
       res.json({
         success: true,
         data: delivery,
-        message: 'Delivery status updated successfully',
+        message: "Delivery status updated successfully",
       });
     } catch (error) {
-      console.error('Error updating delivery status:', error);
+      console.error("Error updating delivery status:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to update delivery status',
+        error: "Failed to update delivery status",
       });
     }
   }
 
   // Notifications
-  async getNotifications(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getNotifications(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const result = await GetNotificationInfoMediator.getNotifications(filters, { page, limit });
+      const result = await GetNotificationInfoMediator.getNotifications(
+        filters,
+        { page, limit }
+      );
 
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error("Error fetching notifications:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch notifications',
+        error: "Failed to fetch notifications",
       });
     }
   }
 
-  async markNotificationAsRead(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async markNotificationAsRead(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
-      const notification = await MarkNotificationAsReadMediator.markNotificationAsRead(parseInt(id));
+      const notification =
+        await MarkNotificationAsReadMediator.markNotificationAsRead(
+          parseInt(id)
+        );
 
       if (!notification) {
         res.status(404).json({
           success: false,
-          error: 'Notification not found',
+          error: "Notification not found",
         });
         return;
       }
@@ -623,55 +823,64 @@ export class SalesRepController {
       res.json({
         success: true,
         data: notification,
-        message: 'Notification marked as read',
+        message: "Notification marked as read",
       });
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error("Error marking notification as read:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to mark notification as read',
+        error: "Failed to mark notification as read",
       });
     }
   }
 
-  async markAllNotificationsAsRead(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async markAllNotificationsAsRead(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const userId = req.user?.user_id;
       await MarkNotificationAsReadMediator.markAllNotificationsAsRead(userId);
 
       res.json({
         success: true,
-        message: 'All notifications marked as read',
+        message: "All notifications marked as read",
       });
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error("Error marking all notifications as read:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to mark all notifications as read',
+        error: "Failed to mark all notifications as read",
       });
     }
   }
 
-  async deleteNotification(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async deleteNotification(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { id } = req.params;
       await DeleteNotificationMediator.deleteNotification(parseInt(id));
 
       res.json({
         success: true,
-        message: 'Notification deleted successfully',
+        message: "Notification deleted successfully",
       });
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error("Error deleting notification:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to delete notification',
+        error: "Failed to delete notification",
       });
     }
   }
 
   // Reports
-  async getReports(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async getReports(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { report_type, date_from, date_to } = req.query;
       const reports = await GetReportInfoMediator.getReports(
@@ -685,30 +894,39 @@ export class SalesRepController {
         data: reports,
       });
     } catch (error) {
-      console.error('Error fetching reports:', error);
+      console.error("Error fetching reports:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch reports',
+        error: "Failed to fetch reports",
       });
     }
   }
 
-  async generateReport(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
+  async generateReport(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
     try {
       const { report_type, date_from, date_to } = req.body;
       const userId = req.user?.user_id;
-      const report = await AddReportMediator.generateReport(report_type, date_from, date_to, userId);
+      const report = await AddReportMediator.generateReport(
+        report_type,
+        date_from,
+        date_to,
+        userId
+      );
 
       res.status(201).json({
         success: true,
         data: report,
-        message: 'Report generated successfully',
+        message: "Report generated successfully",
       });
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error("Error generating report:", error);
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate report',
+        error:
+          error instanceof Error ? error.message : "Failed to generate report",
       });
     }
   }
@@ -716,7 +934,7 @@ export class SalesRepController {
   async exportReport(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { format = 'pdf' } = req.query;
+      const { format = "pdf" } = req.query;
 
       // For now, return a placeholder response
       // In a real implementation, you would generate the actual PDF/Excel/CSV file
@@ -725,20 +943,27 @@ export class SalesRepController {
       if (!report) {
         res.status(404).json({
           success: false,
-          error: 'Report not found',
+          error: "Report not found",
         });
         return;
       }
 
       // Set appropriate headers based on format
       const headers: Record<string, string> = {
-        pdf: 'application/pdf',
-        excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        csv: 'text/csv',
+        pdf: "application/pdf",
+        excel:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        csv: "text/csv",
       };
 
-      res.setHeader('Content-Type', headers[format as string] || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="report-${id}.${format}"`);
+      res.setHeader(
+        "Content-Type",
+        headers[format as string] || "application/octet-stream"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="report-${id}.${format}"`
+      );
 
       // For now, return JSON data
       // In a real implementation, you would generate the actual file content
@@ -748,14 +973,13 @@ export class SalesRepController {
         message: `Report exported as ${format}`,
       });
     } catch (error) {
-      console.error('Error exporting report:', error);
+      console.error("Error exporting report:", error);
       res.status(500).json({
         success: false,
-        error: 'Failed to export report',
+        error: "Failed to export report",
       });
     }
   }
 }
 
 export default new SalesRepController();
-

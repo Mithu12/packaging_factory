@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,7 +70,8 @@ const SalesRepCustomers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<SalesRepCustomer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<SalesRepCustomer | null>(null);
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
     email: "",
@@ -80,18 +87,31 @@ const SalesRepCustomers = () => {
   const { toast } = useToast();
   const limit = 10;
 
-  const { data: customersData, isLoading } = useQuery({
-    queryKey: ["salesrep-customers", search, cityFilter, stateFilter, currentPage],
+  const {
+    data: customersData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: [
+      "salesrep-customers",
+      search,
+      cityFilter,
+      stateFilter,
+      currentPage,
+    ],
     queryFn: () =>
       salesRepApi.getCustomers(
         {
           search,
           city: cityFilter === "all-cities" ? "" : cityFilter,
-          state: stateFilter === "all-states" ? "" : stateFilter
+          state: stateFilter === "all-states" ? "" : stateFilter,
         },
         { page: currentPage, limit }
       ),
   });
+
+  // Debug logging for query state
+  console.log("Query state:", { isLoading, error, customersData });
 
   const createMutation = useMutation({
     mutationFn: (data: CustomerFormData) => salesRepApi.createCustomer(data),
@@ -115,7 +135,7 @@ const SalesRepCustomers = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: CustomerFormData }) =>
-      salesRepApi.updateCustomer(id, data),
+      salesRepApi.updateCustomer(id, { ...data, id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salesrep-customers"] });
       setIsEditDialogOpen(false);
@@ -202,22 +222,36 @@ const SalesRepCustomers = () => {
     return { status: "good", color: "default" };
   };
 
-  const customers = customersData?.data || [];
-  const pagination = customersData ? {
-    page: customersData.page,
-    limit: customersData.limit,
-    total: customersData.total,
-    total_pages: customersData.totalPages
-  } : undefined;
+  // Handle both response types: shared customers and regular paginated response
+  const customers = customersData?.data?.customers || [];
+
+  const pagination = customersData
+    ? {
+        page: customersData.page || 1,
+        limit: customersData.limit || 10,
+        total: customersData.total || 0,
+        total_pages:
+          customersData.totalPages ||
+          Math.ceil((customersData.total || 0) / (customersData.limit || 10)),
+      }
+    : undefined;
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+            {(customersData as any)?.shared && (
+              <Badge variant="outline" className="text-xs">
+                Shared with Factory
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Manage your customer accounts and relationships
+            {(customersData as any)?.shared && " (shared with factory module)"}
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -231,7 +265,8 @@ const SalesRepCustomers = () => {
             <DialogHeader>
               <DialogTitle>Add New Customer</DialogTitle>
               <DialogDescription>
-                Create a new customer account with contact and credit information.
+                Create a new customer account with contact and credit
+                information.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -241,7 +276,9 @@ const SalesRepCustomers = () => {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="Customer name"
                   />
                 </div>
@@ -251,7 +288,9 @@ const SalesRepCustomers = () => {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     placeholder="customer@example.com"
                   />
                 </div>
@@ -262,7 +301,9 @@ const SalesRepCustomers = () => {
                   <Input
                     id="phone"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
@@ -272,7 +313,12 @@ const SalesRepCustomers = () => {
                     id="credit_limit"
                     type="number"
                     value={formData.credit_limit}
-                    onChange={(e) => setFormData({ ...formData, credit_limit: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        credit_limit: Number(e.target.value),
+                      })
+                    }
                     placeholder="10000"
                   />
                 </div>
@@ -282,7 +328,9 @@ const SalesRepCustomers = () => {
                 <Input
                   id="address"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, address: e.target.value })
+                  }
                   placeholder="Street address"
                 />
               </div>
@@ -292,7 +340,9 @@ const SalesRepCustomers = () => {
                   <Input
                     id="city"
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, city: e.target.value })
+                    }
                     placeholder="City"
                   />
                 </div>
@@ -301,7 +351,9 @@ const SalesRepCustomers = () => {
                   <Input
                     id="state"
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, state: e.target.value })
+                    }
                     placeholder="State"
                   />
                 </div>
@@ -310,17 +362,25 @@ const SalesRepCustomers = () => {
                   <Input
                     id="postal_code"
                     value={formData.postal_code}
-                    onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, postal_code: e.target.value })
+                    }
                     placeholder="12345"
                   />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              <Button
+                onClick={handleCreate}
+                disabled={createMutation.isPending}
+              >
                 {createMutation.isPending ? "Creating..." : "Create Customer"}
               </Button>
             </DialogFooter>
@@ -390,7 +450,9 @@ const SalesRepCustomers = () => {
         <CardHeader>
           <CardTitle>Customer List</CardTitle>
           <CardDescription>
-            {pagination ? `${pagination.total} customers found` : "Loading customers..."}
+            {pagination
+              ? `${pagination.total} customers found`
+              : "Loading customers..."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -437,12 +499,23 @@ const SalesRepCustomers = () => {
                 ))
               ) : customers.length > 0 ? (
                 customers.map((customer) => {
-                  const balanceStatus = getBalanceStatus(customer.current_balance, customer.credit_limit);
+                  console.log("Rendering customer:", customer);
+                  const balanceStatus = getBalanceStatus(
+                    customer.current_balance,
+                    customer.credit_limit
+                  );
                   return (
                     <TableRow key={customer.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{customer.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{customer.name}</p>
+                            {(customersData as any)?.shared && (
+                              <Badge variant="secondary" className="text-xs">
+                                Shared
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
                             ID: {customer.id}
                           </p>
@@ -466,7 +539,8 @@ const SalesRepCustomers = () => {
                           <div>
                             <p>{customer.address}</p>
                             <p className="text-muted-foreground">
-                              {customer.city}, {customer.state} {customer.postal_code}
+                              {customer.city}, {customer.state}{" "}
+                              {customer.postal_code}
                             </p>
                           </div>
                         </div>
@@ -474,11 +548,12 @@ const SalesRepCustomers = () => {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center text-sm">
-                            <CreditCard className="h-3 w-3 mr-1" />
-                            ${customer.credit_limit.toLocaleString()}
+                            <CreditCard className="h-3 w-3 mr-1" />$
+                            {customer.credit_limit.toLocaleString()}
                           </div>
                           <div className="text-sm">
-                            Balance: ${customer.current_balance.toLocaleString()}
+                            Balance: $
+                            {customer.current_balance.toLocaleString()}
                           </div>
                         </div>
                       </TableCell>
@@ -504,9 +579,12 @@ const SalesRepCustomers = () => {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  Delete Customer
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete {customer.name}? This action cannot be undone.
+                                  Are you sure you want to delete{" "}
+                                  {customer.name}? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -530,10 +608,17 @@ const SalesRepCustomers = () => {
                   <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex flex-col items-center space-y-2">
                       <Users className="h-12 w-12 text-muted-foreground" />
-                      <p className="text-muted-foreground">No customers found</p>
+                      <p className="text-muted-foreground">
+                        No customers found
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         Try adjusting your search or filters
                       </p>
+                      {/* Debug info */}
+                      <div className="text-xs text-gray-500 mt-2">
+                        Debug: customers.length = {customers.length}, isLoading
+                        = {isLoading.toString()}, error = {error ? "Yes" : "No"}
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -559,7 +644,9 @@ const SalesRepCustomers = () => {
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="Customer name"
                 />
               </div>
@@ -569,7 +656,9 @@ const SalesRepCustomers = () => {
                   id="edit-email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   placeholder="customer@example.com"
                 />
               </div>
@@ -580,7 +669,9 @@ const SalesRepCustomers = () => {
                 <Input
                   id="edit-phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
@@ -590,7 +681,12 @@ const SalesRepCustomers = () => {
                   id="edit-credit_limit"
                   type="number"
                   value={formData.credit_limit}
-                  onChange={(e) => setFormData({ ...formData, credit_limit: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      credit_limit: Number(e.target.value),
+                    })
+                  }
                   placeholder="10000"
                 />
               </div>
@@ -600,7 +696,9 @@ const SalesRepCustomers = () => {
               <Input
                 id="edit-address"
                 value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
                 placeholder="Street address"
               />
             </div>
@@ -610,7 +708,9 @@ const SalesRepCustomers = () => {
                 <Input
                   id="edit-city"
                   value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, city: e.target.value })
+                  }
                   placeholder="City"
                 />
               </div>
@@ -619,7 +719,9 @@ const SalesRepCustomers = () => {
                 <Input
                   id="edit-state"
                   value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, state: e.target.value })
+                  }
                   placeholder="State"
                 />
               </div>
@@ -628,14 +730,19 @@ const SalesRepCustomers = () => {
                 <Input
                   id="edit-postal_code"
                   value={formData.postal_code}
-                  onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, postal_code: e.target.value })
+                  }
                   placeholder="12345"
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updateMutation.isPending}>

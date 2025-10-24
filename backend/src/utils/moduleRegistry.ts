@@ -1,4 +1,4 @@
-import { MyLogger } from './new-logger';
+import { MyLogger } from "./new-logger";
 
 /**
  * Module Registry - Manages optional module dependencies
@@ -16,10 +16,10 @@ class ModuleRegistry {
     if (services) {
       this.moduleServices.set(moduleName, services);
     }
-    MyLogger.info('Module Registry', { 
-      action: 'register', 
-      module: moduleName, 
-      hasServices: !!services 
+    MyLogger.info("Module Registry", {
+      action: "register",
+      module: moduleName,
+      hasServices: !!services,
     });
   }
 
@@ -50,9 +50,9 @@ class ModuleRegistry {
   unregisterModule(moduleName: string): void {
     this.availableModules.delete(moduleName);
     this.moduleServices.delete(moduleName);
-    MyLogger.info('Module Registry', { 
-      action: 'unregister', 
-      module: moduleName 
+    MyLogger.info("Module Registry", {
+      action: "unregister",
+      module: moduleName,
     });
   }
 }
@@ -62,11 +62,12 @@ export const moduleRegistry = new ModuleRegistry();
 
 // Module names constants
 export const MODULE_NAMES = {
-  ACCOUNTS: 'accounts',
-  EXPENSES: 'expenses',
-  INVENTORY: 'inventory',
-  FACTORY: 'factory',
-  HRM: 'hrm',
+  ACCOUNTS: "accounts",
+  EXPENSES: "expenses",
+  INVENTORY: "inventory",
+  FACTORY: "factory",
+  HRM: "hrm",
+  SALESREP: "salesrep",
 } as const;
 
-export type ModuleName = typeof MODULE_NAMES[keyof typeof MODULE_NAMES];
+export type ModuleName = (typeof MODULE_NAMES)[keyof typeof MODULE_NAMES];

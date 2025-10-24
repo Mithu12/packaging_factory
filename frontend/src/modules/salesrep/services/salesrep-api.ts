@@ -38,20 +38,20 @@ class SalesRepApiService {
   async getCustomers(
     filters?: CustomerFilters,
     pagination?: PaginationParams
-  ): Promise<PaginatedResponse<SalesRepCustomer>> {
+  ): Promise<PaginatedResponse<SalesRepCustomer> | SharedCustomerResponse> {
     const params = new URLSearchParams();
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           params.append(key, value.toString());
         }
       });
     }
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
     const response = await apiClient.get(`${this.baseUrl}/customers?${params}`);
@@ -68,8 +68,14 @@ class SalesRepApiService {
     return response.data;
   }
 
-  async updateCustomer(id: number, data: UpdateCustomerRequest): Promise<SalesRepCustomer> {
-    const response = await apiClient.put(`${this.baseUrl}/customers/${id}`, data);
+  async updateCustomer(
+    id: number,
+    data: UpdateCustomerRequest
+  ): Promise<SalesRepCustomer> {
+    const response = await apiClient.put(
+      `${this.baseUrl}/customers/${id}`,
+      data
+    );
     return response.data;
   }
 
@@ -86,15 +92,15 @@ class SalesRepApiService {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           params.append(key, value.toString());
         }
       });
     }
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
     const response = await apiClient.get(`${this.baseUrl}/orders?${params}`);
@@ -111,7 +117,10 @@ class SalesRepApiService {
     return response.data;
   }
 
-  async updateOrder(id: number, data: UpdateOrderRequest): Promise<SalesRepOrder> {
+  async updateOrder(
+    id: number,
+    data: UpdateOrderRequest
+  ): Promise<SalesRepOrder> {
     const response = await apiClient.put(`${this.baseUrl}/orders/${id}`, data);
     return response.data;
   }
@@ -121,7 +130,10 @@ class SalesRepApiService {
   }
 
   async updateOrderStatus(id: number, status: string): Promise<SalesRepOrder> {
-    const response = await apiClient.patch(`${this.baseUrl}/orders/${id}/status`, { status });
+    const response = await apiClient.patch(
+      `${this.baseUrl}/orders/${id}/status`,
+      { status }
+    );
     return response.data;
   }
 
@@ -134,15 +146,15 @@ class SalesRepApiService {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           params.append(key, value.toString());
         }
       });
     }
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
     const response = await apiClient.get(`${this.baseUrl}/invoices?${params}`);
@@ -160,7 +172,9 @@ class SalesRepApiService {
   }
 
   async sendInvoice(id: number): Promise<SalesRepInvoice> {
-    const response = await apiClient.post(`${this.baseUrl}/invoices/${id}/send`);
+    const response = await apiClient.post(
+      `${this.baseUrl}/invoices/${id}/send`
+    );
     return response.data;
   }
 
@@ -173,15 +187,15 @@ class SalesRepApiService {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           params.append(key, value.toString());
         }
       });
     }
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
     const response = await apiClient.get(`${this.baseUrl}/payments?${params}`);
@@ -215,18 +229,20 @@ class SalesRepApiService {
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           params.append(key, value.toString());
         }
       });
     }
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
-    const response = await apiClient.get(`${this.baseUrl}/deliveries?${params}`);
+    const response = await apiClient.get(
+      `${this.baseUrl}/deliveries?${params}`
+    );
     return response.data;
   }
 
@@ -240,13 +256,25 @@ class SalesRepApiService {
     return response.data;
   }
 
-  async updateDelivery(id: number, data: UpdateDeliveryRequest): Promise<SalesRepDelivery> {
-    const response = await apiClient.put(`${this.baseUrl}/deliveries/${id}`, data);
+  async updateDelivery(
+    id: number,
+    data: UpdateDeliveryRequest
+  ): Promise<SalesRepDelivery> {
+    const response = await apiClient.put(
+      `${this.baseUrl}/deliveries/${id}`,
+      data
+    );
     return response.data;
   }
 
-  async updateDeliveryStatus(id: number, status: string): Promise<SalesRepDelivery> {
-    const response = await apiClient.patch(`${this.baseUrl}/deliveries/${id}/status`, { status });
+  async updateDeliveryStatus(
+    id: number,
+    status: string
+  ): Promise<SalesRepDelivery> {
+    const response = await apiClient.patch(
+      `${this.baseUrl}/deliveries/${id}/status`,
+      { status }
+    );
     return response.data;
   }
 
@@ -258,9 +286,9 @@ class SalesRepApiService {
   ): Promise<SalesRepReport[]> {
     const params = new URLSearchParams();
 
-    if (reportType) params.append('report_type', reportType);
-    if (dateFrom) params.append('date_from', dateFrom);
-    if (dateTo) params.append('date_to', dateTo);
+    if (reportType) params.append("report_type", reportType);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
 
     const response = await apiClient.get(`${this.baseUrl}/reports?${params}`);
     return response.data;
@@ -271,7 +299,11 @@ class SalesRepApiService {
     return response.data;
   }
 
-  async generateReport(reportType: string, dateFrom: string, dateTo: string): Promise<SalesRepReport> {
+  async generateReport(
+    reportType: string,
+    dateFrom: string,
+    dateTo: string
+  ): Promise<SalesRepReport> {
     const response = await apiClient.post(`${this.baseUrl}/reports/generate`, {
       report_type: reportType,
       date_from: dateFrom,
@@ -280,11 +312,17 @@ class SalesRepApiService {
     return response.data;
   }
 
-  async exportReport(id: number, format: 'pdf' | 'excel' | 'csv' = 'pdf'): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseUrl}/reports/${id}/export`, {
-      params: { format },
-      responseType: 'blob',
-    });
+  async exportReport(
+    id: number,
+    format: "pdf" | "excel" | "csv" = "pdf"
+  ): Promise<Blob> {
+    const response = await apiClient.get(
+      `${this.baseUrl}/reports/${id}/export`,
+      {
+        params: { format },
+        responseType: "blob",
+      }
+    );
     return response.data;
   }
 
@@ -295,19 +333,23 @@ class SalesRepApiService {
   ): Promise<PaginatedResponse<SalesRepNotification>> {
     const params = new URLSearchParams();
 
-    if (unreadOnly) params.append('unread_only', 'true');
+    if (unreadOnly) params.append("unread_only", "true");
 
     if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('limit', pagination.limit.toString());
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
     }
 
-    const response = await apiClient.get(`${this.baseUrl}/notifications?${params}`);
+    const response = await apiClient.get(
+      `${this.baseUrl}/notifications?${params}`
+    );
     return response.data?.data;
   }
 
   async markNotificationAsRead(id: number): Promise<SalesRepNotification> {
-    const response = await apiClient.patch(`${this.baseUrl}/notifications/${id}/read`);
+    const response = await apiClient.patch(
+      `${this.baseUrl}/notifications/${id}/read`
+    );
     return response.data;
   }
 

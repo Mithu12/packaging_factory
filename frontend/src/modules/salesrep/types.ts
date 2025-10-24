@@ -19,7 +19,13 @@ export interface SalesRepOrder {
   customer_id: number;
   order_number: string;
   order_date: string;
-  status: 'draft' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status:
+    | "draft"
+    | "confirmed"
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   total_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -48,7 +54,7 @@ export interface SalesRepInvoice {
   invoice_number: string;
   invoice_date: string;
   due_date: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   total_amount: number;
   paid_amount: number;
   balance_amount: number;
@@ -64,7 +70,7 @@ export interface SalesRepPayment {
   payment_number: string;
   payment_date: string;
   amount: number;
-  payment_method: 'cash' | 'bank_transfer' | 'cheque' | 'credit_card';
+  payment_method: "cash" | "bank_transfer" | "cheque" | "credit_card";
   reference_number?: string;
   notes?: string;
   sales_rep_id: number;
@@ -78,7 +84,7 @@ export interface SalesRepDelivery {
   order_id: number;
   delivery_number: string;
   delivery_date: string;
-  status: 'pending' | 'in_transit' | 'delivered' | 'cancelled';
+  status: "pending" | "in_transit" | "delivered" | "cancelled";
   tracking_number?: string;
   courier_service?: string;
   delivery_address: string;
@@ -95,9 +101,14 @@ export interface SalesRepNotification {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'error' | 'success';
+  type: "info" | "warning" | "error" | "success";
   is_read: boolean;
-  related_entity_type?: 'customer' | 'order' | 'invoice' | 'payment' | 'delivery';
+  related_entity_type?:
+    | "customer"
+    | "order"
+    | "invoice"
+    | "payment"
+    | "delivery";
   related_entity_id?: number;
   sales_rep_id: number;
   created_at: string;
@@ -118,7 +129,11 @@ export interface SalesRepDashboardStats {
 
 export interface SalesRepReport {
   id: number;
-  report_type: 'sales_summary' | 'customer_performance' | 'order_analysis' | 'payment_collection';
+  report_type:
+    | "sales_summary"
+    | "customer_performance"
+    | "order_analysis"
+    | "payment_collection";
   title: string;
   date_range: {
     from: string;
@@ -147,7 +162,7 @@ export interface UpdateCustomerRequest extends CreateCustomerRequest {
 
 export interface CreateOrderRequest {
   customer_id: number;
-  items: Omit<SalesRepOrderItem, 'id' | 'order_id'>[];
+  items: Omit<SalesRepOrderItem, "id" | "order_id">[];
   discount_amount?: number;
   notes?: string;
 }
@@ -244,6 +259,14 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface SharedCustomerResponse {
+  customers: SalesRepCustomer[];
+  total: number;
+  page: number;
+  limit: number;
+  shared: boolean;
+}
+
 // Form types
 export interface CustomerFormData {
   name: string;
@@ -276,7 +299,7 @@ export interface InvoiceFormData {
 export interface PaymentFormData {
   invoice_id: number;
   amount: number;
-  payment_method: 'cash' | 'bank_transfer' | 'cheque' | 'credit_card';
+  payment_method: "cash" | "bank_transfer" | "cheque" | "credit_card";
   reference_number: string;
   notes: string;
 }
