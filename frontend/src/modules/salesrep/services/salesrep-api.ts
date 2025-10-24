@@ -23,6 +23,7 @@ import type {
   DeliveryFilters,
   PaginationParams,
   PaginatedResponse,
+  Product,
 } from "../types";
 
 class SalesRepApiService {
@@ -38,7 +39,16 @@ class SalesRepApiService {
   async getCustomers(
     filters?: CustomerFilters,
     pagination?: PaginationParams
-  ): Promise<PaginatedResponse<SalesRepCustomer> | SharedCustomerResponse> {
+  ): Promise<
+    | PaginatedResponse<SalesRepCustomer>
+    | {
+        customers: SalesRepCustomer[];
+        total: number;
+        page: number;
+        limit: number;
+        shared: boolean;
+      }
+  > {
     const params = new URLSearchParams();
 
     if (filters) {
@@ -55,7 +65,7 @@ class SalesRepApiService {
     }
 
     const response = await apiClient.get(`${this.baseUrl}/customers?${params}`);
-    return response.data;
+    return response.data.data;
   }
 
   async getCustomer(id: number): Promise<SalesRepCustomer> {
@@ -359,6 +369,42 @@ class SalesRepApiService {
 
   async deleteNotification(id: number): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/notifications/${id}`);
+  }
+
+  // Products (from inventory module)
+  async getProducts(
+    filters?: {
+      search?: string;
+      category_id?: number;
+      brand_id?: number;
+      status?: string;
+    },
+    pagination?: PaginationParams
+  ): Promise<PaginatedResponse<Product>> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    if (pagination) {
+      params.append("page", pagination.page.toString());
+      params.append("limit", pagination.limit.toString());
+    }
+
+    const response = await apiClient.get(`/products?${params}`);
+    return response.data.data;
+  }
+
+  async searchProducts(query: string): Promise<Product[]> {
+    const response = await apiClient.get(
+      `/api/products/search?q=${encodeURIComponent(query)}`
+    );
+    return response.data.data;
   }
 }
 

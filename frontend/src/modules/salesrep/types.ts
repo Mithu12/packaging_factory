@@ -45,7 +45,7 @@ export interface SalesRepOrderItem {
   quantity: number;
   unit_price: number;
   discount: number;
-  total_price: number;
+  total_price?: number;
 }
 
 export interface SalesRepInvoice {
@@ -162,7 +162,13 @@ export interface UpdateCustomerRequest extends CreateCustomerRequest {
 
 export interface CreateOrderRequest {
   customer_id: number;
-  items: Omit<SalesRepOrderItem, "id" | "order_id">[];
+  items: {
+    product_id: number;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    discount: number;
+  }[];
   discount_amount?: number;
   notes?: string;
 }
@@ -211,6 +217,7 @@ export interface CustomerFilters {
 }
 
 export interface OrderFilters {
+  search?: string;
   customer_id?: number;
   status?: string;
   date_from?: string;
@@ -287,6 +294,7 @@ export interface OrderFormData {
     quantity: number;
     unit_price: number;
     discount: number;
+    total_price?: number; // Optional for frontend calculations only
   }[];
   discount_amount: number;
   notes: string;
@@ -312,4 +320,17 @@ export interface DeliveryFormData {
   tracking_number: string;
   courier_service: string;
   notes: string;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  selling_price: number;
+  cost_price: number;
+  current_stock: number;
+  status: string;
+  category_id?: number;
+  brand_id?: number;
+  image_url?: string;
 }

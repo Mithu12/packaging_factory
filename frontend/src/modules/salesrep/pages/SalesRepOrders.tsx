@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +59,12 @@ import {
   Package,
 } from "lucide-react";
 import { salesRepApi } from "../services/salesrep-api";
-import type { SalesRepOrder, OrderFormData } from "../types";
+import type {
+  SalesRepOrder,
+  OrderFormData,
+  CreateOrderRequest,
+  UpdateOrderRequest,
+} from "../types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -64,7 +75,9 @@ const SalesRepOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<SalesRepOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<SalesRepOrder | null>(
+    null
+  );
   const [formData, setFormData] = useState<OrderFormData>({
     customer_id: 0,
     items: [],
@@ -77,20 +90,64 @@ const SalesRepOrders = () => {
   const limit = 10;
 
   const { data: ordersData, isLoading } = useQuery({
-    queryKey: ["salesrep-orders", search, statusFilter, customerFilter, currentPage],
+    queryKey: [
+      "salesrep-orders",
+      search,
+      statusFilter,
+      customerFilter,
+      currentPage,
+    ],
     queryFn: () =>
       salesRepApi.getOrders(
         {
           search,
           status: statusFilter === "all-status" ? "" : statusFilter,
-          customer_id: customerFilter === "all-customers" ? undefined : Number(customerFilter)
+          customer_id:
+            customerFilter === "all-customers"
+              ? undefined
+              : Number(customerFilter),
         },
         { page: currentPage, limit }
       ),
   });
 
+  // Fetch customers for dropdowns
+  const {
+    data: customersData,
+    isLoading: customersLoading,
+    error: customersError,
+  } = useQuery({
+    queryKey: ["salesrep-customers"],
+    queryFn: () => salesRepApi.getCustomers({}, { page: 1, limit: 1000 }),
+  });
+
+  // Fetch products for product selection
+  const {
+    data: productsData,
+    isLoading: productsLoading,
+    error: productsError,
+  } = useQuery({
+    queryKey: ["products"],
+    queryFn: () =>
+      salesRepApi.getProducts({ status: "active" }, { page: 1, limit: 1000 }),
+  });
+
   const createMutation = useMutation({
-    mutationFn: (data: OrderFormData) => salesRepApi.createOrder(data),
+    mutationFn: (data: OrderFormData) => {
+      const createData: CreateOrderRequest = {
+        customer_id: data.customer_id,
+        items: data.items.map((item) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount: item.discount,
+        })),
+        discount_amount: data.discount_amount,
+        notes: data.notes,
+      };
+      return salesRepApi.createOrder(createData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salesrep-orders"] });
       setIsCreateDialogOpen(false);
@@ -100,7 +157,7 @@ const SalesRepOrders = () => {
         description: "Order created successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create order",
@@ -110,8 +167,22 @@ const SalesRepOrders = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: OrderFormData }) =>
-      salesRepApi.updateOrder(id, data),
+    mutationFn: ({ id, data }: { id: number; data: OrderFormData }) => {
+      const updateData: UpdateOrderRequest = {
+        id,
+        customer_id: data.customer_id,
+        items: data.items.map((item) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount: item.discount,
+        })),
+        discount_amount: data.discount_amount,
+        notes: data.notes,
+      };
+      return salesRepApi.updateOrder(id, updateData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salesrep-orders"] });
       setIsEditDialogOpen(false);
@@ -122,7 +193,7 @@ const SalesRepOrders = () => {
         description: "Order updated successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to update order",
@@ -140,7 +211,7 @@ const SalesRepOrders = () => {
         description: "Order deleted successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete order",
@@ -172,12 +243,13 @@ const SalesRepOrders = () => {
     setSelectedOrder(order);
     setFormData({
       customer_id: order.customer_id,
-      items: order.items.map(item => ({
+      items: order.items.map((item) => ({
         product_id: item.product_id,
         product_name: item.product_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
         discount: item.discount,
+        total_price: item.total_price,
       })),
       discount_amount: order.discount_amount,
       notes: "", // Assuming notes aren't stored in the order object
@@ -190,7 +262,10 @@ const SalesRepOrders = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    const variants: Record<
+      string,
+      "default" | "secondary" | "destructive" | "outline"
+    > = {
       draft: "outline",
       confirmed: "default",
       processing: "secondary",
@@ -207,12 +282,23 @@ const SalesRepOrders = () => {
   };
 
   const orders = ordersData?.data || [];
-  const pagination = ordersData ? {
-    page: ordersData.page,
-    limit: ordersData.limit,
-    total: ordersData.total,
-    total_pages: ordersData.totalPages
-  } : undefined;
+  const pagination = ordersData
+    ? {
+        page: ordersData.page,
+        limit: ordersData.limit,
+        total: ordersData.total,
+        total_pages: ordersData.totalPages,
+      }
+    : undefined;
+
+  // Helper function to get customers from either response structure
+  const getCustomers = () => {
+    if (!customersData) return [];
+    if ("customers" in customersData) {
+      return customersData.customers;
+    }
+    return customersData.data || [];
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -243,15 +329,22 @@ const SalesRepOrders = () => {
                 <Label htmlFor="customer">Customer</Label>
                 <Select
                   value={formData.customer_id.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, customer_id: Number(value) })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, customer_id: Number(value) })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">Customer 1</SelectItem>
-                    <SelectItem value="2">Customer 2</SelectItem>
-                    <SelectItem value="3">Customer 3</SelectItem>
+                    {getCustomers().map((customer) => (
+                      <SelectItem
+                        key={customer.id}
+                        value={customer.id.toString()}
+                      >
+                        {customer.name} ({customer.email})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -269,16 +362,98 @@ const SalesRepOrders = () => {
                       <span>Total</span>
                     </div>
                     {formData.items.map((item, index) => (
-                      <div key={index} className="grid grid-cols-5 gap-2 items-center">
-                        <Input
-                          placeholder="Product name"
-                          value={item.product_name}
-                          onChange={(e) => {
-                            const newItems = [...formData.items];
-                            newItems[index].product_name = e.target.value;
-                            setFormData({ ...formData, items: newItems });
-                          }}
-                        />
+                      <div
+                        key={index}
+                        className="grid grid-cols-5 gap-2 items-center"
+                      >
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Search products..."
+                            value={item.product_name}
+                            onChange={(e) => {
+                              const newItems = [...formData.items];
+                              newItems[index].product_name = e.target.value;
+                              setFormData({ ...formData, items: newItems });
+                            }}
+                            onFocus={() => {
+                              // You could add product search dropdown here
+                            }}
+                          />
+                          {productsData?.products && (
+                            <div className="relative">
+                              <Select
+                                value={item.product_id.toString()}
+                                onValueChange={(value) => {
+                                  const product = productsData.products.find(
+                                    (p) => p.id.toString() === value
+                                  );
+                                  if (product) {
+                                    const newItems = [...formData.items];
+                                    newItems[index].product_id = product.id;
+                                    newItems[index].product_name = product.name;
+                                    newItems[index].unit_price =
+                                      product.selling_price || 0;
+                                    newItems[index].total_price =
+                                      newItems[index].quantity *
+                                        (product.selling_price || 0) -
+                                      newItems[index].discount;
+                                    setFormData({
+                                      ...formData,
+                                      items: newItems,
+                                    });
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {productsData.products
+                                    .filter(
+                                      (product) =>
+                                        product.name
+                                          .toLowerCase()
+                                          .includes(
+                                            item.product_name.toLowerCase()
+                                          ) ||
+                                        product.sku
+                                          .toLowerCase()
+                                          .includes(
+                                            item.product_name.toLowerCase()
+                                          )
+                                    )
+                                    .slice(0, 10)
+                                    .map((product) => (
+                                      <SelectItem
+                                        key={product.id}
+                                        value={product.id.toString()}
+                                      >
+                                        {product.name} ({product.sku}) - $
+                                        {product.selling_price}
+                                      </SelectItem>
+                                    ))}
+                                  {productsData.products.filter(
+                                    (product) =>
+                                      product.name
+                                        .toLowerCase()
+                                        .includes(
+                                          item.product_name.toLowerCase()
+                                        ) ||
+                                      product.sku
+                                        .toLowerCase()
+                                        .includes(
+                                          item.product_name.toLowerCase()
+                                        )
+                                  ).length === 0 && (
+                                    <div className="p-2 text-sm text-muted-foreground">
+                                      No products found
+                                    </div>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
                         <Input
                           type="number"
                           placeholder="Qty"
@@ -286,6 +461,10 @@ const SalesRepOrders = () => {
                           onChange={(e) => {
                             const newItems = [...formData.items];
                             newItems[index].quantity = Number(e.target.value);
+                            newItems[index].total_price =
+                              Number(e.target.value) *
+                                newItems[index].unit_price -
+                              newItems[index].discount;
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
@@ -297,6 +476,10 @@ const SalesRepOrders = () => {
                           onChange={(e) => {
                             const newItems = [...formData.items];
                             newItems[index].unit_price = Number(e.target.value);
+                            newItems[index].total_price =
+                              newItems[index].quantity *
+                                Number(e.target.value) -
+                              newItems[index].discount;
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
@@ -308,18 +491,24 @@ const SalesRepOrders = () => {
                           onChange={(e) => {
                             const newItems = [...formData.items];
                             newItems[index].discount = Number(e.target.value);
+                            newItems[index].total_price =
+                              newItems[index].quantity *
+                                newItems[index].unit_price -
+                              Number(e.target.value);
                             setFormData({ ...formData, items: newItems });
                           }}
                         />
                         <div className="flex items-center space-x-2">
                           <span className="text-sm">
-                            ${(item.quantity * item.unit_price - item.discount).toFixed(2)}
+                            ${item.total_price.toFixed(2)}
                           </span>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const newItems = formData.items.filter((_, i) => i !== index);
+                              const newItems = formData.items.filter(
+                                (_, i) => i !== index
+                              );
                               setFormData({ ...formData, items: newItems });
                             }}
                           >
@@ -342,6 +531,7 @@ const SalesRepOrders = () => {
                               quantity: 1,
                               unit_price: 0,
                               discount: 0,
+                              total_price: 0,
                             },
                           ],
                         });
@@ -362,16 +552,22 @@ const SalesRepOrders = () => {
                     type="number"
                     step="0.01"
                     value={formData.discount_amount}
-                    onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        discount_amount: Number(e.target.value),
+                      })
+                    }
                     placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Order Total</Label>
                   <div className="text-lg font-semibold">
-                    ${formData.items.reduce((total, item) =>
-                      total + (item.quantity * item.unit_price - item.discount), 0
-                    ).toFixed(2)}
+                    $
+                    {formData.items
+                      .reduce((total, item) => total + item.total_price, 0)
+                      .toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -381,16 +577,24 @@ const SalesRepOrders = () => {
                 <Input
                   id="notes"
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
                   placeholder="Order notes (optional)"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              <Button
+                onClick={handleCreate}
+                disabled={createMutation.isPending}
+              >
                 {createMutation.isPending ? "Creating..." : "Create Order"}
               </Button>
             </DialogFooter>
@@ -436,9 +640,11 @@ const SalesRepOrders = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all-customers">All Customers</SelectItem>
-                <SelectItem value="1">Customer 1</SelectItem>
-                <SelectItem value="2">Customer 2</SelectItem>
-                <SelectItem value="3">Customer 3</SelectItem>
+                {getCustomers().map((customer) => (
+                  <SelectItem key={customer.id} value={customer.id.toString()}>
+                    {customer.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button
@@ -461,7 +667,9 @@ const SalesRepOrders = () => {
         <CardHeader>
           <CardTitle>Order List</CardTitle>
           <CardDescription>
-            {pagination ? `${pagination.total} orders found` : "Loading orders..."}
+            {pagination
+              ? `${pagination.total} orders found`
+              : "Loading orders..."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -520,7 +728,9 @@ const SalesRepOrders = () => {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{order.customer?.name || 'Unknown'}</p>
+                        <p className="font-medium">
+                          {order.customer?.name || "Unknown"}
+                        </p>
                         <p className="text-sm text-muted-foreground">
                           {order.customer?.email}
                         </p>
@@ -529,7 +739,7 @@ const SalesRepOrders = () => {
                     <TableCell>
                       <div className="flex items-center text-sm">
                         <Calendar className="h-3 w-3 mr-1" />
-                        {format(new Date(order.order_date), 'MMM dd, yyyy')}
+                        {format(new Date(order.order_date), "MMM dd, yyyy")}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -546,9 +756,7 @@ const SalesRepOrders = () => {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {getStatusBadge(order.status)}
-                    </TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <Button
@@ -568,7 +776,9 @@ const SalesRepOrders = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Order</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete order {order.order_number}? This action cannot be undone.
+                                Are you sure you want to delete order{" "}
+                                {order.order_number}? This action cannot be
+                                undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -618,15 +828,22 @@ const SalesRepOrders = () => {
               <Label htmlFor="edit-customer">Customer</Label>
               <Select
                 value={formData.customer_id.toString()}
-                onValueChange={(value) => setFormData({ ...formData, customer_id: Number(value) })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, customer_id: Number(value) })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Customer 1</SelectItem>
-                  <SelectItem value="2">Customer 2</SelectItem>
-                  <SelectItem value="3">Customer 3</SelectItem>
+                  {getCustomers().map((customer) => (
+                    <SelectItem
+                      key={customer.id}
+                      value={customer.id.toString()}
+                    >
+                      {customer.name} ({customer.email})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -638,7 +855,12 @@ const SalesRepOrders = () => {
                 type="number"
                 step="0.01"
                 value={formData.discount_amount}
-                onChange={(e) => setFormData({ ...formData, discount_amount: Number(e.target.value) })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    discount_amount: Number(e.target.value),
+                  })
+                }
                 placeholder="0.00"
               />
             </div>
@@ -648,13 +870,18 @@ const SalesRepOrders = () => {
               <Input
                 id="edit-notes"
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
                 placeholder="Order notes (optional)"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
