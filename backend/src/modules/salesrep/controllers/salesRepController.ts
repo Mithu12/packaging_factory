@@ -596,7 +596,7 @@ export class SalesRepController {
 
       res.json({
         success: true,
-        ...result,
+        data: result,
       });
     } catch (error) {
       console.error('Error fetching notifications:', error);

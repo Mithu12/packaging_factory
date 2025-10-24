@@ -303,7 +303,7 @@ class SalesRepApiService {
     }
 
     const response = await apiClient.get(`${this.baseUrl}/notifications?${params}`);
-    return response.data;
+    return response.data?.data;
   }
 
   async markNotificationAsRead(id: number): Promise<SalesRepNotification> {
