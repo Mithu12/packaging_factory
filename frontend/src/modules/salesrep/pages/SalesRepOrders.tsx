@@ -55,7 +55,6 @@ import {
   Filter,
   ShoppingCart,
   Calendar,
-  DollarSign,
   Package,
 } from "lucide-react";
 import { salesRepApi } from "../services/salesrep-api";
@@ -66,6 +65,7 @@ import type {
   UpdateOrderRequest,
 } from "../types";
 import { useToast } from "@/hooks/use-toast";
+import { useFormatting } from "@/hooks/useFormatting";
 import { format } from "date-fns";
 
 const SalesRepOrders = () => {
@@ -87,6 +87,7 @@ const SalesRepOrders = () => {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { formatCurrency } = useFormatting();
   const limit = 10;
 
   const { data: ordersData, isLoading } = useQuery({
@@ -428,7 +429,7 @@ const SalesRepOrders = () => {
                                         key={product.id}
                                         value={product.id.toString()}
                                       >
-                                        {product.name} ({product.sku}) - $
+                                        {product.name} ({product.sku}) -
                                         {product.selling_price}
                                       </SelectItem>
                                     ))}
@@ -500,7 +501,7 @@ const SalesRepOrders = () => {
                         />
                         <div className="flex items-center space-x-2">
                           <span className="text-sm">
-                            ${item.total_price.toFixed(2)}
+                            {formatCurrency(item.total_price || 0)}
                           </span>
                           <Button
                             variant="outline"
@@ -564,10 +565,12 @@ const SalesRepOrders = () => {
                 <div className="space-y-2">
                   <Label>Order Total</Label>
                   <div className="text-lg font-semibold">
-                    $
-                    {formData.items
-                      .reduce((total, item) => total + item.total_price, 0)
-                      .toFixed(2)}
+                    {formatCurrency(
+                      formData.items.reduce(
+                        (total, item) => total + (item.total_price || 0),
+                        0
+                      )
+                    )}
                   </div>
                 </div>
               </div>
@@ -750,9 +753,8 @@ const SalesRepOrders = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
-                        <DollarSign className="h-3 w-3 mr-1" />
                         <span className="font-medium">
-                          ${order.final_amount.toLocaleString()}
+                          {formatCurrency(order.final_amount)}
                         </span>
                       </div>
                     </TableCell>
