@@ -291,7 +291,8 @@ export class SalesRepController {
   async getOrder(req: Request, res: Response<ApiResponse<any>>): Promise<void> {
     try {
       const { id } = req.params;
-      const order = await GetOrderInfoMediator.getOrder(parseInt(id));
+      const userId = req.user?.user_id;
+      const order = await GetOrderInfoMediator.getOrder(parseInt(id), userId);
 
       if (!order) {
         res.status(404).json({

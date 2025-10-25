@@ -231,7 +231,7 @@ class GetOrderInfoMediator implements MediatorInterface {
       // Get order items for each order
       const orders: SalesRepOrder[] = [];
       for (const orderRow of ordersResult.rows) {
-        const items = await this.getOrderItems(orderRow.id);
+        const items = await this.getOrderItems(orderRow.id, userId);
 
         orders.push({
           ...orderRow,
@@ -283,7 +283,7 @@ class GetOrderInfoMediator implements MediatorInterface {
   }
 
   // Get single order by ID
-  async getOrder(id: number): Promise<SalesRepOrder | null> {
+  async getOrder(id: number, userId?: number): Promise<SalesRepOrder | null> {
     let action = "Get Order By ID";
     const client = await pool.connect();
 
@@ -325,7 +325,7 @@ class GetOrderInfoMediator implements MediatorInterface {
       }
 
       const orderRow = result.rows[0];
-      const items = await this.getOrderItems(id);
+      const items = await this.getOrderItems(id, userId);
 
       const order: SalesRepOrder = {
         ...orderRow,
@@ -423,8 +423,11 @@ class GetOrderInfoMediator implements MediatorInterface {
   }
 
   // Get order items for a specific order (helper method)
-  private async getOrderItems(orderId: number): Promise<SalesRepOrderItem[]> {
-    const itemsQuery = `
+  private async getOrderItems(
+    orderId: number,
+    userId?: number
+  ): Promise<SalesRepOrderItem[]> {
+    let itemsQuery = `
       SELECT
         oi.id,
         oi.order_id,
@@ -443,10 +446,28 @@ class GetOrderInfoMediator implements MediatorInterface {
       FROM sales_rep_order_items oi
       LEFT JOIN factories f ON oi.assigned_factory_id = f.id
       WHERE oi.order_id = $1
-      ORDER BY oi.id
     `;
 
-    const itemsResult = await pool.query(itemsQuery, [orderId]);
+    const queryParams: any[] = [orderId];
+
+    // Add factory filtering for factory managers
+    if (userId) {
+      const userRole = await getUserRole(userId);
+      if (userRole === "factory_manager") {
+        const userFactories = await getUserFactories(userId);
+        if (userFactories.length > 0) {
+          itemsQuery += ` AND oi.assigned_factory_id = ANY($2)`;
+          queryParams.push(userFactories);
+        } else {
+          // No factories assigned = no items visible
+          itemsQuery += ` AND 1 = 0`;
+        }
+      }
+    }
+
+    itemsQuery += ` ORDER BY oi.id`;
+
+    const itemsResult = await pool.query(itemsQuery, queryParams);
     return itemsResult.rows;
   }
 }
