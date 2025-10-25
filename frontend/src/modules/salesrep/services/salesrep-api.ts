@@ -119,12 +119,12 @@ class SalesRepApiService {
 
   async getOrder(id: number): Promise<SalesRepOrder> {
     const response = await apiClient.get(`${this.baseUrl}/orders/${id}`);
-    return response.data;
+    return response.data.data;
   }
 
   async createOrder(data: CreateOrderRequest): Promise<SalesRepOrder> {
     const response = await apiClient.post(`${this.baseUrl}/orders`, data);
-    return response.data;
+    return response.data.data;
   }
 
   async updateOrder(
@@ -132,7 +132,7 @@ class SalesRepApiService {
     data: UpdateOrderRequest
   ): Promise<SalesRepOrder> {
     const response = await apiClient.put(`${this.baseUrl}/orders/${id}`, data);
-    return response.data;
+    return response.data.data;
   }
 
   async deleteOrder(id: number): Promise<void> {

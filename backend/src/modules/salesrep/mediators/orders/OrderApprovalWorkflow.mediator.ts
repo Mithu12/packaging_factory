@@ -8,9 +8,7 @@ import {
 import { MyLogger } from "@/utils/new-logger";
 
 // Helper function to get user's accessible factories
-async function getUserFactories(
-  userId: number
-): Promise<
+async function getUserFactories(userId: number): Promise<
   {
     factory_id: string;
     factory_name: string;
@@ -97,9 +95,10 @@ export class OrderApprovalWorkflowMediator {
       });
 
       // Get updated order with items
-      const { GetOrderInfoMediator } = await import("./GetOrderInfo.mediator");
-      const updatedOrder = await GetOrderInfoMediator.prototype.getOrderById(
-        submissionData.order_id.toString()
+      const GetOrderInfoMediator = (await import("./GetOrderInfo.mediator"))
+        .default;
+      const updatedOrder = await GetOrderInfoMediator.getOrder(
+        submissionData.order_id
       );
 
       return updatedOrder;
@@ -210,9 +209,10 @@ export class OrderApprovalWorkflowMediator {
       });
 
       // Get updated order with items
-      const { GetOrderInfoMediator } = await import("./GetOrderInfo.mediator");
-      const updatedOrder = await GetOrderInfoMediator.prototype.getOrderById(
-        approvalData.order_id.toString()
+      const GetOrderInfoMediator = (await import("./GetOrderInfo.mediator"))
+        .default;
+      const updatedOrder = await GetOrderInfoMediator.getOrder(
+        approvalData.order_id
       );
 
       return updatedOrder;
@@ -320,9 +320,10 @@ export class OrderApprovalWorkflowMediator {
       });
 
       // Get updated order with items
-      const { GetOrderInfoMediator } = await import("./GetOrderInfo.mediator");
-      const updatedOrder = await GetOrderInfoMediator.prototype.getOrderById(
-        acceptanceData.order_id.toString()
+      const GetOrderInfoMediator = (await import("./GetOrderInfo.mediator"))
+        .default;
+      const updatedOrder = await GetOrderInfoMediator.getOrder(
+        acceptanceData.order_id
       );
 
       return updatedOrder;
