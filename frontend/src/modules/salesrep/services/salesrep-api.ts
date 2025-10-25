@@ -423,7 +423,7 @@ class SalesRepApiService {
     return response.data.data;
   }
 
-  // Admin approval/rejection with factory selection
+  // Admin approval/rejection with factory selection (legacy)
   async adminApproveOrder(
     orderId: number,
     approvalData: {
@@ -434,6 +434,26 @@ class SalesRepApiService {
   ): Promise<SalesRepOrder> {
     const response = await apiClient.post(
       `/salesrep/orders/${orderId}/admin-approve`,
+      approvalData
+    );
+    return response.data.data;
+  }
+
+  // Admin approval/rejection with per-product factory assignment
+  async adminApproveOrderWithProductFactoryAssignment(
+    orderId: number,
+    approvalData: {
+      approved: boolean;
+      assigned_factory_id?: number;
+      product_assignments?: Array<{
+        item_id: number;
+        assigned_factory_id: number;
+      }>;
+      rejection_reason?: string;
+    }
+  ): Promise<SalesRepOrder> {
+    const response = await apiClient.post(
+      `/salesrep/orders/${orderId}/admin-approve-with-product-factories`,
       approvalData
     );
     return response.data.data;

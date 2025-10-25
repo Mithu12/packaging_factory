@@ -1025,7 +1025,7 @@ export class SalesRepController {
     }
   }
 
-  // Admin approval/rejection with factory selection
+  // Admin approval/rejection with factory selection (legacy method)
   async adminApproveOrder(
     req: Request,
     res: Response<ApiResponse<any>>
@@ -1058,6 +1058,47 @@ export class SalesRepController {
           error instanceof Error
             ? error.message
             : "Failed to process admin approval",
+      });
+    }
+  }
+
+  // Admin approval/rejection with per-product factory assignment
+  async adminApproveOrderWithProductFactoryAssignment(
+    req: Request,
+    res: Response<ApiResponse<any>>
+  ): Promise<void> {
+    try {
+      const orderId = Number(req.params.id);
+      const approvalData = {
+        ...req.body,
+        order_id: orderId,
+      };
+      const userId = req.user?.user_id;
+
+      const result =
+        await OrderApprovalWorkflowMediator.adminApproveOrderWithProductFactoryAssignment(
+          approvalData,
+          userId!.toString()
+        );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: approvalData.approved
+          ? "Order approved with factory assignments successfully"
+          : "Order rejected successfully",
+      });
+    } catch (error) {
+      console.error(
+        "Error processing admin approval with product factory assignment:",
+        error
+      );
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to process admin approval with product factory assignment",
       });
     }
   }

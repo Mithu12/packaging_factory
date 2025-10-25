@@ -65,6 +65,11 @@ export interface SalesRepOrderItem {
   total_price: number;
   created_at: Date;
   updated_at: Date;
+  // Per-product factory assignment fields
+  assigned_factory_id?: number | null;
+  assigned_factory_name?: string;
+  factory_assigned_by?: number | null;
+  factory_assigned_at?: Date;
 }
 
 export interface SalesRepInvoice {
@@ -324,5 +329,21 @@ export interface AdminApprovalRequest {
 export interface FactoryManagerAcceptanceRequest {
   order_id: number;
   accepted: boolean;
+  rejection_reason?: string;
+}
+
+// Per-product factory assignment types
+export interface ProductFactoryAssignment {
+  item_id: number;
+  assigned_factory_id: number;
+}
+
+export interface AdminApprovalWithProductFactoryRequest {
+  order_id: number;
+  approved: boolean;
+  // Legacy field for backward compatibility - will be used if no product_assignments provided
+  assigned_factory_id?: number;
+  // New field for per-product factory assignment
+  product_assignments?: ProductFactoryAssignment[];
   rejection_reason?: string;
 }

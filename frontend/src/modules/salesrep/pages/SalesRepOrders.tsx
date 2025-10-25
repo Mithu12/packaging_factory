@@ -58,6 +58,7 @@ import {
   Package,
 } from "lucide-react";
 import { salesRepApi } from "../services/salesrep-api";
+import { FactoryApiService } from "@/services/factory-api";
 import type {
   SalesRepOrder,
   OrderFormData,
@@ -68,6 +69,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFormatting } from "@/hooks/useFormatting";
 import { format } from "date-fns";
 import OrderApprovalWorkflow from "../components/OrderApprovalWorkflow";
+import EnhancedOrderApprovalWorkflow from "../components/EnhancedOrderApprovalWorkflow";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProductSelector } from "../components/ProductSelector";
 
@@ -85,6 +87,9 @@ const SalesRepOrders = () => {
   const [approvalOrder, setApprovalOrder] = useState<SalesRepOrder | null>(
     null
   );
+  const [availableFactories, setAvailableFactories] = useState<
+    { id: number; name: string }[]
+  >([]);
   const [formData, setFormData] = useState<OrderFormData>({
     customer_id: 0,
     order_date: new Date().toISOString().split("T")[0],
@@ -128,6 +133,13 @@ const SalesRepOrders = () => {
         },
         { page: currentPage, limit }
       ),
+  });
+
+  // Fetch factories for admin approval
+  const { data: factoriesData } = useQuery({
+    queryKey: ["factories"],
+    queryFn: () => FactoryApiService.getAllFactories(),
+    enabled: getUserRole() === "admin",
   });
 
   // Fetch customers for dropdowns
@@ -1272,11 +1284,11 @@ const SalesRepOrders = () => {
                 {approvalOrder.order_number}
               </DialogDescription>
             </DialogHeader>
-            <OrderApprovalWorkflow
+            <EnhancedOrderApprovalWorkflow
               order={approvalOrder}
               onOrderUpdated={handleOrderUpdated}
               userRole={getUserRole()}
-              availableFactories={[]} // TODO: Load factories for admin approval
+              availableFactories={factoriesData?.factories || []}
             />
           </DialogContent>
         </Dialog>

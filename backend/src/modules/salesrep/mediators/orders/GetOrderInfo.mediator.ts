@@ -402,8 +402,13 @@ class GetOrderInfoMediator implements MediatorInterface {
         oi.discount,
         oi.total_price,
         oi.created_at,
-        oi.updated_at
+        oi.updated_at,
+        oi.assigned_factory_id,
+        oi.factory_assigned_by,
+        oi.factory_assigned_at,
+        f.name as assigned_factory_name
       FROM sales_rep_order_items oi
+      LEFT JOIN factories f ON oi.assigned_factory_id = f.id
       WHERE oi.order_id = $1
       ORDER BY oi.id
     `;
