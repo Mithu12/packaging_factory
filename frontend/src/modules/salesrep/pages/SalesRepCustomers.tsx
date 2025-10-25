@@ -223,7 +223,7 @@ const SalesRepCustomers = () => {
   };
 
   // Handle both response types: shared customers and regular paginated response
-  const customers = customersData?.data?.customers || [];
+  const customers = customersData?.customers || [];
 
   const pagination = customersData
     ? {

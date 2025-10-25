@@ -169,13 +169,16 @@ const SalesRepOrders = () => {
       };
       return salesRepApi.createOrder(createData);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["salesrep-orders"] });
       setIsCreateDialogOpen(false);
       resetForm();
+      const isDraft = variables.status === "draft";
       toast({
         title: "Success",
-        description: "Order created successfully",
+        description: isDraft
+          ? "Order saved as draft successfully"
+          : "Order submitted for approval successfully",
       });
     },
     onError: (error: Error) => {
@@ -207,14 +210,17 @@ const SalesRepOrders = () => {
       };
       return salesRepApi.updateOrder(id, updateData);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["salesrep-orders"] });
       setIsEditDialogOpen(false);
       setSelectedOrder(null);
       resetForm();
+      const isDraft = variables.data.status === "draft";
       toast({
         title: "Success",
-        description: "Order updated successfully",
+        description: isDraft
+          ? "Order saved as draft successfully"
+          : "Order submitted for approval successfully",
       });
     },
     onError: (error: Error) => {
@@ -256,13 +262,15 @@ const SalesRepOrders = () => {
     });
   };
 
-  const handleCreate = () => {
-    createMutation.mutate(formData);
+  const handleCreate = (status: string = "submitted_for_approval") => {
+    const dataWithStatus = { ...formData, status };
+    createMutation.mutate(dataWithStatus);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = (status: string = "submitted_for_approval") => {
     if (selectedOrder) {
-      updateMutation.mutate({ id: selectedOrder.id, data: formData });
+      const dataWithStatus = { ...formData, status };
+      updateMutation.mutate({ id: selectedOrder.id, data: dataWithStatus });
     }
   };
 
@@ -425,39 +433,16 @@ const SalesRepOrders = () => {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="order-date">Order Date</Label>
-                  <Input
-                    id="order-date"
-                    type="date"
-                    value={formData.order_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, order_date: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="processing">Processing</SelectItem>
-                      <SelectItem value="shipped">Shipped</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="order-date">Order Date</Label>
+                <Input
+                  id="order-date"
+                  type="date"
+                  value={formData.order_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, order_date: e.target.value })
+                  }
+                />
               </div>
 
               {/* Order Items */}
@@ -756,10 +741,19 @@ const SalesRepOrders = () => {
                 Cancel
               </Button>
               <Button
-                onClick={handleCreate}
+                variant="secondary"
+                onClick={() => handleCreate("draft")}
                 disabled={createMutation.isPending}
               >
-                {createMutation.isPending ? "Creating..." : "Create Order"}
+                {createMutation.isPending ? "Saving..." : "Save as Draft"}
+              </Button>
+              <Button
+                onClick={() => handleCreate("submitted_for_approval")}
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending
+                  ? "Submitting..."
+                  : "Submit for Approval"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1035,28 +1029,6 @@ const SalesRepOrders = () => {
                   setFormData({ ...formData, order_date: e.target.value })
                 }
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Order Items */}
@@ -1351,8 +1323,20 @@ const SalesRepOrders = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdate} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? "Updating..." : "Update Order"}
+            <Button
+              variant="secondary"
+              onClick={() => handleUpdate("draft")}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? "Saving..." : "Save as Draft"}
+            </Button>
+            <Button
+              onClick={() => handleUpdate("submitted_for_approval")}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending
+                ? "Submitting..."
+                : "Submit for Approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
