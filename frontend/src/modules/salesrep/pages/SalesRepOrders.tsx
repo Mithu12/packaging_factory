@@ -69,6 +69,7 @@ import { useFormatting } from "@/hooks/useFormatting";
 import { format } from "date-fns";
 import OrderApprovalWorkflow from "../components/OrderApprovalWorkflow";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProductSelector } from "../components/ProductSelector";
 
 const SalesRepOrders = () => {
   const [search, setSearch] = useState("");
@@ -476,93 +477,40 @@ const SalesRepOrders = () => {
                         className="grid grid-cols-5 gap-2 items-center"
                       >
                         <div className="space-y-1">
-                          <Input
-                            placeholder="Search products..."
-                            value={item.product_name}
-                            onChange={(e) => {
-                              const newItems = [...formData.items];
-                              newItems[index].product_name = e.target.value;
-                              setFormData({ ...formData, items: newItems });
-                            }}
-                            onFocus={() => {
-                              // You could add product search dropdown here
-                            }}
-                          />
                           {productsData?.products && (
-                            <div className="relative">
-                              <Select
-                                value={item.product_id.toString()}
-                                onValueChange={(value) => {
-                                  const product = productsData.products.find(
-                                    (p) => p.id.toString() === value
-                                  );
-                                  if (product) {
-                                    const newItems = [...formData.items];
-                                    newItems[index].product_id = product.id;
-                                    newItems[index].product_name = product.name;
-                                    newItems[index].unit_price =
-                                      product.selling_price || 0;
-                                    newItems[index].total_price = Math.max(
-                                      0,
-                                      (Number(newItems[index].quantity) || 0) *
-                                        (Number(product.selling_price) || 0) -
-                                        (Number(newItems[index].discount) || 0)
-                                    );
-                                    setFormData({
-                                      ...formData,
-                                      items: newItems,
-                                    });
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="h-8">
-                                  <SelectValue placeholder="Select product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {productsData.products
-                                    .filter(
-                                      (product) =>
-                                        product.name
-                                          .toLowerCase()
-                                          .includes(
-                                            item.product_name.toLowerCase()
-                                          ) ||
-                                        product.sku
-                                          .toLowerCase()
-                                          .includes(
-                                            item.product_name.toLowerCase()
-                                          )
-                                    )
-                                    .slice(0, 10)
-                                    .map((product) => (
-                                      <SelectItem
-                                        key={product.id}
-                                        value={product.id.toString()}
-                                      >
-                                        {product.name} ({product.sku}) -
-                                        {product.selling_price}
-                                      </SelectItem>
-                                    ))}
-                                  {productsData.products.filter(
-                                    (product) =>
-                                      product.name
-                                        .toLowerCase()
-                                        .includes(
-                                          item.product_name.toLowerCase()
-                                        ) ||
-                                      product.sku
-                                        .toLowerCase()
-                                        .includes(
-                                          item.product_name.toLowerCase()
-                                        )
-                                  ).length === 0 && (
-                                    <div className="p-2 text-sm text-muted-foreground">
-                                      No products found
-                                    </div>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            <ProductSelector
+                              value={item.product_name}
+                              products={productsData.products}
+                              onProductSelect={(product) => {
+                                const newItems = [...formData.items];
+                                newItems[index].product_id = product.id;
+                                newItems[index].product_name = product.name;
+                                newItems[index].unit_price =
+                                  product.selling_price || 0;
+                                newItems[index].total_price = Math.max(
+                                  0,
+                                  (Number(newItems[index].quantity) || 0) *
+                                    (Number(product.selling_price) || 0) -
+                                    (Number(newItems[index].discount) || 0)
+                                );
+                                setFormData({
+                                  ...formData,
+                                  items: newItems,
+                                });
+                              }}
+                              onClear={() => {
+                                const newItems = [...formData.items];
+                                newItems[index].product_id = 0;
+                                newItems[index].product_name = "";
+                                newItems[index].unit_price = 0;
+                                newItems[index].total_price = 0;
+                                setFormData({
+                                  ...formData,
+                                  items: newItems,
+                                });
+                              }}
+                              placeholder="Search and select product..."
+                            />
                           )}
                         </div>
                         <Input
@@ -1066,89 +1014,40 @@ const SalesRepOrders = () => {
                       className="grid grid-cols-5 gap-2 items-center"
                     >
                       <div className="space-y-1">
-                        <Input
-                          placeholder="Search products..."
-                          value={item.product_name}
-                          onChange={(e) => {
-                            const newItems = [...formData.items];
-                            newItems[index].product_name = e.target.value;
-                            setFormData({ ...formData, items: newItems });
-                          }}
-                          onFocus={() => {
-                            // You could add product search dropdown here
-                          }}
-                        />
                         {productsData?.products && (
-                          <div className="relative">
-                            <Select
-                              value={item.product_id.toString()}
-                              onValueChange={(value) => {
-                                const product = productsData.products.find(
-                                  (p) => p.id.toString() === value
-                                );
-                                if (product) {
-                                  const newItems = [...formData.items];
-                                  newItems[index].product_id = product.id;
-                                  newItems[index].product_name = product.name;
-                                  newItems[index].unit_price =
-                                    product.selling_price || 0;
-                                  newItems[index].total_price =
-                                    newItems[index].quantity *
-                                      (product.selling_price || 0) -
-                                    newItems[index].discount;
-                                  setFormData({
-                                    ...formData,
-                                    items: newItems,
-                                  });
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="h-8">
-                                <SelectValue placeholder="Select product" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {productsData.products
-                                  .filter(
-                                    (product) =>
-                                      product.name
-                                        .toLowerCase()
-                                        .includes(
-                                          item.product_name.toLowerCase()
-                                        ) ||
-                                      product.sku
-                                        .toLowerCase()
-                                        .includes(
-                                          item.product_name.toLowerCase()
-                                        )
-                                  )
-                                  .slice(0, 10)
-                                  .map((product) => (
-                                    <SelectItem
-                                      key={product.id}
-                                      value={product.id.toString()}
-                                    >
-                                      {product.name} ({product.sku}) -
-                                      {product.selling_price}
-                                    </SelectItem>
-                                  ))}
-                                {productsData.products.filter(
-                                  (product) =>
-                                    product.name
-                                      .toLowerCase()
-                                      .includes(
-                                        item.product_name.toLowerCase()
-                                      ) ||
-                                    product.sku
-                                      .toLowerCase()
-                                      .includes(item.product_name.toLowerCase())
-                                ).length === 0 && (
-                                  <div className="p-2 text-sm text-muted-foreground">
-                                    No products found
-                                  </div>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <ProductSelector
+                            value={item.product_name}
+                            products={productsData.products}
+                            onProductSelect={(product) => {
+                              const newItems = [...formData.items];
+                              newItems[index].product_id = product.id;
+                              newItems[index].product_name = product.name;
+                              newItems[index].unit_price =
+                                product.selling_price || 0;
+                              newItems[index].total_price = Math.max(
+                                0,
+                                (Number(newItems[index].quantity) || 0) *
+                                  (Number(product.selling_price) || 0) -
+                                  (Number(newItems[index].discount) || 0)
+                              );
+                              setFormData({
+                                ...formData,
+                                items: newItems,
+                              });
+                            }}
+                            onClear={() => {
+                              const newItems = [...formData.items];
+                              newItems[index].product_id = 0;
+                              newItems[index].product_name = "";
+                              newItems[index].unit_price = 0;
+                              newItems[index].total_price = 0;
+                              setFormData({
+                                ...formData,
+                                items: newItems,
+                              });
+                            }}
+                            placeholder="Search and select product..."
+                          />
                         )}
                       </div>
                       <Input
