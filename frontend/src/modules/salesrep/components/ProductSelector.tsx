@@ -55,6 +55,11 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
     }
   };
 
+  // Handle input focus
+  const handleInputFocus = () => {
+    setIsOpen(true);
+  };
+
   // Handle product selection
   const handleProductSelect = (product: Product) => {
     onProductSelect(product);
@@ -135,6 +140,8 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
     setSearchTerm(value);
   }, [value]);
 
+  // Keep dropdown open during scroll - no scroll handling needed
+
   return (
     <div className={cn("relative", className)}>
       <div className="relative">
@@ -144,7 +151,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
           value={searchTerm}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsOpen(true)}
+          onFocus={handleInputFocus}
           placeholder={placeholder}
           className="pl-10 pr-10"
         />
@@ -165,6 +172,11 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
         <div
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+          style={{
+            minWidth: "400px",
+            width: "max-content",
+            maxWidth: "500px",
+          }}
         >
           {filteredProducts.length > 0 ? (
             <div className="py-1">
@@ -177,18 +189,22 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                   )}
                   onClick={() => handleProductSelect(product)}
                 >
-                  <div className="flex items-center space-x-2">
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        SKU: {product.sku}
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">
+                          {product.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          SKU: {product.sku}
+                        </div>
                       </div>
                     </div>
+                    <Badge variant="outline" className="ml-3 flex-shrink-0">
+                      ${product.selling_price}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="ml-2">
-                    ${product.selling_price}
-                  </Badge>
                 </div>
               ))}
               {filteredProducts.length > 10 && (
