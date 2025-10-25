@@ -456,15 +456,19 @@ export class OrderApprovalWorkflowMediator {
       }
 
       // Check if order exists and is in approved status
+      // Check both order-level and item-level factory assignments
       let orderQuery = "SELECT * FROM sales_rep_orders WHERE id = $1";
       let queryParams: any[] = [acceptanceData.order_id];
 
       if (currentUserId && userFactories.length > 0) {
-        const factoryIds = userFactories.map(
-          (_, index) => `$${queryParams.length + index + 1}`
-        );
-        orderQuery += ` AND assigned_factory_id IN (${factoryIds.join(", ")})`;
-        queryParams.push(...userFactories);
+        // Use ANY array parameter for both order-level and item-level checks
+        orderQuery += ` AND (assigned_factory_id = ANY($2) 
+           OR EXISTS (
+             SELECT 1 FROM sales_rep_order_items soi 
+             WHERE soi.order_id = sales_rep_orders.id 
+             AND soi.assigned_factory_id = ANY($2)
+           ))`;
+        queryParams.push(userFactories);
       }
 
       const orderResult = await client.query(orderQuery, queryParams);

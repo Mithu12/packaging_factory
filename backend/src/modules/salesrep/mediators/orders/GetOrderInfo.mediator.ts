@@ -103,28 +103,37 @@ class GetOrderInfoMediator implements MediatorInterface {
           // Factory manager can see orders assigned to their factories
           // Check both order-level and item-level factory assignments
           const userFactories = await getUserFactories(userId);
+          MyLogger.info("Factory manager filtering", {
+            userId,
+            userFactories,
+            factoryCount: userFactories.length,
+          });
+
           if (userFactories.length > 0) {
-            const orderLevelFactoryIds = userFactories.map(
-              () => `$${paramIndex++}`
-            );
-            const itemLevelFactoryIds = userFactories.map(
-              () => `$${paramIndex++}`
-            );
-            conditions.push(
-              `(o.assigned_factory_id IN (${orderLevelFactoryIds.join(", ")}) 
+            // Use ANY array parameter instead of IN with multiple parameters
+            const condition = `(o.assigned_factory_id = ANY($${paramIndex}) 
                OR EXISTS (
                  SELECT 1 FROM sales_rep_order_items soi 
                  WHERE soi.order_id = o.id 
-                 AND soi.assigned_factory_id IN (${itemLevelFactoryIds.join(
-                   ", "
-                 )})
-               ))`
-            );
-            // Push factory IDs twice: once for order-level, once for item-level check
-            values.push(...userFactories, ...userFactories);
+                 AND soi.assigned_factory_id = ANY($${paramIndex})
+               ))`;
+            conditions.push(condition);
+            // Push factory IDs as single array parameter
+            values.push(userFactories);
+            paramIndex++;
+
+            MyLogger.info("Factory manager condition created", {
+              condition,
+              userFactories,
+              valuesCount: values.length,
+              paramIndex,
+            });
           } else {
             // If no factories assigned, return empty result
             conditions.push(`1 = 0`);
+            MyLogger.info("Factory manager has no factories assigned", {
+              userId,
+            });
           }
         }
         // Admin role sees all orders (no additional filtering)
@@ -169,6 +178,15 @@ class GetOrderInfoMediator implements MediatorInterface {
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+      // Debug logging before query execution
+      MyLogger.info("Query execution debug", {
+        whereClause,
+        conditions,
+        values,
+        valuesCount: values.length,
+        paramIndex,
+      });
+
       // Get total count
       const countQuery = `
         SELECT COUNT(*) as total
@@ -176,6 +194,7 @@ class GetOrderInfoMediator implements MediatorInterface {
         ${whereClause}
       `;
 
+      MyLogger.info("Count query", { countQuery, values });
       const countResult = await client.query(countQuery, values);
       const total = parseInt(countResult.rows[0].total);
 
