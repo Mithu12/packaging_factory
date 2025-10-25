@@ -363,6 +363,7 @@ export class OrderApprovalWorkflowMediator {
                 assigned_factory_id = $1,
                 factory_assigned_by = $2,
                 factory_assigned_at = $3,
+                item_status = 'pending',
                 updated_at = $3
             WHERE id = $4 AND order_id = $5
           `;
@@ -383,6 +384,7 @@ export class OrderApprovalWorkflowMediator {
               assigned_factory_id = $1,
               factory_assigned_by = $2,
               factory_assigned_at = $3,
+              item_status = 'pending',
               updated_at = $3
           WHERE order_id = $4
         `;
@@ -432,11 +434,9 @@ export class OrderApprovalWorkflowMediator {
   ): Promise<SalesRepOrder> {
     const action = "OrderApprovalWorkflowMediator.factoryManagerAcceptOrder";
     const client = await pool.connect();
-    let transactionActive = false;
 
     try {
       await client.query("BEGIN");
-      transactionActive = true;
 
       MyLogger.info(action, {
         orderId: acceptanceData.order_id,
@@ -444,95 +444,79 @@ export class OrderApprovalWorkflowMediator {
         userId,
       });
 
-      // Get user's accessible factories for filtering
+      // Get factory manager's assigned factories
       const currentUserId = parseInt(userId);
-      let userFactories: string[] = [];
-      if (currentUserId) {
-        const isAdmin = await isUserAdmin(currentUserId);
-        if (!isAdmin) {
-          const factories = await getUserFactories(currentUserId);
-          userFactories = factories.map((f) => f.factory_id);
-        }
+      const factories = await getUserFactories(currentUserId);
+      const userFactories = factories.map((f) => f.factory_id);
+
+      // Get items assigned to this factory manager's factories
+      const itemsQuery = `
+        SELECT id, item_status, assigned_factory_id
+        FROM sales_rep_order_items
+        WHERE order_id = $1 AND assigned_factory_id = ANY($2)
+      `;
+
+      const itemsResult = await client.query(itemsQuery, [
+        acceptanceData.order_id,
+        userFactories,
+      ]);
+
+      if (itemsResult.rows.length === 0) {
+        throw new Error("No items found for your factories");
       }
 
-      // Check if order exists and is in approved status
-      // Check both order-level and item-level factory assignments
-      let orderQuery = "SELECT * FROM sales_rep_orders WHERE id = $1";
-      let queryParams: any[] = [acceptanceData.order_id];
-
-      if (currentUserId && userFactories.length > 0) {
-        // Use ANY array parameter for both order-level and item-level checks
-        orderQuery += ` AND (assigned_factory_id = ANY($2) 
-           OR EXISTS (
-             SELECT 1 FROM sales_rep_order_items soi 
-             WHERE soi.order_id = sales_rep_orders.id 
-             AND soi.assigned_factory_id = ANY($2)
-           ))`;
-        queryParams.push(userFactories);
-      }
-
-      const orderResult = await client.query(orderQuery, queryParams);
-
-      if (orderResult.rows.length === 0) {
-        throw new Error(
-          `Sales rep order with ID ${acceptanceData.order_id} not found or access denied`
-        );
-      }
-
-      const order = orderResult.rows[0];
-
-      if (order.status !== "approved") {
-        throw new Error(
-          `Order cannot be accepted from ${order.status} status. Only approved orders can be accepted by factory manager.`
-        );
-      }
-
-      const newStatus = acceptanceData.accepted
+      // Update item statuses
+      const newItemStatus = acceptanceData.accepted
         ? "factory_accepted"
-        : "rejected";
-      const updateQuery = `
-                UPDATE sales_rep_orders 
-                SET 
-                    status = $1,
-                    factory_manager_accepted_by = $2,
-                    factory_manager_accepted_at = $3,
-                    factory_manager_rejection_reason = $4,
-                    updated_at = $3
-                WHERE id = $5
-                RETURNING *
-            `;
+        : "factory_rejected";
+      const updateItemsQuery = `
+        UPDATE sales_rep_order_items
+        SET 
+          item_status = $1,
+          item_factory_accepted_by = $2,
+          item_factory_accepted_at = $3,
+          item_factory_rejection_reason = $4,
+          updated_at = $3
+        WHERE order_id = $5 AND assigned_factory_id = ANY($6)
+      `;
 
-      const updateValues = [
-        newStatus,
+      await client.query(updateItemsQuery, [
+        newItemStatus,
         userId,
         new Date(),
         acceptanceData.accepted ? null : acceptanceData.rejection_reason,
         acceptanceData.order_id,
-      ];
+        userFactories,
+      ]);
 
-      await client.query(updateQuery, updateValues);
+      // Calculate new order status based on all items
+      const { calculateOrderStatus } = await import(
+        "../../utils/orderStatusCalculator"
+      );
+      const newOrderStatus = await calculateOrderStatus(
+        acceptanceData.order_id
+      );
+
+      // Update order status
+      await client.query(
+        `UPDATE sales_rep_orders SET status = $1, updated_at = $2 WHERE id = $3`,
+        [newOrderStatus, new Date(), acceptanceData.order_id]
+      );
 
       await client.query("COMMIT");
-      transactionActive = false;
 
       MyLogger.success(action, {
         orderId: acceptanceData.order_id,
         accepted: acceptanceData.accepted,
-        newStatus,
+        newOrderStatus,
       });
 
-      // Get updated order with items
+      // Return updated order
       const GetOrderInfoMediator = (await import("./GetOrderInfo.mediator"))
         .default;
-      const updatedOrder = await GetOrderInfoMediator.getOrder(
-        acceptanceData.order_id
-      );
-
-      return updatedOrder;
+      return await GetOrderInfoMediator.getOrder(acceptanceData.order_id);
     } catch (error) {
-      if (transactionActive) {
-        await client.query("ROLLBACK");
-      }
+      await client.query("ROLLBACK");
       MyLogger.error(action, error);
       throw error;
     } finally {

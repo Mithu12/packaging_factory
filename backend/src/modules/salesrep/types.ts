@@ -30,7 +30,9 @@ export interface SalesRepOrder {
     | "cancelled"
     | "approved"
     | "rejected"
-    | "factory_accepted";
+    | "factory_accepted"
+    | "partially_accepted"
+    | "partially_rejected";
   total_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -70,6 +72,11 @@ export interface SalesRepOrderItem {
   assigned_factory_name?: string;
   factory_assigned_by?: number | null;
   factory_assigned_at?: Date;
+  // NEW: Per-item status tracking
+  item_status?: "pending" | "factory_accepted" | "factory_rejected";
+  item_factory_accepted_by?: number | null;
+  item_factory_accepted_at?: Date;
+  item_factory_rejection_reason?: string | null;
 }
 
 export interface SalesRepInvoice {
@@ -345,5 +352,13 @@ export interface AdminApprovalWithProductFactoryRequest {
   assigned_factory_id?: number;
   // New field for per-product factory assignment
   product_assignments?: ProductFactoryAssignment[];
+  rejection_reason?: string;
+}
+
+// NEW: Request for per-item factory acceptance
+export interface FactoryManagerItemAcceptanceRequest {
+  order_id: number;
+  item_ids: number[]; // Items to accept/reject
+  accepted: boolean;
   rejection_reason?: string;
 }

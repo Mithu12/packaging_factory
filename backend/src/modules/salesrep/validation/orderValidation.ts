@@ -74,6 +74,8 @@ export const createOrderSchema = Joi.object({
       "approved",
       "rejected",
       "factory_accepted",
+      "partially_accepted",
+      "partially_rejected",
       "confirmed",
       "processing",
       "shipped",
@@ -84,7 +86,7 @@ export const createOrderSchema = Joi.object({
     .default("draft")
     .messages({
       "any.only":
-        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, confirmed, processing, shipped, delivered, cancelled",
+        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, partially_accepted, partially_rejected, confirmed, processing, shipped, delivered, cancelled",
     }),
   notes: Joi.string().max(2000).optional().allow(null, "").messages({
     "string.max": "Notes must not exceed 2000 characters",
@@ -130,6 +132,8 @@ export const updateOrderSchema = Joi.object({
       "approved",
       "rejected",
       "factory_accepted",
+      "partially_accepted",
+      "partially_rejected",
       "confirmed",
       "processing",
       "shipped",
@@ -139,7 +143,7 @@ export const updateOrderSchema = Joi.object({
     .optional()
     .messages({
       "any.only":
-        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, confirmed, processing, shipped, delivered, cancelled",
+        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, partially_accepted, partially_rejected, confirmed, processing, shipped, delivered, cancelled",
     }),
   notes: Joi.string().max(2000).optional().allow(null, "").messages({
     "string.max": "Notes must not exceed 2000 characters",
@@ -165,6 +169,8 @@ export const updateOrderStatusSchema = Joi.object({
       "approved",
       "rejected",
       "factory_accepted",
+      "partially_accepted",
+      "partially_rejected",
       "confirmed",
       "processing",
       "shipped",
@@ -174,7 +180,7 @@ export const updateOrderStatusSchema = Joi.object({
     .required()
     .messages({
       "any.only":
-        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, confirmed, processing, shipped, delivered, cancelled",
+        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, partially_accepted, partially_rejected, confirmed, processing, shipped, delivered, cancelled",
       "any.required": "Status is required",
     }),
   notes: Joi.string().max(1000).optional().allow(null, "").messages({
@@ -196,6 +202,8 @@ export const orderFiltersSchema = Joi.object({
       "approved",
       "rejected",
       "factory_accepted",
+      "partially_accepted",
+      "partially_rejected",
       "confirmed",
       "processing",
       "shipped",
@@ -205,7 +213,7 @@ export const orderFiltersSchema = Joi.object({
     .optional()
     .messages({
       "any.only":
-        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, confirmed, processing, shipped, delivered, cancelled",
+        "Status must be one of: draft, submitted_for_approval, approved, rejected, factory_accepted, partially_accepted, partially_rejected, confirmed, processing, shipped, delivered, cancelled",
     }),
   date_from: Joi.string()
     .pattern(/^\d{4}-\d{2}-\d{2}$/)
