@@ -232,6 +232,15 @@ export default function EnhancedOrderApprovalWorkflow({
     return productAssignments[item.id] || item.assigned_factory_id;
   };
 
+  const hasAnyFactoryAssignments = () => {
+    // Check if any items have factory assignments either in local state or database
+    return (
+      order.items?.some(
+        (item) => productAssignments[item.id] || item.assigned_factory_id
+      ) || false
+    );
+  };
+
   const renderProductFactoryAssignment = (item: SalesRepOrderItem) => {
     const currentFactoryId = getProductFactoryAssignment(item);
 
@@ -396,13 +405,13 @@ export default function EnhancedOrderApprovalWorkflow({
           <DialogHeader>
             <DialogTitle>Approve Order</DialogTitle>
             <DialogDescription>
-              {Object.keys(productAssignments).length > 0
+              {hasAnyFactoryAssignments()
                 ? "Review factory assignments for each product and confirm approval."
                 : "Select a factory for this order and confirm approval."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {Object.keys(productAssignments).length === 0 && (
+            {!hasAnyFactoryAssignments() && (
               <div>
                 <Label htmlFor="factory">Assign Factory (All Products)</Label>
                 <Select
@@ -431,7 +440,7 @@ export default function EnhancedOrderApprovalWorkflow({
               </div>
             )}
 
-            {Object.keys(productAssignments).length > 0 && (
+            {hasAnyFactoryAssignments() && (
               <div>
                 <Label>Product Factory Assignments</Label>
                 <div className="space-y-2 mt-2">
@@ -443,7 +452,9 @@ export default function EnhancedOrderApprovalWorkflow({
                       <span className="text-sm">{item.product_name}</span>
                       <span className="text-sm text-muted-foreground">
                         {availableFactories.find(
-                          (f) => f.id === productAssignments[item.id]
+                          (f) =>
+                            f.id.toString() ===
+                            getProductFactoryAssignment(item)?.toString()
                         )?.name || "Not assigned"}
                       </span>
                     </div>
