@@ -21,6 +21,7 @@ import {
   orderIdSchema,
   submitDraftOrderSchema,
   adminApprovalSchema,
+  adminApprovalWithProductFactorySchema,
   factoryManagerAcceptanceSchema,
 } from "../validation/orderValidation";
 import {
@@ -336,7 +337,7 @@ router.post(
   "/orders/:id/admin-approve-with-product-factories",
   requirePermission(PERMISSIONS.SALES_REP_ORDERS_UPDATE),
   validateParams(orderIdSchema),
-  validateRequest(adminApprovalSchema), // Using same schema for now, will update validation later
+  validateRequest(adminApprovalWithProductFactorySchema),
   auditMiddleware,
   salesRepController.adminApproveOrderWithProductFactoryAssignment
 );

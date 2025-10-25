@@ -297,3 +297,62 @@ export const factoryManagerAcceptanceSchema = Joi.object({
     otherwise: Joi.forbidden(),
   }),
 });
+
+export const adminApprovalWithProductFactorySchema = Joi.object({
+  approved: Joi.boolean().required().messages({
+    "any.required": "approved field is required",
+    "boolean.base": "approved must be a boolean",
+  }),
+  assigned_factory_id: Joi.number().integer().positive().optional().messages({
+    "number.base": "assigned_factory_id must be a number",
+    "number.integer": "assigned_factory_id must be an integer",
+    "number.positive": "assigned_factory_id must be positive",
+  }),
+  product_assignments: Joi.array()
+    .items(
+      Joi.object({
+        item_id: Joi.number().integer().positive().required().messages({
+          "any.required": "item_id is required in product_assignments",
+          "number.base": "item_id must be a number",
+          "number.integer": "item_id must be an integer",
+          "number.positive": "item_id must be positive",
+        }),
+        assigned_factory_id: Joi.number()
+          .integer()
+          .positive()
+          .required()
+          .messages({
+            "any.required":
+              "assigned_factory_id is required in product_assignments",
+            "number.base": "assigned_factory_id must be a number",
+            "number.integer": "assigned_factory_id must be an integer",
+            "number.positive": "assigned_factory_id must be positive",
+          }),
+      })
+    )
+    .optional()
+    .messages({
+      "array.base": "product_assignments must be an array",
+    }),
+  rejection_reason: Joi.when("approved", {
+    is: false,
+    then: Joi.string().max(1000).optional().allow(""),
+    otherwise: Joi.forbidden(),
+  }).messages({
+    "string.max": "rejection_reason must not exceed 1000 characters",
+  }),
+})
+  .custom((value, helpers) => {
+    if (
+      value.approved &&
+      !value.assigned_factory_id &&
+      (!value.product_assignments || value.product_assignments.length === 0)
+    ) {
+      return helpers.error("custom.missingFactoryAssignment");
+    }
+    return value;
+  }, "Factory assignment validation")
+  .messages({
+    "custom.missingFactoryAssignment":
+      "Either assigned_factory_id or product_assignments must be provided when approving the order",
+  });
