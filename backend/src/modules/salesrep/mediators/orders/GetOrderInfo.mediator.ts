@@ -9,6 +9,51 @@ import { MediatorInterface } from "@/types";
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
 
+// Helper function to get user's role
+async function getUserRole(
+  userId: number
+): Promise<"admin" | "factory_manager" | "sales_rep"> {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT r.name as role_name
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE u.id = $1
+    `;
+    const result = await client.query(query, [userId]);
+
+    if (result.rows.length === 0) {
+      return "sales_rep"; // Default role
+    }
+
+    const roleName = result.rows[0].role_name;
+
+    // Map role names to our simplified roles
+    if (roleName === "admin" || roleName === "system_admin") {
+      return "admin";
+    } else if (roleName === "manager" || roleName === "factory_manager") {
+      return "factory_manager";
+    } else {
+      return "sales_rep";
+    }
+  } finally {
+    client.release();
+  }
+}
+
+// Helper function to get user's accessible factories
+async function getUserFactories(userId: number): Promise<string[]> {
+  const client = await pool.connect();
+  try {
+    const query = "SELECT * FROM get_user_factories($1)";
+    const result = await client.query(query, [userId]);
+    return result.rows.map((row: any) => row.factory_id);
+  } finally {
+    client.release();
+  }
+}
+
 class GetOrderInfoMediator implements MediatorInterface {
   async process(data: any): Promise<any> {
     throw new Error("Not Implemented");
@@ -17,13 +62,14 @@ class GetOrderInfoMediator implements MediatorInterface {
   // Get paginated list of orders with filters
   async getOrders(
     filters?: OrderFilters,
-    pagination?: PaginationParams
+    pagination?: PaginationParams,
+    userId?: number
   ): Promise<PaginatedResponse<SalesRepOrder>> {
     let action = "Get Orders";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(action, { filters, pagination });
+      MyLogger.info(action, { filters, pagination, userId });
 
       const {
         page = 1,
@@ -42,6 +88,33 @@ class GetOrderInfoMediator implements MediatorInterface {
       const conditions: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
+
+      // Add role-based filtering
+      if (userId) {
+        const userRole = await getUserRole(userId);
+        MyLogger.info("User role for filtering", { userId, userRole });
+
+        if (userRole === "sales_rep") {
+          // Sales rep can only see their own orders
+          conditions.push(`o.sales_rep_id = $${paramIndex}`);
+          values.push(userId);
+          paramIndex++;
+        } else if (userRole === "factory_manager") {
+          // Factory manager can only see orders assigned to their factories
+          const userFactories = await getUserFactories(userId);
+          if (userFactories.length > 0) {
+            const factoryIds = userFactories.map(() => `$${paramIndex++}`);
+            conditions.push(
+              `o.assigned_factory_id IN (${factoryIds.join(", ")})`
+            );
+            values.push(...userFactories);
+          } else {
+            // If no factories assigned, return empty result
+            conditions.push(`1 = 0`);
+          }
+        }
+        // Admin role sees all orders (no additional filtering)
+      }
 
       if (customer_id) {
         conditions.push(`o.customer_id = $${paramIndex}`);

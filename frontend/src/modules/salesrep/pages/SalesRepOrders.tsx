@@ -389,9 +389,22 @@ const SalesRepOrders = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+            <Badge variant="outline" className="capitalize">
+              {getUserRole() === "admin"
+                ? "Admin View"
+                : getUserRole() === "factory_manager"
+                ? "Factory Manager"
+                : "Sales Rep"}
+            </Badge>
+          </div>
           <p className="text-muted-foreground">
-            Manage customer orders and track their progress
+            {getUserRole() === "admin"
+              ? "Manage all customer orders and track their progress"
+              : getUserRole() === "factory_manager"
+              ? "Manage orders assigned to your factories"
+              : "Manage your customer orders and track their progress"}
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -974,7 +987,11 @@ const SalesRepOrders = () => {
                       <ShoppingCart className="h-12 w-12 text-muted-foreground" />
                       <p className="text-muted-foreground">No orders found</p>
                       <p className="text-sm text-muted-foreground">
-                        Try adjusting your search or filters
+                        {getUserRole() === "admin"
+                          ? "Try adjusting your search or filters"
+                          : getUserRole() === "factory_manager"
+                          ? "No orders are currently assigned to your factories"
+                          : "You haven't created any orders yet"}
                       </p>
                     </div>
                   </TableCell>

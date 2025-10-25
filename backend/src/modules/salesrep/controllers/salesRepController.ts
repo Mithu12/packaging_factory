@@ -264,11 +264,16 @@ export class SalesRepController {
       const filters = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const userId = req.user?.user_id;
 
-      const result = await GetOrderInfoMediator.getOrders(filters, {
-        page,
-        limit,
-      });
+      const result = await GetOrderInfoMediator.getOrders(
+        filters,
+        {
+          page,
+          limit,
+        },
+        userId
+      );
 
       res.json({
         success: true,
