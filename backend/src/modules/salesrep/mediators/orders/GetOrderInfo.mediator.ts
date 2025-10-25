@@ -100,14 +100,28 @@ class GetOrderInfoMediator implements MediatorInterface {
           values.push(userId);
           paramIndex++;
         } else if (userRole === "factory_manager") {
-          // Factory manager can only see orders assigned to their factories
+          // Factory manager can see orders assigned to their factories
+          // Check both order-level and item-level factory assignments
           const userFactories = await getUserFactories(userId);
           if (userFactories.length > 0) {
-            const factoryIds = userFactories.map(() => `$${paramIndex++}`);
-            conditions.push(
-              `o.assigned_factory_id IN (${factoryIds.join(", ")})`
+            const orderLevelFactoryIds = userFactories.map(
+              () => `$${paramIndex++}`
             );
-            values.push(...userFactories);
+            const itemLevelFactoryIds = userFactories.map(
+              () => `$${paramIndex++}`
+            );
+            conditions.push(
+              `(o.assigned_factory_id IN (${orderLevelFactoryIds.join(", ")}) 
+               OR EXISTS (
+                 SELECT 1 FROM sales_rep_order_items soi 
+                 WHERE soi.order_id = o.id 
+                 AND soi.assigned_factory_id IN (${itemLevelFactoryIds.join(
+                   ", "
+                 )})
+               ))`
+            );
+            // Push factory IDs twice: once for order-level, once for item-level check
+            values.push(...userFactories, ...userFactories);
           } else {
             // If no factories assigned, return empty result
             conditions.push(`1 = 0`);
