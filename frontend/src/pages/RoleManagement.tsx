@@ -121,6 +121,27 @@ const RoleManagement: React.FC = () => {
     }
   };
 
+  const [rolePermissionCounts, setRolePermissionCounts] = useState<Record<number, number>>({});
+
+  const loadRolePermissionCounts = async () => {
+    try {
+      const counts: Record<number, number> = {};
+      for (const role of roles) {
+        const roleData = await RBACApi.getRoleById(role.id);
+        counts[role.id] = roleData?.permissions?.length || 0;
+      }
+      setRolePermissionCounts(counts);
+    } catch (error) {
+      console.error('Error loading permission counts:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (roles.length > 0) {
+      loadRolePermissionCounts();
+    }
+  }, [roles]);
+
   const filteredRoles = roles?.filter(role => {
     const matchesSearch = role.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -292,6 +313,7 @@ const RoleManagement: React.FC = () => {
                 <TableHead>Role</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Level</TableHead>
+                <TableHead>Permissions</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -317,6 +339,26 @@ const RoleManagement: React.FC = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {rolePermissionCounts[role.id] || 0} perms
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRole(role);
+                          setShowPermissionsDialog(true);
+                        }}
+                      >
+                        <Settings className="w-3 h-3 mr-1" />
+                        Manage
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={role.is_active ? 'default' : 'secondary'}>
                       {role.is_active ? 'Active' : 'Inactive'}
                     </Badge>
@@ -333,6 +375,7 @@ const RoleManagement: React.FC = () => {
                           setSelectedRole(role);
                           setShowDetailsDialog(true);
                         }}
+                        title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -341,18 +384,9 @@ const RoleManagement: React.FC = () => {
                         size="sm"
                         onClick={() => {
                           setSelectedRole(role);
-                          setShowPermissionsDialog(true);
-                        }}
-                      >
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRole(role);
                           setShowEditDialog(true);
                         }}
+                        title="Edit Role"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -361,6 +395,7 @@ const RoleManagement: React.FC = () => {
                         size="sm"
                         onClick={() => handleDeleteRole(role)}
                         disabled={role.name === 'admin'}
+                        title="Delete Role"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -400,10 +435,7 @@ const RoleManagement: React.FC = () => {
 
       {/* Permission Assignment Dialog */}
       <Dialog open={showPermissionsDialog} onOpenChange={setShowPermissionsDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Manage Permissions - {selectedRole?.display_name}</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
           {selectedRole && (
             <PermissionAssignment
               role={selectedRole}
