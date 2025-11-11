@@ -151,7 +151,7 @@ export function logRoutes(app: Application): void {
 
   // Sort modules alphabetically
   const sortedModules = Object.keys(groupedRoutes).sort();
-  
+  let totalRoutes = 0
   sortedModules.forEach((module, moduleIndex) => {
     if (moduleIndex > 0) console.log(''); // Add spacing between modules
     
@@ -178,11 +178,15 @@ export function logRoutes(app: Application): void {
         const pathPadding = maxLength - pathDisplayLength;
         
         console.log(`║ ${coloredMethod}${' '.repeat(methodPadding)} ${coloredPath}${' '.repeat(pathPadding)}`);
+        totalRoutes++;
       });
     });
     
     console.log(`╚${'═'.repeat(maxLength + 15)}`);
   });
+
+  console.log('Total Routes', totalRoutes);
+  
   
   console.log('');
 }
