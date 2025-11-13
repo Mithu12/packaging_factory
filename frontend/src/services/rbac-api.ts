@@ -646,7 +646,7 @@ export class RBACApi {
     mobile_number?: string;
     departments?: string[];
     role_id: number;
-    password: string;
+    password?: string;
   }) {
     return makeRequest<UserWithPermissions>('/auth/users', {
       method: 'POST',

@@ -246,10 +246,10 @@ router.post('/users',
   expressAsyncHandler(async (req, res, next) => {
     const { username, email, full_name, mobile_number, departments, role_id, password } = req.body;
     
-    if (!username || !email || !full_name || !role_id || !password) {
+    if (!username || !email || !full_name || !role_id) {
       res.status(400).json({
         success: false,
-        message: 'Missing required fields: username, email, full_name, role_id, password'
+        message: 'Missing required fields: username, email, full_name, role_id'
       });
       return;
     }
@@ -261,12 +261,12 @@ router.post('/users',
       mobile_number,
       departments,
       role_id: parseInt(role_id),
-      password
+      password // Optional - will be auto-generated if not provided
     });
     
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: password ? 'User created successfully' : 'User created successfully. Password has been generated and sent via email.',
       data: user
     });
   })

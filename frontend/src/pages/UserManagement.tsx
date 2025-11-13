@@ -76,7 +76,7 @@ const userSchema = z.object({
   mobile_number: z.string().optional(),
   departments: z.array(z.string()).optional(),
   role_id: z.number().min(1, "Please select a role"),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  password: z.string().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -106,7 +106,6 @@ const UserManagement = () => {
       mobile_number: "",
       departments: [],
       role_id: 0,
-      password: "",
     },
   });
 
@@ -178,11 +177,7 @@ const UserManagement = () => {
           description: `${data.full_name} has been updated successfully.`,
         });
       } else {
-        // Create new user with RBAC role
-        if (!data.password) {
-          throw new Error('Password is required for new users');
-        }
-
+        // Create new user with RBAC role (password will be auto-generated)
         const newUser = await RBACApi.createUserWithRole({
           username: data.username,
           email: data.email,
@@ -190,13 +185,13 @@ const UserManagement = () => {
           mobile_number: data.mobile_number,
           departments: data.departments,
           role_id: data.role_id,
-          password: data.password,
+          // Password is optional - backend will auto-generate and email it
         });
 
         setUsers([...users, newUser]);
         toast({
           title: "User created",
-          description: `${data.full_name} has been added successfully.`,
+          description: `${data.full_name} has been added successfully. A password has been generated and sent to their email.`,
         });
       }
 
@@ -223,7 +218,6 @@ const UserManagement = () => {
     form.setValue("mobile_number", user.mobile_number || "");
     form.setValue("departments", user.departments || []);
     form.setValue("role_id", user.role_id || 0);
-    form.setValue("password", undefined); // Don't pre-fill password
     setIsAddUserOpen(true);
   };
 
@@ -458,25 +452,6 @@ const UserManagement = () => {
                   )}
                 /> */}
 
-                {!selectedUser && (
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Enter password"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
 
                 <FormField
                   control={form.control}

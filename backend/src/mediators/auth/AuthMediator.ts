@@ -16,6 +16,8 @@ import { RoleMediator } from '@/mediators/rbac/RoleMediator';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { generatePassword } from '@/utils/passwordGenerator';
+import { getEmailService } from '@/utils/emailService';
 
 export class AuthMediator {
   private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -702,10 +704,11 @@ export class AuthMediator {
     mobile_number?: string;
     departments?: string[];
     role_id: number;
-    password: string;
+    password?: string;
   }): Promise<UserWithPermissions> {
     const action = 'AuthMediator.createUser';
     const client = await pool.connect();
+    let generatedPassword: string | undefined = undefined;
 
     try {
       MyLogger.info(action, { username: userData.username, email: userData.email });
@@ -731,8 +734,18 @@ export class AuthMediator {
         throw createError('Invalid role specified', 400);
       }
 
+      // Generate password if not provided
+      const passwordToUse = userData.password || generatePassword();
+      if (!userData.password) {
+        generatedPassword = passwordToUse;
+        MyLogger.info(action, { 
+          message: 'Password auto-generated',
+          username: userData.username
+        });
+      }
+
       // Hash password
-      const hashedPassword = await bcrypt.hash(userData.password, this.BCRYPT_ROUNDS);
+      const hashedPassword = await bcrypt.hash(passwordToUse, this.BCRYPT_ROUNDS);
 
       // Create user
       const insertQuery = `
@@ -760,8 +773,40 @@ export class AuthMediator {
       MyLogger.success(action, {
         userId: newUser.id,
         username: newUser.username,
-        roleId: userData.role_id
+        roleId: userData.role_id,
+        passwordGenerated: !!generatedPassword
       });
+
+      // Send welcome email with password if it was auto-generated
+      if (generatedPassword) {
+        try {
+          const emailService = await getEmailService();
+          const emailSent = await emailService.sendWelcomeEmail(
+            userData.email,
+            userData.full_name,
+            userData.username,
+            generatedPassword
+          );
+          
+          if (emailSent) {
+            MyLogger.success(action, {
+              message: 'Welcome email sent successfully',
+              email: userData.email
+            });
+          } else {
+            MyLogger.warn(action, {
+              message: 'Failed to send welcome email (user still created)',
+              email: userData.email
+            });
+          }
+        } catch (emailError) {
+          // Don't fail user creation if email fails
+          MyLogger.error(action, emailError, {
+            message: 'Error sending welcome email (user still created)',
+            email: userData.email
+          });
+        }
+      }
 
       // Return user with permissions
       return await this.getUserWithPermissions(newUser.id);
