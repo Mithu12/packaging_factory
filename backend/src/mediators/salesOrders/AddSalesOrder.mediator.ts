@@ -111,6 +111,7 @@ export class AddSalesOrderMediator {
                     INSERT INTO sales_orders (
                         order_number,
                         customer_id,
+                        distribution_center_id,
                         order_date,
                         status,
                         payment_status,
@@ -124,13 +125,14 @@ export class AddSalesOrderMediator {
                         change_given,
                         notes
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
                     ) RETURNING *
                 `;
 
                 const orderValues = [
                     orderNumber,
                     data.customer_id || null,
+                    data.distribution_center_id || null,
                     new Date().toISOString(), // order_date
                     orderStatus,
                     paymentStatus,
@@ -207,18 +209,127 @@ export class AddSalesOrderMediator {
 
                     await client.query(insertLineItemQuery, lineItemValues);
 
-                    // Update product stock
+                    // Update product stock - branch-aware stock management
                     MyLogger.info('Updating product stock', {
                         productId: itemData.product_id,
-                        quantity: itemData.quantity
+                        quantity: itemData.quantity,
+                        distributionCenterId: data.distribution_center_id
                     });
-                    const updateStockQuery = `
-                        UPDATE products 
-                        SET current_stock = current_stock - $1,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE id = $2
-                    `;
-                    await client.query(updateStockQuery, [itemData.quantity, itemData.product_id]);
+
+                    if (data.distribution_center_id) {
+                        // Branch-specific stock management
+                        // Check if product_location exists for this branch
+                        const locationCheckQuery = `
+                            SELECT id, current_stock, reserved_stock, 
+                                   (current_stock - reserved_stock) as available_stock
+                            FROM product_locations
+                            WHERE product_id = $1 AND distribution_center_id = $2
+                        `;
+                        const locationResult = await client.query(locationCheckQuery, [
+                            itemData.product_id,
+                            data.distribution_center_id
+                        ]);
+
+                        let locationId: number | null = null;
+                        let currentBranchStock = 0;
+                        let availableStock = 0;
+
+                        if (locationResult.rows.length > 0) {
+                            // Location exists
+                            const location = locationResult.rows[0];
+                            locationId = location.id;
+                            currentBranchStock = parseFloat(location.current_stock);
+                            availableStock = parseFloat(location.available_stock);
+
+                            // Check if sufficient stock available
+                            if (availableStock < itemData.quantity) {
+                                // Get branch name for error message
+                                const branchQuery = `SELECT name FROM distribution_centers WHERE id = $1`;
+                                const branchResult = await client.query(branchQuery, [data.distribution_center_id]);
+                                const branchName = branchResult.rows[0]?.name || `Branch ${data.distribution_center_id}`;
+                                
+                                throw new Error(
+                                    `Insufficient stock at ${branchName}. Available: ${availableStock}, Required: ${itemData.quantity}`
+                                );
+                            }
+                        } else {
+                            // Location doesn't exist - create it
+                            // Get current stock from products table
+                            const productStockQuery = `SELECT current_stock FROM products WHERE id = $1`;
+                            const productStockResult = await client.query(productStockQuery, [itemData.product_id]);
+                            const productStock = productStockResult.rows[0]?.current_stock || 0;
+                            const initialStock = Math.max(0, parseFloat(productStock));
+
+                            // Create product_location
+                            const createLocationQuery = `
+                                INSERT INTO product_locations (
+                                    product_id, distribution_center_id, current_stock, 
+                                    min_stock_level, status
+                                ) VALUES ($1, $2, $3, 0, 'active')
+                                RETURNING id, current_stock, reserved_stock,
+                                          (current_stock - reserved_stock) as available_stock
+                            `;
+                            const createLocationResult = await client.query(createLocationQuery, [
+                                itemData.product_id,
+                                data.distribution_center_id,
+                                initialStock
+                            ]);
+                            locationId = createLocationResult.rows[0].id;
+                            currentBranchStock = parseFloat(createLocationResult.rows[0].current_stock);
+                            availableStock = parseFloat(createLocationResult.rows[0].available_stock);
+
+                            // Check if sufficient stock available
+                            if (availableStock < itemData.quantity) {
+                                const branchQuery = `SELECT name FROM distribution_centers WHERE id = $1`;
+                                const branchResult = await client.query(branchQuery, [data.distribution_center_id]);
+                                const branchName = branchResult.rows[0]?.name || `Branch ${data.distribution_center_id}`;
+                                
+                                throw new Error(
+                                    `Insufficient stock at ${branchName}. Available: ${availableStock}, Required: ${itemData.quantity}`
+                                );
+                            }
+
+                            MyLogger.info('Created product location for branch', {
+                                productId: itemData.product_id,
+                                distributionCenterId: data.distribution_center_id,
+                                initialStock: initialStock
+                            });
+                        }
+
+                        // Deduct from branch stock
+                        const updateBranchStockQuery = `
+                            UPDATE product_locations 
+                            SET current_stock = current_stock - $1,
+                                last_movement_date = CURRENT_TIMESTAMP,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $2
+                        `;
+                        await client.query(updateBranchStockQuery, [itemData.quantity, locationId]);
+
+                        // Also deduct from total product stock
+                        const updateTotalStockQuery = `
+                            UPDATE products 
+                            SET current_stock = current_stock - $1,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $2
+                        `;
+                        await client.query(updateTotalStockQuery, [itemData.quantity, itemData.product_id]);
+
+                        MyLogger.info('Updated branch and total stock', {
+                            productId: itemData.product_id,
+                            branchId: data.distribution_center_id,
+                            quantity: itemData.quantity
+                        });
+                    } else {
+                        // No branch specified - backward compatibility: deduct from total stock only
+                        const updateStockQuery = `
+                            UPDATE products 
+                            SET current_stock = current_stock - $1,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $2
+                        `;
+                        await client.query(updateStockQuery, [itemData.quantity, itemData.product_id]);
+                    }
                 }
 
                 // Update customer total purchases if customer exists

@@ -18,6 +18,7 @@ export class GetSalesOrderInfoMediator {
                 limit = 10,
                 search,
                 customer_id,
+                distribution_center_id,
                 status,
                 payment_status,
                 payment_method,
@@ -42,6 +43,12 @@ export class GetSalesOrderInfoMediator {
             if (customer_id) {
                 whereConditions.push(`so.customer_id = $${paramIndex}`);
                 queryParams.push(customer_id);
+                paramIndex++;
+            }
+
+            if (distribution_center_id) {
+                whereConditions.push(`so.distribution_center_id = $${paramIndex}`);
+                queryParams.push(distribution_center_id);
                 paramIndex++;
             }
 
@@ -82,6 +89,7 @@ export class GetSalesOrderInfoMediator {
                 SELECT COUNT(*) as total
                 FROM sales_orders so
                 LEFT JOIN customers c ON so.customer_id = c.id
+                LEFT JOIN distribution_centers dc ON so.distribution_center_id = dc.id
                 WHERE ${whereClause}
             `;
             const countResult = await pool.query(countQuery, queryParams);
@@ -93,6 +101,7 @@ export class GetSalesOrderInfoMediator {
                     so.id,
                     so.order_number,
                     so.customer_id,
+                    so.distribution_center_id,
                     so.order_date,
                     so.status,
                     so.payment_status,
@@ -111,10 +120,13 @@ export class GetSalesOrderInfoMediator {
                     c.email as customer_email,
                     c.phone as customer_phone,
                     u.full_name as cashier_name,
+                    dc.name as center_name,
+                    dc.code as center_code,
                     COALESCE(li.product_count, 0) as product_count
                 FROM sales_orders so
                 LEFT JOIN customers c ON so.customer_id = c.id
                 LEFT JOIN users u ON so.cashier_id = u.id
+                LEFT JOIN distribution_centers dc ON so.distribution_center_id = dc.id
                 LEFT JOIN (
                     SELECT 
                         sales_order_id,
@@ -155,6 +167,7 @@ export class GetSalesOrderInfoMediator {
                     so.id,
                     so.order_number,
                     so.customer_id,
+                    so.distribution_center_id,
                     so.order_date,
                     so.status,
                     so.payment_status,
@@ -172,10 +185,13 @@ export class GetSalesOrderInfoMediator {
                     c.name as customer_name,
                     c.email as customer_email,
                     c.phone as customer_phone,
-                    u.full_name as cashier_name
+                    u.full_name as cashier_name,
+                    dc.name as center_name,
+                    dc.code as center_code
                 FROM sales_orders so
                 LEFT JOIN customers c ON so.customer_id = c.id
                 LEFT JOIN users u ON so.cashier_id = u.id
+                LEFT JOIN distribution_centers dc ON so.distribution_center_id = dc.id
                 WHERE so.id = $1
             `;
 
@@ -335,9 +351,13 @@ export class GetSalesOrderInfoMediator {
                     so.status,
                     so.payment_status,
                     so.total_amount,
-                    c.name as customer_name
+                    so.distribution_center_id,
+                    c.name as customer_name,
+                    dc.name as center_name,
+                    dc.code as center_code
                 FROM sales_orders so
                 LEFT JOIN customers c ON so.customer_id = c.id
+                LEFT JOIN distribution_centers dc ON so.distribution_center_id = dc.id
                 WHERE (so.order_number ILIKE $1 OR c.name ILIKE $1)
                 ORDER BY so.order_date DESC
                 LIMIT $2

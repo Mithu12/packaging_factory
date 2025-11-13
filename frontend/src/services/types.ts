@@ -856,6 +856,7 @@ export interface SalesOrder {
   id: number;
   order_number: string;
   customer_id?: number;
+  distribution_center_id?: number;
   order_date: string;
   status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded';
   payment_status: 'pending' | 'paid' | 'partially_paid' | 'refunded';
@@ -876,6 +877,8 @@ export interface SalesOrder {
   customer_phone?: string;
   cashier_name?: string;
   product_count?: number;
+  center_name?: string;
+  center_code?: string;
 }
 
 export interface SalesOrderLineItem {
@@ -901,6 +904,7 @@ export interface SalesOrderWithDetails extends SalesOrder {
 
 export interface CreateSalesOrderRequest {
   customer_id?: number;
+  distribution_center_id?: number;
   payment_method: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   cash_received?: number;
   notes?: string;
@@ -930,6 +934,7 @@ export interface SalesOrderQueryParams {
   limit?: number;
   search?: string;
   customer_id?: number;
+  distribution_center_id?: number;
   status?: string;
   payment_status?: string;
   payment_method?: string;

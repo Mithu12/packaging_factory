@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast"
 import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer } from "lucide-react"
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
 import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
+import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api"
 import { Receipt } from "./Receipt"
 import { useFormatting } from "@/hooks/useFormatting"
 
@@ -28,6 +29,8 @@ export function SalesOrderProcessing() {
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [branches, setBranches] = useState<DistributionCenter[]>([])
+  const [selectedBranch, setSelectedBranch] = useState<number | undefined>()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<SalesOrderWithDetails | null>(null)
@@ -56,15 +59,28 @@ export function SalesOrderProcessing() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [ordersData, customersData, productsData] = await Promise.all([
+      const [ordersData, customersData, productsData, branchesData] = await Promise.all([
         SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
-        ProductApi.getProducts({ page: 1, limit: 100 })
+        ProductApi.getProducts({ page: 1, limit: 100 }),
+        DistributionApi.getDistributionCenters({ status: 'active', limit: 100 })
       ])
 
       setOrders(ordersData.sales_orders || [])
       setCustomers(customersData.customers || [])
       setProducts(productsData.products.filter(product => product.current_stock > 0) || [])
+      
+      const branchesList = branchesData.centers || []
+      setBranches(branchesList)
+      
+      // Auto-select primary branch if available
+      const primaryBranch = branchesList.find(b => b.is_primary)
+      if (primaryBranch) {
+        setSelectedBranch(primaryBranch.id)
+      } else if (branchesList.length > 0) {
+        // If no primary, select first branch
+        setSelectedBranch(branchesList[0].id)
+      }
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -140,6 +156,7 @@ export function SalesOrderProcessing() {
       
       const orderData = {
         customer_id: parseInt(newOrder.customerId),
+        distribution_center_id: selectedBranch,
         cashier_id: 1, // TODO: Get from auth context
         payment_method: "credit" as const,
         notes: newOrder.notes,
@@ -330,14 +347,33 @@ export function SalesOrderProcessing() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Input
-                        id="notes"
-                        value={newOrder.notes}
-                        onChange={(e) => setNewOrder(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Order notes (optional)"
-                      />
+                      <Label htmlFor="branch">Branch/Store</Label>
+                      <Select 
+                        value={selectedBranch?.toString() || "none"} 
+                        onValueChange={(value) => setSelectedBranch(value === "none" ? undefined : parseInt(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Branch Selected</SelectItem>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id.toString()}>
+                              {branch.name} {branch.is_primary && "(Primary)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Input
+                      id="notes"
+                      value={newOrder.notes}
+                      onChange={(e) => setNewOrder(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Order notes (optional)"
+                    />
                   </div>
 
                   <Separator />
@@ -485,6 +521,11 @@ export function SalesOrderProcessing() {
                       )}
                       {(order.status === "pending" || order.status === "refunded") && (
                         <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "processing")}>
+                          <CheckCircle className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {order.status === "processing" && (
+                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "completed")}>
                           <CheckCircle className="w-3 h-3" />
                         </Button>
                       )}

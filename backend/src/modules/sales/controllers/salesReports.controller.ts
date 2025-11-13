@@ -8,23 +8,28 @@ class SalesReportsController {
     async getSalesSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/sales/reports/sales-summary';
         try {
-            const { start_date, end_date } = req.query;
+            const { start_date, end_date, distribution_center_id } = req.query;
 
-            MyLogger.info(action, { start_date, end_date });
+            MyLogger.info(action, { start_date, end_date, distribution_center_id });
 
             let whereClause = '';
             let queryParams: any[] = [];
+            const conditions = [];
 
-            if (start_date || end_date) {
-                const conditions = [];
-                if (start_date) {
-                    conditions.push('DATE(so.order_date) >= $1');
-                    queryParams.push(start_date);
-                }
-                if (end_date) {
-                    conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
-                    queryParams.push(end_date);
-                }
+            if (start_date) {
+                conditions.push(`DATE(so.order_date) >= $${queryParams.length + 1}`);
+                queryParams.push(start_date);
+            }
+            if (end_date) {
+                conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
+                queryParams.push(end_date);
+            }
+            if (distribution_center_id) {
+                conditions.push(`so.distribution_center_id = $${queryParams.length + 1}`);
+                queryParams.push(distribution_center_id);
+            }
+
+            if (conditions.length > 0) {
                 whereClause = 'WHERE ' + conditions.join(' AND ');
             }
 
@@ -37,6 +42,7 @@ class SalesReportsController {
                     SUM(CASE WHEN so.payment_status = 'paid' THEN 1 ELSE 0 END) as paid_orders,
                     SUM(CASE WHEN so.status = 'completed' THEN 1 ELSE 0 END) as completed_orders
                 FROM sales_orders so
+                LEFT JOIN distribution_centers dc ON so.distribution_center_id = dc.id
                 ${whereClause}
             `;
 
@@ -65,23 +71,28 @@ class SalesReportsController {
     async getCustomerPerformance(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/sales/reports/customer-performance';
         try {
-            const { limit = 10, start_date, end_date } = req.query;
+            const { limit = 10, start_date, end_date, distribution_center_id } = req.query;
 
-            MyLogger.info(action, { limit, start_date, end_date });
+            MyLogger.info(action, { limit, start_date, end_date, distribution_center_id });
 
             let whereClause = '';
             let queryParams: any[] = [];
+            const conditions = [];
 
-            if (start_date || end_date) {
-                const conditions = [];
-                if (start_date) {
-                    conditions.push('DATE(so.order_date) >= $1');
-                    queryParams.push(start_date);
-                }
-                if (end_date) {
-                    conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
-                    queryParams.push(end_date);
-                }
+            if (start_date) {
+                conditions.push(`DATE(so.order_date) >= $${queryParams.length + 1}`);
+                queryParams.push(start_date);
+            }
+            if (end_date) {
+                conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
+                queryParams.push(end_date);
+            }
+            if (distribution_center_id) {
+                conditions.push(`so.distribution_center_id = $${queryParams.length + 1}`);
+                queryParams.push(distribution_center_id);
+            }
+
+            if (conditions.length > 0) {
                 whereClause = 'AND ' + conditions.join(' AND ');
             }
 
@@ -130,23 +141,28 @@ class SalesReportsController {
     async getPaymentAnalysis(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/sales/reports/payment-analysis';
         try {
-            const { start_date, end_date } = req.query;
+            const { start_date, end_date, distribution_center_id } = req.query;
 
-            MyLogger.info(action, { start_date, end_date });
+            MyLogger.info(action, { start_date, end_date, distribution_center_id });
 
             let whereClause = '';
             let queryParams: any[] = [];
+            const conditions = [];
 
-            if (start_date || end_date) {
-                const conditions = [];
-                if (start_date) {
-                    conditions.push('DATE(so.order_date) >= $1');
-                    queryParams.push(start_date);
-                }
-                if (end_date) {
-                    conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
-                    queryParams.push(end_date);
-                }
+            if (start_date) {
+                conditions.push(`DATE(so.order_date) >= $${queryParams.length + 1}`);
+                queryParams.push(start_date);
+            }
+            if (end_date) {
+                conditions.push(`DATE(so.order_date) <= $${queryParams.length + 1}`);
+                queryParams.push(end_date);
+            }
+            if (distribution_center_id) {
+                conditions.push(`so.distribution_center_id = $${queryParams.length + 1}`);
+                queryParams.push(distribution_center_id);
+            }
+
+            if (conditions.length > 0) {
                 whereClause = 'WHERE ' + conditions.join(' AND ');
             }
 
@@ -202,23 +218,28 @@ class SalesReportsController {
     async getOrderFulfillment(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/sales/reports/order-fulfillment';
         try {
-            const { start_date, end_date } = req.query;
+            const { start_date, end_date, distribution_center_id } = req.query;
 
-            MyLogger.info(action, { start_date, end_date });
+            MyLogger.info(action, { start_date, end_date, distribution_center_id });
 
             let whereClause = '';
             let queryParams: any[] = [];
+            const conditions = [];
 
-            if (start_date || end_date) {
-                const conditions = [];
-                if (start_date) {
-                    conditions.push('DATE(order_date) >= $1');
-                    queryParams.push(start_date);
-                }
-                if (end_date) {
-                    conditions.push(`DATE(order_date) <= $${queryParams.length + 1}`);
-                    queryParams.push(end_date);
-                }
+            if (start_date) {
+                conditions.push(`DATE(order_date) >= $${queryParams.length + 1}`);
+                queryParams.push(start_date);
+            }
+            if (end_date) {
+                conditions.push(`DATE(order_date) <= $${queryParams.length + 1}`);
+                queryParams.push(end_date);
+            }
+            if (distribution_center_id) {
+                conditions.push(`distribution_center_id = $${queryParams.length + 1}`);
+                queryParams.push(distribution_center_id);
+            }
+
+            if (conditions.length > 0) {
                 whereClause = 'WHERE ' + conditions.join(' AND ');
             }
 

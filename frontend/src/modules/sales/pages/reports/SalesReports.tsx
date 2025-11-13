@@ -31,6 +31,7 @@ import { DateRange } from "react-day-picker";
 import { apiClient } from "@/services/apiClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api";
 
 interface SalesSummary {
   total_orders: number;
@@ -83,6 +84,8 @@ interface OrderFulfillment {
 
 export default function SalesReports() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedBranch, setSelectedBranch] = useState<number | undefined>();
+  const [branches, setBranches] = useState<DistributionCenter[]>([]);
   const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
   const [customerPerformance, setCustomerPerformance] = useState<CustomerPerformance[]>([]);
   const [paymentAnalysis, setPaymentAnalysis] = useState<PaymentAnalysis | null>(null);
@@ -97,6 +100,7 @@ export default function SalesReports() {
       const params = {
         start_date: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
         end_date: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+        distribution_center_id: selectedBranch,
       };
 
       const [summaryRes, customerRes, paymentRes, fulfillmentRes] = await Promise.all([
@@ -157,8 +161,21 @@ export default function SalesReports() {
   };
 
   useEffect(() => {
+    // Load branches on mount
+    const loadBranches = async () => {
+      try {
+        const branchesData = await DistributionApi.getDistributionCenters({ status: 'active', limit: 100 });
+        setBranches(branchesData.centers || []);
+      } catch (error) {
+        console.error('Error loading branches:', error);
+      }
+    };
+    loadBranches();
+  }, []);
+
+  useEffect(() => {
     fetchReports();
-  }, [dateRange]);
+  }, [dateRange, selectedBranch]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -185,6 +202,22 @@ export default function SalesReports() {
             onDateChange={setDateRange}
             placeholder="Select date range"
           />
+          <Select 
+            value={selectedBranch?.toString() || "all"} 
+            onValueChange={(value) => setSelectedBranch(value === "all" ? undefined : parseInt(value))}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id.toString()}>
+                  {branch.name} {branch.is_primary && "(Primary)"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             onClick={fetchReports}

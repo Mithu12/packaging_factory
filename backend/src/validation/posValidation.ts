@@ -47,6 +47,7 @@ export const customerQuerySchema = Joi.object({
 // Sales Order validation schemas
 export const createSalesOrderSchema = Joi.object({
   customer_id: Joi.number().integer().positive().optional(),
+  distribution_center_id: Joi.number().integer().positive().optional().allow(null),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').required(),
   cash_received: Joi.number().min(0).optional(),
   due_amount: Joi.number().min(0).optional().default(0),
@@ -82,6 +83,7 @@ export const salesOrderQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(10),
   search: Joi.string().optional(),
   customer_id: Joi.number().integer().positive().optional(),
+  distribution_center_id: Joi.number().integer().positive().optional(),
   status: Joi.string().valid('pending', 'processing', 'completed', 'cancelled', 'refunded').optional(),
   payment_status: Joi.string().valid('pending', 'paid', 'partially_paid', 'refunded').optional(),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').optional(),
