@@ -5,6 +5,30 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Category } from '@/types/inventory';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 export default function CategoriesPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -12,8 +36,15 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -40,6 +71,7 @@ export default function CategoriesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
+      toast.error('Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -47,30 +79,117 @@ export default function CategoriesPage() {
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+
     try {
       const response = await fetch('/api/inventory/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          name: newCategoryName,
-          description: newCategoryDesc
-        })
+        body: JSON.stringify(formData)
       });
 
       const data = await response.json();
       if (data.success) {
+        toast.success('Category created successfully');
         setShowAddModal(false);
-        setNewCategoryName('');
-        setNewCategoryDesc('');
+        resetForm();
         fetchCategories();
       } else {
-        alert(data.error || 'Failed to create category');
+        toast.error(data.error || 'Failed to create category');
       }
     } catch (error) {
       console.error('Failed to create category:', error);
-      alert('Failed to create category');
+      toast.error('Failed to create category');
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const handleEditCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCategory) return;
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/inventory/categories/${selectedCategory.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Category updated successfully');
+        setShowEditModal(false);
+        setSelectedCategory(null);
+        resetForm();
+        fetchCategories();
+      } else {
+        toast.error(data.error || 'Failed to update category');
+      }
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      toast.error('Failed to update category');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!selectedCategory) return;
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/inventory/categories/${selectedCategory.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Category deleted successfully');
+        setShowDeleteDialog(false);
+        setSelectedCategory(null);
+        fetchCategories();
+      } else {
+        toast.error(data.error || 'Failed to delete category');
+      }
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      toast.error('Failed to delete category');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (category: Category) => {
+    setSelectedCategory(category);
+    setFormData({
+      name: category.name,
+      description: category.description || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const openDeleteDialog = (category: Category) => {
+    setSelectedCategory(category);
+    setShowDeleteDialog(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+    });
   };
 
   if (isLoading || !user) {
@@ -104,7 +223,7 @@ export default function CategoriesPage() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Categories</h1>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddModal}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Add Category
@@ -137,10 +256,16 @@ export default function CategoriesPage() {
                         )}
                       </div>
                       <div className="flex space-x-2">
-                        <button className="text-green-600 hover:text-green-900 text-sm">
+                        <button
+                          onClick={() => openEditModal(category)}
+                          className="text-green-600 hover:text-green-900 text-sm"
+                        >
                           Edit
                         </button>
-                        <button className="text-red-600 hover:text-red-900 text-sm">
+                        <button
+                          onClick={() => openDeleteDialog(category)}
+                          className="text-red-600 hover:text-red-900 text-sm"
+                        >
                           Delete
                         </button>
                       </div>
@@ -172,60 +297,106 @@ export default function CategoriesPage() {
         </div>
       </main>
 
-      {/* Add Category Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Category</h2>
-            <form onSubmit={handleAddCategory}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category Name *
-                </label>
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
+      {/* Add/Edit Category Modal */}
+      <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddModal(false);
+          setShowEditModal(false);
+          setSelectedCategory(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{showEditModal ? 'Edit Category' : 'Add New Category'}</DialogTitle>
+            <DialogDescription>
+              {showEditModal
+                ? 'Update category information below'
+                : 'Fill in the category details below'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={showEditModal ? handleEditCategory : handleAddCategory}>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Category Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter category name"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newCategoryDesc}
-                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter description (optional)"
                 />
               </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setNewCategoryName('');
-                    setNewCategoryDesc('');
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Add Category
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddModal(false);
+                  setShowEditModal(false);
+                  setSelectedCategory(null);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {showEditModal ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : showEditModal ? (
+                  'Update Category'
+                ) : (
+                  'Add Category'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedCategory?.name}"? This will also delete all
+              subcategories and cannot be undone if there are no associated products.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCategory}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
