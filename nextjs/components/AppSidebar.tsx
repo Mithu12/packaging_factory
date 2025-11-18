@@ -16,7 +16,6 @@ import {
   UserCog,
   Tag,
   MapPin,
-  Shield,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -136,34 +135,36 @@ export function AppSidebar() {
   });
 
   const toggleSection = useCallback((title: string) => {
-    setCollapsedSections((previous) => ({
-      ...previous,
-      [title]: !previous[title],
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [title]: !prev[title],
     }));
   }, []);
 
   useEffect(() => {
-    setCollapsedSections((previous) => {
-      let updated = previous;
+    setCollapsedSections((prev) => {
+      let updated = prev;
+      let changed = false;
 
       menuSections.forEach((section) => {
-        const sectionHasActiveItem = section.items.some((item) => matchesPath(item.url));
-        if (sectionHasActiveItem && previous[section.title]) {
-          if (updated === previous) {
-            updated = { ...previous };
+        const hasActiveItem = section.items.some((item) => matchesPath(item.url));
+        if (hasActiveItem && prev[section.title]) {
+          if (!changed) {
+            updated = { ...prev };
+            changed = true;
           }
           updated[section.title] = false;
         }
       });
 
-      return updated;
+      return changed ? updated : prev;
     });
   }, [pathname, matchesPath]);
 
   const isActive = matchesPath;
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar variant="inset" collapsible="icon">
       <SidebarContent>
         <div className="p-4 border-b">
           <h2 className={`font-bold text-lg ${isCollapsed ? 'hidden' : 'block'}`}>ERP</h2>
@@ -175,7 +176,6 @@ export function AppSidebar() {
         </div>
 
         {menuSections.map((section) => {
-          const sectionId = `section-${section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
           const isSectionCollapsed = collapsedSections[section.title] ?? false;
           const hasActiveItem = section.items.some((item) => isActive(item.url));
 
@@ -183,37 +183,32 @@ export function AppSidebar() {
             <SidebarGroup key={section.title} className="px-2 py-1">
               <SidebarMenu className="gap-1">
                 <SidebarMenuItem>
+                  {/* ✅ Fixed: No asChild, no nested button */}
                   <SidebarMenuButton
-                    asChild
+                    onClick={() => toggleSection(section.title)}
                     data-active={hasActiveItem}
                     className={`text-sidebar-foreground/80 ${isCollapsed
                       ? 'justify-center'
                       : 'uppercase tracking-[0.12em] text-xs font-semibold'
-                      }`}
+                    }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section.title)}
-                      aria-expanded={!isSectionCollapsed}
-                      aria-controls={sectionId}
-                      className="flex w-full items-center"
-                    >
-                      <section.icon className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && (
-                        <>
-                          <span className="flex-1">{section.title}</span>
-                          <ChevronDown
-                            className={`ml-2 h-3.5 w-3.5 text-sidebar-foreground/60 transition-transform ${isSectionCollapsed ? '' : 'rotate-180'
-                              }`}
-                          />
-                        </>
-                      )}
-                    </button>
+                    <section.icon className="h-4 w-4 shrink-0" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="flex-1">{section.title}</span>
+                        <ChevronDown
+                          className={`ml-2 h-3.5 w-3.5 text-sidebar-foreground/60 transition-transform ${isSectionCollapsed ? '' : 'rotate-180'
+                          }`}
+                        />
+                      </>
+                    )}
                   </SidebarMenuButton>
+
                   {!isSectionCollapsed && (
-                    <SidebarMenuSub id={sectionId} className="mt-1 mx-0 border-l-0 pl-3">
+                    <SidebarMenuSub className="mt-1 mx-0 border-l-0 pl-3">
                       {section.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
+                          {/* ✅ Correct: asChild with Link */}
                           <SidebarMenuSubButton asChild isActive={isActive(item.url)} className="gap-2">
                             <Link href={item.url}>
                               <span>{item.title}</span>
