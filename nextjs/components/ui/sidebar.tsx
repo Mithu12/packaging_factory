@@ -211,6 +211,7 @@ const Sidebar = React.forwardRef<
     }
 
     // For desktop, handle different variants
+        // For desktop, handle different variants
     return (
       <div
         ref={ref}
@@ -237,10 +238,12 @@ const Sidebar = React.forwardRef<
         {/* Main sidebar container */}
         <div
           className={cn(
-            // 👇 Only use fixed positioning for "sidebar" variant
+            // 👇 Use position: sticky for inset variant, fixed for sidebar variant
             variant === "sidebar"
               ? "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex"
-              : "relative hidden h-svh w-[--sidebar-width] md:flex", // 👈 For "inset" or "floating", use relative + normal flow
+              : variant === "inset"
+                ? "sticky top-0 hidden h-svh w-[--sidebar-width] md:flex" // 👈 Sticky, not fixed
+                : "relative hidden h-svh w-[--sidebar-width] md:flex", // floating
 
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
