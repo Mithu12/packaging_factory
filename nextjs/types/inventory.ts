@@ -1,105 +1,221 @@
-export interface InventoryItem {
+// Supplier Types
+export interface Supplier {
   id: number;
-  product_name: string;
-  product_sku: string;
-  category_name: string;
-  subcategory_name?: string;
-  supplier_name: string;
-  current_stock: number;
-  min_stock_level: number;
-  max_stock_level?: number;
+  supplier_code: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  whatsapp_number?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  category?: string;
+  tax_id?: string;
+  vat_id?: string;
+  payment_terms?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_routing?: string;
+  swift_code?: string;
+  iban?: string;
+  status: 'active' | 'inactive';
+  rating: number;
+  total_orders: number;
+  last_order_date?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSupplierRequest {
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  whatsapp_number?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  category?: string;
+  tax_id?: string;
+  vat_id?: string;
+  payment_terms?: string;
+  bank_name?: string;
+  bank_account?: string;
+  bank_routing?: string;
+  swift_code?: string;
+  iban?: string;
+  status?: 'active' | 'inactive';
+  notes?: string;
+}
+
+export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {
+  rating?: number;
+  total_orders?: number;
+  last_order_date?: string;
+}
+
+// Product Types
+export interface Product {
+  id: number;
+  product_code: string;
+  sku: string;
+  name: string;
+  description?: string;
+  category_id: number;
+  subcategory_id?: number;
+  brand_id?: number;
+  origin_id?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
-  total_value: number;
+  current_stock: number;
+  min_stock_level: number;
+  max_stock_level?: number;
+  supplier_id: number;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
-  last_movement_date?: string;
-  last_movement_type?: 'receipt' | 'issue' | 'adjustment' | 'transfer';
-  location?: string;
-  reserved_stock?: number;
-  available_stock?: number;
+  barcode?: string;
+  weight?: number;
+  dimensions?: string;
+  tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
+  notes?: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
+  category_name?: string;
+  subcategory_name?: string;
+  brand_name?: string;
+  origin_name?: string;
+  supplier_name?: string;
 }
 
-export interface StockMovement {
+export interface CreateProductRequest {
+  sku: string;
+  name: string;
+  description?: string;
+  category_id: number;
+  subcategory_id?: number;
+  brand_id?: number;
+  origin_id?: number;
+  unit_of_measure: string;
+  cost_price: number;
+  selling_price: number;
+  current_stock: number;
+  min_stock_level: number;
+  max_stock_level?: number;
+  supplier_id: number;
+  status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
+  barcode?: string;
+  weight?: number;
+  dimensions?: string;
+  tax_rate?: number;
+  warranty_period?: number;
+  service_time?: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
+  notes?: string;
+  image_url?: string;
+}
+
+export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+
+// Category Types
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  subcategories?: Subcategory[];
+}
+
+export interface Subcategory {
+  id: number;
+  name: string;
+  description?: string;
+  category_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
+
+export interface CreateSubcategoryRequest {
+  name: string;
+  description?: string;
+  category_id: number;
+}
+
+export interface UpdateSubcategoryRequest extends Partial<CreateSubcategoryRequest> {}
+
+// Stats Types
+export interface SupplierStats {
+  total_suppliers: number;
+  active_suppliers: number;
+  inactive_suppliers: number;
+  categories_count: number;
+  average_rating: number;
+}
+
+export interface ProductStats {
+  total_products: number;
+  active_products: number;
+  inactive_products: number;
+  discontinued_products: number;
+  out_of_stock_products: number;
+  low_stock_products: number;
+  total_inventory_value: number;
+  average_cost_price: number;
+  average_selling_price: number;
+  categories_count: number;
+  suppliers_count: number;
+}
+
+export interface CategoryStats {
+  total_categories: number;
+  total_subcategories: number;
+  categories_with_subcategories: number;
+  average_subcategories_per_category: number;
+}
+
+// Stock Adjustment Types
+export interface StockAdjustmentRequest {
+  product_id: number;
+  adjustment_type: 'increase' | 'decrease' | 'set';
+  quantity: number;
+  reason: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface StockAdjustment {
   id: number;
   product_id: number;
-  product_name: string;
-  product_sku: string;
-  movement_type: 'receipt' | 'issue' | 'adjustment' | 'transfer';
+  adjustment_type: 'increase' | 'decrease' | 'set';
   quantity: number;
   previous_stock: number;
   new_stock: number;
   reason: string;
   reference?: string;
   notes?: string;
-  user_name?: string;
+  created_by?: string;
   created_at: string;
-  // Additional fields for different movement types
-  supplier_name?: string;
-  purchase_order_number?: string;
-  sales_order_number?: string;
-  adjustment_id?: number;
-  from_location?: string;
-  to_location?: string;
-}
-
-export interface InventoryStats {
-  total_inventory_value: number;
-  total_products: number;
-  low_stock_items: number;
-  critical_stock_items: number;
-  out_of_stock_items: number;
-  overstock_items: number;
-  total_locations: number;
-  recent_movements_count: number;
-  monthly_movement_trend: {
-    month: string;
-    receipts: number;
-    issues: number;
-    adjustments: number;
-  }[];
-}
-
-export interface InventoryQueryParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  category_id?: number;
-  subcategory_id?: number;
-  supplier_id?: number;
-  status?: string;
-  stock_status?: 'low' | 'critical' | 'optimal' | 'overstock' | 'out_of_stock';
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface StockMovementQueryParams {
-  product_id?: number;
-  movement_type?: 'receipt' | 'issue' | 'adjustment' | 'transfer';
-  start_date?: string;
-  end_date?: string;
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface InventoryLocation {
-  id: number;
-  name: string;
-  description?: string;
-  address?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateInventoryLocationRequest {
-  name: string;
-  description?: string;
-  address?: string;
-}
-
-export interface UpdateInventoryLocationRequest extends Partial<CreateInventoryLocationRequest> {
-  is_active?: boolean;
+  product_name?: string;
+  product_sku?: string;
 }
