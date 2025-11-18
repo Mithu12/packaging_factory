@@ -1,21 +1,50 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Product } from '@/types/inventory';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { DataTablePagination } from '@/components/DataTablePagination';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Package,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+} from 'lucide-react';
+import { Product, ProductStats } from '@/types/inventory';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function ProductsPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [stats, setStats] = useState<ProductStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState('');
-  const [lowStockOnly, setLowStockOnly] = useState(false);
-  const limit = 10;
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -25,275 +54,345 @@ export default function ProductsPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchProducts();
+      fetchData();
     }
-  }, [isAuthenticated, page, search, lowStockOnly]);
+  }, [isAuthenticated, currentPage, pageSize, searchTerm]);
 
-  const fetchProducts = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...(search && { search }),
-        ...(lowStockOnly && { low_stock: 'true' })
+        page: currentPage.toString(),
+        limit: pageSize.toString(),
+        ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await fetch(`/api/inventory/products?${params}`, {
-        credentials: 'include'
-      });
+      const [productsRes, statsRes] = await Promise.all([
+        fetch(`/api/inventory/products?${params}`, { credentials: 'include' }),
+        fetch('/api/inventory/products/stats', { credentials: 'include' }),
+      ]);
 
-      const data = await response.json();
-      if (data.success) {
-        setProducts(data.data);
-        setTotal(data.pagination.total);
+      const productsData = await productsRes.json();
+      const statsData = await statsRes.json();
+
+      if (productsData.success) {
+        setProducts(productsData.data);
+        setTotalItems(productsData.pagination.total);
       }
-    } catch (error) {
-      console.error('Failed to fetch products:', error);
+
+      if (statsData.success) {
+        setStats(statsData.data);
+      }
+    } catch (err) {
+      setError('Failed to load products');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    fetchProducts();
+  const getStockStatus = (current: number, min: number) => {
+    if (current <= min * 0.5)
+      return { status: 'critical', color: 'text-destructive', icon: AlertTriangle };
+    if (current <= min) return { status: 'low', color: 'text-orange-500', icon: AlertTriangle };
+    return { status: 'good', color: 'text-green-600', icon: CheckCircle };
   };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'discontinued':
+        return 'bg-gray-100 text-gray-800';
+      case 'out_of_stock':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(value);
+  };
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  // Get unique categories from products
+  const categories = products.reduce((acc, product) => {
+    if (product.category_name) {
+      const existing = acc.find((cat) => cat.name === product.category_name);
+      if (existing) {
+        existing.count++;
+      } else {
+        acc.push({
+          name: product.category_name,
+          count: 1,
+          color:
+            acc.length % 4 === 0
+              ? 'bg-blue-100 text-blue-800'
+              : acc.length % 4 === 1
+              ? 'bg-green-100 text-green-800'
+              : acc.length % 4 === 2
+              ? 'bg-yellow-100 text-yellow-800'
+              : 'bg-purple-100 text-purple-800',
+        });
+      }
+    }
+    return acc;
+  }, [] as { name: string; count: number; color: string }[]);
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading...</span>
+        </div>
       </div>
     );
   }
 
-  const totalPages = Math.ceil(total / limit);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => fetchData()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard" className="text-xl font-bold">
-                ERP System
-              </Link>
-              <Link href="/inventory" className="text-gray-600 hover:text-gray-900">
-                Inventory
-              </Link>
-              <span className="text-blue-600 font-medium">Products</span>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Products</h1>
+          <p className="text-muted-foreground">Manage your product catalog and inventory levels</p>
         </div>
-      </nav>
+        <Button className="bg-primary hover:bg-primary/90">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
+      </div>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Products</h1>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-              Add Product
-            </button>
-          </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-card to-accent/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Products
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.total_products || 0}</div>
+            <p className="text-xs text-green-600">{stats?.active_products || 0} active</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-card to-accent/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">
+              {stats?.low_stock_products || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Need reordering</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-card to-accent/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Categories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.categories_count || 0}</div>
+            <p className="text-xs text-muted-foreground">Active categories</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-card to-accent/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Value
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.total_inventory_value ? formatCurrency(stats.total_inventory_value) : '$0'}
+            </div>
+            <p className="text-xs text-green-600">Inventory value</p>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Search and Filters */}
-          <form onSubmit={handleSearch} className="mb-6">
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products by name, SKU, or code..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Categories */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Categories</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {categories.map((category) => (
+              <div
+                key={category.name}
+                className="flex items-center justify-between p-3 rounded-lg bg-accent/20 hover:bg-accent/30 transition-colors"
               >
-                Search
-              </button>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="lowStock"
-                checked={lowStockOnly}
-                onChange={(e) => {
-                  setLowStockOnly(e.target.checked);
-                  setPage(1);
-                }}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="lowStock" className="ml-2 text-sm text-gray-700">
-                Show only low stock items
-              </label>
-            </div>
-          </form>
-
-          {/* Products Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="text-lg">Loading products...</div>
+                <div>
+                  <div className="font-medium text-sm">{category.name}</div>
+                  <div className="text-xs text-muted-foreground">{category.count} products</div>
+                </div>
+                <Badge className={category.color}>{category.count}</Badge>
               </div>
-            ) : products.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No products found</p>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Products Table */}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <CardTitle>Product Catalog</CardTitle>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-full sm:w-80"
+                  />
+                </div>
+                <Button variant="outline" size="icon">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin" />
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          SKU
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Name
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Supplier
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {products.map((product) => (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {product.sku}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {product.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.category_name || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.supplier_name || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span
-                              className={
-                                product.current_stock <= product.min_stock_level
-                                  ? 'text-red-600 font-semibold'
-                                  : 'text-gray-900'
-                              }
-                            >
-                              {product.current_stock}
-                            </span>
-                            <span className="text-gray-400 text-xs ml-1">
-                              / {product.min_stock_level}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${product.selling_price}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                product.status === 'active'
-                                  ? 'bg-green-100 text-green-800'
-                                  : product.status === 'inactive'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : product.status === 'out_of_stock'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Stock Status</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => {
+                      const stockInfo = getStockStatus(
+                        product.current_stock,
+                        product.min_stock_level
+                      );
+                      const StockIcon = stockInfo.icon;
+
+                      return (
+                        <TableRow key={product.id} className="hover:bg-accent/50">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                                <Package className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <div className="font-medium">{product.name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  SKU: {product.sku}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium text-sm">{product.category_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {product.subcategory_name}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <StockIcon className={`w-4 h-4 ${stockInfo.color}`} />
+                              <div>
+                                <div className={`font-medium text-sm ${stockInfo.color}`}>
+                                  {product.current_stock} {product.unit_of_measure}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Min: {product.min_stock_level} {product.unit_of_measure}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium text-sm">
+                                {formatCurrency(product.selling_price)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Cost: {formatCurrency(product.cost_price)}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {product.supplier_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(product.status)}>
                               {product.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button className="text-blue-600 hover:text-blue-900 mr-3">
-                              View
-                            </button>
-                            <button className="text-green-600 hover:text-green-900 mr-3">
-                              Edit
-                            </button>
-                            <button className="text-red-600 hover:text-red-900">
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-popover">
+                                <DropdownMenuItem>View Details</DropdownMenuItem>
+                                <DropdownMenuItem>Edit Product</DropdownMenuItem>
+                                <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive">
+                                  Deactivate
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
 
                 {/* Pagination */}
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => setPage(Math.max(1, page - 1))}
-                      disabled={page === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setPage(Math.min(totalPages, page + 1))}
-                      disabled={page === totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to{' '}
-                        <span className="font-medium">
-                          {Math.min(page * limit, total)}
-                        </span>{' '}
-                        of <span className="font-medium">{total}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        <button
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          disabled={page === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Previous
-                        </button>
-                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                          Page {page} of {totalPages}
-                        </span>
-                        <button
-                          onClick={() => setPage(Math.min(totalPages, page + 1))}
-                          disabled={page === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
+                <div className="mt-4">
+                  <DataTablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    pageSize={pageSize}
+                    totalItems={totalItems}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setPageSize}
+                  />
                 </div>
               </>
             )}
-          </div>
-        </div>
-      </main>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
