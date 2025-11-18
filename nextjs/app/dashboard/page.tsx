@@ -67,16 +67,49 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-2">Migration Status</h3>
-            <p className="text-sm text-gray-700">
-              ✅ Phase 1: Next.js foundation setup complete<br />
-              ✅ Auth API routes migrated (login, logout, profile)<br />
-              ✅ Client-side auth context and providers<br />
-              ✅ Basic login and dashboard pages<br />
-              <br />
-              Next steps: Migrate additional modules (inventory, accounts, factory, etc.)
-            </p>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Migration Status</h3>
+              <p className="text-sm text-gray-700">
+                ✅ Phase 1: Next.js foundation setup complete<br />
+                ✅ Auth API routes migrated (login, logout, profile)<br />
+                ✅ Client-side auth context and providers<br />
+                ✅ Basic login and dashboard pages<br />
+                ✅ Inventory module complete (suppliers, products, categories)<br />
+                <br />
+                Next steps: Migrate accounts, factory, HRM, sales modules
+              </p>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Quick Links</h3>
+              <div className="space-y-2">
+                <a
+                  href="/inventory"
+                  className="block text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  → Inventory Management
+                </a>
+                <a
+                  href="/inventory/suppliers"
+                  className="block text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  → Suppliers
+                </a>
+                <a
+                  href="/inventory/products"
+                  className="block text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  → Products
+                </a>
+                <a
+                  href="/inventory/categories"
+                  className="block text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  → Categories
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </main>
