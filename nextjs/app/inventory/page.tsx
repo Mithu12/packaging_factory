@@ -1,9 +1,21 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Package,
+  Users,
+  AlertTriangle,
+  DollarSign,
+  TrendingUp,
+  ArrowRight,
+  Loader2,
+  FolderTree,
+} from 'lucide-react';
 
 interface Stats {
   suppliers: {
@@ -20,10 +32,11 @@ interface Stats {
 }
 
 export default function InventoryPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -39,6 +52,9 @@ export default function InventoryPage() {
 
   const fetchStats = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       const [suppliersRes, productsRes] = await Promise.all([
         fetch('/api/inventory/suppliers/stats', { credentials: 'include' }),
         fetch('/api/inventory/products/stats', { credentials: 'include' })
@@ -47,12 +63,15 @@ export default function InventoryPage() {
       const suppliersData = await suppliersRes.json();
       const productsData = await productsRes.json();
 
-      setStats({
-        suppliers: suppliersData.data,
-        products: productsData.data
-      });
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      if (suppliersData.success && productsData.success) {
+        setStats({
+          suppliers: suppliersData.data,
+          products: productsData.data
+        });
+      }
+    } catch (err) {
+      setError('Failed to load statistics');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -60,158 +79,169 @@ export default function InventoryPage() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => fetchStats()}>Try Again</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard" className="text-xl font-bold">
-                ERP System
-              </Link>
-              <Link href="/inventory" className="text-blue-600 font-medium">
-                Inventory
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                {user.full_name} ({user.role})
-              </span>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
+        <p className="text-muted-foreground">
+          Manage your products, suppliers, and inventory levels
+        </p>
+      </div>
+
+      {/* Statistics Cards */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin" />
         </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-3xl font-bold mb-6">Inventory Management</h1>
-
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="text-lg">Loading statistics...</div>
-            </div>
-          ) : (
-            <>
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500">Total Products</h3>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats?.products.total_products || 0}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {stats?.products.active_products || 0} active
-                  </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-card to-accent/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Products
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats?.products.total_products || 0}
                 </div>
+                <p className="text-xs text-success">
+                  {stats?.products.active_products || 0} active
+                </p>
+              </CardContent>
+            </Card>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500">Total Suppliers</h3>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats?.suppliers.total_suppliers || 0}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {stats?.suppliers.active_suppliers || 0} active
-                  </p>
+            <Card className="bg-gradient-to-br from-card to-accent/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Suppliers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats?.suppliers.total_suppliers || 0}
                 </div>
+                <p className="text-xs text-success">
+                  {stats?.suppliers.active_suppliers || 0} active
+                </p>
+              </CardContent>
+            </Card>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500">Low Stock Items</h3>
-                  <p className="text-3xl font-bold text-orange-600 mt-2">
-                    {stats?.products.low_stock_products || 0}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">Need attention</p>
+            <Card className="bg-gradient-to-br from-card to-accent/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Low Stock Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-warning">
+                  {stats?.products.low_stock_products || 0}
                 </div>
+                <p className="text-xs text-muted-foreground">Need attention</p>
+              </CardContent>
+            </Card>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-sm font-medium text-gray-500">Inventory Value</h3>
-                  <p className="text-3xl font-bold text-green-600 mt-2">
-                    ${(stats?.products.total_inventory_value || 0).toLocaleString()}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">Total value</p>
+            <Card className="bg-gradient-to-br from-card to-accent/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Inventory Value
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ${(stats?.products.total_inventory_value || 0).toLocaleString()}
                 </div>
-              </div>
+                <p className="text-xs text-success flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Total value
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow p-6 mb-8">
-                <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Link
-                    href="/inventory/products"
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition"
-                  >
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Link href="/inventory/products">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
                     <h3 className="font-semibold text-lg mb-2">Products</h3>
                     <p className="text-sm text-gray-600">
                       Manage products, stock levels, and pricing
                     </p>
-                  </Link>
+                  </div>
+                </Link>
 
-                  <Link
-                    href="/inventory/suppliers"
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition"
-                  >
+                <Link href="/inventory/suppliers">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
                     <h3 className="font-semibold text-lg mb-2">Suppliers</h3>
                     <p className="text-sm text-gray-600">
                       Manage supplier information and relationships
                     </p>
-                  </Link>
+                  </div>
+                </Link>
 
-                  <Link
-                    href="/inventory/categories"
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition"
-                  >
+                <Link href="/inventory/categories">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
                     <h3 className="font-semibold text-lg mb-2">Categories</h3>
                     <p className="text-sm text-gray-600">
                       Organize products with categories and subcategories
                     </p>
-                  </Link>
-                </div>
+                  </div>
+                </Link>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Migration Status */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-2">✅ Inventory Module Migrated</h3>
-                <p className="text-sm text-gray-700">
-                  The inventory module has been successfully migrated to Next.js!
-                  <br />
-                  <br />
-                  <strong>Available Features:</strong>
-                  <br />
-                  • Suppliers management (CRUD operations)
-                  <br />
-                  • Products management (CRUD operations)
-                  <br />
-                  • Categories management (CRUD operations)
-                  <br />
-                  • Statistics and analytics
-                  <br />
-                  • Search and filtering
-                  <br />
-                  <br />
-                  <strong>API Endpoints:</strong>
-                  <br />
-                  • GET/POST /api/inventory/suppliers
-                  <br />
-                  • GET/PUT/DELETE /api/inventory/suppliers/[id]
-                  <br />
-                  • GET/POST /api/inventory/products
-                  <br />
-                  • GET/PUT/DELETE /api/inventory/products/[id]
-                  <br />
-                  • GET/POST /api/inventory/categories
-                  <br />
-                  • GET/PUT/DELETE /api/inventory/categories/[id]
+          {/* Recent Activity / Alerts */}
+          {stats && stats.products && stats.products.low_stock_products > 0 && (
+            <Card className="border-orange-200 bg-orange-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <AlertTriangle className="w-5 h-5" />
+                  Attention Required
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  You have {stats.products.low_stock_products} product(s) with low stock levels that need attention.
                 </p>
-              </div>
-            </>
+                <Link href="/inventory/products?filter=low_stock">
+                  <Button className="border-orange-300 hover:bg-orange-100">
+                    View Low Stock Items
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      </main>
+        </>
+      )}
     </div>
   );
 }
