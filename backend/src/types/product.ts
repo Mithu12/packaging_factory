@@ -64,7 +64,7 @@ export interface CreateProductRequest {
   image_url?: string;
 }
 
-export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+export interface UpdateProductRequest extends Partial<CreateProductRequest> { }
 
 export interface ProductQueryParams {
   page?: number;
@@ -117,6 +117,11 @@ export interface ProductWithDetails extends Product {
     name: string;
     supplier_code: string;
   };
+  locations?: {
+    distribution_center_id: number;
+    distribution_center_name: string;
+    current_stock: number;
+  }[];
 }
 
 export interface StockAdjustmentRequest {

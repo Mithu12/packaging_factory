@@ -8,17 +8,17 @@ import { Progress } from "@/components/ui/progress"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/sonner"
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { 
-  ArrowLeft, 
-  Edit, 
-  Package, 
-  AlertTriangle, 
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  AlertTriangle,
   CheckCircle,
   TrendingUp,
   TrendingDown,
@@ -28,10 +28,10 @@ import {
   User,
   BarChart3,
   Loader2,
-    Upload,
-    X,
-    Image,
-    Camera,
+  Upload,
+  X,
+  Image,
+  Camera,
 } from "lucide-react"
 import { ApiService, ProductWithDetails, ApiError, StockAdjustment, PurchaseOrderWithDetails } from "@/services/api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
@@ -44,16 +44,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
-import {useFormatting} from "@/hooks/useFormatting.ts";
+import { useFormatting } from "@/hooks/useFormatting.ts";
 import { BarcodeDisplay } from "@/components/BarcodeDisplay";
 
 export default function ProductDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
-    const [selectedImage, setSelectedImage] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string>("");
-    const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,20 +88,20 @@ export default function ProductDetails() {
 
   const handleImageSave = async () => {
     if (!selectedImage || !product) return;
-    
+
     setIsUploading(true);
     try {
       // Upload the image using the API
       const updatedProduct = await ProductApi.updateProductImage(product.id, selectedImage);
-      
+
       // Update the product state with the new image URL
       await fetchProduct()
-      
+
       // Reset the dialog state
       setSelectedImage(null);
       setImagePreview("");
       setIsImageDialogOpen(false);
-      
+
       toast.success("Image updated successfully!");
     } catch (error) {
       console.error("Failed to upload image:", error);
@@ -157,11 +157,11 @@ export default function ProductDetails() {
       const response = await ApiService.getPurchaseOrders({
         limit: 100 // Get more to filter by product
       })
-      
+
       // For now, we'll get basic purchase orders and fetch details for those that might contain our product
       // This is a simplified approach - in a real app, you'd want a more efficient endpoint
       const productPurchaseOrders: PurchaseOrderWithDetails[] = []
-      
+
       // Get details for each purchase order to check if it contains our product
       for (const po of response.purchase_orders.slice(0, 20)) { // Limit to first 20 for performance
         try {
@@ -173,7 +173,7 @@ export default function ProductDetails() {
           console.error(`Failed to get details for PO ${po.id}:`, err)
         }
       }
-      
+
       setPurchaseHistory(productPurchaseOrders.slice(0, 10)) // Limit to 10 most recent
     } catch (err) {
       console.error("Failed to load purchase history:", err)
@@ -442,8 +442,8 @@ export default function ProductDetails() {
           </Card>
 
           {/* Barcode Display */}
-          <BarcodeDisplay 
-            barcode={product.barcode || ''} 
+          <BarcodeDisplay
+            barcode={product.barcode || ''}
             productName={product.name}
             sku={product.sku}
           />
@@ -481,9 +481,9 @@ export default function ProductDetails() {
                         <TableCell className="font-medium">{formatDate(movement.created_at)}</TableCell>
                         <TableCell>
                           <Badge variant={
-                            movement.adjustment_type === 'increase' ? 'default' : 
-                            movement.adjustment_type === 'decrease' ? 'destructive' : 
-                            'outline'
+                            movement.adjustment_type === 'increase' ? 'default' :
+                              movement.adjustment_type === 'decrease' ? 'destructive' :
+                                'outline'
                           }>
                             {movement.adjustment_type}
                           </Badge>
@@ -541,7 +541,7 @@ export default function ProductDetails() {
                       // Find the line item for this product
                       const lineItem = purchase.line_items?.find(item => item.product_id === parseInt(id!))
                       if (!lineItem) return null
-                      
+
                       return (
                         <TableRow key={purchase.id}>
                           <TableCell className="font-medium">{formatDate(purchase.order_date)}</TableCell>
@@ -583,7 +583,7 @@ export default function ProductDetails() {
                 <div className="text-2xl font-bold">{product.current_stock} {product.unit_of_measure}</div>
                 <Progress value={stockPercentage} className="mt-2" />
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Minimum Stock</span>
@@ -606,6 +606,42 @@ export default function ProductDetails() {
                   <span className="font-medium text-sm">{product.tax_rate ? `${product.tax_rate}%` : 'Not set'}</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Warehouse Stock */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Warehouse className="w-5 h-5" />
+                Warehouse Stock
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {product.locations && product.locations.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Warehouse</TableHead>
+                      <TableHead className="text-right">Stock</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {product.locations.map((loc) => (
+                      <TableRow key={loc.distribution_center_id}>
+                        <TableCell className="font-medium">{loc.distribution_center_name}</TableCell>
+                        <TableCell className="text-right">
+                          {loc.current_stock} {product.unit_of_measure}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No warehouse stock data available.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -689,6 +725,6 @@ export default function ProductDetails() {
           </Card>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

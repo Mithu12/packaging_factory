@@ -238,6 +238,11 @@ export interface ProductWithDetails extends Product {
   brand?: Brand;
   origin?: Origin;
   supplier: Supplier;
+  locations?: {
+    distribution_center_id: number;
+    distribution_center_name: string;
+    current_stock: number;
+  }[];
 }
 
 export interface CreateProductRequest {

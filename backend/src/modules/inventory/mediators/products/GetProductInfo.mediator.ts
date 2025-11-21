@@ -185,15 +185,15 @@ export class GetProductInfoMediator {
         },
         subcategory: product.subcategory_id
           ? {
-              id: product.subcategory_id,
-              name: product.subcategory_name,
-            }
+            id: product.subcategory_id,
+            name: product.subcategory_name,
+          }
           : undefined,
         brand: product.brand_id
           ? {
-              id: product.brand_id,
-              name: product.brand_name,
-            }
+            id: product.brand_id,
+            name: product.brand_name,
+          }
           : undefined,
         supplier: {
           id: product.supplier_id,
@@ -201,6 +201,27 @@ export class GetProductInfoMediator {
           supplier_code: product.supplier_code,
         },
       };
+
+      // Fetch product locations
+      const locationsQuery = `
+        SELECT 
+          pl.distribution_center_id,
+          dc.name as distribution_center_name,
+          pl.current_stock
+        FROM product_locations pl
+        JOIN distribution_centers dc ON pl.distribution_center_id = dc.id
+        WHERE pl.product_id = $1
+      `;
+      const locationsResult = await pool.query(locationsQuery, [id]);
+
+      if (locationsResult.rows.length > 0) {
+        productWithDetails.locations = locationsResult.rows.map(row => ({
+          distribution_center_id: row.distribution_center_id,
+          distribution_center_name: row.distribution_center_name,
+          current_stock: parseFloat(row.current_stock)
+        }));
+      }
+
 
       MyLogger.success(action, {
         productId: id,
