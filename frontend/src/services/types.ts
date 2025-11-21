@@ -328,6 +328,7 @@ export interface StockAdjustmentRequest {
   reason: string;
   reference?: string;
   notes?: string;
+  distribution_center_id?: number;
 }
 
 // Stock Adjustment types

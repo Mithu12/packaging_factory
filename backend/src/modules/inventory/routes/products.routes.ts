@@ -434,6 +434,7 @@ router.patch(
         adjustmentType: adjustment_type,
         quantity,
         reason,
+        distributionCenterId: req.body.distribution_center_id
       });
 
       const adjustmentData = {
@@ -443,6 +444,7 @@ router.patch(
         reason,
         reference,
         notes,
+        distribution_center_id: req.body.distribution_center_id
       };
 
       const adjustment = await StockAdjustmentMediator.createStockAdjustment(

@@ -31,6 +31,7 @@ export class AddProductMediator {
     productData: CreateProductRequest
   ): Promise<Product> {
     let action = "AddProductMediator.createProduct";
+    const client = await pool.connect();
     try {
       MyLogger.info(action, {
         productName: productData.name,
@@ -38,6 +39,8 @@ export class AddProductMediator {
         categoryId: productData.category_id,
         supplierId: productData.supplier_id,
       });
+
+      await client.query("BEGIN");
 
       // Generate product code
       const productCode = await this.generateProductCode();
@@ -85,8 +88,48 @@ export class AddProductMediator {
         productData.service_time || null,
       ];
 
-      const result = await pool.query(query, values);
+      const result = await client.query(query, values);
       const newProduct = result.rows[0];
+
+      // Link to Primary Distribution Center
+      const primaryDcQuery = "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1";
+      const primaryDcResult = await client.query(primaryDcQuery);
+
+      if (primaryDcResult.rows.length > 0) {
+        const primaryDcId = primaryDcResult.rows[0].id;
+        const locationQuery = `
+          INSERT INTO product_locations (
+            product_id, distribution_center_id, current_stock, 
+            min_stock_level, max_stock_level, reorder_point
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (product_id, distribution_center_id) 
+          DO UPDATE SET 
+            current_stock = EXCLUDED.current_stock,
+            min_stock_level = EXCLUDED.min_stock_level,
+            max_stock_level = EXCLUDED.max_stock_level,
+            reorder_point = EXCLUDED.reorder_point
+        `;
+        await client.query(locationQuery, [
+          newProduct.id,
+          primaryDcId,
+          productData.current_stock || 0, // Use provided stock or 0
+          productData.min_stock_level || 0,
+          productData.max_stock_level || null,
+          productData.reorder_point || null
+        ]);
+
+        MyLogger.info("Linked product to primary distribution center", {
+          productId: newProduct.id,
+          centerId: primaryDcId,
+          initialStock: productData.current_stock || 0
+        });
+      } else {
+        MyLogger.warn("No primary distribution center found. Product created without location linkage.", {
+          productId: newProduct.id
+        });
+      }
+
+      await client.query("COMMIT");
 
       MyLogger.success(action, {
         productId: newProduct.id,
@@ -97,11 +140,14 @@ export class AddProductMediator {
 
       return newProduct;
     } catch (error: any) {
+      await client.query("ROLLBACK");
       MyLogger.error(action, error, {
         productName: productData.name,
         productSku: productData.sku,
       });
       throw error;
+    } finally {
+      client.release();
     }
   }
 

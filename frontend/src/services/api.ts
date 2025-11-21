@@ -7,6 +7,7 @@ export { OriginApi } from '../modules/inventory/services/origin-api';
 export { ProductApi } from '../modules/inventory/services/product-api';
 export { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
 export { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
+export { DistributionApi } from '../modules/inventory/services/distribution-api';
 export { CustomerApi } from '../modules/sales/services/customer-api';
 export { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 export { ExpenseApi } from './expense-api';
@@ -26,6 +27,7 @@ import { OriginApi } from '../modules/inventory/services/origin-api';
 import { ProductApi } from '../modules/inventory/services/product-api';
 import { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
 import { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
+import { DistributionApi } from '../modules/inventory/services/distribution-api';
 import { CustomerApi } from '../modules/sales/services/customer-api';
 import { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 import { ExpenseApi } from './expense-api';
@@ -431,5 +433,10 @@ export class ApiService {
 
   static async deleteExpenseCategory(id: number) {
     return ExpenseCategoryApi.deleteExpenseCategory(id);
+  }
+
+  // Distribution Center methods
+  static async getDistributionCenters(params?: any) {
+    return DistributionApi.getDistributionCenters(params);
   }
 }

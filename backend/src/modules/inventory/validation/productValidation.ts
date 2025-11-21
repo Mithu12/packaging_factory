@@ -94,4 +94,5 @@ export const stockAdjustmentSchema = Joi.object({
   reason: Joi.string().min(2).max(255).required(),
   reference: Joi.string().max(100).optional().allow(null, ""),
   notes: Joi.string().max(1000).optional().allow(null, ""),
+  distribution_center_id: Joi.number().integer().positive().optional(),
 });

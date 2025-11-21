@@ -9,12 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { 
-  ArrowLeft, 
-  Save, 
-  Package, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  ArrowLeft,
+  Save,
+  Package,
+  TrendingUp,
+  TrendingDown,
   AlertTriangle,
   Info,
   Loader2
@@ -27,6 +27,13 @@ interface StockAdjustmentFormData {
   reason: string
   reference: string
   notes: string
+  distribution_center_id?: string
+}
+
+interface DistributionCenter {
+  id: number
+  name: string
+  is_primary: boolean
 }
 import {
   Table,
@@ -49,32 +56,34 @@ export default function AdjustStock() {
   const [calculatedStock, setCalculatedStock] = useState(0)
   const [recentAdjustments, setRecentAdjustments] = useState<StockAdjustment[]>([])
   const [loadingAdjustments, setLoadingAdjustments] = useState(false)
+  const [distributionCenters, setDistributionCenters] = useState<DistributionCenter[]>([])
   const [adjustmentData, setAdjustmentData] = useState<StockAdjustmentFormData>({
     adjustment_type: "",
     quantity: "",
     reason: "",
     reference: "",
-    notes: ""
+    notes: "",
+    distribution_center_id: ""
   })
-    const fetchProduct = async () => {
-      if (!id) return
-      
-      try {
-        setLoading(true)
-        setError(null)
-        const productData = await ApiService.getProduct(parseInt(id))
-        setProduct(productData)
-        setCalculatedStock(productData.current_stock)
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message)
-        } else {
-          setError("Failed to load product details")
-        }
-      } finally {
-        setLoading(false)
+  const fetchProduct = async () => {
+    if (!id) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const productData = await ApiService.getProduct(parseInt(id))
+      setProduct(productData)
+      setCalculatedStock(productData.current_stock)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError("Failed to load product details")
       }
+    } finally {
+      setLoading(false)
     }
+  }
 
   // Fetch product data
   useEffect(() => {
@@ -86,7 +95,7 @@ export default function AdjustStock() {
   useEffect(() => {
     const fetchAdjustmentHistory = async () => {
       if (!id) return
-      
+
       try {
         setLoadingAdjustments(true)
         const adjustments = await ApiService.getStockAdjustments({
@@ -104,6 +113,27 @@ export default function AdjustStock() {
 
     fetchAdjustmentHistory()
   }, [id])
+
+  // Fetch distribution centers
+  useEffect(() => {
+    const fetchCenters = async () => {
+      try {
+        const response = await ApiService.getDistributionCenters({ status: 'active' });
+        setDistributionCenters(response.centers);
+
+        // Set default if available
+        const primary = response.centers.find((c: any) => c.is_primary);
+        if (primary) {
+          setAdjustmentData(prev => ({ ...prev, distribution_center_id: primary.id.toString() }));
+        } else if (response.centers.length > 0) {
+          setAdjustmentData(prev => ({ ...prev, distribution_center_id: response.centers[0].id.toString() }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch distribution centers:', err);
+      }
+    }
+    fetchCenters();
+  }, [])
 
   if (loading) {
     return (
@@ -144,7 +174,7 @@ export default function AdjustStock() {
       "Expired products",
       "Theft/Loss",
       "Quality control rejection",
-      "Stock count correction", 
+      "Stock count correction",
       "Internal use",
       "Other"
     ]
@@ -152,16 +182,16 @@ export default function AdjustStock() {
 
   const handleInputChange = (field: keyof StockAdjustmentFormData, value: string) => {
     setAdjustmentData(prev => ({ ...prev, [field]: value }))
-    
+
     // Calculate new stock when quantity or adjustment type changes
     if ((field === "quantity" || field === "adjustment_type") && product) {
       const newData = { ...adjustmentData, [field]: value }
       const qty = parseFloat(newData.quantity) || 0
-      
+
       if (newData.adjustment_type === "increase") {
         setCalculatedStock(Number(product.current_stock) + Number(qty))
       } else if (newData.adjustment_type === "decrease") {
-        setCalculatedStock(Number(product.current_stock) - Number(qty)) 
+        setCalculatedStock(Number(product.current_stock) - Number(qty))
       } else {
         setCalculatedStock(product.current_stock)
       }
@@ -170,7 +200,7 @@ export default function AdjustStock() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validation
     if (!adjustmentData.adjustment_type || !adjustmentData.quantity || !adjustmentData.reason) {
       toast({
@@ -202,30 +232,31 @@ export default function AdjustStock() {
 
     try {
       setSaving(true)
-      
+
       const stockAdjustmentData: StockAdjustmentRequest = {
         product_id: parseInt(id),
         adjustment_type: adjustmentData.adjustment_type as 'increase' | 'decrease' | 'set',
         quantity: qty,
         reason: adjustmentData.reason,
         reference: adjustmentData.reference || undefined,
-        notes: adjustmentData.notes || undefined
+        notes: adjustmentData.notes || undefined,
+        distribution_center_id: adjustmentData.distribution_center_id ? parseInt(adjustmentData.distribution_center_id) : undefined
       }
-      
+
       await ApiService.updateProductStock(parseInt(id), stockAdjustmentData)
-      
+
       toast({
         title: "Stock Adjusted",
         description: `Stock has been ${adjustmentData.adjustment_type === "increase" ? "increased" : "decreased"} by ${qty} ${product.unit_of_measure}.`
       })
-      
+
       // Refresh adjustment history
       const adjustments = await ApiService.getStockAdjustments({
         product_id: parseInt(id),
         limit: 10
       })
       setRecentAdjustments(adjustments)
-      
+
       // Reset form
       setAdjustmentData({
         adjustment_type: "",
@@ -315,12 +346,12 @@ export default function AdjustStock() {
                   <div className="text-center p-4 bg-accent/10 border rounded-lg">
                     <div className="text-2xl font-bold">{adjustmentData.quantity || "0"}</div>
                     <div className="text-sm text-muted-foreground">
-                      {adjustmentData.adjustment_type === "increase" ? "Increase" : 
-                       adjustmentData.adjustment_type === "decrease" ? "Decrease" : "Adjustment"}
+                      {adjustmentData.adjustment_type === "increase" ? "Increase" :
+                        adjustmentData.adjustment_type === "decrease" ? "Decrease" : "Adjustment"}
                     </div>
                     {adjustmentData.adjustment_type && (
                       <div className="mt-1">
-                        {adjustmentData.adjustment_type === "increase" ? 
+                        {adjustmentData.adjustment_type === "increase" ?
                           <TrendingUp className="w-4 h-4 mx-auto text-success" /> :
                           <TrendingDown className="w-4 h-4 mx-auto text-destructive" />
                         }
@@ -342,7 +373,7 @@ export default function AdjustStock() {
                     <div>
                       <div className="font-medium text-warning">Low Stock Warning</div>
                       <div className="text-sm text-muted-foreground">
-                        This adjustment will bring stock below the minimum level ({product.min_stock_level} {product.unit_of_measure}). 
+                        This adjustment will bring stock below the minimum level ({product.min_stock_level} {product.unit_of_measure}).
                         Consider reordering soon.
                       </div>
                     </div>
@@ -353,6 +384,25 @@ export default function AdjustStock() {
 
                 {/* Adjustment Details */}
                 <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="warehouse">Warehouse</Label>
+                    <Select
+                      value={adjustmentData.distribution_center_id}
+                      onValueChange={(value) => handleInputChange("distribution_center_id", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select warehouse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {distributionCenters.map((dc) => (
+                          <SelectItem key={dc.id} value={dc.id.toString()}>
+                            {dc.name} {dc.is_primary ? '(Default)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="adjustmentType">Adjustment Type *</Label>
@@ -443,9 +493,9 @@ export default function AdjustStock() {
                       </>
                     )}
                   </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => navigate(`/products/${id}`)}
                   >
                     Cancel
@@ -476,7 +526,7 @@ export default function AdjustStock() {
                     <div key={adjustment.id} className="p-3 bg-accent/20 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {adjustment.adjustment_type === "increase" ? 
+                          {adjustment.adjustment_type === "increase" ?
                             <TrendingUp className="w-4 h-4 text-success" /> :
                             <TrendingDown className="w-4 h-4 text-destructive" />
                           }

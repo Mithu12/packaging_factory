@@ -14,10 +14,10 @@ import { useToast } from "@/hooks/use-toast"
 import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 import { PermissionButton } from "@/components/rbac/PermissionButton"
 import { PERMISSIONS } from "@/types/rbac"
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   Warehouse,
   MapPin,
@@ -52,7 +52,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { 
+import {
   DistributionApi,
   DistributionCenter,
   DistributionCenterStats,
@@ -69,23 +69,23 @@ export default function Distribution() {
   const { user } = useAuth()
   const { hasPermission } = useRBAC()
   const { toast } = useToast()
-  
+
   // State management
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("centers")
-  
+
   // Distribution Centers state
   const [centers, setCenters] = useState<DistributionCenter[]>([])
   const [centerStats, setCenterStats] = useState<DistributionCenterStats[]>([])
   const [showCreateCenterForm, setShowCreateCenterForm] = useState(false)
-  
+
   // Product Locations state
   const [locations, setLocations] = useState<ProductLocation[]>([])
   const [selectedCenter, setSelectedCenter] = useState<DistributionCenter | null>(null)
   const [showLocationDetails, setShowLocationDetails] = useState(false)
-  
+
 
   // Filter centers based on search term
   const filteredCenters = centers.filter(center =>
@@ -106,12 +106,12 @@ export default function Distribution() {
       try {
         setLoading(true)
         setError(null)
-        
+
         const [centersResult, statsResult] = await Promise.all([
           DistributionApi.getDistributionCenters({ limit: 100 }),
           DistributionApi.getDistributionCenterStats()
         ])
-        
+
         setCenters(centersResult.centers)
         setCenterStats(statsResult)
       } catch (err) {
@@ -154,7 +154,7 @@ export default function Distribution() {
       const newCenter = await DistributionApi.createDistributionCenter(data)
       setCenters(prev => [newCenter, ...prev])
       setShowCreateCenterForm(false)
-      
+
       // Refresh stats
       const updatedStats = await DistributionApi.getDistributionCenterStats()
       setCenterStats(updatedStats)
@@ -167,7 +167,7 @@ export default function Distribution() {
   const handleSetPrimary = async (centerId: number) => {
     try {
       await DistributionApi.setPrimaryDistributionCenter(centerId)
-      
+
       // Update local state
       setCenters(prev => prev.map(center => ({
         ...center,
@@ -190,12 +190,12 @@ export default function Distribution() {
 
     try {
       await DistributionApi.updateDistributionCenter(center.id, { status: 'inactive' })
-      
+
       // Update local state
-      setCenters(prev => prev.map(c => 
+      setCenters(prev => prev.map(c =>
         c.id === center.id ? { ...c, status: 'inactive' } : c
       ))
-      
+
       toast({
         title: "Center Deactivated",
         description: `${center.name} has been deactivated.`,
@@ -214,7 +214,7 @@ export default function Distribution() {
   const summaryStats = {
     totalCenters: centers.length,
     activeCenters: centers.filter(c => c.status === 'active').length,
-    totalInventoryValue: centerStats.reduce((sum, stat) => sum + stat.total_inventory_value, 0),
+    totalInventoryValue: centerStats.reduce((sum, stat) => sum + Number(stat.total_inventory_value), 0),
     totalProducts: centerStats.reduce((sum, stat) => sum + stat.total_products, 0),
     lowStockLocations: centerStats.reduce((sum, stat) => sum + stat.low_stock_products, 0),
     pendingTransfers: centerStats.reduce((sum, stat) => sum + stat.outbound_transfers, 0)
@@ -346,7 +346,7 @@ export default function Distribution() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                {summaryStats.totalCenters > 0 ? 
+                {summaryStats.totalCenters > 0 ?
                   Math.round((summaryStats.activeCenters / summaryStats.totalCenters) * 100) : 0}%
               </div>
               <p className="text-xs text-muted-foreground">Centers active</p>
@@ -401,7 +401,7 @@ export default function Distribution() {
                     {centersPagination.data.map((center) => {
                       const TypeIcon = getTypeIcon(center.type)
                       const stats = centerStats.find(s => s.id === center.id)
-                      
+
                       return (
                         <TableRow key={center.id} className="hover:bg-accent/50">
                           <TableCell>
@@ -479,7 +479,7 @@ export default function Distribution() {
                                         Set as Primary
                                       </DropdownMenuItem>
                                     )}
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       onClick={() => handleDeactivateCenter(center)}
                                       className="text-destructive"
                                     >
@@ -495,7 +495,7 @@ export default function Distribution() {
                     })}
                   </TableBody>
                 </Table>
-                
+
                 {/* Pagination */}
                 <div className="mt-4">
                   <DataTablePagination

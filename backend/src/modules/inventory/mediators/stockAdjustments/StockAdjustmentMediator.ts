@@ -10,7 +10,7 @@ import {
 
 export class StockAdjustmentMediator {
   static async createStockAdjustment(
-    data: CreateStockAdjustmentRequest
+    data: CreateStockAdjustmentRequest & { distribution_center_id?: number }
   ): Promise<StockAdjustment> {
     const action = "Create Stock Adjustment";
     const client = await pool.connect();
@@ -21,9 +21,73 @@ export class StockAdjustmentMediator {
         productId: data.product_id,
         adjustmentType: data.adjustment_type,
         quantity: data.quantity,
+        distributionCenterId: data.distribution_center_id
       });
 
-      // Get current stock
+      // Determine Distribution Center
+      let distributionCenterId = data.distribution_center_id;
+      if (!distributionCenterId) {
+        const primaryDcQuery = "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1";
+        const primaryDcResult = await client.query(primaryDcQuery);
+        if (primaryDcResult.rows.length > 0) {
+          distributionCenterId = primaryDcResult.rows[0].id;
+        } else {
+          // Fallback or Error? For now, if no DC is specified and no primary exists, we might error or just update global stock (legacy behavior).
+          // But the requirement is to "add/remove stock from default ware house".
+          throw new Error("No distribution center specified and no primary distribution center found.");
+        }
+      }
+
+      // Update Product Location Stock
+      // Check if location exists
+      const locationQuery = "SELECT * FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2";
+      const locationResult = await client.query(locationQuery, [data.product_id, distributionCenterId]);
+
+      let currentLocationStock = 0;
+
+      if (locationResult.rows.length === 0) {
+        // If increasing stock, create location if it doesn't exist? 
+        // Or should we error? Usually you can't adjust stock for a location that doesn't exist.
+        // But for "Connect to default warehouse", maybe we should create it if it's missing?
+        // Let's assume we create it if it's missing and we are increasing stock.
+        if (data.adjustment_type === 'increase' || data.adjustment_type === 'set') {
+          const insertLocQuery = `
+                INSERT INTO product_locations (product_id, distribution_center_id, current_stock)
+                VALUES ($1, $2, 0) RETURNING *
+             `;
+          const newLoc = await client.query(insertLocQuery, [data.product_id, distributionCenterId]);
+          currentLocationStock = 0;
+        } else {
+          throw new Error("Product location not found for this distribution center");
+        }
+      } else {
+        currentLocationStock = parseFloat(locationResult.rows[0].current_stock);
+      }
+
+      let newLocationStock: number;
+      switch (data.adjustment_type) {
+        case "increase":
+          newLocationStock = currentLocationStock + data.quantity;
+          break;
+        case "decrease":
+          newLocationStock = currentLocationStock - data.quantity;
+          if (newLocationStock < 0) throw new Error("Cannot decrease stock below zero at this location");
+          break;
+        case "set":
+          newLocationStock = data.quantity;
+          break;
+        default:
+          throw new Error("Invalid adjustment type");
+      }
+
+      // Update Location Stock
+      await client.query(
+        "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
+        [newLocationStock, data.product_id, distributionCenterId]
+      );
+
+
+      // Get current GLOBAL stock (for legacy compatibility and total count)
       const productResult = await client.query(
         "SELECT current_stock FROM products WHERE id = $1",
         [data.product_id]
@@ -33,53 +97,57 @@ export class StockAdjustmentMediator {
         throw new Error("Product not found");
       }
 
-      const currentStock = parseFloat(productResult.rows[0].current_stock);
-      let newStock: number;
+      const currentGlobalStock = parseFloat(productResult.rows[0].current_stock);
+      let newGlobalStock: number;
 
-      // Calculate new stock based on adjustment type
-      switch (data.adjustment_type) {
-        case "increase":
-          newStock = currentStock + data.quantity;
-          break;
-        case "decrease":
-          newStock = currentStock - data.quantity;
-          if (newStock < 0) {
-            throw new Error("Cannot decrease stock below zero");
-          }
-          break;
-        case "set":
-          newStock = data.quantity;
-          break;
-        default:
-          throw new Error("Invalid adjustment type");
+      // Calculate new GLOBAL stock based on adjustment type
+      // Note: This is a bit tricky. If we 'set' stock at a location, the global stock change is diff.
+      // If we increase/decrease, it's straightforward.
+
+      let quantityChange = 0;
+      if (data.adjustment_type === 'set') {
+        quantityChange = newLocationStock - currentLocationStock;
+      } else if (data.adjustment_type === 'increase') {
+        quantityChange = data.quantity;
+      } else if (data.adjustment_type === 'decrease') {
+        quantityChange = -data.quantity;
       }
+
+      newGlobalStock = currentGlobalStock + quantityChange;
 
       // Create stock adjustment record
       const adjustmentResult = await client.query(
         `
         INSERT INTO stock_adjustments (
           product_id, adjustment_type, quantity, previous_stock, new_stock,
-          reason, reference, notes, adjusted_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          reason, reference, notes, adjusted_by, distribution_center_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `,
         [
           data.product_id,
           data.adjustment_type,
           data.quantity,
-          currentStock,
-          newStock,
+          currentGlobalStock, // Keeping global stock history for now, or should it be location stock? 
+          // The schema has 'previous_stock' and 'new_stock'. Usually this refers to the scope of adjustment.
+          // If we add distribution_center_id, maybe these should reflect location stock?
+          // Let's stick to global for consistency with existing data, or maybe location stock is better?
+          // Given the user asked to "connect stock to default warehouse", tracking location stock seems more correct here.
+          // BUT, the existing frontend might expect global stock. 
+          // Let's use Global Stock for now to avoid breaking other things, but log the DC.
+          newGlobalStock,
           data.reason,
           data.reference || null,
           data.notes || null,
           data.adjusted_by || null,
+          distributionCenterId
         ]
       );
 
       // Update product stock
       await client.query(
         "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [newStock, data.product_id]
+        [newGlobalStock, data.product_id]
       );
 
       await client.query("COMMIT");
@@ -100,12 +168,13 @@ export class StockAdjustmentMediator {
           productSku: product?.sku || 'UNKNOWN',
           adjustmentType: data.adjustment_type,
           quantity: data.quantity,
-          previousStock: currentStock,
-          newStock: newStock,
+          previousStock: currentGlobalStock,
+          newStock: newGlobalStock,
           reason: data.reason,
           reference: data.reference || `ADJ-${adjustment.id}`,
           notes: data.notes,
-          adjustmentDate: new Date().toISOString().split("T")[0]
+          adjustmentDate: new Date().toISOString().split("T")[0],
+          distributionCenterId // Add this to event
         };
 
         // Emit event for accounting integration
@@ -129,8 +198,9 @@ export class StockAdjustmentMediator {
       MyLogger.success(action, {
         adjustmentId: adjustment.id,
         productId: data.product_id,
-        previousStock: currentStock,
-        newStock: newStock,
+        previousStock: currentGlobalStock,
+        newStock: newGlobalStock,
+        distributionCenterId
       });
 
       return adjustment;
