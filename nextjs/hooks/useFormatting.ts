@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SettingsApi } from '@/services/settings-api';
-import { SystemSettings } from '@/services/settings-types';
+import { SystemSettings } from '@/types/settings';
 import FormattingUtils from '@/utils/formatting';
 
 export const useFormatting = () => {
@@ -15,7 +15,7 @@ export const useFormatting = () => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const systemSettings = await SettingsApi.getSystemSettings();
       FormattingUtils.setSettings(systemSettings);
     } catch (err: any) {
@@ -23,10 +23,10 @@ export const useFormatting = () => {
       setError(err.message || 'Failed to load formatting settings');
       // Use default settings if loading fails
       FormattingUtils.setSettings({
-        default_currency: 'bdt',
-        timezone: 'bdt',
-        date_format: 'dd/mm/yyyy',
-        number_format: 'bd'
+        default_currency: 'USD',
+        timezone: 'UTC',
+        date_format: 'MM/DD/YYYY',
+        number_format: 'standard'
       });
     } finally {
       setIsLoading(false);

@@ -77,6 +77,7 @@ export interface Product {
   cost_price: number;
   selling_price: number;
   current_stock: number;
+    reserved_stock: number;
   min_stock_level: number;
   max_stock_level?: number;
   supplier_id: number;
@@ -218,4 +219,59 @@ export interface StockAdjustment {
   created_at: string;
   product_name?: string;
   product_sku?: string;
+}
+
+// Brand Types
+export interface Brand {
+  id: number;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  product_count?: number;
+}
+
+// Purchase Order Types
+export interface PurchaseOrder {
+  id: number;
+  po_number: string;
+  supplier_id: number;
+  supplier_name?: string;
+  order_date: string;
+  expected_delivery_date: string;
+  total_amount: number;
+  currency: string;
+  status: 'draft' | 'pending' | 'approved' | 'received' | 'partially_received' | 'cancelled';
+  approval_status?: 'draft' | 'submitted' | 'approved' | 'rejected';
+  approved_by?: string;
+  priority: 'low' | 'normal' | 'high';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplier_id: number;
+  order_date: string;
+  expected_delivery_date: string;
+  total_amount: number;
+  currency: string;
+  priority?: 'low' | 'normal' | 'high';
+  notes?: string;
+}
+
+export interface UpdatePurchaseOrderStatusRequest {
+  status: 'pending' | 'approved' | 'received' | 'partially_received' | 'cancelled';
+  notes?: string;
+}
+
+export interface PurchaseOrderStats {
+  total_orders: number;
+  draft_orders: number;
+  pending_orders: number;
+  approved_orders: number;
+  received_orders: number;
+  orders_this_month: number;
+  total_value: number;
 }

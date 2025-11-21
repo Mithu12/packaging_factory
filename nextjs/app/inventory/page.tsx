@@ -187,7 +187,7 @@ export default function InventoryPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <Link href="/inventory/products">
                   <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
                     <h3 className="font-semibold text-lg mb-2">Products</h3>
@@ -211,6 +211,33 @@ export default function InventoryPage() {
                     <h3 className="font-semibold text-lg mb-2">Categories</h3>
                     <p className="text-sm text-gray-600">
                       Organize products with categories and subcategories
+                    </p>
+                  </div>
+                </Link>
+
+                <Link href="/inventory/brands">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
+                    <h3 className="font-semibold text-lg mb-2">Brands</h3>
+                    <p className="text-sm text-gray-600">
+                      Manage product brands and their information
+                    </p>
+                  </div>
+                </Link>
+
+                <Link href="/inventory/origins">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
+                    <h3 className="font-semibold text-lg mb-2">Origins</h3>
+                    <p className="text-sm text-gray-600">
+                      Manage product origins and manufacturing locations
+                    </p>
+                  </div>
+                </Link>
+
+                <Link href="/inventory/purchase-orders">
+                  <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition cursor-pointer">
+                    <h3 className="font-semibold text-lg mb-2">Purchase Orders</h3>
+                    <p className="text-sm text-gray-600">
+                      Create and manage purchase orders for suppliers
                     </p>
                   </div>
                 </Link>
