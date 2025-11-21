@@ -5,8 +5,9 @@ import pool from '@/lib/db';
 // GET /api/settings/[category] - Get settings by category
 export async function GET(
   request: NextRequest,
-  { params }: { params: { category: string } }
+  { params }: { params: Promise<{ category: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Get token
     let token = request.cookies.get('authToken')?.value;
@@ -28,7 +29,7 @@ export async function GET(
     // Verify token
     await AuthService.getUserFromToken(token);
 
-    const { category } = params;
+    const { category } = resolvedParams;
 
     // Get settings by category
     const result = await pool.query(
@@ -53,12 +54,13 @@ export async function GET(
 // PUT /api/settings/[category] - Update multiple settings in a category
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { category: string } }
+  { params }: { params: Promise<{ category: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Get token
     let token = request.cookies.get('authToken')?.value;
-    
+
     if (!token) {
       const authHeader = request.headers.get('authorization');
       if (authHeader?.startsWith('Bearer ')) {
@@ -75,7 +77,7 @@ export async function PUT(
 
     // Verify token and check admin role
     const { payload } = await AuthService.getUserFromToken(token);
-    
+
     if (payload.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
@@ -83,7 +85,7 @@ export async function PUT(
       );
     }
 
-    const { category } = params;
+    const { category } = resolvedParams;
     const body = await request.json();
 
     const client = await pool.connect();

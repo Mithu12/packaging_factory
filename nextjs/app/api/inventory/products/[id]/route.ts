@@ -6,8 +6,9 @@ import { UpdateProductRequest } from '@/types/inventory';
 // GET /api/inventory/products/[id] - Get product by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -24,7 +25,7 @@ export async function GET(
 
     await AuthService.getUserFromToken(token);
 
-    const { id } = params;
+    const { id } = resolvedParams;
 
     const result = await pool.query(
       `SELECT 
@@ -63,8 +64,9 @@ export async function GET(
 // PUT /api/inventory/products/[id] - Update product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -86,7 +88,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = resolvedParams;
     const body: UpdateProductRequest = await request.json();
 
     // If updating SKU, check for duplicates
@@ -149,8 +151,9 @@ export async function PUT(
 // DELETE /api/inventory/products/[id] - Delete product (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -172,7 +175,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = resolvedParams;
 
     // Soft delete - mark as discontinued
     const result = await pool.query(

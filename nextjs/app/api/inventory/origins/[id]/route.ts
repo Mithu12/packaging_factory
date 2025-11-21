@@ -2,9 +2,10 @@
 import { NextRequest } from 'next/server';
 import { apiRequest } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   try {
-    const response = await apiRequest(`/api/inventory/origins/${params.id}`, {}, request);
+    const response = await apiRequest(`/api/inventory/origins/${resolvedParams.id}`, {}, request);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -25,11 +26,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   try {
     const body = await request.json();
 
-    const response = await apiRequest(`/api/inventory/origins/${params.id}`, {
+    const response = await apiRequest(`/api/inventory/origins/${resolvedParams.id}`, {
       method: 'PUT',
       body: JSON.stringify(body)
     }, request);
@@ -53,9 +55,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   try {
-    const response = await apiRequest(`/api/inventory/origins/${params.id}`, {
+    const response = await apiRequest(`/api/inventory/origins/${resolvedParams.id}`, {
       method: 'DELETE'
     }, request);
 

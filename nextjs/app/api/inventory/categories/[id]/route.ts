@@ -6,8 +6,9 @@ import { UpdateCategoryRequest } from '@/types/inventory';
 // GET /api/inventory/categories/[id] - Get category by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -24,7 +25,7 @@ export async function GET(
 
     await AuthService.getUserFromToken(token);
 
-    const { id } = params;
+    const { id } = resolvedParams;
 
     const result = await pool.query(
       'SELECT * FROM categories WHERE id = $1',
@@ -58,8 +59,9 @@ export async function GET(
 // PUT /api/inventory/categories/[id] - Update category
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -81,7 +83,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = resolvedParams;
     const body: UpdateCategoryRequest = await request.json();
 
     // If updating name, check for duplicates
@@ -148,8 +150,9 @@ export async function PUT(
 // DELETE /api/inventory/categories/[id] - Delete category
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   try {
     // Authenticate
     let token = request.cookies.get('authToken')?.value;
@@ -171,7 +174,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = resolvedParams;
 
     // Check if category has products
     const productsCheck = await pool.query(

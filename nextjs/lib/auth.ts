@@ -35,7 +35,7 @@ export class AuthService {
   // Get user from token (for middleware)
   static async getUserFromToken(token: string) {
     const payload = this.verifyToken(token);
-    
+
     const result = await pool.query(
       'SELECT * FROM users WHERE id = $1 AND is_active = true',
       [payload.user_id]
@@ -47,10 +47,34 @@ export class AuthService {
 
     const user = result.rows[0];
     const { password_hash, ...userWithoutPassword } = user;
-    
+
     return {
       user: userWithoutPassword,
       payload
     };
+  }
+
+  // Authenticate user from request (extracts token from cookies or headers)
+  static async authenticate(request: Request) {
+    let token = request.headers.get('cookie')?.match(/authToken=([^;]+)/)?.[1];
+
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const result = await this.getUserFromToken(token);
+      return result.user;
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      return null;
+    }
   }
 }

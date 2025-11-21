@@ -102,7 +102,11 @@ export async function POST(request: NextRequest) {
   try {
     // Get token from cookies (middleware has already validated it)
     const token = request.cookies.get('authToken')?.value;
-    const { payload } = await AuthService.getUserFromToken(token);
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    const authResult = await AuthService.getUserFromToken(token);
+    const payload = authResult.payload;
 
     // Check permission
     if (payload.role !== 'admin' && payload.role !== 'manager') {

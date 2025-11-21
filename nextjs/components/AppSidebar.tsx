@@ -232,6 +232,14 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <Link href="/rbac">
+                    <UserCog className="h-4 w-4" />
+                    {!isCollapsed && <span>Role Management</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <Link href="/user-management">
                     <UserCog className="h-4 w-4" />
                     {!isCollapsed && <span>User Management</span>}
