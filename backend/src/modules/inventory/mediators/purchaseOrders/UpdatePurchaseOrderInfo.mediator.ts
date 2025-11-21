@@ -538,13 +538,50 @@ class UpdatePurchaseOrderInfoMediator {
                 `;
         await client.query(updateStockQuery, [newStock, lineItem.product_id]);
 
+        // --- NEW LOGIC: Update Product Location (Default Warehouse) ---
+        // 1. Get Primary Distribution Center
+        const primaryDcQuery = "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1";
+        const primaryDcResult = await client.query(primaryDcQuery);
+
+        let distributionCenterId: number | null = null;
+        if (primaryDcResult.rows.length > 0) {
+          distributionCenterId = primaryDcResult.rows[0].id;
+
+          // 2. Update or Create Product Location
+          const locationQuery = `
+                INSERT INTO product_locations (
+                    product_id, distribution_center_id, current_stock
+                ) VALUES ($1, $2, $3)
+                ON CONFLICT (product_id, distribution_center_id)
+                DO UPDATE SET 
+                    current_stock = product_locations.current_stock + EXCLUDED.current_stock,
+                    updated_at = CURRENT_TIMESTAMP
+            `;
+          await client.query(locationQuery, [
+            lineItem.product_id,
+            distributionCenterId,
+            receivedItem.received_quantity
+          ]);
+
+          MyLogger.info("Updated product location stock", {
+            productId: lineItem.product_id,
+            distributionCenterId,
+            addedStock: receivedItem.received_quantity
+          });
+        } else {
+          MyLogger.warn("No primary distribution center found. Stock received but not allocated to a location.", {
+            productId: lineItem.product_id
+          });
+        }
+        // -----------------------------------------------------------
+
         // Create stock adjustment record for audit trail
         const stockAdjustmentQuery = `
                     INSERT INTO stock_adjustments (
                         product_id, adjustment_type, quantity, 
                         previous_stock, new_stock,
-                        reason, reference, notes, adjusted_by
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        reason, reference, notes, adjusted_by, distribution_center_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 `;
         await client.query(stockAdjustmentQuery, [
           lineItem.product_id,
@@ -556,6 +593,7 @@ class UpdatePurchaseOrderInfoMediator {
           `PO-${id}`,
           `Goods received for Purchase Order ${id}`,
           "System User",
+          distributionCenterId // Log the DC ID
         ]);
 
         // Check if all items are fully received
