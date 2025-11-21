@@ -6,21 +6,6 @@ import { CreateProductRequest } from '@/types/inventory';
 // GET /api/inventory/products - Get all products
 export async function GET(request: NextRequest) {
   try {
-    // Authenticate
-    let token = request.cookies.get('authToken')?.value;
-    if (!token) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    await AuthService.getUserFromToken(token);
-
     // Get query parameters
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
@@ -115,19 +100,8 @@ export async function GET(request: NextRequest) {
 // POST /api/inventory/products - Create product
 export async function POST(request: NextRequest) {
   try {
-    // Authenticate
-    let token = request.cookies.get('authToken')?.value;
-    if (!token) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
+    // Get token from cookies (middleware has already validated it)
+    const token = request.cookies.get('authToken')?.value;
     const { payload } = await AuthService.getUserFromToken(token);
 
     // Check permission

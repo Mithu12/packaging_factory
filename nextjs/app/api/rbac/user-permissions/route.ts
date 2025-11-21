@@ -1,7 +1,5 @@
 import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route'; // Adjust this path as needed
 import { UserWithPermissions } from '@/types/rbac';
 
 // Helper function to get user permissions from the database
@@ -94,10 +92,10 @@ export async function GET(request: NextRequest) {
     // For now, we'll just return mock data for demonstration
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId'); // This could come from session in real implementation
-    
+
     // Mock user ID if not provided (for testing purposes)
     const targetUserId = userId ? parseInt(userId) : 1;
-    
+
     if (isNaN(targetUserId)) {
       return NextResponse.json(
         { error: 'Invalid user ID' },

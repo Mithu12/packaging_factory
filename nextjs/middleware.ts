@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import * as jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Public routes that don't require authentication
 const publicRoutes = ['/login', '/register', '/'];
 
 // API routes that don't require authentication
-const publicApiRoutes = ['/api/auth/login', '/api/auth/register'];
+const publicApiRoutes = ['/api/auth/login', '/api/auth/register', '/api/auth/logout'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,8 +18,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for auth token in cookies
-  const token = request.cookies.get('authToken')?.value;
+  // Get token from either cookies or authorization header
+  let token = request.cookies.get('authToken')?.value;
+  if (!token) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
 
   // If no token and trying to access protected route, redirect to login
   if (!token && !pathname.startsWith('/api')) {
@@ -27,10 +36,22 @@ export function middleware(request: NextRequest) {
 
   // If no token and trying to access protected API route, return 401
   if (!token && pathname.startsWith('/api')) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    );
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // If there's a token, verify it's valid for API routes
+  if (token && pathname.startsWith('/api')) {
+    try {
+      jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   return NextResponse.next();

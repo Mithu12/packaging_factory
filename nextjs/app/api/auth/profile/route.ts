@@ -3,22 +3,8 @@ import { AuthService } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get token from cookie or Authorization header
-    let token = request.cookies.get('authToken')?.value;
-    
-    if (!token) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // Get token from cookies (middleware has already validated it)
+    const token = request.cookies.get('authToken')?.value;
 
     // Get user from token
     const { user } = await AuthService.getUserFromToken(token);
