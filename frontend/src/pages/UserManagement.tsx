@@ -56,12 +56,14 @@ import {
   Calendar,
   Loader2,
   AlertCircle,
+  MapPin,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AuthApi } from "@/services/auth-api";
 import { User as BackendUser } from "@/services/auth-api";
 import { RBACApi } from "@/services/rbac-api";
 import { Role, UserWithPermissions } from "@/types/rbac";
+import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRBAC } from "@/contexts/RBACContext";
@@ -77,6 +79,7 @@ const userSchema = z.object({
   departments: z.array(z.string()).optional(),
   role_id: z.number().min(1, "Please select a role"),
   password: z.string().optional(),
+  distribution_center_id: z.number().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -91,6 +94,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [distributionCenters, setDistributionCenters] = useState<DistributionCenter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +110,7 @@ const UserManagement = () => {
       mobile_number: "",
       departments: [],
       role_id: 0,
+      distribution_center_id: undefined,
     },
   });
 
@@ -114,23 +119,25 @@ const UserManagement = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('Loading users and roles with RBAC data...');
-      
-      const [usersData, rolesData] = await Promise.all([
+
+      const [usersData, rolesData, centersData] = await Promise.all([
         RBACApi.getAllUsersWithRBAC(),
-        RBACApi.getAllRoles({ limit: 100 })
+        RBACApi.getAllRoles({ limit: 100 }),
+        DistributionApi.getDistributionCenters({ limit: 100 })
       ]);
-      
+
       console.log('Users data:', usersData);
       console.log('Roles data:', rolesData);
-      
+
       setUsers(usersData || []);
       setRoles(rolesData?.roles || []);
+      setDistributionCenters(centersData?.centers || []);
     } catch (err) {
       console.error('Failed to fetch users and roles:', err);
       setError('Failed to load users and roles. Please try again.');
-      
+
       // Set empty arrays as fallback
       setUsers([]);
       setRoles([]);
@@ -169,6 +176,7 @@ const UserManagement = () => {
           mobile_number: data.mobile_number,
           departments: data.departments,
           role_id: data.role_id,
+          distribution_center_id: data.distribution_center_id,
         });
 
         setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
@@ -185,6 +193,7 @@ const UserManagement = () => {
           mobile_number: data.mobile_number,
           departments: data.departments,
           role_id: data.role_id,
+          distribution_center_id: data.distribution_center_id,
           // Password is optional - backend will auto-generate and email it
         });
 
@@ -218,6 +227,7 @@ const UserManagement = () => {
     form.setValue("mobile_number", user.mobile_number || "");
     form.setValue("departments", user.departments || []);
     form.setValue("role_id", user.role_id || 0);
+    form.setValue("distribution_center_id", user.distribution_center_id);
     setIsAddUserOpen(true);
   };
 
@@ -307,7 +317,7 @@ const UserManagement = () => {
       'sales_manager': 'secondary',
       'sales_executive': 'default',
     };
-    
+
     return roleVariants[roleName.toLowerCase()] || "outline";
   };
 
@@ -329,84 +339,84 @@ const UserManagement = () => {
                 Add User
               </Button>
             </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedUser ? "Edit User" : "Add New User"}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedUser
-                  ? "Update user information and role assignments."
-                  : "Create a new user account and assign roles."}
-              </DialogDescription>
-            </DialogHeader>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedUser ? "Edit User" : "Add New User"}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedUser
+                    ? "Update user information and role assignments."
+                    : "Create a new user account and assign roles."}
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="johndoe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-4"
+                >
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="johndoe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="john.doe@company.com"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="john.doe@company.com"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="full_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="full_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="mobile_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mobile Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+1234567890" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="mobile_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mobile Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1234567890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {/* <FormField
+                  {/* <FormField
                   control={form.control}
                   name="departments"
                   render={({ field }) => (
@@ -452,62 +462,97 @@ const UserManagement = () => {
                   )}
                 /> */}
 
-
-                <FormField
-                  control={form.control}
-                  name="role_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Role</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
-                        defaultValue={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {roles.map((role) => (
-                            <SelectItem key={role.id} value={role.id.toString()}>
-                              <div className="flex items-center gap-2">
-                                <span>{role.display_name}</span>
-                                {role.department && (
+                  <FormField
+                    control={form.control}
+                    name="distribution_center_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Distribution Center (Optional)</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          defaultValue={field.value?.toString()}
+                          value={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select distribution center" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="0">None</SelectItem>
+                            {distributionCenters.map((center) => (
+                              <SelectItem key={center.id} value={center.id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <span>{center.name}</span>
                                   <Badge variant="outline" className="text-xs">
-                                    {role.department}
+                                    {center.code}
                                   </Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsAddUserOpen(false);
-                      setSelectedUser(null);
-                      form.reset();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {selectedUser ? "Update User" : "Create User"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
+
+                  <FormField
+                    control={form.control}
+                    name="role_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {roles.map((role) => (
+                              <SelectItem key={role.id} value={role.id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <span>{role.display_name}</span>
+                                  {role.department && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {role.department}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsAddUserOpen(false);
+                        setSelectedUser(null);
+                        form.reset();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {selectedUser ? "Update User" : "Create User"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
           </Dialog>
         </PermissionGuard>
       </div>
@@ -577,6 +622,14 @@ const UserManagement = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          {user.distribution_center_id && (
+                            <div className="flex items-center gap-1 mb-1">
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {distributionCenters.find(c => c.id.toString() === user.distribution_center_id.toString())?.name || 'Unknown DC'}
+                              </Badge>
+                            </div>
+                          )}
                           {user.departments && user.departments.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {user.departments.map((dept) => (
@@ -655,44 +708,44 @@ const UserManagement = () => {
 
         <PermissionGuard permission={PERMISSIONS.SYSTEM_ADMIN}>
           <TabsContent value="roles">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {roles.map((role) => (
-              <Card key={role.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    {role.display_name}
-                  </CardTitle>
-                  <CardDescription>
-                    {role.description || `${role.display_name} role with level ${role.level} access`}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getRoleBadgeVariant(role.name)}>
-                        Level {role.level}
-                      </Badge>
-                      {role.department && (
-                        <Badge variant="outline">
-                          {role.department}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {roles.map((role) => (
+                <Card key={role.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      {role.display_name}
+                    </CardTitle>
+                    <CardDescription>
+                      {role.description || `${role.display_name} role with level ${role.level} access`}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getRoleBadgeVariant(role.name)}>
+                          Level {role.level}
                         </Badge>
-                      )}
+                        {role.department && (
+                          <Badge variant="outline">
+                            {role.department}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Role Details:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          <li>• Role Name: {role.name}</li>
+                          <li>• Access Level: {role.level}</li>
+                          {role.department && <li>• Department: {role.department}</li>}
+                          <li>• Status: {role.is_active ? 'Active' : 'Inactive'}</li>
+                        </ul>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">Role Details:</p>
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Role Name: {role.name}</li>
-                        <li>• Access Level: {role.level}</li>
-                        {role.department && <li>• Department: {role.department}</li>}
-                        <li>• Status: {role.is_active ? 'Active' : 'Inactive'}</li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
         </PermissionGuard>
       </Tabs>

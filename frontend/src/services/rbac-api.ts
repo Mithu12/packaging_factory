@@ -3,7 +3,7 @@ import { UserWithPermissions, PermissionCheck, Role, Permission } from '@/types/
 
 export class RBACApi {
   // ==================== AUTHENTICATION & USER PERMISSIONS ====================
-  
+
   /**
    * Get current user with all permissions
    */
@@ -50,7 +50,7 @@ export class RBACApi {
   }
 
   // ==================== ROLE MANAGEMENT ====================
-  
+
   /**
    * Get all roles with filtering and pagination
    */
@@ -72,7 +72,7 @@ export class RBACApi {
         }
       });
     }
-    
+
     const url = `/rbac/roles${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return makeRequest<{
       roles: Role[];
@@ -200,7 +200,7 @@ export class RBACApi {
   }
 
   // ==================== PERMISSION MANAGEMENT ====================
-  
+
   /**
    * Get all permissions with filtering and pagination
    */
@@ -222,7 +222,7 @@ export class RBACApi {
         }
       });
     }
-    
+
     const url = `/rbac/permissions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return makeRequest<{
       permissions: Permission[];
@@ -329,7 +329,7 @@ export class RBACApi {
   }
 
   // ==================== ROLE-PERMISSION ASSIGNMENT ====================
-  
+
   /**
    * Assign permissions to a role
    */
@@ -357,7 +357,7 @@ export class RBACApi {
   }
 
   // ==================== USER PERMISSION MANAGEMENT ====================
-  
+
   /**
    * Get user permissions (role-based + direct)
    */
@@ -377,7 +377,7 @@ export class RBACApi {
         }
       });
     }
-    
+
     const url = `/rbac/users/${userId}/permissions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return makeRequest<UserWithPermissions & {
       summary: {
@@ -482,7 +482,7 @@ export class RBACApi {
   }
 
   // ==================== BULK OPERATIONS ====================
-  
+
   /**
    * Assign permissions to multiple roles
    */
@@ -536,10 +536,10 @@ export class RBACApi {
       expires_at?: string;
     }>('/rbac/users/bulk-assign-permissions', {
       method: 'POST',
-      body: JSON.stringify({ 
-        user_ids: userIds, 
-        permission_ids: permissionIds, 
-        expires_at: expiresAt 
+      body: JSON.stringify({
+        user_ids: userIds,
+        permission_ids: permissionIds,
+        expires_at: expiresAt
       }),
     });
   }
@@ -553,7 +553,7 @@ export class RBACApi {
       action: permission.action,
       resource: permission.resource,
     });
-    
+
     return makeRequest<{
       permission: PermissionCheck;
       users: Array<{
@@ -576,7 +576,7 @@ export class RBACApi {
   }
 
   // ==================== UTILITY METHODS ====================
-  
+
   /**
    * RBAC system health check
    */
@@ -599,7 +599,7 @@ export class RBACApi {
   }
 
   // ==================== LEGACY COMPATIBILITY ====================
-  
+
   /**
    * @deprecated Use getAllPermissions() instead
    */
@@ -647,6 +647,7 @@ export class RBACApi {
     departments?: string[];
     role_id: number;
     password?: string;
+    distribution_center_id?: number;
   }) {
     return makeRequest<UserWithPermissions>('/auth/users', {
       method: 'POST',
@@ -664,6 +665,7 @@ export class RBACApi {
     mobile_number?: string;
     departments?: string[];
     role_id?: number;
+    distribution_center_id?: number;
   }) {
     return makeRequest<UserWithPermissions>(`/auth/users/${userId}`, {
       method: 'PUT',

@@ -42,6 +42,7 @@ export interface UserWithPermissions {
     last_login?: string;
     created_at: string;
     updated_at: string;
+    distribution_center_id?: number;
     // RBAC specific fields
     role_details?: Role;
     role_permissions: Permission[];
@@ -216,34 +217,34 @@ export const PERMISSIONS = {
 
     // ---- Accounts: Master Data ----
     ACCOUNT_GROUPS_CREATE: createPermissionCheck('Finance', 'create', 'account_groups'),
-    ACCOUNT_GROUPS_READ:   createPermissionCheck('Finance', 'read',   'account_groups'),
+    ACCOUNT_GROUPS_READ: createPermissionCheck('Finance', 'read', 'account_groups'),
     ACCOUNT_GROUPS_UPDATE: createPermissionCheck('Finance', 'update', 'account_groups'),
     ACCOUNT_GROUPS_DELETE: createPermissionCheck('Finance', 'delete', 'account_groups'),
 
     CHART_OF_ACCOUNTS_CREATE: createPermissionCheck('Finance', 'create', 'chart_of_accounts'),
-    CHART_OF_ACCOUNTS_READ:   createPermissionCheck('Finance', 'read',   'chart_of_accounts'),
+    CHART_OF_ACCOUNTS_READ: createPermissionCheck('Finance', 'read', 'chart_of_accounts'),
     CHART_OF_ACCOUNTS_UPDATE: createPermissionCheck('Finance', 'update', 'chart_of_accounts'),
     CHART_OF_ACCOUNTS_DELETE: createPermissionCheck('Finance', 'delete', 'chart_of_accounts'),
 
     COST_CENTERS_CREATE: createPermissionCheck('Finance', 'create', 'cost_centers'),
-    COST_CENTERS_READ:   createPermissionCheck('Finance', 'read',   'cost_centers'),
+    COST_CENTERS_READ: createPermissionCheck('Finance', 'read', 'cost_centers'),
     COST_CENTERS_UPDATE: createPermissionCheck('Finance', 'update', 'cost_centers'),
     COST_CENTERS_DELETE: createPermissionCheck('Finance', 'delete', 'cost_centers'),
 
 
     // ---- Accounts: Vouchers ----
-    VOUCHERS_CREATE: createPermissionCheck('Finance', 'create',  'vouchers'),
-    VOUCHERS_READ:   createPermissionCheck('Finance', 'read',    'vouchers'),
-    VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update',  'vouchers'),
-    VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete',  'vouchers'),
-    VOUCHERS_APPROVE:createPermissionCheck('Finance', 'approve', 'vouchers'),
-    VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject',  'vouchers'),
+    VOUCHERS_CREATE: createPermissionCheck('Finance', 'create', 'vouchers'),
+    VOUCHERS_READ: createPermissionCheck('Finance', 'read', 'vouchers'),
+    VOUCHERS_UPDATE: createPermissionCheck('Finance', 'update', 'vouchers'),
+    VOUCHERS_DELETE: createPermissionCheck('Finance', 'delete', 'vouchers'),
+    VOUCHERS_APPROVE: createPermissionCheck('Finance', 'approve', 'vouchers'),
+    VOUCHERS_REJECT: createPermissionCheck('Finance', 'reject', 'vouchers'),
 
     // ---- Accounts: Reports (read-only) ----
-    GENERAL_LEDGER_READ:       createPermissionCheck('Finance', 'read', 'general_ledger'),
-    COST_CENTER_LEDGER_READ:   createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
-    INCOME_STATEMENT_READ:     createPermissionCheck('Finance', 'read', 'income_statement'),
-    BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_sheet'),
+    GENERAL_LEDGER_READ: createPermissionCheck('Finance', 'read', 'general_ledger'),
+    COST_CENTER_LEDGER_READ: createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
+    INCOME_STATEMENT_READ: createPermissionCheck('Finance', 'read', 'income_statement'),
+    BALANCE_SHEET_READ: createPermissionCheck('Finance', 'read', 'balance_sheet'),
 
     // ---- HR: Employee Management ----
     HR_EMPLOYEES_CREATE: createPermissionCheck('HR', 'create', 'employees'),

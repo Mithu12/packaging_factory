@@ -1,11 +1,11 @@
 import express from 'express';
 import { AuthMediator } from '@/mediators/auth/AuthMediator';
 import { authenticate, adminOnly, managerAndAbove } from '@/middleware/auth';
-import { 
-  validateAuth, 
-  validateLogin, 
-  validateRegister, 
-  validateChangePassword, 
+import {
+  validateAuth,
+  validateLogin,
+  validateRegister,
+  validateChangePassword,
   validateUpdateProfile,
   validateUpdateUserRole,
   validatePasswordResetRequest,
@@ -27,7 +27,7 @@ router.post('/login',
   validateAuth(validateLogin),
   expressAsyncHandler(async (req, res, next) => {
     const result = await AuthMediator.login(req.body);
-    
+
     // Set HTTP-only cookie with the token
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
@@ -38,17 +38,17 @@ router.post('/login',
       path: '/',
       domain: undefined // Don't set domain for IP address access
     };
-    
+
     // Log cookie setting for debugging
     console.log('🍪 Setting cookie with options:', cookieOptions);
     console.log('🌐 Request origin:', req.headers.origin);
     console.log('🔗 Request host:', req.headers.host);
-    
+
     res.cookie('authToken', result.token, cookieOptions);
-    
+
     // Remove token from response for security
     const { token, ...responseData } = result;
-    
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -68,7 +68,7 @@ router.post('/logout',
       sameSite: 'strict',
       path: '/'
     });
-    
+
     res.json({
       success: true,
       message: 'Logout successful'
@@ -151,7 +151,7 @@ router.post('/check-permission',
   expressAsyncHandler(async (req, res, next) => {
     const userId = req.user!.user_id;
     const { module, action, resource } = req.body;
-    
+
     if (!module || !action || !resource) {
       res.status(400).json({
         success: false,
@@ -175,7 +175,7 @@ router.post('/check-any-permission',
   expressAsyncHandler(async (req, res, next) => {
     const userId = req.user!.user_id;
     const { permissions } = req.body;
-    
+
     if (!permissions || !Array.isArray(permissions)) {
       res.status(400).json({
         success: false,
@@ -244,8 +244,8 @@ router.post('/users',
   auditMiddleware,
   adminOnly,
   expressAsyncHandler(async (req, res, next) => {
-    const { username, email, full_name, mobile_number, departments, role_id, password } = req.body;
-    
+    const { username, email, full_name, mobile_number, departments, role_id, password, distribution_center_id } = req.body;
+
     if (!username || !email || !full_name || !role_id) {
       res.status(400).json({
         success: false,
@@ -253,7 +253,7 @@ router.post('/users',
       });
       return;
     }
-    
+
     const user = await AuthMediator.createUser({
       username,
       email,
@@ -261,9 +261,10 @@ router.post('/users',
       mobile_number,
       departments,
       role_id: parseInt(role_id),
-      password // Optional - will be auto-generated if not provided
+      password, // Optional - will be auto-generated if not provided
+      distribution_center_id
     });
-    
+
     res.status(201).json({
       success: true,
       message: password ? 'User created successfully' : 'User created successfully. Password has been generated and sent via email.',
@@ -286,9 +287,9 @@ router.put('/users/:id',
       });
       return;
     }
-    
-    const { username, email, full_name, mobile_number, departments, role_id } = req.body;
-    
+
+    const { username, email, full_name, mobile_number, departments, role_id, distribution_center_id } = req.body;
+
     const updateData: any = {};
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;
@@ -296,9 +297,10 @@ router.put('/users/:id',
     if (mobile_number !== undefined) updateData.mobile_number = mobile_number;
     if (departments !== undefined) updateData.departments = departments;
     if (role_id !== undefined) updateData.role_id = parseInt(role_id);
-    
+    if (distribution_center_id !== undefined) updateData.distribution_center_id = parseInt(distribution_center_id);
+
     const user = await AuthMediator.updateUser(userId, updateData);
-    
+
     res.json({
       success: true,
       message: 'User updated successfully',
@@ -318,7 +320,7 @@ router.put('/users/:id/role',
     if (isNaN(userId)) {
       throw createError('Invalid user ID', 400);
     }
-    
+
     const user = await AuthMediator.updateUserRole(userId, req.body.role);
     res.json({
       success: true,
@@ -339,7 +341,8 @@ router.put('/users/:id',
     if (isNaN(userId)) {
       throw createError('Invalid user ID', 400);
     }
-    
+    console.log(req.body, '============================================================');
+
     const user = await AuthMediator.updateProfile(userId, req.body);
     res.json({
       success: true,
@@ -359,7 +362,7 @@ router.delete('/users/:id',
     if (isNaN(userId)) {
       throw createError('Invalid user ID', 400);
     }
-    
+
     await AuthMediator.deactivateUser(userId);
     res.json({
       success: true,
@@ -378,7 +381,7 @@ router.patch('/users/:id/reactivate',
     if (isNaN(userId)) {
       throw createError('Invalid user ID', 400);
     }
-    
+
     const user = await AuthMediator.reactivateUser(userId);
     res.json({
       success: true,
@@ -399,7 +402,7 @@ router.get('/users/:id',
     if (isNaN(userId)) {
       throw createError('Invalid user ID', 400);
     }
-    
+
     const user = await AuthMediator.getUserProfile(userId);
     res.json({
       success: true,

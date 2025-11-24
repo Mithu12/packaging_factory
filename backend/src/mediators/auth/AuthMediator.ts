@@ -227,6 +227,11 @@ export class AuthMediator {
         updateValues.push(updateData.departments);
       }
 
+      if (updateData.distribution_center_id !== undefined) {
+        updateFields.push(`distribution_center_id = $${paramCount++}`);
+        updateValues.push(updateData.distribution_center_id);
+      }
+
       if (updateFields.length === 0) {
         throw createError('No fields to update', 400);
       }
@@ -597,6 +602,8 @@ export class AuthMediator {
     const client = await pool.connect();
 
     try {
+
+
       MyLogger.info(action);
 
       const query = `
@@ -650,6 +657,7 @@ export class AuthMediator {
           const userWithPermissions = {
             id: user.id,
             username: user.username,
+            distribution_center_id: user.distribution_center_id,
             email: user.email,
             full_name: user.full_name,
             mobile_number: user.mobile_number,
