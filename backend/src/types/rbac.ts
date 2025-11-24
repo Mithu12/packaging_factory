@@ -80,6 +80,7 @@ export interface UserWithRole {
   created_at: string;
   updated_at: string;
   last_login?: string;
+  distribution_center_id?: number;
 }
 
 // User with comprehensive RBAC permissions

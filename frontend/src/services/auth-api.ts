@@ -14,6 +14,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   factory_id?: number;
+  distribution_center_id?: number;
 }
 
 export interface LoginRequest {
@@ -29,6 +30,7 @@ export interface RegisterRequest {
   mobile_number?: string;
   departments?: string[];
   role?: 'admin' | 'manager' | 'employee' | 'viewer';
+  distribution_center_id?: number;
 }
 
 export interface AuthResponse {
@@ -47,6 +49,7 @@ export interface UpdateProfileRequest {
   email?: string;
   mobile_number?: string;
   departments?: string[];
+  distribution_center_id?: number;
 }
 
 export interface PasswordResetRequest {

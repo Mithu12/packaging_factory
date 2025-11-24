@@ -11,6 +11,7 @@ export interface User {
   last_login?: Date;
   created_at: Date;
   updated_at: Date;
+  distribution_center_id?: number;
 }
 
 export enum UserRole {
@@ -56,6 +57,7 @@ export interface UpdateProfileRequest {
   email?: string;
   mobile_number?: string;
   departments?: string[];
+  distribution_center_id?: number;
 }
 
 export interface JwtPayload {

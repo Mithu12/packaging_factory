@@ -19,11 +19,19 @@ import { Receipt } from "@/modules/sales/components/pos/Receipt";
 import { BarcodeScanner } from "@/modules/inventory/components/BarcodeScanner";
 
 // API Services
-import { ProductApi, CustomerApi, SalesOrderApi } from "@/services/api";
+import { ProductApi, CustomerApi, SalesOrderApi, DistributionApi } from "@/services/api";
 import { Product, Customer, SalesOrder } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { ReturnsManager } from "@/modules/sales/components/pos/ReturnsManager";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CartItem {
   id: string;
@@ -54,6 +62,9 @@ export default function POSManager() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [isGiftMode, setIsGiftMode] = useState(false);
+  const { user } = useAuth();
+  const [distributionCenters, setDistributionCenters] = useState<any[]>([]);
+  const [selectedDistributionCenterId, setSelectedDistributionCenterId] = useState<string>("");
 
   const { formatCurrency } = useFormatting();
 
@@ -65,15 +76,17 @@ export default function POSManager() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [productsData, customersData, salesOrdersData] = await Promise.all([
+      const [productsData, customersData, salesOrdersData, distributionData] = await Promise.all([
         ProductApi.getProducts({ page: 1, limit: 100 }),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
-        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 })
+        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
+        DistributionApi.getDistributionCenters({ page: 1, limit: 100 })
       ]);
 
       setProducts(productsData.products || []);
       setCustomers(customersData.customers || []);
       setSalesOrders(salesOrdersData.sales_orders || []);
+      setDistributionCenters(distributionData.centers || []);
     } catch (error) {
       console.error("Error loading initial data:", error);
       toast({
@@ -98,7 +111,7 @@ export default function POSManager() {
     }
 
     // Find existing item considering both product id and gift status
-    const existingItem = cart.find((item) => 
+    const existingItem = cart.find((item) =>
       item.id === product.id.toString() && item.isGift === isGiftMode
     );
 
@@ -108,10 +121,10 @@ export default function POSManager() {
           cart.map((item) =>
             item.id === product.id.toString() && item.isGift === isGiftMode
               ? {
-                  ...item,
-                  quantity: item.quantity + 1,
-                  total: isGiftMode ? 0 : (item.quantity + 1) * item.price,
-                }
+                ...item,
+                quantity: item.quantity + 1,
+                total: isGiftMode ? 0 : (item.quantity + 1) * item.price,
+              }
               : item
           )
         );
@@ -156,10 +169,10 @@ export default function POSManager() {
         cart.map((item) =>
           item.id === id
             ? {
-                ...item,
-                quantity: newQuantity,
-                total: newQuantity * item.price,
-              }
+              ...item,
+              quantity: newQuantity,
+              total: newQuantity * item.price,
+            }
             : item
         )
       );
@@ -180,10 +193,10 @@ export default function POSManager() {
     setCart(cart.map((item) =>
       item.id === id
         ? {
-            ...item,
-            discount,
-            discountType,
-          }
+          ...item,
+          discount,
+          discountType,
+        }
         : item
     ));
   };
@@ -196,7 +209,7 @@ export default function POSManager() {
   const subtotal = cart.reduce((sum, item) => {
     const itemSubtotal = item.price * item.quantity;
     let itemDiscount = 0;
-    
+
     if (item.discount && item.discount > 0) {
       if (item.discountType === 'percentage') {
         itemDiscount = (itemSubtotal * item.discount) / 100;
@@ -204,7 +217,7 @@ export default function POSManager() {
         itemDiscount = item.discount;
       }
     }
-    
+
     return sum + (itemSubtotal - itemDiscount);
   }, 0);
   const discountAmount = overallDiscount
@@ -317,7 +330,7 @@ export default function POSManager() {
       const remainingDue = total - parseFloat(partialPaymentAmount);
       const newTotalDue = currentDue + remainingDue;
 
-        console.log({creditLimit, currentDue, newTotalDue});
+      console.log({ creditLimit, currentDue, newTotalDue });
       if (newTotalDue > creditLimit) {
         toast({
           title: "Credit Limit Exceeded",
@@ -330,7 +343,7 @@ export default function POSManager() {
 
     try {
       setLoading(true);
-      
+
       // Create sales order
       const getDueAmount = () => {
         if (paymentMethod === "credit") return total;
@@ -346,11 +359,14 @@ export default function POSManager() {
 
       const salesOrderData = {
         customer_id: selectedCustomer.id,
-        cashier_id: 1, // TODO: Get from auth context
+        cashier_id: user?.id || 1,
+        distribution_center_id: user?.role === 'admin' && selectedDistributionCenterId
+          ? parseInt(selectedDistributionCenterId)
+          : undefined,
         payment_method: paymentMethod === "partial" ? "cash" : paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
         cash_received: getCashReceived(),
         due_amount: getDueAmount(),
-        notes: paymentMethod === "partial" 
+        notes: paymentMethod === "partial"
           ? `Partial payment: $${Number(partialPaymentAmount).toFixed(2)} paid, $${Number(total - parseFloat(partialPaymentAmount)).toFixed(2)} due`
           : `Payment processed via ${paymentMethod}`,
         discount_amount: overallDiscountType === 'flat' ? parseFloat(overallDiscount) : 0,
@@ -359,7 +375,7 @@ export default function POSManager() {
         line_items: cart.map(item => {
           const itemSubtotal = item.price * item.quantity;
           let itemDiscount = 0;
-          
+
           if (item.discount && item.discount > 0) {
             if (item.discountType === 'percentage') {
               itemDiscount = (itemSubtotal * item.discount) / 100;
@@ -367,9 +383,9 @@ export default function POSManager() {
               itemDiscount = item.discount;
             }
           }
-          
+
           const itemTotal = itemSubtotal - itemDiscount;
-          
+
           return {
             product_id: parseInt(item.id),
             quantity: item.quantity,
@@ -383,7 +399,7 @@ export default function POSManager() {
       };
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
-      
+
       // Update customer due amount locally for credit/partial sales
       if ((paymentMethod === "credit" || paymentMethod === "partial") && selectedCustomer) {
         const dueAmount = paymentMethod === "credit" ? total : total - parseFloat(partialPaymentAmount);
@@ -392,13 +408,13 @@ export default function POSManager() {
           due_amount: (Number(selectedCustomer.due_amount) || 0) + dueAmount
         };
         setSelectedCustomer(updatedCustomer);
-        
+
         // Update the customer in the customers list as well
-        setCustomers(prev => prev.map(customer => 
+        setCustomers(prev => prev.map(customer =>
           customer.id === selectedCustomer.id ? updatedCustomer : customer
         ));
       }
-      
+
       // Prepare receipt data
       const receiptInfo = {
         orderNumber: newOrder.order_number,
@@ -415,18 +431,18 @@ export default function POSManager() {
         orderDate: newOrder.order_date,
         notes: `Payment processed via ${paymentMethod}`
       };
-      
+
       // Show receipt
       setReceiptData(receiptInfo);
       setShowReceipt(true);
-      
+
       toast({
-        title: paymentMethod === "credit" 
-          ? "Credit Sale Processed" 
+        title: paymentMethod === "credit"
+          ? "Credit Sale Processed"
           : paymentMethod === "partial"
             ? "Partial Payment Processed"
             : "Payment Processed",
-        description: paymentMethod === "credit" 
+        description: paymentMethod === "credit"
           ? `$${Number(total).toFixed(2)} added to ${selectedCustomer.name}'s account`
           : paymentMethod === "partial"
             ? `$${Number(partialPaymentAmount).toFixed(2)} paid, $${Number(total - parseFloat(partialPaymentAmount)).toFixed(2)} added to ${selectedCustomer.name}'s account`
@@ -484,10 +500,26 @@ export default function POSManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">POS Manager</h1>
-        {/*<Badge variant="secondary" className="text-sm">*/}
-        {/*  <Clock className="w-4 h-4 mr-1" />*/}
-        {/*  {new Date().toLocaleTimeString()}*/}
-        {/*</Badge>*/}
+
+        {user?.role === 'admin' && (
+          <div className="w-[250px]">
+            <Select
+              value={selectedDistributionCenterId}
+              onValueChange={setSelectedDistributionCenterId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Distribution Center" />
+              </SelectTrigger>
+              <SelectContent>
+                {distributionCenters.map((dc) => (
+                  <SelectItem key={dc.id} value={dc.id.toString()}>
+                    {dc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -589,7 +621,7 @@ export default function POSManager() {
 
             // Calculate today's stats
             const today = new Date().toDateString();
-            const todayOrders = salesOrders.filter(order => 
+            const todayOrders = salesOrders.filter(order =>
               new Date(order.created_at).toDateString() === today
             );
             const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
@@ -700,8 +732,8 @@ export default function POSManager() {
         </TabsContent>
 
         <TabsContent value="returns" className="space-y-6">
-          <ReturnsManager 
-            salesOrders={salesOrders} 
+          <ReturnsManager
+            salesOrders={salesOrders}
             onRefresh={() => {
               loadInitialData();
             }}
@@ -720,11 +752,11 @@ export default function POSManager() {
             <p className="text-sm text-gray-500 mb-6">
               Would you like to print or download the receipt?
             </p>
-            
+
             <Receipt {...receiptData} />
-            
+
             <div className="mt-4">
-              <Button 
+              <Button
                 onClick={() => setShowReceipt(false)}
                 variant="outline"
                 className="w-full"

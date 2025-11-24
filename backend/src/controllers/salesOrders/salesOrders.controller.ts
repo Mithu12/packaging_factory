@@ -4,6 +4,7 @@ import { AddSalesOrderMediator } from "@/mediators/salesOrders/AddSalesOrder.med
 import { UpdateSalesOrderInfoMediator } from "@/mediators/salesOrders/UpdateSalesOrderInfo.mediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
+import { AuthMediator } from "@/mediators/auth/AuthMediator";
 
 class SalesOrdersController {
     async getAllSalesOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -50,6 +51,17 @@ class SalesOrdersController {
         let action = 'POST /api/sales-orders';
         try {
             MyLogger.info(action, { customerId: req.body.customer_id });
+
+            // Inject distribution_center_id from user if not provided
+            if (!req.body.distribution_center_id && (req as any).user) {
+                const userId = (req as any).user.user_id;
+                const user = await AuthMediator.getUserProfile(userId);
+                if (user.distribution_center_id) {
+                    req.body.distribution_center_id = user.distribution_center_id;
+                    MyLogger.info(action, { message: 'Injected distribution_center_id from user', distributionCenterId: user.distribution_center_id });
+                }
+            }
+
             const salesOrder = await AddSalesOrderMediator.createSalesOrder(req.body);
             MyLogger.success(action, { salesOrderId: salesOrder.id });
             serializeSuccessResponse(res, salesOrder, 'SUCCESS');
