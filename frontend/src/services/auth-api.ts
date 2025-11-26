@@ -111,14 +111,6 @@ class AuthApiService {
     });
   }
 
-  // Update user profile by admin
-  async updateUserProfile(userId: number, updateData: UpdateProfileRequest): Promise<User> {
-    return makeRequest(`${this.baseUrl}/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updateData),
-      credentials: 'include',
-    });
-  }
 
   // Change password
   async changePassword(passwordData: ChangePasswordRequest): Promise<void> {

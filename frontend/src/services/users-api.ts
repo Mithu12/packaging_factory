@@ -50,10 +50,6 @@ export class UsersApiService {
     return makeRequest<User[]>(this.BASE_URL);
   }
 
-  // Get user by ID (manager and above)
-  static async getUserById(id: number): Promise<User> {
-    return makeRequest<User>(`${this.BASE_URL}/${id}`);
-  }
 
   // Create new user (admin only)
   static async createUser(data: CreateUserRequest): Promise<User> {

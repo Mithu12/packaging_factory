@@ -11,43 +11,7 @@ export class RBACApi {
     return makeRequest<UserWithPermissions>('/auth/profile/permissions');
   }
 
-  /**
-   * Check if current user has a specific permission
-   */
-  static async hasPermission(permission: PermissionCheck): Promise<boolean> {
-    try {
-      const response = await makeRequest<{ hasPermission: boolean }>('/auth/check-permission', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(permission),
-      });
-      return response.hasPermission;
-    } catch (error) {
-      console.error('Permission check failed:', error);
-      return false;
-    }
-  }
 
-  /**
-   * Check if current user has any of the specified permissions
-   */
-  static async hasAnyPermission(permissions: PermissionCheck[]): Promise<boolean> {
-    try {
-      const response = await makeRequest<{ hasPermission: boolean }>('/auth/check-any-permission', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ permissions }),
-      });
-      return response.hasPermission;
-    } catch (error) {
-      console.error('Permission check failed:', error);
-      return false;
-    }
-  }
 
   // ==================== ROLE MANAGEMENT ====================
 
@@ -430,6 +394,7 @@ export class RBACApi {
   /**
    * Update user's role
    */
+  // TODO: remove method - not used in frontend
   static async updateUserRole(userId: number, roleId: number) {
     return makeRequest<{
       user_id: number;
@@ -446,6 +411,7 @@ export class RBACApi {
   /**
    * Check if user has a specific permission
    */
+  // TODO: remove method - not used in frontend
   static async checkUserPermission(userId: number, permission: PermissionCheck) {
     return makeRequest<{
       user_id: number;
@@ -461,6 +427,7 @@ export class RBACApi {
   /**
    * Check if user has any of the specified permissions
    */
+  // TODO: remove method - not used in frontend
   static async checkUserPermissions(userId: number, permissions: PermissionCheck[]) {
     return makeRequest<{
       user_id: number;
@@ -600,32 +567,8 @@ export class RBACApi {
 
   // ==================== LEGACY COMPATIBILITY ====================
 
-  /**
-   * @deprecated Use getAllPermissions() instead
-   */
-  static async getAllPermissionsLegacy(): Promise<Permission[]> {
-    const response = await this.getAllPermissions({ limit: 1000 });
-    return response.permissions;
-  }
 
-  /**
-   * @deprecated Use getAllRoles() instead
-   */
-  static async getAllRolesLegacy(): Promise<Role[]> {
-    const response = await this.getAllRoles({ limit: 1000 });
-    return response.roles;
-  }
 
-  /**
-   * @deprecated Use getUserPermissions() instead
-   */
-  static async getUserRole(userId: number): Promise<Role> {
-    const userPermissions = await this.getUserPermissions(userId);
-    if (!userPermissions.role_details) {
-      throw new Error('User role not found');
-    }
-    return userPermissions.role_details;
-  }
 
   // ==================== USER MANAGEMENT WITH RBAC (/auth/users routes) ====================
 

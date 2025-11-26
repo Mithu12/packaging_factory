@@ -223,6 +223,7 @@ router.get('/permissions/module/:module',
  * @desc Get permission details
  * @access System Admin
  */
+// TODO: remove route - not used in frontend
 router.get('/permissions/:id',
   authenticate,
   requireSystemAdmin(),
@@ -498,6 +499,7 @@ router.get('/roles/:roleId/employees',
  * @desc RBAC system health check
  * @access Authenticated users
  */
+// TODO: remove route - not used in frontend
 router.get('/health',
   authenticate,
   expressAsyncHandler(async (req, res) => {
