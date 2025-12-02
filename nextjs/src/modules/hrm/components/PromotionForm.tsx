@@ -134,7 +134,14 @@ const PromotionForm: React.FC<PromotionFormProps> = ({
     }
 
     try {
-      await onSubmit(formData);
+      await onSubmit({
+        ...formData,
+        employee_id: Number(formData.employee_id),
+        current_designation_id: formData.current_designation_id ? Number(formData.current_designation_id) : undefined,
+        current_department_id: formData.current_department_id ? Number(formData.current_department_id) : undefined,
+        new_designation_id: Number(formData.new_designation_id),
+        new_department_id: formData.new_department_id ? Number(formData.new_department_id) : undefined,
+      } as any);
       // Reset form after successful submission
       setFormData({
         employee_id: '',

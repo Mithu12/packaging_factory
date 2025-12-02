@@ -1,6 +1,6 @@
 import { AttendanceRegularizationRequest, Employee } from "../types";
 
-export const mockAttendanceRegularizationRequests: AttendanceRegularizationRequest[] =
+export const mockAttendanceRegularizationRequests =
   [
     {
       id: 1,

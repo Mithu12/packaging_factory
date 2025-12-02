@@ -148,6 +148,7 @@ const EmployeeLeaveForm: React.FC<EmployeeLeaveFormProps> = ({
     try {
       await onSubmit({
         ...formData,
+        leave_type_id: Number(formData.leave_type_id),
         total_days: calculatedDays,
       });
     } catch (error) {

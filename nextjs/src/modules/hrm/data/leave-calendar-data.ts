@@ -9,7 +9,7 @@ import {
 } from "../types";
 
 // Enhanced Leave Types with Color Coding
-export const mockLeaveTypes: LeaveType[] = [
+export const mockLeaveTypes = [
   {
     id: 1,
     name: "Annual Leave",
@@ -207,7 +207,7 @@ export const mockLeaveTypes: LeaveType[] = [
 ];
 
 // Enhanced Departments
-export const mockDepartments: Department[] = [
+export const mockDepartments = [
   {
     id: 1,
     name: "Engineering",
@@ -261,7 +261,7 @@ export const mockDepartments: Department[] = [
 ];
 
 // Enhanced Employees
-export const mockEmployees: Employee[] = [
+export const mockEmployees = [
   {
     id: 1,
     employee_id: "EMP001",
@@ -452,7 +452,7 @@ export const mockPublicHolidays = [
 ];
 
 // Enhanced Leave Calendar Events
-export const mockLeaveCalendarEvents: LeaveCalendarEvent[] = [
+export const mockLeaveCalendarEvents = [
   // November 2024
   {
     id: "1",
@@ -589,8 +589,8 @@ export const mockLeaveCalendarEvents: LeaveCalendarEvent[] = [
 ];
 
 // Generate team availability data for the current year
-export const generateTeamAvailability = (): TeamAvailability[] => {
-  const availability: TeamAvailability[] = [];
+export const generateTeamAvailability = () => {
+  const availability = [];
   const currentYear = new Date().getFullYear();
 
   // Generate data for each month
@@ -639,7 +639,7 @@ export const mockTeamAvailability = generateTeamAvailability();
 // Department-wise availability
 export const getDepartmentAvailability = (
   departmentId: number
-): TeamAvailability[] => {
+) => {
   return mockTeamAvailability.filter((availability) => {
     const dayEvents = availability.leave_events;
     return dayEvents.some((event) => {
@@ -654,7 +654,7 @@ export const getDepartmentAvailability = (
 // Employee-specific availability
 export const getEmployeeAvailability = (
   employeeId: number
-): TeamAvailability[] => {
+) => {
   return mockTeamAvailability.filter((availability) => {
     return availability.leave_events.some(
       (event) => event.employee_id === employeeId
@@ -714,15 +714,15 @@ export const getHolidayInfo = (dateStr: string) => {
   return mockPublicHolidays.find((holiday) => holiday.date === dateStr);
 };
 
-export const getLeaveTypeById = (id: number): LeaveType | undefined => {
+export const getLeaveTypeById = (id: number) => {
   return mockLeaveTypes.find((lt) => lt.id === id);
 };
 
-export const getEmployeeById = (id: number): Employee | undefined => {
+export const getEmployeeById = (id: number) => {
   return mockEmployees.find((emp) => emp.id === id);
 };
 
-export const getDepartmentById = (id: number): Department | undefined => {
+export const getDepartmentById = (id: number) => {
   return mockDepartments.find((dept) => dept.id === id);
 };
 

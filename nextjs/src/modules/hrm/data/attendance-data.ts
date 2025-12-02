@@ -1,7 +1,7 @@
 import { AttendanceRecord, AttendanceSummary, Employee, Shift } from "../types";
 
 // Mock attendance records for the past 30 days
-export const mockAttendanceRecords: AttendanceRecord[] = [
+export const mockAttendanceRecords = [
   // Today - October 19, 2024
   {
     id: 1,
@@ -32,7 +32,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 7.5,
-    overtime_hours: 0,
     status: "late",
     location: "Office - Main Building",
     ip_address: "192.168.1.101",
@@ -52,7 +51,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "12:00",
     break_end_time: "13:00",
     total_hours_worked: 4,
-    overtime_hours: 0,
     status: "half_day",
     location: "Office - Main Building",
     ip_address: "192.168.1.102",
@@ -97,7 +95,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 7,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.103",
@@ -150,7 +147,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 7.92,
-    overtime_hours: 0,
     status: "late",
     location: "Office - Main Building",
     ip_address: "192.168.1.100",
@@ -170,7 +166,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.101",
@@ -190,7 +185,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.102",
@@ -210,7 +204,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 7.5,
-    overtime_hours: 0,
     status: "early_going",
     location: "Office - Main Building",
     ip_address: "192.168.1.103",
@@ -230,7 +223,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.104",
@@ -261,7 +253,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.105",
@@ -281,7 +272,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.106",
@@ -303,7 +293,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.100",
@@ -323,7 +312,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.101",
@@ -343,7 +331,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.102",
@@ -363,7 +350,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.103",
@@ -383,7 +369,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.104",
@@ -403,7 +388,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.105",
@@ -443,7 +427,6 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     break_start_time: "13:00",
     break_end_time: "14:00",
     total_hours_worked: 8,
-    overtime_hours: 0,
     status: "present",
     location: "Office - Main Building",
     ip_address: "192.168.1.107",
@@ -456,7 +439,7 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
   },
 ];
 
-export const mockAttendanceSummary: AttendanceSummary = {
+export const mockAttendanceSummary = {
   period_start: "2024-10-01",
   period_end: "2024-10-19",
   total_employees: 8,
@@ -543,7 +526,7 @@ export const getAttendanceByDate = (date: string) =>
 export const getTodaysAttendance = () =>
   getAttendanceByDate(new Date().toISOString().split("T")[0]);
 
-export const calculateAttendanceStats = (records: AttendanceRecord[]) => {
+export const calculateAttendanceStats = (records) => {
   const stats = {
     total: records.length,
     present: 0,

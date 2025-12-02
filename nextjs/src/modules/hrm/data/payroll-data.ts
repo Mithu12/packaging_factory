@@ -8,13 +8,13 @@ import {
   Designation
 } from '../types';
 
-export const mockPayrollPeriods: PayrollPeriod[] = [
+export const mockPayrollPeriods = [
   {
     id: 1,
     month: 10,
     year: 2024,
     name: 'October 2024',
-    status: 'calculated',
+    status: 'processing',
     total_employees: 8,
     total_gross_salary: 850000,
     total_deductions: 120000,
@@ -59,7 +59,7 @@ export const mockPayrollPeriods: PayrollPeriod[] = [
   },
 ];
 
-export const mockEmployeePayrollRecords: EmployeePayrollRecord[] = [
+export const mockEmployeePayrollRecords = [
   // October 2024 Payroll
   {
     id: 1,
@@ -303,7 +303,7 @@ export const mockEmployeePayrollRecords: EmployeePayrollRecord[] = [
   },
 ];
 
-export const mockPaymentRecords: PaymentRecord[] = [
+export const mockPaymentRecords = [
   {
     id: 1,
     employee_id: 1,
@@ -450,7 +450,7 @@ export const mockPaymentRecords: PaymentRecord[] = [
   },
 ];
 
-export const mockPayrollSummary: PayrollSummary = {
+export const mockPayrollSummary = {
   period_id: 1,
   period_name: 'October 2024',
   total_employees: 8,
@@ -523,7 +523,7 @@ export const getPaymentStatusOptions = () => [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-export const calculatePayrollTotals = (records: EmployeePayrollRecord[]) => {
+export const calculatePayrollTotals = (records) => {
   return records.reduce(
     (totals, record) => ({
       totalEmployees: totals.totalEmployees + 1,

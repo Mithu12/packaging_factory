@@ -1,6 +1,6 @@
 import { AttendanceConfiguration } from "../types";
 
-export const mockAttendanceConfigurations: AttendanceConfiguration[] = [
+export const mockAttendanceConfigurations = [
   {
     id: 1,
     name: "Default Office Configuration",

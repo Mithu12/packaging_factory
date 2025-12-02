@@ -1,6 +1,6 @@
 import { Shift, ShiftAssignment, Employee } from "../types";
 
-export const mockShifts: Shift[] = [
+export const mockShifts = [
   {
     id: 1,
     name: "Morning Shift",
@@ -99,7 +99,7 @@ export const mockShifts: Shift[] = [
   },
 ];
 
-export const mockShiftAssignments: ShiftAssignment[] = [
+export const mockShiftAssignments = [
   {
     id: 1,
     employee_id: 1,

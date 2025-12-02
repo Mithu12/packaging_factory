@@ -86,7 +86,10 @@ const SalaryIncrementForm: React.FC<SalaryIncrementFormProps> = ({
     }
 
     try {
-      await onSubmit(formData);
+      await onSubmit({
+        ...formData,
+        employee_id: Number(formData.employee_id),
+      } as any);
       // Reset form after successful submission
       setFormData({
         employee_id: '',

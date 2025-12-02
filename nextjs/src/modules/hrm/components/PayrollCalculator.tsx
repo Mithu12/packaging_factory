@@ -192,10 +192,7 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="select-all"
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someSelected;
-                }}
+                checked={someSelected ? "indeterminate" : allSelected}
                 onCheckedChange={onSelectAll}
               />
               <Label htmlFor="select-all" className="text-sm font-medium">

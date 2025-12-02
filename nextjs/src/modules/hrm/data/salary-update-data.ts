@@ -1,6 +1,6 @@
 import { Employee, Department, Designation, SalaryHistory, SalaryIncrement, Promotion } from '../types';
 
-export const mockDepartments: Department[] = [
+export const mockDepartments = [
   {
     id: 1,
     name: 'Human Resources',
@@ -53,7 +53,7 @@ export const mockDepartments: Department[] = [
   },
 ];
 
-export const mockDesignations: Designation[] = [
+export const mockDesignations = [
   {
     id: 1,
     title: 'Chief Executive Officer',
@@ -160,7 +160,7 @@ export const mockDesignations: Designation[] = [
   },
 ];
 
-export const mockEmployees: Employee[] = [
+export const mockEmployees = [
   {
     id: 1,
     employee_id: 'EMP001',
@@ -331,7 +331,7 @@ export const mockEmployees: Employee[] = [
   },
 ];
 
-export const mockSalaryHistory: SalaryHistory[] = [
+export const mockSalaryHistory = [
   {
     id: 1,
     employee_id: 1,
@@ -421,7 +421,7 @@ export const mockSalaryHistory: SalaryHistory[] = [
   },
 ];
 
-export const mockSalaryIncrements: SalaryIncrement[] = [
+export const mockSalaryIncrements = [
   {
     id: 1,
     employee_id: 4,
@@ -458,7 +458,7 @@ export const mockSalaryIncrements: SalaryIncrement[] = [
   },
 ];
 
-export const mockPromotions: Promotion[] = [
+export const mockPromotions = [
   {
     id: 1,
     employee_id: 5,

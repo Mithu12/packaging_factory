@@ -207,7 +207,7 @@ export interface AttendanceRecord {
   break_start_time?: string;
   break_end_time?: string;
   total_hours_worked?: number;
-  overtime_hours: number;
+  overtime_hours?: number;
   status:
     | "present"
     | "absent"
@@ -561,7 +561,7 @@ export interface AttendanceSummary {
   total_working_days: number;
   average_attendance_rate: number;
   total_absenteeism: number;
-  overtime_hours: number;
+  overtime_hours?: number;
   department_attendance: {
     department: string;
     attendance_rate: number;

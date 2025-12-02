@@ -1,6 +1,6 @@
 import { LeaveType, LeaveEntitlementRule, LeaveDocumentationRequirement } from '../types';
 
-export const mockLeaveTypes: LeaveType[] = [
+export const mockLeaveTypes = [
   {
     id: 1,
     name: 'Annual Leave',
@@ -267,7 +267,7 @@ export const mockLeaveTypes: LeaveType[] = [
   },
 ];
 
-export const mockLeaveEntitlementRules: LeaveEntitlementRule[] = [
+export const mockLeaveEntitlementRules = [
   {
     id: 1,
     leave_type_id: 1,
@@ -312,7 +312,7 @@ export const mockLeaveEntitlementRules: LeaveEntitlementRule[] = [
   },
 ];
 
-export const mockLeaveDocumentationRequirements: LeaveDocumentationRequirement[] = [
+export const mockLeaveDocumentationRequirements = [
   {
     id: 1,
     leave_type_id: 2,
@@ -403,19 +403,19 @@ export const getColorOptions = () => [
 ];
 
 // Utility functions
-export const getLeaveTypeById = (id: number): LeaveType | undefined =>
+export const getLeaveTypeById = (id: number) =>
   mockLeaveTypes.find(leaveType => leaveType.id === id);
 
-export const getActiveLeaveTypes = (): LeaveType[] =>
+export const getActiveLeaveTypes = () =>
   mockLeaveTypes.filter(leaveType => leaveType.is_active);
 
-export const getLeaveTypesByDepartment = (departmentId: number): LeaveType[] =>
+export const getLeaveTypesByDepartment = (departmentId: number) =>
   mockLeaveTypes.filter(leaveType =>
     leaveType.is_active &&
     (!leaveType.applicable_department_ids || leaveType.applicable_department_ids.includes(departmentId))
   );
 
-export const getLeaveTypesByDesignation = (designationId: number): LeaveType[] =>
+export const getLeaveTypesByDesignation = (designationId: number) =>
   mockLeaveTypes.filter(leaveType =>
     leaveType.is_active &&
     (!leaveType.applicable_designation_ids || leaveType.applicable_designation_ids.includes(designationId))

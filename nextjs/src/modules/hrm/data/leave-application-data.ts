@@ -11,7 +11,7 @@ import {
   Department,
 } from "../types";
 
-export const mockLeaveApplications: LeaveApplication[] = [
+export const mockLeaveApplications = [
   {
     id: 1,
     employee_id: 1,
@@ -198,7 +198,7 @@ export const mockLeaveApplications: LeaveApplication[] = [
   },
 ];
 
-export const mockLeaveBalances: LeaveBalance[] = [
+export const mockLeaveBalances = [
   {
     employee_id: 1,
     leave_type_id: 1,
@@ -321,7 +321,7 @@ export const mockLeaveBalances: LeaveBalance[] = [
   },
 ];
 
-export const mockApprovalWorkflows: ApprovalWorkflow[] = [
+export const mockApprovalWorkflows = [
   {
     id: 1,
     name: "Standard Employee Leave",
@@ -414,7 +414,7 @@ export const mockApprovalWorkflows: ApprovalWorkflow[] = [
   },
 ];
 
-export const mockApprovalRecords: ApprovalRecord[] = [
+export const mockApprovalRecords = [
   {
     id: 1,
     application_id: 1,
@@ -451,7 +451,7 @@ export const mockApprovalRecords: ApprovalRecord[] = [
   },
 ];
 
-export const mockLeaveCalendarEvents: LeaveCalendarEvent[] = [
+export const mockLeaveCalendarEvents = [
   {
     id: "1",
     employee_id: 1,
@@ -558,7 +558,7 @@ export const mockLeaveCalendarEvents: LeaveCalendarEvent[] = [
   },
 ];
 
-export const mockTeamAvailability: TeamAvailability[] = [
+export const mockTeamAvailability = [
   {
     date: "2024-10-25",
     total_employees: 8,
@@ -663,7 +663,7 @@ export const calculateLeaveDays = (
 export const getLeaveBalanceByEmployeeAndType = (
   employeeId: number,
   leaveTypeId: number
-): LeaveBalance | undefined => {
+) => {
   return mockLeaveBalances.find(
     (balance) =>
       balance.employee_id === employeeId &&
@@ -671,32 +671,32 @@ export const getLeaveBalanceByEmployeeAndType = (
   );
 };
 
-export const getPendingApplications = (): LeaveApplication[] => {
+export const getPendingApplications = () => {
   return mockLeaveApplications.filter((app) => app.status === "pending");
 };
 
-export const getApplicationsByStatus = (status: string): LeaveApplication[] => {
+export const getApplicationsByStatus = (status: string) => {
   return mockLeaveApplications.filter((app) => app.status === status);
 };
 
 export const getApplicationsByEmployee = (
   employeeId: number
-): LeaveApplication[] => {
+) => {
   return mockLeaveApplications.filter((app) => app.employee_id === employeeId);
 };
 
 export const getApplicationsByApprover = (
   approverId: number
-): LeaveApplication[] => {
+) => {
   return mockLeaveApplications.filter(
     (app) => app.current_approver_id === approverId
   );
 };
 
 export const generateLeaveReportData = (
-  applications: LeaveApplication[],
-  employees: Employee[],
-  leaveTypes: LeaveType[]
+  applications,
+  employees,
+  leaveTypes
 ) => {
   return applications.map((app) => {
     const employee = employees.find((emp) => emp.id === app.employee_id);

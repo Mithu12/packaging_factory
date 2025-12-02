@@ -289,7 +289,7 @@ const EnhancedLeaveCalendar: React.FC<EnhancedLeaveCalendarProps> = ({
                   event.status === "approved" ? event.text_color : "#374151",
                 borderColor: event.background_color,
               }}
-              onClick={() => handleEventClick(event)}
+              onClick={() => handleEventClick(event as any)}
             >
               {employee?.full_name?.split(" ")[0]} - {leaveType?.code}
             </Badge>
@@ -355,7 +355,7 @@ const EnhancedLeaveCalendar: React.FC<EnhancedLeaveCalendarProps> = ({
 
         {/* Leave Events */}
         <div className="space-y-1">
-          {dayEvents.slice(0, 2).map((event) => getEventBadge(event))}
+          {dayEvents.slice(0, 2).map((event) => getEventBadge(event as LeaveCalendarEvent))}
           {dayEvents.length > 2 && (
             <Badge variant="outline" className="text-xs">
               +{dayEvents.length - 2} more
@@ -644,7 +644,7 @@ const EnhancedLeaveCalendar: React.FC<EnhancedLeaveCalendarProps> = ({
                       <div
                         key={event.id}
                         className="flex items-center justify-between p-3 bg-muted rounded cursor-pointer hover:bg-muted/80"
-                        onClick={() => handleEventClick(event)}
+                        onClick={() => handleEventClick(event as any)}
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -716,7 +716,7 @@ const EnhancedLeaveCalendar: React.FC<EnhancedLeaveCalendarProps> = ({
                 </Label>
                 <p className="font-medium">{employee?.full_name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {employee?.department?.name} • {employee?.designation?.title}
+                  {(employee as any)?.department?.name || 'N/A'} • {(employee as any)?.designation?.title || 'N/A'}
                 </p>
               </div>
               <div>
@@ -777,14 +777,14 @@ const EnhancedLeaveCalendar: React.FC<EnhancedLeaveCalendarProps> = ({
               </div>
             </div>
 
-            {employee?.phone && (
+            {(employee as any)?.phone && (
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">
                   Contact
                 </Label>
                 <p className="font-medium flex items-center gap-2">
                   <Phone className="h-4 w-4" />
-                  {employee.phone}
+                  {(employee as any).phone}
                 </p>
               </div>
             )}
