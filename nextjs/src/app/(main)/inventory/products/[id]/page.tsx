@@ -215,7 +215,7 @@ export default function ProductDetails() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">{error || "Product not found"}</p>
-          <Button onClick={() => router.push("/products")} data-testid="back-to-products-button">
+          <Button onClick={() => router.push("/inventory/products")} data-testid="back-to-products-button">
             Back to Products
           </Button>
         </div>
@@ -242,7 +242,7 @@ export default function ProductDetails() {
     <div className="space-y-6" data-testid="product-details-page">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/products")} data-testid="back-to-products-button">
+        <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/products")} data-testid="back-to-products-button">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -254,11 +254,11 @@ export default function ProductDetails() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => router.push(`/products/${id}/edit`)} data-testid="product-edit-button">
+          <Button onClick={() => router.push(`/inventory/products/${id}/edit`)} data-testid="product-edit-button">
             <Edit className="w-4 h-4 mr-2" />
             Edit Product
           </Button>
-          <Button variant="outline" onClick={() => router.push(`/products/${id}/adjust-stock`)} data-testid="product-adjust-stock-button">
+          <Button variant="outline" onClick={() => router.push(`/inventory/products/${id}/adjust-stock`)} data-testid="product-adjust-stock-button">
             <Warehouse className="w-4 h-4 mr-2" />
             Adjust Stock
           </Button>
@@ -695,7 +695,7 @@ export default function ProductDetails() {
                 <p className="text-sm text-muted-foreground">
                   Average Lead Time: Not specified
                 </p>
-                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => router.push(`/suppliers/${product.supplier.id}`)} data-testid="view-supplier-details-button">
+                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => router.push(`/inventory/suppliers/${product.supplier.id}`)} data-testid="view-supplier-details-button">
                   View Supplier Details
                 </Button>
               </div>

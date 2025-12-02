@@ -38,7 +38,7 @@ export default function DistributionCenterDetails() {
   useEffect(() => {
     const fetchCenter = async () => {
       if (!id) {
-        router.push('/distribution')
+        router.push('/inventory/distribution')
         return
       }
 
@@ -53,7 +53,7 @@ export default function DistributionCenterDetails() {
           description: "Failed to load distribution center details",
           variant: "destructive",
         })
-        router.push('/distribution')
+        router.push('/inventory/distribution')
       } finally {
         setLoading(false)
       }
@@ -97,7 +97,7 @@ export default function DistributionCenterDetails() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">Distribution center not found</p>
-          <Button onClick={() => router.push('/distribution')}>
+          <Button onClick={() => router.push('/inventory/distribution')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Distribution
           </Button>
@@ -113,7 +113,7 @@ export default function DistributionCenterDetails() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.push('/distribution')}>
+          <Button variant="outline" onClick={() => router.push('/inventory/distribution')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -146,7 +146,7 @@ export default function DistributionCenterDetails() {
         </div>
         
         {hasPermission(PERMISSIONS.WAREHOUSES_UPDATE) && (
-          <Button onClick={() => router.push(`/distribution/centers/${center.id}/edit`)}>
+          <Button onClick={() => router.push(`/inventory/distribution/centers/${center.id}/edit`)}>
             <Edit className="w-4 h-4 mr-2" />
             Edit Center
           </Button>

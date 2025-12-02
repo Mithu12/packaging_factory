@@ -50,6 +50,7 @@ interface MaterialConsumptionDialogProps {
     allocated_quantity?: number;
     consumed_quantity?: number;
     unit_of_measure?: string;
+    status?: 'pending' | 'fulfilled' | 'partial';
   }>;
   onComplete: (consumptions: MaterialConsumption[], notes?: string) => void;
   onSkip: () => void;

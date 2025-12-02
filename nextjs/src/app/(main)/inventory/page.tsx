@@ -272,7 +272,7 @@ export default function Inventory() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Stock Overview</TabsTrigger>
-          <TabsTrigger value="moveme">Stock Movements</TabsTrigger>
+          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
         </TabsList>
 
         {/* Stock Overview Tab */}
@@ -399,7 +399,7 @@ export default function Inventory() {
                               ? new Date(
                                   item.last_movement_date
                                 ).toLocaleDateString()
-                              : "No moveme"}
+                              : "No movements"}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -413,10 +413,10 @@ export default function Inventory() {
                               <DropdownMenuItem onClick={() => router.push(`/inventory/${item.id}`)}>
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/products/${item.id}/edit`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/inventory/products/${item.id}/edit`)}>
                                 Edit Product
                               </DropdownMenuItem>
-                              {/* <DropdownMenuItem onClick={() => router.push(`/products/${item.id}/adjust`)}>
+                              {/* <DropdownMenuItem onClick={() => router.push(`/inventory/products/${item.id}/adjust`)}>
                                 Adjust Stock
                               </DropdownMenuItem>
                               <DropdownMenuItem>Reserve Stock</DropdownMenuItem>
@@ -447,7 +447,7 @@ export default function Inventory() {
         </TabsContent>
 
         {/* Stock Movements Tab */}
-        <TabsContent value="moveme">
+        <TabsContent value="movements">
           <Card>
             <CardHeader>
               <CardTitle>Recent Stock Movements</CardTitle>

@@ -245,7 +245,7 @@ export default function EditProduct() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">{error || "Product not found"}</p>
-          <Button onClick={() => router.push("/products")}>
+          <Button onClick={() => router.push("/inventory/products")}>
             Back to Products
           </Button>
         </div>
@@ -309,7 +309,7 @@ export default function EditProduct() {
         description: "Product has been successfully updated.",
       })
 
-      router.push(`/products/${id}`)
+      router.push(`/inventory/products/${id}`)
     } catch (err) {
       if (err instanceof ApiError) {
         toast({
@@ -355,7 +355,7 @@ export default function EditProduct() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push(`/products/${id}`)} data-testid="edit-product-back-button"
+          onClick={() => router.push(`/inventory/products/${id}`)} data-testid="edit-product-back-button"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -828,7 +828,7 @@ export default function EditProduct() {
                   type="button"
                   variant="outline"
                   className="w-full"
-                  onClick={() => router.push(`/products/${id}`)} data-testid="cancel-edit-product-button"
+                  onClick={() => router.push(`/inventory/products/${id}`)} data-testid="cancel-edit-product-button"
                 >
                   Cancel
                 </Button>

@@ -49,8 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { BillOfMaterials, BOMStats, BOMQueryParams } from "../types/bom";
-import { BOMApiService, bomQueryKeys } from "@/services/bom-api";
+import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMStats } from "@/services/bom-api";
 import { useQuery } from "@tanstack/react-query";
 
 export default function BOMList() {
@@ -491,7 +490,7 @@ export default function BOMList() {
                       Components Without Supplier
                     </p>
                     <p className="text-sm text-orange-700">
-                      {stats.componentsWithoutSupplier} components need supplier
+                      {stats.components_without_supplier} components need supplier
                       assignment
                     </p>
                   </div>
@@ -502,7 +501,7 @@ export default function BOMList() {
                   <div>
                     <p className="font-medium text-yellow-900">Outdated BOMs</p>
                     <p className="text-sm text-yellow-700">
-                      {stats.outdatedBOMs} BOMs need version updates
+                      {stats.outdated_boms} BOMs need version updates
                     </p>
                   </div>
                 </div>

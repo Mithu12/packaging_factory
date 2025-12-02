@@ -180,6 +180,8 @@ export interface BOMQueryParams {
 }
 
 export interface MaterialRequirementsQueryParams {
+  page?: number;
+  limit?: number;
   work_order_id?: string;
   status?: string;
   priority?: number;

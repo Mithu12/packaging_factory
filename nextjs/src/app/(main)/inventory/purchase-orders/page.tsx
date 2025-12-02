@@ -409,17 +409,17 @@ export default function PurchaseOrders() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-popover">
-                        <DropdownMenuItem onClick={() => router.push(`/purchase-orders/${order.id}`)}>
+                        <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}`)}>
                           View Details
                         </DropdownMenuItem>
                        
-                          <DropdownMenuItem onClick={() => router.push(`/purchase-orders/${order.id}/edit`)}>
+                          <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}/edit`)}>
                           Edit Order
                         </DropdownMenuItem>
                      
                        
                         {(order.status === "approved" || order.status === "partially_received") && (
-                          <DropdownMenuItem onClick={() => router.push(`/purchase-orders/${order.id}/receive`)}>
+                          <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}/receive`)}>
                             Receive Goods
                           </DropdownMenuItem>
                         )}

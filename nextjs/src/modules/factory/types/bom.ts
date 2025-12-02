@@ -222,3 +222,44 @@ export interface MaterialRequirementsQueryParams {
   sort_by?: 'required_date' | 'priority' | 'status';
   sort_order?: 'asc' | 'desc';
 }
+
+export interface BOMQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  parent_product_id?: string;
+  is_active?: boolean;
+  sort_by?: 'created_at' | 'version' | 'total_cost';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface CostVariance {
+  workOrderId: string;
+  workOrderNumber: string;
+  productName: string;
+  plannedCost: number;
+  actualCost: number;
+  variance: number;
+  variancePercentage: number;
+  status: "favorable" | "unfavorable" | "on_target";
+}
+
+export interface CostTrend {
+  period: string;
+  materialCost: number;
+  laborCost: number;
+  overheadCost: number;
+  totalCost: number;
+  costPerUnit: number;
+}
+
+export interface CostCenter {
+  id: string;
+  name: string;
+  totalCost: number;
+  materialCost: number;
+  laborCost: number;
+  overheadCost: number;
+  efficiency: number;
+  variance: number;
+}

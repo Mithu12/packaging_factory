@@ -54,7 +54,7 @@ import {
   CreateCustomerRequest,
   UpdateCustomerRequest,
 } from "../services/customer-orders-api";
-import CustomerForm from "../components/CustomerForm.tsx";
+import CustomerForm from "../components/CustomerForm";
 
 export default function CustomerManagement() {
   const { formatCurrency, formatDate } = useFormatting();

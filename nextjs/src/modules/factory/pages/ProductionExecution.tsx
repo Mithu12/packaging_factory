@@ -92,6 +92,7 @@ export default function ProductionExecution() {
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
   const [downtimeData, setDowntimeData] = useState({
+    production_run_id: "",
     downtime_reason: "",
     downtime_category: "machine_breakdown",
     start_time: new Date().toISOString(),
@@ -244,6 +245,7 @@ export default function ProductionExecution() {
       toast.success("Downtime recorded successfully");
       setShowDowntimeDialog(false);
       setDowntimeData({
+        production_run_id: "",
         downtime_reason: "",
         downtime_category: "machine_breakdown",
         start_time: new Date().toISOString(),

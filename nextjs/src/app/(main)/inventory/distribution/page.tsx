@@ -465,7 +465,7 @@ export default function Distribution() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-popover">
-                                <DropdownMenuItem onClick={() => router.push(`/distribution/centers/${center.id}`)}>
+                                <DropdownMenuItem onClick={() => router.push(`/inventory/distribution/centers/${center.id}`)}>
                                   View Details
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleViewCenter(center)}>
@@ -473,7 +473,7 @@ export default function Distribution() {
                                 </DropdownMenuItem>
                                 {hasPermission(PERMISSIONS.WAREHOUSES_UPDATE) && (
                                   <>
-                                    <DropdownMenuItem onClick={() => router.push(`/distribution/centers/${center.id}/edit`)}>
+                                    <DropdownMenuItem onClick={() => router.push(`/inventory/distribution/centers/${center.id}/edit`)}>
                                       Edit Center
                                     </DropdownMenuItem>
                                     {!center.is_primary && (

@@ -629,7 +629,7 @@ export default function OperatorsPage() {
                       <div className="text-sm text-muted-foreground">
                         {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.email || ''}
                         {' | '}
-                        {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.role_name || ''}
+                        {users?.find(u => u.id.toString() === selectedOperator.user_id.toString())?.role || ''}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -657,7 +657,7 @@ export default function OperatorsPage() {
                         <div className="flex flex-col">
                           <span className="font-medium">{user.full_name}</span>
                           <span className="text-sm text-muted-foreground">
-                            {user.email} | {user.role_name}
+                            {user.email} | {user.role}
                           </span>
                         </div>
                       </SelectItem>

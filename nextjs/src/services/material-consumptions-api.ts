@@ -22,7 +22,9 @@ export interface MaterialConsumption {
   unit_of_measure: string;
   consumption_date: string;
   production_line_id?: string;
+  production_line_name?: string;
   operator_id?: string;
+  operator_name?: string;
   batch_number?: string;
   consumed_by: number;
   consumed_by_name?: string;

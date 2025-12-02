@@ -143,7 +143,7 @@ export default function PurchaseOrderDetails() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/purchase-orders")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/purchase-orders")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -169,7 +169,7 @@ export default function PurchaseOrderDetails() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/purchase-orders")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/purchase-orders")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -197,7 +197,7 @@ export default function PurchaseOrderDetails() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/purchase-orders")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/purchase-orders")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -218,7 +218,7 @@ export default function PurchaseOrderDetails() {
             <Mail className="w-4 h-4 mr-2" />
             Email to Supplier
           </Button>
-          <Button onClick={() => router.push(`/purchase-orders/${id}/edit`)}>
+          <Button onClick={() => router.push(`/inventory/purchase-orders/${id}/edit`)}>
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
@@ -619,7 +619,7 @@ export default function PurchaseOrderDetails() {
                 variant="outline" 
                 size="sm" 
                 className="w-full mt-3"
-                onClick={() => router.push(`/suppliers/${purchaseOrder.supplier_id}`)}
+                onClick={() => router.push(`/inventory/suppliers/${purchaseOrder.supplier_id}`)}
               >
                 View Supplier Profile
               </Button>

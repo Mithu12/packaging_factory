@@ -99,7 +99,7 @@ export class HRMApiService {
 
   static async exportDepartments(params?: Record<string, any>): Promise<Blob> {
     const queryString = buildQueryString(params);
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/departments/export${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/departments/export${queryString}`, {
       credentials: 'include',
     });
     
@@ -165,7 +165,7 @@ export class HRMApiService {
 
   static async exportDesignations(params?: Record<string, any>): Promise<Blob> {
     const queryString = buildQueryString(params);
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/designations/export${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/designations/export${queryString}`, {
       credentials: 'include',
     });
     
@@ -241,7 +241,7 @@ export class HRMApiService {
 
   static async exportEmployees(params?: Record<string, any>): Promise<Blob> {
     const queryString = buildQueryString(params);
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/employees/export${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/employees/export${queryString}`, {
       credentials: 'include',
     });
     
@@ -386,7 +386,7 @@ export class HRMApiService {
 
   static async exportPayroll(runId: number, format: string = 'excel'): Promise<Blob> {
     const queryString = buildQueryString({ format });
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/payroll/export/${runId}${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/payroll/export/${runId}${queryString}`, {
       credentials: 'include',
     });
     
@@ -494,7 +494,7 @@ export class HRMApiService {
 
   static async exportLeaveData(year?: number, format: string = 'excel'): Promise<Blob> {
     const queryString = buildQueryString({ year, format });
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/leave/export${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/leave/export${queryString}`, {
       credentials: 'include',
     });
     
@@ -614,7 +614,7 @@ export class HRMApiService {
 
   static async exportAttendanceData(startDate: string, endDate: string, format: string = 'excel'): Promise<Blob> {
     const queryString = buildQueryString({ start_date: startDate, end_date: endDate, format });
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/attendance/export${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/attendance/export${queryString}`, {
       credentials: 'include',
     });
     

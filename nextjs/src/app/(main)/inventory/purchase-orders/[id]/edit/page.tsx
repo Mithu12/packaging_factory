@@ -232,7 +232,7 @@ export default function EditPurchaseOrder() {
         description: "Purchase order has been updated successfully."
       })
       
-      router.push(`/purchase-orders/${id}`)
+      router.push(`/inventory/purchase-orders/${id}`)
     } catch (err: any) {
       console.error('Error updating purchase order:', err)
       toast.error("Failed to Update Purchase Order", {
@@ -248,7 +248,7 @@ export default function EditPurchaseOrder() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/purchase-orders/${id}`)}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -276,7 +276,7 @@ export default function EditPurchaseOrder() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/purchase-orders/${id}`)}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -303,7 +303,7 @@ export default function EditPurchaseOrder() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push(`/purchase-orders/${id}`)}>
+        <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -623,7 +623,7 @@ export default function EditPurchaseOrder() {
                     onClick={() => {
                       const supplier = suppliers.find(s => s.id.toString() === formData.supplier_id)
                       if (supplier) {
-                        router.push(`/suppliers/${supplier.id}`)
+                        router.push(`/inventory/suppliers/${supplier.id}`)
                       }
                     }}
                   >
@@ -653,7 +653,7 @@ export default function EditPurchaseOrder() {
                   type="button" 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => router.push(`/purchase-orders/${id}`)}
+                  onClick={() => router.push(`/inventory/purchase-orders/${id}`)}
                 >
                   Cancel
                 </Button>

@@ -171,7 +171,7 @@ export default function ReceiveGoods() {
         description: "Goods receipt has been recorded and inventory updated."
       })
       
-      router.push(`/purchase-orders/${id}`)
+      router.push(`/inventory/purchase-orders/${id}`)
     } catch (err: any) {
       console.error('Error recording goods receipt:', err)
       toast({
@@ -223,7 +223,7 @@ export default function ReceiveGoods() {
           <h1 className="text-2xl font-bold text-destructive">Error Loading Purchase Order</h1>
           <p className="text-muted-foreground">{error || "Purchase order not found"}</p>
           <Button 
-            onClick={() => router.push('/purchase-orders')} 
+            onClick={() => router.push('/inventory/purchase-orders')} 
             className="mt-4"
           >
             Back to Purchase Orders
@@ -237,7 +237,7 @@ export default function ReceiveGoods() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push(`/purchase-orders/${id}`)}>
+        <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -531,7 +531,7 @@ export default function ReceiveGoods() {
                   type="button" 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => router.push(`/purchase-orders/${id}`)}
+                  onClick={() => router.push(`/inventory/purchase-orders/${id}`)}
                 >
                   Cancel
                 </Button>

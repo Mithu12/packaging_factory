@@ -23,6 +23,7 @@ import {
   Trash2,
   Eye,
   MoreHorizontal,
+  MapPin,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -150,10 +151,7 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({
               {onSelect && (
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={isAllSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = isIndeterminate;
-                    }}
+                    checked={isIndeterminate ? "indeterminate" : isAllSelected}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>

@@ -442,6 +442,19 @@ export interface CreateEmployeeForm {
   username?: string;
   email?: string;
   password?: string;
+  role_id?: number;
+  // Termination fields
+  termination_date?: string;
+  resignation_date?: string;
+  termination_reason?: string;
+  // Legacy/additional fields
+  department?: string;
+  status?: string;
+  current_work_order_id?: number;
+  production_line_id?: number;
+  notes?: string;
+  // Allow additional dynamic fields
+  [key: string]: any;
 }
 
 export interface CreateLeaveApplicationForm {

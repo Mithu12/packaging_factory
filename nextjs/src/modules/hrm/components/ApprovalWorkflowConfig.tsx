@@ -59,6 +59,8 @@ const ApprovalWorkflowConfig: React.FC<ApprovalWorkflowConfigProps> = ({
     auto_escalate: true,
     escalation_days: 3,
     approval_levels: [] as any[],
+    created_by: 0,
+    is_active: true,
   });
 
   const workflowTypeOptions = getWorkflowTypeOptions();
@@ -73,6 +75,8 @@ const ApprovalWorkflowConfig: React.FC<ApprovalWorkflowConfigProps> = ({
       auto_escalate: true,
       escalation_days: 3,
       approval_levels: [],
+      created_by: 0,
+      is_active: true,
     });
     setShowCreateForm(false);
     setEditingWorkflow(null);
@@ -96,6 +100,8 @@ const ApprovalWorkflowConfig: React.FC<ApprovalWorkflowConfigProps> = ({
       auto_escalate: workflow.auto_escalate,
       escalation_days: workflow.escalation_days,
       approval_levels: workflow.approval_levels || [],
+      created_by: workflow.created_by || 0,
+      is_active: workflow.is_active ?? true,
     });
     setEditingWorkflow(workflow);
     setShowCreateForm(true);

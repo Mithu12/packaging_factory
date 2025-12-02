@@ -172,7 +172,7 @@ export class SalesInvoicesApi {
   static async downloadInvoicePDF(id: number, invoiceNumber: string): Promise<void> {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}${this.BASE_URL}/${id}/pdf`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${this.BASE_URL}/${id}/pdf`, {
         method: 'GET',
         headers: {
           'Accept': 'application/pdf',

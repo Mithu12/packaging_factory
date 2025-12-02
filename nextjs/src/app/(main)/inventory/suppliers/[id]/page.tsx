@@ -111,7 +111,7 @@ export default function SupplierDetails() {
         title: "Supplier Deleted",
         description: "Supplier has been successfully deleted.",
       })
-      router.push('/suppliers')
+      router.push('/inventory/suppliers')
     } catch (err) {
       if (err instanceof ApiError) {
         toast({
@@ -158,7 +158,7 @@ export default function SupplierDetails() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-muted-foreground">Supplier not found</p>
-          <Button onClick={() => router.push('/suppliers')} className="mt-4">
+          <Button onClick={() => router.push('/inventory/suppliers')} className="mt-4">
             Back to Suppliers
           </Button>
         </div>
@@ -182,7 +182,7 @@ export default function SupplierDetails() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => router.push('/suppliers')}
+            onClick={() => router.push('/inventory/suppliers')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -213,7 +213,7 @@ export default function SupplierDetails() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/suppliers/${id}/edit`)}
+            onClick={() => router.push(`/inventory/suppliers/${id}/edit`)}
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit

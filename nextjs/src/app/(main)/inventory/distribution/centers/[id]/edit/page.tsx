@@ -77,7 +77,7 @@ export default function EditDistributionCenter() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">You don't have permission to edit distribution centers</p>
-          <Button onClick={() => router.push('/distribution')}>
+          <Button onClick={() => router.push('/inventory/distribution')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Distribution
           </Button>
@@ -137,7 +137,7 @@ export default function EditDistributionCenter() {
   useEffect(() => {
     const fetchCenter = async () => {
       if (!id) {
-        router.push('/distribution')
+        router.push('/inventory/distribution')
         return
       }
 
@@ -182,7 +182,7 @@ export default function EditDistributionCenter() {
           description: "Failed to load distribution center details",
           variant: "destructive",
         })
-        router.push('/distribution')
+        router.push('/inventory/distribution')
       } finally {
         setLoading(false)
       }
@@ -235,7 +235,7 @@ export default function EditDistributionCenter() {
         description: `${data.name} has been updated successfully.`,
       })
 
-      router.push('/distribution')
+      router.push('/inventory/distribution')
     } catch (error) {
       console.error("Error updating distribution center:", error)
       toast({
@@ -264,7 +264,7 @@ export default function EditDistributionCenter() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">Distribution center not found</p>
-          <Button onClick={() => router.push('/distribution')}>
+          <Button onClick={() => router.push('/inventory/distribution')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Distribution
           </Button>
@@ -277,7 +277,7 @@ export default function EditDistributionCenter() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => router.push('/distribution')}>
+        <Button variant="outline" onClick={() => router.push('/inventory/distribution')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
@@ -741,7 +741,7 @@ export default function EditDistributionCenter() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/distribution')}
+                  onClick={() => router.push('/inventory/distribution')}
                   disabled={saving}
                 >
                   Cancel

@@ -162,7 +162,7 @@ export default function EditSupplier() {
         title: "Supplier Updated",
         description: "Supplier information has been successfully updated.",
       })
-      router.push(`/suppliers/${id}`)
+      router.push(`/inventory/suppliers/${id}`)
     } catch (err) {
       if (err instanceof ApiError) {
         toast({
@@ -253,7 +253,7 @@ export default function EditSupplier() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-muted-foreground">Supplier not found</p>
-          <Button onClick={() => router.push('/suppliers')} className="mt-4">
+          <Button onClick={() => router.push('/inventory/suppliers')} className="mt-4">
             Back to Suppliers
           </Button>
         </div>
@@ -269,7 +269,7 @@ export default function EditSupplier() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => router.push(`/suppliers/${id}`)}
+            onClick={() => router.push(`/inventory/suppliers/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -667,7 +667,7 @@ export default function EditSupplier() {
                     type="button" 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => router.push(`/suppliers/${id}`)}
+                    onClick={() => router.push(`/inventory/suppliers/${id}`)}
                     disabled={saving}
                   >
                     <X className="w-4 h-4 mr-2" />

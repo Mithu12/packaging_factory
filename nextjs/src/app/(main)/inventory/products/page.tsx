@@ -85,7 +85,7 @@ export default function Products() {
         if (err instanceof ApiError) {
           setError(err.message)
         } else {
-          setError("Failed to load produ")
+          setError("Failed to load products")
         }
       } finally {
         setLoading(false)
@@ -377,16 +377,16 @@ export default function Products() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-popover">
-                            <DropdownMenuItem onClick={() => router.push(`/products/${product.id}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/inventory/products/${product.id}`)}>
                               View Details
                             </DropdownMenuItem>
                             {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
-                              <DropdownMenuItem onClick={() => router.push(`/products/${product.id}/edit`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/inventory/products/${product.id}/edit`)}>
                                 Edit Product
                               </DropdownMenuItem>
                             )}
                             {hasPermission(PERMISSIONS.INVENTORY_ADJUST) && (
-                              <DropdownMenuItem onClick={() => router.push(`/products/${product.id}/adjust-stock`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/inventory/products/${product.id}/adjust-stock`)}>
                                 Adjust Stock
                               </DropdownMenuItem>
                             )}

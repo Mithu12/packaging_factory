@@ -154,7 +154,7 @@ export default function AdjustStock() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-destructive mb-4">{error || "Product not found"}</p>
-          <Button onClick={() => router.push("/products")}>
+          <Button onClick={() => router.push("/inventory/products")}>
             Back to Products
           </Button>
         </div>
@@ -302,7 +302,7 @@ export default function AdjustStock() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push(`/products/${id}`)}>
+        <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/products/${id}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -499,7 +499,7 @@ export default function AdjustStock() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => router.push(`/products/${id}`)}
+                    onClick={() => router.push(`/inventory/products/${id}`)}
                   >
                     Cancel
                   </Button>
