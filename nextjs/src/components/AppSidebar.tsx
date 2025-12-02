@@ -179,25 +179,25 @@ const menuSections: MenuSection[] = [
     items: [
       {
         title: "Products",
-        url: "/products",
+        url: "/inventory/products",
         icon: Package,
         permission: PERMISSIONS.PRODUCTS_READ,
       },
       {
         title: "Categories",
-        url: "/categories",
+        url: "/inventory/categories",
         icon: FolderTree,
         permission: PERMISSIONS.CATEGORIES_READ,
       },
       {
         title: "Brands",
-        url: "/brands",
+        url: "/inventory/brands",
         icon: Tag,
         permission: PERMISSIONS.BRANDS_READ,
       },
       {
         title: "Origins",
-        url: "/origins",
+        url: "/inventory/origins",
         icon: MapPin,
         permission: PERMISSIONS.ORIGINS_READ,
       },
@@ -209,7 +209,7 @@ const menuSections: MenuSection[] = [
     items: [
       {
         title: "Suppliers",
-        url: "/suppliers",
+        url: "/inventory/suppliers",
         icon: Users,
         permission: PERMISSIONS.SUPPLIERS_READ,
       },
@@ -221,19 +221,19 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Purchase Orders",
-        url: "/purchase-orders",
+        url: "/inventory/purchase-orders",
         icon: ShoppingCart,
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
       },
       {
         title: "Payments",
-        url: "/payments",
+        url: "/inventory/payments",
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
       },
       {
         title: "Distribution",
-        url: "/distribution",
+        url: "/inventory/distribution",
         icon: Truck,
         permission: PERMISSIONS.WAREHOUSES_READ,
       },
