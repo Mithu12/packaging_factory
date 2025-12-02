@@ -14,7 +14,7 @@ export async function apiRequest(
   const backendUrl = getBackendUrl();
   const authToken = request?.headers.get('cookie')?.match(/authToken=([^;]+)/)?.[1];
 
-  const headers: HeadersInit = {
+  const headers: any = {
     'Content-Type': 'application/json',
     ...options.headers,
   };

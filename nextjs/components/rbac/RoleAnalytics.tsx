@@ -265,7 +265,7 @@ export const RoleAnalytics: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ level, count }) => `${level}: ${count}`}
+                      label={({ level, count }: any) => `${level}: ${count}`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="count"

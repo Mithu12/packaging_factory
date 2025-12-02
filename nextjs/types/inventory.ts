@@ -77,7 +77,7 @@ export interface Product {
   cost_price: number;
   selling_price: number;
   current_stock: number;
-    reserved_stock: number;
+  reserved_stock: number;
   min_stock_level: number;
   max_stock_level?: number;
   supplier_id: number;
@@ -129,7 +129,7 @@ export interface CreateProductRequest {
   image_url?: string;
 }
 
-export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+export interface UpdateProductRequest extends Partial<CreateProductRequest> { }
 
 // Category Types
 export interface Category {
@@ -155,7 +155,7 @@ export interface CreateCategoryRequest {
   description?: string;
 }
 
-export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
+export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> { }
 
 export interface CreateSubcategoryRequest {
   name: string;
@@ -163,7 +163,7 @@ export interface CreateSubcategoryRequest {
   category_id: number;
 }
 
-export interface UpdateSubcategoryRequest extends Partial<CreateSubcategoryRequest> {}
+export interface UpdateSubcategoryRequest extends Partial<CreateSubcategoryRequest> { }
 
 // Stats Types
 export interface SupplierStats {
@@ -225,6 +225,18 @@ export interface StockAdjustment {
 export interface Brand {
   id: number;
   name: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  product_count?: number;
+}
+
+// Origin Types
+export interface Origin {
+  id: number;
+  name: string;
+  code?: string;
   description?: string;
   is_active: boolean;
   created_at: string;

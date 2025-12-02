@@ -96,8 +96,8 @@ export default function BrandsPage() {
         ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await fetch(`/api/inventory/brands?${params}`, { 
-        credentials: 'include' 
+      const response = await fetch(`/api/inventory/brands?${params}`, {
+        credentials: 'include'
       });
       const data = await response.json();
 
@@ -240,7 +240,7 @@ export default function BrandsPage() {
 
   const handleDelete = (brand: Brand) => {
     setSelectedBrand(brand);
-    if (brand.product_count > 0) {
+    if ((brand.product_count || 0) > 0) {
       toast.error('Cannot delete brand', {
         description: 'This brand is used by existing products. Please remove products first.',
       });
@@ -476,7 +476,7 @@ export default function BrandsPage() {
                         <span className="sr-only">Previous</span>
                         Previous
                       </button>
-                      
+
                       {/* Page numbers */}
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         let pageNum;
@@ -494,17 +494,16 @@ export default function BrandsPage() {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                              currentPage === pageNum
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${currentPage === pageNum
                                 ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
                                 : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
-                            }`}
+                              }`}
                           >
                             {pageNum}
                           </button>
                         );
                       })}
-                      
+
                       <button
                         onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                         disabled={currentPage === totalPages}

@@ -1,8 +1,11 @@
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import * as jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const secret = new TextEncoder().encode(JWT_SECRET);
 
 // Public routes that don't require authentication
 const publicRoutes = ['/login', '/register', '/'];
@@ -10,7 +13,7 @@ const publicRoutes = ['/login', '/register', '/'];
 // API routes that don't require authentication
 const publicApiRoutes = ['/api/auth/login', '/api/auth/register', '/api/auth/logout'];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public routes
@@ -45,8 +48,9 @@ export function middleware(request: NextRequest) {
   // If there's a token, verify it's valid for API routes
   if (token && pathname.startsWith('/api')) {
     try {
-      jwt.verify(token, JWT_SECRET);
+      await jwtVerify(token, secret);
     } catch (error) {
+      console.log(error);
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },

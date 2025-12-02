@@ -74,7 +74,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
         let basicPermissions: Permission[] = [];
 
         // Assign permissions based on role
-        if (user.role === 'admin' || user.role === 'system_admin') {
+        if ((user.role as string) === 'admin' || (user.role as string) === 'system_admin') {
           // Admin gets all permissions (simplified approach)
           basicPermissions = [
             {
@@ -132,9 +132,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
               created_at: new Date().toISOString(),
             },
           ];
-        } else if (user.permissions && Array.isArray(user.permissions)) {
+        } else if ((user as any).permissions && Array.isArray((user as any).permissions)) {
           // If user has explicit permissions array
-          basicPermissions = user.permissions.map((perm: string) => {
+          basicPermissions = (user as any).permissions.map((perm: string) => {
             const parts = perm.split('.');
             if (parts.length === 3) {
               return {
@@ -163,6 +163,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
 
         const basicUserWithPermissions: UserWithPermissions = {
           ...user,
+          last_login: user.last_login ? new Date(user.last_login).toISOString() : undefined,
+          created_at: new Date(user.created_at).toISOString(),
+          updated_at: new Date(user.updated_at).toISOString(),
           role_details: undefined,
           role_permissions: [],
           direct_permissions: [],
@@ -181,10 +184,13 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
       if (user) {
         const fallbackUserWithPermissions: UserWithPermissions = {
           ...user,
+          last_login: user.last_login ? new Date(user.last_login).toISOString() : undefined,
+          created_at: new Date(user.created_at).toISOString(),
+          updated_at: new Date(user.updated_at).toISOString(),
           role_details: undefined,
           role_permissions: [],
           direct_permissions: [],
-          all_permissions: user.permissions ? user.permissions.map((perm: string) => {
+          all_permissions: (user as any).permissions ? (user as any).permissions.map((perm: string) => {
             const parts = perm.split('.');
             if (parts.length === 3) {
               return {
@@ -276,8 +282,8 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
   // Check if user is system admin
   const isSystemAdmin = (): boolean => {
     return hasPermission(PERMISSIONS.SYSTEM_ADMIN) ||
-           userPermissions?.role_details?.name === 'admin' ||
-           userPermissions?.role === 'admin';
+      userPermissions?.role_details?.name === 'admin' ||
+      userPermissions?.role === 'admin';
   };
 
   // Convenience methods for common permission checks
