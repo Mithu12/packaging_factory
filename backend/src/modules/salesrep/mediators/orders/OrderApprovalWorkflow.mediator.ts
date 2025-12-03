@@ -102,7 +102,7 @@ export class OrderApprovalWorkflowMediator {
         submissionData.order_id
       );
 
-      return updatedOrder;
+      return updatedOrder!;
     } catch (error) {
       if (transactionActive) {
         await client.query("ROLLBACK");
@@ -216,7 +216,7 @@ export class OrderApprovalWorkflowMediator {
         approvalData.order_id
       );
 
-      return updatedOrder;
+      return updatedOrder!;
     } catch (error) {
       if (transactionActive) {
         await client.query("ROLLBACK");
@@ -415,7 +415,7 @@ export class OrderApprovalWorkflowMediator {
         approvalData.order_id
       );
 
-      return updatedOrder;
+      return updatedOrder!;
     } catch (error) {
       if (transactionActive) {
         await client.query("ROLLBACK");
@@ -514,7 +514,8 @@ export class OrderApprovalWorkflowMediator {
       // Return updated order
       const GetOrderInfoMediator = (await import("./GetOrderInfo.mediator"))
         .default;
-      return await GetOrderInfoMediator.getOrder(acceptanceData.order_id);
+      const updatedOrder = await GetOrderInfoMediator.getOrder(acceptanceData.order_id);
+      return updatedOrder!;
     } catch (error) {
       await client.query("ROLLBACK");
       MyLogger.error(action, error);
