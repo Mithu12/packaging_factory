@@ -288,7 +288,7 @@ export default function EditProduct() {
         reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
         supplier_id: parseInt(formData.supplier_id),
         status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
-        barcode: formData.barcode || undefined,
+        // barcode: formData.barcode || undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,

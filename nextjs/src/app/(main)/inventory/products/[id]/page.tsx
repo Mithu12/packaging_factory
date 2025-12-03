@@ -367,9 +367,7 @@ export default function ProductDetails() {
                   src={getImagePath(product.image_url)}
                   alt={product.name}
                   className="w-full max-w-md h-64 object-cover rounded-lg border"
-                  onError={(e) => {
-                    e.currentTarget.src = "https://images.pexels.com/photos/4158/apple-iphone-smartphone-desk.jpg?auto=compress&cs=tinysrgb&w=400";
-                  }}
+                  
                 />
               </div>
             </CardContent>
