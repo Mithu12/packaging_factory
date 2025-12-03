@@ -71,10 +71,10 @@ import {
 const AttendanceRegularizationPage: React.FC = () => {
   const [regularizationRequests, setRegularizationRequests] = useState<
     AttendanceRegularizationRequest[]
-  >(mockAttendanceRegularizationRequests);
-  const [employees] = useState<Employee[]>(mockEmployees);
+  >(mockAttendanceRegularizationRequests as any);
+  const [employees] = useState<Employee[]>(mockEmployees as any);
   const [attendanceRecords] = useState<AttendanceRecord[]>(
-    mockAttendanceRecords
+    mockAttendanceRecords as any
   );
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");

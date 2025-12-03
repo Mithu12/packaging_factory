@@ -69,11 +69,11 @@ import {
 } from "../types";
 
 const ShiftManagementPage: React.FC = () => {
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts);
+  const [shifts, setShifts] = useState<Shift[]>(mockShifts as any);
   const [shiftAssignments, setShiftAssignments] =
     useState<ShiftAssignment[]>(mockShiftAssignments);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [departments] = useState<Department[]>(mockDepartments);
+  const [employees] = useState<Employee[]>(mockEmployees as any);
+  const [departments] = useState<Department[]>(mockDepartments as any);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");

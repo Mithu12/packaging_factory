@@ -99,7 +99,7 @@ export const mockShifts = [
   },
 ];
 
-export const mockShiftAssignments = [
+export const mockShiftAssignments: Omit<ShiftAssignment, 'employee' | 'shift'>[] = [
   {
     id: 1,
     employee_id: 1,
@@ -211,7 +211,7 @@ export const getShiftAssignmentsByShift = (shiftId: number) =>
 export const getActiveShiftForEmployee = (employeeId: number) => {
   const assignments = getShiftAssignmentsByEmployee(employeeId);
   const activeAssignment = assignments.find(
-    (assignment) =>
+    (assignment: any) =>
       !assignment.effective_to ||
       new Date(assignment.effective_to) >= new Date()
   );
@@ -222,7 +222,7 @@ export const getEmployeesByShift = (shiftId: number) => {
   const assignments = getShiftAssignmentsByShift(shiftId);
   return assignments
     .filter(
-      (assignment) =>
+      (assignment: any) =>
         !assignment.effective_to ||
         new Date(assignment.effective_to) >= new Date()
     )

@@ -50,8 +50,8 @@ const AttendanceDashboardPage: React.FC = () => {
   >([]);
   const [attendanceSummary, setAttendanceSummary] =
     useState<AttendanceSummary | null>(null);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [shifts] = useState<Shift[]>(mockShifts);
+  const [employees] = useState<Employee[]>(mockEmployees as any);
+  const [shifts] = useState<Shift[]>(mockShifts as any);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -71,8 +71,8 @@ const AttendanceDashboardPage: React.FC = () => {
         period_end: selectedDate,
       };
 
-      setAttendanceRecords(todaysAttendance);
-      setAttendanceSummary(summary);
+      setAttendanceRecords(todaysAttendance as any);
+      setAttendanceSummary(summary as any);
     } catch (error) {
       console.error("Error loading attendance data:", error);
     } finally {

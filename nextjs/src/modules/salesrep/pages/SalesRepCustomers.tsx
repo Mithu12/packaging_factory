@@ -225,16 +225,16 @@ const SalesRepCustomers = () => {
   };
 
   // Handle both response types: shared customers and regular paginated response
-  const customers = customersData?.customers || [];
+  const customers = (customersData as any)?.data || (customersData as any)?.customers || [];
 
   const pagination = customersData
     ? {
-        page: customersData.page || 1,
-        limit: customersData.limit || 10,
-        total: customersData.total || 0,
+        page: (customersData as any).page || 1,
+        limit: (customersData as any).limit || 10,
+        total: (customersData as any).total || 0,
         total_pages:
-          customersData.totalPages ||
-          Math.ceil((customersData.total || 0) / (customersData.limit || 10)),
+          (customersData as any).totalPages ||
+          Math.ceil(((customersData as any).total || 0) / ((customersData as any).limit || 10)),
       }
     : undefined;
 

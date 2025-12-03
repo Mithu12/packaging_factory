@@ -89,7 +89,7 @@ const SalesRepDashboard = () => {
     );
   }
 
-  const stats = dashboardStats?.data || {
+  const stats = dashboardStats || {
     total_customers: 0,
     active_orders: 0,
     pending_invoices: 0,

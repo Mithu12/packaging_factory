@@ -299,7 +299,7 @@ const LeaveTypeConfigurationPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <LeaveTypeList
-                leaveTypes={filteredLeaveTypes}
+                leaveTypes={filteredLeaveTypes as any}
                 onEdit={(leaveType) => {
                   setSelectedLeaveType(leaveType);
                   setActiveTab("entitlement");
@@ -327,7 +327,7 @@ const LeaveTypeConfigurationPage: React.FC = () => {
               <CardContent>
                 <LeaveEntitlementRules
                   leaveType={selectedLeaveType}
-                  onUpdate={handleUpdateLeaveType}
+                  onUpdate={(data) => handleUpdateLeaveType(selectedLeaveType.id, data)}
                   loading={loading}
                 />
               </CardContent>
@@ -366,9 +366,9 @@ const LeaveTypeConfigurationPage: React.FC = () => {
               <CardContent>
                 <LeaveApplicability
                   leaveType={selectedLeaveType}
-                  departments={mockDepartments}
-                  designations={mockDesignations}
-                  onUpdate={handleUpdateLeaveType}
+                  departments={mockDepartments as any}
+                  designations={mockDesignations as any}
+                  onUpdate={(data) => handleUpdateLeaveType(selectedLeaveType.id, data)}
                   loading={loading}
                 />
               </CardContent>
@@ -406,7 +406,7 @@ const LeaveTypeConfigurationPage: React.FC = () => {
               <CardContent>
                 <LeaveDocumentation
                   leaveType={selectedLeaveType}
-                  onUpdate={handleUpdateLeaveType}
+                  onUpdate={(data) => handleUpdateLeaveType(selectedLeaveType.id, data)}
                   loading={loading}
                 />
               </CardContent>
@@ -483,8 +483,8 @@ const LeaveTypeConfigurationPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <LeaveTypeForm
-            departments={mockDepartments}
-            designations={mockDesignations}
+            departments={mockDepartments as any}
+            designations={mockDesignations as any}
             onSubmit={handleCreateLeaveType}
             onCancel={() => setShowCreateForm(false)}
             loading={loading}

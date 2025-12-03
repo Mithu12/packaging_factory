@@ -67,7 +67,7 @@ import DepartmentForm from '../components/DepartmentForm';
 import HRMApiService from '../services/hrm-api';
 
 // Dummy data for departments
-const DUMMY_DEPARTMENTS: Department[] = [
+const DUMMY_DEPARTMENTS = [
   {
     id: 1,
     name: 'Human Resources',

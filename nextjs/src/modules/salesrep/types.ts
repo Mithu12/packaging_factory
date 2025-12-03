@@ -250,6 +250,7 @@ export interface OrderFilters {
 }
 
 export interface InvoiceFilters {
+  search?: string;
   customer_id?: number;
   status?: string;
   date_from?: string;
@@ -260,6 +261,7 @@ export interface InvoiceFilters {
 }
 
 export interface PaymentFilters {
+  search?: string;
   customer_id?: number;
   payment_method?: string;
   date_from?: string;
@@ -269,6 +271,7 @@ export interface PaymentFilters {
 }
 
 export interface DeliveryFilters {
+  search?: string;
   customer_id?: number;
   status?: string;
   date_from?: string;

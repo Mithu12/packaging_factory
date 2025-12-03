@@ -89,7 +89,7 @@ export const getActiveConfiguration = () => {
   const today = new Date().toISOString().split("T")[0];
   return (
     mockAttendanceConfigurations.find(
-      (config) =>
+      (config: any) =>
         config.is_active &&
         new Date(config.effective_from) <= new Date(today) &&
         (!config.effective_to ||

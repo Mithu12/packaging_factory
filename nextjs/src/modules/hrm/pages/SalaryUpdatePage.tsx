@@ -190,7 +190,7 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <SalaryIncrementForm
-                employees={mockEmployees}
+                employees={mockEmployees as any}
                 onSubmit={handleSalaryIncrement}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -212,9 +212,9 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <PromotionForm
-                employees={mockEmployees}
-                departments={mockDepartments}
-                designations={mockDesignations}
+                employees={mockEmployees as any}
+                departments={mockDepartments as any}
+                designations={mockDesignations as any}
                 onSubmit={handlePromotion}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -237,9 +237,9 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <BulkSalaryUpdateForm
-                employees={mockEmployees}
-                departments={mockDepartments}
-                designations={mockDesignations}
+                employees={mockEmployees as any}
+                departments={mockDepartments as any}
+                designations={mockDesignations as any}
                 onSubmit={handleBulkSalaryUpdate}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -262,7 +262,7 @@ const SalaryUpdatePage: React.FC = () => {
             <CardContent>
               <SalaryHistory
                 history={mockSalaryHistory}
-                employees={mockEmployees}
+                employees={mockEmployees as any}
                 loading={loading}
               />
             </CardContent>

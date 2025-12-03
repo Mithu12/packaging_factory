@@ -328,7 +328,7 @@ const PayrollPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <PayrollCalculator
-                employees={mockEmployees}
+                employees={mockEmployees as any}
                 selectedEmployeeIds={selectedEmployeeIds}
                 onCalculate={handleCalculatePayroll}
                 onSelectAll={handleSelectAll}
@@ -406,7 +406,7 @@ const PayrollPage: React.FC = () => {
                   return (
                     <EmployeePayrollCard
                       key={record.id}
-                      employee={employee}
+                      employee={employee as any}
                       payrollRecord={record}
                       paymentRecord={currentPaymentRecords.find(
                         (p) => p.employee_id === employee.id
@@ -442,8 +442,8 @@ const PayrollPage: React.FC = () => {
               <PayrollHistory
                 payrollRecords={mockEmployeePayrollRecords}
                 paymentRecords={mockPaymentRecords}
-                employees={mockEmployees}
-                departments={mockDepartments}
+                employees={mockEmployees as any}
+                departments={mockDepartments as any}
                 onExport={handleExportData}
                 loading={loading}
               />

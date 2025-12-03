@@ -91,10 +91,10 @@ export interface DesignationHierarchyNode {
 export interface PayrollPeriod {
   id: number;
   name: string;
-  start_date: string;
-  end_date: string;
-  period_type: "monthly" | "bi-weekly" | "weekly" | "daily";
-  status: "open" | "processing" | "closed" | "cancelled";
+  start_date?: string;
+  end_date?: string;
+  period_type?: "monthly" | "bi-weekly" | "weekly" | "daily";
+  status: "draft" | "open" | "processing" | "calculated" | "approved" | "processed" | "closed" | "cancelled";
   description?: string;
   created_by?: number;
   created_at: string;
@@ -109,7 +109,8 @@ export interface PayrollComponent {
   category?: string;
   is_taxable: boolean;
   is_mandatory: boolean;
-  calculation_method: string;
+  calculation_method: "fixed" | "percentage" | "formula" | string;
+  default_value?: number;
   formula?: string;
   description?: string;
   is_active: boolean;
@@ -148,7 +149,7 @@ export interface LeaveType {
   requires_approval: boolean;
   is_paid: boolean;
   is_carry_forward: boolean;
-  max_carry_forward_days: number;
+  max_carry_forward_days?: number;
   accrual_rate?: number;
   is_active: boolean;
   created_by?: number;
@@ -168,7 +169,7 @@ export interface LeaveApplication {
   half_day?: boolean;
   half_day_date?: string;
   reason?: string;
-  status: "pending" | "approved" | "rejected" | "cancelled";
+  status: "draft" | "pending" | "approved" | "rejected" | "cancelled" | "partially_approved";
   approved_by?: number;
   approved_at?: string;
   rejected_reason?: string;
@@ -462,9 +463,15 @@ export interface CreateLeaveApplicationForm {
   start_date: string;
   end_date: string;
   total_days: number;
+  half_day?: boolean;
+  half_day_date?: string;
   reason?: string;
+  contact_details?: string;
+  handover_notes?: string;
   emergency_contact?: string;
   work_handover_notes?: string;
+  work_coverage_notes?: string;
+  uploaded_documents?: string[];
 }
 
 export interface CreateAttendanceRecordForm {
@@ -807,17 +814,17 @@ export interface SalaryHistoryProps {
 // Payroll and Payment Types
 export interface PayrollPeriod {
   id: number;
-  month: number; // 1-12
-  year: number;
+  month?: number; // 1-12
+  year?: number;
   name: string; // e.g., "January 2024"
-  status: "draft" | "calculated" | "approved" | "processed" | "closed";
-  total_employees: number;
-  total_gross_salary: number;
-  total_deductions: number;
-  total_net_salary: number;
+  status: "draft" | "open" | "processing" | "calculated" | "approved" | "processed" | "closed" | "cancelled";
+  total_employees?: number;
+  total_gross_salary?: number;
+  total_deductions?: number;
+  total_net_salary?: number;
   processed_by?: number;
   processed_at?: string;
-  created_by: number;
+  created_by?: number;
   created_at: string;
   updated_at: string;
 }
@@ -830,7 +837,7 @@ export interface PayrollComponent {
   category?: string;
   is_taxable: boolean;
   is_mandatory: boolean;
-  calculation_method: "fixed" | "percentage" | "formula";
+  calculation_method: "fixed" | "percentage" | "formula" | string;
   default_value?: number;
   formula?: string;
   description?: string;
@@ -1048,7 +1055,7 @@ export interface LeaveType {
   mandatory_document_types?: string[];
   optional_document_types?: string[];
 
-  created_by: number;
+  created_by?: number;
   created_at: string;
   updated_at: string;
 }
@@ -1196,10 +1203,10 @@ export interface LeaveApplication {
   start_date: string;
   end_date: string;
   total_days: number;
-  half_day: boolean;
+  half_day?: boolean;
   half_day_date?: string;
-  reason: string;
-  contact_details: string;
+  reason?: string;
+  contact_details?: string;
   handover_notes?: string;
 
   // Document Uploads
@@ -1215,8 +1222,8 @@ export interface LeaveApplication {
     | "partially_approved";
   current_approver_id?: number;
   current_approver?: Employee;
-  workflow_stage: number;
-  total_workflow_stages: number;
+  workflow_stage?: number;
+  total_workflow_stages?: number;
 
   // Timestamps
   applied_at: string;
@@ -1233,7 +1240,7 @@ export interface LeaveApplication {
   // Additional Info
   emergency_contact?: string;
   work_coverage_notes?: string;
-  created_at: string;
+  created_at?: string;
   updated_at: string;
 }
 
@@ -1356,10 +1363,10 @@ export interface CreateLeaveApplicationForm {
   start_date: string;
   end_date: string;
   total_days: number;
-  half_day: boolean;
+  half_day?: boolean;
   half_day_date?: string;
-  reason: string;
-  contact_details: string;
+  reason?: string;
+  contact_details?: string;
   handover_notes?: string;
   emergency_contact?: string;
   work_coverage_notes?: string;

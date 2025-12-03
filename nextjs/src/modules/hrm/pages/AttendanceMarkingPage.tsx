@@ -79,9 +79,9 @@ const AttendanceMarkingPage: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<
     AttendanceRecord[]
   >([]);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [departments] = useState<Department[]>(mockDepartments);
-  const [shifts] = useState<Shift[]>(mockShifts);
+  const [employees] = useState<Employee[]>(mockEmployees as any);
+  const [departments] = useState<Department[]>(mockDepartments as any);
+  const [shifts] = useState<Shift[]>(mockShifts as any);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
@@ -128,7 +128,7 @@ const AttendanceMarkingPage: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       const records = getAttendanceByDate(selectedDate);
-      setAttendanceRecords(records);
+      setAttendanceRecords(records as any);
     } catch (error) {
       console.error("Error loading attendance data:", error);
     } finally {
@@ -156,14 +156,14 @@ const AttendanceMarkingPage: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Add the new record to the list
-      const newRecord: AttendanceRecord = {
+      const newRecord = {
         id: Math.max(...attendanceRecords.map((r) => r.id)) + 1,
         ...attendanceForm,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      setAttendanceRecords((prev) => [...prev, newRecord]);
+      setAttendanceRecords((prev) => [...prev, newRecord as any]);
 
       // Reset form
       setAttendanceForm({

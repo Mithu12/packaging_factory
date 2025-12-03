@@ -73,10 +73,10 @@ import {
 const AttendanceReportsPage: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<
     AttendanceRecord[]
-  >(mockAttendanceRecords);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [departments] = useState<Department[]>(mockDepartments);
-  const [shifts] = useState<Shift[]>(mockShifts);
+  >(mockAttendanceRecords as any);
+  const [employees] = useState<Employee[]>(mockEmployees as any);
+  const [departments] = useState<Department[]>(mockDepartments as any);
+  const [shifts] = useState<Shift[]>(mockShifts as any);
   const [reports] = useState<AttendanceReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");

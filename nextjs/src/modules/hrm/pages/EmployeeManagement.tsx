@@ -598,20 +598,7 @@ const EmployeeManagement: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Success Message */}
-      {null && (
-        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded" data-testid="success-message">
-          <p>Operation completed successfully</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {}} // This would be handled by parent component
-            className="mt-2"
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
+      {/* Success Message - placeholder for future implementation */}
 
       {/* Error Display */}
       {error && (
