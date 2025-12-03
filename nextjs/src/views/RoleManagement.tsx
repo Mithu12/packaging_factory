@@ -152,7 +152,7 @@ const RoleManagement: React.FC = () => {
     return matchesSearch && matchesDepartment;
   });
 
-  const uniqueDepartments = Array.from(new Set(roles?.map(role => role.department).filter(Boolean)));
+  const uniqueDepartments = [...new Set(roles?.map(role => role.department).filter(Boolean))];
 
   const getLevelBadgeColor = (level: number) => {
     if (level === 1) return 'destructive'; // System Admin
@@ -291,7 +291,7 @@ const RoleManagement: React.FC = () => {
               onChange={(e) => setSelectedDepartment(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All Departmentsnts</option>
+              <option value="">All Departments</option>
               {uniqueDepartments?.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
