@@ -174,7 +174,7 @@ if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "backend" ]]; then
 
         echo "📥 Installing backend dependencies..."
         cd "$REMOTE_BACKEND_PATH"
-        npm ci --omit=dev || npm install --omit=dev
+        npm ci || npm install
         echo "✅ Backend dependencies installed"
     else
         echo "⚠️ $BACKEND_ZIP not found"
@@ -193,7 +193,7 @@ if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "frontend" ]]; then
 
         echo "📥 Installing frontend dependencies..."
         cd "$REMOTE_FRONTEND_PATH"
-        npm ci --omit=dev || npm install --omit=dev
+        npm ci || npm install
         echo "✅ Frontend dependencies installed"
     else
         echo "⚠️ $FRONTEND_ZIP not found"
