@@ -61,12 +61,13 @@ router.post('/login',
 router.post('/logout',
   auditMiddleware,
   expressAsyncHandler(async (req, res, next) => {
-    // Clear the auth cookie
+    // Clear the auth cookie - options must match those used when setting the cookie
     res.clearCookie('authToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/'
+      secure: false, // Must match login cookie settings
+      sameSite: 'lax' as const, // Must match login cookie settings
+      path: '/',
+      domain: undefined
     });
 
     res.json({

@@ -37,8 +37,8 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     avatar: ""
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     toast({
       title: "Logged out successfully",
       description: "You have been logged out of your account.",
