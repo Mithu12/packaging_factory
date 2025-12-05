@@ -50,6 +50,7 @@ const paymentMethods = [
 ];
 
 const currencies = [
+  { value: 'BDT', label: 'BDT' },
   { value: 'USD', label: 'USD' },
   { value: 'EUR', label: 'EUR' },
   { value: 'GBP', label: 'GBP' },
@@ -57,7 +58,7 @@ const currencies = [
   { value: 'AUD', label: 'AUD' }
 ];
 
-export default function EditExpense() {
+export default function EditExpensePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { formatCurrency, formatDate } = useFormatting();
@@ -75,7 +76,7 @@ export default function EditExpense() {
     description: '',
     category_id: '',
     amount: '',
-    currency: 'USD',
+    currency: 'BDT',
     expense_date: new Date().toISOString().split('T')[0],
     payment_method: 'cash',
     vendor_name: '',
@@ -179,7 +180,7 @@ export default function EditExpense() {
       };
 
       // Remove receipt_file from the data object as it's handled separately
-      delete expenseData.receipt_file;
+      delete (expenseData as any).receipt_file;
 
       await ApiService.updateExpense(parseInt(id!), expenseData);
       
@@ -488,7 +489,6 @@ export default function EditExpense() {
                           alt="Current receipt"
                           className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => {
-                            // Open image in new tab
                             window.open(getImagePath(expense.receipt_url), '_blank');
                           }}
                         />

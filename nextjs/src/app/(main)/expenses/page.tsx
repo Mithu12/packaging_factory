@@ -80,7 +80,7 @@ const currencies = [
   { value: 'EUR', label: 'EUR' },
 ];
 
-export default function Expenses() {
+export default function ExpensesPage() {
   const router = useRouter();
   const { formatCurrency, formatDate } = useFormatting();
   
@@ -224,7 +224,7 @@ export default function Expenses() {
       };
 
       // Remove receipt_file from the data object as it's handled separately
-      delete expenseData.receipt_file;
+      delete (expenseData as any).receipt_file;
 
       if (editingExpense) {
         await ApiService.updateExpense(editingExpense.id, expenseData);
@@ -570,7 +570,6 @@ export default function Expenses() {
                               <XIcon className="w-4 h-4" />
                             </Button>
                           </div>
-                          {/* Preview the selected file */}
                           <div className="border rounded-lg p-3 bg-accent/30">
                             <p className="text-sm font-medium mb-2">Preview:</p>
                             <img
@@ -1045,7 +1044,6 @@ export default function Expenses() {
               <div className="md:col-span-2">
                 <Label htmlFor="edit-receipt">Receipt Image (Optional)</Label>
                 <div className="mt-2 space-y-3">
-                  {/* Show existing receipt image if available */}
                   {editingExpense?.receipt_url && !formData.receipt_file && (
                     <div className="border rounded-lg p-3 bg-accent/30">
                       <div className="flex items-center gap-3 mb-3">
@@ -1063,7 +1061,6 @@ export default function Expenses() {
                           alt="Current receipt"
                           className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => {
-                            // Open image in new tab
                             window.open(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:5000'}${editingExpense.receipt_url}`, '_blank');
                           }}
                         />
@@ -1076,7 +1073,6 @@ export default function Expenses() {
                     </div>
                   )}
 
-                  {/* Show new file selection */}
                   {formData.receipt_file ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 p-3 border rounded-lg bg-accent/30">
@@ -1096,7 +1092,6 @@ export default function Expenses() {
                           <XIcon className="w-4 h-4" />
                         </Button>
                       </div>
-                      {/* Preview the selected file */}
                       <div className="border rounded-lg p-3 bg-accent/30">
                         <p className="text-sm font-medium mb-2">Preview:</p>
                         <img

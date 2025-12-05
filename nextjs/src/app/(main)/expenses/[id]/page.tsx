@@ -29,9 +29,9 @@ import {
   AlertCircle,
   DollarSign as DollarIcon
 } from 'lucide-react';
-import {getImagePath} from "@/utils/image.utils";
+import { getImagePath } from "@/utils/image.utils";
 
-export default function ExpenseDetails() {
+export default function ExpenseDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { formatCurrency, formatDate, formatDateTime } = useFormatting();
