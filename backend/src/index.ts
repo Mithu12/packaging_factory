@@ -211,8 +211,8 @@ const initializeModules = async (): Promise<void> => {
   }
 };
 
-// Start server
-app.listen(PORT, async () => {
+// Start server - bind to 0.0.0.0 to ensure IPv4 compatibility
+app.listen(Number(PORT), '0.0.0.0', async () => {
   let action = "Server Startup";
   try {
     // Initialize modules after server starts
