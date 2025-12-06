@@ -302,7 +302,7 @@ const DesignationManagement: React.FC = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedDesignations(designations.map(d => d.id));
+      setSelectedDesignations(designations?.map(d => d.id));
     } else {
       setSelectedDesignations([]);
     }
@@ -352,7 +352,7 @@ const DesignationManagement: React.FC = () => {
         </div>
         {isExpanded && node.children.length > 0 && (
           <div>
-            {node.children.map(child => (
+            {node.children?.map(child => (
               <HierarchyNode key={child.designation.id} node={child} level={level + 1} />
             ))}
           </div>
@@ -449,7 +449,7 @@ const DesignationManagement: React.FC = () => {
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
                 <SelectItem value="none">No Department</SelectItem>
-                {departments.map((dept) => (
+                {departments?.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id.toString()}>
                     {dept.name}
                   </SelectItem>
@@ -514,7 +514,7 @@ const DesignationManagement: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {designations.map((designation) => (
+                {designations?.map((designation) => (
                   <TableRow key={designation.id}>
                     <TableCell>
                       <Checkbox
@@ -614,7 +614,7 @@ const DesignationManagement: React.FC = () => {
             </Table>
           ) : (
             <div className="space-y-2">
-              {buildHierarchyTree(designations).map(node => (
+              {buildHierarchyTree(designations)?.map(node => (
                 <HierarchyNode key={node.designation.id} node={node} level={0} />
               ))}
             </div>
