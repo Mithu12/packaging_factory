@@ -92,10 +92,10 @@ build_frontend() {
 
     log "Packaging frontend for deployment..."
     zip -r "$FRONTEND_ZIP" \
-        "$FRONTEND_DIR/dist" \
+        "$FRONTEND_DIR/.next" \
         "$FRONTEND_DIR/package.json" \
         "$FRONTEND_DIR/package-lock.json" \
-        "$FRONTEND_DIR/vite.config.ts" \
+        "$FRONTEND_DIR/next.config.js" \
         || { log "Failed to zip frontend"; exit 1; }
 }
 
@@ -187,6 +187,7 @@ if [[ "$DEPLOY_TARGET" == "all" || "$DEPLOY_TARGET" == "frontend" ]]; then
     if [ -f "$FRONTEND_ZIP" ]; then
         unzip -o "$FRONTEND_ZIP" -d /tmp/frontend-extract
         cp -r /tmp/frontend-extract/$FRONTEND_DIR/* "$REMOTE_FRONTEND_PATH/"
+        cp -r /tmp/frontend-extract/$FRONTEND_DIR/.next "$REMOTE_FRONTEND_PATH/"    
         rm -rf /tmp/frontend-extract
         rm "$FRONTEND_ZIP"
         echo "✅ Frontend files extracted"

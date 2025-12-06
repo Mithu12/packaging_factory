@@ -24,7 +24,7 @@ module.exports = {
     {
       name: 'erp-frontend',
       script: 'npm',
-      args: 'run preview',
+      args: 'start',
       cwd: './frontend',
       instances: 1,
       autorestart: true,
