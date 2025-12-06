@@ -59,11 +59,21 @@ function runNpmScript(script: string, cwd: string, env: NodeJS.ProcessEnv): Prom
 }
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
+  console.log('[E2E Setup] Starting global setup...');
+  
+  // Skip database reset when using manually started servers (e.g., for debugging)
+  if (process.env.SKIP_DB_RESET === 'true') {
+    console.log('[E2E Setup] SKIP_DB_RESET=true - Skipping database setup');
+    return;
+  }
+  
   const host = process.env.DB_HOST || 'localhost';
   const port = Number(process.env.DB_PORT || 5432);
   const user = process.env.DB_USER || 'postgres';
   const password = process.env.DB_PASSWORD || '123';
   const dbName = process.env.BACKEND_DB_NAME || 'erp_e2e';
+
+  console.log(`[E2E Setup] Database config: host=${host}, port=${port}, user=${user}, dbName=${dbName}`);
 
   ensureSafeDatabaseName(dbName);
 
@@ -75,11 +85,29 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     database: 'postgres',
   });
 
-  await adminClient.connect();
   try {
-    await adminClient.query(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`, [dbName]);
+    console.log('[E2E Setup] Connecting to PostgreSQL...');
+    await adminClient.connect();
+    console.log('[E2E Setup] Connected successfully');
+
+    // Terminate existing connections to the database
+    console.log(`[E2E Setup] Terminating connections to "${dbName}"...`);
+    await adminClient.query(
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
+      [dbName]
+    );
+
+    // Drop database if exists
+    console.log(`[E2E Setup] Dropping database "${dbName}" if exists...`);
     await adminClient.query(`DROP DATABASE IF EXISTS "${dbName}"`);
+
+    // Create fresh database
+    console.log(`[E2E Setup] Creating database "${dbName}"...`);
     await adminClient.query(`CREATE DATABASE "${dbName}"`);
+    console.log(`[E2E Setup] Database "${dbName}" created successfully`);
+  } catch (error) {
+    console.error('[E2E Setup] Database setup failed:', error);
+    throw error;
   } finally {
     await adminClient.end();
   }
@@ -95,8 +123,12 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     NODE_ENV: 'test',
   };
 
+  console.log('[E2E Setup] Running migrations...');
   await runNpmScript('db:migrate', backendDir, backendEnv);
+  console.log('[E2E Setup] Migrations completed');
 
+  console.log('[E2E Setup] Seeding reference data...');
   await seedReferenceData({ host, port, user, password, database: dbName });
+  console.log('[E2E Setup] Setup completed successfully');
 }
 

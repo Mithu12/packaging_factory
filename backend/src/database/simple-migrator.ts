@@ -324,6 +324,9 @@ export async function runMigrationCommand(command: string): Promise<void> {
   } catch (error) {
     MyLogger.error(`Migration operation failed:`, error);
     process.exit(1);
+  } finally {
+    // Close the connection pool so the process can exit
+    await pool.end();
   }
 }
 

@@ -11,8 +11,9 @@ function parsePort(value: Numberish, fallback: number): number {
   return Number.isFinite(parsed) && parsed ? Number(parsed) : fallback;
 }
 
-const FRONTEND_PORT = parsePort(process.env.FRONTEND_PORT, 5173);
-const BACKEND_PORT = parsePort(process.env.BACKEND_PORT, 5100);
+// Fixed ports for e2e testing - avoid conflicts with dev servers
+const FRONTEND_PORT = 3500;
+const BACKEND_PORT = 5500;
 const DB_PORT = parsePort(process.env.DB_PORT, 5432);
 const BACKEND_HOST = process.env.DB_HOST || 'localhost';
 const DB_NAME = process.env.BACKEND_DB_NAME || 'erp_e2e';
@@ -43,7 +44,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Disable sandbox and other security restrictions for local testing
+        launchOptions: {
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security'],
+        },
+      },
     },
   ],
   webServer: [
@@ -57,11 +64,13 @@ export default defineConfig({
         BROWSER: 'none',
       },
       port: FRONTEND_PORT,
+      // Set to true to use manually started servers (for debugging)
+      // Set to false (or use CI env) to auto-start servers
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: 'npm run dev',
+      command: `PORT=${BACKEND_PORT} CORS_ORIGIN=${FRONTEND_URL} npm run dev`,
       cwd: path.resolve(__dirname, '../backend'),
       env: {
         ...process.env,
@@ -74,7 +83,8 @@ export default defineConfig({
         NODE_ENV: 'test',
         CORS_ORIGIN: FRONTEND_URL,
       },
-      port: BACKEND_PORT,
+      // Use URL instead of port to ensure backend is fully ready (not just port bound)
+      url: `http://127.0.0.1:${BACKEND_PORT}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

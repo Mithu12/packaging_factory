@@ -14,6 +14,7 @@ export async function loginAsAdmin(page: Page, credentials: Credentials = {
 }): Promise<void> {
   await page.goto("/login", { waitUntil: "networkidle" });
 
+  // Already logged in
   if (page.url().includes("/dashboard")) {
     return;
   }
@@ -21,12 +22,19 @@ export async function loginAsAdmin(page: Page, credentials: Credentials = {
   const usernameInput = page.getByPlaceholder("Enter your username");
   const passwordInput = page.getByPlaceholder("Enter your password");
 
-  await usernameInput.waitFor({ state: "visible" });
+  await usernameInput.waitFor({ state: "visible", timeout: 30000 });
   await usernameInput.fill(credentials.username);
   await passwordInput.fill(credentials.password);
 
-  await Promise.all([
-    page.waitForURL(/\/dashboard(?:$|\b)/),
-    page.getByRole("button", { name: "Sign in" }).click(),
-  ]);
+  // Click sign in
+  const signInButton = page.getByRole("button", { name: "Sign in" });
+  await signInButton.click();
+  
+  // Wait for URL to change from /login
+  await page.waitForURL(url => !url.pathname.endsWith('/login'), { timeout: 30000 });
+  
+  // Wait for dashboard if not there yet
+  if (!page.url().includes('/dashboard')) {
+    await page.waitForURL(/\/dashboard/, { timeout: 30000 });
+  }
 }

@@ -23,6 +23,7 @@ export const initializeSalesRepModule = async (): Promise<void> => {
         "sales_rep_reports",
       ];
 
+      const missingTables: string[] = [];
       for (const tableName of tables) {
         const tableExists = await client.query(
           `
@@ -36,10 +37,16 @@ export const initializeSalesRepModule = async (): Promise<void> => {
         );
 
         if (!tableExists.rows[0].exists) {
-          throw new Error(
-            `Sales Rep table '${tableName}' does not exist. Please run migrations.`
-          );
+          missingTables.push(tableName);
         }
+      }
+
+      if (missingTables.length > 0) {
+        MyLogger.warn(action, {
+          message: `Sales Rep module tables not found: ${missingTables.join(", ")}. Module will not be initialized.`,
+          missingTables,
+        });
+        return; // Gracefully skip initialization instead of throwing
       }
 
       // Verify Sales Rep permissions exist
@@ -52,9 +59,10 @@ export const initializeSalesRepModule = async (): Promise<void> => {
       const permissionCount = parseInt(permissionsQuery.rows[0].count);
 
       if (permissionCount === 0) {
-        throw new Error(
-          "Sales Rep permissions not found. Please run permissions migration."
-        );
+        MyLogger.warn(action, {
+          message: "Sales Rep permissions not found. Module will not be initialized.",
+        });
+        return; // Gracefully skip initialization
       }
 
       MyLogger.info(action, {
@@ -73,9 +81,10 @@ export const initializeSalesRepModule = async (): Promise<void> => {
       const roleCount = parseInt(roleQuery.rows[0].count);
 
       if (roleCount === 0) {
-        throw new Error(
-          "Sales Rep role not found. Please run permissions migration."
-        );
+        MyLogger.warn(action, {
+          message: "Sales Rep role not found. Module will not be initialized.",
+        });
+        return; // Gracefully skip initialization
       }
 
       // Register the sales-rep module with the module registry
