@@ -83,9 +83,12 @@ export interface Designation {
     code: string;
     department_id?: number;
     department?: Department;
+    grade_level?: string;
     description?: string;
     min_salary?: number;
     max_salary?: number;
+    reports_to_id?: number;
+    reports_to?: Designation;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -406,6 +409,41 @@ export interface DepartmentQueryParams {
     search?: string;
     manager_id?: number;
     parent_department_id?: number;
+    is_active?: boolean;
+    page?: number;
+    limit?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+}
+
+// Request/Response Types for Designations
+export interface CreateDesignationRequest {
+    title: string;
+    code: string;
+    department_id?: number;
+    grade_level?: string;
+    description?: string;
+    min_salary?: number;
+    max_salary?: number;
+    reports_to_id?: number;
+}
+
+export interface UpdateDesignationRequest {
+    title?: string;
+    code?: string;
+    department_id?: number;
+    grade_level?: string;
+    description?: string;
+    min_salary?: number;
+    max_salary?: number;
+    reports_to_id?: number;
+    is_active?: boolean;
+}
+
+export interface DesignationQueryParams {
+    search?: string;
+    department_id?: number;
+    grade_level?: string;
     is_active?: boolean;
     page?: number;
     limit?: number;

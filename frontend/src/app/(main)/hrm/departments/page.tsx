@@ -233,7 +233,7 @@ const DepartmentManagement: React.FC = () => {
     }
   };
 
-  if (loading && departments.length === 0) {
+  if (loading && departments?.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -356,13 +356,16 @@ const DepartmentManagement: React.FC = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {department.manager ? (
+                    {department.manager_name && department.manager_name.trim() ? (
                       <div>
                         <p className="font-medium">
-                          {department.manager.first_name} {department.manager.last_name}
+                          {department.manager_name}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {department.manager.employee_id}
+                          {department.manager_first_name && department.manager_last_name ?
+                            `${department.manager_first_name} ${department.manager_last_name}` :
+                            'Manager details unavailable'
+                          }
                         </p>
                       </div>
                     ) : (
@@ -370,7 +373,7 @@ const DepartmentManagement: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {getEmployeeCountBadge((department as any).employee_count || 0)}
+                    {getEmployeeCountBadge(department.employee_count || 0)}
                   </TableCell>
                   <TableCell>{getStatusBadge(department)}</TableCell>
                   <TableCell className="text-right">

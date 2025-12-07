@@ -63,6 +63,12 @@ export interface Department {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Additional fields from API response
+  manager_first_name?: string;
+  manager_last_name?: string;
+  manager_name?: string;
+  parent_department_name?: string;
+  employee_count?: number;
 }
 
 export interface Designation {

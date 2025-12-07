@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { CreateDepartmentRequest, UpdateDepartmentRequest, DepartmentQueryParams } from '../../../types/hrm';
 import DepartmentMediator from '../mediators/departments/DepartmentMediator';
 import { MyLogger } from '../../../utils/new-logger';
+import { serializeSuccessResponse } from '../../../utils/responseHelper';
 
 /**
  * Get all departments with pagination and filtering
@@ -31,16 +32,7 @@ export const getDepartments = async (req: Request, res: Response): Promise<void>
       departmentsCount: result.departments.length
     });
 
-    res.status(200).json({
-      success: true,
-      data: result.departments,
-      pagination: {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages
-      }
-    });
+    serializeSuccessResponse(res, result, 'SUCCESS');
   } catch (error: any) {
     MyLogger.error(action, error);
     res.status(500).json({
@@ -75,10 +67,7 @@ export const getDepartmentById = async (req: Request, res: Response): Promise<vo
       departmentName: department.name
     });
 
-    res.status(200).json({
-      success: true,
-      data: department
-    });
+    serializeSuccessResponse(res, { department }, 'SUCCESS');
   } catch (error: any) {
     MyLogger.error(action, error);
     if (error.message === 'Department not found') {
@@ -173,11 +162,7 @@ export const updateDepartment = async (req: Request, res: Response): Promise<voi
       departmentName: department.name
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'Department updated successfully',
-      data: department
-    });
+    serializeSuccessResponse(res, { department }, 'Department updated successfully');
   } catch (error: any) {
     MyLogger.error(action, error);
     if (error.message === 'Department not found') {
@@ -225,10 +210,7 @@ export const deleteDepartment = async (req: Request, res: Response): Promise<voi
       message: 'Department deleted successfully'
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'Department deleted successfully'
-    });
+    serializeSuccessResponse(res, {}, 'Department deleted successfully');
   } catch (error: any) {
     MyLogger.error(action, error);
     if (error.message === 'Department not found') {
@@ -265,10 +247,7 @@ export const getDepartmentHierarchy = async (req: Request, res: Response): Promi
       departmentsCount: hierarchy.length
     });
 
-    res.status(200).json({
-      success: true,
-      data: hierarchy
-    });
+    serializeSuccessResponse(res, { hierarchy }, 'SUCCESS');
   } catch (error: any) {
     MyLogger.error(action, error);
     res.status(500).json({

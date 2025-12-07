@@ -5,6 +5,7 @@ import payrollRoutes from "./payroll.routes";
 import leaveRoutes from "./leave.routes";
 import attendanceRoutes from "./attendance.routes";
 import departmentsRoutes from "./departments.routes";
+import designationsRoutes from "./designations.routes";
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.use("/payroll", payrollRoutes);
 router.use("/leave", leaveRoutes);
 router.use("/attendance", attendanceRoutes);
 router.use("/departments", departmentsRoutes);
+router.use("/designations", designationsRoutes);
 
 export default router;
