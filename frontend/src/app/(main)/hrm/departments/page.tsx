@@ -540,6 +540,14 @@ const DepartmentManagement: React.FC = () => {
                       }
                     </p>
                   </div>
+                <div>
+                  <label className="text-sm font-medium">Parent Department</label>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedDepartment.parent_department_name ||
+                      selectedDepartment.parent_department?.name ||
+                      'No parent department'}
+                  </p>
+                </div>
                   <div>
                     <label className="text-sm font-medium">Status</label>
                     <p className="text-sm text-muted-foreground">

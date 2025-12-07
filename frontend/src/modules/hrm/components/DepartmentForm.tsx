@@ -19,13 +19,15 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
     name: '',
     code: '',
     description: '',
-    manager_id: undefined,
-    parent_department_id: undefined
+    manager_id: department?.manager_id || undefined,
+    parent_department_id: department?.parent_department_id || undefined
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [headOfDepartmentUsers, setHeadOfDepartmentUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
 
   useEffect(() => {
     if (department) {
@@ -36,13 +38,23 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
         manager_id: department.manager_id,
         parent_department_id: department.parent_department_id
       });
+    } else {
+      setFormData({
+        name: '',
+        code: '',
+        description: '',
+        manager_id: undefined,
+        parent_department_id: undefined
+      });
     }
 
-    // Load Head of Department users
+    // Load Head of Department users and departments
     loadHeadOfDepartmentUsers();
+    loadDepartments();
   }, [department]);
 
   const loadHeadOfDepartmentUsers = async () => {
+    console.log('Loading Head of Department users');
     setLoadingUsers(true);
     try {
       // For now, we'll use a hardcoded role ID for "Head Of Department"
@@ -56,6 +68,22 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
       setHeadOfDepartmentUsers([]);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    console.log('Loading departments');
+    setLoadingDepartments(true);
+    try {
+      // Load all departments for parent department selection
+      const response = await HRMApiService.getDepartments({ limit: 1000 }); // Get all departments
+      setDepartments(response.departments);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+      // Fallback to empty list - users can still create departments without parent
+      setDepartments([]);
+    } finally {
+      setLoadingDepartments(false);
     }
   };
 
@@ -155,7 +183,12 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
           <Label htmlFor="manager_id">Head of Department</Label>
           <Select
             value={formData.manager_id?.toString() || ''}
-            onValueChange={(value) => handleInputChange('manager_id', value ? parseInt(value) : undefined)}
+            onValueChange={(value) =>
+              handleInputChange(
+                'manager_id',
+                value && value !== 'none' ? parseInt(value, 10) : undefined
+              )
+            }
             disabled={loadingUsers}
           >
             <SelectTrigger>
@@ -177,14 +210,26 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
           <Label htmlFor="parent_department_id">Parent Department</Label>
           <Select
             value={formData.parent_department_id?.toString() || ''}
-            onValueChange={(value) => handleInputChange('parent_department_id', value ? parseInt(value) : undefined)}
+            onValueChange={(value) =>
+              handleInputChange(
+                'parent_department_id',
+                value && value !== 'none' ? parseInt(value, 10) : undefined
+              )
+            }
+            disabled={loadingDepartments}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select parent department (optional)" />
+              <SelectValue placeholder={loadingDepartments ? "Loading departments..." : "Select parent department (optional)"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No parent department</SelectItem>
-              {/* Add parent department options here */}
+              {departments
+                .filter(dep => department ? dep.id !== department.id : true) // Exclude current department when editing
+                .map((dep) => (
+                  <SelectItem key={dep.id} value={dep.id.toString()}>
+                    {dep.name} ({dep.code})
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
