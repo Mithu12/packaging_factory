@@ -18,10 +18,24 @@ const DB_PORT = parsePort(process.env.DB_PORT, 5432);
 const BACKEND_HOST = process.env.DB_HOST || 'localhost';
 const DB_NAME = process.env.BACKEND_DB_NAME || 'erp_e2e';
 const DB_USER = process.env.DB_USER || 'postgres';
-const DB_PASSWORD = process.env.DB_PASSWORD || '123';
+const DB_PASSWORD = process.env.DB_PASSWORD || 'sa';
 
 const FRONTEND_URL = `http://127.0.0.1:${FRONTEND_PORT}`;
 const BACKEND_BASE_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+
+// Expose base URLs to tests for API helpers (login, seeding, etc.)
+process.env.BACKEND_BASE_URL = BACKEND_BASE_URL;
+process.env.API_BASE_URL = `${BACKEND_BASE_URL}/api`;
+
+console.log('DB_PASSWORD', DB_PASSWORD);
+console.log('DB_USER', DB_USER);
+console.log('DB_NAME', DB_NAME);
+console.log('BACKEND_HOST', BACKEND_HOST);
+console.log('DB_PORT', DB_PORT);
+console.log('BACKEND_PORT', BACKEND_PORT);
+console.log('FRONTEND_PORT', FRONTEND_PORT);
+console.log('BACKEND_BASE_URL', BACKEND_BASE_URL);
+console.log('FRONTEND_URL', FRONTEND_URL);
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests'),
@@ -55,12 +69,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `npm run dev -- --host 127.0.0.1 --port ${FRONTEND_PORT}`,
+      command: `npm run dev -- --hostname 127.0.0.1 --port ${FRONTEND_PORT}`,
       cwd: path.resolve(__dirname, '../frontend'),
       env: {
         ...process.env,
         VITE_API_URL: `${BACKEND_BASE_URL}/api`,
         VITE_BACKEND_BASE_URL: BACKEND_BASE_URL,
+        NEXT_PUBLIC_API_URL: `${BACKEND_BASE_URL}/api`,
+        NEXT_PUBLIC_BACKEND_BASE_URL: BACKEND_BASE_URL,
         BROWSER: 'none',
       },
       port: FRONTEND_PORT,

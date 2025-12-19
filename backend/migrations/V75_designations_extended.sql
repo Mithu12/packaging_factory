@@ -17,3 +17,7 @@ ALTER TABLE designations
 -- Index to speed up hierarchy lookups
 CREATE INDEX IF NOT EXISTS idx_designations_reports_to_id ON designations(reports_to_id);
 
+
+
+
+

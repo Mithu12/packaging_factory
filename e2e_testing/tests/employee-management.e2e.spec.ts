@@ -1,18 +1,43 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loginAsAdmin } from '../utils/login';
 
-const TEST_EMPLOYEE_ID = 'EMP001';
 const TEST_EMPLOYEE_FIRST_NAME = 'John';
 const TEST_EMPLOYEE_LAST_NAME = 'Doe';
-const TEST_EMPLOYEE_EMAIL = 'john.doe@company.com';
 const TEST_EMPLOYEE_USERNAME = 'johndoe';
 const TEST_EMPLOYEE_PASSWORD = 'TempPass123';
 const TEST_EMPLOYEE_PHONE = '+92 300 1234567';
 const TEST_EMPLOYEE_CNIC = '12345-1234567-1';
+const DEFAULT_JOIN_DATE = '2024-01-01';
 
 const UPDATED_EMPLOYEE_FIRST_NAME = 'Jane';
 const UPDATED_EMPLOYEE_LAST_NAME = 'Smith';
-const UPDATED_EMPLOYEE_EMAIL = 'jane.smith@company.com';
+
+type EmployeeTestData = {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  username: string;
+  password: string;
+  phone: string;
+  cnic: string;
+};
+
+const generateEmployeeTestData = (overrides: Partial<EmployeeTestData> = {}): EmployeeTestData => {
+  const uniqueSuffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+  return {
+    employeeId: `EMP-${uniqueSuffix}`,
+    firstName: TEST_EMPLOYEE_FIRST_NAME,
+    lastName: TEST_EMPLOYEE_LAST_NAME,
+    email: `john.doe+${uniqueSuffix}@company.com`,
+    username: `${TEST_EMPLOYEE_USERNAME}${uniqueSuffix}`,
+    password: TEST_EMPLOYEE_PASSWORD,
+    phone: TEST_EMPLOYEE_PHONE,
+    cnic: TEST_EMPLOYEE_CNIC,
+    ...overrides,
+  };
+};
 
 // Helper function to select options from dropdown
 async function selectOptionByTestId(page: Page, testId: string, option: string) {
@@ -21,16 +46,21 @@ async function selectOptionByTestId(page: Page, testId: string, option: string) 
   await page.getByRole('option', { name: option }).click();
 }
 
+async function selectFirstAvailableRole(page: Page) {
+  const roleSelect = page.getByTestId('role-select');
+  await roleSelect.click();
+
+  const firstRoleOption = page.getByRole('option').first();
+  await expect(firstRoleOption).toBeVisible({ timeout: 10000 });
+  await firstRoleOption.click();
+}
+
 // Helper function to create a test employee
 async function createTestEmployee(
   page: Page,
-  employeeId: string = TEST_EMPLOYEE_ID,
-  firstName: string = TEST_EMPLOYEE_FIRST_NAME,
-  lastName: string = TEST_EMPLOYEE_LAST_NAME,
-  email: string = TEST_EMPLOYEE_EMAIL,
-  username: string = TEST_EMPLOYEE_USERNAME,
-  password: string = TEST_EMPLOYEE_PASSWORD
+  overrides: Partial<EmployeeTestData> = {}
 ) {
+  const employeeData = generateEmployeeTestData(overrides);
   await page.goto('/hrm/employees');
 
   // Click add employee button
@@ -46,13 +76,13 @@ async function createTestEmployee(
   await expect(page.getByTestId('employee-form-title')).toContainText('Add New Employee');
 
   // Fill basic information
-  await page.getByTestId('employee-id-input').fill(employeeId);
-  await page.getByTestId('first-name-input').fill(firstName);
-  await page.getByTestId('last-name-input').fill(lastName);
+  await page.getByTestId('employee-id-input').fill(employeeData.employeeId);
+  await page.getByTestId('first-name-input').fill(employeeData.firstName);
+  await page.getByTestId('last-name-input').fill(employeeData.lastName);
 
   // Fill personal information
-  await page.getByTestId('phone-input').fill(TEST_EMPLOYEE_PHONE);
-  await page.getByTestId('cnic-input').fill(TEST_EMPLOYEE_CNIC);
+  await page.getByTestId('phone-input').fill(employeeData.phone);
+  await page.getByTestId('cnic-input').fill(employeeData.cnic);
   await page.getByTestId('nationality-input').fill('Pakistani');
 
   // Switch to employment tab
@@ -60,18 +90,22 @@ async function createTestEmployee(
 
   // Fill employment information
   await selectOptionByTestId(page, 'employment-type-select', 'Permanent');
-  await page.getByTestId('join-date-input').fill('2023-01-01');
+  await page.getByTestId('join-date-input').fill(DEFAULT_JOIN_DATE);
 
   // Fill user account information
-  await page.getByTestId('username-input').fill(username);
-  await page.getByTestId('email-input').fill(email);
-  await page.getByTestId('password-input').fill(password);
+  await page.getByTestId('username-input').fill(employeeData.username);
+  await page.getByTestId('email-input').fill(employeeData.email);
+  await page.getByTestId('password-input').fill(employeeData.password);
+  await selectFirstAvailableRole(page);
 
   // Submit form
   await page.getByTestId('submit-button').click();
 
-  // Wait for success message or redirect
-  await expect(page.getByTestId('success-message').or(page.locator('body'))).toBeVisible();
+  // Wait for dialog to close and the new row to appear
+  await expect(page.getByTestId('employee-form-dialog')).toBeHidden({ timeout: 15000 });
+  await expect(page.getByTestId(`employee-row-${employeeData.employeeId}`)).toBeVisible({ timeout: 15000 });
+
+  return employeeData;
 }
 
 test.describe('Employee Management', () => {
@@ -92,15 +126,11 @@ test.describe('Employee Management', () => {
   });
 
   test('should create new employee successfully', async ({ page }) => {
-    await createTestEmployee(page);
+    const employee = await createTestEmployee(page);
 
     // Verify employee was created by checking if we can find it in the list
-    // Clear search first to see all employees
-    await page.getByTestId('employee-search-input').fill('');
-
-    // Wait for list to update and find the employee in the list
-    await page.waitForTimeout(2000); // Wait for list to update
-    await expect(page.getByTestId(`employee-row-${TEST_EMPLOYEE_ID}`)).toBeVisible();
+    await page.getByTestId('employee-search-input').fill(employee.employeeId);
+    await expect(page.getByTestId(`employee-row-${employee.employeeId}`)).toBeVisible({ timeout: 15000 });
   });
 
   test('should validate required fields', async ({ page }) => {
@@ -121,13 +151,18 @@ test.describe('Employee Management', () => {
     await expect(page.getByTestId('first-name-error')).toBeVisible();
     await expect(page.getByTestId('last-name-error')).toBeVisible();
     await expect(page.getByTestId('cnic-error')).toBeVisible();
+    await expect(page.getByTestId('employment-type-error')).toBeVisible();
+    await expect(page.getByTestId('join-date-error')).toBeVisible();
     await expect(page.getByTestId('username-error')).toBeVisible();
     await expect(page.getByTestId('email-error')).toBeVisible();
     await expect(page.getByTestId('password-error')).toBeVisible();
+    await expect(page.getByTestId('role-id-error')).toBeVisible();
   });
 
   test('should validate CNIC format', async ({ page }) => {
     await page.goto('/hrm/employees');
+
+    const employeeData = generateEmployeeTestData();
 
     // Click add employee button
     await page.getByTestId('add-employee-button').click();
@@ -137,13 +172,18 @@ test.describe('Employee Management', () => {
     await expect(modal).toBeVisible();
 
     // Fill form with invalid CNIC
-    await page.getByTestId('employee-id-input').fill('EMP002');
-    await page.getByTestId('first-name-input').fill(TEST_EMPLOYEE_FIRST_NAME);
-    await page.getByTestId('last-name-input').fill(TEST_EMPLOYEE_LAST_NAME);
+    await page.getByTestId('employee-id-input').fill(employeeData.employeeId);
+    await page.getByTestId('first-name-input').fill(employeeData.firstName);
+    await page.getByTestId('last-name-input').fill(employeeData.lastName);
     await page.getByTestId('cnic-input').fill('invalid-cnic');
-    await page.getByTestId('username-input').fill('testuser');
-    await page.getByTestId('email-input').fill('test@example.com');
-    await page.getByTestId('password-input').fill('password123');
+
+    await page.getByTestId('employment-tab').click();
+    await selectOptionByTestId(page, 'employment-type-select', 'Permanent');
+    await page.getByTestId('join-date-input').fill(DEFAULT_JOIN_DATE);
+    await page.getByTestId('username-input').fill(employeeData.username);
+    await page.getByTestId('email-input').fill(employeeData.email);
+    await page.getByTestId('password-input').fill(employeeData.password);
+    await selectFirstAvailableRole(page);
 
     // Submit form
     await page.getByTestId('submit-button').click();
@@ -154,46 +194,51 @@ test.describe('Employee Management', () => {
 
   test('should edit employee successfully', async ({ page }) => {
     // First create an employee
-    await createTestEmployee(page);
+    const employee = await createTestEmployee(page);
 
     // Find and click edit button
-    await page.getByTestId(`edit-employee-${TEST_EMPLOYEE_ID}`).click();
+    await page.getByTestId(`edit-employee-${employee.employeeId}`).click();
 
     // Wait for form to load with employee data
     const modal = page.getByTestId('employee-form-dialog');
     await expect(modal).toBeVisible();
 
     // Verify form is populated with employee data
-    await expect(page.getByTestId('employee-id-input')).toHaveValue(TEST_EMPLOYEE_ID);
-    await expect(page.getByTestId('first-name-input')).toHaveValue(TEST_EMPLOYEE_FIRST_NAME);
+    await expect(page.getByTestId('employee-id-input')).toHaveValue(employee.employeeId);
+    await expect(page.getByTestId('first-name-input')).toHaveValue(employee.firstName);
 
     // Update employee information
     await page.getByTestId('first-name-input').fill(UPDATED_EMPLOYEE_FIRST_NAME);
     await page.getByTestId('last-name-input').fill(UPDATED_EMPLOYEE_LAST_NAME);
-    await page.getByTestId('email-input').fill(UPDATED_EMPLOYEE_EMAIL);
+    const updatedEmail = `updated+${employee.employeeId}@company.com`;
+    const updatedUsername = `${employee.username}-updated`;
+
+    await page.getByTestId('employment-tab').click();
+    await page.getByTestId('username-input').fill(updatedUsername);
+    await page.getByTestId('email-input').fill(updatedEmail);
+    await page.getByTestId('password-input').fill('UpdatedPass123!');
+    await selectFirstAvailableRole(page);
 
     // Submit form
     await page.getByTestId('submit-button').click();
 
     // Verify update was successful
-    await page.getByTestId('employee-search-input').fill('');
-
-    await page.waitForTimeout(2000); // Wait for list to update
-    await expect(page.getByTestId(`employee-row-${TEST_EMPLOYEE_ID}`)).toBeVisible();
+    await expect(page.getByTestId('employee-form-dialog')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId(`employee-row-${employee.employeeId}`)).toBeVisible({ timeout: 15000 });
   });
 
   test('should delete employee successfully', async ({ page }) => {
     // First create an employee
-    await createTestEmployee(page);
+    const employee = await createTestEmployee(page);
 
     // Find and click delete button
-    await page.getByTestId(`delete-employee-${TEST_EMPLOYEE_ID}`).click();
+    await page.getByTestId(`delete-employee-${employee.employeeId}`).click();
 
     // Confirm deletion in dialog
     await page.getByTestId('confirm-delete-button').click();
 
     // Verify employee is removed from list
-    await expect(page.getByTestId(`employee-row-${TEST_EMPLOYEE_ID}`)).not.toBeVisible();
+    await expect(page.getByTestId(`employee-row-${employee.employeeId}`)).toBeHidden({ timeout: 15000 });
   });
 
   test('should filter employees by status', async ({ page }) => {

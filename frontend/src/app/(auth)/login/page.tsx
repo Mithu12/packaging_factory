@@ -80,7 +80,14 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form
+              method="post"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void form.handleSubmit(onSubmit)(event);
+              }}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="username"
