@@ -1,0 +1,22 @@
+{
+  "name": "erp-e2e",
+  "version": "1.0.0",
+  "description": "E2E Tests for ERP System",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "codegen": "playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.19.27",
+    "dotenv": "^17.2.3",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@types/pg": "^8.16.0",
+    "pg": "^8.16.3",
+    "tsx": "^4.21.0"
+  }
+}
