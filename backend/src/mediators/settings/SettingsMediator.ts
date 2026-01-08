@@ -382,6 +382,7 @@ class SettingsMediator {
         { category: 'company', key: 'company_address', value: 'Dhaka, Bangladesh', data_type: 'string' as const },
         { category: 'company', key: 'phone', value: '+880 1234 567890', data_type: 'string' as const },
         { category: 'company', key: 'tax_id', value: 'VAT-123456789', data_type: 'string' as const },
+        { category: 'company', key: 'invoice_logo', value: '', data_type: 'string' as const, description: 'Invoice logo URL' },
         
         // System settings
         { category: 'system', key: 'default_currency', value: 'bdt', data_type: 'string' as const },

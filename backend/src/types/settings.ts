@@ -39,6 +39,7 @@ export interface CompanySettings {
   company_address: string;
   phone: string;
   tax_id: string;
+  invoice_logo?: string;
 }
 
 export interface SystemSettings {
