@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/sonner";
 import { useRouter } from "next/navigation";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
-import { DashboardApi, DashboardStats, ServiceDueItem } from "@/services/dashboard-api";
+import { DashboardApi, DashboardStats, ServiceDueItem, DateFilter } from "@/services/dashboard-api";
 import { 
   ShoppingCart, 
   Package, 
@@ -30,6 +30,43 @@ import {
   Clock
 } from "lucide-react";
 
+type DateFilterType = 'today' | 'ytd' | '7d' | '15d' | '30d';
+
+const filterOptions: { value: DateFilterType; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'ytd', label: 'YTD' },
+  { value: '7d', label: '7D' },
+  { value: '15d', label: '15D' },
+  { value: '30d', label: '30D' },
+];
+
+function getDateRange(filterType: DateFilterType): DateFilter {
+  const today = new Date();
+  const endDate = today.toISOString().split('T')[0];
+  
+  switch (filterType) {
+    case 'today':
+      return { startDate: endDate, endDate };
+    case 'ytd':
+      const yearStart = new Date(today.getFullYear(), 0, 1);
+      return { startDate: yearStart.toISOString().split('T')[0], endDate };
+    case '7d':
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 6);
+      return { startDate: sevenDaysAgo.toISOString().split('T')[0], endDate };
+    case '15d':
+      const fifteenDaysAgo = new Date(today);
+      fifteenDaysAgo.setDate(today.getDate() - 14);
+      return { startDate: fifteenDaysAgo.toISOString().split('T')[0], endDate };
+    case '30d':
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 29);
+      return { startDate: thirtyDaysAgo.toISOString().split('T')[0], endDate };
+    default:
+      return { startDate: endDate, endDate };
+  }
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const { formatCurrency, formatNumber } = useFormatting();
@@ -38,12 +75,15 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<DateFilterType>('today');
 
-  const fetchDashboardStats = async () => {
+  const dateFilter = useMemo(() => getDateRange(activeFilter), [activeFilter]);
+
+  const fetchDashboardStats = async (filter: DateFilter) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await DashboardApi.getStats();
+      const data = await DashboardApi.getStats(filter);
       setStats(data);
     } catch (err: any) {
       console.error('Failed to fetch dashboard stats:', err);
@@ -57,12 +97,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, []);
+    fetchDashboardStats(dateFilter);
+  }, [dateFilter]);
 
   const handleRefresh = () => {
-    fetchDashboardStats();
+    fetchDashboardStats(dateFilter);
     toast.success("Dashboard refreshed");
+  };
+
+  const handleFilterChange = (filter: DateFilterType) => {
+    setActiveFilter(filter);
   };
 
   const handleQuickAction = (action: string) => {
@@ -199,12 +243,30 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Overview of your business operations</p>
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* Date Filter Tabs */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
+            {filterOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleFilterChange(option.value)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                  activeFilter === option.value
+                    ? 'bg-background text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCcw className="w-4 h-4 mr-2" />
             Refresh

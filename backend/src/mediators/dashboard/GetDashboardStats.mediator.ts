@@ -42,14 +42,38 @@ export interface DashboardStats {
   pending_orders: number;
 }
 
+export interface DateFilter {
+  startDate?: string; // YYYY-MM-DD format
+  endDate?: string;   // YYYY-MM-DD format
+}
+
 export class GetDashboardStatsMediator {
-  static async getDashboardStats(): Promise<DashboardStats> {
+  static async getDashboardStats(filter?: DateFilter): Promise<DashboardStats> {
     const action = 'GetDashboardStatsMediator.getDashboardStats';
     try {
-      MyLogger.info(action);
+      MyLogger.info(action, { filter });
 
-      // Financial metrics - Total and Today's Sales
-      const salesQuery = `
+      // Build date filter conditions
+      const hasDateFilter = filter?.startDate && filter?.endDate;
+      const dateParams = hasDateFilter ? [filter.startDate, filter.endDate] : [];
+      
+      // Log date params for debugging
+      if (hasDateFilter) {
+        MyLogger.info(action + ' - Date filter applied', { 
+          startDate: filter.startDate, 
+          endDate: filter.endDate 
+        });
+      }
+
+      // Financial metrics - Total Sales (filtered by date range)
+      const salesQuery = hasDateFilter ? `
+        SELECT 
+          COALESCE(SUM(total_amount), 0) as total_sales,
+          COUNT(*) as total_orders
+        FROM sales_orders
+        WHERE status = 'completed'
+        AND order_date::date >= $1::date AND order_date::date <= $2::date
+      ` : `
         SELECT 
           COALESCE(SUM(total_amount), 0) as total_sales,
           COUNT(*) as total_orders
@@ -66,8 +90,16 @@ export class GetDashboardStatsMediator {
         AND DATE(order_date) = CURRENT_DATE
       `;
 
-      // Profit calculation - (selling_price - cost_price) * quantity
-      const profitQuery = `
+      // Profit calculation - (selling_price - cost_price) * quantity (filtered by date range)
+      const profitQuery = hasDateFilter ? `
+        SELECT 
+          COALESCE(SUM((soli.unit_price - COALESCE(p.cost_price, 0)) * soli.quantity), 0) as total_profit
+        FROM sales_order_line_items soli
+        JOIN sales_orders so ON soli.sales_order_id = so.id
+        LEFT JOIN products p ON soli.product_id = p.id
+        WHERE so.status = 'completed'
+        AND so.order_date::date >= $1::date AND so.order_date::date <= $2::date
+      ` : `
         SELECT 
           COALESCE(SUM((soli.unit_price - COALESCE(p.cost_price, 0)) * soli.quantity), 0) as total_profit
         FROM sales_order_line_items soli
@@ -76,8 +108,14 @@ export class GetDashboardStatsMediator {
         WHERE so.status = 'completed'
       `;
 
-      // Expense metrics
-      const expensesQuery = `
+      // Expense metrics (filtered by date range)
+      const expensesQuery = hasDateFilter ? `
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_expenses
+        FROM expenses
+        WHERE status IN ('approved', 'paid')
+        AND expense_date::date >= $1::date AND expense_date::date <= $2::date
+      ` : `
         SELECT 
           COALESCE(SUM(amount), 0) as total_expenses
         FROM expenses
@@ -201,10 +239,10 @@ export class GetDashboardStatsMediator {
         customerDuesResult,
         pendingOrdersResult
       ] = await Promise.all([
-        pool.query(salesQuery),
+        pool.query(salesQuery, dateParams),
         pool.query(todaySalesQuery),
-        pool.query(profitQuery),
-        pool.query(expensesQuery),
+        pool.query(profitQuery, dateParams),
+        pool.query(expensesQuery, dateParams),
         pool.query(todayExpensesQuery),
         pool.query(inventoryQuery),
         pool.query(warrantyDueQuery),

@@ -41,15 +41,30 @@ export interface DashboardStats {
   pending_orders: number;
 }
 
+export interface DateFilter {
+  startDate?: string; // YYYY-MM-DD format
+  endDate?: string;   // YYYY-MM-DD format
+}
+
 export class DashboardApi {
   private static baseUrl = '/dashboard';
 
   /**
    * Get comprehensive dashboard statistics
+   * @param filter Optional date filter for financial metrics
    */
-  static async getStats(): Promise<DashboardStats> {
+  static async getStats(filter?: DateFilter): Promise<DashboardStats> {
     try {
-      return await makeRequest<DashboardStats>(`${this.baseUrl}/stats`, { method: 'GET' });
+      const params = new URLSearchParams();
+      if (filter?.startDate) params.append('startDate', filter.startDate);
+      if (filter?.endDate) params.append('endDate', filter.endDate);
+      
+      const queryString = params.toString();
+      const url = queryString 
+        ? `${this.baseUrl}/stats?${queryString}` 
+        : `${this.baseUrl}/stats`;
+      
+      return await makeRequest<DashboardStats>(url, { method: 'GET' });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       throw error;
