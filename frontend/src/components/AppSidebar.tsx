@@ -111,12 +111,6 @@ const menuSections: MenuSection[] = [
         icon: Calculator,
         permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
       },
-      {
-        title: "Reports",
-        url: "/sales-reports",
-        icon: BarChart3,
-        permission: PERMISSIONS.SALES_REPORTS_READ,
-      },
     ],
   },
   {
@@ -512,6 +506,18 @@ const menuSections: MenuSection[] = [
         url: "/hrm/attendance/reports",
         icon: BarChart3,
         permission: null, // Accessible to all authenticated users
+      },
+    ],
+  },
+  {
+    title: "Reports",
+    icon: FileText,
+    items: [
+      {
+        title: "Sales Reports",
+        url: "/reports/sales-reports",
+        icon: FileText,
+        permission: PERMISSIONS.SALES_REPORTS_READ,
       },
     ],
   },
