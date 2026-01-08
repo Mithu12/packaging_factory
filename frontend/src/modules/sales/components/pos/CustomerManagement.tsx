@@ -287,21 +287,20 @@ export function CustomerManagement() {
 
     try {
       setLoading(true);
-      // Here you would call the API to record the payment
-      // For now, we'll just simulate the update
-
-      const updatedCustomers = customers.map((customer) =>
-        customer.id === paymentCustomer.id
-          ? {
-              ...customer,
-              due_amount:
-                (customer.due_amount || 0) - parseFloat(paymentAmount),
-              last_payment_date: new Date().toISOString(),
-            }
-          : customer
+      // Call the API to record the payment
+      const updatedCustomer = await CustomerApi.collectDuePayment(
+        paymentCustomer.id,
+        parseFloat(paymentAmount),
+        paymentMethod
       );
 
-      setCustomers(updatedCustomers);
+      // Update the customers list with the updated customer from API response
+      setCustomers((prev) =>
+        prev.map((customer) =>
+          customer.id === paymentCustomer.id ? updatedCustomer : customer
+        )
+      );
+
       setIsPaymentDialogOpen(false);
       setPaymentAmount("");
       setPaymentCustomer(null);

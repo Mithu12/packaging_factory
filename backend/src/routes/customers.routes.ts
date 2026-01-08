@@ -160,6 +160,36 @@ router.patch('/:id/loyalty-points',
     }
 }));
 
+// PATCH /api/customers/:id/collect-payment - Collect due payment from customer
+router.patch('/:id/collect-payment', 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'PATCH /api/customers/:id/collect-payment'
+    try {
+        const id = parseInt(req.params.id);
+        const { amount, payment_method } = req.body;
+        
+        if (!amount || amount <= 0) {
+            res.status(400).json({
+                error: {
+                    message: 'Payment amount must be a positive number'
+                }
+            });
+            return;
+        }
+        
+        MyLogger.info(action, { customerId: id, amount, payment_method })
+        const customer = await UpdateCustomerInfoMediator.collectDuePayment(id, amount, payment_method || 'cash');
+        MyLogger.success(action, { customerId: id, customerName: customer.name, newDueAmount: customer.due_amount })
+        serializeSuccessResponse(res, customer, 'Payment recorded successfully')
+    } catch (error: any) {
+        MyLogger.error(action, error, { customerId: req.params.id, amount: req.body.amount })
+        throw error;
+    }
+}));
+
 // DELETE /api/customers/:id - Soft delete customer (mark as inactive)
 router.delete('/:id', 
   authenticate, 

@@ -89,4 +89,11 @@ export class CustomerApi {
       };
     }>(`/customers/${id}/references`);
   }
+
+  static async collectDuePayment(id: number, amount: number, paymentMethod: string) {
+    return makeRequest<Customer>(`/customers/${id}/collect-payment`, {
+      method: 'PATCH',
+      body: JSON.stringify({ amount, payment_method: paymentMethod }),
+    });
+  }
 }
