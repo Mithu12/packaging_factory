@@ -4,9 +4,24 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
+import { 
+  Document, 
+  Page, 
+  Text, 
+  View, 
+  StyleSheet, 
+  Image, 
+  pdf, 
+  Font 
+} from '@react-pdf/renderer';
 import { SettingsApi } from '@/services/settings-api';
 import { CompanySettings } from '@/services/settings-types';
+
+// Register Helvetica fonts (standard font)
+// React-PDF doesn't automatically support bold in Helvetica, usually standard fonts work fine
+// but for pixel perfection we might need external fonts if required.
+// For now we'll use Helvetica and standard bolding.
+
 
 interface ChalanItem {
   id: number;
@@ -29,6 +44,258 @@ interface ChalanProps {
   onClose?: () => void;
 }
 
+// Define styles for PDF
+const styles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontSize: 9,
+    fontFamily: 'Helvetica',
+    color: '#333',
+    lineHeight: 1.5,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  logo: {
+    width: 120,
+    height: 'auto',
+  },
+  titleSection: {
+    textAlign: 'right',
+    gap: 2,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1D357B',
+    marginBottom: 10,
+    lineHeight: 1.2,
+  },
+  chalanInfo: {
+    fontSize: 9,
+    color: '#333',
+    marginBottom: 3,
+  },
+
+  divider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D357B',
+    marginVertical: 10,
+  },
+  infoSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 25,
+    marginTop: 10,
+  },
+  leftColumn: {
+    width: '45%',
+  },
+  rightColumn: {
+    width: '50%',
+  },
+  sectionHeader: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  infoText: {
+    marginBottom: 3,
+  },
+  label: {
+    fontWeight: 'bold',
+  },
+  // Table
+  table: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 2,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#1D357B',
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    color: '#ffffff',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+  },
+  colNo: {
+    width: '15%',
+    textAlign: 'center',
+  },
+  colDesc: {
+    width: '65%',
+    textAlign: 'left',
+    paddingLeft: 10,
+  },
+  colQty: {
+    width: '20%',
+    textAlign: 'center',
+  },
+  headerCell: {
+    fontWeight: 'bold',
+    fontSize: 10,
+  },
+  // Signatures
+  signatureSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 60,
+    paddingHorizontal: 10,
+  },
+  signatureBox: {
+    width: '35%',
+    textAlign: 'center',
+  },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    borderTopStyle: 'dashed',
+    marginBottom: 8,
+  },
+  signatureLabel: {
+    fontSize: 10,
+  },
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 8,
+  },
+});
+
+// PDF Document Component
+const ChalanPDF = ({ 
+  chalanNumber, 
+  chalanDate, 
+  customer, 
+  items, 
+  companySettings, 
+  logoBase64 
+}: {
+  chalanNumber: string;
+  chalanDate: string;
+  customer: Customer | null;
+  items: ChalanItem[];
+  companySettings: CompanySettings | null;
+  logoBase64: string | null;
+}) => (
+  <Document title={`Chalan-${chalanNumber}`}>
+    <Page size="A4" style={styles.page}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          {logoBase64 ? (
+            <Image src={logoBase64} style={styles.logo} />
+          ) : (
+            <Text style={[styles.title, { fontSize: 20 }]}>{companySettings?.company_name || 'ERP'}</Text>
+          )}
+        </View>
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>CHALAN</Text>
+          <Text style={styles.chalanInfo}>Chalan No : {chalanNumber}</Text>
+          <Text style={styles.chalanInfo}>
+            Chalan Date : {new Date(chalanDate).toLocaleDateString('en-GB', { 
+              day: '2-digit', 
+              month: '2-digit', 
+              year: 'numeric' 
+            }).replace(/\//g, '-')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Info Section */}
+      <View style={styles.infoSection}>
+        <View style={styles.leftColumn}>
+          <Text style={styles.sectionHeader}>Bill To:</Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Name : </Text>
+            {customer?.name || 'Walk-in Customer'}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Address : </Text>
+            {customer?.address || ''}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Email : </Text>
+            {customer?.email || ''}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Phone : </Text>
+            {customer?.phone || ''}
+          </Text>
+        </View>
+
+        <View style={styles.rightColumn}>
+          <Text style={styles.sectionHeader}>{companySettings?.company_name || 'Zontech international'}:</Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Office : </Text>
+            {companySettings?.company_address || ''}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Cell : </Text>
+            {companySettings?.phone || ''}
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Email : </Text>
+            {companySettings?.company_email || ''}
+          </Text>
+        </View>
+      </View>
+
+      {/* Table */}
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.colNo, styles.headerCell]}>No.</Text>
+          <Text style={[styles.colDesc, styles.headerCell]}>Description</Text>
+          <Text style={[styles.colQty, styles.headerCell]}>Quantity</Text>
+        </View>
+        {(items || []).map((item, index) => (
+          <View key={item.id} style={styles.tableRow}>
+            <Text style={styles.colNo}>{index + 1}</Text>
+            <Text style={styles.colDesc}>{item.product_name}</Text>
+            <Text style={styles.colQty}>{item.quantity}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Signature Section */}
+      <View style={styles.signatureSection}>
+        <View style={styles.signatureBox}>
+          <View style={styles.signatureLine} />
+          <Text style={styles.signatureLabel}>Receiver Signature</Text>
+        </View>
+        <View style={styles.signatureBox}>
+          <View style={styles.signatureLine} />
+          <Text style={styles.signatureLabel}>Seller Signature</Text>
+        </View>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text>https://{companySettings?.company_email?.split('@')[1] || 'zontechinternational.com'}</Text>
+      </View>
+    </Page>
+  </Document>
+);
+
 export function Chalan({
   chalanNumber,
   chalanDate,
@@ -47,7 +314,8 @@ export function Chalan({
   // Load logo as base64 using Image element with promise
   const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
     return new Promise((resolve) => {
-      const img = new Image();
+      // Use window.Image to avoid shadowing by @react-pdf/renderer's Image
+      const img = new window.Image();
       img.crossOrigin = 'anonymous';
       
       img.onload = () => {
@@ -114,259 +382,27 @@ export function Chalan({
     }
   };
 
-  const generateChalanPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    let yPosition = margin;
-
-    // Colors - matching the reference image
-    const primaryBlue = [29, 53, 123]; // Dark blue for header and table header
-    const textDark = [51, 51, 51];
-
-    // Helper function to set color
-    const setColor = (color: number[], type: 'fill' | 'text' | 'draw' = 'text') => {
-      if (type === 'fill') {
-        doc.setFillColor(color[0], color[1], color[2]);
-      } else if (type === 'draw') {
-        doc.setDrawColor(color[0], color[1], color[2]);
-      } else {
-        doc.setTextColor(color[0], color[1], color[2]);
-      }
-    };
-
-    // Determine image format from base64 string
-    const getImageFormat = (base64: string): string => {
-      if (base64.includes('data:image/png')) return 'PNG';
-      if (base64.includes('data:image/jpeg') || base64.includes('data:image/jpg')) return 'JPEG';
-      if (base64.includes('data:image/gif')) return 'GIF';
-      if (base64.includes('data:image/webp')) return 'WEBP';
-      return 'PNG'; // Default to PNG
-    };
-
-    // Add logo if available
-    if (logoBase64) {
-      try {
-        const imageFormat = getImageFormat(logoBase64);
-        doc.addImage(logoBase64, imageFormat, margin, yPosition, 45, 22);
-      } catch (error) {
-        console.error('Error adding logo to PDF:', error);
-        // Fallback: show company name if logo fails
-        if (companySettings?.company_name) {
-          setColor(primaryBlue);
-          doc.setFontSize(16);
-          doc.setFont('helvetica', 'bold');
-          doc.text(companySettings.company_name, margin, yPosition + 15);
-        }
-      }
-    } else if (companySettings?.company_name) {
-      // Company name if no logo
-      setColor(primaryBlue);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text(companySettings.company_name, margin, yPosition + 15);
-    }
-
-    // CHALAN title on the right
-    setColor(primaryBlue);
-    doc.setFontSize(28);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CHALAN', pageWidth - margin, yPosition + 10, { align: 'right' });
-
-    // Chalan details below title
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    setColor(textDark);
-    doc.text(`Chalan No : ${chalanNumber}`, pageWidth - margin, yPosition + 18, { align: 'right' });
-    doc.text(`Chalan Date : ${new Date(chalanDate).toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    }).replace(/\//g, '-')}`, pageWidth - margin, yPosition + 24, { align: 'right' });
-
-    yPosition += 40;
-
-    // Horizontal line
-    setColor(primaryBlue, 'draw');
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPosition, pageWidth - margin, yPosition);
-
-    yPosition += 10;
-
-    // Bill To section (left side)
-    setColor(textDark);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Bill To:', margin, yPosition);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    yPosition += 6;
-    
-    if (customer) {
-      doc.text(`Name : ${customer.name}`, margin, yPosition);
-      yPosition += 5;
-      if (customer.address) {
-        doc.text(`Address : ${customer.address}`, margin, yPosition);
-        yPosition += 5;
-      }
-      if (customer.email) {
-        doc.text(`Email : ${customer.email}`, margin, yPosition);
-        yPosition += 5;
-      }
-      if (customer.phone) {
-        doc.text(`Phone : ${customer.phone}`, margin, yPosition);
-      }
-    } else {
-      doc.text('Name : Walk-in Customer', margin, yPosition);
-    }
-
-    // Company info (right side)
-    const rightColumnX = pageWidth / 2 + 10;
-    let rightYPosition = yPosition - 11;
-
-    if (companySettings) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(`${companySettings.company_name}:`, rightColumnX, rightYPosition);
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      rightYPosition += 6;
-      
-      if (companySettings.company_address) {
-        // Split long address into multiple lines if needed
-        const addressLines = doc.splitTextToSize(`Office : ${companySettings.company_address}`, 80);
-        addressLines.forEach((line: string) => {
-          doc.text(line, rightColumnX, rightYPosition);
-          rightYPosition += 5;
-        });
-      }
-      
-      if (companySettings.phone) {
-        doc.text(`Cell : ${companySettings.phone}`, rightColumnX, rightYPosition);
-        rightYPosition += 5;
-      }
-      
-      if (companySettings.company_email) {
-        doc.text(`Email : ${companySettings.company_email}`, rightColumnX, rightYPosition);
-      }
-    }
-
-    yPosition = Math.max(yPosition, rightYPosition) + 15;
-
-    // Items table
-    const tableStartY = yPosition;
-    const colWidths = {
-      no: 40,
-      description: 100,
-      quantity: 40
-    };
-
-    // Table header
-    setColor(primaryBlue, 'fill');
-    doc.rect(margin, tableStartY, pageWidth - 2 * margin, 10, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    
-    doc.text('No.', margin + 15, tableStartY + 7, { align: 'center' });
-    doc.text('Description', margin + colWidths.no + colWidths.description / 2, tableStartY + 7, { align: 'center' });
-    doc.text('Quantity', pageWidth - margin - colWidths.quantity / 2, tableStartY + 7, { align: 'center' });
-
-    yPosition = tableStartY + 10;
-
-    // Table rows
-    setColor(textDark);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-
-    items.forEach((item, index) => {
-      yPosition += 8;
-      
-      // Row background (alternating)
-      if (index % 2 === 1) {
-        doc.setFillColor(248, 249, 250);
-        doc.rect(margin, yPosition - 6, pageWidth - 2 * margin, 10, 'F');
-      }
-
-      // Draw cell borders
-      setColor([200, 200, 200], 'draw');
-      doc.setLineWidth(0.1);
-      doc.line(margin, yPosition + 4, pageWidth - margin, yPosition + 4);
-
-      setColor(textDark);
-      doc.text((index + 1).toString(), margin + 15, yPosition, { align: 'center' });
-      doc.text(item.product_name, margin + 45, yPosition);
-      doc.text(item.quantity.toString(), pageWidth - margin - colWidths.quantity / 2, yPosition, { align: 'center' });
-    });
-
-    yPosition += 15;
-
-    // Table border
-    setColor([200, 200, 200], 'draw');
-    doc.setLineWidth(0.3);
-    doc.rect(margin, tableStartY, pageWidth - 2 * margin, yPosition - tableStartY - 5);
-
-    // ============ SIGNATURE SECTION ============
-    // Position signatures well below the table with enough space
-    const signatureY = Math.max(yPosition + 40, pageHeight - 70);
-    
-    // Receiver Signature (Left side)
-    setColor(textDark);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    
-    // Signature line for receiver
-    setColor([100, 100, 100], 'draw');
-    doc.setLineWidth(0.5);
-    doc.line(margin, signatureY, margin + 60, signatureY);
-    
-    // Label below the line
-    setColor(textDark);
-    doc.setFontSize(10);
-    doc.text('Receiver Signature', margin, signatureY + 10);
-
-    // Seller Signature (Right side)
-    // Signature line for seller
-    setColor([100, 100, 100], 'draw');
-    doc.setLineWidth(0.5);
-    doc.line(pageWidth - margin - 60, signatureY, pageWidth - margin, signatureY);
-    
-    // Label below the line
-    setColor(textDark);
-    doc.setFontSize(10);
-    doc.text('Seller Signature', pageWidth - margin - 60, signatureY + 10);
-
-    // ============ FOOTER SECTION ============
-    const footerY = pageHeight - 20;
-    
-    // Footer line
-    setColor([200, 200, 200], 'draw');
-    doc.setLineWidth(0.3);
-    doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
-
-    // Website URL at bottom center
-    if (companySettings?.company_email) {
-      const domain = companySettings.company_email.split('@')[1];
-      if (domain) {
-        setColor([100, 100, 100]);
-        doc.setFontSize(9);
-        doc.text(`https://${domain}`, pageWidth / 2, footerY + 2, { align: 'center' });
-      }
-    }
-
-    return doc;
-  };
-
-  const handleDownloadChalan = () => {
+  const handleDownloadChalan = async () => {
     if (loading) return;
 
     try {
-      const doc = generateChalanPDF();
-      doc.save(`chalan-${chalanNumber}.pdf`);
+      const blob = await pdf(
+        <ChalanPDF 
+          chalanNumber={chalanNumber}
+          chalanDate={chalanDate}
+          customer={customer}
+          items={items}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chalan-${chalanNumber}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
       
       toast({
         title: "Chalan Downloaded",
@@ -382,41 +418,32 @@ export function Chalan({
     }
   };
 
-  const handlePrintChalan = () => {
+  const handlePrintChalan = async () => {
     if (loading) return;
 
     try {
-      const doc = generateChalanPDF();
+      const blob = await pdf(
+        <ChalanPDF 
+          chalanNumber={chalanNumber}
+          chalanDate={chalanDate}
+          customer={customer}
+          items={items}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+        />
+      ).toBlob();
       
-      // Open PDF in new window for printing
-      const pdfDataUri = doc.output('datauristring');
-      const printWindow = window.open();
-      
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url);
       if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Chalan ${chalanNumber}</title>
-              <style>
-                body { margin: 0; padding: 0; }
-                iframe { width: 100%; height: 100vh; border: none; }
-              </style>
-            </head>
-            <body>
-              <iframe src="${pdfDataUri}"></iframe>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
         printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-        
-        toast({
-          title: "Chalan Printed",
-          description: `Chalan ${chalanNumber} sent to printer`,
-        });
+        // Browser usually handles printing for blob URLs
       }
+      
+      toast({
+        title: "Chalan Printed",
+        description: `Chalan ${chalanNumber} sent to printer`,
+      });
     } catch (error) {
       console.error('Error printing chalan:', error);
       toast({
