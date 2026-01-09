@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   logoSection: {
-    width: '45%',
+    width: '38%',
   },
   logo: {
     width: 120,
@@ -70,13 +70,14 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     textAlign: 'right',
-    width: '50%',
+    width: '60%',
   },
   reportTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1D357B',
     marginBottom: 5,
+    lineHeight: 1.1,
   },
   reportSubtitle: {
     fontSize: 10,
