@@ -283,7 +283,7 @@ export default function PurchaseReportsPage() {
   }, [fetchReports]);
 
   return (
-    <div className="p-6 space-y-6 print:p-0">
+    <div className="space-y-6 print:p-0">
       {/* Header with Quick Filter */}
       <div className="space-y-4 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
