@@ -93,12 +93,6 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
-      {
-        title: "Sales Reports",
-        url: "/sales-reports",
-        icon: FileText,
-        permission: PERMISSIONS.SALES_REPORTS_READ,
-      },
     ],
   },
   {
@@ -110,12 +104,6 @@ const menuSections: MenuSection[] = [
         url: "/pos-manager",
         icon: Calculator,
         permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
-      },
-      {
-        title: "Reports",
-        url: "/sales-reports",
-        icon: BarChart3,
-        permission: PERMISSIONS.SALES_REPORTS_READ,
       },
     ],
   },
@@ -512,6 +500,36 @@ const menuSections: MenuSection[] = [
         url: "/hrm/attendance/reports",
         icon: BarChart3,
         permission: null, // Accessible to all authenticated users
+      },
+    ],
+  },
+  {
+    title: "Reports",
+    icon: FileText,
+    items: [
+      {
+        title: "Sales Reports",
+        url: "/reports/sales-reports",
+        icon: FileText,
+        permission: PERMISSIONS.SALES_REPORTS_READ,
+      },
+      {
+        title: "Purchase Reports",
+        url: "/reports/purchase-reports",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.PURCHASE_ORDERS_READ,
+      },
+      {
+        title: "Expense Reports",
+        url: "/reports/expense-reports",
+        icon: Receipt,
+        permission: PERMISSIONS.EXPENSES_READ,
+      },
+      {
+        title: "Supplier Payments",
+        url: "/reports/supplier-payments-reports",
+        icon: DollarSign,
+        permission: PERMISSIONS.PAYMENTS_READ,
       },
     ],
   },

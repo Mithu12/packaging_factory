@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
-import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer } from "lucide-react"
+import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer, FileText } from "lucide-react"
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
 import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
 import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api"
 import { Receipt } from "./Receipt"
+import { Chalan } from "./Chalan"
 import { useFormatting } from "@/hooks/useFormatting"
 
 interface OrderItem {
@@ -39,6 +40,8 @@ export function SalesOrderProcessing() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
+  const [showChalan, setShowChalan] = useState(false)
+  const [chalanData, setChalanData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [newOrder, setNewOrder] = useState({
     customerId: "",
@@ -262,6 +265,47 @@ export function SalesOrderProcessing() {
       toast({
         title: "Error",
         description: "Failed to prepare receipt",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDownloadChalan = async (order: SalesOrder) => {
+    try {
+      setLoading(true)
+      const orderDetails = await SalesOrderApi.getSalesOrder(order.id)
+      
+      // Prepare chalan data
+      const chalanItems = orderDetails.line_items.map(item => ({
+        id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity
+      }))
+
+      // Find customer details from customers list for address
+      const customerDetails = customers.find(c => c.id === orderDetails.customer_id)
+      
+      const chalanData = {
+        chalanNumber: orderDetails.order_number,
+        chalanDate: orderDetails.order_date,
+        customer: orderDetails.customer_id ? {
+          name: orderDetails.customer_name || 'Unknown',
+          address: customerDetails?.address || '',
+          email: orderDetails.customer_email || '',
+          phone: orderDetails.customer_phone || ''
+        } : null,
+        items: chalanItems
+      }
+
+      setChalanData(chalanData)
+      setShowChalan(true)
+    } catch (error) {
+      console.error("Error preparing chalan:", error)
+      toast({
+        title: "Error",
+        description: "Failed to prepare chalan",
         variant: "destructive"
       })
     } finally {
@@ -508,8 +552,11 @@ export function SalesOrderProcessing() {
                       <Button variant="outline" size="sm" onClick={() => handleViewOrder(order)}>
                         <Search className="w-3 h-3" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handlePrintReceipt(order)}>
+                      <Button variant="outline" size="sm" onClick={() => handlePrintReceipt(order)} title="Print Receipt">
                         <Printer className="w-3 h-3" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDownloadChalan(order)} title="Download Chalan">
+                        <FileText className="w-3 h-3" />
                       </Button>
                       {order.status === "refunded" && (
                         <Button variant="outline" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "pending")}>
@@ -664,6 +711,33 @@ export function SalesOrderProcessing() {
             <div className="mt-4">
               <Button 
                 onClick={() => setShowReceipt(false)}
+                variant="outline"
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chalan Dialog */}
+      {showChalan && chalanData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Download Chalan</h2>
+            <p className="text-gray-600 mb-4">
+              Chalan #{chalanData.chalanNumber} - {chalanData.customer?.name || 'Walk-in Customer'}
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              A delivery chalan will be generated with product details and quantities.
+            </p>
+            
+            <Chalan {...chalanData} />
+            
+            <div className="mt-4">
+              <Button 
+                onClick={() => setShowChalan(false)}
                 variant="outline"
                 className="w-full"
               >

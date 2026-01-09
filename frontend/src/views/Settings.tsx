@@ -14,7 +14,11 @@ import {
   Users,
   Mail,
   Save,
-  Loader2
+  Loader2,
+  FileImage,
+  Upload,
+  Trash2,
+  X
 } from "lucide-react"
 import {
   Tabs,
@@ -43,6 +47,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   
   // Settings state
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
@@ -50,7 +56,8 @@ export default function Settings() {
     company_email: '',
     company_address: 'Dhaka, Bangladesh',
     phone: '+880 1234 567890',
-    tax_id: 'VAT-123456789'
+    tax_id: 'VAT-123456789',
+    invoice_logo: ''
   })
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
@@ -192,6 +199,96 @@ export default function Settings() {
     }
   }
 
+  // Handle invoice logo upload
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Invalid file type', {
+        description: 'Please upload an image file (PNG, JPG, JPEG, SVG)'
+      })
+      return
+    }
+
+    // Validate file size (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File too large', {
+        description: 'Logo file size must be less than 2MB'
+      })
+      return
+    }
+
+    try {
+      setUploadingLogo(true)
+      
+      // Show preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Upload the logo
+      const result = await SettingsApi.uploadInvoiceLogo(file)
+      
+      setCompanySettings(prev => ({ ...prev, invoice_logo: result.logoUrl }))
+      setLogoPreview(null)
+      
+      toast.success('Invoice logo uploaded successfully!', {
+        description: 'Your logo will appear on invoices.'
+      })
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      setLogoPreview(null)
+      toast.error('Failed to upload logo', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setUploadingLogo(false)
+      // Reset file input
+      event.target.value = ''
+    }
+  }
+
+  // Handle invoice logo delete
+  const handleLogoDelete = async () => {
+    try {
+      setUploadingLogo(true)
+      await SettingsApi.deleteInvoiceLogo()
+      
+      setCompanySettings(prev => ({ ...prev, invoice_logo: '' }))
+      setLogoPreview(null)
+      
+      toast.success('Invoice logo removed', {
+        description: 'Your invoices will no longer show a logo.'
+      })
+    } catch (error) {
+      console.error('Error deleting logo:', error)
+      toast.error('Failed to remove logo', {
+        description: 'Please try again later.'
+      })
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  // Get the full logo URL for display
+  const getLogoUrl = (): string | null => {
+    if (logoPreview) return logoPreview
+    if (!companySettings.invoice_logo) return null
+    
+    // If it's already a full URL, return as is
+    if (companySettings.invoice_logo.startsWith('http')) {
+      return companySettings.invoice_logo
+    }
+    
+    // Otherwise, prepend the API base URL
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000'
+    return `${apiUrl}${companySettings.invoice_logo}`
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -288,6 +385,103 @@ export default function Settings() {
                       onChange={(e) => setCompanySettings(prev => ({ ...prev, tax_id: e.target.value }))}
                       placeholder="VAT-123456789"
                     />
+                  </div>
+                </div>
+
+                {/* Invoice Logo Upload Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <FileImage className="w-5 h-5 text-muted-foreground" />
+                    <Label className="text-base font-medium">Invoice Logo</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Upload a logo to display on your invoices. Recommended size: 200x80 pixels. Max file size: 2MB.
+                  </p>
+                  
+                  <div className="flex items-start gap-6">
+                    {/* Logo Preview */}
+                    <div className="flex-shrink-0">
+                      {getLogoUrl() ? (
+                        <div className="relative group">
+                          <div className="w-48 h-20 border rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+                            <img 
+                              src={getLogoUrl()!} 
+                              alt="Invoice Logo" 
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                          {/* Delete button overlay */}
+                          <button
+                            type="button"
+                            onClick={handleLogoDelete}
+                            disabled={uploadingLogo}
+                            className="absolute -top-2 -right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-destructive/90"
+                            title="Remove logo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-48 h-20 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/30">
+                          <FileImage className="w-8 h-8 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload Controls */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="invoice-logo-upload">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingLogo}
+                            className="cursor-pointer"
+                            asChild
+                          >
+                            <span>
+                              {uploadingLogo ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  {companySettings.invoice_logo ? 'Change Logo' : 'Upload Logo'}
+                                </>
+                              )}
+                            </span>
+                          </Button>
+                        </label>
+                        <input
+                          id="invoice-logo-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          disabled={uploadingLogo}
+                          className="hidden"
+                        />
+                        
+                        {companySettings.invoice_logo && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleLogoDelete}
+                            disabled={uploadingLogo}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Supported formats: PNG, JPG, JPEG, SVG
+                      </p>
+                    </div>
                   </div>
                 </div>
               </CardContent>

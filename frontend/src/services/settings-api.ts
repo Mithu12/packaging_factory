@@ -129,6 +129,25 @@ class SettingsApiService {
   async updateIntegrationSettings(settings: Partial<IntegrationSettings>): Promise<Setting[]> {
     return this.updateSettings('integrations', settings);
   }
+
+  // Invoice logo upload
+  async uploadInvoiceLogo(file: File): Promise<{ logoUrl: string; setting: Setting }> {
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    // Use makeRequest with FormData - it handles credentials and headers automatically
+    return makeRequest<{ logoUrl: string; setting: Setting }>(`${this.baseUrl}/upload/invoice-logo`, {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  // Delete invoice logo
+  async deleteInvoiceLogo(): Promise<void> {
+    return makeRequest<void>(`${this.baseUrl}/upload/invoice-logo`, {
+      method: 'DELETE'
+    });
+  }
 }
 
 export const SettingsApi = new SettingsApiService();

@@ -18,6 +18,7 @@ import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
 import licenseRoutes from "./routes/license.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
@@ -108,8 +109,13 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // Cookie parsing middleware
 app.use(cookieParser());
 
-// Static file serving for uploaded images
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Static file serving for uploaded images with CORS headers for cross-origin canvas access
+app.use("/uploads", (req, res, next) => {
+  // Set headers to allow cross-origin access for images (needed for canvas operations)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(process.cwd(), "uploads")));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -146,6 +152,7 @@ app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/returns", returnsRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

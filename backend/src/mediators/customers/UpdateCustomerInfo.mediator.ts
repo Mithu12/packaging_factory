@@ -171,4 +171,53 @@ export class UpdateCustomerInfoMediator {
             throw error;
         }
     }
+
+    static async collectDuePayment(id: number, amount: number, paymentMethod: string): Promise<Customer> {
+        let action = 'UpdateCustomerInfoMediator.collectDuePayment';
+        try {
+            MyLogger.info(action, { customerId: id, amount, paymentMethod });
+
+            // First, verify the customer exists and has enough due amount
+            const checkQuery = `SELECT * FROM customers WHERE id = $1`;
+            const checkResult = await pool.query(checkQuery, [id]);
+
+            if (checkResult.rows.length === 0) {
+                throw new Error(`Customer with ID ${id} not found`);
+            }
+
+            const currentDueAmount = checkResult.rows[0].due_amount || 0;
+            if (amount > currentDueAmount) {
+                throw new Error(`Payment amount (${amount}) exceeds due amount (${currentDueAmount})`);
+            }
+
+            if (amount <= 0) {
+                throw new Error('Payment amount must be greater than 0');
+            }
+
+            const updateQuery = `
+                UPDATE customers 
+                SET due_amount = COALESCE(due_amount, 0) - $1,
+                    last_payment_date = CURRENT_DATE,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2
+                RETURNING *
+            `;
+
+            const result = await pool.query(updateQuery, [amount, id]);
+
+            const customer = result.rows[0];
+            MyLogger.success(action, { 
+                customerId: id, 
+                customerName: customer.name,
+                paymentAmount: amount,
+                paymentMethod: paymentMethod,
+                newDueAmount: customer.due_amount
+            });
+
+            return customer;
+        } catch (error: any) {
+            MyLogger.error(action, error, { customerId: id, amount, paymentMethod });
+            throw error;
+        }
+    }
 }
