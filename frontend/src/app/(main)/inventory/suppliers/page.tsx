@@ -448,15 +448,15 @@ export default function Suppliers() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-popover">
-                                <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
+                                <DropdownMenuItem onClick={() => window.location.href = `/inventory/suppliers/${supplier.id}`}>
                                   View Details
                                 </DropdownMenuItem>
                                 {hasPermission(PERMISSIONS.SUPPLIERS_UPDATE) && (
-                                  <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}/edit`}>
+                                  <DropdownMenuItem onClick={() => window.location.href = `/inventory/suppliers/${supplier.id}/edit`}>
                                     Edit Supplier
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => window.location.href = `/suppliers/${supplier.id}/orders`}>
+                                <DropdownMenuItem onClick={() => window.location.href = `/inventory/suppliers/${supplier.id}/orders`}>
                                   View Orders
                                 </DropdownMenuItem>
                                 {hasPermission(PERMISSIONS.SUPPLIERS_UPDATE) && (
