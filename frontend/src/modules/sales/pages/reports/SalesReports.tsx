@@ -13,7 +13,8 @@ import {
   DollarSign,
   ShoppingCart,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import {
   Tabs,
@@ -34,6 +35,11 @@ import { apiClient } from "@/services/apiClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api";
+import { pdf } from "@react-pdf/renderer";
+import { SalesReportPDF } from "@/modules/sales/components/reports/SalesReportPDF";
+import { SettingsApi } from "@/services/settings-api";
+import { CompanySettings } from "@/services/settings-types";
+import { useFormatting } from "@/hooks/useFormatting";
 
 interface SalesSummary {
   total_orders: number;
@@ -93,8 +99,12 @@ export default function SalesReports() {
   const [paymentAnalysis, setPaymentAnalysis] = useState<PaymentAnalysis | null>(null);
   const [orderFulfillment, setOrderFulfillment] = useState<OrderFulfillment | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("summary");
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const { toast } = useToast();
+  const { formatCurrency } = useFormatting();
 
   const fetchReports = async () => {
     setLoading(true);
@@ -127,64 +137,110 @@ export default function SalesReports() {
     }
   };
 
-  const handleExport = async (reportType: string) => {
-    try {
-      const params = {
-        report_type: reportType,
-        start_date: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-        end_date: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
-        format: 'pdf'
+  // Load logo as base64 for PDF
+  const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const base64 = canvas.toDataURL('image/png');
+            resolve(base64);
+          } else resolve(null);
+        } catch (e) { resolve(null); }
       };
+      img.onerror = () => resolve(null);
+      img.src = logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+    });
+  };
 
-      const response = await apiClient.post('/sales/reports/export', params, {
-        responseType: 'blob'
-      });
+  // Format currency for PDF (avoiding special characters)
+  const formatCurrencyForPDF = (val: number) => {
+    return formatCurrency(val).replace(/৳/g, 'TK');
+  };
+
+  const handleExport = async (reportType: 'sales-summary' | 'customer-performance' | 'payment-analysis' | 'order-fulfillment') => {
+    setExportLoading(reportType);
+    try {
+      const blob = await pdf(
+        <SalesReportPDF
+          reportType={reportType}
+          dateRange={{
+            from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+            to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+          }}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          salesSummary={salesSummary}
+          customerPerformance={customerPerformance}
+          paymentAnalysis={paymentAnalysis}
+          orderFulfillment={orderFulfillment}
+          formatCurrency={formatCurrencyForPDF}
+        />
+      ).toBlob();
 
       // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${reportType}-report.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Success",
         description: "Report exported successfully",
       });
     } catch (error) {
+      console.error('PDF generation error:', error);
       toast({
         title: "Error",
         description: "Failed to export report",
         variant: "destructive",
       });
+    } finally {
+      setExportLoading(null);
     }
   };
 
   useEffect(() => {
-    // Load branches on mount
-    const loadBranches = async () => {
+    // Load branches and company settings on mount
+    const loadInitialData = async () => {
       try {
-        const branchesData = await DistributionApi.getDistributionCenters({ status: 'active', limit: 100 });
+        const [branchesData, settings] = await Promise.all([
+          DistributionApi.getDistributionCenters({ status: 'active', limit: 100 }),
+          SettingsApi.getCompanySettings(),
+        ]);
         setBranches(branchesData.centers || []);
+        setCompanySettings(settings);
+        
+        // Load logo if available
+        if (settings.invoice_logo) {
+          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000';
+          const logoUrl = settings.invoice_logo.startsWith('http') 
+            ? settings.invoice_logo 
+            : `${baseUrl}${settings.invoice_logo}`;
+          const base64 = await loadLogoAsBase64(logoUrl);
+          if (base64) setLogoBase64(base64);
+        }
       } catch (error) {
-        console.error('Error loading branches:', error);
+        console.error('Error loading initial data:', error);
       }
     };
-    loadBranches();
+    loadInitialData();
   }, []);
 
   useEffect(() => {
     fetchReports();
   }, [dateRange, selectedBranch]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
@@ -195,7 +251,7 @@ export default function SalesReports() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Sales Reportsrts</h1>
+          <h1 className="text-3xl font-bold text-foreground">Sales Reports</h1>
           <p className="text-muted-foreground">Comprehensive sales analytics and performance insights</p>
         </div>
         <div className="flex gap-2">
@@ -293,9 +349,9 @@ export default function SalesReports() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Sales Summary</CardTitle>
-              <Button onClick={() => handleExport('sales-summary')}>
-                <Download className="w-4 h-4 mr-2" />
-                Export PDF
+              <Button onClick={() => handleExport('sales-summary')} disabled={exportLoading !== null}>
+                {exportLoading === 'sales-summary' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                {exportLoading === 'sales-summary' ? 'Generating...' : 'Export PDF'}
               </Button>
             </CardHeader>
             <CardContent>
@@ -332,9 +388,9 @@ export default function SalesReports() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Customer Performance</CardTitle>
-              <Button onClick={() => handleExport('customer-performance')}>
-                <Download className="w-4 h-4 mr-2" />
-                Export PDF
+              <Button onClick={() => handleExport('customer-performance')} disabled={exportLoading !== null}>
+                {exportLoading === 'customer-performance' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                {exportLoading === 'customer-performance' ? 'Generating...' : 'Export PDF'}
               </Button>
             </CardHeader>
             <CardContent>
@@ -382,9 +438,9 @@ export default function SalesReports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Payment Methods</CardTitle>
-                <Button onClick={() => handleExport('payment-analysis')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export PDF
+                <Button onClick={() => handleExport('payment-analysis')} disabled={exportLoading !== null}>
+                  {exportLoading === 'payment-analysis' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {exportLoading === 'payment-analysis' ? 'Generating...' : 'Export PDF'}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -409,7 +465,7 @@ export default function SalesReports() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Outstanding Paymentsnts</CardTitle>
+                <CardTitle>Outstanding Payments</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
@@ -436,9 +492,9 @@ export default function SalesReports() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Order Status Distribution</CardTitle>
-                <Button onClick={() => handleExport('order-fulfillment')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export PDF
+                <Button onClick={() => handleExport('order-fulfillment')} disabled={exportLoading !== null}>
+                  {exportLoading === 'order-fulfillment' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {exportLoading === 'order-fulfillment' ? 'Generating...' : 'Export PDF'}
                 </Button>
               </CardHeader>
               <CardContent>

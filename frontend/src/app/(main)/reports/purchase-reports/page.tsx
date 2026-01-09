@@ -33,6 +33,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
@@ -46,19 +47,126 @@ import {
 } from "@/modules/inventory/services/purchase-reports-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { cn } from "@/lib/utils";
+import { pdf } from "@react-pdf/renderer";
+import { PurchaseReportPDF } from "@/modules/inventory/components/reports/PurchaseReportPDF";
+import { SettingsApi } from "@/services/settings-api";
+import { CompanySettings } from "@/services/settings-types";
 
 export default function PurchaseReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [activePreset, setActivePreset] = useState<DatePreset>("this_month");
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
   
   // Report data states
   const [summary, setSummary] = useState<PurchaseSummary | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierPerformance[]>([]);
   const [payments, setPayments] = useState<PurchasePayments | null>(null);
   
+  // PDF export states
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  
   const { formatCurrency } = useFormatting();
   const { toast } = useToast();
+
+  // Load logo as base64 for PDF
+  const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const base64 = canvas.toDataURL('image/png');
+            resolve(base64);
+          } else resolve(null);
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+    });
+  };
+
+  // Format currency for PDF (avoiding special characters)
+  const formatCurrencyForPDF = (val: number) => {
+    return formatCurrency(val).replace(/৳/g, 'TK');
+  };
+
+  const handleExport = async (reportType: 'purchase-summary' | 'supplier-performance' | 'purchase-payments') => {
+    // Check if data is available for the requested report type
+    if (reportType === 'purchase-summary' && !summary) {
+      toast({
+        title: "No Data",
+        description: "Please select a date range to load data before exporting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (reportType === 'supplier-performance' && suppliers.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No supplier data available for the selected period.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (reportType === 'purchase-payments' && !payments) {
+      toast({
+        title: "No Data",
+        description: "No payment data available for the selected period.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExportLoading(reportType);
+    try {
+      const blob = await pdf(
+        <PurchaseReportPDF
+          reportType={reportType}
+          dateRange={{
+            from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+            to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+          }}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          purchaseSummary={summary}
+          supplierPerformance={suppliers}
+          purchasePayments={payments}
+          formatCurrency={formatCurrencyForPDF}
+        />
+      ).toBlob();
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${reportType}-report.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Report exported successfully",
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to export report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(null);
+    }
+  };
 
   const fetchReports = useCallback(async () => {
     if (!dateRange?.from) return;
@@ -98,6 +206,28 @@ export default function PurchaseReportsPage() {
   const handlePrint = () => {
     window.print();
   };
+
+  useEffect(() => {
+    // Load company settings on mount
+    const loadSettings = async () => {
+      try {
+        const settings = await SettingsApi.getCompanySettings();
+        setCompanySettings(settings);
+        
+        if (settings.invoice_logo) {
+          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000';
+          const logoUrl = settings.invoice_logo.startsWith('http') 
+            ? settings.invoice_logo 
+            : `${baseUrl}${settings.invoice_logo}`;
+          const base64 = await loadLogoAsBase64(logoUrl);
+          if (base64) setLogoBase64(base64);
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     fetchReports();
@@ -224,6 +354,10 @@ export default function PurchaseReportsPage() {
                   <CardTitle>Top Suppliers</CardTitle>
                   <CardDescription>Suppliers by purchase volume and value</CardDescription>
                 </div>
+                <Button onClick={() => handleExport('supplier-performance')} disabled={exportLoading !== null}>
+                  {exportLoading === 'supplier-performance' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {exportLoading === 'supplier-performance' ? 'Generating...' : 'Export PDF'}
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -281,8 +415,16 @@ export default function PurchaseReportsPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2 border-border shadow-sm">
               <CardHeader className="border-b bg-muted/20">
-                <CardTitle>Payment Status Breakdown</CardTitle>
-                <CardDescription>Invoices organized by status</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Payment Status Breakdown</CardTitle>
+                    <CardDescription>Invoices organized by status</CardDescription>
+                  </div>
+                  <Button onClick={() => handleExport('purchase-payments')} disabled={exportLoading !== null}>
+                    {exportLoading === 'purchase-payments' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                    {exportLoading === 'purchase-payments' ? 'Generating...' : 'Export PDF'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
