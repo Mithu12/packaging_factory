@@ -1,11 +1,22 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
+import { 
+  Document, 
+  Page, 
+  Text, 
+  View, 
+  StyleSheet, 
+  Image, 
+  pdf 
+} from '@react-pdf/renderer';
+import { SettingsApi } from '@/services/settings-api';
+import { CompanySettings } from '@/services/settings-types';
 import { useFormatting } from '@/hooks/useFormatting';
+
 
 interface CartItem {
   id: string;
@@ -38,7 +49,345 @@ interface ReceiptProps {
   changeGiven?: number;
   orderDate: string;
   notes?: string;
+  previousDue?: number;
+  onClose?: () => void;
 }
+
+// Define styles for PDF
+const styles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontSize: 9,
+    fontFamily: 'Helvetica',
+    color: '#333',
+    lineHeight: 1.5,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+  },
+  logoSection: {
+    width: '50%',
+  },
+  logo: {
+    width: 120,
+    height: 'auto',
+    marginBottom: 5,
+  },
+  subtitle: {
+    fontSize: 8,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  titleSection: {
+    textAlign: 'right',
+    width: '50%',
+    gap: 2,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1D357B',
+    marginBottom: 8,
+    lineHeight: 1.1,
+  },
+  invoiceInfo: {
+    fontSize: 9,
+    color: '#333',
+    marginBottom: 2,
+  },
+  divider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginVertical: 10,
+  },
+  infoSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  leftColumn: {
+    width: '48%',
+  },
+  rightColumn: {
+    width: '48%',
+  },
+  sectionHeader: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  infoText: {
+    marginBottom: 3,
+  },
+  label: {
+    fontWeight: 'bold',
+  },
+  // Table
+  table: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 2,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#1D357B',
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    color: '#ffffff',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+  },
+  colNo: { width: '8%', textAlign: 'center' },
+  colDesc: { width: '42%', textAlign: 'left', paddingLeft: 10 },
+  colQty: { width: '15%', textAlign: 'center' },
+  colPrice: { width: '15%', textAlign: 'center' },
+  colTotal: { width: '20%', textAlign: 'right', paddingRight: 10 },
+  headerCell: {
+    fontWeight: 'bold',
+    fontSize: 10,
+  },
+  // Summary
+  summarySection: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 0, // No margin because it continues from table border
+  },
+  summaryContainer: {
+    width: '40%',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+  },
+  grandTotalRow: {
+    backgroundColor: '#1D357B',
+    color: '#ffffff',
+  },
+  summaryLabel: {
+    fontWeight: 'bold',
+  },
+  summaryValue: {
+    textAlign: 'right',
+  },
+  // Notes
+  notesSection: {
+    marginTop: 30,
+  },
+  notesHeader: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  noteItem: {
+    fontSize: 8,
+    marginBottom: 3,
+    color: '#666',
+  },
+  // Signatures
+  signatureSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 50,
+  },
+  signatureBox: {
+    width: '30%',
+    textAlign: 'center',
+  },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    borderTopStyle: 'dashed',
+    marginBottom: 5,
+  },
+  signatureLabel: {
+    fontSize: 9,
+  },
+});
+
+// PDF Document Component
+const InvoicePDF = ({ 
+  orderNumber, 
+  orderDate, 
+  customer, 
+  cart, 
+  total,
+  cashReceived,
+  previousDue = 0,
+  companySettings, 
+  logoBase64,
+  formatCurrency
+}: {
+  orderNumber: string;
+  orderDate: string;
+  customer: Customer | null;
+  cart: CartItem[];
+  total: number;
+  cashReceived?: number;
+  previousDue?: number;
+  companySettings: CompanySettings | null;
+  logoBase64: string | null;
+  formatCurrency: (val: number) => string;
+}) => {
+  const paid = cashReceived || 0;
+  const currentDue = total - paid;
+  const totalDue = currentDue + previousDue;
+
+  return (
+    <Document title={`Invoice-${orderNumber}`}>
+      <Page size="A4" style={styles.page}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.logoSection}>
+            {logoBase64 ? (
+              <Image src={logoBase64} style={styles.logo} />
+            ) : (
+              <Text style={[styles.title, { fontSize: 20, textAlign: 'left' }]}>{companySettings?.company_name || 'ERP'}</Text>
+            )}
+            <Text style={styles.subtitle}>Quality First Priority</Text>
+          </View>
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>INVOICE</Text>
+            <Text style={styles.invoiceInfo}>Invoice No : {orderNumber}</Text>
+            <Text style={styles.invoiceInfo}>
+              Invoice Date : {new Date(orderDate).toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+              }).replace(/\//g, '-')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Info Section */}
+        <View style={styles.infoSection}>
+          <View style={styles.leftColumn}>
+            <Text style={styles.sectionHeader}>Bill To:</Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Name : </Text>
+              {customer?.name || 'Walk-in Customer'}
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Address : </Text>
+              {/* Note: Customer interface in Receipt.tsx doesn't have address, but we can add it if needed */}
+              {''} 
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Email : </Text>
+              {customer?.email || ''}
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Phone : </Text>
+              {customer?.phone || ''}
+            </Text>
+          </View>
+
+          <View style={styles.rightColumn}>
+            <Text style={styles.sectionHeader}>{companySettings?.company_name || 'Zontech international'}:</Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Office : </Text>
+              {companySettings?.company_address || ''}
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Cell : </Text>
+              {companySettings?.phone || ''}
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.label}>Email : </Text>
+              {companySettings?.company_email || ''}
+            </Text>
+          </View>
+        </View>
+
+        {/* Table */}
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.colNo, styles.headerCell]}>No.</Text>
+            <Text style={[styles.colDesc, styles.headerCell]}>Description</Text>
+            <Text style={[styles.colQty, styles.headerCell]}>Quantity</Text>
+            <Text style={[styles.colPrice, styles.headerCell]}>Item Price</Text>
+            <Text style={[styles.colTotal, styles.headerCell]}>Sub Total</Text>
+          </View>
+          {cart.map((item, index) => (
+            <View key={item.id} style={styles.tableRow}>
+              <Text style={styles.colNo}>{index + 1}</Text>
+              <Text style={styles.colDesc}>{item.name}</Text>
+              <Text style={styles.colQty}>{item.quantity}</Text>
+              <Text style={styles.colPrice}>{formatCurrency(item.price)}</Text>
+              <Text style={styles.colTotal}>{formatCurrency(item.price * item.quantity)}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* SummarySection */}
+        <View style={styles.summarySection}>
+          <View style={styles.summaryContainer}>
+            <View style={[styles.summaryRow, styles.grandTotalRow]}>
+              <Text style={styles.summaryLabel}>Grand Total</Text>
+              <Text style={[styles.summaryValue, { fontWeight: 'bold' }]}>{formatCurrency(total)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Paid</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(paid)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Due</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(currentDue)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Previous Due</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(previousDue)}</Text>
+            </View>
+            <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.summaryLabel}>Total Due</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(totalDue)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Notes */}
+        <View style={styles.notesSection}>
+          <Text style={styles.notesHeader}>Notes :</Text>
+          <Text style={styles.noteItem}>1. Payment is due within 30 days from the date of the invoice.</Text>
+          <Text style={styles.noteItem}>2. Please make payment to the following bank account:</Text>
+        </View>
+
+        {/* Signatures */}
+        <View style={styles.signatureSection}>
+          <View style={styles.signatureBox}>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureLabel}>Receiver Signature</Text>
+          </View>
+          <View style={styles.signatureBox}>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureLabel}>Seller Signature</Text>
+          </View>
+        </View>
+      </Page>
+    </Document>
+  );
+};
+
 
 export function Receipt({
   orderNumber,
@@ -53,225 +402,130 @@ export function Receipt({
   cashReceived,
   changeGiven,
   orderDate,
-  notes
+  notes,
+  previousDue = 0,
+  onClose
 }: ReceiptProps) {
   const { formatCurrency } = useFormatting();
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const generateReceiptPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    let yPosition = margin;
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
-    // Helper function to add text
-    const addText = (text: string, x: number, y: number, options: any = {}) => {
-      doc.setFontSize(options.fontSize || 10);
-      doc.setFont('helvetica', options.style || 'normal');
-      doc.text(text, x, y);
-      return y + (options.lineHeight || 5);
-    };
-
-    // Helper function to add centered text
-    const addCenteredText = (text: string, y: number, options: any = {}) => {
-      doc.setFontSize(options.fontSize || 10);
-      doc.setFont('helvetica', options.style || 'normal');
-      const textWidth = doc.getTextWidth(text);
-      const x = (pageWidth - textWidth) / 2;
-      doc.text(text, x, y);
-      return y + (options.lineHeight || 5);
-    };
-
-    // Helper function to add right-aligned text
-    const addRightText = (text: string, y: number, options: any = {}) => {
-      doc.setFontSize(options.fontSize || 10);
-      doc.setFont('helvetica', options.style || 'normal');
-      const textWidth = doc.getTextWidth(text);
-      const x = pageWidth - margin - textWidth;
-      doc.text(text, x, y);
-      return y + (options.lineHeight || 5);
-    };
-
-    // Header
-    yPosition = addCenteredText('POS SYSTEM', yPosition, { fontSize: 16, style: 'bold' });
-    yPosition = addCenteredText('Sales Receipt', yPosition, { fontSize: 12, style: 'bold' });
-    yPosition += 5;
-
-    // Order details
-    yPosition = addText(`Receipt #: ${orderNumber}`, margin, yPosition);
-    yPosition = addText(`Date: ${new Date(orderDate).toLocaleString()}`, margin, yPosition);
-    const paymentMethodText = paymentMethod === 'partial' 
-      ? 'PARTIAL PAYMENT' 
-      : paymentMethod.toUpperCase();
-    yPosition = addText(`Payment: ${paymentMethodText}`, margin, yPosition);
-    
-    if (customer) {
-      yPosition = addText(`Customer: ${customer.name}`, margin, yPosition);
-      if (customer.phone) {
-        yPosition = addText(`Phone: ${customer.phone}`, margin, yPosition);
-      }
-    } else {
-      yPosition = addText('Customer: Walk-in', margin, yPosition);
-    }
-    
-    yPosition += 10;
-
-    // Separator line
-    doc.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 5;
-
-    // Items header
-    yPosition = addText('Item', margin, yPosition, { style: 'bold' });
-    doc.text('Qty', margin + 60, yPosition - 5);
-    doc.text('Price', margin + 90, yPosition - 5);
-    doc.text('Total', pageWidth - margin - 20, yPosition - 5, { align: 'right' });
-    yPosition += 5;
-
-    // Items
-    cart.forEach(item => {
-      const itemSubtotal = item.price * item.quantity;
-      let itemDiscount = 0;
-      
-      if (item.discount && item.discount > 0) {
-        if (item.discountType === 'percentage') {
-          itemDiscount = (itemSubtotal * item.discount) / 100;
-        } else {
-          itemDiscount = item.discount;
-        }
-      }
-      
-      const itemTotal = itemSubtotal - itemDiscount;
-      
-      // Item name (truncate if too long)
-      let itemName = item.name;
-      if (itemName.length > 25) {
-        itemName = itemName.substring(0, 22) + '...';
-      }
-
-      // Add gift indicator to name
-      if (item.isGift) {
-        itemName = `${itemName} (GIFT)`;
-      }
-
-      yPosition = addText(itemName, margin, yPosition);
-      doc.text(item.quantity.toString(), margin + 60, yPosition - 5);
-      
-      if (item.isGift) {
-        // Show crossed out price for gifts
-        doc.text(`${formatCurrency(item.price)}`, margin + 90, yPosition - 5);
-        doc.line(margin + 90, yPosition - 7, margin + 115, yPosition - 7); // Strike through
-        doc.text('FREE', pageWidth - margin - 20, yPosition - 5, { align: 'right' });
-      } else {
-        doc.text(`${formatCurrency(item.price)}`, margin + 90, yPosition - 5);
-        doc.text(`${formatCurrency(itemTotal)}`, pageWidth - margin - 20, yPosition - 5, { align: 'right' });
-      }
-      
-      // Show discount if applicable (gifts show as 100% discount)
-      if (item.isGift) {
-        yPosition = addText(`  Gift Item (100% discount)`, margin + 10, yPosition, { fontSize: 8 });
-      } else if (itemDiscount > 0) {
-        yPosition = addText(`  Discount: -${formatCurrency(itemDiscount)}`, margin + 10, yPosition, { fontSize: 8 });
-      }
-    });
-
-    yPosition += 5;
-
-    // Separator line
-    doc.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 5;
-
-    // Totals
-    yPosition = addRightText(`Subtotal: ${formatCurrency(subtotal)}`, yPosition);
-    
-    if (overallDiscount > 0) {
-      const discountText = overallDiscountType === 'percentage' 
-        ? `Discount (${overallDiscount}%): -${formatCurrency((subtotal * overallDiscount) / 100)}`
-        : `Discount: -${formatCurrency(overallDiscount)}`;
-      yPosition = addRightText(discountText, yPosition);
-    }
-    
-    yPosition = addRightText(`Tax: ${formatCurrency(tax)}`, yPosition);
-    
-    // Total line
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    yPosition = addRightText(`TOTAL: ${formatCurrency(total)}`, yPosition);
-    
-    yPosition += 5;
-
-    // Payment details
-    if (paymentMethod === 'cash' && cashReceived) {
-      yPosition = addRightText(`Cash Received: ${formatCurrency(cashReceived)}`, yPosition);
-      if (changeGiven && changeGiven > 0) {
-        yPosition = addRightText(`Change: ${formatCurrency(changeGiven)}`, yPosition);
-      }
-    } else if (paymentMethod === 'partial' && cashReceived) {
-      yPosition = addRightText(`Amount Paid: ${formatCurrency(cashReceived)}`, yPosition);
-      const remainingDue = total - cashReceived;
-      if (remainingDue > 0) {
-        yPosition = addRightText(`Remaining Due: ${formatCurrency(remainingDue)}`, yPosition);
-      }
-    }
-
-    yPosition += 10;
-
-    // Notes
-    if (notes) {
-      yPosition = addText('Notes:', margin, yPosition, { style: 'bold' });
-      yPosition = addText(notes, margin, yPosition);
-    }
-
-    yPosition += 10;
-
-    // Footer
-    yPosition = addCenteredText('Thank you for your business!', yPosition, { fontSize: 10 });
-    yPosition = addCenteredText('Please keep this receipt', yPosition, { fontSize: 8 });
-
-    return doc;
-  };
-
-  const handlePrintReceipt = () => {
-    const doc = generateReceiptPDF();
-    
-    // Open PDF in new window for printing
-    const pdfDataUri = doc.output('datauristring');
-    const printWindow = window.open();
-    
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Receipt ${orderNumber}</title>
-            <style>
-              body { margin: 0; padding: 0; }
-              iframe { width: 100%; height: 100vh; border: none; }
-            </style>
-          </head>
-          <body>
-            <iframe src="${pdfDataUri}"></iframe>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-      
-      toast({
-        title: "Receipt Printed",
-        description: `Receipt ${orderNumber} sent to printer`,
-      });
-    }
-  };
-
-  const handleDownloadReceipt = () => {
-    const doc = generateReceiptPDF();
-    doc.save(`receipt-${orderNumber}.pdf`);
-    
-    toast({
-      title: "Receipt Downloaded",
-      description: `Receipt ${orderNumber} downloaded successfully`,
+  const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const base64 = canvas.toDataURL('image/png');
+            resolve(base64);
+          } else resolve(null);
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
     });
   };
+
+  const loadSettings = async () => {
+    try {
+      const settings = await SettingsApi.getCompanySettings();
+      setCompanySettings(settings);
+      if (settings.invoice_logo) {
+        const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000';
+        const logoUrl = settings.invoice_logo.startsWith('http') ? settings.invoice_logo : `${baseUrl}${settings.invoice_logo}`;
+        const base64 = await loadLogoAsBase64(logoUrl);
+        if (base64) setLogoBase64(base64);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrencySafe = (val: number) => {
+    return formatCurrency(val).replace(/৳/g, 'TK');
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (loading) return;
+    try {
+      const blob = await pdf(
+        <InvoicePDF 
+          orderNumber={orderNumber}
+          orderDate={orderDate}
+          customer={customer}
+          cart={cart}
+          total={total}
+          cashReceived={cashReceived}
+          previousDue={previousDue}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          formatCurrency={formatCurrencySafe}
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${orderNumber}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast({ title: "Invoice Downloaded" });
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
+  const handlePrintReceipt = async () => {
+    if (loading) return;
+    try {
+      const blob = await pdf(
+        <InvoicePDF 
+          orderNumber={orderNumber}
+          orderDate={orderDate}
+          customer={customer}
+          cart={cart}
+          total={total}
+          cashReceived={cashReceived}
+          previousDue={previousDue}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          formatCurrency={formatCurrencySafe}
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      window.open(url);
+      toast({ title: "Invoice Printed" });
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      toast({ title: "Error", variant: "destructive" });
+    }
+  };
+
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+        <span>Preparing Invoice...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2">
@@ -281,7 +535,7 @@ export function Receipt({
         variant="outline"
       >
         <Printer className="w-4 h-4 mr-2" />
-        Print Receipt
+        Print Invoice
       </Button>
       <Button 
         onClick={handleDownloadReceipt}
@@ -289,8 +543,9 @@ export function Receipt({
         variant="outline"
       >
         <Download className="w-4 h-4 mr-2" />
-        Download PDF
+        Download Invoice
       </Button>
     </div>
   );
 }
+
