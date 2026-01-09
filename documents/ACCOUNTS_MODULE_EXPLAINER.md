@@ -38,6 +38,21 @@ At any moment, you can generate three vital reports:
 
 ---
 
+### The Life of a Transaction (A Quick Map)
+Ever wonder what happens when you click "Save" on a payment? Here is the journey:
+
+1.  **The Trigger:** You pay for something (like Office Rent).
+2.  **The Voucher:** You enter the details. The system creates a "Payment Voucher" (the digital receipt).
+3.  **The Posting:** Once approved, the system "Posts" it. This is like moving the receipt into the permanent record book.
+4.  **The Ripple Effect:** 
+    *   **Bank Account:** Your balance goes DOWN.
+    *   **Rent Expense:** Your total spending for the month goes UP.
+5.  **The Report:** You open your "Income Statement," and your Profit has automatically been recalculated to include this new rent payment.
+
+*Everything happens automatically after Step 2!*
+
+---
+
 ### Summary of Benefits
 *   **No More Guesswork:** You always know your exact bank balance and profit.
 *   **Error Prevention:** The system catches mathematical errors before they happen.
