@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,12 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  Building2
+  Building2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react"
 import {
   Table,
@@ -32,87 +37,80 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ApiService, Supplier, PurchaseOrder, ApiError } from "@/services/api"
+import { toast } from "@/components/ui/sonner"
 
 export default function SupplierOrders() {
   const params = useParams()
-  const id = typeof params.id === 'string' ? params.id : params.id?.[0]
+  const rawId = typeof params.id === 'string' ? params.id : params.id?.[0]
+  const id = rawId ? parseInt(rawId) : null
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   
-  // Mock supplier data
-  const supplier = {
-    id: "SUP-001",
-    name: "ABC Electronics Ltd",
-    contactPerson: "John Smith"
-  }
+  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [orders, setOrders] = useState<PurchaseOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock orders data
-  const orders = [
-    {
-      id: "PO-2024-001",
-      date: "2024-01-10",
-      status: "delivered",
-      items: 12,
-      totalAmount: 15750.00,
-      deliveryDate: "2024-01-15",
-      invoiceStatus: "paid"
-    },
-    {
-      id: "PO-2024-002", 
-      date: "2024-01-05",
-      status: "in-transit",
-      items: 8,
-      totalAmount: 9200.00,
-      deliveryDate: "2024-01-20",
-      invoiceStatus: "pending"
-    },
-    {
-      id: "PO-2023-089",
-      date: "2023-12-28",
-      status: "delivered",
-      items: 15,
-      totalAmount: 22100.00,
-      deliveryDate: "2024-01-02",
-      invoiceStatus: "paid"
-    },
-    {
-      id: "PO-2023-078",
-      date: "2023-12-15",
-      status: "delivered",
-      items: 6,
-      totalAmount: 8450.00,
-      deliveryDate: "2023-12-20",
-      invoiceStatus: "paid"
-    },
-    {
-      id: "PO-2023-065",
-      date: "2023-12-01",
-      status: "cancelled",
-      items: 10,
-      totalAmount: 12300.00,
-      deliveryDate: "2023-12-10",
-      invoiceStatus: "cancelled"
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  useEffect(() => {
+    if (id) {
+      loadData()
     }
-  ]
+  }, [id, currentPage, pageSize, searchTerm, statusFilter])
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const loadData = async () => {
+    if (!id) return;
+    try {
+      setLoading(true)
+      setError(null)
+
+      const [supplierData, ordersData] = await Promise.all([
+        ApiService.getSupplier(id),
+        ApiService.getPurchaseOrders({
+          supplier_id: id,
+          page: currentPage,
+          limit: pageSize,
+          search: searchTerm || undefined,
+          status: statusFilter !== "all" ? statusFilter as any : undefined,
+          sortBy: 'order_date',
+          sortOrder: 'desc'
+        })
+      ])
+
+      setSupplier(supplierData)
+      setOrders(ordersData.purchase_orders || [])
+      setTotalOrders(ordersData.total)
+      setTotalPages(Math.ceil(ordersData.total / pageSize))
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Failed to load supplier data"
+      setError(message)
+      toast.error(message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "received":
       case "delivered": return "bg-success text-white"
-      case "in-transit": return "bg-warning text-white"
+      case "in-transit":
+      case "sent": return "bg-warning text-white"
       case "pending": return "bg-info text-white"
       case "cancelled": return "bg-destructive text-white"
+      case "draft": return "bg-muted text-foreground"
       default: return "bg-muted"
     }
   }
 
-  const getInvoiceStatusColor = (status: string) => {
+  const getPriceColor = (status: string) => {
     switch (status) {
       case "paid": return "bg-success text-white"
       case "pending": return "bg-warning text-white"
@@ -122,10 +120,19 @@ export default function SupplierOrders() {
     }
   }
 
-  const totalOrders = orders.length
-  const totalValue = orders.reduce((sum, order) => sum + order.totalAmount, 0)
-  const activeOrders = orders.filter(order => order.status !== "delivered" && order.status !== "cancelled").length
-  const avgOrderValue = totalValue / totalOrders
+  // Calculate statistics (Note: these are for the current page/filter)
+  const statsTotalValue = orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0)
+  const activeOrdersCount = orders.filter(order => !["received", "cancelled", "delivered"].includes(order.status)).length
+  const avgOrderValue = totalOrders > 0 ? (statsTotalValue / orders.length) : 0
+
+  if (loading && !supplier) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Loading supplier orders...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -141,7 +148,7 @@ export default function SupplierOrders() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Purchase Orders</h1>
-            <p className="text-muted-foreground">Orders from {supplier.name}</p>
+            <p className="text-muted-foreground">Orders from {supplier?.name || 'Supplier'}</p>
           </div>
         </div>
         <Button onClick={() => router.push("/inventory/purchase-orders/new")}>
@@ -158,8 +165,8 @@ export default function SupplierOrders() {
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold">{supplier.name}</h3>
-              <p className="text-muted-foreground">ID: {supplier.id} • Contact: {supplier.contactPerson}</p>
+              <h3 className="text-xl font-semibold">{supplier?.name}</h3>
+              <p className="text-muted-foreground">ID: {supplier?.supplier_code} • Contact: {supplier?.contact_person}</p>
             </div>
           </div>
         </CardContent>
@@ -184,11 +191,11 @@ export default function SupplierOrders() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              Total Value
+              Total Value (Page)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">${statsTotalValue.toLocaleString()}</div>
             <p className="text-xs text-success">+12% vs last period</p>
           </CardContent>
         </Card>
@@ -201,8 +208,8 @@ export default function SupplierOrders() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeOrders}</div>
-            <p className="text-xs text-muted-foreground">In progress</p>
+            <div className="text-2xl font-bold">{activeOrdersCount}</div>
+            <p className="text-xs text-muted-foreground">In progress on this page</p>
           </CardContent>
         </Card>
         
@@ -237,13 +244,15 @@ export default function SupplierOrders() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue />
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="in-transit">In Transit</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="received">Received</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -254,48 +263,143 @@ export default function SupplierOrders() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total Amount</TableHead>
-                <TableHead>Delivery Date</TableHead>
-                <TableHead>Invoice Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-accent/50 cursor-pointer">
-                  <TableCell>
-                    <div className="font-medium">{order.id}</div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {order.date}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{order.items} items</TableCell>
-                  <TableCell className="font-medium">
-                    ${order.totalAmount.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {order.deliveryDate}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getInvoiceStatusColor(order.invoiceStatus)}>
-                      {order.invoiceStatus}
-                    </Badge>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order number</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Total Amount</TableHead>
+                  <TableHead>Expected Delivery</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading orders...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : orders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No purchase orders found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  orders.map((order) => (
+                    <TableRow 
+                      key={order.id} 
+                      className="hover:bg-accent/50 cursor-pointer"
+                      onClick={() => router.push(`/inventory/purchase-orders/${order.id}`)}
+                    >
+                      <TableCell>
+                        <div className="font-medium text-primary hover:underline">{order.po_number}</div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {new Date(order.order_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {order.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {order.currency} {(Number(order.total_amount) || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {order.expected_delivery_date ? new Date(order.expected_delivery_date).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalOrders)} of {totalOrders} orders
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
