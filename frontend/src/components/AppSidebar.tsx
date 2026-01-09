@@ -519,6 +519,18 @@ const menuSections: MenuSection[] = [
         icon: ShoppingCart,
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
       },
+      {
+        title: "Expense Reports",
+        url: "/reports/expense-reports",
+        icon: Receipt,
+        permission: PERMISSIONS.EXPENSES_READ,
+      },
+      {
+        title: "Supplier Payments",
+        url: "/reports/supplier-payments-reports",
+        icon: DollarSign,
+        permission: PERMISSIONS.PAYMENTS_READ,
+      },
     ],
   },
 ];
