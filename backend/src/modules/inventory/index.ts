@@ -11,6 +11,7 @@ import paymentsRoutes from "@/modules/inventory/routes/payments.routes";
 import distributionRoutes from "@/modules/inventory/routes/distribution.routes";
 import { registerInventoryAccountingListeners } from "@/services/inventoryAccountsIntegrationService";
 import express from "express";
+import purchaseReportsRoutes from "@/modules/inventory/routes/purchase-reports.routes";
 
 // Register inventory accounting listeners
 registerInventoryAccountingListeners();
@@ -18,6 +19,7 @@ registerInventoryAccountingListeners();
 const router = express.Router();
 // Mount inventory-module-routes
 router.use("/inventory", inventoryRouter);
+router.use("/inventory/reports", purchaseReportsRoutes);
 router.use("/suppliers", suppliersRoutes);
 router.use("/categories", categoriesRoutes);
 router.use("/products", productsRoutes);

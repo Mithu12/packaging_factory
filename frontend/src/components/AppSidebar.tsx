@@ -513,6 +513,12 @@ const menuSections: MenuSection[] = [
         icon: FileText,
         permission: PERMISSIONS.SALES_REPORTS_READ,
       },
+      {
+        title: "Purchase Reports",
+        url: "/reports/purchase-reports",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.PURCHASE_ORDERS_READ,
+      },
     ],
   },
 ];
