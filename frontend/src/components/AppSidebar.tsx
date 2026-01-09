@@ -93,12 +93,6 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
-      {
-        title: "Sales Reports",
-        url: "/sales-reports",
-        icon: FileText,
-        permission: PERMISSIONS.SALES_REPORTS_READ,
-      },
     ],
   },
   {

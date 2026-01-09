@@ -171,19 +171,18 @@ class SalesReportsController {
                     payment_method,
                     COUNT(*) as order_count,
                     SUM(total_amount) as total_amount
-                FROM sales_orders
-                ${whereClause}
-                AND payment_method IS NOT NULL
+                FROM sales_orders so
+                ${whereClause ? whereClause + ' AND payment_method IS NOT NULL' : 'WHERE payment_method IS NOT NULL'}
                 GROUP BY payment_method
                 ORDER BY total_amount DESC
             `;
 
             const outstandingQuery = `
                 SELECT
-                    SUM(total_amount - cash_received) as total_outstanding,
+                    COALESCE(SUM(total_amount - COALESCE(cash_received, 0)), 0) as total_outstanding,
                     COUNT(*) as outstanding_orders
-                FROM sales_orders
-                ${whereClause ? whereClause + ' AND payment_status != \'paid\'' : 'WHERE payment_status != \'paid\''}
+                FROM sales_orders so
+                ${whereClause ? whereClause + " AND payment_status != 'paid'" : "WHERE payment_status != 'paid'"}
             `;
 
             const [paymentMethodsResult, outstandingResult] = await Promise.all([
@@ -331,8 +330,8 @@ class SalesReportsController {
                 SELECT
                     reason,
                     COUNT(*) as return_count,
-                    SUM(final_refund_amount) as total_amount
-                FROM sales_returns
+                    COALESCE(SUM(final_refund_amount), 0) as total_amount
+                FROM sales_returns sr
                 ${whereClause}
                 GROUP BY reason
                 ORDER BY return_count DESC
