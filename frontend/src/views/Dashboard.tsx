@@ -180,32 +180,28 @@ export default function Dashboard() {
       value: formatCurrency(stats?.total_sales || 0),
       change: `${formatCurrency(stats?.today_sales || 0)} today`,
       icon: DollarSign,
-      color: "text-green-600",
-      bgColor: "from-green-500/10 to-green-500/5"
+      gradient: "bg-gradient-to-br from-emerald-600 to-green-500"
     },
     {
       title: "Total Profit",
       value: formatCurrency(stats?.total_profit || 0),
       change: `${stats?.total_orders || 0} total orders`,
       icon: TrendingUp,
-      color: "text-blue-600",
-      bgColor: "from-blue-500/10 to-blue-500/5"
+      gradient: "bg-gradient-to-br from-blue-600 to-indigo-500"
     },
     {
       title: "Total Expenses",
       value: formatCurrency(stats?.total_expenses || 0),
       change: `${formatCurrency(stats?.today_expenses || 0)} today`,
       icon: Receipt,
-      color: "text-orange-600",
-      bgColor: "from-orange-500/10 to-orange-500/5"
+      gradient: "bg-gradient-to-br from-rose-600 to-red-500"
     },
     {
       title: "Net Profit",
       value: formatCurrency(stats?.net_profit || 0),
       change: (stats?.net_profit || 0) >= 0 ? "Positive" : "Negative",
       icon: (stats?.net_profit || 0) >= 0 ? ArrowUpRight : ArrowDownRight,
-      color: (stats?.net_profit || 0) >= 0 ? "text-emerald-600" : "text-red-600",
-      bgColor: (stats?.net_profit || 0) >= 0 ? "from-emerald-500/10 to-emerald-500/5" : "from-red-500/10 to-red-500/5"
+      gradient: (stats?.net_profit || 0) >= 0 ? "bg-gradient-to-br from-teal-600 to-cyan-500" : "bg-gradient-to-br from-red-600 to-rose-500"
     }
   ];
 
@@ -215,28 +211,40 @@ export default function Dashboard() {
       value: formatNumber(stats?.today_orders || 0),
       subtitle: `${stats?.pending_orders || 0} pending`,
       icon: ShoppingCart,
-      color: "text-purple-600"
+      bgColor: "bg-blue-50/50",
+      borderColor: "border-blue-100",
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-100"
     },
     {
       title: "Low Stock Items",
       value: formatNumber(stats?.low_stock_count || 0),
       subtitle: `${stats?.out_of_stock_count || 0} out of stock`,
       icon: Package,
-      color: "text-amber-600"
+      bgColor: "bg-emerald-50/50",
+      borderColor: "border-emerald-100",
+      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-100"
     },
     {
       title: "Outstanding Dues",
       value: formatCurrency(stats?.total_outstanding_dues || 0),
       subtitle: `${stats?.customers_with_dues || 0} customers`,
       icon: Wallet,
-      color: "text-red-600"
+      bgColor: "bg-purple-50/50",
+      borderColor: "border-purple-100",
+      iconColor: "text-purple-600",
+      iconBg: "bg-purple-100"
     },
     {
       title: "Service Alerts",
       value: formatNumber((stats?.warranty_due_count || 0) + (stats?.service_due_count || 0)),
       subtitle: "Due in 30 days",
       icon: Wrench,
-      color: "text-cyan-600"
+      bgColor: "bg-orange-50/50",
+      borderColor: "border-orange-100",
+      iconColor: "text-orange-600",
+      iconBg: "bg-orange-100"
     }
   ];
 
@@ -317,21 +325,21 @@ export default function Dashboard() {
       {/* Main Stats Cards - Financial Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {mainStats.map((stat, index) => (
-          <Card key={index} className={`bg-gradient-to-br ${stat.bgColor} hover:shadow-lg transition-all duration-300 border-0`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg bg-background/50 ${stat.color}`}>
-                <stat.icon className="h-4 w-4" />
+          <Card key={index} className={`${stat.gradient} border-0 shadow-lg shadow-primary/10 hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 group overflow-hidden`}>
+            <CardContent className="pt-6 relative">
+              <div className="flex items-center justify-between">
+                <div className="z-10">
+                  <p className="text-sm text-white/80 font-medium">{stat.title}</p>
+                  <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                  <p className="text-xs text-white/70 flex items-center mt-2 font-medium">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {stat.change}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/20 text-white backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                  <stat.icon className="h-6 w-6" />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-muted-foreground flex items-center mt-1">
-                <Clock className="w-3 h-3 mr-1" />
-                {stat.change}
-              </p>
             </CardContent>
           </Card>
         ))}
@@ -340,16 +348,16 @@ export default function Dashboard() {
       {/* Secondary Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {secondaryStats.map((stat, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6">
+          <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 shadow-md hover:shadow-xl transition-all duration-300 group overflow-hidden`}>
+            <CardContent className="pt-6 relative">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+                <div className="z-10">
+                  <p className="text-sm text-muted-foreground font-medium">{stat.title}</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground/80 mt-1">{stat.subtitle}</p>
                 </div>
-                <div className={`p-3 rounded-full bg-muted ${stat.color}`}>
-                  <stat.icon className="h-5 w-5" />
+                <div className={`p-3 rounded-xl ${stat.iconBg} ${stat.iconColor} group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -360,14 +368,16 @@ export default function Dashboard() {
       {/* Service Overview Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Warranty Due */}
-        <Card>
+        <Card className="bg-sky-50/50 border-sky-100 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-blue-500" />
+                <div className="p-2 rounded-lg bg-sky-100 text-sky-600">
+                  <Shield className="w-5 h-5" />
+                </div>
                 Warranty Expiring Soon
               </span>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+              <Badge variant="secondary" className="bg-sky-100 text-sky-700 hover:bg-sky-200">
                 {stats?.warranty_due_count || 0} items
               </Badge>
             </CardTitle>
@@ -376,7 +386,7 @@ export default function Dashboard() {
             {(stats?.warranty_due_items?.length || 0) > 0 ? (
               <div className="space-y-3">
                 {stats?.warranty_due_items.map((item, index) => (
-                  <div key={index} className="p-3 rounded-lg border border-blue-200 bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                  <div key={index} className="p-3 rounded-lg border border-sky-200 bg-white/50 hover:bg-sky-50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h4 className="font-medium text-sm">{item.product_name}</h4>
@@ -407,14 +417,16 @@ export default function Dashboard() {
         </Card>
 
         {/* Service Due */}
-        <Card>
+        <Card className="bg-amber-50/50 border-amber-100 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-amber-500" />
+                <div className="p-2 rounded-lg bg-amber-100 text-amber-600">
+                  <Wrench className="w-5 h-5" />
+                </div>
                 Service Due Soon
               </span>
-              <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200">
                 {stats?.service_due_count || 0} items
               </Badge>
             </CardTitle>
@@ -457,14 +469,16 @@ export default function Dashboard() {
       {/* Low Stock & Inventory Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Low Stock Alerts */}
-        <Card>
+        <Card className="bg-orange-50/50 border-orange-100 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
+                <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
                 Inventory Overview
               </span>
-              <Button variant="outline" size="sm" onClick={() => router.push("/inventory")}>
+              <Button variant="outline" size="sm" onClick={() => router.push("/inventory")} className="border-orange-200 hover:bg-orange-50 text-orange-700">
                 Manage
               </Button>
             </CardTitle>
@@ -472,15 +486,15 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 rounded-lg bg-muted/50">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-orange-100/50 shadow-sm">
                   <p className="text-2xl font-bold text-foreground">{stats?.total_products || 0}</p>
                   <p className="text-xs text-muted-foreground">Total Products</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-amber-200/50 shadow-sm">
                   <p className="text-2xl font-bold text-amber-600">{stats?.low_stock_count || 0}</p>
                   <p className="text-xs text-muted-foreground">Low Stock</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-red-50 border border-red-200">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-red-200/50 shadow-sm">
                   <p className="text-2xl font-bold text-red-600">{stats?.out_of_stock_count || 0}</p>
                   <p className="text-xs text-muted-foreground">Out of Stock</p>
                 </div>
@@ -498,14 +512,16 @@ export default function Dashboard() {
         </Card>
 
         {/* Customer Dues Summary */}
-        <Card>
+        <Card className="bg-violet-50/50 border-violet-100 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-purple-500" />
+                <div className="p-2 rounded-lg bg-violet-100 text-violet-600">
+                  <Users className="w-5 h-5" />
+                </div>
                 Customer Payments
               </span>
-              <Button variant="outline" size="sm" onClick={() => router.push("/customers")}>
+              <Button variant="outline" size="sm" onClick={() => router.push("/customers")} className="border-violet-200 hover:bg-violet-50 text-violet-700">
                 View All
               </Button>
             </CardTitle>
@@ -513,20 +529,20 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 rounded-lg bg-muted/50">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm">
                   <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(stats?.total_outstanding_dues || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Outstanding</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-purple-50 border border-purple-200">
-                  <p className="text-2xl font-bold text-purple-600">{stats?.customers_with_dues || 0}</p>
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm">
+                  <p className="text-2xl font-bold text-violet-600">{stats?.customers_with_dues || 0}</p>
                   <p className="text-xs text-muted-foreground">Customers with Dues</p>
                 </div>
               </div>
               {(stats?.total_outstanding_dues || 0) > 0 && (
-                <div className="p-3 mt-4 rounded-lg bg-purple-50 border border-purple-200">
-                  <p className="text-sm text-purple-800">
+                <div className="p-3 mt-4 rounded-lg bg-violet-50 border border-violet-200">
+                  <p className="text-sm text-violet-800">
                     <Wallet className="w-4 h-4 inline mr-2" />
                     Collect outstanding dues to improve cash flow
                   </p>
