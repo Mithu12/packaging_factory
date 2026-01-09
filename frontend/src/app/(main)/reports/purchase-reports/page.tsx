@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -29,7 +22,6 @@ import {
   Download,
   Package,
   DollarSign,
-  TrendingUp,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -55,6 +47,7 @@ import { CompanySettings } from "@/services/settings-types";
 export default function PurchaseReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [activePreset, setActivePreset] = useState<DatePreset>("this_month");
+  const [activeTab, setActiveTab] = useState("suppliers");
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
   
@@ -207,6 +200,8 @@ export default function PurchaseReportsPage() {
     window.print();
   };
 
+  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
+
   useEffect(() => {
     // Load company settings on mount
     const loadSettings = async () => {
@@ -235,21 +230,21 @@ export default function PurchaseReportsPage() {
 
   return (
     <div className="p-6 space-y-6 print:p-0">
-      {/* Header */}
+      {/* Header with Quick Filter */}
       <div className="space-y-4 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Purchase Reports</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Purchase Reports</h1>
             <p className="text-muted-foreground">
-              Monitor procurement performance and supplier metrics
+              Comprehensive procurement analytics and supplier insights
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={fetchReports} disabled={loading} className="border-border hover:bg-muted transition-colors">
-              <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+            <Button variant="outline" onClick={fetchReports} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handlePrint} className="border-border hover:bg-muted transition-colors">
+            <Button variant="outline" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>
@@ -263,251 +258,276 @@ export default function PurchaseReportsPage() {
         />
       </div>
 
-      {/* Summary Cards - Neutral B&W Design */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-background border-border shadow-sm hover:border-foreground/20 transition-all group">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2 group-hover:text-foreground transition-colors">
-              <DollarSign className="w-4 h-4" />
-              Total Purchase
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {summary ? formatCurrency(summary.total_value) : "$0.00"}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {summary?.total_orders || 0} orders placed
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-background border-border shadow-sm hover:border-foreground/20 transition-all group">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2 group-hover:text-foreground transition-colors">
-              <Package className="w-4 h-4" />
-              Received Orders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {summary?.received_orders || 0}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {summary ? summary.received_rate.toFixed(1) : 0}% fulfillment rate
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-background border-border shadow-sm hover:border-foreground/20 transition-all group">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2 group-hover:text-foreground transition-colors">
-              <Users className="w-4 h-4" />
-              Active Suppliers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {summary?.unique_suppliers || 0}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Suppliers engaged this period
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-background border-border shadow-sm hover:border-foreground/20 transition-all group">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2 group-hover:text-foreground transition-colors">
-              <Clock className="w-4 h-4" />
-              Pending POs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {summary?.pending_orders || 0}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1 text-orange-600 dark:text-orange-400 font-medium">
-              Awaiting delivery
-            </div>
-          </CardContent>
-        </Card>
+      {/* Print Header */}
+      <div className="hidden print:block mb-6">
+        <h1 className="text-2xl font-bold">Purchase Report</h1>
+        <p className="text-sm text-gray-600">
+          Period: {dateRange?.from ? format(dateRange.from, "MMM d, yyyy") : ""} 
+          {dateRange?.to && dateRange.from?.getTime() !== dateRange.to.getTime() 
+            ? ` - ${format(dateRange.to, "MMM d, yyyy")}` 
+            : ""}
+        </p>
+        <p className="text-sm text-gray-600">Generated: {format(new Date(), "MMM d, yyyy 'at' h:mm a")}</p>
       </div>
 
-      <Tabs defaultValue="suppliers" className="space-y-6">
-        <TabsList className="bg-muted/50 border border-border p-1">
-          <TabsTrigger value="suppliers" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/10 border-blue-100/50 dark:border-blue-800/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Total Purchase
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                {formatCurrency(summary.total_value)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {summary.total_orders} orders placed
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-100/50 dark:border-green-800/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Received Orders
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                {summary.received_orders}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {formatPercentage(summary.received_rate)} fulfillment rate
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-violet-50/50 dark:from-purple-900/20 dark:to-violet-900/10 border-purple-100/50 dark:border-purple-800/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Active Suppliers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
+                {summary.unique_suppliers}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Suppliers engaged this period
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-900/20 dark:to-orange-900/10 border-amber-100/50 dark:border-amber-800/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Pending POs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                {summary.pending_orders}
+              </div>
+              <div className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                Awaiting delivery
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Report Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="print:hidden">
+          <TabsTrigger value="suppliers" className="gap-2">
             <Users className="w-4 h-4" />
-            Supplier Performance
+            Suppliers
           </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="payments" className="gap-2">
             <CreditCard className="w-4 h-4" />
-            Purchase Payments
+            Payments
           </TabsTrigger>
         </TabsList>
 
+        {/* Suppliers Tab */}
         <TabsContent value="suppliers">
-          <Card className="border-border shadow-sm overflow-hidden">
-            <CardHeader className="border-b bg-muted/20 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Top Suppliers</CardTitle>
-                  <CardDescription>Suppliers by purchase volume and value</CardDescription>
-                </div>
-                <Button onClick={() => handleExport('supplier-performance')} disabled={exportLoading !== null}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between print:pb-2">
+              <div>
+                <CardTitle>Supplier Performance</CardTitle>
+                <CardDescription>Top suppliers by purchase volume and value</CardDescription>
+              </div>
+              <div className="flex gap-2 print:hidden">
+                <Button variant="outline" size="sm" onClick={() => handleExport("supplier-performance")} disabled={exportLoading !== null}>
                   {exportLoading === 'supplier-performance' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                  {exportLoading === 'supplier-performance' ? 'Generating...' : 'Export PDF'}
+                  {exportLoading === 'supplier-performance' ? 'Generating...' : 'Export'}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b">
-                    <TableHead className="font-semibold text-foreground">Supplier</TableHead>
-                    <TableHead className="font-semibold text-foreground">Code</TableHead>
-                    <TableHead className="text-right font-semibold text-foreground">Orders</TableHead>
-                    <TableHead className="text-right font-semibold text-foreground">Total Value</TableHead>
-                    <TableHead className="text-right font-semibold text-foreground">Avg Value</TableHead>
-                    <TableHead className="font-semibold text-foreground">Last Order</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suppliers.map((supplier) => (
-                    <TableRow key={supplier.id} className="hover:bg-muted/20 transition-colors border-b last:border-0">
-                      <TableCell>
-                        <div className="font-medium text-foreground">{supplier.name}</div>
-                        <div className="text-xs text-muted-foreground">{supplier.phone}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-[10px] py-0 border-border bg-muted/40 text-foreground">
-                          {supplier.supplier_code}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{supplier.total_orders}</TableCell>
-                      <TableCell className="text-right font-bold text-foreground">
-                        {formatCurrency(supplier.total_purchase_value)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatCurrency(supplier.avg_purchase_value)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {supplier.last_purchase_date
-                          ? format(new Date(supplier.last_purchase_date), "MMM d, yyyy")
-                          : "Never"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {suppliers.length === 0 && !loading && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                        No supplier data found for this period.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              {suppliers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">Supplier</TableHead>
+                        <TableHead className="font-semibold">Code</TableHead>
+                        <TableHead className="font-semibold text-right">Orders</TableHead>
+                        <TableHead className="font-semibold text-right">Total Value</TableHead>
+                        <TableHead className="font-semibold text-right">Avg Value</TableHead>
+                        <TableHead className="font-semibold">Last Order</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {suppliers.map((supplier) => (
+                        <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell>
+                            <div className="font-medium">{supplier.name}</div>
+                            <div className="text-xs text-muted-foreground">{supplier.phone}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="font-mono text-[10px]">
+                              {supplier.supplier_code}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{supplier.total_orders}</TableCell>
+                          <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">
+                            {formatCurrency(supplier.total_purchase_value)}
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {formatCurrency(supplier.avg_purchase_value)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {supplier.last_purchase_date
+                              ? format(new Date(supplier.last_purchase_date), "MMM d, yyyy")
+                              : "Never"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No supplier data found for the selected period</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Payments Tab */}
         <TabsContent value="payments">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2 border-border shadow-sm">
-              <CardHeader className="border-b bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Payment Status Breakdown</CardTitle>
-                    <CardDescription>Invoices organized by status</CardDescription>
-                  </div>
-                  <Button onClick={() => handleExport('purchase-payments')} disabled={exportLoading !== null}>
-                    {exportLoading === 'purchase-payments' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                    {exportLoading === 'purchase-payments' ? 'Generating...' : 'Export PDF'}
-                  </Button>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Payment Methods</CardTitle>
+                  <CardDescription>Payments by status</CardDescription>
                 </div>
+                <Button variant="outline" size="sm" onClick={() => handleExport("purchase-payments")} disabled={exportLoading !== null} className="print:hidden">
+                  {exportLoading === 'purchase-payments' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {exportLoading === 'purchase-payments' ? 'Generating...' : 'Export'}
+                </Button>
               </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="font-semibold text-foreground">Status</TableHead>
-                      <TableHead className="text-right font-semibold text-foreground">Count</TableHead>
-                      <TableHead className="text-right font-semibold text-foreground">Total Amount</TableHead>
-                      <TableHead className="text-right font-semibold text-foreground">Paid</TableHead>
-                      <TableHead className="text-right font-semibold text-foreground">Outstanding</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments?.status_distribution.map((item) => (
-                      <TableRow key={item.status} className="hover:bg-muted/20 transition-colors">
-                        <TableCell>
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "capitalize border-border",
-                              item.status === 'paid' && "bg-black text-white",
-                              item.status === 'pending' && "bg-muted text-foreground",
-                              item.status === 'partial' && "bg-foreground text-background"
-                            )}
-                          >
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">{item.count}</TableCell>
-                        <TableCell className="text-right font-bold">{formatCurrency(item.total_amount)}</TableCell>
-                        <TableCell className="text-right text-green-600 dark:text-green-400 font-medium">{formatCurrency(item.paid_amount)}</TableCell>
-                        <TableCell className="text-right text-red-600 dark:text-red-400 font-medium">{formatCurrency(item.outstanding_amount)}</TableCell>
-                      </TableRow>
+              <CardContent>
+                {payments?.status_distribution && payments.status_distribution.length > 0 ? (
+                  <div className="space-y-4">
+                    {payments.status_distribution.map((item) => (
+                      <div key={item.status} className="flex items-center justify-between p-4 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            item.status === 'paid' && "bg-green-100 dark:bg-green-900/30",
+                            item.status === 'pending' && "bg-orange-100 dark:bg-orange-900/30",
+                            item.status === 'partial' && "bg-blue-100 dark:bg-blue-900/30"
+                          )}>
+                            <CreditCard className={cn(
+                              "w-5 h-5",
+                              item.status === 'paid' && "text-green-600 dark:text-green-400",
+                              item.status === 'pending' && "text-orange-600 dark:text-orange-400",
+                              item.status === 'partial' && "text-blue-600 dark:text-blue-400"
+                            )} />
+                          </div>
+                          <div>
+                            <div className="font-medium capitalize">{item.status}</div>
+                            <div className="text-sm text-muted-foreground">{item.count} invoices</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">
+                            {formatCurrency(item.total_amount)}
+                          </div>
+                          <div className="text-sm text-green-600 dark:text-green-400">
+                            Paid: {formatCurrency(item.paid_amount)}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                    {!payments && !loading && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          No payment data found.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CreditCard className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No payment data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="border-border shadow-sm bg-muted/10">
-              <CardHeader className="border-b bg-muted/20">
-                <CardTitle>Payment Summary</CardTitle>
-                <CardDescription>Overall procurement liability</CardDescription>
+            <Card>
+              <CardHeader>
+                <CardTitle>Outstanding Payments</CardTitle>
+                <CardDescription>Summary of unpaid invoices</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6 space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Invoices</span>
-                    <span className="font-bold">{payments?.totals.total_invoices || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Amount</span>
-                    <span className="font-bold text-lg">{formatCurrency(payments?.totals.total_amount || 0)}</span>
-                  </div>
-                  <div className="border-t pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Paid to Suppliers</span>
-                      <span className="font-semibold text-green-600">{formatCurrency(payments?.totals.total_paid || 0)}</span>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-6 rounded-lg border bg-orange-50 dark:bg-orange-900/20 text-center">
+                    <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                      {formatCurrency(payments?.totals.total_outstanding || 0)}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Total Outstanding</span>
-                      <span className="font-bold text-red-600 size-lg">{formatCurrency(payments?.totals.total_outstanding || 0)}</span>
+                    <div className="text-sm text-muted-foreground mt-2">Total Outstanding</div>
+                  </div>
+                  <div className="p-6 rounded-lg border bg-green-50 dark:bg-green-900/20 text-center">
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(payments?.totals.total_paid || 0)}
                     </div>
+                    <div className="text-sm text-muted-foreground mt-2">Total Paid</div>
+                  </div>
+                  <div className="p-6 rounded-lg border text-center">
+                    <div className="text-3xl font-bold text-primary">
+                      {payments?.totals.total_invoices || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">Total Invoices</div>
+                  </div>
+                  <div className="p-6 rounded-lg border text-center">
+                    <div className="text-3xl font-bold text-primary">
+                      {formatCurrency(payments?.totals.total_amount || 0)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">Total Amount</div>
                   </div>
                 </div>
-                
-                <div className="bg-black text-white p-4 rounded-lg space-y-2">
-                  <div className="text-xs uppercase tracking-wider opacity-70">Payment Progress</div>
-                  <div className="text-2xl font-bold">
-                    {payments && payments.totals.total_amount > 0 
-                      ? ((payments.totals.total_paid / payments.totals.total_amount) * 100).toFixed(1)
-                      : "0.0"}%
+
+                {/* Payment Progress */}
+                <div className="mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium opacity-90">Payment Progress</span>
+                    <span className="text-lg font-bold">
+                      {payments && payments.totals.total_amount > 0 
+                        ? formatPercentage((payments.totals.total_paid / payments.totals.total_amount) * 100)
+                        : "0.0%"}
+                    </span>
                   </div>
-                  <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden mt-2">
+                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
                     <div 
-                      className="bg-white h-full transition-all duration-500" 
+                      className="bg-white h-full transition-all duration-500 rounded-full" 
                       style={{ 
                         width: `${payments && payments.totals.total_amount > 0 
                           ? (payments.totals.total_paid / payments.totals.total_amount) * 100 
@@ -521,6 +541,22 @@ export default function PurchaseReportsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+          .print\\:block {
+            display: block !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
