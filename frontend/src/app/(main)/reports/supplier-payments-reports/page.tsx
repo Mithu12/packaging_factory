@@ -27,6 +27,7 @@ import {
   AlertCircle,
   CreditCard,
   Banknote,
+  RefreshCw,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
@@ -193,6 +194,10 @@ export default function SupplierPaymentsReportsPage() {
           <p className="text-muted-foreground">Analyze payments made to suppliers and outstanding invoices.</p>
         </div>
         <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={fetchReports} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           <Button variant="outline" onClick={handlePrint} disabled={printing || loading || !paymentStats}>
             {printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
             Print

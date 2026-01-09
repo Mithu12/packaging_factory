@@ -28,6 +28,7 @@ import {
   Clock,
   XCircle,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
@@ -233,6 +234,14 @@ export default function ExpenseReportsPage() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={fetchReports}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           <Button 
             variant="outline" 
             onClick={handlePrint}

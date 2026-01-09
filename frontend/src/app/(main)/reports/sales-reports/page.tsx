@@ -383,49 +383,52 @@ export default function SalesReportsPage() {
 
   return (
     <div className=" space-y-6 print:p-0">
-      {/* Header with Quick Filter */}
-      <div className="space-y-4 print:hidden">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Sales Reports</h1>
-            <p className="text-muted-foreground">
-              Comprehensive sales analytics and performance insights
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedBranch?.toString() || "all"}
-              onValueChange={(value) => setSelectedBranch(value === "all" ? undefined : parseInt(value))}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Branches</SelectItem>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id.toString()}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={() => { fetchReports(); fetchSalesOrders(); }} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <Button variant="outline" onClick={handlePrint} disabled={loading || printing}>
-              {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
-              {printing ? "Preparing..." : "Print"}
-            </Button>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between space-y-2 md:space-y-0 print:hidden">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Sales Reports</h2>
+          <p className="text-muted-foreground">Comprehensive sales analytics and performance insights</p>
         </div>
-
-        {/* Quick Date Filter */}
-        <QuickDateFilter
-          onDateChange={handleDateChange}
-          defaultPreset="today"
-        />
+        <div className="flex items-center space-x-2">
+          <Select
+            value={selectedBranch?.toString() || "all"}
+            onValueChange={(value) => setSelectedBranch(value === "all" ? undefined : parseInt(value))}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="All Branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id.toString()}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => { fetchReports(); fetchSalesOrders(); }} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="outline" onClick={handlePrint} disabled={loading || printing}>
+            {printing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
+            Print
+          </Button>
+        </div>
       </div>
+
+      {/* Date Filter Card */}
+      <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-950/50 print:hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-1 block text-muted-foreground">Date Range</label>
+              <QuickDateFilter onDateChange={handleDateChange} defaultPreset="today" className="w-full" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
 
       {/* Print Header */}
       <div className="hidden print:block mb-6">
@@ -441,72 +444,52 @@ export default function SalesReportsPage() {
 
       {/* Summary Cards */}
       {salesSummary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/10 border-blue-100/50 dark:border-blue-800/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                Total Revenue
-              </CardTitle>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="relative overflow-hidden group border-none shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-700 opacity-90 transition-transform group-hover:scale-105 duration-500" />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-blue-50">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-100" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
-                {formatCurrency(salesSummary.total_revenue)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {salesSummary.total_orders} orders
-              </div>
+            <CardContent className="relative">
+              <div className="text-2xl font-bold text-white">{formatCurrency(salesSummary.total_revenue)}</div>
+              <p className="text-xs text-blue-100 mt-1">{salesSummary.total_orders} orders</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-100/50 dark:border-green-800/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                Avg Order Value
-              </CardTitle>
+          <Card className="relative overflow-hidden group border-none shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-600 opacity-90 transition-transform group-hover:scale-105 duration-500" />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-50">Avg Order Value</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-emerald-100" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                {formatCurrency(salesSummary.avg_order_value)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {salesSummary.unique_customers} customers
-              </div>
+            <CardContent className="relative">
+              <div className="text-2xl font-bold text-white">{formatCurrency(salesSummary.avg_order_value)}</div>
+              <p className="text-xs text-emerald-100 mt-1">{salesSummary.unique_customers} customers</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-violet-50/50 dark:from-purple-900/20 dark:to-violet-900/10 border-purple-100/50 dark:border-purple-800/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Payment Rate
-              </CardTitle>
+          <Card className="relative overflow-hidden group border-none shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-violet-600 opacity-90 transition-transform group-hover:scale-105 duration-500" />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-50">Payment Rate</CardTitle>
+              <CreditCard className="h-4 w-4 text-purple-100" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
-                {formatPercentage(salesSummary.payment_rate)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {salesSummary.paid_orders} paid orders
-              </div>
+            <CardContent className="relative">
+              <div className="text-2xl font-bold text-white">{formatPercentage(salesSummary.payment_rate)}</div>
+              <p className="text-xs text-purple-100 mt-1">{salesSummary.paid_orders} paid orders</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-900/20 dark:to-orange-900/10 border-amber-100/50 dark:border-amber-800/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Completion Rate
-              </CardTitle>
+          <Card className="relative overflow-hidden group border-none shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 opacity-90 transition-transform group-hover:scale-105 duration-500" />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-amber-50">Completion Rate</CardTitle>
+              <Package className="h-4 w-4 text-amber-100" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                {formatPercentage(salesSummary.completion_rate)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {salesSummary.completed_orders} completed
-              </div>
+            <CardContent className="relative">
+              <div className="text-2xl font-bold text-white">{formatPercentage(salesSummary.completion_rate)}</div>
+              <p className="text-xs text-amber-100 mt-1">{salesSummary.completed_orders} completed</p>
             </CardContent>
           </Card>
         </div>
@@ -514,7 +497,7 @@ export default function SalesReportsPage() {
 
       {/* Report Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="print:hidden">
+        <TabsList className="print:hidden bg-white/50 backdrop-blur-sm dark:bg-slate-950/50 p-1">
           <TabsTrigger value="sales" className="gap-2">
             <FileText className="w-4 h-4" />
             Sales Details
@@ -536,6 +519,7 @@ export default function SalesReportsPage() {
             Returns
           </TabsTrigger>
         </TabsList>
+
 
         {/* Sales Details Tab */}
         <TabsContent value="sales">
