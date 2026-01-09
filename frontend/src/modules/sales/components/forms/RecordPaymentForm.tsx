@@ -29,9 +29,10 @@ interface RecordPaymentFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onPaymentRecorded?: () => void
+  paymentId?: number | null // Add paymentId for editing
 }
 
-export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: RecordPaymentFormProps) {
+export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, paymentId }: RecordPaymentFormProps) {
   const [formData, setFormData] = useState({
     invoice: "",
     supplier: "",
@@ -52,7 +53,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
     if (open) {
       fetchData()
     }
-  }, [open])
+  }, [open, paymentId])
 
   const fetchData = async () => {
     try {
@@ -63,6 +64,33 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
       ])
       setInvoices(invoicesResponse)
       setSuppliers(suppliersResponse.suppliers)
+
+      // If editing, fetch payment details
+      if (paymentId) {
+        const payment = await PaymentApi.getPayment(paymentId);
+        setFormData({
+          invoice: payment.invoice_id?.toString() || "",
+          supplier: payment.supplier_id.toString(),
+          amount: payment.amount.toString(),
+          paymentDate: new Date(payment.payment_date).toISOString().split('T')[0],
+          paymentMethod: payment.payment_method,
+          reference: payment.reference || "",
+          notes: payment.notes || "",
+          outstanding_amount: "0" // Will be updated if invoice matches
+        });
+        
+        if (payment.invoice_id) {
+          const matchedInvoice = invoicesResponse.find(inv => inv.id === payment.invoice_id);
+          if (matchedInvoice) {
+            setFormData(prev => ({
+              ...prev,
+              outstanding_amount: matchedInvoice.outstanding_amount.toString()
+            }));
+          }
+        }
+      } else {
+        resetFormData();
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load data', {
@@ -109,7 +137,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
         invoice_id: formData.invoice ? parseInt(formData.invoice) : undefined,
         supplier_id: parseInt(formData.supplier),
         amount: parseFloat(formData.amount),
-        outstanding_amount:parseFloat(formData.outstanding_amount),
+        outstanding_amount: parseFloat(formData.outstanding_amount),
         payment_date: formData.paymentDate,
         payment_method: formData.paymentMethod,
         reference: formData.reference || undefined,
@@ -117,11 +145,15 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
         created_by: "Current User" // TODO: Get from auth context
       }
 
-      await PaymentApi.createPayment(paymentData)
-      
-      toast.success("Payment recorded successfully!", {
-        description: `Payment of $${parseFloat(formData.amount).toLocaleString()} has been recorded.`
-      })
+      if (paymentId) {
+        await PaymentApi.updatePayment(paymentId, paymentData)
+        toast.success("Payment updated successfully!")
+      } else {
+        await PaymentApi.createPayment(paymentData)
+        toast.success("Payment recorded successfully!", {
+          description: `Payment of $${parseFloat(formData.amount).toLocaleString()} has been recorded.`
+        })
+      }
       
       // Reset form
       resetFormData()
@@ -129,8 +161,8 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
       onPaymentRecorded?.()
       onOpenChange(false)
     } catch (error: any) {
-      console.error('Error recording payment:', error)
-      toast.error("Failed to record payment", {
+      console.error('Error saving payment:', error)
+      toast.error(paymentId ? "Failed to update payment" : "Failed to record payment", {
         description: error.message || "Please try again later."
       })
     } finally {
@@ -148,7 +180,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded }: Rec
         if (selectedInvoice) {
           newData.supplier = selectedInvoice.supplier_id.toString()
           newData.outstanding_amount = selectedInvoice.outstanding_amount.toString()
-          newData.amount = '0'
+          newData.amount = selectedInvoice.outstanding_amount.toString() // Default to full amount
         }
       }
       

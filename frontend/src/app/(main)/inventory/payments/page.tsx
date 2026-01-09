@@ -76,6 +76,7 @@ export default function PaymentsPage() {
   // Basic state
   const [activeTab, setActiveTab] = useState("payments");
   const [showRecordPaymentForm, setShowRecordPaymentForm] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,6 +214,7 @@ export default function PaymentsPage() {
 
   const handlePaymentRecorded = () => {
     fetchData();
+    setEditingPaymentId(null);
   };
 
   const handleInvoiceFilterChange = (key: keyof InvoiceQueryParams, value: any) => {
@@ -640,6 +642,15 @@ export default function PaymentsPage() {
                                   Details
                                 </DropdownMenuItem>
                                 {p.approval_status === "draft" && hasPermission(PERMISSIONS.PAYMENTS_CREATE) && (
+                                  <DropdownMenuItem onClick={() => {
+                                    setEditingPaymentId(p.id);
+                                    setShowRecordPaymentForm(true);
+                                  }}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {p.approval_status === "draft" && hasPermission(PERMISSIONS.PAYMENTS_CREATE) && (
                                   <DropdownMenuItem onClick={() => handleSubmitForApproval(p.id)}>
                                     <Upload className="w-4 h-4 mr-2" />
                                     Submit
@@ -722,8 +733,12 @@ export default function PaymentsPage() {
 
       <RecordPaymentForm
         open={showRecordPaymentForm}
-        onOpenChange={setShowRecordPaymentForm}
+        onOpenChange={(open) => {
+          setShowRecordPaymentForm(open);
+          if (!open) setEditingPaymentId(null);
+        }}
         onPaymentRecorded={handlePaymentRecorded}
+        paymentId={editingPaymentId}
       />
     </div>
   );
