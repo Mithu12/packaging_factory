@@ -67,6 +67,7 @@ export default function SalesReportsPage() {
   const [activeTab, setActiveTab] = useState("sales");
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
   
   // Report data states
   const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
@@ -144,8 +145,79 @@ export default function SalesReportsPage() {
     setCurrentPage(1);
   };
 
-  const handlePrint = () => {
-    window.print();
+  // Format currency for PDF (avoiding special characters)
+  const formatCurrencyForPDF = (val: number) => {
+    return formatCurrency(val).replace(/৳/g, 'TK');
+  };
+
+  const handlePrint = async () => {
+    let reportType: 'sales-summary' | 'sales-details' | 'customer-performance' | 'payment-analysis' | 'order-fulfillment' | 'returns-analysis' = 'sales-summary';
+    
+    // Choose report type based on active tab
+    if (activeTab === 'sales') reportType = 'sales-details';
+    else if (activeTab === 'customers') reportType = 'customer-performance';
+    else if (activeTab === 'payments') reportType = 'payment-analysis';
+    else if (activeTab === 'fulfillment') reportType = 'order-fulfillment';
+    else if (activeTab === 'returns') reportType = 'returns-analysis';
+
+    // Verify data availability
+    const hasData = salesSummary || customerPerformance.length > 0 || paymentAnalysis || orderFulfillment || salesOrders.length > 0 || returnsAnalysis;
+    if (!hasData) {
+      toast({ title: "No Data", description: "Please select a date range to load data before printing.", variant: "destructive" });
+      return;
+    }
+
+    setPrinting(true);
+    try {
+      const blob = await pdf(
+        <SalesReportPDF
+          reportType={reportType}
+          dateRange={{
+            from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+            to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+          }}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          salesSummary={salesSummary}
+          salesOrders={salesOrders.map(order => ({
+            id: order.id,
+            order_number: order.order_number,
+            order_date: order.order_date,
+            customer_name: order.customer_name || 'Walk-in Customer',
+            product_count: order.product_count || 0,
+            subtotal: Number(order.subtotal) || 0,
+            discount_amount: Number(order.discount_amount) || 0,
+            total_amount: Number(order.total_amount) || 0,
+            cash_received: Number(order.cash_received) || 0,
+          }))}
+          salesOrdersTotal={salesOrdersTotal}
+          customerPerformance={customerPerformance}
+          paymentAnalysis={paymentAnalysis}
+          orderFulfillment={orderFulfillment}
+          returnsAnalysis={returnsAnalysis}
+          formatCurrency={formatCurrencyForPDF}
+        />
+      ).toBlob();
+
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      } else {
+        // Fallback if popup blocked
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.click();
+      }
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({ title: "Error", description: "Failed to generate print document.", variant: "destructive" });
+    } finally {
+      setPrinting(false);
+    }
   };
 
   // Load logo as base64 for PDF
@@ -171,10 +243,6 @@ export default function SalesReportsPage() {
     });
   };
 
-  // Format currency for PDF (avoiding special characters)
-  const formatCurrencyForPDF = (val: number) => {
-    return formatCurrency(val).replace(/৳/g, 'TK');
-  };
 
   const handleExport = async (reportType: 'sales-summary' | 'sales-details' | 'customer-performance' | 'payment-analysis' | 'order-fulfillment' | 'returns-analysis') => {
     // Check if data is available
@@ -345,9 +413,9 @@ export default function SalesReportsPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="w-4 h-4 mr-2" />
-              Print
+            <Button variant="outline" onClick={handlePrint} disabled={loading || printing}>
+              {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+              {printing ? "Preparing..." : "Print"}
             </Button>
           </div>
         </div>

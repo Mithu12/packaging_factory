@@ -50,6 +50,7 @@ export default function PurchaseReportsPage() {
   const [activeTab, setActiveTab] = useState("suppliers");
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
   
   // Report data states
   const [summary, setSummary] = useState<PurchaseSummary | null>(null);
@@ -196,8 +197,61 @@ export default function PurchaseReportsPage() {
     setActivePreset(preset);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    let reportType: 'purchase-summary' | 'supplier-performance' | 'purchase-payments' = 'purchase-summary';
+    
+    // Choose report type based on active tab
+    if (activeTab === 'suppliers') reportType = 'supplier-performance';
+    else if (activeTab === 'payments') reportType = 'purchase-payments';
+
+    // Verify data availability
+    if (reportType === 'supplier-performance' && suppliers.length === 0) {
+      toast({ title: "No Data", description: "No supplier data available to print.", variant: "destructive" });
+      return;
+    }
+    if (reportType === 'purchase-payments' && !payments) {
+      toast({ title: "No Data", description: "No payment data available to print.", variant: "destructive" });
+      return;
+    }
+
+    setPrinting(true);
+    try {
+      const blob = await pdf(
+        <PurchaseReportPDF
+          reportType={reportType}
+          dateRange={{
+            from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+            to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+          }}
+          companySettings={companySettings}
+          logoBase64={logoBase64}
+          purchaseSummary={summary}
+          supplierPerformance={suppliers}
+          purchasePayments={payments}
+          formatCurrency={formatCurrencyForPDF}
+        />
+      ).toBlob();
+
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          // Optional: URL.revokeObjectURL(url) after some delay or on window close
+        };
+      } else {
+        // Fallback if popup blocked
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.click();
+      }
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({ title: "Error", description: "Failed to generate print document.", variant: "destructive" });
+    } finally {
+      setPrinting(false);
+    }
   };
 
   const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
@@ -244,9 +298,9 @@ export default function PurchaseReportsPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="w-4 h-4 mr-2" />
-              Print
+            <Button variant="outline" onClick={handlePrint} disabled={loading || printing}>
+              {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+              {printing ? "Preparing..." : "Print"}
             </Button>
           </div>
         </div>
