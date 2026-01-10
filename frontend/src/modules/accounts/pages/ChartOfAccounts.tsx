@@ -174,8 +174,11 @@ const flattenAccounts = (nodes: ChartOfAccount[]): ChartOfAccount[] => {
   return nodes.flatMap((node) => [node, ...(node.children ? flattenAccounts(node.children) : [])])
 }
 
-const flattenGroupNodes = (nodes: AccountGroup[]): AccountGroup[] => {
-  return nodes.flatMap((node) => [node, ...(node.children ? flattenGroupNodes(node.children) : [])])
+const flattenGroupNodes = (nodes: AccountGroup[], depth = 0): (AccountGroup & { depth: number })[] => {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...(node.children ? flattenGroupNodes(node.children, depth + 1) : [])
+  ])
 }
 
 const filterAccountTree = (
@@ -289,11 +292,8 @@ export default function ChartOfAccounts() {
   )
 
   const availableGroupOptions = useMemo(
-    () => {
-      const flatGroups = accountGroups.flatMap(group => [group, ...(group.children || [])])
-      return flatGroups.filter(group => group.category === formData.category)
-    },
-    [accountGroups, formData.category]
+    () => flattenGroupNodes(accountGroups),
+    [accountGroups]
   )
 
   const handleCreateDialogChange = (open: boolean) => {
@@ -441,6 +441,33 @@ export default function ChartOfAccounts() {
     })
   }
 
+  const handleAccountGroupChange = (value: string) => {
+    const groupId = value === "none" ? undefined : parseInt(value)
+    const selectedGroup = availableGroupOptions.find(g => g.id === groupId)
+    
+    if (selectedGroup && selectedGroup.category !== formData.category) {
+      setFormData((previous) => {
+        const parentStillValid =
+          previous.parentId &&
+          flattened.some(
+            (account) =>
+              account.id === previous.parentId &&
+              account.type === "Control" &&
+              account.category === selectedGroup.category
+          )
+
+        return {
+          ...previous,
+          category: selectedGroup.category,
+          parentId: parentStillValid ? previous.parentId : undefined,
+          groupId: groupId,
+        }
+      })
+    } else {
+      setFormData(prev => ({ ...prev, groupId }))
+    }
+  }
+
 
   const handleCreateAccountSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -552,12 +579,12 @@ export default function ChartOfAccounts() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [selectedAccount, costCenters, vouchers])
 
-  const allGroupOptions = useMemo(() => flattenGroupNodes(accountGroups), [])
+  const allGroupOptions = useMemo(() => flattenGroupNodes(accountGroups), [accountGroups])
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Chart of Accountsnts</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Chart of Accounts</h1>
           <p className="text-sm text-muted-foreground">
             Maintain the hierarchical structure of every financial account and control how transactions are captured.
           </p>
@@ -668,7 +695,7 @@ export default function ChartOfAccounts() {
                   <Label htmlFor="new-account-group">Account Group</Label>
                   <Select
                     value={formData.groupId?.toString() || "none"}
-                    onValueChange={(value) => setFormData((previous) => ({ ...previous, groupId: value === "none" ? undefined : parseInt(value) }))}
+                    onValueChange={handleAccountGroupChange}
                   >
                     <SelectTrigger id="new-account-group">
                       <SelectValue placeholder="Select account group (optional)" />
@@ -677,7 +704,10 @@ export default function ChartOfAccounts() {
                       <SelectItem value="none">No group</SelectItem>
                       {availableGroupOptions.map((group) => (
                         <SelectItem key={group.id} value={group.id.toString()}>
-                          {group.name} ({group.code})
+                          <span style={{ marginLeft: `${(group as any).depth * 12}px` }}>
+                            <span className="text-muted-foreground/50 mr-2">{group.category.substring(0, 1)}</span>
+                            {group.name} ({group.code})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -814,7 +844,7 @@ export default function ChartOfAccounts() {
                   <Label htmlFor="edit-account-group">Account Group</Label>
                   <Select
                     value={formData.groupId?.toString() || "none"}
-                    onValueChange={(value) => setFormData((previous) => ({ ...previous, groupId: value === "none" ? undefined : parseInt(value) }))}
+                    onValueChange={handleAccountGroupChange}
                   >
                     <SelectTrigger id="edit-account-group">
                       <SelectValue placeholder="Select account group (optional)" />
@@ -823,7 +853,10 @@ export default function ChartOfAccounts() {
                       <SelectItem value="none">No group</SelectItem>
                       {availableGroupOptions.map((group) => (
                         <SelectItem key={group.id} value={group.id.toString()}>
-                          {group.name} ({group.code})
+                          <span style={{ marginLeft: `${(group as any).depth * 12}px` }}>
+                            <span className="text-muted-foreground/50 mr-2">{group.category.substring(0, 1)}</span>
+                            {group.name} ({group.code})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
