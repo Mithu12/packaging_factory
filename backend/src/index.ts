@@ -19,6 +19,7 @@ import rbacRoutes from "./routes/rbac.routes";
 import returnsRoutes from "./routes/returns.routes";
 import licenseRoutes from "./routes/license.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import backupRoutes from "./routes/backup.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { MyLogger } from "./utils/new-logger";
 import inventoryRoutes from "./modules/inventory";
@@ -153,6 +154,7 @@ app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/returns", returnsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/backup", backupRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

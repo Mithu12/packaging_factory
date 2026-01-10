@@ -213,6 +213,7 @@ export const PERMISSIONS = {
 
     // System Admin
     SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
+    SYSTEM_BACKUP: createPermissionCheck('System', 'manage', 'backup'),
 
 
     // ---- Accounts: Master Data ----

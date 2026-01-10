@@ -240,6 +240,8 @@ export const PERMISSIONS = {
   // Settings
   SETTINGS_READ: createPermissionCheck('System', 'read', 'settings'),
   SETTINGS_UPDATE: createPermissionCheck('System', 'update', 'settings'),
+  SYSTEM_BACKUP: createPermissionCheck('System', 'manage', 'backup'),
+  SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
   
   // Expenses
   EXPENSES_CREATE: createPermissionCheck('Finance', 'create', 'expenses'),

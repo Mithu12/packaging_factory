@@ -44,6 +44,7 @@ import {
   User,
   CreditCard,
   Bell,
+  Database,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -771,6 +772,17 @@ export function AppSidebar() {
                     <Link href="/settings" className={getNavCls("/settings")}>
                       <Settings className="h-4 w-4" />
                       {!isCollapsed && <span>Settings</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </PermissionGuard>
+
+              <PermissionGuard permission={PERMISSIONS.SYSTEM_BACKUP}>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/settings/backup" className={getNavCls("/settings/backup")}>
+                      <Database className="h-4 w-4" />
+                      {!isCollapsed && <span>DB Backup</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
