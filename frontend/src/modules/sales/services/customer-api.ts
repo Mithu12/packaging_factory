@@ -97,8 +97,42 @@ export class CustomerApi {
     });
   }
 
-  static async getCustomerPaymentHistory(id: number) {
-    return makeRequest<CustomerPaymentHistoryResponse>(`/sales/customers/${id}/payment-history`);
+  static async getCustomerPaymentHistory(
+    id: number,
+    params?: {
+      payments_page?: number;
+      payments_limit?: number;
+      orders_page?: number;
+      orders_limit?: number;
+      payment_type?: 'upfront' | 'due_payment' | 'refund' | 'adjustment' | 'all';
+      order_status_filter?: 'due_amounts' | 'all';
+    }
+  ) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      if (params.payments_page !== undefined) {
+        queryParams.append('payments_page', params.payments_page.toString());
+      }
+      if (params.payments_limit !== undefined) {
+        queryParams.append('payments_limit', params.payments_limit.toString());
+      }
+      if (params.orders_page !== undefined) {
+        queryParams.append('orders_page', params.orders_page.toString());
+      }
+      if (params.orders_limit !== undefined) {
+        queryParams.append('orders_limit', params.orders_limit.toString());
+      }
+      if (params.payment_type !== undefined) {
+        queryParams.append('payment_type', params.payment_type);
+      }
+      if (params.order_status_filter !== undefined) {
+        queryParams.append('order_status_filter', params.order_status_filter);
+      }
+    }
+    const queryString = queryParams.toString();
+    return makeRequest<CustomerPaymentHistoryResponse>(
+      `/sales/customers/${id}/payment-history${queryString ? `?${queryString}` : ''}`
+    );
   }
 }
 
@@ -147,4 +181,18 @@ export interface CustomerPaymentHistoryResponse {
     status: string;
     payment_type: 'full_cash' | 'partial' | 'credit' | 'full_card' | 'full_bank_transfer';
   }>;
+  pagination: {
+    payments: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    orders: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
 }

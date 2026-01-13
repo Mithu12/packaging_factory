@@ -18,14 +18,38 @@ class SalesCustomersController {
                 return;
             }
 
-            MyLogger.info(action, { customerId });
+            const paymentsPage = req.query.payments_page ? parseInt(req.query.payments_page as string) : 1;
+            const paymentsLimit = req.query.payments_limit ? parseInt(req.query.payments_limit as string) : 20;
+            const ordersPage = req.query.orders_page ? parseInt(req.query.orders_page as string) : 1;
+            const ordersLimit = req.query.orders_limit ? parseInt(req.query.orders_limit as string) : 20;
+            const paymentType = req.query.payment_type as string || 'all';
+            const orderStatusFilter = req.query.order_status_filter as string || 'all';
 
-            const paymentHistory = await CustomerPaymentHistoryMediator.getCustomerPaymentHistory(customerId);
+            MyLogger.info(action, { 
+                customerId, 
+                paymentsPage, 
+                paymentsLimit, 
+                ordersPage, 
+                ordersLimit,
+                paymentType,
+                orderStatusFilter
+            });
+
+            const paymentHistory = await CustomerPaymentHistoryMediator.getCustomerPaymentHistory(customerId, {
+                payments_page: paymentsPage,
+                payments_limit: paymentsLimit,
+                orders_page: ordersPage,
+                orders_limit: ordersLimit,
+                payment_type: paymentType as any,
+                order_status_filter: orderStatusFilter as any
+            });
 
             MyLogger.success(action, { 
                 customerId, 
                 paymentsCount: paymentHistory.payments.length,
-                ordersCount: paymentHistory.orders.length
+                ordersCount: paymentHistory.orders.length,
+                paymentsPage: paymentHistory.pagination.payments.page,
+                ordersPage: paymentHistory.pagination.orders.page
             });
 
             serializeSuccessResponse(res, paymentHistory, 'SUCCESS');

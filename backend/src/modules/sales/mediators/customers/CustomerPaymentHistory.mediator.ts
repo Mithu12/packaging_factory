@@ -46,13 +46,44 @@ export interface CustomerPaymentHistoryResponse {
         status: string;
         payment_type: 'full_cash' | 'partial' | 'credit' | 'full_card' | 'full_bank_transfer';
     }>;
+    pagination: {
+        payments: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+        orders: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    };
+}
+
+export interface PaymentHistoryQueryParams {
+    payments_page?: number;
+    payments_limit?: number;
+    orders_page?: number;
+    orders_limit?: number;
+    payment_type?: 'upfront' | 'due_payment' | 'refund' | 'adjustment' | 'all';
+    order_status_filter?: 'due_amounts' | 'all';
 }
 
 export class CustomerPaymentHistoryMediator {
-    static async getCustomerPaymentHistory(customerId: number): Promise<CustomerPaymentHistoryResponse> {
+    static async getCustomerPaymentHistory(
+        customerId: number,
+        params?: PaymentHistoryQueryParams
+    ): Promise<CustomerPaymentHistoryResponse> {
         const action = 'CustomerPaymentHistoryMediator.getCustomerPaymentHistory';
         try {
-            MyLogger.info(action, { customerId });
+            const paymentsPage = params?.payments_page || 1;
+            const paymentsLimit = params?.payments_limit || 20;
+            const ordersPage = params?.orders_page || 1;
+            const ordersLimit = params?.orders_limit || 20;
+
+            MyLogger.info(action, { customerId, params });
 
             // Get customer info
             const customerQuery = `
@@ -68,7 +99,35 @@ export class CustomerPaymentHistoryMediator {
 
             const customer = customerResult.rows[0];
 
-            // Get all payments for the customer
+            // Build payment type filter
+            let paymentTypeFilter = '';
+            const paymentsCountParams: any[] = [customerId];
+            const paymentsQueryParams: any[] = [customerId];
+            
+            if (params?.payment_type && params.payment_type !== 'all') {
+                paymentTypeFilter = 'AND cp.payment_type = $2';
+                paymentsCountParams.push(params.payment_type);
+                paymentsQueryParams.push(params.payment_type);
+            }
+
+            // Get total count of payments
+            const paymentsCountQuery = `
+                SELECT COUNT(*) as total
+                FROM customer_payments cp
+                WHERE cp.customer_id = $1 ${paymentTypeFilter}
+            `;
+            const paymentsCountResult = await pool.query(
+                paymentsCountQuery, 
+                paymentsCountParams
+            );
+            const totalPayments = parseInt(paymentsCountResult.rows[0].total);
+            const paymentsOffset = (paymentsPage - 1) * paymentsLimit;
+
+            // Get paginated payments for the customer
+            const limitParamIndex = paymentsQueryParams.length + 1;
+            const offsetParamIndex = paymentsQueryParams.length + 2;
+            paymentsQueryParams.push(paymentsLimit, paymentsOffset);
+
             const paymentsQuery = `
                 SELECT 
                     cp.id,
@@ -85,12 +144,36 @@ export class CustomerPaymentHistoryMediator {
                 FROM customer_payments cp
                 LEFT JOIN sales_orders so ON cp.sales_order_id = so.id
                 LEFT JOIN users u ON cp.recorded_by = u.id
-                WHERE cp.customer_id = $1
+                WHERE cp.customer_id = $1 ${paymentTypeFilter}
                 ORDER BY cp.payment_date DESC, cp.recorded_at DESC
+                LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
             `;
-            const paymentsResult = await pool.query(paymentsQuery, [customerId]);
+            const paymentsResult = await pool.query(paymentsQuery, paymentsQueryParams);
 
-            // Get all orders for the customer
+            // Build order filter (for due_amounts tab)
+            let orderFilter = '';
+            if (params?.order_status_filter === 'due_amounts') {
+                orderFilter = 'AND due_amount > 0';
+            }
+
+            // Get total count of orders
+            const ordersCountQuery = `
+                SELECT COUNT(*) as total
+                FROM sales_orders
+                WHERE customer_id = $1 ${orderFilter}
+            `;
+            const ordersCountResult = await pool.query(
+                ordersCountQuery, 
+                [customerId]
+            );
+            const totalOrders = parseInt(ordersCountResult.rows[0].total);
+            const ordersOffset = (ordersPage - 1) * ordersLimit;
+
+            // Get paginated orders for the customer
+            const ordersQueryParams: any[] = [customerId, ordersLimit, ordersOffset];
+            const ordersLimitIndex = 2;
+            const ordersOffsetIndex = 3;
+
             const ordersQuery = `
                 SELECT 
                     id,
@@ -103,10 +186,11 @@ export class CustomerPaymentHistoryMediator {
                     payment_status,
                     status
                 FROM sales_orders
-                WHERE customer_id = $1
+                WHERE customer_id = $1 ${orderFilter}
                 ORDER BY order_date DESC
+                LIMIT $${ordersLimitIndex} OFFSET $${ordersOffsetIndex}
             `;
-            const ordersResult = await pool.query(ordersQuery, [customerId]);
+            const ordersResult = await pool.query(ordersQuery, ordersQueryParams);
 
             // Calculate payment type for each order
             const orders = ordersResult.rows.map((order: any) => {
@@ -159,24 +243,60 @@ export class CustomerPaymentHistoryMediator {
                 recorded_at: payment.recorded_at
             }));
 
-            // Calculate summary statistics
-            const totalOrders = orders.length;
-            const totalOrderValue = orders.reduce((sum: number, order: any) => sum + order.total_amount, 0);
-            const totalUpfrontPayments = payments
+            // Get all payments and orders for summary calculations (not paginated)
+            const allPaymentsQuery = `
+                SELECT 
+                    cp.payment_type,
+                    cp.payment_amount,
+                    cp.payment_date
+                FROM customer_payments cp
+                WHERE cp.customer_id = $1
+                ORDER BY cp.payment_date DESC
+            `;
+            const allPaymentsResult = await pool.query(allPaymentsQuery, [customerId]);
+
+            const allOrdersQuery = `
+                SELECT 
+                    order_date,
+                    total_amount,
+                    cash_received,
+                    due_amount
+                FROM sales_orders
+                WHERE customer_id = $1
+                ORDER BY order_date DESC
+            `;
+            const allOrdersResult = await pool.query(allOrdersQuery, [customerId]);
+
+            // Calculate summary statistics from all data
+            const allPayments = allPaymentsResult.rows.map((p: any) => ({
+                payment_type: p.payment_type,
+                payment_amount: parseFloat(p.payment_amount),
+                payment_date: p.payment_date
+            }));
+
+            const allOrders = allOrdersResult.rows.map((o: any) => ({
+                total_amount: parseFloat(o.total_amount) || 0,
+                cash_received: parseFloat(o.cash_received) || 0,
+                due_amount: parseFloat(o.due_amount) || 0,
+                order_date: o.order_date
+            }));
+
+            const totalOrderValue = allOrders.reduce((sum: number, order: any) => sum + order.total_amount, 0);
+            const totalUpfrontPayments = allPayments
                 .filter((p: any) => p.payment_type === 'upfront')
                 .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
-            const totalDuePaymentsCollected = payments
+            const totalDuePaymentsCollected = allPayments
                 .filter((p: any) => p.payment_type === 'due_payment')
                 .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
-            const totalDueAmounts = orders.reduce((sum: number, order: any) => sum + order.due_amount, 0);
+            const totalDueAmounts = allOrders.reduce((sum: number, order: any) => sum + order.due_amount, 0);
             const currentOutstanding = parseFloat(customer.due_amount) || 0;
-            const totalPaid = payments.reduce((sum: number, p: any) => sum + p.payment_amount, 0);
-            const totalRefunds = payments
+            const totalPaid = allPayments.reduce((sum: number, p: any) => sum + p.payment_amount, 0);
+            const totalRefunds = allPayments
                 .filter((p: any) => p.payment_type === 'refund')
                 .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
 
-            const lastOrderDate = orders.length > 0 ? orders[0].order_date : null;
-            const lastPaymentDate = payments.length > 0 ? payments[0].payment_date : null;
+            const lastOrderDate = allOrders.length > 0 ? allOrders[0].order_date : null;
+            const lastPaymentDate = allPayments.length > 0 ? allPayments[0].payment_date : null;
 
             const summary = {
                 total_orders: totalOrders,
@@ -191,7 +311,16 @@ export class CustomerPaymentHistoryMediator {
                 last_payment_date: lastPaymentDate
             };
 
-            MyLogger.success(action, { customerId, paymentsCount: payments.length, ordersCount: orders.length });
+            const paymentsTotalPages = Math.ceil(totalPayments / paymentsLimit);
+            const ordersTotalPages = Math.ceil(totalOrders / ordersLimit);
+
+            MyLogger.success(action, { 
+                customerId, 
+                paymentsCount: payments.length, 
+                ordersCount: orders.length,
+                paymentsPage,
+                ordersPage
+            });
 
             return {
                 customer: {
@@ -203,7 +332,21 @@ export class CustomerPaymentHistoryMediator {
                 },
                 summary,
                 payments,
-                orders
+                orders,
+                pagination: {
+                    payments: {
+                        page: paymentsPage,
+                        limit: paymentsLimit,
+                        total: totalPayments,
+                        totalPages: paymentsTotalPages
+                    },
+                    orders: {
+                        page: ordersPage,
+                        limit: ordersLimit,
+                        total: totalOrders,
+                        totalPages: ordersTotalPages
+                    }
+                }
             };
         } catch (error: any) {
             MyLogger.error(action, error, { customerId });

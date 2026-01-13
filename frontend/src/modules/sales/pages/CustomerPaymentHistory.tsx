@@ -28,6 +28,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useFormatting } from "@/hooks/useFormatting";
 import { CustomerApi, CustomerPaymentHistoryResponse } from "../services/customer-api";
 import { toast } from "@/hooks/use-toast";
@@ -43,17 +52,58 @@ export default function CustomerPaymentHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsLimit, setPaymentsLimit] = useState(20);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersLimit, setOrdersLimit] = useState(20);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Reset pagination when switching tabs
+    setPaymentsPage(1);
+    setOrdersPage(1);
+  };
+
+  const handlePaymentsLimitChange = (value: string) => {
+    setPaymentsLimit(parseInt(value));
+    setPaymentsPage(1); // Reset to first page when changing limit
+  };
+
+  const handleOrdersLimitChange = (value: string) => {
+    setOrdersLimit(parseInt(value));
+    setOrdersPage(1); // Reset to first page when changing limit
+  };
 
   useEffect(() => {
     if (customerId) {
       loadPaymentHistory();
     }
-  }, [customerId]);
+  }, [customerId, paymentsPage, ordersPage, activeTab, paymentsLimit, ordersLimit]);
 
   const loadPaymentHistory = async () => {
     try {
       setLoading(true);
-      const response = await CustomerApi.getCustomerPaymentHistory(customerId);
+      
+      // Determine payment type filter based on active tab
+      let paymentType: 'upfront' | 'due_payment' | 'refund' | 'adjustment' | 'all' = 'all';
+      let orderStatusFilter: 'due_amounts' | 'all' = 'all';
+      
+      if (activeTab === 'upfront') {
+        paymentType = 'upfront';
+      } else if (activeTab === 'due_payments') {
+        paymentType = 'due_payment';
+      } else if (activeTab === 'due_amounts') {
+        orderStatusFilter = 'due_amounts';
+      }
+      
+      const response = await CustomerApi.getCustomerPaymentHistory(customerId, {
+        payments_page: paymentsPage,
+        payments_limit: paymentsLimit,
+        orders_page: ordersPage,
+        orders_limit: ordersLimit,
+        payment_type: paymentType,
+        order_status_filter: orderStatusFilter
+      });
       setData(response);
     } catch (error: any) {
       console.error("Error loading payment history:", error);
@@ -98,34 +148,30 @@ export default function CustomerPaymentHistory() {
     return badges[status as keyof typeof badges] || <Badge>{status}</Badge>;
   };
 
+  // Client-side filtering for search only (tab filtering and pagination are server-side)
   const filteredPayments = data?.payments.filter((payment) => {
-    const matchesSearch = 
+    if (!searchTerm) return true;
+    return (
       payment.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.payment_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = paymentTypeFilter === "all" || payment.payment_type === paymentTypeFilter;
-    
-    if (activeTab === "all") {
-      return matchesSearch && matchesType;
-    } else if (activeTab === "upfront") {
-      return payment.payment_type === "upfront" && matchesSearch && matchesType;
-    } else if (activeTab === "due_payments") {
-      return payment.payment_type === "due_payment" && matchesSearch && matchesType;
-    }
-    return matchesSearch && matchesType;
+      payment.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   }) || [];
 
   const filteredOrders = data?.orders.filter((order) => {
-    const matchesSearch = order.order_number.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (activeTab === "due_amounts") {
-      return order.due_amount > 0 && matchesSearch;
-    } else if (activeTab === "orders") {
-      return matchesSearch;
-    }
-    return false;
+    if (!searchTerm) return true;
+    return order.order_number.toLowerCase().includes(searchTerm.toLowerCase());
   }) || [];
+
+  const handlePaymentsPageChange = (page: number) => {
+    setPaymentsPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOrdersPageChange = (page: number) => {
+    setOrdersPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (loading) {
     return (
@@ -264,7 +310,7 @@ export default function CustomerPaymentHistory() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList>
               <TabsTrigger value="all">All Payments</TabsTrigger>
               <TabsTrigger value="upfront">Upfront Payments</TabsTrigger>
@@ -274,7 +320,7 @@ export default function CustomerPaymentHistory() {
             </TabsList>
 
             {/* All Payments Tab */}
-            <TabsContent value="all" className="mt-4">
+            <TabsContent value="all" className="mt-4 space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -313,10 +359,74 @@ export default function CustomerPaymentHistory() {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((paymentsPage - 1) * paymentsLimit) + 1} to {Math.min(paymentsPage * paymentsLimit, data.pagination.payments.total)} of {data.pagination.payments.total} payments
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={paymentsLimit}
+                      onChange={(e) => handlePaymentsLimitChange(e.target.value)}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {data.pagination.payments.totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handlePaymentsPageChange(Math.max(1, paymentsPage - 1))}
+                          className={paymentsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, data.pagination.payments.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, paymentsPage - 2) + i;
+                        if (pageNum > data.pagination.payments.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handlePaymentsPageChange(pageNum)}
+                              isActive={pageNum === paymentsPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {data.pagination.payments.totalPages > 5 && paymentsPage < data.pagination.payments.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handlePaymentsPageChange(Math.min(data.pagination.payments.totalPages, paymentsPage + 1))}
+                          className={paymentsPage >= data.pagination.payments.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </TabsContent>
 
             {/* Upfront Payments Tab */}
-            <TabsContent value="upfront" className="mt-4">
+            <TabsContent value="upfront" className="mt-4 space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -351,10 +461,74 @@ export default function CustomerPaymentHistory() {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((paymentsPage - 1) * paymentsLimit) + 1} to {Math.min(paymentsPage * paymentsLimit, data.pagination.payments.total)} of {data.pagination.payments.total} payments
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={paymentsLimit}
+                      onChange={(e) => handlePaymentsLimitChange(e.target.value)}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {data.pagination.payments.totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handlePaymentsPageChange(Math.max(1, paymentsPage - 1))}
+                          className={paymentsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, data.pagination.payments.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, paymentsPage - 2) + i;
+                        if (pageNum > data.pagination.payments.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handlePaymentsPageChange(pageNum)}
+                              isActive={pageNum === paymentsPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {data.pagination.payments.totalPages > 5 && paymentsPage < data.pagination.payments.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handlePaymentsPageChange(Math.min(data.pagination.payments.totalPages, paymentsPage + 1))}
+                          className={paymentsPage >= data.pagination.payments.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </TabsContent>
 
             {/* Due Payments Tab */}
-            <TabsContent value="due_payments" className="mt-4">
+            <TabsContent value="due_payments" className="mt-4 space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -389,10 +563,74 @@ export default function CustomerPaymentHistory() {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((paymentsPage - 1) * paymentsLimit) + 1} to {Math.min(paymentsPage * paymentsLimit, data.pagination.payments.total)} of {data.pagination.payments.total} payments
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={paymentsLimit}
+                      onChange={(e) => handlePaymentsLimitChange(e.target.value)}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {data.pagination.payments.totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handlePaymentsPageChange(Math.max(1, paymentsPage - 1))}
+                          className={paymentsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, data.pagination.payments.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, paymentsPage - 2) + i;
+                        if (pageNum > data.pagination.payments.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handlePaymentsPageChange(pageNum)}
+                              isActive={pageNum === paymentsPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {data.pagination.payments.totalPages > 5 && paymentsPage < data.pagination.payments.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handlePaymentsPageChange(Math.min(data.pagination.payments.totalPages, paymentsPage + 1))}
+                          className={paymentsPage >= data.pagination.payments.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </TabsContent>
 
             {/* Due Amounts Tab */}
-            <TabsContent value="due_amounts" className="mt-4">
+            <TabsContent value="due_amounts" className="mt-4 space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -429,10 +667,74 @@ export default function CustomerPaymentHistory() {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((ordersPage - 1) * ordersLimit) + 1} to {Math.min(ordersPage * ordersLimit, data.pagination.orders.total)} of {data.pagination.orders.total} orders
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={ordersLimit}
+                      onChange={(e) => handleOrdersLimitChange(e.target.value)}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {data.pagination.orders.totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handleOrdersPageChange(Math.max(1, ordersPage - 1))}
+                          className={ordersPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, data.pagination.orders.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, ordersPage - 2) + i;
+                        if (pageNum > data.pagination.orders.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handleOrdersPageChange(pageNum)}
+                              isActive={pageNum === ordersPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {data.pagination.orders.totalPages > 5 && ordersPage < data.pagination.orders.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handleOrdersPageChange(Math.min(data.pagination.orders.totalPages, ordersPage + 1))}
+                          className={ordersPage >= data.pagination.orders.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </TabsContent>
 
             {/* Orders Tab */}
-            <TabsContent value="orders" className="mt-4">
+            <TabsContent value="orders" className="mt-4 space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -471,6 +773,70 @@ export default function CustomerPaymentHistory() {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((ordersPage - 1) * ordersLimit) + 1} to {Math.min(ordersPage * ordersLimit, data.pagination.orders.total)} of {data.pagination.orders.total} orders
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show:</span>
+                    <select
+                      value={ordersLimit}
+                      onChange={(e) => handleOrdersLimitChange(e.target.value)}
+                      className="px-2 py-1 text-sm border rounded"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                {data.pagination.orders.totalPages > 1 && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handleOrdersPageChange(Math.max(1, ordersPage - 1))}
+                          className={ordersPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, data.pagination.orders.totalPages) }, (_, i) => {
+                        const pageNum = Math.max(1, ordersPage - 2) + i;
+                        if (pageNum > data.pagination.orders.totalPages) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handleOrdersPageChange(pageNum)}
+                              isActive={pageNum === ordersPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {data.pagination.orders.totalPages > 5 && ordersPage < data.pagination.orders.totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handleOrdersPageChange(Math.min(data.pagination.orders.totalPages, ordersPage + 1))}
+                          className={ordersPage >= data.pagination.orders.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
