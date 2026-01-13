@@ -73,6 +73,7 @@ export default function CustomerPaymentHistory() {
     paymentReference?: string;
     notes?: string;
     recordedBy?: string;
+    orderNumber?: string;
   } | null>(null);
 
   const handleTabChange = (value: string) => {
@@ -176,6 +177,7 @@ export default function CustomerPaymentHistory() {
         paymentReference: payment.payment_reference || undefined,
         notes: payment.notes || undefined,
         recordedBy: payment.recorded_by_username || undefined,
+        orderNumber: payment.order_number || undefined,
       });
       setShowVoucherDialog(true);
     }
@@ -920,6 +922,7 @@ export default function CustomerPaymentHistory() {
                 paymentReference={selectedPayment.paymentReference}
                 notes={selectedPayment.notes}
                 recordedBy={selectedPayment.recordedBy}
+                orderNumber={selectedPayment.orderNumber}
                 previousDue={data.summary.current_outstanding + selectedPayment.paymentAmount}
                 remainingDue={data.summary.current_outstanding}
                 onClose={() => {

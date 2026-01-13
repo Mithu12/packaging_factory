@@ -91,6 +91,7 @@ export function CustomerManagement() {
     paymentDate: string;
     previousDue: number;
     remainingDue: number;
+    orderNumber?: string;
   } | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -398,6 +399,24 @@ export function CustomerManagement() {
 
       // Show voucher dialog if payment ID is returned
       if (updatedCustomer.payment_id) {
+        // Get order number(s) if order-wise payment was used
+        let orderNumber: string | undefined;
+        if (useOrderWisePayment && orderPaymentsArray && orderPaymentsArray.length > 0) {
+          const orderNumbers = orderPaymentsArray
+            .map(op => {
+              const order = ordersWithDue.find(o => o.id === op.orderId);
+              return order?.order_number;
+            })
+            .filter(Boolean) as string[];
+          
+          // If single order, show just that number; if multiple, show comma-separated
+          orderNumber = orderNumbers.length === 1 
+            ? orderNumbers[0] 
+            : orderNumbers.length > 1 
+            ? orderNumbers.join(', ') 
+            : undefined;
+        }
+        
         setVoucherData({
           paymentId: updatedCustomer.payment_id,
           customer: paymentCustomer,
@@ -405,7 +424,8 @@ export function CustomerManagement() {
           paymentMethod: paymentMethod,
           paymentDate: updatedCustomer.payment_date || new Date().toISOString(),
           previousDue: previousDue,
-          remainingDue: updatedCustomer.due_amount || 0
+          remainingDue: updatedCustomer.due_amount || 0,
+          orderNumber: orderNumber
         });
         setIsPaymentDialogOpen(false);
         setShowVoucherDialog(true);
@@ -1287,6 +1307,7 @@ export function CustomerManagement() {
                 paymentDate={voucherData.paymentDate}
                 previousDue={voucherData.previousDue}
                 remainingDue={voucherData.remainingDue}
+                orderNumber={voucherData.orderNumber}
                 onClose={() => {
                   setShowVoucherDialog(false);
                   setVoucherData(null);

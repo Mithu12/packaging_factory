@@ -35,6 +35,7 @@ interface PaymentVoucherProps {
   previousDue?: number;
   remainingDue?: number;
   recordedBy?: string;
+  orderNumber?: string;
   onClose?: () => void;
 }
 
@@ -162,6 +163,7 @@ const PaymentVoucherPDF = ({
   previousDue = 0,
   remainingDue = 0,
   recordedBy,
+  orderNumber,
   companySettings, 
   logoBase64,
   formatCurrency
@@ -176,6 +178,7 @@ const PaymentVoucherPDF = ({
   previousDue?: number;
   remainingDue?: number;
   recordedBy?: string;
+  orderNumber?: string;
   companySettings: CompanySettings | null;
   logoBase64: string | null;
   formatCurrency: (val: number) => string;
@@ -232,6 +235,12 @@ const PaymentVoucherPDF = ({
         {/* Payment Details Section */}
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Payment Details</Text>
+          {orderNumber && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Order Number:</Text>
+              <Text style={styles.infoValue}>{orderNumber}</Text>
+            </View>
+          )}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Payment Method:</Text>
             <Text style={styles.infoValue}>{paymentMethod.toUpperCase()}</Text>
@@ -314,6 +323,7 @@ export function PaymentVoucher({
   previousDue = 0,
   remainingDue = 0,
   recordedBy,
+  orderNumber,
   onClose
 }: PaymentVoucherProps) {
   const [loading, setLoading] = useState(true);
@@ -373,6 +383,7 @@ export function PaymentVoucher({
           previousDue={previousDue}
           remainingDue={remainingDue}
           recordedBy={recordedBy}
+          orderNumber={orderNumber}
           companySettings={companySettings}
           logoBase64={logoBase64}
           formatCurrency={formatCurrencyForPDF}
@@ -407,6 +418,7 @@ export function PaymentVoucher({
           previousDue={previousDue}
           remainingDue={remainingDue}
           recordedBy={recordedBy}
+          orderNumber={orderNumber}
           companySettings={companySettings}
           logoBase64={logoBase64}
           formatCurrency={formatCurrencyForPDF}
