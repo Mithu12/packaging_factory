@@ -19,6 +19,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Printer,
 } from "lucide-react";
 import {
   Table,
@@ -40,6 +41,13 @@ import {
 import { useFormatting } from "@/hooks/useFormatting";
 import { CustomerApi, CustomerPaymentHistoryResponse } from "../services/customer-api";
 import { toast } from "@/hooks/use-toast";
+import { PaymentVoucher } from "../components/payments/PaymentVoucher";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function CustomerPaymentHistory() {
   const params = useParams();
@@ -56,6 +64,16 @@ export default function CustomerPaymentHistory() {
   const [paymentsLimit, setPaymentsLimit] = useState(20);
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersLimit, setOrdersLimit] = useState(20);
+  const [showVoucherDialog, setShowVoucherDialog] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<{
+    paymentId: number;
+    paymentAmount: number;
+    paymentMethod: string;
+    paymentDate: string;
+    paymentReference?: string;
+    notes?: string;
+    recordedBy?: string;
+  } | null>(null);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -146,6 +164,21 @@ export default function CustomerPaymentHistory() {
       refunded: <Badge className="bg-red-100 text-red-800">Refunded</Badge>,
     };
     return badges[status as keyof typeof badges] || <Badge>{status}</Badge>;
+  };
+
+  const handlePrintVoucher = (payment: typeof filteredPayments[0]) => {
+    if (payment.payment_type === 'due_payment') {
+      setSelectedPayment({
+        paymentId: payment.id,
+        paymentAmount: payment.payment_amount,
+        paymentMethod: payment.payment_method,
+        paymentDate: payment.payment_date,
+        paymentReference: payment.payment_reference || undefined,
+        notes: payment.notes || undefined,
+        recordedBy: payment.recorded_by_username || undefined,
+      });
+      setShowVoucherDialog(true);
+    }
   };
 
   // Client-side filtering for search only (tab filtering and pagination are server-side)
@@ -332,12 +365,13 @@ export default function CustomerPaymentHistory() {
                     <TableHead>Reference</TableHead>
                     <TableHead>Recorded By</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
                         No payments found
                       </TableCell>
                     </TableRow>
@@ -354,6 +388,18 @@ export default function CustomerPaymentHistory() {
                         <TableCell>{payment.payment_reference || "-"}</TableCell>
                         <TableCell>{payment.recorded_by_username || "-"}</TableCell>
                         <TableCell className="max-w-xs truncate">{payment.notes || "-"}</TableCell>
+                        <TableCell>
+                          {payment.payment_type === 'due_payment' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePrintVoucher(payment)}
+                              title="Print Voucher"
+                            >
+                              <Printer className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -436,12 +482,13 @@ export default function CustomerPaymentHistory() {
                     <TableHead>Order Number</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         No upfront payments found
                       </TableCell>
                     </TableRow>
@@ -456,6 +503,7 @@ export default function CustomerPaymentHistory() {
                         <TableCell>{payment.order_number || "-"}</TableCell>
                         <TableCell>{payment.payment_reference || "-"}</TableCell>
                         <TableCell className="max-w-xs truncate">{payment.notes || "-"}</TableCell>
+                        <TableCell></TableCell>
                       </TableRow>
                     ))
                   )}
@@ -538,12 +586,13 @@ export default function CustomerPaymentHistory() {
                     <TableHead>Reference</TableHead>
                     <TableHead>Recorded By</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         No due payments found
                       </TableCell>
                     </TableRow>
@@ -558,6 +607,16 @@ export default function CustomerPaymentHistory() {
                         <TableCell>{payment.payment_reference || "-"}</TableCell>
                         <TableCell>{payment.recorded_by_username || "-"}</TableCell>
                         <TableCell className="max-w-xs truncate">{payment.notes || "-"}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrintVoucher(payment)}
+                            title="Print Voucher"
+                          >
+                            <Printer className="w-3 h-3" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -841,6 +900,35 @@ export default function CustomerPaymentHistory() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Payment Voucher Dialog */}
+      <Dialog open={showVoucherDialog} onOpenChange={setShowVoucherDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment Voucher</DialogTitle>
+          </DialogHeader>
+          {selectedPayment && data && (
+            <div className="space-y-4">
+              <PaymentVoucher
+                paymentId={selectedPayment.paymentId}
+                customer={data.customer}
+                paymentAmount={selectedPayment.paymentAmount}
+                paymentMethod={selectedPayment.paymentMethod}
+                paymentDate={selectedPayment.paymentDate}
+                paymentReference={selectedPayment.paymentReference}
+                notes={selectedPayment.notes}
+                recordedBy={selectedPayment.recordedBy}
+                previousDue={data.summary.current_outstanding + selectedPayment.paymentAmount}
+                remainingDue={data.summary.current_outstanding}
+                onClose={() => {
+                  setShowVoucherDialog(false);
+                  setSelectedPayment(null);
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

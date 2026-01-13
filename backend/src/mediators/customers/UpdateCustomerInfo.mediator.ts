@@ -214,14 +214,17 @@ export class UpdateCustomerInfoMediator {
                     customer_id, sales_order_id, payment_type, payment_amount,
                     payment_date, payment_method, recorded_by, notes
                 ) VALUES ($1, NULL, 'due_payment', $2, CURRENT_TIMESTAMP, $3, $4, $5)
+                RETURNING id, payment_date, payment_reference
             `;
-            await client.query(paymentInsertQuery, [
+            const paymentResult = await client.query(paymentInsertQuery, [
                 id,
                 amount,
                 paymentMethod || 'cash',
                 userId || 1,
                 `Due payment collected - ${paymentMethod || 'cash'}`
             ]);
+
+            const paymentRecord = paymentResult.rows[0];
 
             await client.query('COMMIT');
 
@@ -230,10 +233,17 @@ export class UpdateCustomerInfoMediator {
                 customerName: customer.name,
                 paymentAmount: amount,
                 paymentMethod: paymentMethod,
-                newDueAmount: customer.due_amount
+                newDueAmount: customer.due_amount,
+                paymentId: paymentRecord.id
             });
 
-            return customer;
+            // Return customer with payment info
+            return {
+                ...customer,
+                payment_id: paymentRecord.id,
+                payment_date: paymentRecord.payment_date,
+                payment_reference: paymentRecord.payment_reference
+            };
         } catch (error: any) {
             await client.query('ROLLBACK');
             MyLogger.error(action, error, { customerId: id, amount, paymentMethod });

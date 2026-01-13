@@ -50,6 +50,7 @@ import {
 import { CustomerApi } from "@/services/api";
 import { Customer } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
+import { PaymentVoucher } from "../payments/PaymentVoucher";
 
 export function CustomerManagement() {
   const router = useRouter();
@@ -66,6 +67,16 @@ export function CustomerManagement() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(false);
+  const [showVoucherDialog, setShowVoucherDialog] = useState(false);
+  const [voucherData, setVoucherData] = useState<{
+    paymentId: number;
+    customer: Customer;
+    paymentAmount: number;
+    paymentMethod: string;
+    paymentDate: string;
+    previousDue: number;
+    remainingDue: number;
+  } | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -290,12 +301,15 @@ export function CustomerManagement() {
 
     try {
       setLoading(true);
+      const previousDue = paymentCustomer.due_amount || 0;
+      const paidAmount = parseFloat(paymentAmount);
+      
       // Call the API to record the payment
       const updatedCustomer = await CustomerApi.collectDuePayment(
         paymentCustomer.id,
-        parseFloat(paymentAmount),
+        paidAmount,
         paymentMethod
-      );
+      ) as Customer & { payment_id?: number; payment_date?: string; payment_reference?: string };
 
       // Update the customers list with the updated customer from API response
       setCustomers((prev) =>
@@ -304,15 +318,28 @@ export function CustomerManagement() {
         )
       );
 
-      setIsPaymentDialogOpen(false);
-      setPaymentAmount("");
-      setPaymentCustomer(null);
+      // Show voucher dialog if payment ID is returned
+      if (updatedCustomer.payment_id) {
+        setVoucherData({
+          paymentId: updatedCustomer.payment_id,
+          customer: paymentCustomer,
+          paymentAmount: paidAmount,
+          paymentMethod: paymentMethod,
+          paymentDate: updatedCustomer.payment_date || new Date().toISOString(),
+          previousDue: previousDue,
+          remainingDue: updatedCustomer.due_amount || 0
+        });
+        setIsPaymentDialogOpen(false);
+        setShowVoucherDialog(true);
+      } else {
+        setIsPaymentDialogOpen(false);
+        setPaymentAmount("");
+        setPaymentCustomer(null);
+      }
 
       toast({
         title: "Payment Recorded",
-        description: `Payment of ${formatCurrency(
-          paymentAmount
-        )} recorded successfully`,
+        description: `Payment of ${formatCurrency(paidAmount)} recorded successfully`,
       });
     } catch (error) {
       console.error("Error recording payment:", error);
@@ -1069,6 +1096,34 @@ export function CustomerManagement() {
               {loading ? "Processing..." : "Record Payment"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Voucher Dialog */}
+      <Dialog open={showVoucherDialog} onOpenChange={setShowVoucherDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment Voucher</DialogTitle>
+          </DialogHeader>
+          {voucherData && (
+            <div className="space-y-4">
+              <PaymentVoucher
+                paymentId={voucherData.paymentId}
+                customer={voucherData.customer}
+                paymentAmount={voucherData.paymentAmount}
+                paymentMethod={voucherData.paymentMethod}
+                paymentDate={voucherData.paymentDate}
+                previousDue={voucherData.previousDue}
+                remainingDue={voucherData.remainingDue}
+                onClose={() => {
+                  setShowVoucherDialog(false);
+                  setVoucherData(null);
+                  setPaymentAmount("");
+                  setPaymentCustomer(null);
+                }}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
