@@ -45,6 +45,7 @@ import {
   CreditCard,
   Bell,
   Database,
+  RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -111,6 +112,30 @@ const menuSections: MenuSection[] = [
         url: "/sales/customers",
         icon: Users,
         permission: PERMISSIONS.CUSTOMERS_READ,
+      },
+      {
+        title: "Orders",
+        url: "/sales/orders",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.SALES_ORDERS_READ,
+      },
+      {
+        title: "Returns",
+        url: "/sales/returns",
+        icon: RotateCcw,
+        permission: PERMISSIONS.SALES_ORDERS_READ,
+      },
+      {
+        title: "Transactions",
+        url: "/sales/transactions",
+        icon: Receipt,
+        permission: PERMISSIONS.SALES_ORDERS_READ,
+      },
+      {
+        title: "Pricing",
+        url: "/sales/pricing",
+        icon: DollarSign,
+        permission: PERMISSIONS.SALES_ORDERS_READ,
       },
     ],
   },

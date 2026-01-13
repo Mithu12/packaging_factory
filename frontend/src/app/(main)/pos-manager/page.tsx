@@ -2,7 +2,6 @@
 
 ﻿import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Clock, CheckCircle, Search, Plus, User, Gift } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -13,8 +12,6 @@ import { Label } from "@/components/ui/label";
 // Components
 import { ProductSearch } from "@/modules/sales/components/pos/ProductSearch";
 import { Cart } from "@/modules/sales/components/pos/Cart";
-import { SalesPriceConfiguration } from "@/modules/sales/components/pos/SalesPriceConfiguration";
-import { SalesOrderProcessing } from "@/modules/sales/components/pos/SalesOrderProcessing";
 // import { SalesReceiptRecording } from "@/modules/sales/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/modules/sales/components/pos/Receipt";
 import { BarcodeScanner } from "@/modules/inventory/components/BarcodeScanner";
@@ -24,7 +21,6 @@ import { ProductApi, CustomerApi, SalesOrderApi, DistributionApi } from "@/servi
 import { Product, Customer, SalesOrder } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReturnsManager } from "@/modules/sales/components/pos/ReturnsManager";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Select,
@@ -58,7 +54,6 @@ export default function POSManager() {
   const [overallDiscount, setOverallDiscount] = useState("");
   const [overallDiscountType, setOverallDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [overallTax, setOverallTax] = useState("");
-  const [activeTab, setActiveTab] = useState("pos");
   const [loading, setLoading] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
@@ -523,219 +518,63 @@ export default function POSManager() {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="pos">Point of Sale</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="returns">Returns</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        {/* Gift Mode Toggle */}
+        <div className="flex items-center justify-between bg-card border rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="gift-mode"
+              checked={isGiftMode}
+              onCheckedChange={setIsGiftMode}
+            />
+            <Label htmlFor="gift-mode" className="flex items-center gap-2 cursor-pointer">
+              <Gift className={`h-4 w-4 ${isGiftMode ? 'text-yellow-600' : 'text-muted-foreground'}`} />
+              Gift Mode
+            </Label>
+          </div>
+          {isGiftMode && (
+            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+              Products will be added as gifts (100% discount)
+            </Badge>
+          )}
+        </div>
 
-        <TabsContent value="pos" className="space-y-6">
-          {/* Gift Mode Toggle */}
-          <div className="flex items-center justify-between bg-card border rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="gift-mode"
-                checked={isGiftMode}
-                onCheckedChange={setIsGiftMode}
-              />
-              <Label htmlFor="gift-mode" className="flex items-center gap-2 cursor-pointer">
-                <Gift className={`h-4 w-4 ${isGiftMode ? 'text-yellow-600' : 'text-muted-foreground'}`} />
-                Gift Mode
-              </Label>
-            </div>
-            {isGiftMode && (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                Products will be added as gifts (100% discount)
-              </Badge>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Product Selection */}
+          <div className="space-y-4">
+            <BarcodeScanner onProductFound={addToCart} />
+            <ProductSearch products={products} onAddToCart={addToCart} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Product Selection */}
-            <div className="space-y-4">
-              <BarcodeScanner onProductFound={addToCart} />
-              <ProductSearch products={products} onAddToCart={addToCart} />
-            </div>
-
-            {/* Shopping Cart */}
-            <div className="space-y-4">
-              <Cart
-                cart={cart}
-                customers={customers}
-                selectedCustomer={selectedCustomer}
-                paymentMethod={paymentMethod}
-                cashAmount={cashAmount}
-                partialPaymentAmount={partialPaymentAmount}
-                overallDiscount={overallDiscount}
-                overallDiscountType={overallDiscountType}
-                overallTax={overallTax}
-                onUpdateQuantity={updateQuantity}
-                onRemoveFromCart={removeFromCart}
-                onClearCart={clearCart}
-                onCustomerChange={setSelectedCustomer}
-                onPaymentMethodChange={setPaymentMethod}
-                onCashAmountChange={setCashAmount}
-                onPartialPaymentAmountChange={setPartialPaymentAmount}
-                onOverallDiscountChange={handleOverallDiscountChange}
-                onOverallTaxChange={setOverallTax}
-                onProcessPayment={processPayment}
-                onAddCustomer={handleAddCustomer}
-                onUpdateItemDiscount={updateItemDiscount}
-                loading={loading}
-              />
-            </div>
+          {/* Shopping Cart */}
+          <div className="space-y-4">
+            <Cart
+              cart={cart}
+              customers={customers}
+              selectedCustomer={selectedCustomer}
+              paymentMethod={paymentMethod}
+              cashAmount={cashAmount}
+              partialPaymentAmount={partialPaymentAmount}
+              overallDiscount={overallDiscount}
+              overallDiscountType={overallDiscountType}
+              overallTax={overallTax}
+              onUpdateQuantity={updateQuantity}
+              onRemoveFromCart={removeFromCart}
+              onClearCart={clearCart}
+              onCustomerChange={setSelectedCustomer}
+              onPaymentMethodChange={setPaymentMethod}
+              onCashAmountChange={setCashAmount}
+              onPartialPaymentAmountChange={setPartialPaymentAmount}
+              onOverallDiscountChange={handleOverallDiscountChange}
+              onOverallTaxChange={setOverallTax}
+              onProcessPayment={processPayment}
+              onAddCustomer={handleAddCustomer}
+              onUpdateItemDiscount={updateItemDiscount}
+              loading={loading}
+            />
           </div>
-        </TabsContent>
-
-        <TabsContent value="pricing">
-          <SalesPriceConfiguration />
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <SalesOrderProcessing />
-        </TabsContent>
-
-        {/* <TabsContent value="recei">
-          <SalesReceiptRecording />
-        </TabsContent> */}
-
-        <TabsContent value="transactions" className="space-y-4">
-          {(() => {
-            // Get recent transactions for display
-            const recentTransactions = salesOrders.slice(0, 5).map(order => ({
-              id: order.order_number,
-              date: new Date(order.created_at).toLocaleString(),
-              customer: order.customer_name || "Walk-in Customer",
-              items: order.product_count, // TODO: Get from line items when available
-              total: order.total_amount,
-              status: order.status,
-              paymentMethod: order.payment_method
-            }));
-
-            // Calculate today's stats
-            const today = new Date().toDateString();
-            const todayOrders = salesOrders.filter(order =>
-              new Date(order.created_at).toDateString() === today
-            );
-            const todaySales = todayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);
-            const averageOrder = todayOrders.length > 0 ? todaySales / todayOrders.length : 0;
-            const itemsSold = todayOrders.reduce((sum, order) => sum + Number(order.product_count), 0); // TODO: Calculate from line items when available
-
-            return (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Today's Sales</h3>
-                    <p className="text-2xl font-bold">{formatCurrency(todaySales)}</p>
-                    <p className="text-sm opacity-90">{todayOrders.length} transactions</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Average Order</h3>
-                    <p className="text-2xl font-bold">{formatCurrency(averageOrder)}</p>
-                    <p className="text-sm opacity-90">Per transaction</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Items Sold</h3>
-                    <p className="text-2xl font-bold">{itemsSold}</p>
-                    <p className="text-sm opacity-90">Products</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white p-6 rounded-lg shadow-sm border">
-                    <h3 className="font-semibold mb-4 text-lg">
-                      Recent Transactions
-                    </h3>
-                    <div className="space-y-3">
-                      {recentTransactions.map((transaction) => (
-                        <div
-                          key={transaction.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{transaction.id}</span>
-                              <Badge
-                                variant={
-                                  transaction.status === "completed"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                              >
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {transaction.customer}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {transaction.date}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">
-                              {formatCurrency(transaction.total)}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {transaction.items} items
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {transaction.paymentMethod}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-6 rounded-lg shadow-sm border">
-                    <h3 className="font-semibold mb-4 text-lg">Payment Methods</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Credit Card</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: "66%" }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium">66%</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Cash</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-green-600 h-2 rounded-full"
-                              style={{ width: "34%" }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium">34%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </TabsContent>
-
-        <TabsContent value="returns" className="space-y-6">
-          <ReturnsManager
-            salesOrders={salesOrders}
-            onRefresh={() => {
-              loadInitialData();
-            }}
-          />
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       {/* Receipt Dialog */}
       {showReceipt && receiptData && (
