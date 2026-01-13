@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,12 +45,14 @@ import {
   Star,
   DollarSign,
   CreditCard,
+  History,
 } from "lucide-react";
 import { CustomerApi } from "@/services/api";
 import { Customer } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 
 export function CustomerManagement() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
@@ -631,13 +634,23 @@ export function CustomerManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewCustomer(customer)}
+                        title="View Details"
                       >
                         <Eye className="w-3 h-3" />
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => router.push(`/sales/customers/${customer.id}/payment-history`)}
+                        title="View Payment History"
+                      >
+                        <History className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditCustomer(customer)}
+                        title="Edit Customer"
                       >
                         <Edit className="w-3 h-3" />
                       </Button>
@@ -647,6 +660,7 @@ export function CustomerManagement() {
                           size="sm"
                           onClick={() => handleCollectPayment(customer)}
                           className="bg-green-600 hover:bg-green-700"
+                          title="Collect Payment"
                         >
                           <CreditCard className="w-3 h-3" />
                         </Button>

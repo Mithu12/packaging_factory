@@ -96,4 +96,55 @@ export class CustomerApi {
       body: JSON.stringify({ amount, payment_method: paymentMethod }),
     });
   }
+
+  static async getCustomerPaymentHistory(id: number) {
+    return makeRequest<CustomerPaymentHistoryResponse>(`/sales/customers/${id}/payment-history`);
+  }
+}
+
+export interface CustomerPaymentHistoryResponse {
+  customer: {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    due_amount: number;
+  };
+  summary: {
+    total_orders: number;
+    total_order_value: number;
+    total_upfront_payments: number;
+    total_due_payments_collected: number;
+    total_due_amounts: number;
+    current_outstanding: number;
+    total_paid: number;
+    total_refunds: number;
+    last_order_date: string | null;
+    last_payment_date: string | null;
+  };
+  payments: Array<{
+    id: number;
+    payment_type: 'upfront' | 'due_payment' | 'refund' | 'adjustment';
+    payment_amount: number;
+    payment_date: string;
+    payment_method: string;
+    payment_reference: string | null;
+    notes: string | null;
+    sales_order_id: number | null;
+    order_number: string | null;
+    recorded_by_username: string | null;
+    recorded_at: string;
+  }>;
+  orders: Array<{
+    id: number;
+    order_number: string;
+    order_date: string;
+    total_amount: number;
+    cash_received: number;
+    due_amount: number;
+    payment_method: string | null;
+    payment_status: string;
+    status: string;
+    payment_type: 'full_cash' | 'partial' | 'credit' | 'full_card' | 'full_bank_transfer';
+  }>;
 }

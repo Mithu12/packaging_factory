@@ -180,8 +180,9 @@ router.patch('/:id/collect-payment',
             return;
         }
         
-        MyLogger.info(action, { customerId: id, amount, payment_method })
-        const customer = await UpdateCustomerInfoMediator.collectDuePayment(id, amount, payment_method || 'cash');
+        const userId = (req as any).user?.user_id;
+        MyLogger.info(action, { customerId: id, amount, payment_method, userId })
+        const customer = await UpdateCustomerInfoMediator.collectDuePayment(id, amount, payment_method || 'cash', userId);
         MyLogger.success(action, { customerId: id, customerName: customer.name, newDueAmount: customer.due_amount })
         serializeSuccessResponse(res, customer, 'Payment recorded successfully')
     } catch (error: any) {

@@ -362,6 +362,31 @@ export class AddSalesOrderMediator {
                         `;
                         await client.query(updateDueAmountQuery, [data.due_amount, data.customer_id]);
                     }
+
+                    // Record upfront payment if cash_received > 0
+                    if (data.cash_received && data.cash_received > 0) {
+                        MyLogger.info('Recording upfront payment', {
+                            customerId: data.customer_id,
+                            salesOrderId: salesOrder.id,
+                            cashReceived: data.cash_received,
+                            paymentMethod: data.payment_method
+                        });
+                        const paymentInsertQuery = `
+                            INSERT INTO customer_payments (
+                                customer_id, sales_order_id, payment_type, payment_amount,
+                                payment_date, payment_method, recorded_by, notes
+                            ) VALUES ($1, $2, 'upfront', $3, $4, $5, $6, $7)
+                        `;
+                        await client.query(paymentInsertQuery, [
+                            data.customer_id,
+                            salesOrder.id,
+                            data.cash_received,
+                            salesOrder.order_date,
+                            data.payment_method || 'cash',
+                            data.cashier_id || 1,
+                            `Upfront payment for order ${salesOrder.order_number}`
+                        ]);
+                    }
                 }
 
                 await client.query('COMMIT');

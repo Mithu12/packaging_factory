@@ -172,14 +172,16 @@ export class UpdateCustomerInfoMediator {
         }
     }
 
-    static async collectDuePayment(id: number, amount: number, paymentMethod: string): Promise<Customer> {
+    static async collectDuePayment(id: number, amount: number, paymentMethod: string, userId?: number): Promise<Customer> {
         let action = 'UpdateCustomerInfoMediator.collectDuePayment';
+        const client = await pool.connect();
         try {
-            MyLogger.info(action, { customerId: id, amount, paymentMethod });
+            await client.query('BEGIN');
+            MyLogger.info(action, { customerId: id, amount, paymentMethod, userId });
 
             // First, verify the customer exists and has enough due amount
             const checkQuery = `SELECT * FROM customers WHERE id = $1`;
-            const checkResult = await pool.query(checkQuery, [id]);
+            const checkResult = await client.query(checkQuery, [id]);
 
             if (checkResult.rows.length === 0) {
                 throw new Error(`Customer with ID ${id} not found`);
@@ -203,9 +205,26 @@ export class UpdateCustomerInfoMediator {
                 RETURNING *
             `;
 
-            const result = await pool.query(updateQuery, [amount, id]);
-
+            const result = await client.query(updateQuery, [amount, id]);
             const customer = result.rows[0];
+
+            // Record payment in customer_payments table
+            const paymentInsertQuery = `
+                INSERT INTO customer_payments (
+                    customer_id, sales_order_id, payment_type, payment_amount,
+                    payment_date, payment_method, recorded_by, notes
+                ) VALUES ($1, NULL, 'due_payment', $2, CURRENT_TIMESTAMP, $3, $4, $5)
+            `;
+            await client.query(paymentInsertQuery, [
+                id,
+                amount,
+                paymentMethod || 'cash',
+                userId || 1,
+                `Due payment collected - ${paymentMethod || 'cash'}`
+            ]);
+
+            await client.query('COMMIT');
+
             MyLogger.success(action, { 
                 customerId: id, 
                 customerName: customer.name,
@@ -216,8 +235,11 @@ export class UpdateCustomerInfoMediator {
 
             return customer;
         } catch (error: any) {
+            await client.query('ROLLBACK');
             MyLogger.error(action, error, { customerId: id, amount, paymentMethod });
             throw error;
+        } finally {
+            client.release();
         }
     }
 }
