@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { ProductSearch } from "@/modules/sales/components/pos/ProductSearch";
 import { Cart } from "@/modules/sales/components/pos/Cart";
 import { SalesPriceConfiguration } from "@/modules/sales/components/pos/SalesPriceConfiguration";
-import { CustomerManagement } from "@/modules/sales/components/pos/CustomerManagement";
 import { SalesOrderProcessing } from "@/modules/sales/components/pos/SalesOrderProcessing";
 // import { SalesReceiptRecording } from "@/modules/sales/components/pos/SalesReceiptRecording";
 import { Receipt } from "@/modules/sales/components/pos/Receipt";
@@ -525,10 +524,9 @@ export default function POSManager() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="pos">Point of Sale</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="returns">Returns</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -594,10 +592,6 @@ export default function POSManager() {
 
         <TabsContent value="pricing">
           <SalesPriceConfiguration />
-        </TabsContent>
-
-        <TabsContent value="customers">
-          <CustomerManagement />
         </TabsContent>
 
         <TabsContent value="orders">

@@ -106,6 +106,12 @@ const menuSections: MenuSection[] = [
         icon: Calculator,
         permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
       },
+      {
+        title: "Customers",
+        url: "/sales/customers",
+        icon: Users,
+        permission: PERMISSIONS.CUSTOMERS_READ,
+      },
     ],
   },
   {
