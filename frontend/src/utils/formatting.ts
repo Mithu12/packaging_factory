@@ -78,7 +78,8 @@ class FormattingUtils {
 
   // Format number based on locale
   static formatNumber(number: number | string): string {
-    const num = typeof number === 'string' ? parseFloat(number) : number;
+    let num = typeof number === 'string' ? parseFloat(number) : number;
+    num = Number(num.toFixed(2));
     if (isNaN(num)) return '0.00';
 
     switch (this.settings.number_format) {
