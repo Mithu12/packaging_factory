@@ -172,12 +172,18 @@ export class UpdateCustomerInfoMediator {
         }
     }
 
-    static async collectDuePayment(id: number, amount: number, paymentMethod: string, userId?: number): Promise<Customer> {
+    static async collectDuePayment(
+        id: number, 
+        amount: number, 
+        paymentMethod: string, 
+        userId?: number,
+        orderPayments?: Array<{ orderId: number; amount: number }>
+    ): Promise<Customer> {
         let action = 'UpdateCustomerInfoMediator.collectDuePayment';
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            MyLogger.info(action, { customerId: id, amount, paymentMethod, userId });
+            MyLogger.info(action, { customerId: id, amount, paymentMethod, userId, orderPayments });
 
             // First, verify the customer exists and has enough due amount
             const checkQuery = `SELECT * FROM customers WHERE id = $1`;
@@ -196,6 +202,77 @@ export class UpdateCustomerInfoMediator {
                 throw new Error('Payment amount must be greater than 0');
             }
 
+            // If orderPayments is provided, validate and process order-wise payments
+            if (orderPayments && orderPayments.length > 0) {
+                const totalOrderPayments = orderPayments.reduce((sum, op) => sum + op.amount, 0);
+                if (Math.abs(totalOrderPayments - amount) > 0.01) {
+                    throw new Error(`Total order payments (${totalOrderPayments}) must equal payment amount (${amount})`);
+                }
+
+                // Process each order payment
+                for (const orderPayment of orderPayments) {
+                    // Verify order exists and belongs to customer
+                    const orderCheckQuery = `
+                        SELECT id, due_amount, customer_id 
+                        FROM sales_orders 
+                        WHERE id = $1 AND customer_id = $2
+                    `;
+                    const orderCheckResult = await client.query(orderCheckQuery, [orderPayment.orderId, id]);
+                    
+                    if (orderCheckResult.rows.length === 0) {
+                        throw new Error(`Order ${orderPayment.orderId} not found or does not belong to customer ${id}`);
+                    }
+
+                    const orderDueAmount = parseFloat(orderCheckResult.rows[0].due_amount) || 0;
+                    if (orderPayment.amount > orderDueAmount) {
+                        throw new Error(`Payment amount (${orderPayment.amount}) exceeds order ${orderPayment.orderId} due amount (${orderDueAmount})`);
+                    }
+
+                    // Update order due amount
+                    const updateOrderQuery = `
+                        UPDATE sales_orders 
+                        SET due_amount = GREATEST(0, due_amount - $1),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $2
+                    `;
+                    await client.query(updateOrderQuery, [orderPayment.amount, orderPayment.orderId]);
+
+                    // Record payment for this order
+                    const orderPaymentInsertQuery = `
+                        INSERT INTO customer_payments (
+                            customer_id, sales_order_id, payment_type, payment_amount,
+                            payment_date, payment_method, recorded_by, notes
+                        ) VALUES ($1, $2, 'due_payment', $3, CURRENT_TIMESTAMP, $4, $5, $6)
+                        RETURNING id, payment_date, payment_reference
+                    `;
+                    await client.query(orderPaymentInsertQuery, [
+                        id,
+                        orderPayment.orderId,
+                        orderPayment.amount,
+                        paymentMethod || 'cash',
+                        userId || 1,
+                        `Due payment collected for order ${orderPayment.orderId} - ${paymentMethod || 'cash'}`
+                    ]);
+                }
+            } else {
+                // If no orderPayments specified, create a single payment record without order link
+                const paymentInsertQuery = `
+                    INSERT INTO customer_payments (
+                        customer_id, sales_order_id, payment_type, payment_amount,
+                        payment_date, payment_method, recorded_by, notes
+                    ) VALUES ($1, NULL, 'due_payment', $2, CURRENT_TIMESTAMP, $3, $4, $5)
+                    RETURNING id, payment_date, payment_reference
+                `;
+                await client.query(paymentInsertQuery, [
+                    id,
+                    amount,
+                    paymentMethod || 'cash',
+                    userId || 1,
+                    `Due payment collected - ${paymentMethod || 'cash'}`
+                ]);
+            }
+
+            // Update customer due amount
             const updateQuery = `
                 UPDATE customers 
                 SET due_amount = COALESCE(due_amount, 0) - $1,
@@ -208,22 +285,15 @@ export class UpdateCustomerInfoMediator {
             const result = await client.query(updateQuery, [amount, id]);
             const customer = result.rows[0];
 
-            // Record payment in customer_payments table
-            const paymentInsertQuery = `
-                INSERT INTO customer_payments (
-                    customer_id, sales_order_id, payment_type, payment_amount,
-                    payment_date, payment_method, recorded_by, notes
-                ) VALUES ($1, NULL, 'due_payment', $2, CURRENT_TIMESTAMP, $3, $4, $5)
-                RETURNING id, payment_date, payment_reference
+            // Get the last payment record for return
+            const lastPaymentQuery = `
+                SELECT id, payment_date, payment_reference
+                FROM customer_payments
+                WHERE customer_id = $1
+                ORDER BY recorded_at DESC
+                LIMIT 1
             `;
-            const paymentResult = await client.query(paymentInsertQuery, [
-                id,
-                amount,
-                paymentMethod || 'cash',
-                userId || 1,
-                `Due payment collected - ${paymentMethod || 'cash'}`
-            ]);
-
+            const paymentResult = await client.query(lastPaymentQuery, [id]);
             const paymentRecord = paymentResult.rows[0];
 
             await client.query('COMMIT');
@@ -234,15 +304,16 @@ export class UpdateCustomerInfoMediator {
                 paymentAmount: amount,
                 paymentMethod: paymentMethod,
                 newDueAmount: customer.due_amount,
-                paymentId: paymentRecord.id
+                paymentId: paymentRecord?.id,
+                orderPayments: orderPayments?.length || 0
             });
 
             // Return customer with payment info
             return {
                 ...customer,
-                payment_id: paymentRecord.id,
-                payment_date: paymentRecord.payment_date,
-                payment_reference: paymentRecord.payment_reference
+                payment_id: paymentRecord?.id,
+                payment_date: paymentRecord?.payment_date,
+                payment_reference: paymentRecord?.payment_reference
             };
         } catch (error: any) {
             await client.query('ROLLBACK');

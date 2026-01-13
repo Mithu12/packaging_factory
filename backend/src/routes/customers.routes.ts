@@ -169,7 +169,7 @@ router.patch('/:id/collect-payment',
     let action = 'PATCH /api/customers/:id/collect-payment'
     try {
         const id = parseInt(req.params.id);
-        const { amount, payment_method } = req.body;
+        const { amount, payment_method, order_payments } = req.body;
         
         if (!amount || amount <= 0) {
             res.status(400).json({
@@ -181,8 +181,14 @@ router.patch('/:id/collect-payment',
         }
         
         const userId = (req as any).user?.user_id;
-        MyLogger.info(action, { customerId: id, amount, payment_method, userId })
-        const customer = await UpdateCustomerInfoMediator.collectDuePayment(id, amount, payment_method || 'cash', userId);
+        MyLogger.info(action, { customerId: id, amount, payment_method, userId, order_payments })
+        const customer = await UpdateCustomerInfoMediator.collectDuePayment(
+            id, 
+            amount, 
+            payment_method || 'cash', 
+            userId,
+            order_payments
+        );
         MyLogger.success(action, { customerId: id, customerName: customer.name, newDueAmount: customer.due_amount })
         serializeSuccessResponse(res, customer, 'Payment recorded successfully')
     } catch (error: any) {

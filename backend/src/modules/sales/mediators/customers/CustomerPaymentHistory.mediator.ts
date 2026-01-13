@@ -72,6 +72,55 @@ export interface PaymentHistoryQueryParams {
 }
 
 export class CustomerPaymentHistoryMediator {
+    static async getCustomerOrdersWithDueAmounts(customerId: number): Promise<Array<{
+        id: number;
+        order_number: string;
+        order_date: string;
+        total_amount: number;
+        cash_received: number;
+        due_amount: number;
+        payment_method: string | null;
+        payment_status: string;
+        status: string;
+    }>> {
+        const action = 'CustomerPaymentHistoryMediator.getCustomerOrdersWithDueAmounts';
+        try {
+            MyLogger.info(action, { customerId });
+
+            const ordersQuery = `
+                SELECT 
+                    id,
+                    order_number,
+                    order_date,
+                    total_amount,
+                    cash_received,
+                    due_amount,
+                    payment_method,
+                    payment_status,
+                    status
+                FROM sales_orders
+                WHERE customer_id = $1 AND due_amount > 0
+                ORDER BY order_date ASC
+            `;
+            const ordersResult = await pool.query(ordersQuery, [customerId]);
+
+            return ordersResult.rows.map((order: any) => ({
+                id: order.id,
+                order_number: order.order_number,
+                order_date: order.order_date,
+                total_amount: parseFloat(order.total_amount) || 0,
+                cash_received: parseFloat(order.cash_received) || 0,
+                due_amount: parseFloat(order.due_amount) || 0,
+                payment_method: order.payment_method,
+                payment_status: order.payment_status,
+                status: order.status
+            }));
+        } catch (error: any) {
+            MyLogger.error(action, error, { customerId });
+            throw error;
+        }
+    }
+
     static async getCustomerPaymentHistory(
         customerId: number,
         params?: PaymentHistoryQueryParams

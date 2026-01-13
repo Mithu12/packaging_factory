@@ -583,6 +583,7 @@ export default function CustomerPaymentHistory() {
                     <TableHead>Date</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Method</TableHead>
+                    <TableHead>Order Number</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Recorded By</TableHead>
                     <TableHead>Notes</TableHead>
@@ -592,7 +593,7 @@ export default function CustomerPaymentHistory() {
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
                         No due payments found
                       </TableCell>
                     </TableRow>
@@ -604,6 +605,7 @@ export default function CustomerPaymentHistory() {
                           {formatCurrency(payment.payment_amount)}
                         </TableCell>
                         <TableCell>{payment.payment_method}</TableCell>
+                        <TableCell>{payment.order_number || "-"}</TableCell>
                         <TableCell>{payment.payment_reference || "-"}</TableCell>
                         <TableCell>{payment.recorded_by_username || "-"}</TableCell>
                         <TableCell className="max-w-xs truncate">{payment.notes || "-"}</TableCell>

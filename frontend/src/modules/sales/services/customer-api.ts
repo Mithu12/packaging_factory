@@ -90,10 +90,33 @@ export class CustomerApi {
     }>(`/customers/${id}/references`);
   }
 
-  static async collectDuePayment(id: number, amount: number, paymentMethod: string) {
+  static async getCustomerOrdersWithDueAmounts(id: number) {
+    return makeRequest<Array<{
+      id: number;
+      order_number: string;
+      order_date: string;
+      total_amount: number;
+      cash_received: number;
+      due_amount: number;
+      payment_method: string | null;
+      payment_status: string;
+      status: string;
+    }>>(`/sales/customers/${id}/orders-with-due`);
+  }
+
+  static async collectDuePayment(
+    id: number, 
+    amount: number, 
+    paymentMethod: string,
+    orderPayments?: Array<{ orderId: number; amount: number }>
+  ) {
     return makeRequest<Customer>(`/customers/${id}/collect-payment`, {
       method: 'PATCH',
-      body: JSON.stringify({ amount, payment_method: paymentMethod }),
+      body: JSON.stringify({ 
+        amount, 
+        payment_method: paymentMethod,
+        order_payments: orderPayments
+      }),
     });
   }
 

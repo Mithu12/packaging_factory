@@ -51,6 +51,8 @@ import { CustomerApi } from "@/services/api";
 import { Customer } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 import { PaymentVoucher } from "../payments/PaymentVoucher";
+import { CustomerApi as SalesCustomerApi } from "../../services/customer-api";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function CustomerManagement() {
   const router = useRouter();
@@ -67,6 +69,19 @@ export function CustomerManagement() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(false);
+  const [ordersWithDue, setOrdersWithDue] = useState<Array<{
+    id: number;
+    order_number: string;
+    order_date: string;
+    total_amount: number;
+    cash_received: number;
+    due_amount: number;
+    payment_method: string | null;
+    payment_status: string;
+    status: string;
+  }>>([]);
+  const [orderPayments, setOrderPayments] = useState<Record<number, number>>({});
+  const [useOrderWisePayment, setUseOrderWisePayment] = useState(true);
   const [showVoucherDialog, setShowVoucherDialog] = useState(false);
   const [voucherData, setVoucherData] = useState<{
     paymentId: number;
@@ -274,10 +289,62 @@ export function CustomerManagement() {
     }
   };
 
-  const handleCollectPayment = (customer: Customer) => {
+  const handleCollectPayment = async (customer: Customer) => {
     setPaymentCustomer(customer);
     setPaymentAmount(customer.due_amount?.toString() || "");
+    setOrderPayments({});
+    setUseOrderWisePayment(true);
     setIsPaymentDialogOpen(true);
+    
+    // Load orders with due amounts
+    try {
+      const orders = await SalesCustomerApi.getCustomerOrdersWithDueAmounts(customer.id);
+      setOrdersWithDue(orders);
+      
+      // Pre-fill order payments with full due amounts
+      const initialPayments: Record<number, number> = {};
+      orders.forEach(order => {
+        initialPayments[order.id] = order.due_amount;
+      });
+      setOrderPayments(initialPayments);
+      
+      // Calculate total from orders
+      const total = orders.reduce((sum, order) => sum + order.due_amount, 0);
+      setPaymentAmount(total.toString());
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders with due amounts",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOrderPaymentChange = (orderId: number, amount: number) => {
+    const newOrderPayments = { ...orderPayments, [orderId]: amount };
+    setOrderPayments(newOrderPayments);
+    
+    // Calculate total payment amount
+    const total = Object.values(newOrderPayments).reduce((sum, amt) => sum + amt, 0);
+    setPaymentAmount(total.toString());
+  };
+
+  const toggleOrderSelection = (orderId: number, selected: boolean) => {
+    const order = ordersWithDue.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const newOrderPayments = { ...orderPayments };
+    if (selected) {
+      newOrderPayments[orderId] = order.due_amount;
+    } else {
+      delete newOrderPayments[orderId];
+    }
+    setOrderPayments(newOrderPayments);
+    
+    // Calculate total payment amount
+    const total = Object.values(newOrderPayments).reduce((sum, amt) => sum + amt, 0);
+    setPaymentAmount(total.toString());
   };
 
   const processPaymentCollection = async () => {
@@ -304,11 +371,22 @@ export function CustomerManagement() {
       const previousDue = paymentCustomer.due_amount || 0;
       const paidAmount = parseFloat(paymentAmount);
       
+      // Prepare order payments array if using order-wise payment
+      const orderPaymentsArray = useOrderWisePayment && Object.keys(orderPayments).length > 0
+        ? Object.entries(orderPayments)
+            .filter(([_, amount]) => amount > 0)
+            .map(([orderId, amount]) => ({
+              orderId: parseInt(orderId),
+              amount: amount
+            }))
+        : undefined;
+      
       // Call the API to record the payment
       const updatedCustomer = await CustomerApi.collectDuePayment(
         paymentCustomer.id,
         paidAmount,
-        paymentMethod
+        paymentMethod,
+        orderPaymentsArray
       ) as Customer & { payment_id?: number; payment_date?: string; payment_reference?: string };
 
       // Update the customers list with the updated customer from API response
@@ -1005,7 +1083,7 @@ export function CustomerManagement() {
 
       {/* Payment Collection Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Collect Payment</DialogTitle>
           </DialogHeader>
@@ -1029,8 +1107,75 @@ export function CustomerManagement() {
                 </div>
               </div>
 
+              {ordersWithDue.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-order-wise"
+                      checked={useOrderWisePayment}
+                      onCheckedChange={(checked) => {
+                        setUseOrderWisePayment(checked as boolean);
+                        if (!checked) {
+                          setOrderPayments({});
+                        } else {
+                          const initialPayments: Record<number, number> = {};
+                          ordersWithDue.forEach(order => {
+                            initialPayments[order.id] = order.due_amount;
+                          });
+                          setOrderPayments(initialPayments);
+                          const total = ordersWithDue.reduce((sum, order) => sum + order.due_amount, 0);
+                          setPaymentAmount(total.toString());
+                        }
+                      }}
+                    />
+                    <Label htmlFor="use-order-wise" className="cursor-pointer">
+                      Allocate payment to specific orders
+                    </Label>
+                  </div>
+
+                  {useOrderWisePayment && (
+                    <div className="border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto">
+                      <div className="text-sm font-medium mb-2">Orders with Due Amounts</div>
+                      {ordersWithDue.map((order) => (
+                        <div key={order.id} className="flex items-center gap-3 p-2 border rounded">
+                          <Checkbox
+                            checked={orderPayments[order.id] !== undefined && orderPayments[order.id] > 0}
+                            onCheckedChange={(checked) => toggleOrderSelection(order.id, checked as boolean)}
+                          />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium text-sm">{order.order_number}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(order.order_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                Due: {formatCurrency(order.due_amount)}
+                              </span>
+                              {orderPayments[order.id] !== undefined && orderPayments[order.id] > 0 && (
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  max={order.due_amount}
+                                  value={orderPayments[order.id]}
+                                  onChange={(e) => handleOrderPaymentChange(order.id, parseFloat(e.target.value) || 0)}
+                                  className="w-24 h-7 text-xs"
+                                  placeholder="0.00"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="payment-amount">Payment Amount</Label>
+                <Label htmlFor="payment-amount">Total Payment Amount</Label>
                 <Input
                   id="payment-amount"
                   type="number"
@@ -1038,8 +1183,14 @@ export function CustomerManagement() {
                   min="0"
                   max={paymentCustomer.due_amount || 0}
                   value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  onChange={(e) => {
+                    setPaymentAmount(e.target.value);
+                    if (!useOrderWisePayment) {
+                      setOrderPayments({});
+                    }
+                  }}
                   placeholder="Enter payment amount"
+                  disabled={useOrderWisePayment && ordersWithDue.length > 0}
                 />
               </div>
 
@@ -1075,6 +1226,22 @@ export function CustomerManagement() {
                       )}
                     </span>
                   </div>
+                  {useOrderWisePayment && Object.keys(orderPayments).length > 0 && (
+                    <div className="mt-2 pt-2 border-t text-xs">
+                      <div className="font-medium mb-1">Payment Allocation:</div>
+                      {Object.entries(orderPayments)
+                        .filter(([_, amount]) => amount > 0)
+                        .map(([orderId, amount]) => {
+                          const order = ordersWithDue.find(o => o.id === parseInt(orderId));
+                          return (
+                            <div key={orderId} className="flex justify-between">
+                              <span>{order?.order_number}:</span>
+                              <span>{formatCurrency(amount)}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1083,14 +1250,19 @@ export function CustomerManagement() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsPaymentDialogOpen(false)}
+              onClick={() => {
+                setIsPaymentDialogOpen(false);
+                setOrdersWithDue([]);
+                setOrderPayments({});
+              }}
             >
               Cancel
             </Button>
             <Button
               onClick={processPaymentCollection}
               disabled={
-                !paymentAmount || parseFloat(paymentAmount) <= 0 || loading
+                !paymentAmount || parseFloat(paymentAmount) <= 0 || loading ||
+                (useOrderWisePayment && Object.keys(orderPayments).length === 0)
               }
             >
               {loading ? "Processing..." : "Record Payment"}

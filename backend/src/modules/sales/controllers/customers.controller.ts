@@ -4,6 +4,36 @@ import { MyLogger } from "@/utils/new-logger";
 import { CustomerPaymentHistoryMediator } from "../mediators/customers/CustomerPaymentHistory.mediator";
 
 class SalesCustomersController {
+    async getCustomerOrdersWithDueAmounts(req: Request, res: Response, next: NextFunction): Promise<void> {
+        const action = 'GET /api/sales/customers/:customerId/orders-with-due';
+        try {
+            const customerId = parseInt(req.params.customerId);
+
+            if (isNaN(customerId)) {
+                res.status(400).json({
+                    error: {
+                        message: 'Invalid customer ID'
+                    }
+                });
+                return;
+            }
+
+            MyLogger.info(action, { customerId });
+
+            const orders = await CustomerPaymentHistoryMediator.getCustomerOrdersWithDueAmounts(customerId);
+
+            MyLogger.success(action, {
+                customerId,
+                ordersCount: orders.length
+            });
+
+            serializeSuccessResponse(res, orders, 'SUCCESS');
+        } catch (error: any) {
+            MyLogger.error(action, error, { customerId: req.params.customerId });
+            next(error);
+        }
+    }
+
     async getCustomerPaymentHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
         const action = 'GET /api/sales/customers/:customerId/payment-history';
         try {
