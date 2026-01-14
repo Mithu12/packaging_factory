@@ -663,6 +663,12 @@ export default function ProductDetails() {
                 <span className="text-sm text-muted-foreground">Selling Price</span>
                 <span className="font-medium">{formatCurrency(product.selling_price)}</span>
               </div>
+              {product.wholesale_price !== undefined && product.wholesale_price !== null && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Wholesale Price</span>
+                  <span className="font-medium">{formatCurrency(product.wholesale_price)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>

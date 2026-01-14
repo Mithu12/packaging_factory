@@ -38,6 +38,7 @@ interface EditProductFormData {
   unit_of_measure: string
   cost_price: string
   selling_price: string
+  wholesale_price: string
   current_stock: string
   min_stock_level: string
   max_stock_level: string
@@ -83,6 +84,7 @@ export default function EditProduct() {
     unit_of_measure: "",
     cost_price: "",
     selling_price: "",
+    wholesale_price: "",
     current_stock: "",
     min_stock_level: "",
     max_stock_level: "",
@@ -168,6 +170,7 @@ export default function EditProduct() {
           unit_of_measure: productData.unit_of_measure,
           cost_price: productData.cost_price.toString(),
           selling_price: productData.selling_price.toString(),
+          wholesale_price: productData.wholesale_price?.toString() || "",
           current_stock: productData.current_stock.toString(),
           min_stock_level: productData.min_stock_level.toString(),
           max_stock_level: productData.max_stock_level?.toString() || "",
@@ -282,6 +285,7 @@ export default function EditProduct() {
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
+        wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
         max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
@@ -636,6 +640,21 @@ export default function EditProduct() {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="wholesalePrice">Wholesale Price</Label>
+                  <Input
+                    id="wholesalePrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.wholesale_price}
+                    onChange={(e) => handleInputChange("wholesale_price", e.target.value)}
+                    placeholder="0.00 (optional)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty to use selling price for wholesale customers
+                  </p>
                 </div>
                 
                 {hasPricingValues && (

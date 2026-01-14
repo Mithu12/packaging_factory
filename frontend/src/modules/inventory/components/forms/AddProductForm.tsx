@@ -54,6 +54,7 @@ interface ProductFormData {
   unit_of_measure: string;
   cost_price: string;
   selling_price: string;
+  wholesale_price: string;
   current_stock: string;
   min_stock_level: string;
   max_stock_level: string;
@@ -85,6 +86,7 @@ export function AddProductForm({
     unit_of_measure: "pcs",
     cost_price: "",
     selling_price: "",
+    wholesale_price: "",
     current_stock: "0",
     min_stock_level: "",
     max_stock_level: "",
@@ -285,6 +287,7 @@ export function AddProductForm({
         unit_of_measure: formData.unit_of_measure,
         cost_price: parseFloat(formData.cost_price),
         selling_price: parseFloat(formData.selling_price),
+        wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
         max_stock_level: formData.max_stock_level
@@ -334,6 +337,7 @@ export function AddProductForm({
         unit_of_measure: "pcs",
         cost_price: "",
         selling_price: "",
+        wholesale_price: "",
         current_stock: "0",
         min_stock_level: "",
         max_stock_level: "",
@@ -718,6 +722,26 @@ export function AddProductForm({
                     className={getFieldErrorClass("selling_price")}
                     aria-invalid={hasFieldError("selling_price")}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wholesalePrice">Wholesale Price</Label>
+                  <Input
+                    id="wholesalePrice"
+                    data-testid="add-product-wholesale-price"
+                    type="number"
+                    step="0.01"
+                    value={formData.wholesale_price}
+                    onChange={(e) =>
+                      handleInputChange("wholesale_price", e.target.value)
+                    }
+                    placeholder="0.00 (optional)"
+                    className={getFieldErrorClass("wholesale_price")}
+                    aria-invalid={hasFieldError("wholesale_price")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use selling price for wholesale customers
+                  </p>
                 </div>
               </div>
 
