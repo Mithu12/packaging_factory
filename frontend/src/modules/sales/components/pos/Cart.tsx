@@ -439,9 +439,16 @@ export function Cart({
                           >
                             -
                           </Button>
-                          <span className="w-8 text-center text-sm">
-                            {item.quantity}
-                          </span>
+                          <Input
+                            type="number"
+                            className="w-12 h-6 text-center text-sm p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              onUpdateQuantity(item.id, isNaN(val) ? 0 : val);
+                            }}
+                            min="0"
+                          />
                           <Button
                             size="sm"
                             variant="outline"
