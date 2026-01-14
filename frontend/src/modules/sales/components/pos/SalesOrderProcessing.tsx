@@ -56,10 +56,46 @@ export function SalesOrderProcessing() {
 
   const { formatCurrency } = useFormatting();
 
+  // Helper function to get product price based on customer type
+  const getProductPrice = (product: Product, customerId?: string): number => {
+    if (!customerId) return product.selling_price;
+    
+    const customer = customers.find(c => c.id.toString() === customerId);
+    if (customer?.customer_type === 'wholesale' && product.wholesale_price !== undefined && product.wholesale_price !== null) {
+      return product.wholesale_price;
+    }
+    return product.selling_price;
+  };
+
   // Load data on component mount
   useEffect(() => {
     loadData()
   }, [])
+
+  // Recalculate order item prices when customer changes
+  useEffect(() => {
+    if (newOrder.items.length > 0 && newOrder.customerId) {
+      setNewOrder(prev => ({
+        ...prev,
+        items: prev.items.map(item => {
+          const product = products.find(p => p.id.toString() === item.id)
+          if (!product) return item
+          
+          const newPrice = getProductPrice(product, prev.customerId)
+          if (newPrice !== item.price) {
+            const discount = item.discount || 0
+            const newTotal = (newPrice * item.quantity) - ((newPrice * item.quantity) * discount / 100)
+            return {
+              ...item,
+              price: newPrice,
+              total: newTotal
+            }
+          }
+          return item
+        })
+      }))
+    }
+  }, [newOrder.customerId, products, customers])
 
   const loadData = async () => {
     try {
@@ -113,12 +149,13 @@ export function SalesOrderProcessing() {
 
     const quantity = parseInt(newItem.quantity) || 1
     const discount = parseFloat(newItem.discount) || 0
-    const total = (product.selling_price * quantity) - ((product.selling_price * quantity) * discount / 100)
+    const productPrice = getProductPrice(product, newOrder.customerId)
+    const total = (productPrice * quantity) - ((productPrice * quantity) * discount / 100)
 
     const orderItem: OrderItem = {
       id: product.id.toString(),
       productName: product.name,
-      price: product.selling_price,
+      price: productPrice,
       quantity,
       discount,
       total

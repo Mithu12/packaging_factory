@@ -199,6 +199,7 @@ export interface Product {
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
+  wholesale_price?: number;
   current_stock: number;
   min_stock_level: number;
   max_stock_level?: number;
@@ -283,6 +284,7 @@ export interface UpdateProductRequest {
   unit_of_measure?: string;
   cost_price?: number;
   selling_price?: number;
+  wholesale_price?: number;
   current_stock?: number;
   min_stock_level?: number;
   max_stock_level?: number;

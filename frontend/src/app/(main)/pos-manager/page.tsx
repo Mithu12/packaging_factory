@@ -64,10 +64,40 @@ export default function POSManager() {
 
   const { formatCurrency } = useFormatting();
 
+  // Helper function to get product price based on customer type
+  const getProductPrice = (product: Product, customerType?: string): number => {
+    if (customerType === 'wholesale' && product.wholesale_price !== undefined && product.wholesale_price !== null) {
+      return product.wholesale_price;
+    }
+    return product.selling_price;
+  };
+
   // Load initial data
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  // Recalculate cart prices when customer changes
+  useEffect(() => {
+    if (cart.length > 0 && selectedCustomer) {
+      setCart(prevCart => 
+        prevCart.map(item => {
+          const product = products.find(p => p.id.toString() === item.id);
+          if (!product) return item;
+          
+          const newPrice = getProductPrice(product, selectedCustomer.customer_type);
+          if (newPrice !== item.price) {
+            return {
+              ...item,
+              price: newPrice,
+              total: item.isGift ? 0 : newPrice * item.quantity,
+            };
+          }
+          return item;
+        })
+      );
+    }
+  }, [selectedCustomer?.customer_type, products]);
 
   const loadInitialData = async () => {
     try {
@@ -132,14 +162,15 @@ export default function POSManager() {
         });
       }
     } else {
+      const productPrice = getProductPrice(product, selectedCustomer?.customer_type);
       setCart([
         ...cart,
         {
           id: product.id.toString(),
           name: product.name,
-          price: product.selling_price,
+          price: productPrice,
           quantity: 1,
-          total: isGiftMode ? 0 : product.selling_price,
+          total: isGiftMode ? 0 : productPrice,
           stock: product.current_stock,
           isGift: isGiftMode,
           discount: isGiftMode ? 100 : undefined,

@@ -357,8 +357,17 @@ export default function Products() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium text-sm">{formatCurrency(product.selling_price)}</div>
-                          <div className="text-xs text-muted-foreground">Cost: {formatCurrency(product.cost_price)}</div>
+                          <div className="font-medium text-sm">
+                            Normal: {formatCurrency(product.selling_price)}
+                          </div>
+                          {product.wholesale_price !== undefined && product.wholesale_price !== null && (
+                            <div className="text-xs text-muted-foreground">
+                              Wholesale: {formatCurrency(product.wholesale_price)}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Cost: {formatCurrency(product.cost_price)}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
