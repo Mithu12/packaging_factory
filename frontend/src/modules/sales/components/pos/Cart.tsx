@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,8 @@ import {
   CheckIcon,
   ChevronsUpDownIcon,
   SquarePen,
+  Info,
+  Building2,
 } from "lucide-react";
 
 import {
@@ -240,9 +243,15 @@ export function Cart({
                         aria-expanded={open}
                         className="justify-between w-[300px]"
                       >
-                        {selectedCustomer
-                          ? selectedCustomer.name
-                          : "Search Customer..."}
+                        <span className="flex items-center gap-2">
+                          {selectedCustomer ? selectedCustomer.name : "Search Customer..."}
+                          {selectedCustomer?.customer_type === 'wholesale' && (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs">
+                              <Building2 className="w-3 h-3 mr-1" />
+                              Wholesale
+                            </Badge>
+                          )}
+                        </span>
                         <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -269,7 +278,15 @@ export function Cart({
                                       : "opacity-0"
                                   )}
                                 />
-                                {customer.name}
+                                <span className="flex items-center gap-2 flex-1">
+                                  {customer.name}
+                                  {customer.customer_type === 'wholesale' && (
+                                    <Badge variant="outline" className="text-xs">
+                                      <Building2 className="w-3 h-3 mr-1" />
+                                      Wholesale
+                                    </Badge>
+                                  )}
+                                </span>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -366,6 +383,16 @@ export function Cart({
                   </DialogContent>
                 </Dialog>
               </div>
+              
+              {/* Wholesale Customer Alert */}
+              {selectedCustomer?.customer_type === 'wholesale' && (
+                <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-200">
+                    <span className="font-medium">Wholesale Customer:</span> Wholesale prices will be applied to all products in this order.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </div>
 
