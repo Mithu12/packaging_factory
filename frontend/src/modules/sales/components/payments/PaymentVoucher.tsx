@@ -298,10 +298,10 @@ const PaymentVoucherPDF = ({
           {companySettings?.company_address && (
             <Text>{companySettings.company_address}</Text>
           )}
-          {(companySettings?.company_phone || companySettings?.company_email) && (
+          {(companySettings?.phone || companySettings?.company_email) && (
             <Text>
-              {companySettings?.company_phone && `Phone: ${companySettings.company_phone}`}
-              {companySettings?.company_phone && companySettings?.company_email && ' | '}
+              {companySettings?.phone && `Phone: ${companySettings.phone}`}
+              {companySettings?.phone && companySettings?.company_email && ' | '}
               {companySettings?.company_email && `Email: ${companySettings.company_email}`}
             </Text>
           )}
@@ -340,9 +340,9 @@ export function PaymentVoucher({
       const settings = await SettingsApi.getCompanySettings();
       setCompanySettings(settings);
       
-      if (settings?.company_logo) {
+      if (settings?.invoice_logo) {
         try {
-          const logoResponse = await fetch(settings.company_logo);
+          const logoResponse = await fetch(settings.invoice_logo);
           const blob = await logoResponse.blob();
           const reader = new FileReader();
           reader.onloadend = () => {

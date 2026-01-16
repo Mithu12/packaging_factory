@@ -254,6 +254,7 @@ export interface CreateProductRequest {
   subcategory_id?: number;
   brand_id?: number;
   origin_id?: number;
+  wholesale_price?: number;
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;

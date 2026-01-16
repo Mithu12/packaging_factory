@@ -3,9 +3,8 @@
 ﻿import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Clock, CheckCircle, Search, Plus, User, Gift } from "lucide-react";
+import { Gift } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
@@ -20,7 +19,6 @@ import { BarcodeScanner } from "@/modules/inventory/components/BarcodeScanner";
 import { ProductApi, CustomerApi, SalesOrderApi, DistributionApi } from "@/services/api";
 import { Product, Customer, SalesOrder } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Select,

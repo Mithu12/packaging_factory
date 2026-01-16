@@ -521,7 +521,7 @@ export default function Dashboard() {
                 </div>
                 Customer Payments
               </span>
-              <Button variant="outline" size="sm" onClick={() => router.push("/customers")} className="border-violet-200 hover:bg-violet-50 text-violet-700">
+              <Button variant="outline" size="sm" onClick={() => router.push("sales/customers")} className="border-violet-200 hover:bg-violet-50 text-violet-700">
                 View All
               </Button>
             </CardTitle>
