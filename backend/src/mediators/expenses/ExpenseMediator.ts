@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { accountsIntegrationService, ExpenseAccountingData } from '@/services/accountsIntegrationService';
 import {
@@ -757,6 +758,12 @@ class ExpenseMediator {
         userId,
         timestamp: new Date().toISOString()
       });
+
+      // Central Bridge: Call accounts module directly via InterModuleConnector if approved
+      if (eventName === EVENT_NAMES.EXPENSE_APPROVED) {
+        MyLogger.info('Expense Bridge: Calling accModule.addExpenseVoucher', { expenseId: expense.id });
+        await interModuleConnector.accModule.addExpenseVoucher(expenseData, userId);
+      }
 
       MyLogger.info('Expense Event Emitted', { 
         event: eventName, 

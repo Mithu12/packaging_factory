@@ -28,6 +28,86 @@ class InterModuleConnector {
     },
 
     /**
+     * Create a purchase order receipt voucher (Inventory)
+     */
+    addPurchaseVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addPurchaseVoucher");
+      return null;
+    },
+
+    /**
+     * Create a stock adjustment voucher (Inventory)
+     */
+    addStockAdjustmentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addStockAdjustmentVoucher");
+      return null;
+    },
+
+    /**
+     * Create a customer order receivable voucher (Factory)
+     */
+    addFactoryOrderReceivable: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addFactoryOrderReceivable");
+      return null;
+    },
+
+    /**
+     * Create a material consumption voucher (Factory)
+     */
+    addMaterialConsumptionVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addMaterialConsumptionVoucher");
+      return null;
+    },
+
+    /**
+     * Create a wastage voucher (Factory)
+     */
+    addWastageVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addWastageVoucher");
+      return null;
+    },
+
+    /**
+     * Create production run vouchers (Factory)
+     */
+    addProductionRunVouchers: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addProductionRunVouchers");
+      return null;
+    },
+
+    /**
+     * Create work order completion voucher (Factory)
+     */
+    addWorkOrderCompletionVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addWorkOrderCompletionVoucher");
+      return null;
+    },
+
+    /**
+     * Create order shipment voucher (Factory)
+     */
+    addFactoryOrderShipmentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addFactoryOrderShipmentVoucher");
+      return null;
+    },
+
+    /**
+     * Create factory return voucher (Factory)
+     */
+    addFactoryReturnVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addFactoryReturnVoucher");
+      return null;
+    },
+
+    /**
+     * Create factory payment voucher (Factory)
+     */
+    addFactoryPaymentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addFactoryPaymentVoucher");
+      return null;
+    },
+
+    /**
      * Reverse a voucher entry
      */
     reverseVoucher: async (...args: any[]): Promise<any> => {

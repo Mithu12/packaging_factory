@@ -33,8 +33,8 @@ export const initializeFactoryModule = (): void => {
     moduleRegistry.registerModule(MODULE_NAMES.FACTORY, factoryServices);
 
     // Set up optional accounts integration
-    // This will only work if accounts module is already registered
-    registerFactoryAccountingListeners();
+    // This is now handled via InterModuleConnector called directly from Factory mediators
+    // registerFactoryAccountingListeners();
 
     MyLogger.success('Factory Module Initialization', {
       module: MODULE_NAMES.FACTORY,

@@ -1,6 +1,7 @@
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 import {
   StockAdjustment,
   CreateStockAdjustmentRequest,
@@ -182,6 +183,10 @@ export class StockAdjustmentMediator {
           adjustmentData,
           userId: data.adjusted_by || "System User"
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info("Stock Adjustment Bridge: Calling accModule.addStockAdjustmentVoucher", { adjustmentId: adjustment.id });
+        await interModuleConnector.accModule.addStockAdjustmentVoucher(adjustmentData, data.adjusted_by || "System User");
 
         MyLogger.success("Stock Adjustment Accounting Event Emitted", {
           adjustmentId: adjustment.id,

@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 export interface UpdateProductionRunStatusRequest {
   status: 'in_progress' | 'paused' | 'completed' | 'cancelled';
@@ -261,27 +262,33 @@ export class UpdateProductionRunStatusMediator {
 
       // Emit event for accounts integration
       try {
+        const productionRunData = {
+          runId,
+          runNumber: run.run_number,
+          workOrderId: run.work_order_id,
+          productionLineId: run.production_line_id,
+          targetQuantity: run.target_quantity,
+          producedQuantity: producedQty,
+          goodQuantity: goodQty,
+          rejectedQuantity: rejectedQty,
+          runtimeMinutes,
+          laborCost,
+          overheadCost,
+          completedDate: new Date().toISOString(),
+          costCenterId: factoryInfo?.line_cost_center_id, // Prefer production line cost center
+          factoryId: factoryInfo?.factory_id,
+          factoryName: factoryInfo?.factory_name,
+          factoryCostCenterId: factoryInfo?.factory_cost_center_id
+        };
+
         eventBus.emit(EVENT_NAMES.PRODUCTION_RUN_COMPLETED, {
-          productionRunData: {
-            runId,
-            runNumber: run.run_number,
-            workOrderId: run.work_order_id,
-            productionLineId: run.production_line_id,
-            targetQuantity: run.target_quantity,
-            producedQuantity: producedQty,
-            goodQuantity: goodQty,
-            rejectedQuantity: rejectedQty,
-            runtimeMinutes,
-            laborCost,
-            overheadCost,
-            completedDate: new Date().toISOString(),
-            costCenterId: factoryInfo?.line_cost_center_id, // Prefer production line cost center
-            factoryId: factoryInfo?.factory_id,
-            factoryName: factoryInfo?.factory_name,
-            factoryCostCenterId: factoryInfo?.factory_cost_center_id
-          },
+          productionRunData,
           userId
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info(`${action}.bridge`, { runId });
+        await interModuleConnector.accModule.addProductionRunVouchers(productionRunData, userId);
       } catch (eventError: any) {
         MyLogger.error(`${action}.eventEmit`, eventError, {
           runId,

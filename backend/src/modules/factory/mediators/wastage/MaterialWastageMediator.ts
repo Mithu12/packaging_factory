@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 export interface WastageQueryParams {
   page?: number;
@@ -228,23 +229,29 @@ export class MaterialWastageMediator {
 
       // Emit event for accounts integration
       try {
+        const wastageData = {
+          wastageId,
+          workOrderId: wastage.work_order_id,
+          materialId: wastage.material_id,
+          materialName: wastage.material_name,
+          quantity: wastage.quantity,
+          cost: wastage.cost,
+          reason: wastage.wastage_reason,
+          approvedDate: new Date().toISOString(),
+          factoryId: factoryInfo?.factory_id,
+          factoryName: factoryInfo?.factory_name,
+          factoryCostCenterId: factoryInfo?.factory_cost_center_id,
+          notes
+        };
+
         eventBus.emit(EVENT_NAMES.MATERIAL_WASTAGE_APPROVED, {
-          wastageData: {
-            wastageId,
-            workOrderId: wastage.work_order_id,
-            materialId: wastage.material_id,
-            materialName: wastage.material_name,
-            quantity: wastage.quantity,
-            cost: wastage.cost,
-            reason: wastage.wastage_reason,
-            approvedDate: new Date().toISOString(),
-            factoryId: factoryInfo?.factory_id,
-            factoryName: factoryInfo?.factory_name,
-            factoryCostCenterId: factoryInfo?.factory_cost_center_id,
-            notes
-          },
+          wastageData,
           userId
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info(`${action}.bridge`, { wastageId });
+        await interModuleConnector.accModule.addWastageVoucher(wastageData, userId);
       } catch (eventError: any) {
         MyLogger.error(`${action}.eventEmit`, eventError, {
           wastageId,

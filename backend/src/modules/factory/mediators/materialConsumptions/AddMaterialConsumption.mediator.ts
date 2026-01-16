@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 export interface CreateMaterialConsumptionRequest {
   work_order_id: string;
@@ -236,23 +237,29 @@ export class AddMaterialConsumptionMediator {
 
       // Emit event for accounts integration
       try {
+        const consumptionData = {
+          consumptionId: consumption.id,
+          workOrderId: data.work_order_id,
+          materialId: data.material_id,
+          materialName: material.name,
+          quantity: data.consumed_quantity,
+          cost: parseFloat(material.current_stock) * data.consumed_quantity, // Basic cost calculation
+          productionLineId: data.production_line_id,
+          costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id, // Use production line cost center if available
+          factoryId: factoryInfo?.factory_id,
+          factoryName: factoryInfo?.factory_name,
+          factoryCostCenterId: factoryInfo?.factory_cost_center_id,
+          consumptionDate: new Date().toISOString()
+        };
+
         eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
-          consumptionData: {
-            consumptionId: consumption.id,
-            workOrderId: data.work_order_id,
-            materialId: data.material_id,
-            materialName: material.name,
-            quantity: data.consumed_quantity,
-            cost: parseFloat(material.current_stock) * data.consumed_quantity, // Basic cost calculation
-            productionLineId: data.production_line_id,
-            costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id, // Use production line cost center if available
-            factoryId: factoryInfo?.factory_id,
-            factoryName: factoryInfo?.factory_name,
-            factoryCostCenterId: factoryInfo?.factory_cost_center_id,
-            consumptionDate: new Date().toISOString()
-          },
+          consumptionData,
           userId
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
+        await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
       } catch (eventError: any) {
         MyLogger.error(`${action}.eventEmit`, eventError, {
           consumptionId: consumption.id,
@@ -335,23 +342,23 @@ export class AddMaterialConsumptionMediator {
       const results: MaterialConsumption[] = [];
 
       // 4. Process each consumption
-      for (const consumptionData of consumptions) {
+      for (const item of consumptions) {
         // Get material info
         const materialResult = await client.query(
           'SELECT id, name, sku, current_stock, reserved_stock FROM products WHERE id = $1',
-          [consumptionData.material_id]
+          [item.material_id]
         );
 
         if (materialResult.rows.length === 0) {
-          throw createError(`Material with ID ${consumptionData.material_id} not found`, 404);
+          throw createError(`Material with ID ${item.material_id} not found`, 404);
         }
 
         const material = materialResult.rows[0];
 
         // Check if there's enough reserved stock
-        if (parseFloat(material.reserved_stock || 0) < consumptionData.consumed_quantity) {
+        if (parseFloat(material.reserved_stock || 0) < item.consumed_quantity) {
           throw createError(
-            `Insufficient reserved stock for ${material.name}. Reserved: ${material.reserved_stock}, Requested: ${consumptionData.consumed_quantity}`,
+            `Insufficient reserved stock for ${material.name}. Reserved: ${material.reserved_stock}, Requested: ${item.consumed_quantity}`,
             400
           );
         }
@@ -377,16 +384,16 @@ export class AddMaterialConsumptionMediator {
           RETURNING *`,
           [
             context.work_order_id,
-            consumptionData.material_id,
+            item.material_id,
             material.name,
-            consumptionData.consumed_quantity,
+            item.consumed_quantity,
             context.production_line_id || null,
             productionLineName,
             context.operator_id || null,
             operatorName,
             userId,
-            consumptionData.wastage_quantity || 0,
-            consumptionData.wastage_reason || null,
+            item.wastage_quantity || 0,
+            item.wastage_reason || null,
             context.batch_number || null,
             context.notes || null
           ]
@@ -404,7 +411,7 @@ export class AddMaterialConsumptionMediator {
                END,
                updated_at = CURRENT_TIMESTAMP
            WHERE work_order_id = $2 AND material_id = $3`,
-          [consumptionData.consumed_quantity, context.work_order_id, consumptionData.material_id]
+          [item.consumed_quantity, context.work_order_id, item.material_id]
         );
 
         // Update product stock (reduce both current_stock and reserved_stock)
@@ -413,7 +420,7 @@ export class AddMaterialConsumptionMediator {
            SET current_stock = current_stock - $1,
                reserved_stock = COALESCE(reserved_stock, 0) - $1
            WHERE id = $2`,
-          [consumptionData.consumed_quantity, consumptionData.material_id]
+          [item.consumed_quantity, item.material_id]
         );
 
         // Update allocation status to consumed
@@ -424,11 +431,11 @@ export class AddMaterialConsumptionMediator {
              SELECT id FROM work_order_material_requirements
              WHERE work_order_id = $1 AND material_id = $2
            )`,
-          [context.work_order_id, consumptionData.material_id]
+          [context.work_order_id, item.material_id]
         );
 
         // If wastage > 0, create wastage record (pending approval)
-        if (consumptionData.wastage_quantity && consumptionData.wastage_quantity > 0) {
+        if (item.wastage_quantity && item.wastage_quantity > 0) {
           await client.query(
             `INSERT INTO material_wastage (
               work_order_id,
@@ -443,11 +450,11 @@ export class AddMaterialConsumptionMediator {
             ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
             [
               context.work_order_id,
-              consumptionData.material_id,
+              item.material_id,
               material.name,
-              consumptionData.wastage_quantity,
-              consumptionData.wastage_reason || 'Unknown',
-              parseFloat(material.current_stock) * consumptionData.wastage_quantity, // Calculate cost
+              item.wastage_quantity,
+              item.wastage_reason || 'Unknown',
+              parseFloat(material.current_stock) * item.wastage_quantity, // Calculate cost
               userId,
               context.notes
             ]
@@ -474,17 +481,23 @@ export class AddMaterialConsumptionMediator {
 
         // Emit event for each consumption
         try {
-          eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
+          const consumptionData = {
             consumptionId: consumption.id,
             workOrderId: context.work_order_id,
-            materialId: consumptionData.material_id,
+            materialId: item.material_id,
             materialName: material.name,
-            quantity: consumptionData.consumed_quantity,
-            cost: parseFloat(material.current_stock) * consumptionData.consumed_quantity,
+            quantity: item.consumed_quantity,
+            cost: parseFloat(material.current_stock) * item.consumed_quantity,
             productionLineId: context.production_line_id,
             consumptionDate: new Date().toISOString(),
             userId
-          });
+          };
+
+          eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, consumptionData);
+
+          // Central Bridge: Call accounts module directly via InterModuleConnector
+          MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
+          await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
         } catch (eventError: any) {
           MyLogger.error(`${action}.eventEmit`, eventError, {
             consumptionId: consumption.id,

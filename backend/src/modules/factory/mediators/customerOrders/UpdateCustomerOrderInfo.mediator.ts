@@ -3,6 +3,7 @@ import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, 
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 import { recalcFactoryCustomerFinancials } from "../../utils/customerFinancials";
 
 // Helper function to get user's accessible factories
@@ -494,24 +495,30 @@ export class UpdateCustomerOrderInfoMediator {
                         factoryCostCenterName: updatedOrder.factory_cost_center_name
                     });
 
+                    const orderData = {
+                        orderId: updatedOrder.id,
+                        orderNumber: updatedOrder.order_number,
+                        customerId: updatedOrder.factory_customer_id,
+                        customerName: updatedOrder.factory_customer_name,
+                        customerEmail: updatedOrder.factory_customer_email,
+                        totalValue: updatedOrder.total_value,
+                        currency: updatedOrder.currency || 'BDT',
+                        orderDate: updatedOrder.order_date || new Date().toISOString(),
+                        factoryId: updatedOrder.factory_id,
+                        factoryName: updatedOrder.factory_name,
+                        factoryCostCenterId: updatedOrder.factory_cost_center_id,
+                        lineItems: updatedOrder.line_items,
+                        notes: approvalData.notes
+                    };
+
                     eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
-                        orderData: {
-                            orderId: updatedOrder.id,
-                            orderNumber: updatedOrder.order_number,
-                            customerId: updatedOrder.factory_customer_id,
-                            customerName: updatedOrder.factory_customer_name,
-                            customerEmail: updatedOrder.factory_customer_email,
-                            totalValue: updatedOrder.total_value,
-                            currency: updatedOrder.currency || 'BDT',
-                            orderDate: updatedOrder.order_date || new Date().toISOString(),
-                            factoryId: updatedOrder.factory_id,
-                            factoryName: updatedOrder.factory_name,
-                            factoryCostCenterId: updatedOrder.factory_cost_center_id,
-                            lineItems: updatedOrder.line_items,
-                            notes: approvalData.notes
-                        },
+                        orderData,
                         userId: parseInt(userId)
                     });
+
+                    // Central Bridge: Call accounts module directly via InterModuleConnector
+                    MyLogger.info(`${action}.bridge`, { orderId: updatedOrder.id });
+                    await interModuleConnector.accModule.addFactoryOrderReceivable(orderData, parseInt(userId));
                 } catch (eventError: any) {
                     // Log error but don't fail the operation
                     MyLogger.error(`${action}.eventEmit`, eventError, {

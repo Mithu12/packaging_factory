@@ -3,6 +3,8 @@ import { MyLogger } from '@/utils/new-logger';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
 import { accountsIntegrationService } from '@/services/accountsIntegrationService';
+import { inventoryAccountsIntegrationService } from '@/services/inventoryAccountsIntegrationService';
+import { factoryAccountsIntegrationService } from '@/services/factoryAccountsIntegrationService';
 
 // Import mediators
 import AddVoucherMediator from './mediators/vouchers/AddVoucher.mediator';
@@ -39,6 +41,16 @@ export const initializeAccountsModule = (): void => {
     interModuleConnector.register('accModule', {
       addSalesVoucher: salesAccountsIntegrationService.createSalesOrderVoucher.bind(salesAccountsIntegrationService),
       addExpenseVoucher: accountsIntegrationService.createExpenseVoucher.bind(accountsIntegrationService),
+      addPurchaseVoucher: inventoryAccountsIntegrationService.createPurchaseOrderReceiptVoucher.bind(inventoryAccountsIntegrationService),
+      addStockAdjustmentVoucher: inventoryAccountsIntegrationService.createStockAdjustmentVoucher.bind(inventoryAccountsIntegrationService),
+      addFactoryOrderReceivable: factoryAccountsIntegrationService.createCustomerOrderReceivable.bind(factoryAccountsIntegrationService),
+      addMaterialConsumptionVoucher: factoryAccountsIntegrationService.createMaterialConsumptionVoucher.bind(factoryAccountsIntegrationService),
+      addWastageVoucher: factoryAccountsIntegrationService.createWastageVoucher.bind(factoryAccountsIntegrationService),
+      addProductionRunVouchers: factoryAccountsIntegrationService.createProductionRunVouchers.bind(factoryAccountsIntegrationService),
+      addWorkOrderCompletionVoucher: factoryAccountsIntegrationService.createWorkOrderFGTransferVoucher.bind(factoryAccountsIntegrationService),
+      addFactoryOrderShipmentVoucher: factoryAccountsIntegrationService.createCOGSVoucher.bind(factoryAccountsIntegrationService),
+      addFactoryReturnVoucher: factoryAccountsIntegrationService.createReturnReversalVouchers.bind(factoryAccountsIntegrationService),
+      addFactoryPaymentVoucher: factoryAccountsIntegrationService.createCustomerPaymentVoucher.bind(factoryAccountsIntegrationService),
       reverseVoucher: salesAccountsIntegrationService.createReversingVoucher.bind(salesAccountsIntegrationService)
     });
 

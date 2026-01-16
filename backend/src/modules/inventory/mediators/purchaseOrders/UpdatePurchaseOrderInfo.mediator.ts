@@ -9,6 +9,7 @@ import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
 import { InvoiceMediator } from "../payments/InvoiceMediator";
 import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 
 class UpdatePurchaseOrderInfoMediator {
   // Helper method to calculate due date based on payment terms
@@ -724,6 +725,10 @@ class UpdatePurchaseOrderInfoMediator {
           purchaseOrderData,
           userId: "System User" // Should be the actual user ID
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info("Purchase Order Bridge: Calling accModule.addPurchaseVoucher", { purchaseOrderId: id });
+        await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, "System User");
 
         MyLogger.success("Purchase Order Accounting Event Emitted", {
           purchaseOrderId: id,

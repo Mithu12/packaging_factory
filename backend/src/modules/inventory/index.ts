@@ -15,7 +15,8 @@ import { interModuleConnector } from "@/utils/InterModuleConnector";
 import purchaseReportsRoutes from "@/modules/inventory/routes/purchase-reports.routes";
 
 // Register inventory accounting listeners
-registerInventoryAccountingListeners();
+// This is now handled via InterModuleConnector called directly from Inventory mediators
+// registerInventoryAccountingListeners();
 
 // Register with InterModuleConnector for cross-module communication
 interModuleConnector.register('invModule', {

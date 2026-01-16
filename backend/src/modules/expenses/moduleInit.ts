@@ -19,8 +19,8 @@ export const initializeExpensesModule = (): void => {
     moduleRegistry.registerModule(MODULE_NAMES.EXPENSES, expensesServices);
 
     // Set up optional accounts integration
-    // This will only work if accounts module is already registered
-    registerExpenseAccountingListeners();
+    // This is now handled via InterModuleConnector called directly from ExpenseMediator
+    // registerExpenseAccountingListeners();
 
     MyLogger.success('Expenses Module Initialization', {
       module: MODULE_NAMES.EXPENSES,

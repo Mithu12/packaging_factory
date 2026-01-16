@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { FactoryCustomerPayment, RecordFactoryOrderPaymentRequest } from '@/types/factory';
 import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
 
@@ -132,7 +133,7 @@ export class FactoryCustomerPaymentsMediator {
       });
 
       // Emit event for accounts integration
-      eventBus.emit(EVENT_NAMES.FACTORY_PAYMENT_RECEIVED, {
+      const paymentData = {
         orderId: order.id,
         orderNumber: order.order_number,
         paymentId: payment.id,
@@ -147,7 +148,13 @@ export class FactoryCustomerPaymentsMediator {
         customerId: order.factory_customer_id,
         userId,
         timestamp: new Date()
-      });
+      };
+
+      eventBus.emit(EVENT_NAMES.FACTORY_PAYMENT_RECEIVED, paymentData);
+
+      // Central Bridge: Call accounts module directly via InterModuleConnector
+      MyLogger.info('Factory Payment Bridge: Calling accModule.addFactoryPaymentVoucher', { orderId });
+      await interModuleConnector.accModule.addFactoryPaymentVoucher(paymentData, userId);
 
       return {
         id: payment.id,

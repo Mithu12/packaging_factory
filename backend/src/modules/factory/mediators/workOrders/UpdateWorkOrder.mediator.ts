@@ -8,6 +8,7 @@ import {
 } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -1067,24 +1068,30 @@ export class UpdateWorkOrderMediator {
       // Emit event for accounts integration when work order is completed
       if (newStatus === 'completed') {
         try {
+          const workOrderData = {
+            workOrderId: workOrder.id,
+            workOrderNumber: workOrder.work_order_number,
+            productId: workOrder.product_id,
+            productName: workOrder.product_name,
+            productSku: workOrder.product_sku,
+            quantity: workOrder.quantity,
+            unitOfMeasure: workOrder.unit_of_measure,
+            totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
+            totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
+            totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
+            totalWipCost: updatedWorkOrder.total_wip_cost || 0,
+            completedDate: new Date().toISOString(),
+            customerOrderId: workOrder.customer_order_id
+          };
+
           eventBus.emit(EVENT_NAMES.WORK_ORDER_COMPLETED, {
-            workOrderData: {
-              workOrderId: workOrder.id,
-              workOrderNumber: workOrder.work_order_number,
-              productId: workOrder.product_id,
-              productName: workOrder.product_name,
-              productSku: workOrder.product_sku,
-              quantity: workOrder.quantity,
-              unitOfMeasure: workOrder.unit_of_measure,
-              totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
-              totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
-              totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
-              totalWipCost: updatedWorkOrder.total_wip_cost || 0,
-              completedDate: new Date().toISOString(),
-              customerOrderId: workOrder.customer_order_id
-            },
+            workOrderData,
             userId: parseInt(userId)
           });
+
+          // Central Bridge: Call accounts module directly via InterModuleConnector
+          MyLogger.info(`${action}.bridge`, { workOrderId: workOrder.id });
+          await interModuleConnector.accModule.addWorkOrderCompletionVoucher(workOrderData, parseInt(userId));
         } catch (eventError: any) {
           MyLogger.error(`${action}.eventEmit`, eventError, {
             workOrderId: workOrder.id,
@@ -1684,27 +1691,33 @@ export class UpdateWorkOrderMediator {
 
       // Emit event for accounts integration
       try {
+        const workOrderData = {
+          workOrderId: updatedWorkOrder.id,
+          workOrderNumber: updatedWorkOrder.work_order_number,
+          productId: updatedWorkOrder.product_id,
+          productName: updatedWorkOrder.product_name,
+          productSku: updatedWorkOrder.product_sku,
+          quantity: updatedWorkOrder.quantity,
+          unitOfMeasure: updatedWorkOrder.unit_of_measure,
+          totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
+          totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
+          totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
+          totalWipCost: updatedWorkOrder.total_wip_cost || 0,
+          completedDate: new Date().toISOString(),
+          customerOrderId: updatedWorkOrder.customer_order_id,
+          factoryId: factoryInfo?.factory_id,
+          factoryName: factoryInfo?.factory_name,
+          factoryCostCenterId: factoryInfo?.factory_cost_center_id
+        };
+
         eventBus.emit(EVENT_NAMES.WORK_ORDER_COMPLETED, {
-          workOrderData: {
-            workOrderId: updatedWorkOrder.id,
-            workOrderNumber: updatedWorkOrder.work_order_number,
-            productId: updatedWorkOrder.product_id,
-            productName: updatedWorkOrder.product_name,
-            productSku: updatedWorkOrder.product_sku,
-            quantity: updatedWorkOrder.quantity,
-            unitOfMeasure: updatedWorkOrder.unit_of_measure,
-            totalMaterialCost: updatedWorkOrder.total_material_cost || 0,
-            totalLaborCost: updatedWorkOrder.total_labor_cost || 0,
-            totalOverheadCost: updatedWorkOrder.total_overhead_cost || 0,
-            totalWipCost: updatedWorkOrder.total_wip_cost || 0,
-            completedDate: new Date().toISOString(),
-            customerOrderId: updatedWorkOrder.customer_order_id,
-            factoryId: factoryInfo?.factory_id,
-            factoryName: factoryInfo?.factory_name,
-            factoryCostCenterId: factoryInfo?.factory_cost_center_id
-          },
+          workOrderData,
           userId: parseInt(userId)
         });
+
+        // Central Bridge: Call accounts module directly via InterModuleConnector
+        MyLogger.info(`${action}.bridge`, { workOrderId: updatedWorkOrder.id });
+        await interModuleConnector.accModule.addWorkOrderCompletionVoucher(workOrderData, parseInt(userId));
       } catch (eventError: any) {
         MyLogger.error(`${action}.eventEmit`, eventError, {
           workOrderId: updatedWorkOrder.id,
