@@ -1,5 +1,8 @@
 import { moduleRegistry, MODULE_NAMES } from '@/utils/moduleRegistry';
 import { MyLogger } from '@/utils/new-logger';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
+import { accountsIntegrationService } from '@/services/accountsIntegrationService';
 
 // Import mediators
 import AddVoucherMediator from './mediators/vouchers/AddVoucher.mediator';
@@ -31,6 +34,13 @@ export const initializeAccountsModule = (): void => {
     });
 
     moduleRegistry.registerModule(MODULE_NAMES.ACCOUNTS, accountsServices);
+
+    // Register with InterModuleConnector for cross-module communication
+    interModuleConnector.register('accModule', {
+      addSalesVoucher: salesAccountsIntegrationService.createSalesOrderVoucher.bind(salesAccountsIntegrationService),
+      addExpenseVoucher: accountsIntegrationService.createExpenseVoucher.bind(accountsIntegrationService),
+      reverseVoucher: salesAccountsIntegrationService.createReversingVoucher.bind(salesAccountsIntegrationService)
+    });
 
     MyLogger.success('Accounts Module Initialization', {
       module: MODULE_NAMES.ACCOUNTS,

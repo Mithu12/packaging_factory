@@ -1,7 +1,7 @@
 import pool from '@/database/connection';
 import { SalesOrder, CreateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
-import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 export class AddSalesOrderMediator {
     static async createSalesOrder(data: CreateSalesOrderRequest): Promise<SalesOrder> {
@@ -400,7 +400,7 @@ export class AddSalesOrderMediator {
                 // Trigger accounts integration for POS cases where order is created as completed
                 try {
                     if (salesOrder.status === 'completed' && !salesOrder.voucher_id) {
-                        await salesAccountsIntegrationService.createSalesOrderVoucher({
+                        await interModuleConnector.accModule.addSalesVoucher({
                             id: salesOrder.id,
                             order_number: salesOrder.order_number,
                             customer_id: salesOrder.customer_id,
