@@ -192,9 +192,9 @@ export class DistributionCenterMediator {
           name, type, address, city, state, zip_code, country,
           latitude, longitude, contact_person, phone, email,
           capacity_volume, capacity_weight, operating_hours, facilities,
-          manager_id, notes
+          manager_id, cost_center_id, notes
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
         ) RETURNING *
       `;
 
@@ -216,6 +216,7 @@ export class DistributionCenterMediator {
         data.operating_hours ? JSON.stringify(data.operating_hours) : null,
         data.facilities ? JSON.stringify(data.facilities) : null,
         data.manager_id,
+        data.cost_center_id,
         data.notes,
       ]);
 
@@ -291,6 +292,7 @@ export class DistributionCenterMediator {
         capacity_volume: "capacity_volume",
         capacity_weight: "capacity_weight",
         manager_id: "manager_id",
+        cost_center_id: "cost_center_id",
         status: "status",
         is_primary: "is_primary",
         notes: "notes",

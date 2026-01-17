@@ -32,6 +32,8 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Plus, X } from "lucide-react"
 import { CreateDistributionCenterRequest } from "@/modules/inventory/services/distribution-api"
+import { CostCentersApiService, CostCenter } from "@/services/accounts-api"
+import { useEffect } from "react"
 
 const centerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(255, "Name too long"),
@@ -48,6 +50,7 @@ const centerSchema = z.object({
   email: z.string().email("Invalid email format").optional().or(z.literal("")),
   capacity_volume: z.number().positive("Must be positive").optional().or(z.literal("")),
   capacity_weight: z.number().positive("Must be positive").optional().or(z.literal("")),
+  cost_center_id: z.number().optional().or(z.literal("")),
   notes: z.string().optional(),
 })
 
@@ -65,6 +68,7 @@ export function CreateDistributionCenterForm({
   onCenterCreated,
 }: CreateDistributionCenterFormProps) {
   const [loading, setLoading] = useState(false)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [facilities, setFacilities] = useState<string[]>([])
   const [newFacility, setNewFacility] = useState("")
   const [operatingHours, setOperatingHours] = useState<Record<string, { open: string; close: string }>>({
@@ -76,6 +80,20 @@ export function CreateDistributionCenterForm({
   })
   
   const { toast } = useToast()
+
+  useEffect(() => {
+    const fetchCostCenters = async () => {
+      try {
+        const response = await CostCentersApiService.getCostCenters({ limit: 100, status: 'Active' })
+        setCostCenters(response.data)
+      } catch (error) {
+        console.error("Failed to fetch cost centers:", error)
+      }
+    }
+    if (open) {
+      fetchCostCenters()
+    }
+  }, [open])
 
   const form = useForm<FormData>({
     resolver: zodResolver(centerSchema),
@@ -90,6 +108,7 @@ export function CreateDistributionCenterForm({
       contact_person: "",
       phone: "",
       email: "",
+      cost_center_id: "",
       notes: "",
     },
   })
@@ -161,6 +180,7 @@ export function CreateDistributionCenterForm({
         contact_person: data.contact_person || undefined,
         phone: data.phone || undefined,
         email: data.email || undefined,
+        cost_center_id: data.cost_center_id ? Number(data.cost_center_id) : undefined,
         notes: data.notes || undefined,
       }
 
@@ -269,6 +289,38 @@ export function CreateDistributionCenterForm({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cost_center_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Accounting Cost Center</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "none" ? "" : Number(val))} 
+                      value={field.value?.toString() || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a cost center" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {costCenters.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id.toString()}>
+                            {cc.name} ({cc.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Associate this center with an accounting cost center for financial tracking.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

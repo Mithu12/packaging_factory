@@ -24,6 +24,7 @@ export interface DistributionCenter {
   status: 'active' | 'inactive' | 'maintenance';
   is_primary: boolean;
   manager_id?: number;
+  cost_center_id?: number;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ export interface CreateDistributionCenterRequest {
   operating_hours?: Record<string, { open: string; close: string }>;
   facilities?: string[];
   manager_id?: number;
+  cost_center_id?: number;
   notes?: string;
 }
 

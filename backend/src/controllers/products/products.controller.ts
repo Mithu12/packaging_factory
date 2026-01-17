@@ -38,11 +38,12 @@ class ProductsController {
     async searchProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/products/search';
         try {
-            const { q, limit } = req.query;
-            MyLogger.info(action, { query: q, limit });
+            const { q, limit, distribution_center_id } = req.query;
+            MyLogger.info(action, { query: q, limit, distribution_center_id });
             const products = await GetProductInfoMediator.searchProducts(
                 q as string,
-                limit ? parseInt(limit as string) : 10
+                limit ? parseInt(limit as string) : 10,
+                distribution_center_id ? parseInt(distribution_center_id as string) : undefined
             );
             MyLogger.success(action, { query: q, resultsCount: products.length });
             serializeSuccessResponse(res, products, 'SUCCESS');
@@ -56,8 +57,12 @@ class ProductsController {
         let action = 'GET /api/products/barcode/:barcode';
         try {
             const { barcode } = req.params;
-            MyLogger.info(action, { barcode });
-            const product = await GetProductInfoMediator.searchProductByBarcode(barcode);
+            const { distribution_center_id } = req.query;
+            MyLogger.info(action, { barcode, distribution_center_id });
+            const product = await GetProductInfoMediator.searchProductByBarcode(
+                barcode,
+                distribution_center_id ? parseInt(distribution_center_id as string) : undefined
+            );
             
             if (!product) {
                 res.status(404).json({
@@ -80,9 +85,12 @@ class ProductsController {
     async getLowStockProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
         let action = 'GET /api/products/low-stock';
         try {
-            MyLogger.info(action);
-            const products = await GetProductInfoMediator.getLowStockProducts();
-            MyLogger.success(action, { lowStockCount: products.length });
+            const { distribution_center_id } = req.query;
+            MyLogger.info(action, { distribution_center_id });
+            const products = await GetProductInfoMediator.getLowStockProducts(
+                distribution_center_id ? parseInt(distribution_center_id as string) : undefined
+            );
+            MyLogger.success(action, { lowStockCount: products.length, distribution_center_id });
             serializeSuccessResponse(res, products, 'SUCCESS');
         } catch (error: any) {
             MyLogger.error(action, error);
@@ -94,9 +102,13 @@ class ProductsController {
         let action = 'GET /api/products/category/:categoryId';
         try {
             const categoryId = parseInt(req.params.categoryId);
-            MyLogger.info(action, { categoryId });
-            const products = await GetProductInfoMediator.getProductsByCategory(categoryId);
-            MyLogger.success(action, { categoryId, productsCount: products.length });
+            const { distribution_center_id } = req.query;
+            MyLogger.info(action, { categoryId, distribution_center_id });
+            const products = await GetProductInfoMediator.getProductsByCategory(
+                categoryId,
+                distribution_center_id ? parseInt(distribution_center_id as string) : undefined
+            );
+            MyLogger.success(action, { categoryId, productsCount: products.length, distribution_center_id });
             serializeSuccessResponse(res, products, 'SUCCESS');
         } catch (error: any) {
             MyLogger.error(action, error, { categoryId: req.params.categoryId });
@@ -108,9 +120,13 @@ class ProductsController {
         let action = 'GET /api/products/supplier/:supplierId';
         try {
             const supplierId = parseInt(req.params.supplierId);
-            MyLogger.info(action, { supplierId });
-            const products = await GetProductInfoMediator.getProductsBySupplier(supplierId);
-            MyLogger.success(action, { supplierId, productsCount: products.length });
+            const { distribution_center_id } = req.query;
+            MyLogger.info(action, { supplierId, distribution_center_id });
+            const products = await GetProductInfoMediator.getProductsBySupplier(
+                supplierId,
+                distribution_center_id ? parseInt(distribution_center_id as string) : undefined
+            );
+            MyLogger.success(action, { supplierId, productsCount: products.length, distribution_center_id });
             serializeSuccessResponse(res, products, 'SUCCESS');
         } catch (error: any) {
             MyLogger.error(action, error, { supplierId: req.params.supplierId });

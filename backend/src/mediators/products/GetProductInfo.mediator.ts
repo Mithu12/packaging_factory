@@ -24,6 +24,7 @@ export class GetProductInfoMediator {
                 supplier_id,
                 status,
                 low_stock,
+                distribution_center_id,
                 sortBy = 'created_at',
                 sortOrder = 'desc'
             } = params;
@@ -77,7 +78,11 @@ export class GetProductInfoMediator {
             }
 
             if (low_stock) {
-                whereConditions.push(`p.current_stock <= p.min_stock_level`);
+                if (distribution_center_id) {
+                    whereConditions.push(`COALESCE(pl.current_stock, 0) <= COALESCE(pl.min_stock_level, p.min_stock_level)`);
+                } else {
+                    whereConditions.push(`p.current_stock <= p.min_stock_level`);
+                }
             }
 
             const whereClause = whereConditions.join(' AND ');
@@ -96,6 +101,7 @@ export class GetProductInfoMediator {
             const mainQuery = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -108,12 +114,16 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $${paramIndex + 2}` : ''}
                 WHERE ${whereClause}
                 ORDER BY p.${sortBy} ${sortOrder.toUpperCase()}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
             queryParams.push(limit, offset);
+            if (distribution_center_id) {
+                queryParams.push(distribution_center_id);
+            }
 
             const result = await pool.query(mainQuery, queryParams);
             const products = result.rows;
@@ -252,7 +262,7 @@ export class GetProductInfoMediator {
         }
     }
 
-    static async searchProducts(query: string, limit: number = 10): Promise<Product[]> {
+    static async searchProducts(query: string, limit: number = 10, distribution_center_id?: number): Promise<Product[]> {
         let action = 'GetProductInfoMediator.searchProducts';
         try {
             MyLogger.info(action, { query, limit });
@@ -260,6 +270,7 @@ export class GetProductInfoMediator {
             const searchQuery = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -271,12 +282,18 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $3` : ''}
                 WHERE p.name ILIKE $1 OR p.sku ILIKE $1 OR p.product_code ILIKE $1 OR p.barcode ILIKE $1
                 ORDER BY p.name
                 LIMIT $2
             `;
 
-            const result = await pool.query(searchQuery, [`%${query}%`, limit]);
+            const queryParams: any[] = [`%${query}%`, limit];
+            if (distribution_center_id) {
+                queryParams.push(distribution_center_id);
+            }
+
+            const result = await pool.query(searchQuery, queryParams);
             const products = result.rows;
 
             MyLogger.success(action, { 
@@ -291,7 +308,7 @@ export class GetProductInfoMediator {
         }
     }
 
-    static async searchProductByBarcode(barcode: string): Promise<Product | null> {
+    static async searchProductByBarcode(barcode: string, distribution_center_id?: number): Promise<Product | null> {
         let action = 'GetProductInfoMediator.searchProductByBarcode';
         try {
             MyLogger.info(action, { barcode });
@@ -299,6 +316,7 @@ export class GetProductInfoMediator {
             const searchQuery = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -310,11 +328,17 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $2` : ''}
                 WHERE p.barcode = $1
                 LIMIT 1
             `;
 
-            const result = await pool.query(searchQuery, [barcode]);
+            const queryParams: any[] = [barcode];
+            if (distribution_center_id) {
+                queryParams.push(distribution_center_id);
+            }
+
+            const result = await pool.query(searchQuery, queryParams);
             const product = result.rows[0] || null;
 
             MyLogger.success(action, { 
@@ -330,7 +354,7 @@ export class GetProductInfoMediator {
         }
     }
 
-    static async getLowStockProducts(): Promise<Product[]> {
+    static async getLowStockProducts(distribution_center_id?: number): Promise<Product[]> {
         let action = 'GetProductInfoMediator.getLowStockProducts';
         try {
             MyLogger.info(action);
@@ -338,6 +362,7 @@ export class GetProductInfoMediator {
             const query = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -349,11 +374,12 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
-                WHERE p.current_stock <= p.min_stock_level
-                ORDER BY (p.current_stock - p.min_stock_level) ASC
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $1` : ''}
+                WHERE ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) <= COALESCE(pl.min_stock_level, p.min_stock_level)' : 'p.current_stock <= p.min_stock_level'}
+                ORDER BY (${distribution_center_id ? 'COALESCE(pl.current_stock, 0) - COALESCE(pl.min_stock_level, p.min_stock_level)' : 'p.current_stock - p.min_stock_level'}) ASC
             `;
 
-            const result = await pool.query(query);
+            const result = await pool.query(query, distribution_center_id ? [distribution_center_id] : []);
             const products = result.rows;
 
             MyLogger.success(action, { 
@@ -367,7 +393,7 @@ export class GetProductInfoMediator {
         }
     }
 
-    static async getProductsByCategory(categoryId: number): Promise<Product[]> {
+    static async getProductsByCategory(categoryId: number, distribution_center_id?: number): Promise<Product[]> {
         let action = 'GetProductInfoMediator.getProductsByCategory';
         try {
             MyLogger.info(action, { categoryId });
@@ -375,6 +401,7 @@ export class GetProductInfoMediator {
             const query = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -386,11 +413,17 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $2` : ''}
                 WHERE p.category_id = $1
                 ORDER BY p.name
             `;
 
-            const result = await pool.query(query, [categoryId]);
+            const queryParams = [categoryId];
+            if (distribution_center_id) {
+                queryParams.push(distribution_center_id);
+            }
+
+            const result = await pool.query(query, queryParams);
             const products = result.rows;
 
             MyLogger.success(action, { 
@@ -405,7 +438,7 @@ export class GetProductInfoMediator {
         }
     }
 
-    static async getProductsBySupplier(supplierId: number): Promise<Product[]> {
+    static async getProductsBySupplier(supplierId: number, distribution_center_id?: number): Promise<Product[]> {
         let action = 'GetProductInfoMediator.getProductsBySupplier';
         try {
             MyLogger.info(action, { supplierId });
@@ -413,6 +446,7 @@ export class GetProductInfoMediator {
             const query = `
                 SELECT 
                     p.*,
+                    ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
                     sc.name as subcategory_name,
                     b.name as brand_name,
@@ -424,11 +458,17 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $2` : ''}
                 WHERE p.supplier_id = $1
                 ORDER BY p.name
             `;
 
-            const result = await pool.query(query, [supplierId]);
+            const queryParams = [supplierId];
+            if (distribution_center_id) {
+                queryParams.push(distribution_center_id);
+            }
+
+            const result = await pool.query(query, queryParams);
             const products = result.rows;
 
             MyLogger.success(action, { 

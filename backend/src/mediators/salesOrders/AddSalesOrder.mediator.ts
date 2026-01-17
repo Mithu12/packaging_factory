@@ -414,6 +414,7 @@ export class AddSalesOrderMediator {
                             cash_received: Number(salesOrder.cash_received) || 0,
                             change_given: Number(salesOrder.change_given) || 0,
                             due_amount: Number(salesOrder.due_amount) || 0,
+                            distribution_center_id: salesOrder.distribution_center_id,
                             notes: salesOrder.notes,
                         }, Number(salesOrder.cashier_id) || 1);
                     }

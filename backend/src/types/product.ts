@@ -81,6 +81,7 @@ export interface ProductQueryParams {
   low_stock?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  distribution_center_id?: number;
 }
 
 export interface ProductStats {

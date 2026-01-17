@@ -18,6 +18,7 @@ export interface SalesOrderAccountingData {
   change_given: number;
   due_amount: number;
   voucher_id?: number;
+  distribution_center_id?: number;
   notes?: string;
 }
 
@@ -97,6 +98,15 @@ class SalesAccountsIntegrationService {
       if (Math.abs(totalDebits - totalCredits) > 0.01) {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Voucher lines not balanced' };
       }
+      
+      let costCenterId = undefined;
+      if (order.distribution_center_id) {
+        const dcResult = await pool.query(
+          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
+          [order.distribution_center_id]
+        );
+        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
+      }
 
       const voucherData = {
         type: VoucherType.JOURNAL,
@@ -105,7 +115,8 @@ class SalesAccountsIntegrationService {
         payee: order.customer_name || undefined,
         amount: totalDebits,
         narration: `Sales Order Completed - ${order.order_number}${order.notes ? ` - ${order.notes}` : ''}`,
-        lines,
+        costCenterId: costCenterId,
+        lines: lines.map(line => ({ ...line, costCenterId })),
       };
 
       const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);

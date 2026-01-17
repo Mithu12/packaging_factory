@@ -25,6 +25,7 @@ export const createDistributionCenterSchema = Joi.object({
   ).optional().allow(null),
   facilities: Joi.array().items(Joi.string().max(100)).optional().allow(null),
   manager_id: Joi.number().integer().positive().optional().allow(null),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
   notes: Joi.string().max(1000).optional().allow(null, '')
 });
 
@@ -52,6 +53,7 @@ export const updateDistributionCenterSchema = Joi.object({
   ).optional().allow(null),
   facilities: Joi.array().items(Joi.string().max(100)).optional().allow(null),
   manager_id: Joi.number().integer().positive().optional().allow(null),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
   status: Joi.string().valid('active', 'inactive', 'maintenance').optional(),
   is_primary: Joi.boolean().optional(),
   notes: Joi.string().max(1000).optional().allow(null, '')

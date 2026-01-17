@@ -73,7 +73,14 @@ export default function POSManager() {
   // Load initial data
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, [selectedDistributionCenterId]);
+
+  // Set initial DC from user if available
+  useEffect(() => {
+    if (user?.distribution_center_id && !selectedDistributionCenterId) {
+      setSelectedDistributionCenterId(user.distribution_center_id.toString());
+    }
+  }, [user]);
 
   // Recalculate cart prices when customer changes
   useEffect(() => {
@@ -100,8 +107,13 @@ export default function POSManager() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
+      const params: any = { page: 1, limit: 100 };
+      if (selectedDistributionCenterId) {
+        params.distribution_center_id = parseInt(selectedDistributionCenterId);
+      }
+
       const [productsData, customersData, salesOrdersData, distributionData] = await Promise.all([
-        ProductApi.getProducts({ page: 1, limit: 100 }),
+        ProductApi.getProducts(params),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
         SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
         DistributionApi.getDistributionCenters({ page: 1, limit: 100 })

@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { DistributionApi, DistributionCenter, UpdateDistributionCenterRequest } from "@/modules/inventory/services/distribution-api"
+import { CostCentersApiService, CostCenter } from "@/services/accounts-api"
 import { useRBAC } from "@/contexts/RBACContext"
 import { PERMISSIONS } from "@/types/rbac"
 
@@ -47,6 +48,7 @@ const centerSchema = z.object({
   email: z.string().email("Invalid email format").optional().or(z.literal("")),
   capacity_volume: z.number().positive("Must be positive").optional().or(z.literal("")),
   capacity_weight: z.number().positive("Must be positive").optional().or(z.literal("")),
+  cost_center_id: z.number().optional().or(z.literal("")),
   notes: z.string().optional(),
   status: z.enum(["active", "inactive", "maintenance"]),
 })
@@ -61,6 +63,7 @@ export default function EditDistributionCenter() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [center, setCenter] = useState<DistributionCenter | null>(null)
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [facilities, setFacilities] = useState<string[]>([])
   const [newFacility, setNewFacility] = useState("")
   const [operatingHours, setOperatingHours] = useState<Record<string, { open: string; close: string }>>({
@@ -99,6 +102,7 @@ export default function EditDistributionCenter() {
       contact_person: "",
       phone: "",
       email: "",
+      cost_center_id: "",
       notes: "",
       status: "active",
     },
@@ -135,6 +139,18 @@ export default function EditDistributionCenter() {
   }
 
   useEffect(() => {
+    const fetchCostCenters = async () => {
+      try {
+        const response = await CostCentersApiService.getCostCenters({ limit: 100, status: 'Active' })
+        setCostCenters(response.data)
+      } catch (error) {
+        console.error("Failed to fetch cost centers:", error)
+      }
+    }
+    fetchCostCenters()
+  }, [])
+
+  useEffect(() => {
     const fetchCenter = async () => {
       if (!id) {
         router.push('/inventory/distribution')
@@ -162,6 +178,7 @@ export default function EditDistributionCenter() {
           email: centerData.email || "",
           capacity_volume: centerData.capacity_volume || ("" as any),
           capacity_weight: centerData.capacity_weight || ("" as any),
+          cost_center_id: centerData.cost_center_id || ("" as any),
           notes: centerData.notes || "",
           status: centerData.status,
         })
@@ -208,6 +225,7 @@ export default function EditDistributionCenter() {
         contact_person: data.contact_person || undefined,
         phone: data.phone || undefined,
         email: data.email || undefined,
+        cost_center_id: data.cost_center_id ? Number(data.cost_center_id) : undefined,
         notes: data.notes || undefined,
         status: data.status,
         facilities: facilities.length > 0 ? facilities : undefined,
@@ -335,6 +353,38 @@ export default function EditDistributionCenter() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="cost_center_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Accounting Cost Center</FormLabel>
+                      <Select 
+                        onValueChange={(val) => field.onChange(val === "none" ? "" : Number(val))} 
+                        value={field.value?.toString() || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-64">
+                            <SelectValue placeholder="Select a cost center" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {costCenters.map((cc) => (
+                            <SelectItem key={cc.id} value={cc.id.toString()}>
+                              {cc.name} ({cc.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Associate this center with an accounting cost center for financial tracking.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
