@@ -102,6 +102,7 @@ interface CartProps {
     discount: number,
     discountType: "percentage" | "fixed"
   ) => void;
+  onUpdatePrice?: (id: string, price: number) => void;
   loading?: boolean;
 }
 
@@ -142,6 +143,7 @@ export function Cart({
   onProcessPayment,
   onAddCustomer,
   onUpdateItemDiscount,
+  onUpdatePrice,
   loading = false,
 }: CartProps) {
   const subtotal = cart.reduce((sum, item) => {
@@ -494,7 +496,17 @@ export function Cart({
                             {Number(item.price)}
                           </span>
                         ) : (
-                          Number(item.price)
+                          <Input
+                            type="number"
+                            className="w-20 h-6 text-sm p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            value={item.price}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              onUpdatePrice?.(item.id, isNaN(val) ? 0 : val);
+                            }}
+                            min="0"
+                            step="0.01"
+                          />
                         )}
                       </td>
                       <td className="p-2">

@@ -107,22 +107,37 @@ export default function POSManager() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const params: any = { page: 1, limit: 100 };
-      if (selectedDistributionCenterId) {
-        params.distribution_center_id = parseInt(selectedDistributionCenterId);
+      
+      // Fetch distribution centers first to check for primary if needed
+      const distributionData = await DistributionApi.getDistributionCenters({ page: 1, limit: 100 });
+      const centers = distributionData.centers || [];
+      setDistributionCenters(centers);
+
+      let dcId = selectedDistributionCenterId;
+
+      // If no DC is selected and user has no tagged center, find primary
+      if (!dcId && !user?.distribution_center_id) {
+        const primaryCenter = centers.find(dc => dc.is_primary);
+        if (primaryCenter) {
+          dcId = primaryCenter.id.toString();
+          setSelectedDistributionCenterId(dcId);
+        }
       }
 
-      const [productsData, customersData, salesOrdersData, distributionData] = await Promise.all([
+      const params: any = { page: 1, limit: 100 };
+      if (dcId) {
+        params.distribution_center_id = parseInt(dcId);
+      }
+
+      const [productsData, customersData, salesOrdersData] = await Promise.all([
         ProductApi.getProducts(params),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
         SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
-        DistributionApi.getDistributionCenters({ page: 1, limit: 100 })
       ]);
 
       setProducts(productsData.products || []);
       setCustomers(customersData.customers || []);
       setSalesOrders(salesOrdersData.sales_orders || []);
-      setDistributionCenters(distributionData.centers || []);
     } catch (error) {
       console.error("Error loading initial data:", error);
       toast({
@@ -220,6 +235,20 @@ export default function POSManager() {
         variant: "destructive",
       });
     }
+  };
+
+  const updatePrice = (id: string, newPrice: number) => {
+    setCart(
+      cart.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              price: newPrice,
+              total: item.isGift ? 0 : newPrice * item.quantity,
+            }
+          : item
+      )
+    );
   };
 
   const removeFromCart = (id: string) => {
@@ -611,6 +640,7 @@ export default function POSManager() {
               onProcessPayment={processPayment}
               onAddCustomer={handleAddCustomer}
               onUpdateItemDiscount={updateItemDiscount}
+              onUpdatePrice={updatePrice}
               loading={loading}
             />
           </div>
