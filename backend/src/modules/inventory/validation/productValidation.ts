@@ -74,6 +74,7 @@ export const productQuerySchema = Joi.object({
     .valid("active", "inactive", "discontinued", "out_of_stock")
     .optional(),
   low_stock: Joi.boolean().optional(),
+  distribution_center_id: Joi.number().integer().positive().optional(),
   sortBy: Joi.string()
     .valid(
       "id",

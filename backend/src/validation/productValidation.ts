@@ -68,6 +68,7 @@ export const productQuerySchema = Joi.object({
   supplier_id: Joi.number().integer().positive().optional(),
   status: Joi.string().valid('', 'active', 'inactive', 'discontinued', 'out_of_stock').optional(),
   low_stock: Joi.boolean().optional(),
+  distribution_center_id: Joi.number().integer().positive().optional(),
   sortBy: Joi.string().valid('id', 'name', 'sku', 'cost_price', 'selling_price', 'current_stock', 'created_at', 'updated_at').default('created_at'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
 });
