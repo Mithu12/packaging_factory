@@ -96,6 +96,9 @@ export const createSupplierSchema = Joi.object({
   notes: Joi.string().max(1000).optional().messages({
     "string.max": "Notes cannot exceed 1000 characters",
   }),
+  opening_balance: Joi.number().min(0).optional().default(0).messages({
+    "number.min": "Opening balance cannot be negative",
+  }),
 });
 
 export const updateSupplierSchema = Joi.object({
@@ -189,6 +192,9 @@ export const updateSupplierSchema = Joi.object({
   }),
   notes: Joi.string().max(1000).optional().allow("").messages({
     "string.max": "Notes cannot exceed 1000 characters",
+  }),
+  opening_balance: Joi.number().min(0).optional().messages({
+    "number.min": "Opening balance cannot be negative",
   }),
 });
 

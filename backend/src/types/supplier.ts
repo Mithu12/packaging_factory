@@ -26,6 +26,7 @@ export interface Supplier {
   total_orders: number;
   last_order_date?: string;
   notes?: string;
+  opening_balance: number;
   created_at: string;
   updated_at: string;
 }
@@ -67,12 +68,14 @@ export interface CreateSupplierRequest {
   iban?: string;
   status?: 'active' | 'inactive';
   notes?: string;
+  opening_balance?: number;
 }
 
 export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {
   rating?: number;
   total_orders?: number;
   last_order_date?: string;
+  opening_balance?: number;
 }
 
 export interface SupplierQueryParams {

@@ -73,6 +73,7 @@ class UpdateSupplierInfoMediator {
         status,
         notes,
         whatsapp_number,
+        opening_balance,
       } = data;
 
       const query = {
@@ -99,7 +100,8 @@ class UpdateSupplierInfoMediator {
                         iban           = $20,
                         status         = $21,
                         notes          = $22,
-                        whatsapp_number = $23
+                        whatsapp_number = $23,
+                        opening_balance = $24
                     WHERE id = $1
                     RETURNING *
                 `,
@@ -127,6 +129,7 @@ class UpdateSupplierInfoMediator {
           status,
           notes,
           whatsapp_number,
+          opening_balance,
         ],
       };
 

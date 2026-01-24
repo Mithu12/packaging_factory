@@ -50,7 +50,7 @@ export default function PurchaseOrderDetails() {
 
   // Fetch purchase order data
   useEffect(() => {
-    if (id) {
+    if (id && !isNaN(parseInt(id))) {
       fetchPurchaseOrder()
       fetchInvoices()
     }

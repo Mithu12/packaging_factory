@@ -23,7 +23,7 @@ export class PaymentApi {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && (typeof value !== 'number' || !isNaN(value))) {
           queryParams.append(key, value.toString());
         }
       });
@@ -72,7 +72,7 @@ export class PaymentApi {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && (typeof value !== 'number' || !isNaN(value))) {
           queryParams.append(key, value.toString());
         }
       });
@@ -121,7 +121,7 @@ export class PaymentApi {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && (typeof value !== 'number' || !isNaN(value))) {
           queryParams.append(key, value.toString());
         }
       });
@@ -136,7 +136,7 @@ export class PaymentApi {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && (typeof value !== 'number' || !isNaN(value))) {
           queryParams.append(key, value.toString());
         }
       });
@@ -151,7 +151,7 @@ export class PaymentApi {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && (typeof value !== 'number' || !isNaN(value))) {
           queryParams.append(key, value.toString());
         }
       });

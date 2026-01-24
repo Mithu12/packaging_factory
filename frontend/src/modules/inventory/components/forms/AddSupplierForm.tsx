@@ -42,7 +42,8 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     category: "",
     taxId: "",
     paymentTerms: "",
-    notes: ""
+    notes: "",
+    openingBalance: "0"
   })
 
   const [supplierCategories, setSupplierCategories] = useState<string[]>([])
@@ -100,6 +101,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         tax_id: formData.taxId || undefined,
         payment_terms: formData.paymentTerms || undefined,
         notes: formData.notes || undefined,
+        opening_balance: parseFloat(formData.openingBalance) || 0,
         status: 'active'
       }
 
@@ -124,7 +126,8 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         category: "",
         taxId: "",
         paymentTerms: "",
-        notes: ""
+        notes: "",
+        openingBalance: "0"
       })
       setShowNewCategoryInput(false)
       setNewCategoryName("")
@@ -404,6 +407,21 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
                   onChange={(e) => handleInputChange("taxId", e.target.value)}
                   placeholder="Enter tax identification number"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="openingBalance">Opening Balance (Pending Payment)</Label>
+              <Input
+                  id="openingBalance"
+                  type="number"
+                  step="0.01"
+                  value={formData.openingBalance}
+                  onChange={(e) => handleInputChange("openingBalance", e.target.value)}
+                  placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter any pending payment amount that needs to be tracked.
+              </p>
             </div>
 
             <div className="space-y-2">

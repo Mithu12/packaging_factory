@@ -345,8 +345,9 @@ export default function Suppliers() {
                 <TableRow>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
+                   <TableHead>Category</TableHead>
+                   <TableHead>Opening Balance</TableHead>
+                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -428,11 +429,14 @@ export default function Suppliers() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {supplier.category && (
-                                <Badge variant="outline">{supplier.category}</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
+                             {supplier.category && (
+                                 <Badge variant="outline">{supplier.category}</Badge>
+                             )}
+                           </TableCell>
+                           <TableCell className="font-medium">
+                             {supplier.opening_balance ? `$${Number(supplier.opening_balance).toLocaleString()}` : '$0.00'}
+                           </TableCell>
+                           <TableCell>
                             <Badge className={getStatusColor(supplier.status)}>
                               {supplier.status}
                             </Badge>

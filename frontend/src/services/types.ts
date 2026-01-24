@@ -41,6 +41,7 @@ export interface Supplier {
   rating: string;
   total_orders: string;
   last_order_date: string;
+  opening_balance?: number;
 }
 
 export interface CreateSupplierRequest {
@@ -66,6 +67,7 @@ export interface CreateSupplierRequest {
   iban?: string;
   notes?: string;
   status?: 'active' | 'inactive';
+  opening_balance?: number;
 }
 
 export interface UpdateSupplierRequest {
