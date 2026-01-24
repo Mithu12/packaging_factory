@@ -104,15 +104,17 @@ export class ProductLocationMediator {
       }
 
       if (stock_status) {
+        // Use COALESCE with NULLIF to fallback to product's min_stock_level when location's is 0 or null
+        const minStockExpr = `COALESCE(NULLIF(pl.min_stock_level, 0), p.min_stock_level)`;
         switch (stock_status) {
           case "out_of_stock":
             query += ` AND pl.available_stock <= 0`;
             break;
           case "low_stock":
-            query += ` AND pl.available_stock > 0 AND pl.current_stock <= pl.min_stock_level`;
+            query += ` AND pl.available_stock > 0 AND pl.current_stock <= ${minStockExpr}`;
             break;
           case "in_stock":
-            query += ` AND pl.available_stock > pl.min_stock_level`;
+            query += ` AND pl.available_stock > ${minStockExpr}`;
             break;
         }
       }
