@@ -217,9 +217,9 @@ export default function Distribution() {
     totalCenters: centers.length,
     activeCenters: centers.filter(c => c.status === 'active').length,
     totalInventoryValue: centerStats.reduce((sum, stat) => sum + Number(stat.total_inventory_value), 0),
-    totalProducts: centerStats.reduce((sum, stat) => sum + stat.total_products, 0),
-    lowStockLocations: centerStats.reduce((sum, stat) => sum + stat.low_stock_products, 0),
-    pendingTransfers: centerStats.reduce((sum, stat) => sum + stat.outbound_transfers, 0)
+    totalProducts: centerStats.reduce((sum, stat) => sum + Number(stat.total_products), 0),
+    lowStockLocations: centerStats.reduce((sum, stat) => sum + Number(stat.low_stock_products), 0),
+    pendingTransfers: centerStats.reduce((sum, stat) => sum + Number(stat.outbound_transfers), 0)
   }
 
   if (loading) {
