@@ -13,9 +13,10 @@ import { getImagePath } from "@/utils/image.utils";
 interface ProductSearchProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
+  isLoading?: boolean;
 }
 
-export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
+export function ProductSearch({ products, onAddToCart, isLoading = false }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const { formatCurrency } = useFormatting();
 
@@ -43,10 +44,20 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
             className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={isLoading}
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto">
+        <div className="relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading Products...</p>
+              </div>
+            </div>
+          )}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto ${isLoading ? 'pointer-events-none' : ''}`}>
           {filteredProducts.map((product) => {
             const isOutOfStock = product.current_stock <= 0;
             return (
@@ -98,6 +109,13 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
                       Price: {formatCurrency(product.selling_price)}
                     </p>
                     <p
+                      className={`text-xs mb-1 ${
+                        isOutOfStock ? "text-gray-400" : "text-muted-foreground"
+                      }`}
+                    >
+                      Wholesale Price: {formatCurrency(product.wholesale_price)}
+                    </p>
+                    <p
                       className={`text-xs ${
                         isOutOfStock ? "text-gray-400" : "text-muted-foreground"
                       }`}
@@ -127,7 +145,8 @@ export function ProductSearch({ products, onAddToCart }: ProductSearchProps) {
             );
           })}
         </div>
-      </CardContent>
-    </Card>
-  );
+      </div>
+    </CardContent>
+  </Card>
+);
 }

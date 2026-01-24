@@ -104,6 +104,60 @@ export default function POSManager() {
     }
   }, [selectedCustomer?.customer_type, products]);
 
+  // Handle stock changes when products (and potentially DC) change
+  useEffect(() => {
+    if (cart.length > 0 && products.length > 0) {
+      const updatedCart = [...cart];
+      let cartChanged = false;
+      const alerts: string[] = [];
+
+      const newCart = updatedCart.filter(item => {
+        const product = products.find(p => p.id.toString() === item.id);
+        
+        if (!product) {
+          // Product not found in this DC's product list
+          // Assuming if not in list, it's not available in this DC
+          alerts.push(`${item.name} is not available in this Distribution Center.`);
+          cartChanged = true;
+          return false;
+        }
+
+        if (product.current_stock <= 0 && !item.isGift) {
+          alerts.push(`${item.name} is out of stock in this Distribution Center.`);
+          cartChanged = true;
+          return false;
+        }
+
+        if (product.current_stock < item.quantity && !item.isGift) {
+          alerts.push(`${item.name} quantity reduced to ${product.current_stock} due to limited stock.`);
+          item.quantity = product.current_stock;
+          item.total = item.price * item.quantity;
+          item.stock = product.current_stock;
+          cartChanged = true;
+        } else {
+          // Always update the stock info for the item
+          if (item.stock !== product.current_stock) {
+            item.stock = product.current_stock;
+            cartChanged = true;
+          }
+        }
+
+        return true;
+      });
+
+      if (cartChanged) {
+        setCart(newCart);
+        alerts.forEach(msg => {
+          toast({
+            title: "Cart Updated",
+            description: msg,
+            variant: "destructive",
+          });
+        });
+      }
+    }
+  }, [products]);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -613,7 +667,7 @@ export default function POSManager() {
           {/* Product Selection */}
           <div className="space-y-4">
             <BarcodeScanner onProductFound={addToCart} />
-            <ProductSearch products={products} onAddToCart={addToCart} />
+            <ProductSearch products={products} onAddToCart={addToCart} isLoading={loading} />
           </div>
 
           {/* Shopping Cart */}
