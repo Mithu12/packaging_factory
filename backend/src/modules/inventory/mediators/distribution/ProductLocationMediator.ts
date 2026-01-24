@@ -40,9 +40,24 @@ export class ProductLocationMediator {
       const offset = (page - 1) * limit;
 
       // Build the base query
+      // Use COALESCE with NULLIF to fallback to product's min_stock_level if location's is 0 or null
       let query = `
         SELECT 
-          pl.*,
+          pl.id,
+          pl.product_id,
+          pl.distribution_center_id,
+          pl.current_stock,
+          pl.reserved_stock,
+          pl.available_stock,
+          COALESCE(NULLIF(pl.min_stock_level, 0), p.min_stock_level) as min_stock_level,
+          COALESCE(NULLIF(pl.max_stock_level, 0), p.max_stock_level) as max_stock_level,
+          pl.reorder_point,
+          pl.location_in_warehouse,
+          pl.last_count_date,
+          pl.last_movement_date,
+          pl.status,
+          pl.created_at,
+          pl.updated_at,
           p.name as product_name,
           p.sku as product_sku,
           p.cost_price,
