@@ -168,15 +168,15 @@ export default function Inventory() {
   // Use stats from API or calculate from items
   const totalInventoryValue =
     stats?.total_inventory_value ||
-    locations.reduce((sum, item) => sum + (item.current_stock * (item.cost_price || 0)), 0);
+    locations.reduce((sum, item) => sum + (Number(item.current_stock) * (Number(item.cost_price) || 0)), 0);
   const lowStockItems =
     stats?.low_stock_items ||
-    locations.filter((item) => (item.available_stock ?? item.current_stock) <= item.min_stock_level)
+    locations.filter((item) => (Number(item.available_stock) ?? Number(item.current_stock)) <= Number(item.min_stock_level))
       .length;
   const criticalStockItems =
     stats?.critical_stock_items ||
     locations.filter(
-      (item) => (item.available_stock ?? item.current_stock) <= item.min_stock_level * 0.5
+      (item) => (Number(item.available_stock) ?? Number(item.current_stock)) <= Number(item.min_stock_level) * 0.5
     ).length;
 
   if (loading) {
@@ -369,9 +369,9 @@ export default function Inventory() {
                 <TableBody>
                   {inventoryPagination.data.map((item) => {
                     const stockInfo = getStockStatus(
-                      item.available_stock ?? item.current_stock,
-                      item.min_stock_level,
-                      item.max_stock_level
+                      Number(item.available_stock) ?? Number(item.current_stock),
+                      Number(item.min_stock_level),
+                      Number(item.max_stock_level)
                     );
 
                     return (
