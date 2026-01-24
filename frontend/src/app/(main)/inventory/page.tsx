@@ -37,15 +37,24 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { InventoryApi } from "@/modules/inventory/services/inventory-api";
-import { InventoryItem, InventoryStats, StockMovement } from "@/services/types";
+import { 
+  DistributionApi, 
+  ProductLocation, 
+  DistributionCenter,
+  ProductLocationQueryParams 
+} from "@/modules/inventory/services/distribution-api";
+import { InventoryStats, StockMovement } from "@/services/types";
 
 export default function Inventory() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedDC, setSelectedDC] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
   // State for real data
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [locations, setLocations] = useState<ProductLocation[]>([]);
+  const [centers, setCenters] = useState<DistributionCenter[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,21 +63,43 @@ export default function Inventory() {
   // Fetch data on component mount
   useEffect(() => {
     fetchData();
+    fetchCenters();
   }, []);
+
+  const fetchCenters = async () => {
+    try {
+      const result = await DistributionApi.getDistributionCenters({ limit: 100 });
+      setCenters(result.centers);
+    } catch (err) {
+      console.error("Error fetching centers:", err);
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [inventoryResponse, movementsResponse, statsResponse] =
+      const params: ProductLocationQueryParams = {
+        limit: 1000,
+      };
+
+      if (selectedDC !== "all") {
+        params.distribution_center_id = parseInt(selectedDC);
+      }
+
+      if (selectedStatus !== "all") {
+        params.stock_status = selectedStatus as any;
+      }
+
+      const [locationsResponse, movementsResponse, statsResponse] =
         await Promise.all([
-          InventoryApi.getInventoryItems({ limit: 100 }),
+          DistributionApi.getProductLocations(params),
           InventoryApi.getStockMovements({ limit: 50 }),
           InventoryApi.getInventoryStats(),
         ]);
 
-      setInventoryItems(inventoryResponse);
+      setLocations(locationsResponse.locations);
       setMovements(movementsResponse);
       setStats(statsResponse);
     } catch (err: any) {
@@ -82,12 +113,16 @@ export default function Inventory() {
     }
   };
 
-  const filteredItems = inventoryItems.filter(
+  // Re-fetch data when filters change
+  useEffect(() => {
+    fetchData();
+  }, [selectedDC, selectedStatus]);
+
+  const filteredItems = locations.filter(
     (item) =>
-      item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.product_sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
+      item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.product_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.center_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Use client-side pagination for filtered inventory items
@@ -133,15 +168,15 @@ export default function Inventory() {
   // Use stats from API or calculate from items
   const totalInventoryValue =
     stats?.total_inventory_value ||
-    inventoryItems.reduce((sum, item) => sum + item.total_value, 0);
+    locations.reduce((sum, item) => sum + (item.current_stock * (item.cost_price || 0)), 0);
   const lowStockItems =
     stats?.low_stock_items ||
-    inventoryItems.filter((item) => item.current_stock <= item.min_stock_level)
+    locations.filter((item) => (item.available_stock ?? item.current_stock) <= item.min_stock_level)
       .length;
   const criticalStockItems =
     stats?.critical_stock_items ||
-    inventoryItems.filter(
-      (item) => item.current_stock <= item.min_stock_level * 0.5
+    locations.filter(
+      (item) => (item.available_stock ?? item.current_stock) <= item.min_stock_level * 0.5
     ).length;
 
   if (loading) {
@@ -291,6 +326,26 @@ export default function Inventory() {
                       className="pl-10 w-full sm:w-80"
                     />
                   </div>
+                  <select
+                    value={selectedDC}
+                    onChange={(e) => setSelectedDC(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="all">All DCs</option>
+                    {centers.map(center => (
+                      <option key={center.id} value={center.id}>{center.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="in_stock">In Stock</option>
+                    <option value="low_stock">Low Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                  </select>
                   <Button variant="outline" size="icon">
                     <Filter className="h-4 w-4" />
                   </Button>
@@ -306,6 +361,7 @@ export default function Inventory() {
                     <TableHead>Stock Levels</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Value</TableHead>
+                    <TableHead>Price</TableHead>
                     <TableHead>Last Movement</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -313,7 +369,7 @@ export default function Inventory() {
                 <TableBody>
                   {inventoryPagination.data.map((item) => {
                     const stockInfo = getStockStatus(
-                      item.current_stock,
+                      item.available_stock ?? item.current_stock,
                       item.min_stock_level,
                       item.max_stock_level
                     );
@@ -338,9 +394,16 @@ export default function Inventory() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Warehouse className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">
-                              {item.location || "Main Warehouse"}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {item.center_name || "Main Warehouse"}
+                              </span>
+                              {item.location_in_warehouse && (
+                                <span className="text-xs text-muted-foreground">
+                                  {item.location_in_warehouse}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -350,7 +413,7 @@ export default function Inventory() {
                                 {item.current_stock}
                               </span>
                               <span className="text-muted-foreground text-sm">
-                                {item.unit_of_measure}
+                                unit
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -386,11 +449,34 @@ export default function Inventory() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              ${item.total_value.toLocaleString()}
+                              ${((item.current_stock || 0) * (item.cost_price || 0)).toLocaleString()}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              ${item.cost_price} per unit
+                              ${item.cost_price || 0} per unit
                             </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {item.selling_price && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 rounded">Retail</span>
+                                <span className="text-sm font-semibold text-emerald-700">
+                                  ${item.selling_price}
+                                </span>
+                              </div>
+                            )}
+                            {item.wholesale_price && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-1 rounded">Wholesale</span>
+                                <span className="text-sm font-semibold text-blue-700">
+                                  ${item.wholesale_price}
+                                </span>
+                              </div>
+                            )}
+                            {!item.selling_price && !item.wholesale_price && (
+                              <span className="text-muted-foreground text-xs italic">Not set</span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -410,18 +496,12 @@ export default function Inventory() {
                               </Button>
                             </DropdownMenuTrigger>
                              <DropdownMenuContent align="end" className="bg-popover">
-                              <DropdownMenuItem onClick={() => router.push(`/inventory/${item.id}`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/inventory/${item.product_id}`)}>
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/inventory/products/${item.id}/edit`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/inventory/products/${item.product_id}/edit`)}>
                                 Edit Product
                               </DropdownMenuItem>
-                              {/* <DropdownMenuItem onClick={() => router.push(`/inventory/products/${item.id}/adjust`)}>
-                                Adjust Stock
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>Reserve Stock</DropdownMenuItem>
-                              <DropdownMenuItem>Transfer Location</DropdownMenuItem>
-                              <DropdownMenuItem>Create PO</DropdownMenuItem> */}
                             </DropdownMenuContent> 
                           </DropdownMenu>
                         </TableCell>

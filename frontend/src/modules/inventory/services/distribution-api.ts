@@ -58,6 +58,7 @@ export interface UpdateDistributionCenterRequest extends Partial<CreateDistribut
 }
 
 export interface ProductLocation {
+  wholesale_price: number;
   id: number;
   product_id: number;
   distribution_center_id: number;
@@ -76,6 +77,8 @@ export interface ProductLocation {
   // Joined fields
   product_name?: string;
   product_sku?: string;
+  cost_price?: number;
+  selling_price?: number;
   center_name?: string;
   center_type?: string;
 }

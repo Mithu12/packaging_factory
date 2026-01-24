@@ -51,12 +51,22 @@ export class InventoryMediator {
           p.status,
           p.created_at,
           p.updated_at,
+          COALESCE(pl.reserved_stock, 0) as reserved_stock,
+          COALESCE(pl.available_stock, p.current_stock) as available_stock,
           COALESCE(sa.last_movement_date, p.updated_at) as last_movement_date,
           sa.last_movement_type
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
+        LEFT JOIN (
+          SELECT 
+            product_id,
+            SUM(reserved_stock) as reserved_stock,
+            SUM(current_stock - reserved_stock) as available_stock
+          FROM product_locations
+          GROUP BY product_id
+        ) pl ON p.id = pl.product_id
         LEFT JOIN (
           SELECT 
             product_id,
@@ -169,8 +179,8 @@ export class InventoryMediator {
           COUNT(*) as total_products,
           COUNT(CASE WHEN status = 'active' THEN 1 END) as active_products,
           COUNT(CASE WHEN current_stock = 0 THEN 1 END) as out_of_stock_items,
-          COUNT(CASE WHEN current_stock <= min_stock_level AND current_stock > 0 THEN 1 END) as low_stock_items,
-          COUNT(CASE WHEN current_stock <= (min_stock_level * 0.5) AND current_stock > 0 THEN 1 END) as critical_stock_items,
+          COUNT(CASE WHEN (SELECT COALESCE(SUM(current_stock - reserved_stock), products.current_stock) FROM product_locations WHERE product_id = products.id) <= min_stock_level AND current_stock > 0 THEN 1 END) as low_stock_items,
+          COUNT(CASE WHEN (SELECT COALESCE(SUM(current_stock - reserved_stock), products.current_stock) FROM product_locations WHERE product_id = products.id) <= (min_stock_level * 0.5) AND current_stock > 0 THEN 1 END) as critical_stock_items,
           COUNT(CASE WHEN max_stock_level IS NOT NULL AND current_stock >= (max_stock_level * 0.9) THEN 1 END) as overstock_items,
           SUM(current_stock * cost_price) as total_inventory_value
         FROM products
@@ -356,12 +366,23 @@ export class InventoryMediator {
           p.status,
           p.created_at,
           p.updated_at,
+          COALESCE(pl.reserved_stock, 0) as reserved_stock,
+          COALESCE(pl.available_stock, p.current_stock) as available_stock,
           COALESCE(sa.last_movement_date, p.updated_at) as last_movement_date,
           sa.last_movement_type
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
+        LEFT JOIN (
+          SELECT 
+            product_id,
+            SUM(reserved_stock) as reserved_stock,
+            SUM(current_stock - reserved_stock) as available_stock
+          FROM product_locations
+          WHERE product_id = $1
+          GROUP BY product_id
+        ) pl ON p.id = pl.product_id
         LEFT JOIN (
           SELECT 
             product_id,

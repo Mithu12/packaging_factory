@@ -45,6 +45,9 @@ export class ProductLocationMediator {
           pl.*,
           p.name as product_name,
           p.sku as product_sku,
+          p.cost_price,
+          p.wholesale_price,
+          p.selling_price,
           dc.name as center_name,
           dc.type as center_type
         FROM product_locations pl
@@ -159,6 +162,8 @@ export class ProductLocationMediator {
           pl.*,
           p.name as product_name,
           p.sku as product_sku,
+          p.cost_price,
+          p.selling_price,
           dc.name as center_name,
           dc.type as center_type
         FROM product_locations pl
@@ -201,6 +206,8 @@ export class ProductLocationMediator {
           pl.*,
           p.name as product_name,
           p.sku as product_sku,
+          p.cost_price,
+          p.selling_price,
           dc.name as center_name,
           dc.type as center_type,
           dc.city,

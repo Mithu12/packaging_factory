@@ -11,6 +11,7 @@ export interface InventoryItem {
   unit_of_measure: string;
   cost_price: number;
   selling_price: number;
+  wholesale_price?: number;
   total_value: number;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   last_movement_date?: string;
