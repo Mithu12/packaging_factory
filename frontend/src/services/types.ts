@@ -800,6 +800,7 @@ export interface Customer {
   last_purchase_date?: string;
   last_payment_date?: string;
   notes?: string;
+  opening_due?: number;
   created_at: string;
   updated_at: string;
 }
@@ -817,6 +818,7 @@ export interface CreateCustomerRequest {
   gender?: 'male' | 'female' | 'other';
   customer_type?: 'regular' | 'vip' | 'wholesale' | 'retail' | 'walk_in';
   credit_limit?: number;
+  opening_due?: number;
   notes?: string;
 }
 

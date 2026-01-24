@@ -31,9 +31,11 @@ export class AddCustomerMediator {
                         gender,
                         customer_type,
                         notes,
-                        credit_limit
+                        credit_limit,
+                        opening_due,
+                        due_amount
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
                     ) RETURNING *
                 `;
 
@@ -51,11 +53,29 @@ export class AddCustomerMediator {
                     data.gender || null,
                     data.customer_type || 'regular',
                     data.notes || null,
-                    data.credit_limit,
+                    data.credit_limit || 0,
+                    data.opening_due || 0,
+                    data.opening_due || 0, // Initial due_amount equals opening_due
                 ];
 
                 const result = await client.query(insertQuery, values);
                 const customer = result.rows[0];
+
+                // Record opening due in customer_payments if > 0
+                if (data.opening_due && data.opening_due > 0) {
+                    const paymentInsertQuery = `
+                        INSERT INTO customer_payments (
+                            customer_id, payment_type, payment_amount,
+                            payment_date, payment_method, recorded_by, notes
+                        ) VALUES ($1, 'adjustment', $2, CURRENT_TIMESTAMP, 'other', $3, $4)
+                    `;
+                    await client.query(paymentInsertQuery, [
+                        customer.id,
+                        data.opening_due,
+                        1, // System/Default user ID
+                        'Opening Due from onboarding'
+                    ]);
+                }
 
                 await client.query('COMMIT');
 

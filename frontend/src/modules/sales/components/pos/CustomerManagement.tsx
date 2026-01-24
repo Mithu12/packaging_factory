@@ -109,6 +109,7 @@ export function CustomerManagement() {
       | "retail"
       | "walk_in",
     credit_limit: "",
+    opening_due: "",
     notes: "",
   });
   const [editFormData, setEditFormData] = useState({
@@ -185,6 +186,9 @@ export function CustomerManagement() {
         credit_limit: formData.credit_limit
           ? parseFloat(formData.credit_limit)
           : undefined,
+        opening_due: formData.opening_due
+          ? parseFloat(formData.opening_due)
+          : undefined,
         notes: formData.notes || undefined,
       });
 
@@ -200,6 +204,7 @@ export function CustomerManagement() {
         country: "",
         customer_type: "regular",
         credit_limit: "",
+        opening_due: "",
         notes: "",
       });
       setIsAddDialogOpen(false);
@@ -294,7 +299,7 @@ export function CustomerManagement() {
     setPaymentCustomer(customer);
     setPaymentAmount(customer.due_amount?.toString() || "");
     setOrderPayments({});
-    setUseOrderWisePayment(true);
+    setUseOrderWisePayment(false); // Default to false
     setIsPaymentDialogOpen(true);
     
     // Load orders with due amounts
@@ -302,16 +307,19 @@ export function CustomerManagement() {
       const orders = await SalesCustomerApi.getCustomerOrdersWithDueAmounts(customer.id);
       setOrdersWithDue(orders);
       
-      // Pre-fill order payments with full due amounts
-      const initialPayments: Record<number, number> = {};
-      orders.forEach(order => {
-        initialPayments[order.id] = order.due_amount;
-      });
-      setOrderPayments(initialPayments);
-      
-      // Calculate total from orders
-      const total = orders.reduce((sum, order) => sum + order.due_amount, 0);
-      setPaymentAmount(total.toString());
+      if (orders.length > 0) {
+        setUseOrderWisePayment(true);
+        // Pre-fill order payments with full due amounts
+        const initialPayments: Record<number, number> = {};
+        orders.forEach(order => {
+          initialPayments[order.id] = order.due_amount;
+        });
+        setOrderPayments(initialPayments);
+        
+        // Calculate total from orders
+        const total = orders.reduce((sum, order) => sum + order.due_amount, 0);
+        setPaymentAmount(total.toString());
+      }
     } catch (error) {
       console.error("Error loading orders:", error);
       toast({
@@ -618,23 +626,41 @@ export function CustomerManagement() {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="credit-limit">Credit Limit ($)</Label>
-                    <Input
-                      id="credit-limit"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.credit_limit}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          credit_limit: e.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
+                    <div>
+                      <Label htmlFor="credit-limit">Credit Limit ($)</Label>
+                      <Input
+                        id="credit-limit"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.credit_limit}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            credit_limit: e.target.value,
+                          }))
+                        }
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="opening-due">Opening Due ($)</Label>
+                      <Input
+                        id="opening-due"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.opening_due}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            opening_due: e.target.value,
+                          }))
+                        }
+                        placeholder="0.00"
+                      />
+                    </div>
 
                   <div>
                     <Label htmlFor="notes">Notes</Label>

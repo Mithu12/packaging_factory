@@ -8,6 +8,7 @@ export interface CustomerPaymentHistoryResponse {
         email: string | null;
         phone: string | null;
         due_amount: number;
+        opening_due: number;
     };
     summary: {
         total_orders: number;
@@ -18,6 +19,7 @@ export interface CustomerPaymentHistoryResponse {
         current_outstanding: number;
         total_paid: number;
         total_refunds: number;
+        opening_due: number;
         last_order_date: string | null;
         last_payment_date: string | null;
     };
@@ -136,7 +138,7 @@ export class CustomerPaymentHistoryMediator {
 
             // Get customer info
             const customerQuery = `
-                SELECT id, name, email, phone, due_amount
+                SELECT id, name, email, phone, due_amount, opening_due
                 FROM customers
                 WHERE id = $1
             `;
@@ -339,7 +341,12 @@ export class CustomerPaymentHistoryMediator {
                 .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
             const totalDueAmounts = allOrders.reduce((sum: number, order: any) => sum + order.due_amount, 0);
             const currentOutstanding = parseFloat(customer.due_amount) || 0;
-            const totalPaid = allPayments.reduce((sum: number, p: any) => sum + p.payment_amount, 0);
+            const openingDue = parseFloat(customer.opening_due) || 0;
+
+            const totalPaid = allPayments
+                .filter((p: any) => p.payment_type !== 'adjustment')
+                .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
+
             const totalRefunds = allPayments
                 .filter((p: any) => p.payment_type === 'refund')
                 .reduce((sum: number, p: any) => sum + p.payment_amount, 0);
@@ -356,9 +363,12 @@ export class CustomerPaymentHistoryMediator {
                 current_outstanding: currentOutstanding,
                 total_paid: totalPaid,
                 total_refunds: totalRefunds,
+                opening_due: openingDue,
                 last_order_date: lastOrderDate,
                 last_payment_date: lastPaymentDate
             };
+            
+            MyLogger.info('Summary Calculation', summary);
 
             const paymentsTotalPages = Math.ceil(totalPayments / paymentsLimit);
             const ordersTotalPages = Math.ceil(totalOrders / ordersLimit);
@@ -377,7 +387,8 @@ export class CustomerPaymentHistoryMediator {
                     name: customer.name,
                     email: customer.email,
                     phone: customer.phone,
-                    due_amount: currentOutstanding
+                    due_amount: currentOutstanding,
+                    opening_due: openingDue
                 },
                 summary,
                 payments,
