@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   logoSection: {
-    width: '50%',
+    width: '40%',
   },
   logo: {
     width: 120,
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     textAlign: 'right',
-    width: '50%',
+    width: '60%',
     gap: 2,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#1D357B',
     marginBottom: 8,
@@ -189,12 +189,15 @@ const PaymentVoucherPDF = ({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoSection}>
-            {logoBase64 ? (
+            {logoBase64 && (
               <Image src={logoBase64} style={styles.logo} />
-            ) : (
-              <Text style={[styles.title, { fontSize: 20, textAlign: 'left' }]}>{companySettings?.company_name || 'ERP'}</Text>
             )}
-            <Text style={styles.subtitle}>Quality First Priority</Text>
+            <Text style={[styles.title, { fontSize: logoBase64 ? 14 : 20, textAlign: 'left', marginTop: logoBase64 ? 4 : 0 }]}>
+              {companySettings?.company_name || 'ERP System'}
+            </Text>
+            {companySettings?.company_address && (
+              <Text style={[styles.subtitle, { marginTop: 2 }]}>{companySettings.company_address}</Text>
+            )}
           </View>
           <View style={styles.titleSection}>
             <Text style={styles.title}>PAYMENT VOUCHER</Text>
@@ -335,23 +338,69 @@ export function PaymentVoucher({
     loadCompanySettings();
   }, []);
 
+  // Load logo as base64 using Image element with promise (same as Chalan.tsx)
+  const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      // Use window.Image to avoid shadowing by @react-pdf/renderer's Image
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const base64 = canvas.toDataURL('image/png');
+            console.log('Logo converted to base64 successfully');
+            resolve(base64);
+          } else {
+            console.warn('Could not get canvas context');
+            resolve(null);
+          }
+        } catch (error) {
+          console.error('Canvas error:', error);
+          resolve(null);
+        }
+      };
+      
+      img.onerror = (e) => {
+        console.error('Image load error for:', logoUrl, e);
+        resolve(null);
+      };
+      
+      // Add timestamp to avoid caching issues
+      img.src = logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+    });
+  };
+
   const loadCompanySettings = async () => {
     try {
       const settings = await SettingsApi.getCompanySettings();
+      console.log('Company settings loaded:', settings);
       setCompanySettings(settings);
       
+      // Load and convert logo to base64 if available
       if (settings?.invoice_logo) {
-        try {
-          const logoResponse = await fetch(settings.invoice_logo);
-          const blob = await logoResponse.blob();
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setLogoBase64(reader.result as string);
-          };
-          reader.readAsDataURL(blob);
-        } catch (error) {
-          console.error('Error loading logo:', error);
+        const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000';
+        const logoUrl = settings.invoice_logo.startsWith('http') 
+          ? settings.invoice_logo 
+          : `${baseUrl}${settings.invoice_logo}`;
+        
+        console.log('Loading logo from URL:', logoUrl);
+        
+        // Try loading the logo
+        const base64 = await loadLogoAsBase64(logoUrl);
+        if (base64) {
+          setLogoBase64(base64);
+          console.log('Logo set successfully');
+        } else {
+          console.warn('Logo could not be loaded, will use company name text instead');
         }
+      } else {
+        console.log('No invoice_logo in settings');
       }
     } catch (error) {
       console.error('Error loading company settings:', error);
@@ -362,9 +411,14 @@ export function PaymentVoucher({
 
   const formatCurrencyForPDF = (val: number) => {
     try {
-      return formatCurrency(val);
+      // Use 'Tk' instead of ৳ since Helvetica font doesn't support Bengali script
+      const formatted = val.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      return `Tk ${formatted}`;
     } catch {
-      return `৳${val.toFixed(2)}`;
+      return `Tk ${val.toFixed(2)}`;
     }
   };
 
