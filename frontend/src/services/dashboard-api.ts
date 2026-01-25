@@ -44,6 +44,7 @@ export interface DashboardStats {
 export interface DateFilter {
   startDate?: string; // YYYY-MM-DD format
   endDate?: string;   // YYYY-MM-DD format
+  distribution_center_id?: number; // Filter stats by distribution center
 }
 
 export class DashboardApi {
@@ -58,6 +59,7 @@ export class DashboardApi {
       const params = new URLSearchParams();
       if (filter?.startDate) params.append('startDate', filter.startDate);
       if (filter?.endDate) params.append('endDate', filter.endDate);
+      if (filter?.distribution_center_id) params.append('distribution_center_id', filter.distribution_center_id.toString());
       
       const queryString = params.toString();
       const url = queryString 

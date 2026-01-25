@@ -45,6 +45,7 @@ export interface DashboardStats {
 export interface DateFilter {
   startDate?: string; // YYYY-MM-DD format
   endDate?: string;   // YYYY-MM-DD format
+  distribution_center_id?: number; // Filter stats by distribution center
 }
 
 export class GetDashboardStatsMediator {
@@ -130,8 +131,20 @@ export class GetDashboardStatsMediator {
         AND DATE(expense_date) = CURRENT_DATE
       `;
 
-      // Inventory metrics
-      const inventoryQuery = `
+      // Inventory metrics - uses product_locations when DC is specified
+      const distributionCenterId = filter?.distribution_center_id;
+      const inventoryQuery = distributionCenterId ? `
+        SELECT 
+          COUNT(DISTINCT pl.product_id) as total_products,
+          COUNT(DISTINCT pl.product_id) FILTER (
+            WHERE pl.current_stock <= COALESCE(NULLIF(pl.min_stock_level, 0), p.min_stock_level) 
+            AND pl.current_stock > 0
+          ) as low_stock_count,
+          COUNT(DISTINCT pl.product_id) FILTER (WHERE pl.current_stock = 0 OR pl.available_stock <= 0) as out_of_stock_count
+        FROM product_locations pl
+        JOIN products p ON pl.product_id = p.id
+        WHERE p.status = 'active' AND pl.status = 'active' AND pl.distribution_center_id = $1
+      ` : `
         SELECT 
           COUNT(*) as total_products,
           COUNT(*) FILTER (WHERE current_stock < min_stock_level AND current_stock > 0) as low_stock_count,
@@ -139,6 +152,7 @@ export class GetDashboardStatsMediator {
         FROM products
         WHERE status = 'active'
       `;
+      const inventoryParams = distributionCenterId ? [distributionCenterId] : [];
 
       // Warranty due items (products sold where order_date + warranty_period is within next 30 days)
       const warrantyDueQuery = `
@@ -244,7 +258,7 @@ export class GetDashboardStatsMediator {
         pool.query(profitQuery, dateParams),
         pool.query(expensesQuery, dateParams),
         pool.query(todayExpensesQuery),
-        pool.query(inventoryQuery),
+        pool.query(inventoryQuery, inventoryParams),
         pool.query(warrantyDueQuery),
         pool.query(warrantyDueCountQuery),
         pool.query(serviceDueQuery),

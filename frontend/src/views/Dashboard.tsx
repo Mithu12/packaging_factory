@@ -77,7 +77,14 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<DateFilterType>('today');
 
-  const dateFilter = useMemo(() => getDateRange(activeFilter), [activeFilter]);
+  const dateFilter = useMemo(() => {
+    const filter = getDateRange(activeFilter);
+    // Include user's distribution center if they have one assigned
+    if (user?.distribution_center_id) {
+      return { ...filter, distribution_center_id: user.distribution_center_id };
+    }
+    return filter;
+  }, [activeFilter, user?.distribution_center_id]);
 
   const fetchDashboardStats = async (filter: DateFilter) => {
     try {
