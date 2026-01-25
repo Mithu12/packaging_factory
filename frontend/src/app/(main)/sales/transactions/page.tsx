@@ -8,10 +8,13 @@ import { SalesOrderApi } from "@/services/api";
 import { SalesOrder } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 export default function TransactionsPage() {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
   const { formatCurrency } = useFormatting();
 
   useEffect(() => {
@@ -21,7 +24,11 @@ export default function TransactionsPage() {
   const loadSalesOrders = async () => {
     try {
       setLoading(true);
-      const result = await SalesOrderApi.getSalesOrders({ page: 1, limit: 100 });
+      const result = await SalesOrderApi.getSalesOrders({ 
+        page: 1, 
+        limit: 100,
+        distribution_center_id: user?.distribution_center_id 
+      });
       setSalesOrders(result.sales_orders || []);
     } catch (error) {
       console.error("Error loading sales orders:", error);

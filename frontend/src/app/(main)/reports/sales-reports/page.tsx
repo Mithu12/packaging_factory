@@ -58,6 +58,8 @@ import { pdf } from "@react-pdf/renderer";
 import { SalesReportPDF } from "@/modules/sales/components/reports/SalesReportPDF";
 import { SettingsApi } from "@/services/settings-api";
 import { CompanySettings } from "@/services/settings-types";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 export default function SalesReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -82,6 +84,7 @@ export default function SalesReportsPage() {
   // PDF export states
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const { user } = useAuth();
   
   const { formatCurrency } = useFormatting();
   const { toast } = useToast();
@@ -311,6 +314,13 @@ export default function SalesReportsPage() {
       setExportLoading(null);
     }
   };
+  
+  // Set initial branch if user is restricted
+  useEffect(() => {
+    if (user?.distribution_center_id && !selectedBranch) {
+      setSelectedBranch(user.distribution_center_id);
+    }
+  }, [user, selectedBranch]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -393,6 +403,7 @@ export default function SalesReportsPage() {
           <Select
             value={selectedBranch?.toString() || "all"}
             onValueChange={(value) => setSelectedBranch(value === "all" ? undefined : parseInt(value))}
+            disabled={!!user?.distribution_center_id}
           >
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="All Branches" />

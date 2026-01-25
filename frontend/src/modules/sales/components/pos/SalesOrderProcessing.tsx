@@ -105,14 +105,16 @@ export function SalesOrderProcessing() {
     try {
       setLoading(true)
       
+      const dcId = user?.distribution_center_id;
+      
       const requests: Promise<any>[] = [
-        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
+        SalesOrderApi.getSalesOrders({ page: 1, limit: 100, distribution_center_id: dcId }),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
-        ProductApi.getProducts({ page: 1, limit: 100 }),
+        ProductApi.getProducts({ page: 1, limit: 100, distribution_center_id: dcId }),
       ]
 
       // Only fetch branches if user is not restricted to one
-      if (!user?.distribution_center_id) {
+      if (!dcId) {
         requests.push(DistributionApi.getDistributionCenters({ status: 'active', limit: 100 }))
       }
 
@@ -126,8 +128,8 @@ export function SalesOrderProcessing() {
       setCustomers(customersData.customers || [])
       setProducts(productsData.products.filter((product: any) => product.current_stock > 0) || [])
 
-      if (user?.distribution_center_id) {
-        setSelectedBranch(user.distribution_center_id)
+      if (dcId) {
+        setSelectedBranch(dcId)
       } else {
         const branchesData = results[3]
         const branchesList = branchesData?.centers || []

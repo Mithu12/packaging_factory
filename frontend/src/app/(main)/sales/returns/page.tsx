@@ -5,9 +5,12 @@ import { ReturnsManager } from "@/modules/sales/components/pos/ReturnsManager";
 import { SalesOrderApi } from "@/services/api";
 import { SalesOrder } from "@/services/types";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 export default function ReturnsPage() {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const { user } = useAuth();
 
   useEffect(() => {
     loadSalesOrders();
@@ -15,7 +18,11 @@ export default function ReturnsPage() {
 
   const loadSalesOrders = async () => {
     try {
-      const result = await SalesOrderApi.getSalesOrders({ page: 1, limit: 100 });
+      const result = await SalesOrderApi.getSalesOrders({ 
+        page: 1, 
+        limit: 100,
+        distribution_center_id: user?.distribution_center_id
+      });
       setSalesOrders(result.sales_orders || []);
     } catch (error) {
       console.error("Error loading sales orders:", error);

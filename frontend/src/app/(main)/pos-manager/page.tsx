@@ -202,7 +202,7 @@ export default function POSManager() {
       const [productsData, customersData, salesOrdersData] = await Promise.all([
         ProductApi.getProducts(params),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
-        SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
+        SalesOrderApi.getSalesOrders(params),
       ]);
 
       setProducts(productsData.products || []);
@@ -595,7 +595,9 @@ export default function POSManager() {
       setOverallTax("");
 
       // Refresh sales orders
-      const updatedOrders = await SalesOrderApi.getSalesOrders({ page: 1, limit: 100 });
+      const updatedOrders = await SalesOrderApi.getSalesOrders(
+        selectedDistributionCenterId ? { page: 1, limit: 100, distribution_center_id: parseInt(selectedDistributionCenterId) } : { page: 1, limit: 100 }
+      );
       setSalesOrders(updatedOrders.sales_orders || []);
 
     } catch (error) {
