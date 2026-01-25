@@ -6,6 +6,8 @@ import { requirePermission, PERMISSIONS } from "@/middleware/permission";
 import { validateRequest } from "@/middleware/validation";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
+import { AuthMediator } from "@/mediators/auth/AuthMediator";
+
 
 // Validation schemas
 import {
@@ -261,6 +263,19 @@ router.get(
     const action = "GET /api/distribution/locations";
     try {
       MyLogger.info(action, { query: req.query });
+
+      // Add DC filter if user has a DC tagged
+      if (req.user) {
+        const userProfile = await AuthMediator.getUserProfile(req.user.user_id);
+        if (userProfile.distribution_center_id) {
+          (req.query as any).distribution_center_id =
+            userProfile.distribution_center_id;
+          MyLogger.info(action, {
+            message: "Injected distribution_center_id from user profile",
+            distributionCenterId: userProfile.distribution_center_id,
+          });
+        }
+      }
 
       const result = await ProductLocationMediator.getProductLocations(
         req.query as any

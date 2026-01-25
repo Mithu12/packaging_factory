@@ -66,6 +66,7 @@ export interface JwtPayload {
   role: UserRole; // Legacy role
   role_id?: number; // New RBAC role ID
   factory_id?: number; // Factory ID
+  distribution_center_id?: number; // Distribution Center ID
   permissions?: string[]; // User's computed permissions
   iat: number;
   exp: number;

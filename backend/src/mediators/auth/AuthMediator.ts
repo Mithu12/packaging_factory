@@ -61,7 +61,8 @@ export class AuthMediator {
         user_id: user.id,
         username: user.username,
         role: user.role,
-        factory_id: user.factory_id ? user.factory_id : (user.role === UserRole.ADMIN ? -1 : null)
+        factory_id: user.factory_id ? user.factory_id : (user.role === UserRole.ADMIN ? -1 : null),
+        distribution_center_id: user.distribution_center_id
       });
 
       // Remove password from response
@@ -128,7 +129,8 @@ export class AuthMediator {
         user_id: user.id,
         username: user.username,
         role: user.role,
-        factory_id: user.factory_id ? user.factory_id : (user.role === UserRole.ADMIN ? -1 : null)
+        factory_id: user.factory_id ? user.factory_id : (user.role === UserRole.ADMIN ? -1 : null),
+        distribution_center_id: user.distribution_center_id
       });
 
       // Remove password from response
