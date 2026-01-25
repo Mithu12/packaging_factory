@@ -18,6 +18,7 @@ import { DistributionApi, DistributionCenter } from "@/modules/inventory/service
 import { Receipt } from "./Receipt"
 import { Chalan } from "./Chalan"
 import { useFormatting } from "@/hooks/useFormatting"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface OrderItem {
   id: string
@@ -55,6 +56,7 @@ export function SalesOrderProcessing() {
   })
 
   const { formatCurrency } = useFormatting();
+  const { user, isLoading: authLoading } = useAuth();
 
   // Helper function to get product price based on customer type
   const getProductPrice = (product: Product, customerId?: string): number => {
@@ -69,8 +71,10 @@ export function SalesOrderProcessing() {
 
   // Load data on component mount
   useEffect(() => {
-    loadData()
-  }, [])
+    if (!authLoading) {
+      loadData()
+    }
+  }, [authLoading])
 
   // Recalculate order item prices when customer changes
   useEffect(() => {
@@ -100,27 +104,43 @@ export function SalesOrderProcessing() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [ordersData, customersData, productsData, branchesData] = await Promise.all([
+      
+      const requests: Promise<any>[] = [
         SalesOrderApi.getSalesOrders({ page: 1, limit: 100 }),
         CustomerApi.getCustomers({ page: 1, limit: 100 }),
         ProductApi.getProducts({ page: 1, limit: 100 }),
-        DistributionApi.getDistributionCenters({ status: 'active', limit: 100 })
-      ])
+      ]
 
+      // Only fetch branches if user is not restricted to one
+      if (!user?.distribution_center_id) {
+        requests.push(DistributionApi.getDistributionCenters({ status: 'active', limit: 100 }))
+      }
+
+      const results = await Promise.all(requests)
+      
+      const ordersData = results[0]
+      const customersData = results[1]
+      const productsData = results[2]
+      
       setOrders(ordersData.sales_orders || [])
       setCustomers(customersData.customers || [])
-      setProducts(productsData.products.filter(product => product.current_stock > 0) || [])
-      
-      const branchesList = branchesData.centers || []
-      setBranches(branchesList)
-      
-      // Auto-select primary branch if available
-      const primaryBranch = branchesList.find(b => b.is_primary)
-      if (primaryBranch) {
-        setSelectedBranch(primaryBranch.id)
-      } else if (branchesList.length > 0) {
-        // If no primary, select first branch
-        setSelectedBranch(branchesList[0].id)
+      setProducts(productsData.products.filter((product: any) => product.current_stock > 0) || [])
+
+      if (user?.distribution_center_id) {
+        setSelectedBranch(user.distribution_center_id)
+      } else {
+        const branchesData = results[3]
+        const branchesList = branchesData?.centers || []
+        setBranches(branchesList)
+        
+        // Auto-select primary branch if available
+        const primaryBranch = branchesList.find((b: any) => b.is_primary)
+        if (primaryBranch) {
+          setSelectedBranch(primaryBranch.id)
+        } else if (branchesList.length > 0) {
+          // If no primary, select first branch
+          setSelectedBranch(branchesList[0].id)
+        }
       }
     } catch (error) {
       console.error("Error loading data:", error)
@@ -199,7 +219,7 @@ export function SalesOrderProcessing() {
       const orderData = {
         customer_id: parseInt(newOrder.customerId),
         distribution_center_id: selectedBranch,
-        cashier_id: 1, // TODO: Get from auth context
+        cashier_id: user?.id || 1,
         payment_method: "credit" as const,
         notes: newOrder.notes,
         discount_amount: 0,
@@ -429,25 +449,27 @@ export function SalesOrderProcessing() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="branch">Branch/Store</Label>
-                      <Select 
-                        value={selectedBranch?.toString() || "none"} 
-                        onValueChange={(value) => setSelectedBranch(value === "none" ? undefined : parseInt(value))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select branch (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No Branch Selected</SelectItem>
-                          {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id.toString()}>
-                              {branch.name} {branch.is_primary && "(Primary)"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {!user?.distribution_center_id && (
+                      <div>
+                        <Label htmlFor="branch">Branch/Store</Label>
+                        <Select 
+                          value={selectedBranch?.toString() || "none"} 
+                          onValueChange={(value) => setSelectedBranch(value === "none" ? undefined : parseInt(value))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select branch (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Branch Selected</SelectItem>
+                            {branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id.toString()}>
+                                {branch.name} {branch.is_primary && "(Primary)"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="notes">Notes</Label>
