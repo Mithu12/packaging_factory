@@ -56,7 +56,7 @@ export default function POSManager() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [isGiftMode, setIsGiftMode] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [distributionCenters, setDistributionCenters] = useState<any[]>([]);
   const [selectedDistributionCenterId, setSelectedDistributionCenterId] = useState<string>("");
 
@@ -72,8 +72,10 @@ export default function POSManager() {
 
   // Load initial data
   useEffect(() => {
-    loadInitialData();
-  }, [selectedDistributionCenterId]);
+    if (!authLoading) {
+      loadInitialData();
+    }
+  }, [selectedDistributionCenterId, authLoading]);
 
   // Set initial DC from user if available
   useEffect(() => {
@@ -162,18 +164,32 @@ export default function POSManager() {
     try {
       setLoading(true);
       
-      // Fetch distribution centers first to check for primary if needed
-      const distributionData = await DistributionApi.getDistributionCenters({ page: 1, limit: 100 });
-      const centers = distributionData.centers || [];
-      setDistributionCenters(centers);
-
+      let centers: any[] = [];
       let dcId = selectedDistributionCenterId;
 
-      // If no DC is selected and user has no tagged center, find primary
-      if (!dcId && !user?.distribution_center_id) {
-        const primaryCenter = centers.find(dc => dc.is_primary);
-        if (primaryCenter) {
-          dcId = primaryCenter.id.toString();
+      // Only fetch distribution centers if the user doesn't have a restricted DC ID
+      // because restricted users won't have permission to get the full list.
+      if (!user?.distribution_center_id) {
+        try {
+          const distributionData = await DistributionApi.getDistributionCenters({ page: 1, limit: 100 });
+          centers = distributionData.centers || [];
+          setDistributionCenters(centers);
+
+          // If no DC is selected and user has no tagged center, find primary
+          if (!dcId) {
+            const primaryCenter = centers.find(dc => dc.is_primary);
+            if (primaryCenter) {
+              dcId = primaryCenter.id.toString();
+              setSelectedDistributionCenterId(dcId);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching distribution centers:", error);
+        }
+      } else {
+        // If user is pinned to a DC, ensure it's selected
+        if (!dcId) {
+          dcId = user.distribution_center_id.toString();
           setSelectedDistributionCenterId(dcId);
         }
       }
@@ -480,7 +496,7 @@ export default function POSManager() {
       const salesOrderData = {
         customer_id: selectedCustomer.id,
         cashier_id: user?.id || 1,
-        distribution_center_id: user?.role === 'admin' && selectedDistributionCenterId
+        distribution_center_id: selectedDistributionCenterId
           ? parseInt(selectedDistributionCenterId)
           : undefined,
         payment_method: paymentMethod === "partial" ? "cash" : paymentMethod as "cash" | "card" | "credit" | "check" | "bank_transfer",
@@ -621,7 +637,7 @@ export default function POSManager() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">POS Manager</h1>
 
-        {user?.role === 'admin' && (
+        {user?.role === 'admin' && !user?.distribution_center_id && (
           <div className="w-[250px]">
             <Select
               value={selectedDistributionCenterId}
