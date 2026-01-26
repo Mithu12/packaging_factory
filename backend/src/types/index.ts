@@ -12,6 +12,7 @@ declare global {
         role_id?: number;
         permissions?: string[];
         factory_id?: number;
+        distribution_center_id?: number;
       };
     }
   }
