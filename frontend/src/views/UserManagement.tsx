@@ -339,9 +339,39 @@ const UserManagement = () => {
         </div>
 
         <PermissionGuard permission={PERMISSIONS.USERS_CREATE}>
-          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+          <Dialog open={isAddUserOpen} onOpenChange={(open) => {
+            setIsAddUserOpen(open);
+            if (!open) {
+              setSelectedUser(null);
+              form.reset({
+                username: "",
+                email: "",
+                full_name: "",
+                mobile_number: "",
+                departments: [],
+                role_id: 0,
+                distribution_center_id: undefined,
+                password: "",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button 
+                className="gap-2" 
+                onClick={() => {
+                  setSelectedUser(null);
+                  form.reset({
+                    username: "",
+                    email: "",
+                    full_name: "",
+                    mobile_number: "",
+                    departments: [],
+                    role_id: 0,
+                    distribution_center_id: undefined,
+                    password: "",
+                  });
+                }}
+              >
                 <UserPlus className="h-4 w-4" />
                 Add User
               </Button>
