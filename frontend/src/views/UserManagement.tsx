@@ -44,6 +44,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -113,6 +114,7 @@ const UserManagement = () => {
       departments: [],
       role_id: 0,
       distribution_center_id: undefined,
+      password: "",
     },
   });
 
@@ -179,6 +181,7 @@ const UserManagement = () => {
           departments: data.departments,
           role_id: data.role_id,
           distribution_center_id: data.distribution_center_id,
+          password: data.password || undefined,
         });
 
         setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
@@ -196,7 +199,8 @@ const UserManagement = () => {
           departments: data.departments,
           role_id: data.role_id,
           distribution_center_id: data.distribution_center_id,
-          // Password is optional - backend will auto-generate and email it
+          password: data.password || undefined,
+          // Password is optional - backend will auto-generate and email it if not provided
         });
 
         setUsers([...users, newUser]);
@@ -230,6 +234,7 @@ const UserManagement = () => {
     form.setValue("departments", user.departments || []);
     form.setValue("role_id", user.role_id || 0);
     form.setValue("distribution_center_id", user.distribution_center_id);
+    form.setValue("password", "");
     setIsAddUserOpen(true);
   };
 
@@ -413,6 +418,29 @@ const UserManagement = () => {
                         <FormControl>
                           <Input placeholder="+1234567890" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password {selectedUser ? "(Optional)" : "(Optional)"}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder={selectedUser ? "Leave blank to keep current password" : "Leave blank to auto-generate"}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          {selectedUser
+                            ? "Only fill this if you want to change the user's password."
+                            : "If left blank, a random password will be generated and emailed to the user."}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

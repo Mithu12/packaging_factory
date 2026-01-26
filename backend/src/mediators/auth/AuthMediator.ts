@@ -842,6 +842,7 @@ export class AuthMediator {
     departments?: string[];
     role_id?: number;
     distribution_center_id?: number;
+    password?: string;
   }): Promise<UserWithPermissions> {
     const action = 'AuthMediator.updateUser';
     const client = await pool.connect();
@@ -888,6 +889,17 @@ export class AuthMediator {
       const updateFields = [];
       const updateValues = [];
       let paramCount = 1;
+
+      // Handle password update
+      if (userData.password) {
+        MyLogger.info('Updating password for user', { userId });
+        const hashedPassword = await bcrypt.hash(userData.password, this.BCRYPT_ROUNDS);
+        updateFields.push(`password_hash = $${paramCount++}`);
+        updateValues.push(hashedPassword);
+        // Remove password from userData so it's not added again in the loop
+        const { password, ...rest } = userData;
+        userData = rest as any;
+      }
 
       Object.entries(userData).forEach(([key, value]) => {
         if (value !== undefined) {

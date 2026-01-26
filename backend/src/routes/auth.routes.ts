@@ -289,7 +289,7 @@ router.put('/users/:id',
       return;
     }
 
-    const { username, email, full_name, mobile_number, departments, role_id, distribution_center_id } = req.body;
+    const { username, email, full_name, mobile_number, departments, role_id, distribution_center_id, password } = req.body;
 
     const updateData: any = {};
     if (username !== undefined) updateData.username = username;
@@ -299,6 +299,7 @@ router.put('/users/:id',
     if (departments !== undefined) updateData.departments = departments;
     if (role_id !== undefined) updateData.role_id = parseInt(role_id);
     if (distribution_center_id !== undefined) updateData.distribution_center_id = parseInt(distribution_center_id);
+    if (password !== undefined) updateData.password = password;
 
     const user = await AuthMediator.updateUser(userId, updateData);
 
@@ -331,27 +332,6 @@ router.put('/users/:id/role',
   })
 );
 
-// Update user profile (admin only)
-router.put('/users/:id',
-  authenticate,
-  auditMiddleware,
-  adminOnly,
-  validateAuth(validateUpdateProfile),
-  expressAsyncHandler(async (req, res, next) => {
-    const userId = parseInt(req.params.id);
-    if (isNaN(userId)) {
-      throw createError('Invalid user ID', 400);
-    }
-    console.log(req.body, '============================================================');
-
-    const user = await AuthMediator.updateProfile(userId, req.body);
-    res.json({
-      success: true,
-      message: 'User profile updated successfully',
-      data: user
-    });
-  })
-);
 
 // Deactivate user (admin only)
 router.delete('/users/:id',

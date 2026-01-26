@@ -609,6 +609,7 @@ export class RBACApi {
     departments?: string[];
     role_id?: number;
     distribution_center_id?: number;
+    password?: string;
   }) {
     return makeRequest<UserWithPermissions>(`/auth/users/${userId}`, {
       method: 'PUT',
