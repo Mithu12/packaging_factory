@@ -153,6 +153,92 @@ class SalesAccountsIntegrationService {
     }
   }
 
+  async createCustomerPaymentVoucher(payment: {
+    id: number;
+    customer_id: number;
+    customer_name?: string;
+    amount: number;
+    payment_method: string;
+    payment_date: string;
+    reference?: string;
+    notes?: string;
+    distribution_center_id?: number;
+  }, userId: number): Promise<VoucherCreationResult | null> {
+    const action = 'Create Customer Payment Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available, skipping voucher creation', paymentId: payment.id });
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator || !accountsServices?.updateVoucherMediator) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
+      }
+
+      const cashAccount = await this.findAccount('Assets', 'Cash');
+      const receivableAccount = await this.findAccount('Assets', 'Receivable');
+
+      if (!cashAccount || !receivableAccount) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Required accounts (Cash/Receivable) not configured' };
+      }
+
+      const lines = [
+        { 
+          accountId: cashAccount.id, 
+          debit: payment.amount, 
+          credit: 0, 
+          description: `Payment received from ${payment.customer_name || `Customer ${payment.customer_id}`}` 
+        },
+        { 
+          accountId: receivableAccount.id, 
+          debit: 0, 
+          credit: payment.amount, 
+          description: `Due payment collection for ${payment.customer_name || `Customer ${payment.customer_id}`}` 
+        }
+      ];
+
+      let costCenterId = undefined;
+      if (payment.distribution_center_id) {
+        const dcResult = await pool.query(
+          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
+          [payment.distribution_center_id]
+        );
+        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
+      }
+
+      const voucherData = {
+        type: VoucherType.RECEIPT,
+        date: new Date(payment.payment_date),
+        reference: payment.reference || `CP-${payment.id}`,
+        payee: payment.customer_name || undefined,
+        amount: payment.amount,
+        narration: `Customer Payment Received - ${payment.payment_method}${payment.notes ? ` - ${payment.notes}` : ''}`,
+        costCenterId: costCenterId,
+        lines: lines.map(line => ({ ...line, costCenterId })),
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+
+      // Store back-reference on customer_payments
+      await pool.query(
+        `UPDATE customer_payments
+         SET voucher_id = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [voucher.id, payment.id]
+      );
+
+      MyLogger.success(action, { paymentId: payment.id, voucherId: voucher.id, voucherNo: voucher.voucherNo });
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { paymentId: payment.id });
+      return { voucherId: 0, voucherNo: '', success: false, error: error?.message || 'Failed to create payment voucher' };
+    }
+  }
+
   async createReversingVoucher(order: SalesOrderAccountingData, userId: number): Promise<VoucherCreationResult | null> {
     const action = 'Create Reversing Sales Voucher';
 

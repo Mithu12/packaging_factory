@@ -108,6 +108,14 @@ class InterModuleConnector {
     },
 
     /**
+     * Create a customer payment voucher (Sales)
+     */
+    addCustomerPaymentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addCustomerPaymentVoucher");
+      return null;
+    },
+
+    /**
      * Reverse a voucher entry
      */
     reverseVoucher: async (...args: any[]): Promise<any> => {

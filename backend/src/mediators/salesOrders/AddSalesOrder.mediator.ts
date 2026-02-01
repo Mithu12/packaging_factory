@@ -91,12 +91,13 @@ export class AddSalesOrderMediator {
                     orderStatus = 'completed';
                     paymentStatus = 'paid'; // Assuming card payment is processed immediately in POS
                 } else if (data.payment_method === 'credit') {
-                    // Credit payments remain pending until payment is received
-                    orderStatus = 'pending';
+                    // Credit payments are now marked as completed to trigger accounting (A/R)
+                    // but remain unpaid in terms of payment status
+                    orderStatus = 'completed';
                     paymentStatus = 'pending';
                 } else {
-                    // Other payment methods (check, bank_transfer) remain pending
-                    orderStatus = 'pending';
+                    // Other payment methods (check, bank_transfer)
+                    orderStatus = 'completed';
                     paymentStatus = 'pending';
                 }
                 

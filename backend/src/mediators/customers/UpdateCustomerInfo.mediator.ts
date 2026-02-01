@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { Customer, UpdateCustomerRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 export class UpdateCustomerInfoMediator {
     static async updateCustomer(id: number, data: UpdateCustomerRequest): Promise<Customer> {
@@ -202,6 +203,14 @@ export class UpdateCustomerInfoMediator {
                 throw new Error('Payment amount must be greater than 0');
             }
 
+            const createdPayments: Array<{
+                id: number;
+                amount: number;
+                orderId?: number;
+                distribution_center_id?: number;
+                payment_date: string;
+            }> = [];
+
             // If orderPayments is provided, validate and process order-wise payments
             if (orderPayments && orderPayments.length > 0) {
                 const totalOrderPayments = orderPayments.reduce((sum, op) => sum + op.amount, 0);
@@ -213,7 +222,7 @@ export class UpdateCustomerInfoMediator {
                 for (const orderPayment of orderPayments) {
                     // Verify order exists and belongs to customer
                     const orderCheckQuery = `
-                        SELECT id, due_amount, customer_id 
+                        SELECT id, due_amount, customer_id, distribution_center_id
                         FROM sales_orders 
                         WHERE id = $1 AND customer_id = $2
                     `;
@@ -224,6 +233,8 @@ export class UpdateCustomerInfoMediator {
                     }
 
                     const orderDueAmount = parseFloat(orderCheckResult.rows[0].due_amount) || 0;
+                    const distributionCenterId = orderCheckResult.rows[0].distribution_center_id;
+
                     if (orderPayment.amount > orderDueAmount) {
                         throw new Error(`Payment amount (${orderPayment.amount}) exceeds order ${orderPayment.orderId} due amount (${orderDueAmount})`);
                     }
@@ -245,7 +256,7 @@ export class UpdateCustomerInfoMediator {
                         ) VALUES ($1, $2, 'due_payment', $3, CURRENT_TIMESTAMP, $4, $5, $6)
                         RETURNING id, payment_date, payment_reference
                     `;
-                    await client.query(orderPaymentInsertQuery, [
+                    const paymentResult = await client.query(orderPaymentInsertQuery, [
                         id,
                         orderPayment.orderId,
                         orderPayment.amount,
@@ -253,6 +264,14 @@ export class UpdateCustomerInfoMediator {
                         userId || 1,
                         `Due payment collected for order ${orderPayment.orderId} - ${paymentMethod || 'cash'}`
                     ]);
+
+                    createdPayments.push({
+                        id: paymentResult.rows[0].id,
+                        amount: orderPayment.amount,
+                        orderId: orderPayment.orderId,
+                        distribution_center_id: distributionCenterId,
+                        payment_date: paymentResult.rows[0].payment_date
+                    });
                 }
             } else {
                 // If no orderPayments specified, create a single payment record without order link
@@ -263,13 +282,19 @@ export class UpdateCustomerInfoMediator {
                     ) VALUES ($1, NULL, 'due_payment', $2, CURRENT_TIMESTAMP, $3, $4, $5)
                     RETURNING id, payment_date, payment_reference
                 `;
-                await client.query(paymentInsertQuery, [
+                const paymentResult = await client.query(paymentInsertQuery, [
                     id,
                     amount,
                     paymentMethod || 'cash',
                     userId || 1,
                     `Due payment collected - ${paymentMethod || 'cash'}`
                 ]);
+
+                createdPayments.push({
+                    id: paymentResult.rows[0].id,
+                    amount: amount,
+                    payment_date: paymentResult.rows[0].payment_date
+                });
             }
 
             // Update customer due amount
@@ -285,35 +310,45 @@ export class UpdateCustomerInfoMediator {
             const result = await client.query(updateQuery, [amount, id]);
             const customer = result.rows[0];
 
-            // Get the last payment record for return
-            const lastPaymentQuery = `
-                SELECT id, payment_date, payment_reference
-                FROM customer_payments
-                WHERE customer_id = $1
-                ORDER BY recorded_at DESC
-                LIMIT 1
-            `;
-            const paymentResult = await client.query(lastPaymentQuery, [id]);
-            const paymentRecord = paymentResult.rows[0];
-
             await client.query('COMMIT');
 
-            MyLogger.success(action, { 
+            // Trigger accounting integration for each payment record
+            for (const paymentInfo of createdPayments) {
+                try {
+                    await interModuleConnector.accModule.addCustomerPaymentVoucher({
+                        id: paymentInfo.id,
+                        customer_id: customer.id,
+                        customer_name: customer.name,
+                        amount: paymentInfo.amount,
+                        payment_method: paymentMethod,
+                        payment_date: paymentInfo.payment_date,
+                        distribution_center_id: paymentInfo.distribution_center_id,
+                        reference: paymentInfo.orderId ? `Order ${paymentInfo.orderId}` : undefined,
+                        notes: `Due payment collection for ${customer.name}`
+                    }, userId || 1);
+                } catch (integrationError) {
+                    MyLogger.error(`${action}.integrationError`, integrationError, { paymentId: paymentInfo.id });
+                }
+            }
+
+            // Get the last payment record for return compatibility
+            const lastPayment = createdPayments[createdPayments.length - 1];
+
+             MyLogger.success(action, { 
                 customerId: id, 
                 customerName: customer.name,
                 paymentAmount: amount,
                 paymentMethod: paymentMethod,
                 newDueAmount: customer.due_amount,
-                paymentId: paymentRecord?.id,
+                paymentId: lastPayment.id,
                 orderPayments: orderPayments?.length || 0
             });
 
             // Return customer with payment info
             return {
                 ...customer,
-                payment_id: paymentRecord?.id,
-                payment_date: paymentRecord?.payment_date,
-                payment_reference: paymentRecord?.payment_reference
+                payment_id: lastPayment.id,
+                payment_date: lastPayment.payment_date
             };
         } catch (error: any) {
             await client.query('ROLLBACK');
