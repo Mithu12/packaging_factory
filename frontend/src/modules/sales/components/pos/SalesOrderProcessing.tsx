@@ -296,6 +296,19 @@ export function SalesOrderProcessing() {
         return sum + itemDiscount
       }, 0)
       
+      // Find customer's due amount from customers list
+      const customer = orderDetails.customer_id 
+        ? customers.find(c => c.id === orderDetails.customer_id) 
+        : null;
+      
+      // Calculate current order's unpaid amount (due from this order)
+      const orderPaid = orderDetails.cash_received || 0;
+      const currentOrderDue = orderDetails.total_amount - orderPaid;
+      
+      // Customer's due_amount already includes this order's due, so subtract it to get the previous due
+      const customerTotalDue = customer?.due_amount || 0;
+      const previousDue = Math.max(0, customerTotalDue - currentOrderDue);
+
       const receiptData = {
         orderNumber: orderDetails.order_number,
         customer: orderDetails.customer_id ? {
@@ -314,7 +327,8 @@ export function SalesOrderProcessing() {
         cashReceived: orderDetails.cash_received,
         changeGiven: orderDetails.change_given,
         orderDate: orderDetails.order_date,
-        notes: orderDetails.notes || ''
+        notes: orderDetails.notes || '',
+        previousDue: previousDue
       }
 
       setReceiptData(receiptData)

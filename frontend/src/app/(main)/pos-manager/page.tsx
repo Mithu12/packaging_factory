@@ -536,12 +536,15 @@ export default function POSManager() {
 
       const newOrder = await SalesOrderApi.createSalesOrder(salesOrderData);
 
+      // Get original due amount BEFORE updating customer's due
+      const originalDueAmount = Number(selectedCustomer.due_amount) || 0;
+
       // Update customer due amount locally for credit/partial sales
       if ((paymentMethod === "credit" || paymentMethod === "partial") && selectedCustomer) {
         const dueAmount = paymentMethod === "credit" ? total : total - parseFloat(partialPaymentAmount);
         const updatedCustomer = {
           ...selectedCustomer,
-          due_amount: (Number(selectedCustomer.due_amount) || 0) + dueAmount
+          due_amount: originalDueAmount + dueAmount
         };
         setSelectedCustomer(updatedCustomer);
 
@@ -550,6 +553,7 @@ export default function POSManager() {
           customer.id === selectedCustomer.id ? updatedCustomer : customer
         ));
       }
+
 
       // Prepare receipt data
       const receiptInfo = {
@@ -562,10 +566,12 @@ export default function POSManager() {
         tax: tax,
         total: total,
         paymentMethod: paymentMethod,
-        cashReceived: paymentMethod === "cash" ? parseFloat(cashAmount) || total : undefined,
+        cashReceived: paymentMethod === "cash" ? parseFloat(cashAmount) || total : 
+                      paymentMethod === "partial" ? parseFloat(partialPaymentAmount) : undefined,
         changeGiven: paymentMethod === "cash" ? Math.max(0, (parseFloat(cashAmount) || total) - total) : undefined,
         orderDate: newOrder.order_date,
-        notes: `Payment processed via ${paymentMethod}`
+        notes: `Payment processed via ${paymentMethod}`,
+        previousDue: originalDueAmount
       };
 
       // Show receipt
