@@ -1,5 +1,7 @@
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
+import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 import {
   StockTransfer,
   CreateStockTransferRequest,
@@ -380,6 +382,40 @@ export class StockTransferMediator {
           currentTransfer.product_id,
           currentTransfer.from_center_id,
         ]);
+      }
+
+      // Trigger accounting integration if status is received
+      if (status === "received") {
+        try {
+          const transferData = {
+            transferId: id,
+            transferNumber: currentTransfer.transfer_number,
+            productId: currentTransfer.product_id,
+            productName: currentTransfer.product_name,
+            quantity: currentTransfer.quantity,
+            unitCost: currentTransfer.unit_cost,
+            totalCost: currentTransfer.total_cost,
+            fromCenterId: currentTransfer.from_center_id,
+            fromCenterName: currentTransfer.from_center_name,
+            toCenterId: currentTransfer.to_center_id,
+            toCenterName: currentTransfer.to_center_name,
+            transferDate: new Date().toISOString().split("T")[0]
+          };
+
+          // 1. Emit event for async listeners
+          eventBus.emit(EVENT_NAMES.STOCK_TRANSFER_RECEIVED, {
+            transferData,
+            userId
+          });
+
+          // 2. Direct call for synchronous integration
+          await interModuleConnector.accModule.addInternalTransferVoucher(transferData, userId);
+
+          MyLogger.success("Stock Transfer Accounting Triggered", { transferId: id });
+        } catch (error) {
+          MyLogger.error("Failed to trigger stock transfer accounting", error, { transferId: id });
+          // Don't fail the transaction for accounting errors
+        }
       }
 
       await client.query("COMMIT");

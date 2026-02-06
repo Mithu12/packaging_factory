@@ -116,6 +116,22 @@ class InterModuleConnector {
     },
 
     /**
+     * Create an internal transfer voucher (Inventory)
+     */
+    addInternalTransferVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addInternalTransferVoucher");
+      return null;
+    },
+
+    /**
+     * Create a supplier payment voucher (Inventory)
+     */
+    addSupplierPaymentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addSupplierPaymentVoucher");
+      return null;
+    },
+
+    /**
      * Reverse a voucher entry
      */
     reverseVoucher: async (...args: any[]): Promise<any> => {

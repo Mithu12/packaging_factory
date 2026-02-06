@@ -165,6 +165,8 @@ export const EVENT_NAMES = {
 
   // Stock events
   STOCK_ADJUSTMENT_CREATED: 'inventory.stock.adjusted',
+  STOCK_TRANSFER_RECEIVED: 'inventory.stock.transfer.received',
+  SUPPLIER_PAYMENT_CREATED: 'inventory.supplier.payment.created',
 } as const;
 
 export type EventName = typeof EVENT_NAMES[keyof typeof EVENT_NAMES];

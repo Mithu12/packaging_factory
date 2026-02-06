@@ -42,6 +42,35 @@ export interface StockAdjustmentAccountingData {
   adjustmentDate: string;
 }
 
+export interface StockTransferAccountingData {
+  transferId: number;
+  transferNumber: string;
+  productId: number;
+  productName: string;
+  quantity: number;
+  unitCost?: number;
+  totalCost?: number;
+  fromCenterId?: number;
+  fromCenterName?: string;
+  toCenterId: number;
+  toCenterName: string;
+  transferDate: string;
+}
+
+export interface SupplierPaymentAccountingData {
+  paymentId: number;
+  paymentNumber: string;
+  supplierId: number;
+  supplierName: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  reference?: string;
+  notes?: string;
+  invoiceId?: number;
+  invoiceNumber?: string;
+}
+
 export interface VoucherCreationResult {
   voucherId: number;
   voucherNo: string;
@@ -348,6 +377,164 @@ class InventoryAccountsIntegrationService {
   }
 
   /**
+   * Create accounting voucher for stock transfer between distribution centers
+   * Debit: Inventory (Destination DC), Credit: Inventory (Source DC)
+   */
+  async createStockTransferVoucher(
+    transferData: StockTransferAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create Stock Transfer Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, {
+        message: 'Accounts module not available, skipping voucher creation',
+        transferId: transferData.transferId
+      });
+      return null;
+    }
+
+    try {
+      MyLogger.info(action, { transferId: transferData.transferId });
+
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
+      }
+
+      // Get Inventory Account
+      const inventoryAccount = await this.getDefaultAccount('inventory');
+      if (!inventoryAccount) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Inventory account not configured' };
+      }
+
+      // Use actual cost if available, otherwise fallback to $1 for demo
+      const totalValue = transferData.totalCost || transferData.quantity * (transferData.unitCost || 1);
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(transferData.transferDate),
+        reference: transferData.transferNumber,
+        payee: 'Internal Transfer',
+        amount: totalValue,
+        narration: `Internal Transfer - ${transferData.transferNumber}: ${transferData.productName} (${transferData.quantity} units) from ${transferData.fromCenterName || 'Source'} to ${transferData.toCenterName}`,
+        lines: [
+          {
+            accountId: inventoryAccount.id,
+            debit: totalValue,
+            credit: 0,
+            description: `Stock In - ${transferData.toCenterName}`,
+            costCenterId: await this.getDcCostCenter(transferData.toCenterId)
+          },
+          {
+            accountId: inventoryAccount.id,
+            debit: 0,
+            credit: totalValue,
+            description: `Stock Out - ${transferData.fromCenterName || 'Source'}`,
+            costCenterId: transferData.fromCenterId ? await this.getDcCostCenter(transferData.fromCenterId) : undefined
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      MyLogger.success(action, {
+        transferId: transferData.transferId,
+        voucherId: voucher.id,
+        totalValue
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+
+    } catch (error: any) {
+      MyLogger.error(action, error, { transferData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed' };
+    }
+  }
+
+  /**
+   * Create accounting voucher for supplier payment
+   * Debit: Accounts Payable, Credit: Cash/Bank
+   */
+  async createSupplierPaymentVoucher(
+    paymentData: SupplierPaymentAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create Supplier Payment Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
+      }
+
+      const apAccount = await this.getDefaultAccount('accounts_payable');
+      const cashAccount = await this.getDefaultAccount('cash');
+
+      if (!apAccount || !cashAccount) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts not configured' };
+      }
+
+      const voucherData = {
+        type: VoucherType.PAYMENT,
+        date: new Date(paymentData.paymentDate),
+        reference: paymentData.reference || paymentData.paymentNumber,
+        payee: paymentData.supplierName,
+        amount: paymentData.amount,
+        narration: `Payment to ${paymentData.supplierName} ${paymentData.invoiceNumber ? `for Invoice ${paymentData.invoiceNumber}` : ''}`,
+        lines: [
+          {
+            accountId: apAccount.id,
+            debit: paymentData.amount,
+            credit: 0,
+            description: `Settle ${paymentData.invoiceNumber || 'Account'}`
+          },
+          {
+            accountId: cashAccount.id,
+            debit: 0,
+            credit: paymentData.amount,
+            description: `Paid via ${paymentData.paymentMethod}`
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      // Update payment record with voucher ID
+      await pool.query('UPDATE payments SET voucher_id = $1 WHERE id = $2', [voucher.id, paymentData.paymentId]);
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { paymentData });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get Cost Center associated with a Distribution Center
+   */
+  private async getDcCostCenter(dcId: number): Promise<number | undefined> {
+    try {
+      const result = await pool.query('SELECT accounting_cost_center_id FROM distribution_centers WHERE id = $1', [dcId]);
+      return result.rows[0]?.accounting_cost_center_id || undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  /**
    * Get default account by type for inventory operations
    */
   private async getDefaultAccount(accountType: string): Promise<any> {
@@ -372,6 +559,10 @@ class InventoryAccountsIntegrationService {
         case 'inventory_adjustment':
           searchTerm = 'Inventory Adjustment';
           category = 'Income';
+          break;
+        case 'cash':
+          searchTerm = 'Cash';
+          category = 'Assets';
           break;
         default:
           return null;
@@ -586,8 +777,50 @@ export const registerInventoryAccountingListeners = (): void => {
     }
   });
 
+  // Listen for internal transfer events
+  eventBus.on(EVENT_NAMES.STOCK_TRANSFER_RECEIVED, async (payload: EventPayload) => {
+    try {
+      const transferData = payload.transferData as StockTransferAccountingData;
+      const userId = payload.userId as number;
+
+      if (transferData) {
+        const result = await inventoryAccountsIntegrationService.createStockTransferVoucher(transferData, userId);
+        if (result?.success) {
+          MyLogger.success('Inventory Accounting Integration', {
+            event: 'STOCK_TRANSFER_RECEIVED',
+            transferId: transferData.transferId,
+            voucherId: result.voucherId
+          });
+        }
+      }
+    } catch (error) {
+      MyLogger.error('Inventory Accounting Integration', error, { payload });
+    }
+  });
+
+  // Listen for supplier payment events
+  eventBus.on(EVENT_NAMES.SUPPLIER_PAYMENT_CREATED, async (payload: EventPayload) => {
+    try {
+      const paymentData = payload.paymentData as SupplierPaymentAccountingData;
+      const userId = payload.userId as number;
+
+      if (paymentData) {
+        const result = await inventoryAccountsIntegrationService.createSupplierPaymentVoucher(paymentData, userId);
+        if (result?.success) {
+          MyLogger.success('Inventory Accounting Integration', {
+            event: 'SUPPLIER_PAYMENT_CREATED',
+            paymentId: paymentData.paymentId,
+            voucherId: result.voucherId
+          });
+        }
+      }
+    } catch (error) {
+      MyLogger.error('Inventory Accounting Integration', error, { payload });
+    }
+  });
+
   MyLogger.success('Inventory Accounting Listeners', {
     message: 'Event listeners registered successfully',
-    events: ['PURCHASE_ORDER_RECEIVED', 'STOCK_ADJUSTMENT_CREATED']
+    events: ['PURCHASE_ORDER_RECEIVED', 'STOCK_ADJUSTMENT_CREATED', 'STOCK_TRANSFER_RECEIVED', 'SUPPLIER_PAYMENT_CREATED']
   });
 };

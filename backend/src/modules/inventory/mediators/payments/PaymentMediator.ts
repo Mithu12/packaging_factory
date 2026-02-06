@@ -1,5 +1,7 @@
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
+import { eventBus, EVENT_NAMES } from "@/utils/eventBus";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 import {
   Payment,
   CreatePaymentRequest,
@@ -107,6 +109,11 @@ export class PaymentMediator {
       }
 
       await client.query("COMMIT");
+
+      // Trigger accounting integration if payment is approved
+      if (payment.approval_status === "approved") {
+        await this.triggerPaymentAccounting(payment.id, payment.created_by);
+      }
 
       // Add payment history entry after commit
       await this.addPaymentHistory(
@@ -469,6 +476,11 @@ export class PaymentMediator {
 
       await client.query("COMMIT");
 
+      // Trigger accounting integration if status changed to approved
+      if (payment.approval_status === "approved" && oldPayment.approval_status !== "approved") {
+        await this.triggerPaymentAccounting(payment.id, payment.created_by);
+      }
+
       MyLogger.success(action, {
         paymentId: id,
         paymentNumber: payment.payment_number,
@@ -668,6 +680,44 @@ export class PaymentMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Trigger accounting integration for a payment
+   */
+  private static async triggerPaymentAccounting(paymentId: number, userId: any): Promise<void> {
+    try {
+      // Get full payment details including joined fields
+      const payment = await this.getPaymentById(paymentId);
+      if (!payment) return;
+
+      const paymentData = {
+        paymentId: payment.id,
+        paymentNumber: payment.payment_number,
+        supplierId: payment.supplier_id,
+        supplierName: payment.supplier_name,
+        amount: parseFloat(payment.amount.toString()),
+        paymentDate: payment.payment_date,
+        paymentMethod: payment.payment_method,
+        reference: payment.reference,
+        notes: payment.notes,
+        invoiceId: payment.invoice_id,
+        invoiceNumber: payment.invoice_number
+      };
+
+      // 1. Emit event
+      eventBus.emit(EVENT_NAMES.SUPPLIER_PAYMENT_CREATED, {
+        paymentData,
+        userId
+      });
+
+      // 2. Direct call
+      await interModuleConnector.accModule.addSupplierPaymentVoucher(paymentData, userId);
+
+      MyLogger.success("Payment Accounting Triggered", { paymentId });
+    } catch (error) {
+      MyLogger.error("Failed to trigger payment accounting", error, { paymentId });
     }
   }
 }
