@@ -1,0 +1,55 @@
+services:
+  erp-backend:
+    image: erp-backend:latest
+    container_name: erp-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./.env
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      - erp-db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  erp-db:
+    image: postgres:15-alpine
+    container_name: erp-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1q2w3e
+      POSTGRES_DB: erp
+    volumes:
+      - erp_db_data:/var/lib/postgresql/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  erp-frontend:
+    image: erp-frontend:latest
+    container_name: erp-frontend
+    restart: always
+    ports:
+      - "3005:3000"
+    env_file:
+      - ./.env.frontend
+    depends_on:
+      - erp-backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  erp_db_data:
+
