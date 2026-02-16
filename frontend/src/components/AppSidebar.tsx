@@ -95,6 +95,12 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
+      {
+        title: "E-commerce",
+        url: "/ecommerce-dashboard",
+        icon: ShoppingCart,
+        permission: null,
+      },
     ],
   },
   {
@@ -576,10 +582,11 @@ export function AppSidebar() {
 
   const matchesPath = useCallback(
     (path: string) => {
-      if (path === "/dashboard") return currentPath === "/dashboard" || currentPath === "/";
+      if (path === "/dashboard")
+        return currentPath === "/dashboard" || currentPath === "/";
       return currentPath.startsWith(path);
     },
-    [currentPath]
+    [currentPath],
   );
 
   const [collapsedSections, setCollapsedSections] = useState<
@@ -588,7 +595,7 @@ export function AppSidebar() {
     const initialState: Record<string, boolean> = {};
     menuSections.forEach((section) => {
       const sectionHasActiveItem = section.items.some((item) =>
-        matchesPath(item.url)
+        matchesPath(item.url),
       );
       initialState[section.title] = !sectionHasActiveItem;
     });
@@ -608,7 +615,7 @@ export function AppSidebar() {
 
       menuSections.forEach((section) => {
         const sectionHasActiveItem = section.items.some((item) =>
-          matchesPath(item.url)
+          matchesPath(item.url),
         );
         if (sectionHasActiveItem && previous[section.title]) {
           if (updated === previous) {
@@ -703,7 +710,7 @@ export function AppSidebar() {
             const isSectionCollapsed =
               collapsedSections[section.title] ?? false;
             const hasActiveItem = section.items.some((item) =>
-              isActive(item.url)
+              isActive(item.url),
             );
 
             return (
@@ -811,7 +818,10 @@ export function AppSidebar() {
               <PermissionGuard permission={PERMISSIONS.SYSTEM_BACKUP}>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    <Link href="/settings/backup" className={getNavCls("/settings/backup")}>
+                    <Link
+                      href="/settings/backup"
+                      className={getNavCls("/settings/backup")}
+                    >
                       <Database className="h-4 w-4" />
                       {!isCollapsed && <span>DB Backup</span>}
                     </Link>
