@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -45,42 +45,37 @@ import {
   Clock,
   AlertTriangle,
   Search,
-  Filter,
   Eye,
-  Download,
-  Calendar,
-  User,
-  MessageSquare,
 } from "lucide-react";
-import {
-  mockAttendanceRegularizationRequests,
-  getPendingRegularizationRequests,
-  getRegularizationRequestsByEmployee,
-  getRegularizationRequestsByManager,
-  getRegularizationReasonOptions,
-} from "../data/attendance-regularization-data";
-import { mockAttendanceRecords } from "../data/attendance-data";
-import { mockEmployees } from "../data/salary-update-data";
 import {
   AttendanceRegularizationRequest,
   Employee,
   CreateAttendanceRegularizationForm,
-  AttendanceRecord,
 } from "../types";
+import HRMApiService from "../services/hrm-api";
+import { useToast } from "@/components/ui/use-toast";
+
+const REASON_OPTIONS = [
+  { value: "forgot_punch", label: "Forgot to Punch" },
+  { value: "system_issue", label: "System Issue" },
+  { value: "on_duty", label: "On Duty / Field Work" },
+  { value: "early_departure_approval", label: "Early Departure (Approved)" },
+  { value: "late_arrival_approval", label: "Late Arrival (Approved)" },
+  { value: "other", label: "Other" },
+];
 
 const AttendanceRegularizationPage: React.FC = () => {
+  const { toast } = useToast();
+
   const [regularizationRequests, setRegularizationRequests] = useState<
     AttendanceRegularizationRequest[]
-  >(mockAttendanceRegularizationRequests as any);
-  const [employees] = useState<Employee[]>(mockEmployees as any);
-  const [attendanceRecords] = useState<AttendanceRecord[]>(
-    mockAttendanceRecords as any
-  );
+  >([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Regularization form state
   const [isRegularizationDialogOpen, setIsRegularizationDialogOpen] =
     useState(false);
   const [editingRequest, setEditingRequest] =
@@ -92,6 +87,24 @@ const AttendanceRegularizationPage: React.FC = () => {
       reason: "",
       supporting_document_urls: [],
     });
+
+  const loadData = useCallback(async () => {
+    try {
+      setDataLoading(true);
+      const [requestsRes, employeesRes] = await Promise.all([
+        HRMApiService.getRegularizationRequests(),
+        HRMApiService.getEmployees({ limit: 200 }),
+      ]);
+      setRegularizationRequests(requestsRes.regularization_requests || []);
+      setEmployees(employeesRes.employees || []);
+    } catch (error: any) {
+      toast({ title: "Error", description: "Failed to load data", variant: "destructive" });
+    } finally {
+      setDataLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const filteredRequests = regularizationRequests.filter((request) => {
     const employee = employees.find((emp) => emp.id === request.employee_id);
@@ -107,6 +120,10 @@ const AttendanceRegularizationPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const pendingRequests = regularizationRequests.filter(
+    (r) => r.status === "pending"
+  );
+
   const resetRegularizationForm = () => {
     setRegularizationForm({
       employee_id: 0,
@@ -121,40 +138,28 @@ const AttendanceRegularizationPage: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       if (editingRequest) {
-        // Update existing request
+        const { data } = await HRMApiService.updateRegularizationRequest(
+          editingRequest.id,
+          regularizationForm
+        ) as any;
+        const updated = data?.regularization_request;
         setRegularizationRequests((prev) =>
-          prev.map((request) =>
-            request.id === editingRequest.id
-              ? {
-                  ...request,
-                  ...regularizationForm,
-                  updated_at: new Date().toISOString(),
-                }
-              : request
-          )
+          prev.map((r) => (r.id === editingRequest.id ? (updated || r) : r))
         );
-        alert("Regularization request updated successfully!");
+        // Reload to get fresh data
+        const res = await HRMApiService.getRegularizationRequests();
+        setRegularizationRequests(res.regularization_requests || []);
+        toast({ title: "Success", description: "Regularization request updated successfully" });
       } else {
-        // Create new request
-        const newRequest: AttendanceRegularizationRequest = {
-          id: Math.max(...regularizationRequests.map((r) => r.id)) + 1,
-          ...regularizationForm,
-          request_date: new Date().toISOString().split("T")[0],
-          status: "pending",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setRegularizationRequests((prev) => [...prev, newRequest]);
-        alert("Regularization request submitted successfully!");
+        const res = await HRMApiService.createRegularizationRequest(regularizationForm);
+        setRegularizationRequests((prev) => [res.regularization_request, ...prev]);
+        toast({ title: "Success", description: "Regularization request submitted successfully" });
       }
-
       setIsRegularizationDialogOpen(false);
       resetRegularizationForm();
-    } catch (error) {
-      alert("Error saving regularization request");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Error saving regularization request", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -163,26 +168,16 @@ const AttendanceRegularizationPage: React.FC = () => {
   const handleApproveRequest = async (requestId: number) => {
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      const res = await HRMApiService.reviewRegularizationRequest(requestId, {
+        status: "approved",
+        review_comments: "Approved by manager",
+      });
       setRegularizationRequests((prev) =>
-        prev.map((request) =>
-          request.id === requestId
-            ? {
-                ...request,
-                status: "approved",
-                reviewed_by: 1, // Current manager
-                reviewed_at: new Date().toISOString(),
-                review_comments: "Approved by manager",
-                updated_at: new Date().toISOString(),
-              }
-            : request
-        )
+        prev.map((r) => (r.id === requestId ? res.regularization_request : r))
       );
-
-      alert("Regularization request approved successfully!");
-    } catch (error) {
-      alert("Error approving request");
+      toast({ title: "Success", description: "Regularization request approved" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Error approving request", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -191,58 +186,51 @@ const AttendanceRegularizationPage: React.FC = () => {
   const handleRejectRequest = async (requestId: number, reason: string) => {
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      const res = await HRMApiService.reviewRegularizationRequest(requestId, {
+        status: "rejected",
+        rejection_reason: reason,
+      });
       setRegularizationRequests((prev) =>
-        prev.map((request) =>
-          request.id === requestId
-            ? {
-                ...request,
-                status: "rejected",
-                reviewed_by: 1,
-                reviewed_at: new Date().toISOString(),
-                rejection_reason: reason,
-                updated_at: new Date().toISOString(),
-              }
-            : request
-        )
+        prev.map((r) => (r.id === requestId ? res.regularization_request : r))
       );
-
-      alert("Regularization request rejected successfully!");
-    } catch (error) {
-      alert("Error rejecting request");
+      toast({ title: "Success", description: "Regularization request rejected" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Error rejecting request", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancelRequest = async (requestId: number) => {
-    if (
-      confirm("Are you sure you want to cancel this regularization request?")
-    ) {
+    if (confirm("Are you sure you want to cancel this regularization request?")) {
       try {
         setLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
+        const res = await HRMApiService.cancelRegularizationRequest(requestId);
         setRegularizationRequests((prev) =>
-          prev.map((request) =>
-            request.id === requestId
-              ? {
-                  ...request,
-                  status: "cancelled",
-                  updated_at: new Date().toISOString(),
-                }
-              : request
-          )
+          prev.map((r) => (r.id === requestId ? res.regularization_request : r))
         );
-
-        alert("Regularization request cancelled successfully!");
-      } catch (error) {
-        alert("Error cancelling request");
+        toast({ title: "Success", description: "Regularization request cancelled" });
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Error cancelling request", variant: "destructive" });
       } finally {
         setLoading(false);
       }
     }
+  };
+
+  const handleEditRequest = (request: AttendanceRegularizationRequest) => {
+    setEditingRequest(request);
+    setRegularizationForm({
+      employee_id: request.employee_id,
+      original_date: request.original_date,
+      original_check_in_time: request.original_check_in_time || "",
+      original_check_out_time: request.original_check_out_time || "",
+      requested_check_in_time: request.requested_check_in_time || "",
+      requested_check_out_time: request.requested_check_out_time || "",
+      reason: request.reason,
+      supporting_document_urls: request.supporting_document_urls || [],
+    });
+    setIsRegularizationDialogOpen(true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -274,8 +262,6 @@ const AttendanceRegularizationPage: React.FC = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
-
-  const pendingRequests = getPendingRegularizationRequests();
 
   return (
     <div className="space-y-6">
@@ -442,7 +428,7 @@ const AttendanceRegularizationPage: React.FC = () => {
                       <SelectValue placeholder="Select reason" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getRegularizationReasonOptions().map((option) => (
+                      {REASON_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -564,7 +550,6 @@ const AttendanceRegularizationPage: React.FC = () => {
           <TabsTrigger value="pending">
             Pending ({pendingRequests.length})
           </TabsTrigger>
-          <TabsTrigger value="my">My Requests</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
@@ -576,122 +561,138 @@ const AttendanceRegularizationPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search requests..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {dataLoading ? (
+                <p className="text-center text-muted-foreground py-8">Loading requests...</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search requests..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Requested</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRequests.map((request) => {
-                      const employee = employees.find(
-                        (emp) => emp.id === request.employee_id
-                      );
-
-                      return (
-                        <TableRow key={request.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">
-                                {employee?.first_name} {employee?.last_name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {employee?.employee_id}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{request.original_date}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {request.reason.replace("_", " ")}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(request.status)}>
-                              {request.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{request.request_date}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {request.status === "pending" && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      handleApproveRequest(request.id)
-                                    }
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const reason = prompt(
-                                        "Enter rejection reason:"
-                                      );
-                                      if (reason)
-                                        handleRejectRequest(request.id, reason);
-                                    }}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                              {request.status === "pending" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    handleCancelRequest(request.id)
-                                  }
-                                >
-                                  Cancel
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Requested</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRequests.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                              No regularization requests found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredRequests.map((request) => {
+                            const employee = employees.find(
+                              (emp) => emp.id === request.employee_id
+                            );
+
+                            return (
+                              <TableRow key={request.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">
+                                      {employee?.first_name} {employee?.last_name}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {employee?.employee_id}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{request.original_date}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">
+                                    {request.reason.replace(/_/g, " ")}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    {getStatusIcon(request.status)}
+                                    <Badge className={getStatusColor(request.status)}>
+                                      {request.status}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{request.request_date}</TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditRequest(request)}
+                                      disabled={request.status !== "pending"}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {request.status === "pending" && (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleApproveRequest(request.id)}
+                                          disabled={loading}
+                                        >
+                                          <CheckCircle className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => {
+                                            const reason = prompt("Enter rejection reason:");
+                                            if (reason) handleRejectRequest(request.id, reason);
+                                          }}
+                                          disabled={loading}
+                                        >
+                                          <XCircle className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleCancelRequest(request.id)}
+                                          disabled={loading}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -705,128 +706,13 @@ const AttendanceRegularizationPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {pendingRequests.map((request) => {
-                  const employee = employees.find(
-                    (emp) => emp.id === request.employee_id
-                  );
-
-                  return (
-                    <Card key={request.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-base">
-                              {employee?.first_name} {employee?.last_name}
-                            </CardTitle>
-                            <CardDescription>
-                              {employee?.employee_id} • {request.original_date}
-                            </CardDescription>
-                          </div>
-                          <Badge className={getStatusColor(request.status)}>
-                            {request.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm font-medium">Reason:</p>
-                            <p className="text-sm text-muted-foreground">
-                              {request.reason.replace("_", " ")}
-                            </p>
-                          </div>
-
-                          {request.original_check_in_time &&
-                            request.requested_check_in_time && (
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    Original Check In:
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {request.original_check_in_time}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    Requested Check In:
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {request.requested_check_in_time}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                          {request.original_check_out_time &&
-                            request.requested_check_out_time && (
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    Original Check Out:
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {request.original_check_out_time}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    Requested Check Out:
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {request.requested_check_out_time}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveRequest(request.id)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const reason = prompt(
-                                  "Enter rejection reason:"
-                                );
-                                if (reason)
-                                  handleRejectRequest(request.id, reason);
-                              }}
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="my" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Regularization Requests</CardTitle>
-              <CardDescription>
-                Your submitted regularization requests
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {regularizationRequests
-                  .filter((request) => request.employee_id === 1) // Assuming current user is employee ID 1
-                  .map((request) => {
+              {dataLoading ? (
+                <p className="text-center text-muted-foreground py-8">Loading...</p>
+              ) : pendingRequests.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No pending requests</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingRequests.map((request) => {
                     const employee = employees.find(
                       (emp) => emp.id === request.employee_id
                     );
@@ -837,10 +723,10 @@ const AttendanceRegularizationPage: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div>
                               <CardTitle className="text-base">
-                                {request.original_date}
+                                {employee?.first_name} {employee?.last_name}
                               </CardTitle>
                               <CardDescription>
-                                Requested on {request.request_date}
+                                {employee?.employee_id} • {request.original_date}
                               </CardDescription>
                             </div>
                             <Badge className={getStatusColor(request.status)}>
@@ -849,51 +735,95 @@ const AttendanceRegularizationPage: React.FC = () => {
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             <div>
                               <p className="text-sm font-medium">Reason:</p>
                               <p className="text-sm text-muted-foreground">
-                                {request.reason.replace("_", " ")}
+                                {request.reason.replace(/_/g, " ")}
                               </p>
                             </div>
 
-                            {request.review_comments && (
-                              <div>
-                                <p className="text-sm font-medium">
-                                  Manager Comments:
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {request.review_comments}
-                                </p>
-                              </div>
-                            )}
+                            {request.original_check_in_time &&
+                              request.requested_check_in_time && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      Original Check In:
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {request.original_check_in_time}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      Requested Check In:
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {request.requested_check_in_time}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
 
-                            {request.rejection_reason && (
-                              <div>
-                                <p className="text-sm font-medium">
-                                  Rejection Reason:
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {request.rejection_reason}
-                                </p>
-                              </div>
-                            )}
+                            {request.original_check_out_time &&
+                              request.requested_check_out_time && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      Original Check Out:
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {request.original_check_out_time}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      Requested Check Out:
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {request.requested_check_out_time}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
 
-                            {request.status === "pending" && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveRequest(request.id)}
+                                disabled={loading}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const reason = prompt("Enter rejection reason:");
+                                  if (reason) handleRejectRequest(request.id, reason);
+                                }}
+                                disabled={loading}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleCancelRequest(request.id)}
+                                disabled={loading}
                               >
-                                Cancel Request
+                                Cancel
                               </Button>
-                            )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   })}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

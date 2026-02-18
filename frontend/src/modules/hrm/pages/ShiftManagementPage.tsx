@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -51,14 +51,8 @@ import {
   Search,
   Filter,
 } from "lucide-react";
-import { mockShifts, getShiftOptions } from "../data/shift-data";
-import {
-  mockShiftAssignments,
-  getShiftAssignmentsByEmployee,
-  getShiftAssignmentsByShift,
-} from "../data/shift-data";
-import { mockEmployees } from "../data/salary-update-data";
-import { mockDepartments } from "../data/salary-update-data";
+import { HRMApiService } from "../services/hrm-api";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Shift,
   ShiftAssignment,
@@ -69,12 +63,13 @@ import {
 } from "../types";
 
 const ShiftManagementPage: React.FC = () => {
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts as any);
-  const [shiftAssignments, setShiftAssignments] =
-    useState<ShiftAssignment[]>(mockShiftAssignments);
-  const [employees] = useState<Employee[]>(mockEmployees as any);
-  const [departments] = useState<Department[]>(mockDepartments as any);
+  const { toast } = useToast();
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [shiftAssignments, setShiftAssignments] = useState<ShiftAssignment[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
@@ -109,6 +104,29 @@ const ShiftManagementPage: React.FC = () => {
       is_primary: true,
       notes: "",
     });
+
+  // Load data on mount
+  const loadData = useCallback(async () => {
+    try {
+      setDataLoading(true);
+      const [shiftsRes, assignmentsRes, empsRes, deptsRes] = await Promise.all([
+        HRMApiService.getShifts(),
+        HRMApiService.getShiftAssignments(),
+        HRMApiService.getEmployees({ limit: 500 }),
+        HRMApiService.getDepartments(),
+      ]);
+      setShifts(shiftsRes.shifts || []);
+      setShiftAssignments(assignmentsRes.assignments || []);
+      setEmployees(empsRes.employees || []);
+      setDepartments(deptsRes.departments || []);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to load shift data", variant: "destructive" });
+    } finally {
+      setDataLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -157,36 +175,19 @@ const ShiftManagementPage: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       if (editingShift) {
-        // Update existing shift
-        setShifts((prev) =>
-          prev.map((shift) =>
-            shift.id === editingShift.id
-              ? { ...shift, ...shiftForm, updated_at: new Date().toISOString() }
-              : shift
-          )
-        );
-        alert("Shift updated successfully!");
+        const updated = await HRMApiService.updateShift(editingShift.id, shiftForm);
+        setShifts((prev) => prev.map((s) => s.id === editingShift.id ? updated.shift : s));
+        toast({ title: "Success", description: "Shift updated successfully" });
       } else {
-        // Create new shift
-        const newShift: Shift = {
-          id: Math.max(...shifts.map((s) => s.id)) + 1,
-          ...shiftForm,
-          is_active: true,
-          created_by: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setShifts((prev) => [...prev, newShift]);
-        alert("Shift created successfully!");
+        const created = await HRMApiService.createShift(shiftForm);
+        setShifts((prev) => [...prev, created.shift]);
+        toast({ title: "Success", description: "Shift created successfully" });
       }
-
       setIsShiftDialogOpen(false);
       resetShiftForm();
-    } catch (error) {
-      alert("Error saving shift");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Error saving shift", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -196,39 +197,19 @@ const ShiftManagementPage: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       if (editingAssignment) {
-        // Update existing assignment
-        setShiftAssignments((prev) =>
-          prev.map((assignment) =>
-            assignment.id === editingAssignment.id
-              ? {
-                  ...assignment,
-                  ...assignmentForm,
-                  updated_at: new Date().toISOString(),
-                }
-              : assignment
-          )
-        );
-        alert("Shift assignment updated successfully!");
+        const updated = await HRMApiService.updateShiftAssignment(editingAssignment.id, assignmentForm);
+        setShiftAssignments((prev) => prev.map((a) => a.id === editingAssignment.id ? updated.assignment : a));
+        toast({ title: "Success", description: "Shift assignment updated successfully" });
       } else {
-        // Create new assignment
-        const newAssignment: ShiftAssignment = {
-          id: Math.max(...shiftAssignments.map((a) => a.id)) + 1,
-          ...assignmentForm,
-          assigned_by: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setShiftAssignments((prev) => [...prev, newAssignment]);
-        alert("Shift assignment created successfully!");
+        const created = await HRMApiService.assignShift(assignmentForm);
+        setShiftAssignments((prev) => [...prev, created.assignment]);
+        toast({ title: "Success", description: "Shift assigned successfully" });
       }
-
       setIsAssignmentDialogOpen(false);
       resetAssignmentForm();
-    } catch (error) {
-      alert("Error saving shift assignment");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Error saving shift assignment", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -258,16 +239,12 @@ const ShiftManagementPage: React.FC = () => {
     if (confirm("Are you sure you want to delete this shift?")) {
       try {
         setLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        setShifts((prev) => prev.filter((shift) => shift.id !== shiftId));
-        setShiftAssignments((prev) =>
-          prev.filter((assignment) => assignment.shift_id !== shiftId)
-        );
-
-        alert("Shift deleted successfully!");
-      } catch (error) {
-        alert("Error deleting shift");
+        await HRMApiService.deleteShift(shiftId);
+        setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+        setShiftAssignments((prev) => prev.filter((a) => a.shift_id !== shiftId));
+        toast({ title: "Success", description: "Shift deleted successfully" });
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Error deleting shift", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -288,17 +265,14 @@ const ShiftManagementPage: React.FC = () => {
   };
 
   const handleDeleteAssignment = async (assignmentId: number) => {
-    if (confirm("Are you sure you want to delete this shift assignment?")) {
+    if (confirm("Are you sure you want to remove this shift assignment?")) {
       try {
         setLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        setShiftAssignments((prev) =>
-          prev.filter((assignment) => assignment.id !== assignmentId)
-        );
-        alert("Shift assignment deleted successfully!");
-      } catch (error) {
-        alert("Error deleting shift assignment");
+        await HRMApiService.removeShiftAssignment(assignmentId);
+        setShiftAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
+        toast({ title: "Success", description: "Shift assignment removed successfully" });
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Error removing assignment", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -306,11 +280,10 @@ const ShiftManagementPage: React.FC = () => {
   };
 
   const getEmployeeShift = (employeeId: number) => {
-    const assignments = getShiftAssignmentsByEmployee(employeeId);
-    const activeAssignment = assignments.find(
-      (assignment) =>
-        !assignment.effective_to ||
-        new Date(assignment.effective_to) >= new Date()
+    const activeAssignment = shiftAssignments.find(
+      (a) =>
+        a.employee_id === employeeId &&
+        (!a.effective_to || new Date(a.effective_to) >= new Date())
     );
     return activeAssignment
       ? shifts.find((s) => s.id === activeAssignment.shift_id)
@@ -318,10 +291,10 @@ const ShiftManagementPage: React.FC = () => {
   };
 
   const getShiftEmployeeCount = (shiftId: number) => {
-    return getShiftAssignmentsByShift(shiftId).filter(
-      (assignment) =>
-        !assignment.effective_to ||
-        new Date(assignment.effective_to) >= new Date()
+    return shiftAssignments.filter(
+      (a) =>
+        a.shift_id === shiftId &&
+        (!a.effective_to || new Date(a.effective_to) >= new Date())
     ).length;
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import EnhancedLeaveCalendar from "../components/EnhancedLeaveCalendar";
@@ -24,15 +24,7 @@ import {
   Printer,
   Info,
 } from "lucide-react";
-import {
-  mockEmployees,
-  mockDepartments,
-  mockLeaveTypes,
-  mockLeaveCalendarEvents,
-  mockTeamAvailability,
-  mockPublicHolidays,
-  getHeadcountAnalysis,
-} from "../data/leave-calendar-data";
+import { HRMApiService } from "../services/hrm-api";
 
 const LeaveCalendarPage: React.FC = () => {
   const { view, departmentId, employeeId } = useParams<{
@@ -40,6 +32,30 @@ const LeaveCalendarPage: React.FC = () => {
     departmentId?: string;
     employeeId?: string;
   }>();
+
+  const [leaveApplications, setLeaveApplications] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [appsRes, empsRes, deptsRes, typesRes] = await Promise.all([
+        HRMApiService.getLeaveApplications(),
+        HRMApiService.getEmployees({ limit: 500 }),
+        HRMApiService.getDepartments(),
+        HRMApiService.getLeaveTypes(),
+      ]);
+      setLeaveApplications(appsRes.leave_applications || []);
+      setEmployees(empsRes.employees || []);
+      setDepartments(deptsRes.departments || []);
+      setLeaveTypes(typesRes.leave_types || []);
+    } catch (err) {
+      // Silently fail - calendar still renders
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   // Convert URL params to component props
   const getInitialView = ():
@@ -71,43 +87,32 @@ const LeaveCalendarPage: React.FC = () => {
     return undefined;
   };
 
-  // Calculate summary statistics
+  // Calculate summary statistics from real data
   const stats = React.useMemo(() => {
-    const approvedLeaves = mockLeaveCalendarEvents.filter(
-      (event) => event.status === "approved"
+    const approvedLeaves = leaveApplications.filter(
+      (app) => app.status === "approved"
     ).length;
-    const pendingLeaves = mockLeaveCalendarEvents.filter(
-      (event) => event.status === "pending"
+    const pendingLeaves = leaveApplications.filter(
+      (app) => app.status === "pending"
     ).length;
-    const totalEmployees = mockEmployees.length;
+    const totalEmployees = employees.length;
     const employeesOnLeave = new Set(
-      mockLeaveCalendarEvents
-        .filter((event) => event.status === "approved")
-        .map((event) => event.employee_id)
+      leaveApplications
+        .filter((app) => app.status === "approved")
+        .map((app) => app.employee_id)
     ).size;
-
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(
-      2,
-      "0"
-    )}-01`;
-    const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(
-      2,
-      "0"
-    )}-${new Date(currentYear, currentMonth + 1, 0).getDate()}`;
-
-    const monthAnalysis = getHeadcountAnalysis(monthStart, monthEnd);
 
     return {
       approvedLeaves,
       pendingLeaves,
       totalEmployees,
       employeesOnLeave,
-      averageAvailability: Math.round(monthAnalysis.averageAvailability),
-      criticalDays: monthAnalysis.criticalDays,
+      averageAvailability: totalEmployees > 0
+        ? Math.round(((totalEmployees - employeesOnLeave) / totalEmployees) * 100)
+        : 100,
+      criticalDays: 0,
     };
-  }, []);
+  }, [leaveApplications, employees]);
 
   return (
     <div className="space-y-6">
@@ -204,17 +209,17 @@ const LeaveCalendarPage: React.FC = () => {
             <CardTitle className="text-base">Department Overview</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {mockDepartments.map((dept) => {
-              const deptEmployees = mockEmployees.filter(
+            {departments.map((dept) => {
+              const deptEmployees = employees.filter(
                 (emp) => emp.department_id === dept.id
               ).length;
-              const deptOnLeave = mockLeaveCalendarEvents.filter((event) => {
-                const employee = mockEmployees.find(
-                  (emp) => emp.id === event.employee_id
+              const deptOnLeave = leaveApplications.filter((app) => {
+                const employee = employees.find(
+                  (emp) => emp.id === app.employee_id
                 );
                 return (
                   employee?.department_id === dept.id &&
-                  event.status === "approved"
+                  app.status === "approved"
                 );
               }).length;
 
@@ -238,9 +243,9 @@ const LeaveCalendarPage: React.FC = () => {
             <CardTitle className="text-base">Leave Type Distribution</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {mockLeaveTypes.slice(0, 5).map((leaveType) => {
-              const usageCount = mockLeaveCalendarEvents.filter(
-                (event) => event.leave_type_id === leaveType.id
+            {leaveTypes.slice(0, 5).map((leaveType) => {
+              const usageCount = leaveApplications.filter(
+                (app) => app.leave_type_id === leaveType.id
               ).length;
 
               return (
@@ -269,20 +274,8 @@ const LeaveCalendarPage: React.FC = () => {
             <CardTitle className="text-base">Upcoming Holidays</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {mockPublicHolidays.slice(0, 4).map((holiday, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="font-medium">{holiday.name}</span>
-                <Badge variant="outline" className="text-xs">
-                  {new Date(holiday.date).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Badge>
-              </div>
-            ))}
+            {/* Public holidays not yet available from API */}
+            <p className="text-sm text-muted-foreground">No upcoming holidays configured.</p>
           </CardContent>
         </Card>
       </div>

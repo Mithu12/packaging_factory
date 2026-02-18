@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -39,62 +39,113 @@ import PayrollCalculator from "../components/PayrollCalculator";
 import PaymentForm from "../components/PaymentForm";
 import PayrollHistory from "../components/PayrollHistory";
 import EmployeePayrollCard from "../components/EmployeePayrollCard";
-import { mockEmployees, mockDepartments } from "../data/salary-update-data";
-import {
-  mockPayrollPeriods,
-  mockEmployeePayrollRecords,
-  mockPaymentRecords,
-  mockPayrollSummary,
-} from "../data/payroll-data";
+import { HRMApiService } from "../services/hrm-api";
+import { useToast } from "@/components/ui/use-toast";
 
 const PayrollPage: React.FC = () => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("payroll");
-  const [selectedPeriodId, setSelectedPeriodId] = useState("1");
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
+  const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
 
-  const currentPeriod = mockPayrollPeriods.find(
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [periodsRes, empsRes, deptsRes] = await Promise.all([
+        HRMApiService.getPayrollPeriods(),
+        HRMApiService.getEmployees({ limit: 500 }),
+        HRMApiService.getDepartments(),
+      ]);
+      const periods = periodsRes.periods || [];
+      setPayrollPeriods(periods);
+      setEmployees(empsRes.employees || []);
+      setDepartments(deptsRes.departments || []);
+      if (periods.length > 0 && !selectedPeriodId) {
+        setSelectedPeriodId(periods[0].id.toString());
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to load payroll data", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadPayrollRecords = useCallback(async (periodId: string) => {
+    if (!periodId) return;
+    try {
+      const res = await HRMApiService.getPayrollRuns({ payroll_period_id: parseInt(periodId) });
+      setPayrollRecords(res.runs || []);
+    } catch (err) {
+      // Period may not have runs yet
+      setPayrollRecords([]);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { if (selectedPeriodId) loadPayrollRecords(selectedPeriodId); }, [selectedPeriodId, loadPayrollRecords]);
+
+  const currentPeriod = payrollPeriods.find(
     (p) => p.id.toString() === selectedPeriodId
   );
-  const currentPayrollRecords = mockEmployeePayrollRecords.filter(
-    (record) => record.payroll_period_id.toString() === selectedPeriodId
-  );
-  const currentPaymentRecords = mockPaymentRecords.filter(
-    (payment) => payment.payroll_period_id.toString() === selectedPeriodId
-  );
+  const currentPayrollRecords = payrollRecords;
+  const currentPaymentRecords: any[] = [];
 
-  // Mock handlers for form submissions
   const handleCalculatePayroll = async (data: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Payroll calculation submitted:", data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      await HRMApiService.calculatePayroll({
+        payroll_period_id: parseInt(selectedPeriodId),
+        employee_ids: data.employee_ids || [],
+      });
+      toast({ title: "Success", description: "Payroll calculated" });
+      await loadPayrollRecords(selectedPeriodId);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to calculate payroll", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleProcessPayments = async (data: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Payment processing submitted:", data);
-    setLoading(false);
-    setShowPaymentForm(false);
+    try {
+      setLoading(true);
+      await HRMApiService.approvePayrollRun(parseInt(selectedPeriodId));
+      toast({ title: "Success", description: "Payments processed" });
+      setShowPaymentForm(false);
+      await loadPayrollRecords(selectedPeriodId);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to process payments", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExportData = async (format: "excel" | "pdf", filters?: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Export data:", format, filters);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const blob = await HRMApiService.exportPayroll(parseInt(selectedPeriodId), format);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `payroll-${selectedPeriodId}.${format === "excel" ? "xlsx" : "pdf"}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({ title: "Error", description: "Export failed", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectAll = (selected: boolean) => {
     if (selected) {
-      setSelectedEmployeeIds(
-        currentPayrollRecords.map((record) => record.employee_id)
-      );
+      setSelectedEmployeeIds(employees.map((emp) => emp.id));
     } else {
       setSelectedEmployeeIds([]);
     }
@@ -110,25 +161,22 @@ const PayrollPage: React.FC = () => {
 
   // Calculate summary statistics
   const summaryStats = {
-    totalEmployees: currentPayrollRecords.length,
+    totalEmployees: employees.length,
     totalGrossSalary: currentPayrollRecords.reduce(
-      (sum, record) => sum + record.total_earnings,
+      (sum, record) => sum + (record.total_earnings || 0),
       0
     ),
     totalDeductions: currentPayrollRecords.reduce(
-      (sum, record) => sum + record.total_deductions,
+      (sum, record) => sum + (record.total_deductions || 0),
       0
     ),
     totalNetSalary: currentPayrollRecords.reduce(
-      (sum, record) => sum + record.net_salary,
+      (sum, record) => sum + (record.net_salary || 0),
       0
     ),
-    paidEmployees: currentPaymentRecords.filter((p) => p.status === "completed")
-      .length,
-    pendingPayments: currentPaymentRecords.filter((p) => p.status === "pending")
-      .length,
-    failedPayments: currentPaymentRecords.filter((p) => p.status === "failed")
-      .length,
+    paidEmployees: 0,
+    pendingPayments: 0,
+    failedPayments: 0,
   };
 
   return (
@@ -171,7 +219,7 @@ const PayrollPage: React.FC = () => {
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPayrollPeriods.map((period) => (
+                  {payrollPeriods.map((period) => (
                     <SelectItem key={period.id} value={period.id.toString()}>
                       {period.name} - {period.status}
                     </SelectItem>
@@ -328,7 +376,7 @@ const PayrollPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <PayrollCalculator
-                employees={mockEmployees as any}
+                employees={employees as any}
                 selectedEmployeeIds={selectedEmployeeIds}
                 onCalculate={handleCalculatePayroll}
                 onSelectAll={handleSelectAll}
@@ -352,7 +400,7 @@ const PayrollPage: React.FC = () => {
             <CardContent>
               {showPaymentForm ? (
                 <PaymentForm
-                  selectedEmployees={mockEmployees.filter((emp) =>
+                  selectedEmployees={employees.filter((emp) =>
                     selectedEmployeeIds.includes(emp.id)
                   )}
                   selectedPayrollRecords={currentPayrollRecords.filter(
@@ -398,7 +446,7 @@ const PayrollPage: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {currentPayrollRecords.map((record) => {
-                  const employee = mockEmployees.find(
+                  const employee = employees.find(
                     (emp) => emp.id === record.employee_id
                   );
                   if (!employee) return null;
@@ -440,10 +488,10 @@ const PayrollPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <PayrollHistory
-                payrollRecords={mockEmployeePayrollRecords}
-                paymentRecords={mockPaymentRecords}
-                employees={mockEmployees as any}
-                departments={mockDepartments as any}
+                payrollRecords={currentPayrollRecords}
+                paymentRecords={currentPaymentRecords}
+                employees={employees as any}
+                departments={departments as any}
                 onExport={handleExportData}
                 loading={loading}
               />

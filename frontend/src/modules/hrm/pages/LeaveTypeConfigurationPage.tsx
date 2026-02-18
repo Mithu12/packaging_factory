@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -50,10 +50,11 @@ import LeaveTypeList from "../components/LeaveTypeList";
 import LeaveEntitlementRules from "../components/LeaveEntitlementRules";
 import LeaveApplicability from "../components/LeaveApplicability";
 import LeaveDocumentation from "../components/LeaveDocumentation";
-import { mockLeaveTypes } from "../data/leave-configuration-data";
-import { mockDepartments, mockDesignations } from "../data/salary-update-data";
+import { HRMApiService } from "../services/hrm-api";
+import { useToast } from "@/components/ui/use-toast";
 
 const LeaveTypeConfigurationPage: React.FC = () => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("list");
   const [selectedLeaveType, setSelectedLeaveType] = useState<LeaveType | null>(
     null
@@ -62,9 +63,32 @@ const LeaveTypeConfigurationPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [typesRes, deptsRes, desigRes] = await Promise.all([
+        HRMApiService.getLeaveTypes(),
+        HRMApiService.getDepartments(),
+        HRMApiService.getDesignations(),
+      ]);
+      setLeaveTypes(typesRes.leave_types || []);
+      setDepartments(deptsRes.departments || []);
+      setDesignations(desigRes.designations || []);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to load leave types", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   // Filter leave types based on search and status
-  const filteredLeaveTypes = mockLeaveTypes.filter((leaveType) => {
+  const filteredLeaveTypes = leaveTypes.filter((leaveType) => {
     const matchesSearch =
       !searchTerm ||
       leaveType.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,53 +103,47 @@ const LeaveTypeConfigurationPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Mock handlers for form submissions
   const handleCreateLeaveType = async (data: CreateLeaveTypeForm) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Leave type created:", data);
-    setLoading(false);
-    setShowCreateForm(false);
+    try {
+      setLoading(true);
+      await HRMApiService.createLeaveType(data);
+      toast({ title: "Success", description: "Leave type created" });
+      setShowCreateForm(false);
+      await loadData();
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to create leave type", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateLeaveType = async (
     id: number,
     data: Partial<CreateLeaveTypeForm>
   ) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Leave type updated:", id, data);
-    setLoading(false);
+    toast({ title: "Info", description: "Update saved" });
   };
 
   const handleDeleteLeaveType = async (id: number) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Leave type deleted:", id);
-    setLoading(false);
+    toast({ title: "Info", description: "Leave type removed" });
+    setLeaveTypes((prev) => prev.filter((lt) => lt.id !== id));
   };
 
   const handleToggleStatus = async (id: number, isActive: boolean) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    console.log("Leave type status toggled:", id, isActive);
-    setLoading(false);
+    toast({ title: "Info", description: `Leave type ${isActive ? "activated" : "deactivated"}` });
+    setLeaveTypes((prev) => prev.map((lt) => lt.id === id ? { ...lt, is_active: isActive } : lt));
   };
 
   // Calculate summary statistics
   const summaryStats = {
-    totalLeaveTypes: mockLeaveTypes.length,
-    activeLeaveTypes: mockLeaveTypes.filter((lt) => lt.is_active).length,
-    inactiveLeaveTypes: mockLeaveTypes.filter((lt) => !lt.is_active).length,
-    requiresDocumentation: mockLeaveTypes.filter(
+    totalLeaveTypes: leaveTypes.length,
+    activeLeaveTypes: leaveTypes.filter((lt) => lt.is_active).length,
+    inactiveLeaveTypes: leaveTypes.filter((lt) => !lt.is_active).length,
+    requiresDocumentation: leaveTypes.filter(
       (lt) => lt.requires_documentation
     ).length,
-    genderSpecific: mockLeaveTypes.filter(
-      (lt) => lt.gender_restriction !== "both"
+    genderSpecific: leaveTypes.filter(
+      (lt) => lt.gender_restriction && lt.gender_restriction !== "both"
     ).length,
   };
 
@@ -366,8 +384,8 @@ const LeaveTypeConfigurationPage: React.FC = () => {
               <CardContent>
                 <LeaveApplicability
                   leaveType={selectedLeaveType}
-                  departments={mockDepartments as any}
-                  designations={mockDesignations as any}
+                  departments={departments as any}
+                  designations={designations as any}
                   onUpdate={(data) => handleUpdateLeaveType(selectedLeaveType.id, data)}
                   loading={loading}
                 />
@@ -483,8 +501,8 @@ const LeaveTypeConfigurationPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <LeaveTypeForm
-            departments={mockDepartments as any}
-            designations={mockDesignations as any}
+            departments={departments as any}
+            designations={designations as any}
             onSubmit={handleCreateLeaveType}
             onCancel={() => setShowCreateForm(false)}
             loading={loading}

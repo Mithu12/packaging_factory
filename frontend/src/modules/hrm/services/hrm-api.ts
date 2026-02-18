@@ -682,6 +682,167 @@ export class HRMApiService {
   static async getEmployeesByUserRole(roleId: number): Promise<{ employees: any[] }> {
     return makeRequest<{ employees: any[] }>(`/rbac/roles/${roleId}/employees`);
   }
+
+  // ========== Shifts Management ==========
+
+  static async getShifts(params?: { include_inactive?: boolean }): Promise<{ shifts: any[] }> {
+    const queryString = buildQueryString(params);
+    return makeRequest<{ shifts: any[] }>(`${this.BASE_URL}/shifts${queryString}`);
+  }
+
+  static async getShiftById(id: number): Promise<{ shift: any }> {
+    return makeRequest<{ shift: any }>(`${this.BASE_URL}/shifts/${id}`);
+  }
+
+  static async createShift(data: {
+    name: string;
+    code: string;
+    description?: string;
+    start_time: string;
+    end_time: string;
+    break_start_time?: string;
+    break_end_time?: string;
+    working_hours?: number;
+    is_flexible?: boolean;
+    grace_period_minutes?: number;
+    late_threshold_minutes?: number;
+    early_going_threshold_minutes?: number;
+    color_code?: string;
+  }): Promise<{ shift: any }> {
+    return makeRequest<{ shift: any }>(`${this.BASE_URL}/shifts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateShift(id: number, data: Partial<{
+    name: string;
+    code: string;
+    description: string;
+    start_time: string;
+    end_time: string;
+    break_start_time: string;
+    break_end_time: string;
+    working_hours: number;
+    is_flexible: boolean;
+    grace_period_minutes: number;
+    late_threshold_minutes: number;
+    early_going_threshold_minutes: number;
+    color_code: string;
+    is_active: boolean;
+  }>): Promise<{ shift: any }> {
+    return makeRequest<{ shift: any }>(`${this.BASE_URL}/shifts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteShift(id: number): Promise<void> {
+    return makeRequest<void>(`${this.BASE_URL}/shifts/${id}`, { method: 'DELETE' });
+  }
+
+  static async getShiftAssignments(params?: {
+    employee_id?: number;
+    shift_id?: number;
+  }): Promise<{ assignments: any[] }> {
+    const queryString = buildQueryString(params);
+    return makeRequest<{ assignments: any[] }>(`${this.BASE_URL}/shifts/assignments/list${queryString}`);
+  }
+
+  static async assignShift(data: {
+    employee_id: number;
+    shift_id: number;
+    effective_from: string;
+    effective_to?: string;
+    is_primary?: boolean;
+    notes?: string;
+  }): Promise<{ assignment: any }> {
+    return makeRequest<{ assignment: any }>(`${this.BASE_URL}/shifts/assignments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateShiftAssignment(id: number, data: Partial<{
+    shift_id: number;
+    effective_from: string;
+    effective_to: string;
+    is_primary: boolean;
+    notes: string;
+  }>): Promise<{ assignment: any }> {
+    return makeRequest<{ assignment: any }>(`${this.BASE_URL}/shifts/assignments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async removeShiftAssignment(id: number): Promise<void> {
+    return makeRequest<void>(`${this.BASE_URL}/shifts/assignments/${id}`, { method: 'DELETE' });
+  }
+
+  // ========== Attendance Regularization ==========
+
+  static async getRegularizationRequests(params?: {
+    employee_id?: number;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<{ regularization_requests: any[] }> {
+    const queryString = buildQueryString(params);
+    return makeRequest<{ regularization_requests: any[] }>(`${this.BASE_URL}/attendance-regularization${queryString}`);
+  }
+
+  static async getRegularizationRequestById(id: number): Promise<{ regularization_request: any }> {
+    return makeRequest<{ regularization_request: any }>(`${this.BASE_URL}/attendance-regularization/${id}`);
+  }
+
+  static async createRegularizationRequest(data: {
+    employee_id: number;
+    original_date: string;
+    original_check_in_time?: string;
+    original_check_out_time?: string;
+    requested_check_in_time?: string;
+    requested_check_out_time?: string;
+    reason: string;
+    supporting_document_urls?: string[];
+  }): Promise<{ regularization_request: any }> {
+    return makeRequest<{ regularization_request: any }>(`${this.BASE_URL}/attendance-regularization`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateRegularizationRequest(id: number, data: {
+    original_date?: string;
+    original_check_in_time?: string;
+    original_check_out_time?: string;
+    requested_check_in_time?: string;
+    requested_check_out_time?: string;
+    reason?: string;
+    supporting_document_urls?: string[];
+  }): Promise<{ regularization_request: any }> {
+    return makeRequest<{ regularization_request: any }>(`${this.BASE_URL}/attendance-regularization/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async reviewRegularizationRequest(id: number, data: {
+    status: 'approved' | 'rejected';
+    review_comments?: string;
+    rejection_reason?: string;
+  }): Promise<{ regularization_request: any }> {
+    return makeRequest<{ regularization_request: any }>(`${this.BASE_URL}/attendance-regularization/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async cancelRegularizationRequest(id: number): Promise<{ regularization_request: any }> {
+    return makeRequest<{ regularization_request: any }>(`${this.BASE_URL}/attendance-regularization/${id}/cancel`, {
+      method: 'POST',
+    });
+  }
 }
 
 export default HRMApiService;

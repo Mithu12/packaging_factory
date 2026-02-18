@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -25,57 +25,104 @@ import SalaryIncrementForm from "../components/SalaryIncrementForm";
 import PromotionForm from "../components/PromotionForm";
 import BulkSalaryUpdateForm from "../components/BulkSalaryUpdateForm";
 import SalaryHistory from "../components/SalaryHistory";
-import {
-  mockEmployees,
-  mockDepartments,
-  mockDesignations,
-  mockSalaryHistory,
-  mockSalaryIncrements,
-  mockPromotions,
-} from "../data/salary-update-data";
+import { HRMApiService } from "../services/hrm-api";
+import { useToast } from "@/components/ui/use-toast";
 
 const SalaryUpdatePage: React.FC = () => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("increment");
   const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
 
-  // Mock handlers for form submissions
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [empsRes, deptsRes, desigRes] = await Promise.all([
+        HRMApiService.getEmployees({ limit: 500 }),
+        HRMApiService.getDepartments(),
+        HRMApiService.getDesignations(),
+      ]);
+      setEmployees(empsRes.employees || []);
+      setDepartments(deptsRes.departments || []);
+      setDesignations(desigRes.designations || []);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to load data", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
   const handleSalaryIncrement = async (data: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Salary increment submitted:", data);
-    setLoading(false);
-    // In real implementation, this would make an API call
+    try {
+      setLoading(true);
+      await HRMApiService.updateEmployeeSalary(
+        data.employee_id,
+        data.new_salary,
+        data.effective_date,
+        data.reason || "Salary increment"
+      );
+      toast({ title: "Success", description: "Salary increment applied" });
+      setActiveTab("history");
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to apply increment", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePromotion = async (data: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Promotion submitted:", data);
-    setLoading(false);
-    // In real implementation, this would make an API call
+    try {
+      setLoading(true);
+      // Update employee designation + salary
+      await Promise.all([
+        HRMApiService.updateEmployee(data.employee_id, {
+          designation_id: data.new_designation_id,
+          department_id: data.new_department_id,
+        }),
+        data.new_salary && HRMApiService.updateEmployeeSalary(
+          data.employee_id,
+          data.new_salary,
+          data.effective_date,
+          `Promotion: ${data.reason || ""}`
+        ),
+      ]);
+      toast({ title: "Success", description: "Promotion processed" });
+      setActiveTab("history");
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to process promotion", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBulkSalaryUpdate = async (data: any) => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Bulk salary update submitted:", data);
-    setLoading(false);
-    // In real implementation, this would make an API call
+    try {
+      setLoading(true);
+      const { employee_ids, new_salary, effective_date, reason } = data;
+      await Promise.all(
+        (employee_ids || []).map((empId: number) =>
+          HRMApiService.updateEmployeeSalary(empId, new_salary, effective_date, reason || "Bulk update")
+        )
+      );
+      toast({ title: "Success", description: `Salary updated for ${(employee_ids || []).length} employees` });
+      setActiveTab("history");
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to apply bulk update", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Calculate summary statistics
-  const totalEmployees = mockEmployees.length;
-  const pendingIncrements = mockSalaryIncrements.filter(
-    (inc) => inc.status === "pending_approval"
-  ).length;
-  const pendingPromotions = mockPromotions.filter(
-    (pro) => pro.status === "pending_approval"
-  ).length;
-  const totalIncrements = mockSalaryIncrements.length;
-  const totalPromotions = mockPromotions.length;
+  const totalEmployees = employees.length;
+  const pendingIncrements = 0;
+  const pendingPromotions = 0;
+  const totalIncrements = 0;
+  const totalPromotions = 0;
 
   return (
     <div className="space-y-6">
@@ -148,7 +195,7 @@ const SalaryUpdatePage: React.FC = () => {
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockSalaryHistory.length}</div>
+            <div className="text-2xl font-bold">{salaryHistory.length}</div>
             <p className="text-xs text-muted-foreground">
               Salary changes tracked
             </p>
@@ -190,7 +237,7 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <SalaryIncrementForm
-                employees={mockEmployees as any}
+                employees={employees as any}
                 onSubmit={handleSalaryIncrement}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -212,9 +259,9 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <PromotionForm
-                employees={mockEmployees as any}
-                departments={mockDepartments as any}
-                designations={mockDesignations as any}
+                employees={employees as any}
+                departments={departments as any}
+                designations={designations as any}
                 onSubmit={handlePromotion}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -237,9 +284,9 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <BulkSalaryUpdateForm
-                employees={mockEmployees as any}
-                departments={mockDepartments as any}
-                designations={mockDesignations as any}
+                employees={employees as any}
+                departments={departments as any}
+                designations={designations as any}
                 onSubmit={handleBulkSalaryUpdate}
                 onCancel={() => setActiveTab("history")}
                 loading={loading}
@@ -261,8 +308,8 @@ const SalaryUpdatePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <SalaryHistory
-                history={mockSalaryHistory}
-                employees={mockEmployees as any}
+                history={salaryHistory}
+                employees={employees as any}
                 loading={loading}
               />
             </CardContent>
