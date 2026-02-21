@@ -23,6 +23,7 @@ export interface Customer {
   opening_due?: number;
   created_at: string;
   updated_at: string;
+  erp_access_approved?: boolean;
 }
 
 export interface CreateCustomerRequest {
@@ -40,6 +41,8 @@ export interface CreateCustomerRequest {
   credit_limit?: number;
   opening_due?: number;
   notes?: string;
+  password?: string;
+  erp_access_approved?: boolean;
 }
 
 export interface UpdateCustomerRequest {
@@ -57,6 +60,7 @@ export interface UpdateCustomerRequest {
   status?: 'active' | 'inactive' | 'blocked';
   credit_limit?: number;
   notes?: string;
+  erp_access_approved?: boolean;
 }
 
 export interface CustomerQueryParams {

@@ -23,6 +23,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -46,6 +56,10 @@ import {
   DollarSign,
   CreditCard,
   History,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { CustomerApi } from "@/services/api";
 import { Customer } from "@/services/types";
@@ -69,6 +83,8 @@ export function CustomerManagement() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(false);
+  const [isAccessConfirmDialogOpen, setIsAccessConfirmDialogOpen] = useState(false);
+  const [customerToToggle, setCustomerToToggle] = useState<Customer | null>(null);
   const [ordersWithDue, setOrdersWithDue] = useState<Array<{
     id: number;
     order_number: string;
@@ -111,6 +127,8 @@ export function CustomerManagement() {
     credit_limit: "",
     opening_due: "",
     notes: "",
+    password: "",
+    erp_access_approved: false,
   });
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -129,6 +147,7 @@ export function CustomerManagement() {
       | "walk_in",
     credit_limit: "",
     notes: "",
+    erp_access_approved: false,
   });
   const { formatCurrency } = useFormatting();
 
@@ -190,6 +209,8 @@ export function CustomerManagement() {
           ? parseFloat(formData.opening_due)
           : undefined,
         notes: formData.notes || undefined,
+        password: formData.password || undefined,
+        erp_access_approved: formData.erp_access_approved,
       });
 
       setCustomers((prev) => [...prev, newCustomer]);
@@ -206,6 +227,8 @@ export function CustomerManagement() {
         credit_limit: "",
         opening_due: "",
         notes: "",
+        password: "",
+        erp_access_approved: false,
       });
       setIsAddDialogOpen(false);
       toast({ title: "Customer added successfully" });
@@ -240,6 +263,7 @@ export function CustomerManagement() {
       customer_type: customer.customer_type || "regular",
       credit_limit: (customer.credit_limit || 0).toString(),
       notes: customer.notes || "",
+      erp_access_approved: !!customer.erp_access_approved,
     });
     setIsEditDialogOpen(true);
   };
@@ -272,6 +296,7 @@ export function CustomerManagement() {
             ? parseFloat(editFormData.credit_limit)
             : undefined,
           notes: editFormData.notes || undefined,
+          erp_access_approved: editFormData.erp_access_approved,
         }
       );
 
@@ -288,6 +313,41 @@ export function CustomerManagement() {
       toast({
         title: "Error",
         description: "Failed to update customer",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openToggleConfirm = (customer: Customer) => {
+    setCustomerToToggle(customer);
+    setIsAccessConfirmDialogOpen(true);
+  };
+
+  const handleToggleErpAccess = async () => {
+    if (!customerToToggle) return;
+    try {
+      setLoading(true);
+      const updatedCustomer = await SalesCustomerApi.toggleErpAccess(
+        customerToToggle.id
+      );
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === customerToToggle.id ? updatedCustomer : c))
+      );
+      setIsAccessConfirmDialogOpen(false);
+      setCustomerToToggle(null);
+      toast({
+        title: "Success",
+        description: `ERP access ${
+          updatedCustomer.erp_access_approved ? "approved" : "revoked"
+        } for ${customerToToggle?.name}`,
+      });
+    } catch (error) {
+      console.error("Error toggling ERP access:", error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle ERP access",
         variant: "destructive",
       });
     } finally {
@@ -804,6 +864,15 @@ export function CustomerManagement() {
                         title="Edit Customer"
                       >
                         <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openToggleConfirm(customer)}
+                        title={customer.erp_access_approved ? "Revoke ERP Access" : "Approve ERP Access"}
+                        className={customer.erp_access_approved ? "text-green-600 border-green-200 bg-green-50" : "text-amber-600 border-amber-200 bg-amber-50"}
+                      >
+                        {customer.erp_access_approved ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
                       </Button>
                       {(customer.due_amount || 0) > 0 && (
                         <Button
@@ -1345,6 +1414,42 @@ export function CustomerManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ERP Access Toggle Confirmation */}
+      <AlertDialog open={isAccessConfirmDialogOpen} onOpenChange={setIsAccessConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {customerToToggle?.erp_access_approved ? "Revoke ERP Access" : "Approve ERP Access"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {customerToToggle?.erp_access_approved 
+                ? `Are you sure you want to revoke ERP access for ${customerToToggle?.name}? They will no longer be able to log in to the e-commerce site.`
+                : `Are you sure you want to approve ERP access for ${customerToToggle?.name}? They will be able to log in to the e-commerce site using their credentials.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleToggleErpAccess();
+              }}
+              className={customerToToggle?.erp_access_approved ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                customerToToggle?.erp_access_approved ? "Revoke Access" : "Approve Access"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

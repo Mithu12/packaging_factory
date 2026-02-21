@@ -50,6 +50,12 @@ export class CustomerApi {
     });
   }
 
+  static async toggleErpAccess(id: number) {
+    return makeRequest<Customer>(`/customers/${id}/toggle-erp-access`, {
+      method: 'PATCH',
+    });
+  }
+
   static async updateCustomerLoyaltyPoints(id: number, points: number) {
     return makeRequest<Customer>(`/customers/${id}/loyalty-points`, {
       method: 'PATCH',

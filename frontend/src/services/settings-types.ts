@@ -68,6 +68,10 @@ export interface SecuritySettings {
   default_user_role: string;
 }
 
+export interface EcommerceSettings {
+  auto_customer_signup: boolean;
+}
+
 export interface IntegrationSettings {
   email_service_connected: boolean;
   email_service_config: {
@@ -96,5 +100,6 @@ export interface AllSettings {
   system: SystemSettings;
   notifications: NotificationSettings;
   security: SecuritySettings;
+  ecommerce: EcommerceSettings;
   integrations: IntegrationSettings;
 }

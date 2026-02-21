@@ -18,7 +18,8 @@ import {
   FileImage,
   Upload,
   Trash2,
-  X
+  X,
+  DollarSign
 } from "lucide-react"
 import {
   Tabs,
@@ -86,6 +87,10 @@ export default function Settings() {
     default_user_role: 'viewer'
   })
   
+  const [ecommerceSettings, setEcommerceSettings] = useState<EcommerceSettings>({
+    auto_customer_signup: false
+  })
+  
   const [integrationSettings, setIntegrationSettings] = useState<IntegrationSettings>({
     email_service_connected: true,
     email_service_config: {
@@ -120,11 +125,12 @@ export default function Settings() {
       
       // Try to load all settings, if they don't exist, initialize defaults
       try {
-        const [company, system, notifications, security, integrations] = await Promise.all([
+        const [company, system, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
+          SettingsApi.getEcommerceSettings(),
           SettingsApi.getIntegrationSettings()
         ])
         
@@ -132,6 +138,7 @@ export default function Settings() {
         setSystemSettings(system)
         setNotificationSettings(notifications)
         setSecuritySettings(security)
+        setEcommerceSettings(ecommerce)
         setIntegrationSettings(integrations)
       } catch (error) {
         // If settings don't exist, initialize defaults
@@ -139,11 +146,12 @@ export default function Settings() {
         await SettingsApi.initializeDefaultSettings()
         
         // Reload settings after initialization
-        const [company, system, notifications, security, integrations] = await Promise.all([
+        const [company, system, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
+          SettingsApi.getEcommerceSettings(),
           SettingsApi.getIntegrationSettings()
         ])
         
@@ -151,6 +159,7 @@ export default function Settings() {
         setSystemSettings(system)
         setNotificationSettings(notifications)
         setSecuritySettings(security)
+        setEcommerceSettings(ecommerce)
         setIntegrationSettings(integrations)
       }
     } catch (error) {
@@ -179,7 +188,10 @@ export default function Settings() {
           await SettingsApi.updateNotificationSettings(notificationSettings)
           break
         case 'security':
-          await SettingsApi.updateSecuritySettings(securitySettings)
+          await Promise.all([
+            SettingsApi.updateSecuritySettings(securitySettings),
+            SettingsApi.updateEcommerceSettings(ecommerceSettings)
+          ])
           break
         case 'integrations':
           await SettingsApi.updateIntegrationSettings(integrationSettings)

@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { Customer, CreateCustomerRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
+import bcrypt from 'bcryptjs';
 
 export class AddCustomerMediator {
     static async createCustomer(data: CreateCustomerRequest): Promise<Customer> {
@@ -12,6 +13,11 @@ export class AddCustomerMediator {
             
             try {
                 await client.query('BEGIN');
+
+                let passwordHash = null;
+                if (data.password) {
+                    passwordHash = await bcrypt.hash(data.password, 10);
+                }
 
                 // Generate customer code using sequence
                 const customerCode = await this.getNextCustomerCode(client);
@@ -33,9 +39,11 @@ export class AddCustomerMediator {
                         notes,
                         credit_limit,
                         opening_due,
-                        due_amount
+                        due_amount,
+                        password_hash,
+                        erp_access_approved
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
                     ) RETURNING *
                 `;
 
@@ -56,6 +64,8 @@ export class AddCustomerMediator {
                     data.credit_limit || 0,
                     data.opening_due || 0,
                     data.opening_due || 0, // Initial due_amount equals opening_due
+                    passwordHash,
+                    data.erp_access_approved || false
                 ];
 
                 const result = await client.query(insertQuery, values);

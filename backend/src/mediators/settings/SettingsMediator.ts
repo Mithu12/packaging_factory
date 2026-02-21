@@ -414,6 +414,9 @@ class SettingsMediator {
         { category: 'integrations', key: 'api_access_enabled', value: 'false', data_type: 'boolean' as const },
         { category: 'integrations', key: 'api_key', value: 'sk_test_...', data_type: 'string' as const },
         { category: 'integrations', key: 'webhook_url', value: '', data_type: 'string' as const },
+        
+        // E-commerce settings
+        { category: 'ecommerce', key: 'auto_customer_signup', value: 'false', data_type: 'boolean' as const },
       ]
 
       for (const setting of defaultSettings) {

@@ -140,6 +140,25 @@ router.patch('/:id/toggle-status',
     }
 }));
 
+// PATCH /api/customers/:id/toggle-erp-access - Toggle customer ERP access
+router.patch('/:id/toggle-erp-access', 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.CUSTOMERS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'PATCH /api/customers/:id/toggle-erp-access'
+    try {
+        const id = parseInt(req.params.id);
+        MyLogger.info(action, { customerId: id })
+        const customer = await UpdateCustomerInfoMediator.toggleErpAccess(id);
+        MyLogger.success(action, { customerId: id, customerName: customer.name, erpAccess: customer.erp_access_approved })
+        serializeSuccessResponse(res, customer, 'ERP access toggled successfully')
+    } catch (error: any) {
+        MyLogger.error(action, error, { customerId: req.params.id })
+        throw error;
+    }
+}));
+
 // PATCH /api/customers/:id/loyalty-points - Update customer loyalty points
 router.patch('/:id/loyalty-points', 
   authenticate,

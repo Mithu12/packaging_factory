@@ -106,6 +106,39 @@ export class UpdateCustomerInfoMediator {
         }
     }
 
+    static async toggleErpAccess(id: number): Promise<Customer> {
+        let action = 'UpdateCustomerInfoMediator.toggleErpAccess';
+        try {
+            MyLogger.info(action, { customerId: id });
+
+            const toggleQuery = `
+                UPDATE customers 
+                SET erp_access_approved = NOT COALESCE(erp_access_approved, false),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `;
+
+            const result = await pool.query(toggleQuery, [id]);
+
+            if (result.rows.length === 0) {
+                throw new Error(`Customer with ID ${id} not found`);
+            }
+
+            const customer = result.rows[0];
+            MyLogger.success(action, { 
+                customerId: id, 
+                customerName: customer.name,
+                newErpAccess: customer.erp_access_approved
+            });
+
+            return customer;
+        } catch (error: any) {
+            MyLogger.error(action, error, { customerId: id });
+            throw error;
+        }
+    }
+
     static async updateCustomerLoyaltyPoints(id: number, points: number): Promise<Customer> {
         let action = 'UpdateCustomerInfoMediator.updateCustomerLoyaltyPoints';
         try {

@@ -320,6 +320,10 @@ export class ApiService {
     return CustomerApi.toggleCustomerStatus(id);
   }
 
+  static async toggleCustomerErpAccess(id: number) {
+    return CustomerApi.toggleErpAccess(id);
+  }
+
   static async updateCustomerLoyaltyPoints(id: number, points: number) {
     return CustomerApi.updateCustomerLoyaltyPoints(id, points);
   }

@@ -15,7 +15,9 @@ export const createCustomerSchema = Joi.object({
   gender: Joi.string().valid('male', 'female', 'other').optional(),
   customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').default('regular'),
   opening_due: Joi.number().min(0).optional().default(0),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  password: Joi.string().min(6).optional().allow(''),
+  erp_access_approved: Joi.boolean().optional().default(false)
 });
 
 export const updateCustomerSchema = Joi.object({
@@ -33,7 +35,8 @@ export const updateCustomerSchema = Joi.object({
   customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   status: Joi.string().valid('active', 'inactive', 'blocked').optional(),
   opening_due: Joi.number().min(0).optional(),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  erp_access_approved: Joi.boolean().optional()
 });
 
 export const customerQuerySchema = Joi.object({

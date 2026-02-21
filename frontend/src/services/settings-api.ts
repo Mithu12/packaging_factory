@@ -117,6 +117,19 @@ class SettingsApiService {
     return this.updateSettings('security', settings);
   }
 
+  async getEcommerceSettings(): Promise<EcommerceSettings> {
+    const settings = await this.getSettingsByCategory('ecommerce');
+    const result: any = {};
+    Object.values(settings).forEach(setting => {
+      result[setting.key] = setting.value;
+    });
+    return result as EcommerceSettings;
+  }
+
+  async updateEcommerceSettings(settings: Partial<EcommerceSettings>): Promise<Setting[]> {
+    return this.updateSettings('ecommerce', settings);
+  }
+
   async getIntegrationSettings(): Promise<IntegrationSettings> {
     const settings = await this.getSettingsByCategory('integrations');
     const result: any = {};
