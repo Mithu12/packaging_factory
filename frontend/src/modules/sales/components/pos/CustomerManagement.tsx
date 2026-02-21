@@ -588,6 +588,22 @@ export function CustomerManagement() {
                   </div>
 
                   <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          password: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter password"
+                    />
+                  </div>
+
+                  <div>
                     <Label htmlFor="address">Address</Label>
                     <Input
                       id="address"
