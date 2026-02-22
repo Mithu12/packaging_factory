@@ -41,7 +41,7 @@ export const updateCustomerSchema = Joi.object({
 
 export const customerQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().optional(),
   customer_type: Joi.string().valid('regular', 'vip', 'wholesale', 'retail', 'walk_in').optional(),
   status: Joi.string().valid('active', 'inactive', 'blocked').optional(),
@@ -85,7 +85,7 @@ export const updateSalesOrderSchema = Joi.object({
 
 export const salesOrderQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().optional(),
   customer_id: Joi.number().integer().positive().optional(),
   distribution_center_id: Joi.number().integer().positive().optional(),
@@ -153,7 +153,7 @@ export const updatePricingRuleSchema = Joi.object({
 
 export const pricingRuleQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().optional(),
   product_id: Joi.number().integer().positive().optional(),
   category_id: Joi.number().integer().positive().optional(),

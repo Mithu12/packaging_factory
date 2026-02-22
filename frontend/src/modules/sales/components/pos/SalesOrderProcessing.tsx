@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
-import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer, FileText } from "lucide-react"
+import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer, FileText, ChevronLeft, ChevronRight, Filter } from "lucide-react"
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
 import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
 import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api"
@@ -28,6 +28,54 @@ interface OrderItem {
   discount: number
   total: number
 }
+
+const NoteViewer = ({ notes }: { notes: string }) => {
+  if (!notes) return null;
+
+  try {
+    const parsed = JSON.parse(notes);
+    
+    // Check if it's the Livana Ecom format
+    if (parsed.source === 'livana-ecom' && parsed.shipping) {
+      const s = parsed.shipping;
+      return (
+        <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm border">
+          <Badge variant="secondary" className="mb-1">From: Livana Ecom</Badge>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="font-semibold block">Shipping To:</span>
+              <p>{s.name}</p>
+              <p>{s.phone}</p>
+            </div>
+            <div>
+              <span className="font-semibold block">Address:</span>
+              <p>{s.address}</p>
+              <p>{s.city} - {s.postalCode}</p>
+            </div>
+          </div>
+          <div className="flex justify-between border-t pt-2 mt-2">
+            <span>Shipping Cost:</span>
+            <span className="font-medium">৳ {s.shippingCost}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Payment Method:</span>
+            <span className="font-medium uppercase">{s.paymentMethodOriginal}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic JSON viewer
+    return (
+      <div className="bg-muted/50 p-2 rounded-md text-xs font-mono border overflow-auto max-h-40">
+        <pre>{JSON.stringify(parsed, null, 2)}</pre>
+      </div>
+    );
+  } catch (e) {
+    // Not JSON, return as plain text
+    return <p className="text-muted-foreground whitespace-pre-wrap">{notes}</p>;
+  }
+};
 
 export function SalesOrderProcessing() {
   const [orders, setOrders] = useState<SalesOrder[]>([])
@@ -55,8 +103,24 @@ export function SalesOrderProcessing() {
     discount: "0"
   })
 
+  // Pagination and Filtering state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [dcFilter, setDcFilter] = useState<string>("all")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+
   const { formatCurrency } = useFormatting();
   const { user, isLoading: authLoading } = useAuth();
+
+  // Set initial DC filter if user has one
+  useEffect(() => {
+    if (user?.distribution_center_id) {
+      setDcFilter(user.distribution_center_id.toString())
+    }
+  }, [user])
 
   // Helper function to get product price based on customer type
   const getProductPrice = (product: Product, customerId?: string): number => {
@@ -72,9 +136,25 @@ export function SalesOrderProcessing() {
   // Load data on component mount
   useEffect(() => {
     if (!authLoading) {
-      loadData()
+      loadInitialData()
     }
   }, [authLoading])
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setCurrentPage(1) // Reset to first page on search
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Reload orders when filters or pagination change
+  useEffect(() => {
+    if (!authLoading) {
+      loadOrders()
+    }
+  }, [authLoading, currentPage, pageSize, debouncedSearch, statusFilter, dcFilter])
 
   // Recalculate order item prices when customer changes
   useEffect(() => {
@@ -101,59 +181,76 @@ export function SalesOrderProcessing() {
     }
   }, [newOrder.customerId, products, customers])
 
-  const loadData = async () => {
+  const loadInitialData = async () => {
     try {
       setLoading(true)
-      
       const dcId = user?.distribution_center_id;
+      const isRestricted = dcId !== undefined && dcId !== null;
       
       const requests: Promise<any>[] = [
-        SalesOrderApi.getSalesOrders({ page: 1, limit: 100, distribution_center_id: dcId }),
-        CustomerApi.getCustomers({ page: 1, limit: 100 }),
-        ProductApi.getProducts({ page: 1, limit: 100, distribution_center_id: dcId }),
+        CustomerApi.getCustomers({ page: 1, limit: 1000 }),
+        ProductApi.getProducts({ page: 1, limit: 1000, distribution_center_id: dcId || undefined }),
       ]
 
-      // Only fetch branches if user is not restricted to one
-      if (!dcId) {
+      if (isRestricted) {
+        requests.push(DistributionApi.getDistributionCenter(dcId))
+      } else {
         requests.push(DistributionApi.getDistributionCenters({ status: 'active', limit: 100 }))
       }
 
       const results = await Promise.all(requests)
+      console.log(results);
       
-      const ordersData = results[0]
-      const customersData = results[1]
-      const productsData = results[2]
-      
-      setOrders(ordersData.sales_orders || [])
-      setCustomers(customersData.customers || [])
-      setProducts(productsData.products.filter((product: any) => product.current_stock > 0) || [])
+      setCustomers(results[0].customers || [])
+      setProducts(results[1].products?.filter((product: any) => product.current_stock > 0) || [])
 
-      if (dcId) {
-        setSelectedBranch(dcId)
+      if (isRestricted) {
+        // Single DC response
+        setBranches(results[2] ? [results[2]] : [])
       } else {
-        const branchesData = results[3]
-        const branchesList = branchesData?.centers || []
-        setBranches(branchesList)
-        
-        // Auto-select primary branch if available
-        const primaryBranch = branchesList.find((b: any) => b.is_primary)
-        if (primaryBranch) {
-          setSelectedBranch(primaryBranch.id)
-        } else if (branchesList.length > 0) {
-          // If no primary, select first branch
-          setSelectedBranch(branchesList[0].id)
-        }
+        // DC list response
+        setBranches(results[2]?.centers || [])
       }
     } catch (error) {
-      console.error("Error loading data:", error)
+      console.error("Error loading initial data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      const dcId = user?.distribution_center_id ?? (dcFilter !== "all" ? parseInt(dcFilter) : undefined);
+      
+      const params: any = {
+        page: currentPage,
+        limit: pageSize,
+      }
+
+      if (debouncedSearch) params.search = debouncedSearch
+      if (statusFilter !== "all") params.status = statusFilter
+      if (dcId) params.distribution_center_id = dcId
+
+      const ordersData = await SalesOrderApi.getSalesOrders(params)
+      setOrders(ordersData.sales_orders || [])
+      setTotalOrders(ordersData.total || 0)
+    } catch (error) {
+      console.error("Error loading orders:", error)
       toast({
         title: "Error",
-        description: "Failed to load data",
+        description: "Failed to load sales orders",
         variant: "destructive"
       })
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadData = async () => {
+    // Legacy function preserved but redirecting to loadInitialData and loadOrders
+    await loadInitialData();
+    await loadOrders();
   }
 
   const addItemToOrder = () => {
@@ -591,11 +688,66 @@ export function SalesOrderProcessing() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search by order # or customer..." 
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(user?.distribution_center_id || branches.length > 0) && (
+              <div className="w-full md:w-48">
+                <Select 
+                  value={dcFilter} 
+                  onValueChange={setDcFilter}
+                  disabled={!!user?.distribution_center_id}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                    {user?.distribution_center_id && branches.length === 0 && (
+                      <SelectItem value={user.distribution_center_id.toString()}>
+                        {/* Fallback if dc info is not yet loaded */}
+                        Loading branch info...
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
@@ -608,6 +760,11 @@ export function SalesOrderProcessing() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>{`${order.customer_name}`}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-normal">
+                      {order.center_name || "N/A"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <span className="font-medium">{order.product_count || 0}</span>
@@ -659,6 +816,49 @@ export function SalesOrderProcessing() {
               ))}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * pageSize + 1, totalOrders)} to {Math.min(currentPage * pageSize, totalOrders)} of {totalOrders} orders
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mr-4">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select value={pageSize.toString()} onValueChange={(v) => {
+                  setPageSize(parseInt(v))
+                  setCurrentPage(1)
+                }}>
+                  <SelectTrigger className="w-16 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-sm font-medium">Page {currentPage}</div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={currentPage * pageSize >= totalOrders || loading}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -687,15 +887,19 @@ export function SalesOrderProcessing() {
                   <p>{new Date(selectedOrder.order_date).toLocaleString()}</p>
                 </div>
                 <div>
+                  <Label className="text-sm font-medium">Distribution Center</Label>
+                  <p className="text-lg">{selectedOrder.center_name || "N/A"}</p>
+                </div>
+                <div>
                   <Label className="text-sm font-medium">Total Amount</Label>
                   <p className="text-lg font-bold">{formatCurrency(selectedOrder.total_amount)}</p>
                 </div>
               </div>
 
               {selectedOrder.notes && (
-                <div>
-                  <Label className="text-sm font-medium">Notes</Label>
-                  <p className="text-muted-foreground">{selectedOrder.notes}</p>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Order Notes & Shipping Info</Label>
+                  <NoteViewer notes={selectedOrder.notes} />
                 </div>
               )}
 
