@@ -361,6 +361,11 @@ export const PERMISSIONS = {
     SALES_REP_NOTIFICATIONS_READ: createPermissionCheck('Sales Rep', 'read', 'notifications'),
     SALES_REP_NOTIFICATIONS_UPDATE: createPermissionCheck('Sales Rep', 'update', 'notifications'),
 
+    // Ecommerce
+    ECOMMERCE_SLIDERS_READ: createPermissionCheck('Ecommerce', 'read', 'sliders'),
+    ECOMMERCE_SLIDERS_CREATE: createPermissionCheck('Ecommerce', 'create', 'sliders'),
+    ECOMMERCE_SLIDERS_UPDATE: createPermissionCheck('Ecommerce', 'update', 'sliders'),
+    ECOMMERCE_SLIDERS_DELETE: createPermissionCheck('Ecommerce', 'delete', 'sliders'),
 } as const;
 
 

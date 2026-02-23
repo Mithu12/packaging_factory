@@ -95,11 +95,23 @@ const menuSections: MenuSection[] = [
         icon: BarChart3,
         permission: null, // Dashboard is accessible to all authenticated users
       },
+    ],
+  },
+  {
+    title: "Ecommerce",
+    icon: ShoppingCart,
+    items: [
       {
         title: "E-commerce",
         url: "/ecommerce-dashboard",
         icon: ShoppingCart,
         permission: null,
+      },
+      {
+        title: "Sliders",
+        url: "/ecom/sliders",
+        icon: Layers,
+        permission: PERMISSIONS.ECOMMERCE_SLIDERS_READ,
       },
     ],
   },
