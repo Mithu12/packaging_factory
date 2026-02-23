@@ -53,6 +53,7 @@ interface EditProductFormData {
   service_time: string
   notes: string
   currentImage: string
+  pv: string
 }
 
 export default function EditProduct() {
@@ -99,6 +100,7 @@ export default function EditProduct() {
     service_time: "",
     notes: "",
       currentImage: PLACEHOLDER_IMAGE,
+    pv: "0",
   })
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -184,7 +186,8 @@ export default function EditProduct() {
           warranty_period: productData.warranty_period?.toString() || "",
           service_time: productData.service_time?.toString() || "",
           notes: productData.notes || "",
-          currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE
+          currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE,
+          pv: productData.pv?.toString() || "0"
         })
 
         // Fetch subcategories for the selected category
@@ -298,7 +301,8 @@ export default function EditProduct() {
         tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
         warranty_period: formData.warranty_period ? parseInt(formData.warranty_period) : undefined,
         service_time: formData.service_time ? parseInt(formData.service_time) : undefined,
-        notes: formData.notes || undefined
+        notes: formData.notes || undefined,
+        pv: formData.pv ? parseFloat(formData.pv) : undefined
       }
 
       // Use the new API method that supports image upload
@@ -654,6 +658,21 @@ export default function EditProduct() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Leave empty to use selling price for wholesale customers
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pv">PV (Personal Volume)</Label>
+                  <Input
+                    id="pv"
+                    type="number"
+                    step="0.01"
+                    value={formData.pv}
+                    onChange={(e) => handleInputChange("pv", e.target.value)}
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Loyalty points earned for this product
                   </p>
                 </div>
                 

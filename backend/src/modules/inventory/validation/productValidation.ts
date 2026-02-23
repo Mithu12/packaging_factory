@@ -29,6 +29,7 @@ export const createProductSchema = Joi.object({
   reorder_quantity: Joi.number().min(0).optional().allow(null),
   notes: Joi.string().max(1000).optional().allow(null, ""),
   image_url: Joi.string().max(500).optional().allow(null, ""),
+  pv: Joi.number().min(0).precision(2).optional().default(0),
 });
 
 export const updateProductSchema = Joi.object({
@@ -59,6 +60,7 @@ export const updateProductSchema = Joi.object({
   reorder_quantity: Joi.number().min(0).optional().allow(null),
   notes: Joi.string().max(1000).optional().allow(null, ""),
   image_url: Joi.string().max(500).optional().allow(null, ""),
+  pv: Joi.number().min(0).precision(2).optional(),
 });
 
 export const productQuerySchema = Joi.object({

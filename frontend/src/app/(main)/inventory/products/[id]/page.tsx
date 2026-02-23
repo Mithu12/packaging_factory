@@ -669,6 +669,10 @@ export default function ProductDetails() {
                   <span className="font-medium">{formatCurrency(product.wholesale_price)}</span>
                 </div>
               )}
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">PV (Personal Volume)</span>
+                <span className="font-medium">{product.pv || 0}</span>
+              </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Profit Margin</span>

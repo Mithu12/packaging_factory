@@ -221,6 +221,7 @@ export interface Product {
   origin_name?: string;
   notes?: string;
   image_url?: string;
+  pv?: number;
   category_name?: string;
   created_at: string;
   updated_at: string;
@@ -273,6 +274,7 @@ export interface CreateProductRequest {
   warranty_period?: number;
   service_time?: number;
   notes?: string;
+  pv?: number;
   image_url?: string;
 }
 
@@ -299,6 +301,7 @@ export interface UpdateProductRequest {
   dimensions?: string;
   tax_rate?: number;
   notes?: string;
+  pv?: number;
   image_url?: string;
 }
 

@@ -27,6 +27,7 @@ export interface Product {
   reorder_quantity?: number;
   notes?: string;
   image_url?: string;
+  pv?: number;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -64,6 +65,7 @@ export interface CreateProductRequest {
   reorder_quantity?: number;
   notes?: string;
   image_url?: string;
+  pv?: number;
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> { }

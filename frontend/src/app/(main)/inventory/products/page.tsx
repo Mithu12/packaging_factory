@@ -310,6 +310,7 @@ export default function Products() {
                   <TableHead>Category</TableHead>
                   <TableHead>Stock Status</TableHead>
                   <TableHead>Price</TableHead>
+                  <TableHead>PV</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
@@ -368,6 +369,11 @@ export default function Products() {
                           <div className="text-xs text-muted-foreground mt-1">
                             Cost: {formatCurrency(product.cost_price)}
                           </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-sm">
+                          {product.pv || 0}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

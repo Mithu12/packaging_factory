@@ -69,6 +69,7 @@ interface ProductFormData {
   warranty_period: string;
   service_time: string;
   notes: string;
+  pv: string;
 }
 
 export function AddProductForm({
@@ -101,6 +102,7 @@ export function AddProductForm({
     warranty_period: "",
     service_time: "",
     notes: "",
+    pv: "0",
   });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -313,6 +315,7 @@ export function AddProductForm({
           ? parseInt(formData.service_time)
           : undefined,
         notes: formData.notes || undefined,
+        pv: formData.pv ? parseFloat(formData.pv) : undefined,
       };
 
       // Use the new API method that supports image upload
@@ -352,6 +355,7 @@ export function AddProductForm({
         warranty_period: "",
         service_time: "",
         notes: "",
+        pv: "0",
       });
       setSelectedImage(null);
       setImagePreview("");
@@ -741,6 +745,26 @@ export function AddProductForm({
                   />
                   <p className="text-xs text-muted-foreground">
                     Leave empty to use selling price for wholesale customers
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pv">PV (Personal Volume)</Label>
+                  <Input
+                    id="pv"
+                    data-testid="add-product-pv"
+                    type="number"
+                    step="0.01"
+                    value={formData.pv}
+                    onChange={(e) =>
+                      handleInputChange("pv", e.target.value)
+                    }
+                    placeholder="0.00"
+                    className={getFieldErrorClass("pv")}
+                    aria-invalid={hasFieldError("pv")}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Loyalty points earned for this product
                   </p>
                 </div>
               </div>
