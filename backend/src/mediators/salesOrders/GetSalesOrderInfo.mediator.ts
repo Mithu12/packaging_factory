@@ -114,6 +114,7 @@ export class GetSalesOrderInfoMediator {
                     so.change_given,
                     so.cashier_id,
                     so.notes,
+                    so.loyalty_points_earned,
                     so.created_at,
                     so.updated_at,
                     c.name as customer_name,
@@ -180,6 +181,7 @@ export class GetSalesOrderInfoMediator {
                     so.change_given,
                     so.cashier_id,
                     so.notes,
+                    so.loyalty_points_earned,
                     so.created_at,
                     so.updated_at,
                     c.name as customer_name,
@@ -352,6 +354,7 @@ export class GetSalesOrderInfoMediator {
                     so.payment_status,
                     so.total_amount,
                     so.distribution_center_id,
+                    so.loyalty_points_earned,
                     c.name as customer_name,
                     dc.name as center_name,
                     dc.code as center_code

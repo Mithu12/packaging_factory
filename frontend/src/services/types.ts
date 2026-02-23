@@ -900,6 +900,7 @@ export interface SalesOrder {
   product_count?: number;
   center_name?: string;
   center_code?: string;
+  loyalty_points_earned?: number;
 }
 
 export interface SalesOrderLineItem {

@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { SalesOrder, UpdateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
 import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegrationService';
+import { LoyaltyService } from '@/services/loyaltyService';
 
 export class UpdateSalesOrderInfoMediator {
     static async updateSalesOrder(id: number, data: UpdateSalesOrderRequest): Promise<SalesOrder> {
@@ -13,6 +14,10 @@ export class UpdateSalesOrderInfoMediator {
             
             try {
                 await client.query('BEGIN');
+
+                // Get current status to check for transition
+                const currentOrderResult = await client.query('SELECT status FROM sales_orders WHERE id = $1', [id]);
+                const currentStatus = currentOrderResult.rows[0]?.status;
 
                 // Build dynamic update query
                 const updateFields: string[] = [];
@@ -49,6 +54,12 @@ export class UpdateSalesOrderInfoMediator {
                 }
 
                 const salesOrder = result.rows[0];
+
+                // Award loyalty points if status changed to completed
+                if (data.status === 'completed' && currentStatus !== 'completed') {
+                    await LoyaltyService.awardLoyaltyPointsFromOrder(id, client);
+                }
+
                 await client.query('COMMIT');
 
                 MyLogger.success(action, { 

@@ -2,6 +2,7 @@ import pool from '@/database/connection';
 import { SalesOrder, CreateSalesOrderRequest } from '@/types/pos';
 import { MyLogger } from '@/utils/new-logger';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { LoyaltyService } from '@/services/loyaltyService';
 
 export class AddSalesOrderMediator {
     static async createSalesOrder(data: CreateSalesOrderRequest): Promise<SalesOrder> {
@@ -124,9 +125,10 @@ export class AddSalesOrderMediator {
                         cash_received,
                         due_amount,
                         change_given,
-                        notes
+                        notes,
+                        loyalty_points_earned
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
                     ) RETURNING *
                 `;
 
@@ -145,7 +147,8 @@ export class AddSalesOrderMediator {
                     data.cash_received || 0,
                     data.due_amount || 0,
                     changeGiven,
-                    data.notes || null
+                    data.notes || null,
+                    data.loyalty_points_earned || LoyaltyService.calculatePoints(totalAmount)
                 ];
 
                 const orderResult = await client.query(insertOrderQuery, orderValues);
@@ -398,6 +401,11 @@ export class AddSalesOrderMediator {
                     totalAmount: salesOrder.total_amount
                 });
 
+                // Award loyalty points if order is completed
+                if (salesOrder.status === 'completed') {
+                    await LoyaltyService.awardLoyaltyPointsFromOrder(salesOrder.id, client);
+                }
+ 
                 // Trigger accounts integration for POS cases where order is created as completed
                 try {
                     if (salesOrder.status === 'completed' && !salesOrder.voucher_id) {

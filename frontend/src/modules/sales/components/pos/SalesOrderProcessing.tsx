@@ -524,7 +524,7 @@ export function SalesOrderProcessing() {
       default: return "secondary"
     }
   }
-
+console.log(selectedOrder)
   return (
     <div className="space-y-6">
       <Card>
@@ -965,6 +965,12 @@ export function SalesOrderProcessing() {
                       <span>Total:</span>
                       <span>{formatCurrency(selectedOrder.total_amount)}</span>
                     </div>
+                    {selectedOrderDetails.loyalty_points_earned !== undefined && selectedOrderDetails.loyalty_points_earned > 0 && (
+                      <div className="flex justify-between text-sm text-green-600 font-medium border-t border-dashed pt-2 mt-2">
+                        <span>Loyalty Points Earned:</span>
+                        <span>{selectedOrderDetails.loyalty_points_earned} pts</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
