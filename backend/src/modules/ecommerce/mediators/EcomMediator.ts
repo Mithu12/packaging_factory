@@ -2,6 +2,7 @@ import pool from "@/database/connection";
 import { EcommerceSlider, CreateSliderRequest, UpdateSliderRequest } from "@/types/ecommerce";
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
+import { deleteSliderImage } from "@/utils/file-utils";
 
 class EcomMediator {
   private async getClient() {
@@ -121,6 +122,15 @@ class EcomMediator {
           return await this.getSliderById(id);
         }
 
+        // --- Image Cleanup Logic ---
+        if (data.image_url !== undefined) {
+          const oldSlider = await this.getSliderById(id);
+          if (oldSlider.image_url && oldSlider.image_url !== data.image_url) {
+            await deleteSliderImage(oldSlider.image_url);
+          }
+        }
+        // ---------------------------
+
         fields.push(`updated_at = CURRENT_TIMESTAMP`);
         values.push(id);
 
@@ -151,6 +161,13 @@ class EcomMediator {
       MyLogger.info(action, { id });
       const client = await this.getClient();
       try {
+        // --- Image Cleanup Logic ---
+        const slider = await this.getSliderById(id);
+        if (slider.image_url) {
+          await deleteSliderImage(slider.image_url);
+        }
+        // ---------------------------
+
         const query = "DELETE FROM ecommerce_sliders WHERE id = $1";
         const result = await client.query(query, [id]);
         if (result.rowCount === 0) {

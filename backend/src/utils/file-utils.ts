@@ -70,3 +70,46 @@ export async function deleteProductImage(imageUrl: string | null | undefined): P
     return false;
   }
 }
+
+/**
+ * Delete an ecommerce slider image file
+ * @param imageUrl - The image URL or path (e.g., "/uploads/ecommerce/sliders/filename.png")
+ * @returns Promise<boolean> - true if file was deleted successfully
+ */
+export async function deleteSliderImage(imageUrl: string | null | undefined): Promise<boolean> {
+  if (!imageUrl) {
+    return true; // No image to delete
+  }
+
+  try {
+    // Extract filename from URL
+    let filename: string;
+    
+    if (imageUrl.startsWith('/uploads/ecommerce/sliders/')) {
+      filename = path.basename(imageUrl);
+    } else if (imageUrl.includes('/uploads/ecommerce/sliders/')) {
+      const urlParts = imageUrl.split('/uploads/ecommerce/sliders/');
+      filename = urlParts[1];
+    } else {
+      filename = path.basename(imageUrl);
+    }
+
+    // Construct full file path
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'ecommerce', 'sliders');
+    const fullPath = path.join(uploadsDir, filename);
+
+    MyLogger.info('Attempting to delete slider image', { 
+      imageUrl, 
+      filename, 
+      fullPath 
+    });
+
+    return await deleteFile(fullPath);
+  } catch (error) {
+    MyLogger.error('Error in deleteSliderImage', { 
+      imageUrl, 
+      error: error instanceof Error ? error.message : error 
+    });
+    return false;
+  }
+}
