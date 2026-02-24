@@ -137,6 +137,19 @@ router.post(
 );
 
 /**
+ * @route POST /api/accounts/chart-of-accounts/generate-cc-accounts
+ * @desc Auto-generate CC-specific accounts for active DCs
+ * @access Finance Create Permission
+ */
+router.post(
+  "/generate-cc-accounts",
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.CHART_OF_ACCOUNTS_CREATE),
+  expressAsyncHandler(ChartOfAccountsController.generateCcAccounts)
+);
+
+/**
  * @route PUT /api/accounts/chart-of-accounts/:id
  * @desc Update chart of account
  * @access Finance Update Permission

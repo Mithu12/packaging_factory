@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GetIncomeStatementMediator } from '@/modules/accounts/mediators/reports/GetIncomeStatement.mediator';
 import { GetBalanceSheetMediator } from '@/modules/accounts/mediators/reports/GetBalanceSheet.mediator';
+import GetCcAccountSummaryMediator from '@/modules/accounts/mediators/reports/GetCcAccountSummary.mediator';
 import { IncomeStatementQueryParams, BalanceSheetQueryParams } from '@/types/accounts';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
@@ -53,6 +54,19 @@ export class ReportsController {
       serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error: any) {
       MyLogger.error(action, error, { query: req.query });
+      throw error;
+    }
+  }
+
+  static async getCcAccountSummary(req: Request, res: Response): Promise<void> {
+    const action = 'GET /api/accounts/reports/cc-summary';
+    try {
+      MyLogger.info(action);
+      const result = await GetCcAccountSummaryMediator.process(req.query);
+      MyLogger.success(action, { ccCount: result.length });
+      serializeSuccessResponse(res, result, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error);
       throw error;
     }
   }

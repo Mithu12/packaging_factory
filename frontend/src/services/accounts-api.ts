@@ -83,6 +83,8 @@ export interface ChartOfAccount {
   children?: ChartOfAccount[];
   groupName?: string;
   parentName?: string;
+  costCenterId?: number;
+  costCenterName?: string;
 }
 
 export interface CreateChartOfAccountRequest {
@@ -117,9 +119,37 @@ export interface ChartOfAccountQueryParams {
   type?: AccountNodeType;
   status?: AccountStatus;
   groupId?: number;
+  costCenterId?: number;
   parentId?: number;
   sortBy?: 'id' | 'name' | 'code' | 'category' | 'type' | 'balance' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
+}
+
+export interface GenerateCcAccountsResponse {
+  message: string;
+  createdCount: number;
+  convertedToControl: number;
+}
+
+export interface CcAccountSummary {
+  costCenterId: number;
+  costCenterName: string;
+  costCenterCode: string;
+  accounts: Array<{
+    id: number;
+    name: string;
+    code: string;
+    category: AccountCategory;
+    balance: number;
+    currency: string;
+  }>;
+  totals: {
+    assets: number;
+    liabilities: number;
+    equity: number;
+    revenue: number;
+    expenses: number;
+  };
 }
 
 // =====================================================
@@ -346,6 +376,14 @@ export class ChartOfAccountsApiService {
   static async activateChartOfAccount(id: number): Promise<void> {
     await makeRequest<void>(`${this.BASE_URL}/${id}/activate`, {
       method: 'PUT',
+    });
+  }
+
+  // Auto-generate CC-specific accounts
+  static async generateCcAccounts(costCenterId?: number): Promise<GenerateCcAccountsResponse> {
+    return makeRequest<GenerateCcAccountsResponse>(`${this.BASE_URL}/generate-cc-accounts`, {
+      method: 'POST',
+      body: JSON.stringify({ costCenterId }),
     });
   }
 }
@@ -795,6 +833,11 @@ export class ReportsApiService {
     const url = queryString ? `${this.BASE_URL}/balance-sheet?${queryString}` : `${this.BASE_URL}/balance-sheet`;
     
     return makeRequest<BalanceSheetResponse>(url, { method: 'GET' });
+  }
+
+  // Get CC-wise account summary
+  static async getCcSummary(): Promise<CcAccountSummary[]> {
+    return makeRequest<CcAccountSummary[]>(`${this.BASE_URL}/cc-summary`, { method: 'GET' });
   }
 }
 

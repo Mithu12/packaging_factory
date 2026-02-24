@@ -25,6 +25,7 @@ export interface PurchaseOrderAccountingData {
     unitPrice: number;
     totalPrice: number;
   }>;
+  distributionCenterId?: number;
 }
 
 export interface StockAdjustmentAccountingData {
@@ -40,6 +41,7 @@ export interface StockAdjustmentAccountingData {
   reference?: string;
   notes?: string;
   adjustmentDate: string;
+  distributionCenterId?: number;
 }
 
 export interface StockTransferAccountingData {
@@ -114,8 +116,15 @@ class InventoryAccountsIntegrationService {
       }
 
       // Get required accounts
-      const inventoryAccount = await this.getDefaultAccount('inventory');
-      const accountsPayableAccount = await this.getDefaultAccount('accounts_payable');
+      // Resolve cost center for the DC (Inventory is location-specific)
+      let costCenterId = undefined;
+      if (purchaseOrderData.distributionCenterId) {
+        costCenterId = await this.getDcCostCenter(purchaseOrderData.distributionCenterId);
+      }
+
+      // Get required accounts
+      const inventoryAccount = await this.getDefaultAccount('inventory', costCenterId);
+      const accountsPayableAccount = await this.getDefaultAccount('accounts_payable', costCenterId);
 
       if (!inventoryAccount || !accountsPayableAccount) {
         return {
@@ -140,18 +149,21 @@ class InventoryAccountsIntegrationService {
         amount: totalInventoryValue,
         currency: purchaseOrderData.currency,
         narration: `Purchase Order Receipt - ${purchaseOrderData.poNumber} from ${purchaseOrderData.supplierName} - Received ${purchaseOrderData.lineItems.length} items`,
+        costCenterId: costCenterId,
         lines: [
           {
             accountId: inventoryAccount.id,
             debit: totalInventoryValue,
             credit: 0,
-            description: `Inventory increase - ${purchaseOrderData.poNumber}`
+            description: `Inventory increase - ${purchaseOrderData.poNumber}`,
+            costCenterId
           },
           {
             accountId: accountsPayableAccount.id,
             debit: 0,
             credit: totalInventoryValue,
-            description: `Accounts Payable - ${purchaseOrderData.poNumber}`
+            description: `Accounts Payable - ${purchaseOrderData.poNumber}`,
+            costCenterId
           }
         ]
       };
@@ -220,9 +232,15 @@ class InventoryAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
       }
 
+      // Resolve cost center
+      let costCenterId = undefined;
+      if (adjustmentData.distributionCenterId) {
+        costCenterId = await this.getDcCostCenter(adjustmentData.distributionCenterId);
+      }
+
       // Get required accounts
-      const inventoryAccount = await this.getDefaultAccount('inventory');
-      const inventoryAdjustmentAccount = await this.getDefaultAccount('inventory_adjustment');
+      const inventoryAccount = await this.getDefaultAccount('inventory', costCenterId);
+      const inventoryAdjustmentAccount = await this.getDefaultAccount('inventory_adjustment', costCenterId);
 
       if (!inventoryAccount || !inventoryAdjustmentAccount) {
         return {
@@ -339,7 +357,8 @@ class InventoryAccountsIntegrationService {
         payee: 'Stock Adjustment',
         amount: totalDebits,
         narration: `Stock Adjustment - ${adjustmentData.productName} (${adjustmentData.adjustmentType}) - ${adjustmentData.reason}${adjustmentData.notes ? ` - ${adjustmentData.notes}` : ''}`,
-        lines
+        costCenterId,
+        lines: lines.map(line => ({ ...line, costCenterId }))
       };
 
       const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
@@ -402,10 +421,16 @@ class InventoryAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
       }
 
-      // Get Inventory Account
-      const inventoryAccount = await this.getDefaultAccount('inventory');
-      if (!inventoryAccount) {
-        return { voucherId: 0, voucherNo: '', success: false, error: 'Inventory account not configured' };
+      // Resolve cost centers
+      const toCostCenterId = await this.getDcCostCenter(transferData.toCenterId);
+      const fromCostCenterId = transferData.fromCenterId ? await this.getDcCostCenter(transferData.fromCenterId) : undefined;
+
+      // Get Inventory Accounts for each center
+      const toInventoryAccount = await this.getDefaultAccount('inventory', toCostCenterId);
+      const fromInventoryAccount = await this.getDefaultAccount('inventory', fromCostCenterId);
+
+      if (!toInventoryAccount || !fromInventoryAccount) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Required inventory accounts not configured' };
       }
 
       // Use actual cost if available, otherwise fallback to $1 for demo
@@ -420,18 +445,18 @@ class InventoryAccountsIntegrationService {
         narration: `Internal Transfer - ${transferData.transferNumber}: ${transferData.productName} (${transferData.quantity} units) from ${transferData.fromCenterName || 'Source'} to ${transferData.toCenterName}`,
         lines: [
           {
-            accountId: inventoryAccount.id,
+            accountId: toInventoryAccount.id,
             debit: totalValue,
             credit: 0,
             description: `Stock In - ${transferData.toCenterName}`,
-            costCenterId: await this.getDcCostCenter(transferData.toCenterId)
+            costCenterId: toCostCenterId
           },
           {
-            accountId: inventoryAccount.id,
+            accountId: fromInventoryAccount.id,
             debit: 0,
             credit: totalValue,
             description: `Stock Out - ${transferData.fromCenterName || 'Source'}`,
-            costCenterId: transferData.fromCenterId ? await this.getDcCostCenter(transferData.fromCenterId) : undefined
+            costCenterId: fromCostCenterId
           }
         ]
       };
@@ -478,6 +503,8 @@ class InventoryAccountsIntegrationService {
 
       const apAccount = await this.getDefaultAccount('accounts_payable');
       const cashAccount = await this.getDefaultAccount('cash');
+      // Supplier payments usually happen at head office, so CC is often central.
+      // But if we have a DC context for the payment, we should use it.
 
       if (!apAccount || !cashAccount) {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts not configured' };
@@ -527,8 +554,8 @@ class InventoryAccountsIntegrationService {
    */
   private async getDcCostCenter(dcId: number): Promise<number | undefined> {
     try {
-      const result = await pool.query('SELECT accounting_cost_center_id FROM distribution_centers WHERE id = $1', [dcId]);
-      return result.rows[0]?.accounting_cost_center_id || undefined;
+      const result = await pool.query('SELECT cost_center_id FROM distribution_centers WHERE id = $1', [dcId]);
+      return result.rows[0]?.cost_center_id || undefined;
     } catch (error) {
       return undefined;
     }
@@ -537,7 +564,7 @@ class InventoryAccountsIntegrationService {
   /**
    * Get default account by type for inventory operations
    */
-  private async getDefaultAccount(accountType: string): Promise<any> {
+  private async getDefaultAccount(accountType: string, costCenterId?: number): Promise<any> {
     if (!this.isAccountsAvailable()) return null;
 
     try {
@@ -568,12 +595,24 @@ class InventoryAccountsIntegrationService {
           return null;
       }
 
-      const accounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+      const ccParams: any = {
         category,
         status: 'Active',
         search: searchTerm,
         limit: 1
-      });
+      };
+
+      // 1. Try to find CC-specific account
+      if (costCenterId) {
+        const ccAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          ...ccParams,
+          costCenterId
+        });
+        if (ccAccounts.data?.[0]) return ccAccounts.data[0];
+      }
+
+      // 2. Fall back to central account
+      const accounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList(ccParams);
 
       return accounts.data?.[0] || null;
 

@@ -29,6 +29,7 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
         status,
         groupId,
         parentId,
+        costCenterId,
         sortBy = "id",
         sortOrder = "asc",
       } = params;
@@ -81,6 +82,16 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
         }
       }
 
+      if (costCenterId !== undefined) {
+        if (costCenterId === null) {
+          whereConditions.push(`coa.cost_center_id IS NULL`);
+        } else {
+          whereConditions.push(`coa.cost_center_id = $${paramIndex}`);
+          queryParams.push(costCenterId);
+          paramIndex++;
+        }
+      }
+
       const whereClause =
         whereConditions.length > 0
           ? `WHERE ${whereConditions.join(" AND ")}`
@@ -105,12 +116,15 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
           coa.currency,
           coa.status,
           coa.notes,
+          coa.cost_center_id as "costCenterId",
           coa.created_at as "createdAt",
           coa.updated_at as "updatedAt",
           ag.name as "groupName",
+          cc.name as "costCenterName",
           parent.name as "parentName"
         FROM chart_of_accounts coa
         LEFT JOIN account_groups ag ON coa.group_id = ag.id
+        LEFT JOIN cost_centers cc ON coa.cost_center_id = cc.id
         LEFT JOIN chart_of_accounts parent ON coa.parent_id = parent.id
         ${whereClause}
         ORDER BY ${
@@ -167,12 +181,15 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
           coa.currency,
           coa.status,
           coa.notes,
+          coa.cost_center_id as "costCenterId",
           coa.created_at as "createdAt",
           coa.updated_at as "updatedAt",
           ag.name as "groupName",
+          cc.name as "costCenterName",
           parent.name as "parentName"
         FROM chart_of_accounts coa
         LEFT JOIN account_groups ag ON coa.group_id = ag.id
+        LEFT JOIN cost_centers cc ON coa.cost_center_id = cc.id
         LEFT JOIN chart_of_accounts parent ON coa.parent_id = parent.id
         WHERE coa.id = $1`,
         [id]
@@ -202,11 +219,14 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
           coa.currency,
           coa.status,
           coa.notes,
+          coa.cost_center_id as "costCenterId",
           coa.created_at as "createdAt",
           coa.updated_at as "updatedAt",
-          ag.name as "groupName"
+          ag.name as "groupName",
+          cc.name as "costCenterName"
         FROM chart_of_accounts coa
         LEFT JOIN account_groups ag ON coa.group_id = ag.id
+        LEFT JOIN cost_centers cc ON coa.cost_center_id = cc.id
         WHERE coa.parent_id = $1 ORDER BY coa.name`,
         [id]
       );
@@ -248,11 +268,14 @@ class GetChartOfAccountInfoMediator implements MediatorInterface {
           coa.currency,
           coa.status,
           coa.notes,
+          coa.cost_center_id as "costCenterId",
           coa.created_at as "createdAt",
           coa.updated_at as "updatedAt",
-          ag.name as "groupName"
+          ag.name as "groupName",
+          cc.name as "costCenterName"
         FROM chart_of_accounts coa
         LEFT JOIN account_groups ag ON coa.group_id = ag.id
+        LEFT JOIN cost_centers cc ON coa.cost_center_id = cc.id
         ORDER BY coa.category, coa.parent_id NULLS FIRST, coa.name`
       );
 

@@ -450,6 +450,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.COST_CENTER_LEDGER_READ,
       },
       {
+        title: "DC Accounts",
+        url: "/accounts/dc-wise",
+        icon: Building2,
+        permission: PERMISSIONS.BALANCE_SHEET_READ,
+      },
+      {
         title: "Income Statement",
         url: "/accounts/income-statement",
         icon: LineChart,

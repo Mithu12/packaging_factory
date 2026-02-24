@@ -71,8 +71,11 @@ class AccountsIntegrationService {
         expenseId: expenseData.expenseId
       });
       
-      const expenseAccount = await this.getDefaultExpenseAccount(expenseData.categoryName);
-      const cashAccount = await this.getDefaultCashAccount();
+      // Resolve cost center if possible (e.g. from department mapping or passed in)
+      const costCenterId = undefined; // Expenses might have CC in a real scenario
+
+      const expenseAccount = await this.getDefaultExpenseAccount(expenseData.categoryName, costCenterId);
+      const cashAccount = await this.getDefaultCashAccount(costCenterId);
 
       MyLogger.info(action, { 
         message: 'Retrieved accounts',
@@ -105,18 +108,21 @@ class AccountsIntegrationService {
         amount: expenseData.amount,
         currency: expenseData.currency,
         narration: `Expense: ${expenseData.title}${expenseData.notes ? ` - ${expenseData.notes}` : ''}`,
+        costCenterId: costCenterId,
         lines: [
           {
             accountId: expenseAccount.id,
             debit: expenseData.amount,
             credit: 0,
-            description: expenseData.title
+            description: expenseData.title,
+            costCenterId
           },
           {
             accountId: cashAccount.id,
             debit: 0,
             credit: expenseData.amount,
-            description: `Payment for ${expenseData.title}`
+            description: `Payment for ${expenseData.title}`,
+            costCenterId
           }
         ]
       };
@@ -155,7 +161,7 @@ class AccountsIntegrationService {
   /**
    * Get default expense account for a category
    */
-  private async getDefaultExpenseAccount(categoryName: string): Promise<any> {
+  private async getDefaultExpenseAccount(categoryName: string, costCenterId?: number): Promise<any> {
     if (!this.isAccountsAvailable()) return null;
 
     try {
@@ -169,12 +175,24 @@ class AccountsIntegrationService {
 
       // Try to find an expense account that matches the category
       // This is a simplified approach - in practice, you might have a mapping table
-      const accounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+      const params: any = {
         category: 'Expenses',
         status: 'Active',
         search: categoryName,
         limit: 1
-      });
+      };
+
+      // 1. Try CC-specific account
+      if (costCenterId) {
+        const ccRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          ...params,
+          costCenterId
+        });
+        if (ccRes?.data?.[0]) return ccRes.data[0];
+      }
+
+      // 2. Fall back to central
+      const accounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList(params);
 
       MyLogger.info('Get Default Expense Account', { 
         categoryName,
@@ -192,12 +210,22 @@ class AccountsIntegrationService {
         message: 'No specific category account found, trying general expense account'
       });
 
-      const generalExpenseAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+      const genParams: any = {
         category: 'Expenses',
         status: 'Active',
         search: 'General',
         limit: 1
-      });
+      };
+
+      if (costCenterId) {
+        const genCcRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          ...genParams,
+          costCenterId
+        });
+        if (genCcRes?.data?.[0]) return genCcRes.data[0];
+      }
+
+      const generalExpenseAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList(genParams);
 
       MyLogger.info('Get Default Expense Account', { 
         categoryName,
@@ -216,7 +244,7 @@ class AccountsIntegrationService {
   /**
    * Get default cash account
    */
-  private async getDefaultCashAccount(): Promise<any> {
+  private async getDefaultCashAccount(costCenterId?: number): Promise<any> {
     if (!this.isAccountsAvailable()) return null;
 
     try {
@@ -227,12 +255,22 @@ class AccountsIntegrationService {
         searching: 'Assets category cash accounts'
       });
 
-      const cashAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+      const cashParams: any = {
         category: 'Assets',
         status: 'Active',
         search: 'Cash',
         limit: 1
-      });
+      };
+
+      if (costCenterId) {
+        const cashCcRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          ...cashParams,
+          costCenterId
+        });
+        if (cashCcRes?.data?.[0]) return cashCcRes.data[0];
+      }
+
+      const cashAccounts = await accountsServices.chartOfAccountsMediator.getChartOfAccountList(cashParams);
 
       MyLogger.info('Get Default Cash Account', { 
         foundAccounts: cashAccounts.data?.length || 0,

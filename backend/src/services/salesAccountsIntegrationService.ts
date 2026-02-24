@@ -65,10 +65,19 @@ class SalesAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
       }
 
-      const cashAccount = await this.findAccount('Assets', 'Cash');
-      const receivableAccount = await this.findAccount('Assets', 'Receivable');
-      const revenueAccount = await this.findAccount('Revenue', 'Sales Revenue');
-      const taxPayableAccount = await this.findAccount('Liabilities', 'Tax Payable');
+      let costCenterId = undefined;
+      if (order.distribution_center_id) {
+        const dcResult = await pool.query(
+          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
+          [order.distribution_center_id]
+        );
+        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
+      }
+
+      const cashAccount = await this.findAccount('Assets', 'Cash', costCenterId);
+      const receivableAccount = await this.findAccount('Assets', 'Receivable', costCenterId);
+      const revenueAccount = await this.findAccount('Revenue', 'Sales Revenue', costCenterId);
+      const taxPayableAccount = await this.findAccount('Liabilities', 'Tax Payable', costCenterId);
 
       if (!revenueAccount || (!cashAccount && !receivableAccount)) {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Required accounts not configured' };
@@ -99,14 +108,7 @@ class SalesAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Voucher lines not balanced' };
       }
       
-      let costCenterId = undefined;
-      if (order.distribution_center_id) {
-        const dcResult = await pool.query(
-          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
-          [order.distribution_center_id]
-        );
-        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
-      }
+      // costCenterId already resolved above
 
       const voucherData = {
         type: VoucherType.JOURNAL,
@@ -177,8 +179,17 @@ class SalesAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
       }
 
-      const cashAccount = await this.findAccount('Assets', 'Cash');
-      const receivableAccount = await this.findAccount('Assets', 'Receivable');
+      let costCenterId = undefined;
+      if (payment.distribution_center_id) {
+        const dcResult = await pool.query(
+          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
+          [payment.distribution_center_id]
+        );
+        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
+      }
+
+      const cashAccount = await this.findAccount('Assets', 'Cash', costCenterId);
+      const receivableAccount = await this.findAccount('Assets', 'Receivable', costCenterId);
 
       if (!cashAccount || !receivableAccount) {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Required accounts (Cash/Receivable) not configured' };
@@ -199,14 +210,7 @@ class SalesAccountsIntegrationService {
         }
       ];
 
-      let costCenterId = undefined;
-      if (payment.distribution_center_id) {
-        const dcResult = await pool.query(
-          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
-          [payment.distribution_center_id]
-        );
-        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
-      }
+      // costCenterId already resolved above
 
       const voucherData = {
         type: VoucherType.RECEIPT,
@@ -296,10 +300,24 @@ class SalesAccountsIntegrationService {
     }
   }
 
-  private async findAccount(category: string, search: string): Promise<any | null> {
+  private async findAccount(category: string, search: string, costCenterId?: number): Promise<any | null> {
     try {
       const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
       if (!accountsServices?.chartOfAccountsMediator) return null;
+      
+      // 1. Try to find CC-specific account
+      if (costCenterId) {
+        const ccRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          category,
+          status: 'Active',
+          search,
+          costCenterId,
+          limit: 1,
+        });
+        if (ccRes?.data?.[0]) return ccRes.data[0];
+      }
+
+      // 2. Fall back to central account
       const res = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
         category,
         status: 'Active',
@@ -308,7 +326,7 @@ class SalesAccountsIntegrationService {
       });
       return res?.data?.[0] || null;
     } catch (err) {
-      MyLogger.error('Find Account', err, { category, search });
+      MyLogger.error('Find Account', err, { category, search, costCenterId });
       return null;
     }
   }

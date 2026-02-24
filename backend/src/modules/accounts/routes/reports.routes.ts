@@ -25,4 +25,11 @@ router.get(
   ReportsController.getBalanceSheet
 );
 
+// GET /api/accounts/reports/cc-summary - Get CC-wise account summary
+router.get(
+  "/cc-summary",
+  requirePermission(PERMISSIONS.BALANCE_SHEET_READ),
+  ReportsController.getCcAccountSummary
+);
+
 export default router;

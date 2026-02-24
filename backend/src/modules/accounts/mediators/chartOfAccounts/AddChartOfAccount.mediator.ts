@@ -93,8 +93,9 @@ class AddChartOfAccountMediator implements MediatorInterface {
           balance,
           currency,
           status,
-          notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          notes,
+          cost_center_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING 
           id,
           name,
@@ -107,6 +108,7 @@ class AddChartOfAccountMediator implements MediatorInterface {
           currency,
           status,
           notes,
+          cost_center_id as "costCenterId",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `;
@@ -122,6 +124,7 @@ class AddChartOfAccountMediator implements MediatorInterface {
         data.currency || 'USD',
         data.status || 'Active',
         data.notes || null,
+        data.costCenterId || null,
       ]);
 
       await client.query('COMMIT');

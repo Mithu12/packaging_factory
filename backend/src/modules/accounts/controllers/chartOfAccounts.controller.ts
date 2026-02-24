@@ -3,6 +3,7 @@ import GetChartOfAccountInfoMediator from "../mediators/chartOfAccounts/GetChart
 import AddChartOfAccountMediator from "../mediators/chartOfAccounts/AddChartOfAccount.mediator";
 import UpdateChartOfAccountInfoMediator from "../mediators/chartOfAccounts/UpdateChartOfAccountInfo.mediator";
 import DeleteChartOfAccountMediator from "../mediators/chartOfAccounts/DeleteChartOfAccount.mediator";
+import GenerateCcAccountsMediator from "../mediators/chartOfAccounts/GenerateCcAccounts.mediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
 
@@ -166,6 +167,23 @@ class ChartOfAccountsController {
       serializeSuccessResponse(res, {}, "Chart of account activated successfully");
     } catch (error: any) {
       MyLogger.error(action, error, { accountId: req.params.id });
+      throw error;
+    }
+  }
+
+  async generateCcAccounts(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    let action = "POST /api/accounts/chart-of-accounts/generate-cc-accounts";
+    try {
+      MyLogger.info(action, { body: req.body });
+      const result = await GenerateCcAccountsMediator.process(req.body);
+      MyLogger.success(action, result);
+      serializeSuccessResponse(res, result, "CC-specific accounts generated successfully");
+    } catch (error: any) {
+      MyLogger.error(action, error, { body: req.body });
       throw error;
     }
   }

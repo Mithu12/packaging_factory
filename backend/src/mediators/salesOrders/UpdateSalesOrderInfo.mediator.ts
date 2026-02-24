@@ -85,6 +85,7 @@ export class UpdateSalesOrderInfoMediator {
                         change_given: Number(salesOrder.change_given) || 0,
                         due_amount: Number(salesOrder.due_amount) || 0,
                         voucher_id: salesOrder.voucher_id,
+                        distribution_center_id: salesOrder.distribution_center_id,
                         notes: salesOrder.notes,
                     };
 

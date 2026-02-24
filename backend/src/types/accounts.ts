@@ -94,6 +94,8 @@ export interface ChartOfAccount {
   children?: ChartOfAccount[];
   groupName?: string;
   parentName?: string;
+  costCenterId?: number;
+  costCenterName?: string;
 }
 
 export interface CreateChartOfAccountRequest {
@@ -106,6 +108,7 @@ export interface CreateChartOfAccountRequest {
   currency?: string;
   status?: AccountStatus;
   notes?: string;
+  costCenterId?: number;
 }
 
 export interface UpdateChartOfAccountRequest {
@@ -118,6 +121,7 @@ export interface UpdateChartOfAccountRequest {
   currency?: string;
   status?: AccountStatus;
   notes?: string;
+  costCenterId?: number;
 }
 
 export interface ChartOfAccountQueryParams {
@@ -129,6 +133,7 @@ export interface ChartOfAccountQueryParams {
   status?: AccountStatus;
   groupId?: number;
   parentId?: number;
+  costCenterId?: number;
   sortBy?: 'id' | 'name' | 'code' | 'category' | 'type' | 'balance' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
 }
