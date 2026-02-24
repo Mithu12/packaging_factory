@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
-import { ShoppingBag, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer, FileText, ChevronLeft, ChevronRight, Filter } from "lucide-react"
+import { ShoppingBag, Truck, Plus, Edit, Pause, Play, CheckCircle, XCircle, Search, Calculator, Printer, FileText, ChevronLeft, ChevronRight, Filter } from "lucide-react"
 import { SalesOrderApi, CustomerApi, ProductApi } from "@/services/api"
 import { SalesOrder, Customer, Product, SalesOrderWithDetails } from "@/services/types"
 import { DistributionApi, DistributionCenter } from "@/modules/inventory/services/distribution-api"
@@ -507,6 +507,7 @@ export function SalesOrderProcessing() {
     switch (status) {
       case "pending": return <ShoppingBag className="w-4 h-4" />
       case "processing": return <CheckCircle className="w-4 h-4" />
+      case "shipped": return <Truck className="w-4 h-4" />
       case "completed": return <CheckCircle className="w-4 h-4" />
       case "cancelled": return <XCircle className="w-4 h-4" />
       case "refunded": return <Pause className="w-4 h-4" />
@@ -518,6 +519,7 @@ export function SalesOrderProcessing() {
     switch (status) {
       case "pending": return "secondary"
       case "processing": return "default"
+      case "shipped": return "default"
       case "completed": return "default"
       case "cancelled": return "destructive"
       case "refunded": return "secondary"
@@ -708,6 +710,7 @@ console.log(selectedOrder)
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                   <SelectItem value="refunded">Refunded</SelectItem>
@@ -801,12 +804,17 @@ console.log(selectedOrder)
                         </Button>
                       )}
                       {(order.status === "pending" || order.status === "refunded") && (
-                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "processing")}>
+                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "processing")} title="Start Processing">
                           <CheckCircle className="w-3 h-3" />
                         </Button>
                       )}
                       {order.status === "processing" && (
-                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "completed")}>
+                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "shipped")} title="Ship Order">
+                          <Truck className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {order.status === "shipped" && (
+                        <Button variant="default" size="sm" onClick={() => updateOrderStatus(order.id.toString(), "completed")} title="Complete Order">
                           <CheckCircle className="w-3 h-3" />
                         </Button>
                       )}

@@ -75,7 +75,7 @@ export const createSalesOrderSchema = Joi.object({
 });
 
 export const updateSalesOrderSchema = Joi.object({
-  status: Joi.string().valid('pending', 'processing', 'completed', 'cancelled', 'refunded').optional(),
+  status: Joi.string().valid('pending', 'processing', 'shipped', 'completed', 'cancelled', 'refunded').optional(),
   payment_status: Joi.string().valid('pending', 'paid', 'partially_paid', 'refunded').optional(),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').optional(),
   cash_received: Joi.number().min(0).optional(),
@@ -89,7 +89,7 @@ export const salesOrderQuerySchema = Joi.object({
   search: Joi.string().optional(),
   customer_id: Joi.number().integer().positive().optional(),
   distribution_center_id: Joi.number().integer().positive().optional(),
-  status: Joi.string().valid('pending', 'processing', 'completed', 'cancelled', 'refunded').optional(),
+  status: Joi.string().valid('pending', 'processing', 'shipped', 'completed', 'cancelled', 'refunded').optional(),
   payment_status: Joi.string().valid('pending', 'paid', 'partially_paid', 'refunded').optional(),
   payment_method: Joi.string().valid('cash', 'card', 'credit', 'check', 'bank_transfer').optional(),
   start_date: Joi.date().optional(),

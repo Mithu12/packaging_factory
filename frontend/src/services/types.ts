@@ -879,7 +879,7 @@ export interface SalesOrder {
   customer_id?: number;
   distribution_center_id?: number;
   order_date: string;
-  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded';
+  status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'refunded';
   payment_status: 'pending' | 'paid' | 'partially_paid' | 'refunded';
   payment_method?: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   subtotal: number;
@@ -944,7 +944,7 @@ export interface CreateSalesOrderRequest {
 }
 
 export interface UpdateSalesOrderRequest {
-  status?: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded';
+  status?: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'refunded';
   payment_status?: 'pending' | 'paid' | 'partially_paid' | 'refunded';
   payment_method?: 'cash' | 'card' | 'credit' | 'check' | 'bank_transfer';
   cash_received?: number;
