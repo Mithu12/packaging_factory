@@ -568,24 +568,6 @@ export interface PayrollSummary {
   }[];
 }
 
-export interface AttendanceSummary {
-  period_start: string;
-  period_end: string;
-  total_working_days: number;
-  average_attendance_rate: number;
-  total_absenteeism: number;
-  overtime_hours?: number;
-  department_attendance: {
-    department: string;
-    attendance_rate: number;
-    total_employees: number;
-  }[];
-  employee_attendance: {
-    employee: string;
-    attendance_rate: number;
-    total_days: number;
-  }[];
-}
 
 // Salary and Promotion Types
 export interface SalaryIncrement {

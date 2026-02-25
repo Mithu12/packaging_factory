@@ -7,6 +7,7 @@ import {
   SystemSettings,
   NotificationSettings,
   SecuritySettings,
+  EcommerceSettings,
   IntegrationSettings
 } from './settings-types';
 

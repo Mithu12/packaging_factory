@@ -9,6 +9,7 @@ import {
   SystemSettings,
   NotificationSettings,
   SecuritySettings,
+  EcommerceSettings,
   IntegrationSettings
 } from "@/types/settings";
 import { createError } from "@/middleware/errorHandler";

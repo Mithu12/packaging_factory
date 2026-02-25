@@ -91,10 +91,15 @@ export interface IntegrationSettings {
   webhook_url: string;
 }
 
+export interface EcommerceSettings {
+  auto_customer_signup: boolean;
+}
+
 export interface AllSettings {
   company: CompanySettings;
   system: SystemSettings;
   notifications: NotificationSettings;
   security: SecuritySettings;
+  ecommerce: EcommerceSettings;
   integrations: IntegrationSettings;
 }

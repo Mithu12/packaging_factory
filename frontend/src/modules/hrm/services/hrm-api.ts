@@ -584,8 +584,8 @@ export class HRMApiService {
     return makeRequest<{ attendance_summary: AttendanceSummary }>(`${this.BASE_URL}/attendance/summary/${employeeId}${queryString}`);
   }
 
-  static async getAttendanceDashboard(): Promise<{ dashboard: any }> {
-    return makeRequest<{ dashboard: any }>(`${this.BASE_URL}/attendance/dashboard`);
+   static async getAttendanceDashboard(): Promise<{ dashboard: AttendanceSummary }> {
+    return makeRequest<{ dashboard: AttendanceSummary }>(`${this.BASE_URL}/attendance/dashboard`);
   }
 
   static async getAttendanceReport(startDate: string, endDate: string): Promise<{ attendance_report: any }> {

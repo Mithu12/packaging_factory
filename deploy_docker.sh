@@ -14,17 +14,17 @@ set -e
 log "🚀 Starting Docker Deployment for ERP System"
 
 # 1. Build Images locally
-# log "Building ERP images..."
-# docker compose build
+log "Building ERP images..."
+docker compose build
 
 # 2. Transfer Images to Remote Server
 # ssh -p 2244 "$REMOTE_USER@$REMOTE_HOST" "mkdir -p $REMOTE_APP_PATH/images"
 
-# log "Transferring erp-backend image..."
-# docker save -o erp-backend.tar erp-system-erp-backend
-# scp -P 2244 erp-backend.tar "$REMOTE_USER@$REMOTE_HOST:$REMOTE_APP_PATH/images/erp-backend.tar"
-# ssh -p 2244 "$REMOTE_USER@$REMOTE_HOST" "docker load -i $REMOTE_APP_PATH/images/erp-backend.tar && rm $REMOTE_APP_PATH/images/erp-backend.tar"
-# rm erp-backend.tar
+log "Transferring erp-backend image..."
+docker save -o erp-backend.tar erp-backend
+scp -P 2244 erp-backend.tar "$REMOTE_USER@$REMOTE_HOST:$REMOTE_APP_PATH/images/erp-backend.tar"
+ssh -p 2244 "$REMOTE_USER@$REMOTE_HOST" "docker load -i $REMOTE_APP_PATH/images/erp-backend.tar && rm $REMOTE_APP_PATH/images/erp-backend.tar"
+rm erp-backend.tar
 
 log "Transferring erp-frontend image..."
 docker save -o erp-frontend.tar erp-frontend

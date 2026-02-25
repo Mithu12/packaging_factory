@@ -24,6 +24,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { HRMApiService } from "@/modules/hrm/services/hrm-api";
+import { AttendanceRecord, AttendanceSummary } from "@/modules/hrm/types";
 
 interface AttendanceStats {
   present: number;
@@ -35,33 +36,6 @@ interface AttendanceStats {
   on_leave: number;
 }
 
-interface DeptBreakdown {
-  department_id: number;
-  department_name: string;
-  present_count: number;
-  total_employees: number;
-  attendance_percentage: number;
-}
-
-interface DailyTrend {
-  date: string;
-  present: number;
-  absent: number;
-  total: number;
-}
-
-interface AttendanceRecord {
-  id: number;
-  employee_id: number;
-  attendance_date: string;
-  status: string;
-  check_in_time?: string;
-  check_out_time?: string;
-  total_hours_worked?: number;
-  shift_id?: number;
-  employee?: { first_name: string; last_name: string; designation?: { title: string } };
-  shift?: { name: string };
-}
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -90,8 +64,8 @@ const getStatusColor = (status: string) => {
 const AttendanceDashboardPage: React.FC = () => {
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(today);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [dashboard, setDashboard] = useState<any>(null);
+   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [dashboard, setDashboard] = useState<AttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,10 +101,10 @@ const AttendanceDashboardPage: React.FC = () => {
     );
   };
 
-  const stats = calcStats(attendanceRecords);
+   const stats = calcStats(attendanceRecords);
   const totalEmployees = dashboard?.total_employees || attendanceRecords.length;
-  const deptBreakdown: DeptBreakdown[] = dashboard?.department_breakdown || [];
-  const dailyTrends: DailyTrend[] = dashboard?.daily_trends || [];
+  const deptBreakdown = dashboard?.department_breakdown || [];
+  const dailyTrends = dashboard?.daily_trends || [];
 
   if (loading) {
     return (
@@ -310,12 +284,12 @@ const AttendanceDashboardPage: React.FC = () => {
                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         {getStatusIcon(record.status)}
-                        <div>
+                         <div>
                           <p className="font-medium">
-                            {record.employee?.first_name} {record.employee?.last_name}
+                            {record.employee?.first_name || "Unknown"} {record.employee?.last_name || ""}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {record.employee?.designation?.title} • {record.shift?.name || "No shift"}
+                            {record.employee?.designation?.title || "No Designation"} • {record.shift?.name || "No shift"}
                           </p>
                         </div>
                       </div>

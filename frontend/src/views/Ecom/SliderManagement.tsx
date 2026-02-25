@@ -306,7 +306,7 @@ export default function SliderManagement() {
                             checked={slider.is_active} 
                             onCheckedChange={() => toggleStatus(slider)}
                           />
-                          <Badge variant={slider.is_active ? "success" : "secondary"}>
+                          <Badge variant={slider.is_active ? "default" : "secondary"}>
                             {slider.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </div>
