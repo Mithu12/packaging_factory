@@ -157,60 +157,60 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
-  // {
-  //   title: "Sales Rep",
-  //   icon: User,
-  //   items: [
-  //     {
-  //       title: "Dashboard",
-  //       url: "/sr/dashboard",
-  //       icon: BarChart3,
-  //       permission: PERMISSIONS.SALES_REP_DASHBOARD_READ,
-  //     },
-  //     {
-  //       title: "Customers",
-  //       url: "/sr/customers",
-  //       icon: Users,
-  //       permission: PERMISSIONS.SALES_REP_CUSTOMERS_READ,
-  //     },
-  //     {
-  //       title: "Orders",
-  //       url: "/sr/orders",
-  //       icon: ShoppingCart,
-  //       permission: PERMISSIONS.SALES_REP_ORDERS_READ,
-  //     },
-  //     {
-  //       title: "Invoices & Payments",
-  //       url: "/sr/invoices",
-  //       icon: FileText,
-  //       permission: PERMISSIONS.SALES_REP_INVOICES_READ,
-  //     },
-  //     {
-  //       title: "Payments",
-  //       url: "/sr/payments",
-  //       icon: CreditCard,
-  //       permission: PERMISSIONS.SALES_REP_PAYMENTS_READ,
-  //     },
-  //     {
-  //       title: "Deliveries",
-  //       url: "/sr/deliveries",
-  //       icon: Truck,
-  //       permission: PERMISSIONS.SALES_REP_DELIVERIES_READ,
-  //     },
-  //     {
-  //       title: "Reports",
-  //       url: "/sr/reports",
-  //       icon: BarChart3,
-  //       permission: PERMISSIONS.SALES_REP_REPORTS_READ,
-  //     },
-  //     {
-  //       title: "Notifications",
-  //       url: "/sr/notifications",
-  //       icon: Bell,
-  //       permission: PERMISSIONS.SALES_REP_NOTIFICATIONS_READ,
-  //     },
-  //   ],
-  // },
+  {
+    title: "Sales Rep",
+    icon: User,
+    items: [
+      {
+        title: "Dashboard",
+        url: "/sr/dashboard",
+        icon: BarChart3,
+        permission: PERMISSIONS.SALES_REP_DASHBOARD_READ,
+      },
+      {
+        title: "Customers",
+        url: "/sr/customers",
+        icon: Users,
+        permission: PERMISSIONS.SALES_REP_CUSTOMERS_READ,
+      },
+      {
+        title: "Orders",
+        url: "/sr/orders",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.SALES_REP_ORDERS_READ,
+      },
+      {
+        title: "Invoices & Payments",
+        url: "/sr/invoices",
+        icon: FileText,
+        permission: PERMISSIONS.SALES_REP_INVOICES_READ,
+      },
+      {
+        title: "Payments",
+        url: "/sr/payments",
+        icon: CreditCard,
+        permission: PERMISSIONS.SALES_REP_PAYMENTS_READ,
+      },
+      {
+        title: "Deliveries",
+        url: "/sr/deliveries",
+        icon: Truck,
+        permission: PERMISSIONS.SALES_REP_DELIVERIES_READ,
+      },
+      {
+        title: "Reports",
+        url: "/sr/reports",
+        icon: BarChart3,
+        permission: PERMISSIONS.SALES_REP_REPORTS_READ,
+      },
+      {
+        title: "Notifications",
+        url: "/sr/notifications",
+        icon: Bell,
+        permission: PERMISSIONS.SALES_REP_NOTIFICATIONS_READ,
+      },
+    ],
+  },
   {
     title: "Catalog",
     icon: FolderTree,
@@ -277,114 +277,114 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
-  // {
-  //   title: "Factory Operations",
-  //   icon: Building2,
-  //   items: [
-  //     {
-  //       title: "Factory Dashboard",
-  //       url: "/factory",
-  //       icon: BarChart3,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Factory Management",
-  //       url: "/factory/management",
-  //       icon: Building2,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Bill of Materials",
-  //       url: "/factory/bom",
-  //       icon: ClipboardList,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Customer Management",
-  //       url: "/factory/customers",
-  //       icon: Users,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Customer Orders",
-  //       url: "/factory/customer-orders",
-  //       icon: ShoppingCart,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Sales Invoices",
-  //       url: "/factory/sales-invoices",
-  //       icon: FileText,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Order Acceptance",
-  //       url: "/factory/orders",
-  //       icon: Package,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Work Order Planning",
-  //       url: "/factory/work-orders",
-  //       icon: Calendar,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Material Requirements",
-  //       url: "/factory/mrp",
-  //       icon: TrendingUp,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Material Allocation",
-  //       url: "/factory/materials",
-  //       icon: Package2,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Material Consumption",
-  //       url: "/factory/material-consumption",
-  //       icon: Activity,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Production Execution",
-  //       url: "/factory/production",
-  //       icon: Activity,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Wastage Tracking",
-  //       url: "/factory/wastage",
-  //       icon: AlertTriangle,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Factory Expenses",
-  //       url: "/factory/expenses",
-  //       icon: Receipt,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Material Cost Analysis",
-  //       url: "/factory/material-costs",
-  //       icon: CalculatorIcon,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Production Lines",
-  //       url: "/factory/production-lines",
-  //       icon: Settings,
-  //       permission: null,
-  //     },
-  //     {
-  //       title: "Operators",
-  //       url: "/factory/operators",
-  //       icon: UserCog,
-  //       permission: null,
-  //     },
-  //   ],
-  // },
+  {
+    title: "Factory Operations",
+    icon: Building2,
+    items: [
+      {
+        title: "Factory Dashboard",
+        url: "/factory",
+        icon: BarChart3,
+        permission: PERMISSIONS.FACTORY_DASHBOARD_READ,
+      },
+      {
+        title: "Factory Management",
+        url: "/factory/management",
+        icon: Building2,
+        permission: PERMISSIONS.FACTORY_MANAGEMENT_READ,
+      },
+      {
+        title: "Bill of Materials",
+        url: "/factory/bom",
+        icon: ClipboardList,
+        permission: PERMISSIONS.FACTORY_BOMS_READ,
+      },
+      {
+        title: "Customer Management",
+        url: "/factory/customers",
+        icon: Users,
+        permission: PERMISSIONS.FACTORY_CUSTOMERS_READ,
+      },
+      {
+        title: "Customer Orders",
+        url: "/factory/customer-orders",
+        icon: ShoppingCart,
+        permission: PERMISSIONS.FACTORY_ORDERS_READ,
+      },
+      {
+        title: "Sales Invoices",
+        url: "/factory/sales-invoices",
+        icon: FileText,
+        permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
+      },
+      {
+        title: "Order Acceptance",
+        url: "/factory/orders",
+        icon: Package,
+        permission: PERMISSIONS.FACTORY_ORDER_ACCEPTANCE_READ,
+      },
+      {
+        title: "Work Order Planning",
+        url: "/factory/work-orders",
+        icon: Calendar,
+        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+      },
+      {
+        title: "Material Requirements",
+        url: "/factory/mrp",
+        icon: TrendingUp,
+        permission: PERMISSIONS.FACTORY_MRP_READ,
+      },
+      {
+        title: "Material Allocation",
+        url: "/factory/materials",
+        icon: Package2,
+        permission: PERMISSIONS.FACTORY_MATERIAL_ALLOCATIONS_READ,
+      },
+      {
+        title: "Material Consumption",
+        url: "/factory/material-consumption",
+        icon: Activity,
+        permission: PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ,
+      },
+      {
+        title: "Production Execution",
+        url: "/factory/production",
+        icon: Activity,
+        permission: PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ,
+      },
+      {
+        title: "Wastage Tracking",
+        url: "/factory/wastage",
+        icon: AlertTriangle,
+        permission: PERMISSIONS.FACTORY_WASTAGE_READ,
+      },
+      {
+        title: "Factory Expenses",
+        url: "/factory/expenses",
+        icon: Receipt,
+        permission: PERMISSIONS.FACTORY_EXPENSES_READ,
+      },
+      {
+        title: "Material Cost Analysis",
+        url: "/factory/material-costs",
+        icon: CalculatorIcon,
+        permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
+      },
+      {
+        title: "Production Lines",
+        url: "/factory/production-lines",
+        icon: Settings,
+        permission: PERMISSIONS.FACTORY_PRODUCTION_LINES_READ,
+      },
+      {
+        title: "Operators",
+        url: "/factory/operators",
+        icon: UserCog,
+        permission: PERMISSIONS.FACTORY_OPERATORS_READ,
+      },
+    ],
+  },
   {
     title: "Finance & Expenses",
     icon: DollarSign,
@@ -469,96 +469,96 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
-  // {
-  //   title: "Human Resources",
-  //   icon: UserCog,
-  //   items: [
-  //     {
-  //       title: "HR Dashboard",
-  //       url: "/hrm",
-  //       icon: BarChart3,
-  //       permission: null, // Dashboard accessible to all authenticated users
-  //     },
-  //     {
-  //       title: "Employees",
-  //       url: "/hrm/employees",
-  //       icon: Users,
-  //       permission: PERMISSIONS.HR_EMPLOYEES_READ,
-  //     },
-  //     {
-  //       title: "Departments",
-  //       url: "/hrm/departments",
-  //       icon: Building,
-  //       permission: PERMISSIONS.HR_DEPARTMENTS_READ,
-  //     },
-  //     {
-  //       title: "Designations",
-  //       url: "/hrm/designations",
-  //       icon: UserCheck,
-  //       permission: PERMISSIONS.HR_DESIGNATIONS_READ,
-  //     },
-  //     {
-  //       title: "Salary Updates",
-  //       url: "/hrm/salary-updates",
-  //       icon: TrendingUp,
-  //       permission: PERMISSIONS.HR_PAYROLL_READ,
-  //     },
-  //     {
-  //       title: "Payroll",
-  //       url: "/hrm/payroll",
-  //       icon: Receipt,
-  //       permission: PERMISSIONS.HR_PAYROLL_READ,
-  //     },
-  //     {
-  //       title: "Leave Types",
-  //       url: "/hrm/leave-types",
-  //       icon: Calendar,
-  //       permission: PERMISSIONS.HR_LEAVE_READ,
-  //     },
-  //     {
-  //       title: "Leave Applications",
-  //       url: "/hrm/leave-applications",
-  //       icon: FileText,
-  //       permission: PERMISSIONS.HR_LEAVE_READ,
-  //     },
-  //     {
-  //       title: "Leave Calendar",
-  //       url: "/hrm/leave-calendar",
-  //       icon: Calendar,
-  //       permission: PERMISSIONS.HR_LEAVE_READ,
-  //     },
-  //     {
-  //       title: "Attendance Dashboard",
-  //       url: "/hrm/attendance",
-  //       icon: Clock,
-  //       permission: null, // Accessible to all authenticated users
-  //     },
-  //     {
-  //       title: "Mark Attendance",
-  //       url: "/hrm/attendance/marking",
-  //       icon: Calendar,
-  //       permission: null, // Accessible to all authenticated users
-  //     },
-  //     {
-  //       title: "Shift Management",
-  //       url: "/hrm/attendance/shifts",
-  //       icon: Activity,
-  //       permission: null, // Accessible to all authenticated users
-  //     },
-  //     {
-  //       title: "Attendance Regularization",
-  //       url: "/hrm/attendance/regularization",
-  //       icon: FileText,
-  //       permission: null, // Accessible to all authenticated users
-  //     },
-  //     {
-  //       title: "Attendance Reports",
-  //       url: "/hrm/attendance/reports",
-  //       icon: BarChart3,
-  //       permission: null, // Accessible to all authenticated users
-  //     },
-  //   ],
-  // },
+  {
+    title: "Human Resources",
+    icon: UserCog,
+    items: [
+      {
+        title: "HR Dashboard",
+        url: "/hrm",
+        icon: BarChart3,
+        permission: null, // Dashboard accessible to all authenticated users
+      },
+      {
+        title: "Employees",
+        url: "/hrm/employees",
+        icon: Users,
+        permission: PERMISSIONS.HR_EMPLOYEES_READ,
+      },
+      {
+        title: "Departments",
+        url: "/hrm/departments",
+        icon: Building,
+        permission: PERMISSIONS.HR_DEPARTMENTS_READ,
+      },
+      {
+        title: "Designations",
+        url: "/hrm/designations",
+        icon: UserCheck,
+        permission: PERMISSIONS.HR_DESIGNATIONS_READ,
+      },
+      {
+        title: "Salary Updates",
+        url: "/hrm/salary-updates",
+        icon: TrendingUp,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
+      },
+      {
+        title: "Payroll",
+        url: "/hrm/payroll",
+        icon: Receipt,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
+      },
+      {
+        title: "Leave Types",
+        url: "/hrm/leave-types",
+        icon: Calendar,
+        permission: PERMISSIONS.HR_LEAVE_READ,
+      },
+      {
+        title: "Leave Applications",
+        url: "/hrm/leave-applications",
+        icon: FileText,
+        permission: PERMISSIONS.HR_LEAVE_READ,
+      },
+      {
+        title: "Leave Calendar",
+        url: "/hrm/leave-calendar",
+        icon: Calendar,
+        permission: PERMISSIONS.HR_LEAVE_READ,
+      },
+      {
+        title: "Attendance Dashboard",
+        url: "/hrm/attendance",
+        icon: Clock,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Mark Attendance",
+        url: "/hrm/attendance/marking",
+        icon: Calendar,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Shift Management",
+        url: "/hrm/attendance/shifts",
+        icon: Activity,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Attendance Regularization",
+        url: "/hrm/attendance/regularization",
+        icon: FileText,
+        permission: null, // Accessible to all authenticated users
+      },
+      {
+        title: "Attendance Reports",
+        url: "/hrm/attendance/reports",
+        icon: BarChart3,
+        permission: null, // Accessible to all authenticated users
+      },
+    ],
+  },
   {
     title: "Reports",
     icon: FileText,

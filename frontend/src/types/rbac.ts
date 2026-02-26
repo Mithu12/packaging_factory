@@ -326,6 +326,24 @@ export const PERMISSIONS = {
     HR_SETTINGS_UPDATE: createPermissionCheck('HR', 'update', 'settings'),
     HR_SETTINGS_MANAGE: createPermissionCheck('HR', 'manage', 'settings'),
 
+    // ---- Factory: Core Operations ----
+    FACTORY_DASHBOARD_READ: createPermissionCheck('Factory', 'read', 'dashboard'),
+    FACTORY_MANAGEMENT_READ: createPermissionCheck('Factory', 'read', 'factories'),
+    FACTORY_BOMS_READ: createPermissionCheck('Factory', 'read', 'boms'),
+    FACTORY_CUSTOMERS_READ: createPermissionCheck('Factory', 'read', 'customers'),
+    FACTORY_SALES_INVOICES_READ: createPermissionCheck('Factory', 'read', 'sales_invoices'),
+    FACTORY_ORDER_ACCEPTANCE_READ: createPermissionCheck('Factory', 'read', 'orders'),
+    FACTORY_WORK_ORDERS_READ: createPermissionCheck('Factory', 'read', 'work_orders'),
+    FACTORY_MRP_READ: createPermissionCheck('Factory', 'read', 'mrp'),
+    FACTORY_MATERIAL_ALLOCATIONS_READ: createPermissionCheck('Factory', 'read', 'material_allocations'),
+    FACTORY_MATERIAL_CONSUMPTIONS_READ: createPermissionCheck('Factory', 'read', 'material_consumptions'),
+    FACTORY_PRODUCTION_RUNS_READ: createPermissionCheck('Factory', 'read', 'production_runs'),
+    FACTORY_WASTAGE_READ: createPermissionCheck('Factory', 'read', 'wastage'),
+    FACTORY_EXPENSES_READ: createPermissionCheck('Factory', 'read', 'expenses'),
+    FACTORY_MATERIAL_COSTS_READ: createPermissionCheck('Factory', 'read', 'cost_analysis'),
+    FACTORY_PRODUCTION_LINES_READ: createPermissionCheck('Factory', 'read', 'production_lines'),
+    FACTORY_OPERATORS_READ: createPermissionCheck('Factory', 'read', 'operators'),
+
     // ---- Factory: Customer Orders ----
     FACTORY_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'factory_customer_orders'),
     FACTORY_ORDERS_READ: createPermissionCheck('Factory', 'read', 'factory_customer_orders'),
