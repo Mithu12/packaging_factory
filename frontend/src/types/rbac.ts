@@ -214,6 +214,7 @@ export const PERMISSIONS = {
     // System Admin
     SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
     SYSTEM_BACKUP: createPermissionCheck('System', 'manage', 'backup'),
+    SYSTEM_DASHBOARD_READ: createPermissionCheck('System', 'read', 'dashboard'),
 
 
     // ---- Accounts: Master Data ----
@@ -296,6 +297,8 @@ export const PERMISSIONS = {
     SELF_SERVICE_LEAVE_READ_OWN: createPermissionCheck('Self Service', 'read', 'own_leave'),
     SELF_SERVICE_LEAVE_CREATE: createPermissionCheck('Self Service', 'create', 'own_leave'),
     SELF_SERVICE_LEAVE_UPDATE: createPermissionCheck('Self Service', 'update', 'own_leave'),
+
+    HR_DASHBOARD_READ: createPermissionCheck('HR', 'read', 'dashboard'),
 
     // HR: Transfer Management
     HR_TRANSFERS_CREATE: createPermissionCheck('HR', 'create', 'transfers'),
@@ -384,6 +387,7 @@ export const PERMISSIONS = {
     ECOMMERCE_SLIDERS_CREATE: createPermissionCheck('Ecommerce', 'create', 'sliders'),
     ECOMMERCE_SLIDERS_UPDATE: createPermissionCheck('Ecommerce', 'update', 'sliders'),
     ECOMMERCE_SLIDERS_DELETE: createPermissionCheck('Ecommerce', 'delete', 'sliders'),
+    ECOMMERCE_DASHBOARD_READ: createPermissionCheck('Ecommerce', 'read', 'dashboard'),
 } as const;
 
 

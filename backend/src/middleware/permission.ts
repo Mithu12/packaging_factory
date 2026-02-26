@@ -242,6 +242,7 @@ export const PERMISSIONS = {
   SETTINGS_UPDATE: createPermissionCheck('System', 'update', 'settings'),
   SYSTEM_BACKUP: createPermissionCheck('System', 'manage', 'backup'),
   SYSTEM_ADMIN: createPermissionCheck('System', 'manage', 'system'),
+  SYSTEM_DASHBOARD_READ: createPermissionCheck('System', 'read', 'dashboard'),
   
   // Expenses
   EXPENSES_CREATE: createPermissionCheck('Finance', 'create', 'expenses'),
@@ -307,6 +308,9 @@ export const PERMISSIONS = {
   SUPPLIER_CATEGORIES_READ: createPermissionCheck('Purchase', 'read', 'supplier_categories'),
   SUPPLIER_CATEGORIES_UPDATE: createPermissionCheck('Purchase', 'update', 'supplier_categories'),
   SUPPLIER_CATEGORIES_DELETE: createPermissionCheck('Purchase', 'delete', 'supplier_categories'),
+
+  // Ecommerce
+  ECOMMERCE_DASHBOARD_READ: createPermissionCheck('Ecommerce', 'read', 'dashboard'),
 
   // Inventory
   PRODUCTS_CREATE: createPermissionCheck('Inventory', 'create', 'products'),
@@ -394,6 +398,9 @@ export const PERMISSIONS = {
   COST_CENTER_LEDGER_READ:   createPermissionCheck('Finance', 'read', 'cost_center_ledger'),
   INCOME_STATEMENT_READ:     createPermissionCheck('Finance', 'read', 'income_statement'),
   BALANCE_SHEET_READ:        createPermissionCheck('Finance', 'read', 'balance_sheet'),
+
+  // HR
+  HR_DASHBOARD_READ: createPermissionCheck('HR', 'read', 'dashboard'),
 
   // ---- HR: Employee Management ----
   HR_EMPLOYEES_CREATE: createPermissionCheck('HR', 'create', 'employees'),
@@ -572,6 +579,9 @@ export const PERMISSIONS = {
   ECOMMERCE_SLIDERS_CREATE: createPermissionCheck('Ecommerce', 'create', 'sliders'),
   ECOMMERCE_SLIDERS_UPDATE: createPermissionCheck('Ecommerce', 'update', 'sliders'),
   ECOMMERCE_SLIDERS_DELETE: createPermissionCheck('Ecommerce', 'delete', 'sliders'),
+
+  // Factory Extended
+  FACTORY_MANAGEMENT_READ: createPermissionCheck('Factory', 'read', 'factories'),
 };
 
 // Export permission middleware functions

@@ -93,7 +93,7 @@ const menuSections: MenuSection[] = [
         title: "Dashboard",
         url: "/dashboard",
         icon: BarChart3,
-        permission: null, // Dashboard is accessible to all authenticated users
+        permission: PERMISSIONS.SYSTEM_DASHBOARD_READ,
       },
     ],
   },
@@ -105,7 +105,7 @@ const menuSections: MenuSection[] = [
         title: "E-commerce",
         url: "/ecommerce-dashboard",
         icon: ShoppingCart,
-        permission: null,
+        permission: PERMISSIONS.ECOMMERCE_DASHBOARD_READ,
       },
       {
         title: "Sliders",
@@ -477,7 +477,7 @@ const menuSections: MenuSection[] = [
         title: "HR Dashboard",
         url: "/hrm",
         icon: BarChart3,
-        permission: null, // Dashboard accessible to all authenticated users
+        permission: PERMISSIONS.HR_DASHBOARD_READ,
       },
       {
         title: "Employees",
@@ -531,31 +531,31 @@ const menuSections: MenuSection[] = [
         title: "Attendance Dashboard",
         url: "/hrm/attendance",
         icon: Clock,
-        permission: null, // Accessible to all authenticated users
+        permission: PERMISSIONS.HR_ATTENDANCE_READ,
       },
       {
         title: "Mark Attendance",
         url: "/hrm/attendance/marking",
         icon: Calendar,
-        permission: null, // Accessible to all authenticated users
+        permission: PERMISSIONS.HR_ATTENDANCE_CREATE,
       },
       {
         title: "Shift Management",
         url: "/hrm/attendance/shifts",
         icon: Activity,
-        permission: null, // Accessible to all authenticated users
+        permission: PERMISSIONS.HR_ATTENDANCE_MANAGE,
       },
       {
         title: "Attendance Regularization",
         url: "/hrm/attendance/regularization",
         icon: FileText,
-        permission: null, // Accessible to all authenticated users
+        permission: PERMISSIONS.HR_ATTENDANCE_READ,
       },
       {
         title: "Attendance Reports",
         url: "/hrm/attendance/reports",
         icon: BarChart3,
-        permission: null, // Accessible to all authenticated users
+        permission: PERMISSIONS.HR_REPORTS_READ,
       },
     ],
   },
