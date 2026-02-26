@@ -621,7 +621,7 @@ export default function BOMEditor() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push("/factory/raw-materials")}
+                  onClick={() => router.push("/factory/materials")}
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add New

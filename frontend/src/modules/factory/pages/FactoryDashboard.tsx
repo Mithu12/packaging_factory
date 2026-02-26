@@ -327,7 +327,7 @@ export default function FactoryDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push("/factory/work-order-planning")}
+                onClick={() => router.push("/factory/work-orders")}
               >
                 View All
               </Button>
@@ -347,7 +347,7 @@ export default function FactoryDashboard() {
                     key={wo.id}
                     className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
                     onClick={() =>
-                      router.push(`/factory/work-order-planning`)
+                      router.push(`/factory/work-orders`)
                     }
                   >
                     <div className="flex-1">
@@ -376,7 +376,7 @@ export default function FactoryDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push("/factory/production-execution")}
+                onClick={() => router.push("/factory/production")}
               >
                 View All
               </Button>
@@ -396,7 +396,7 @@ export default function FactoryDashboard() {
                     key={run.id}
                     className="p-2 hover:bg-gray-50 rounded cursor-pointer"
                     onClick={() =>
-                      router.push("/factory/production-execution")
+                      router.push("/factory/production")
                     }
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -432,7 +432,7 @@ export default function FactoryDashboard() {
             <Button
               variant="outline"
               className="h-20 flex flex-col gap-2"
-              onClick={() => router.push("/factory/order-acceptance")}
+              onClick={() => router.push("/factory/orders")}
             >
               <Package className="h-6 w-6" />
               <span>Review Orders</span>
@@ -440,7 +440,7 @@ export default function FactoryDashboard() {
             <Button
               variant="outline"
               className="h-20 flex flex-col gap-2"
-              onClick={() => router.push("/factory/work-order-planning")}
+              onClick={() => router.push("/factory/work-orders")}
             >
               <Activity className="h-6 w-6" />
               <span>Plan Work Orders</span>
@@ -448,7 +448,7 @@ export default function FactoryDashboard() {
             <Button
               variant="outline"
               className="h-20 flex flex-col gap-2"
-              onClick={() => router.push("/factory/material-requirements")}
+              onClick={() => router.push("/factory/mrp")}
             >
               <AlertTriangle className="h-6 w-6" />
               <span>Material Planning</span>
@@ -456,7 +456,7 @@ export default function FactoryDashboard() {
             <Button
               variant="outline"
               className="h-20 flex flex-col gap-2"
-              onClick={() => router.push("/factory/production-execution")}
+              onClick={() => router.push("/factory/production")}
             >
               <Zap className="h-6 w-6" />
               <span>Production Floor</span>
