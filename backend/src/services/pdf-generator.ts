@@ -483,7 +483,7 @@ export class PDFGenerator {
         pdfSize: pdfBuffer.length 
       });
 
-      return pdfBuffer;
+      return Buffer.from(pdfBuffer);
     } catch (error) {
       MyLogger.error(action, error, { poNumber: purchaseOrder.po_number, poId: purchaseOrder.id });
       throw error;
@@ -891,7 +891,7 @@ export class PDFGenerator {
         pdfSize: pdfBuffer.length 
       });
 
-      return pdfBuffer;
+      return Buffer.from(pdfBuffer);
     } catch (error) {
       MyLogger.error(action, error, { invoiceNumber: invoice.invoice_number, invoiceId: invoice.id });
       throw error;
