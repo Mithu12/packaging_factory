@@ -46,44 +46,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import type { MaterialCostAnalysis, MaterialCostBreakdown } from "../types/bom";
+import type { 
+  MaterialCostAnalysis, 
+  MaterialCostBreakdown,
+  CostVariance,
+  CostTrend,
+  CostCenter
+} from "../types/bom";
 import CostAnalysisApi, {
   CostAnalysisQueryParams,
   CostVarianceQueryParams,
   CostTrendQueryParams,
   CostCenterQueryParams,
 } from "../services/cost-analysis-api";
-
-interface CostVariance {
-  workOrderId: string;
-  workOrderNumber: string;
-  productName: string;
-  plannedCost: number;
-  actualCost: number;
-  variance: number;
-  variancePercentage: number;
-  status: "favorable" | "unfavorable" | "on_target";
-}
-
-interface CostTrend {
-  period: string;
-  materialCost: number;
-  laborCost: number;
-  overheadCost: number;
-  totalCost: number;
-  costPerUnit: number;
-}
-
-interface CostCenter {
-  id: string;
-  name: string;
-  totalCost: number;
-  materialCost: number;
-  laborCost: number;
-  overheadCost: number;
-  efficiency: number;
-  variance: number;
-}
 
 export default function MaterialCostAnalysis() {
   const router = useRouter();
@@ -175,11 +150,9 @@ export default function MaterialCostAnalysis() {
 
   const filteredCostAnalyses = costAnalyses.filter((analysis) => {
     const matchesSearch =
-      analysis.workOrderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      analysis.workOrderNumber
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      analysis.productName.toLowerCase().includes(searchTerm.toLowerCase());
+      (analysis.work_order_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (analysis.work_order_number?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (analysis.product_name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -202,29 +175,29 @@ export default function MaterialCostAnalysis() {
 
   const getTotalMaterialCost = () => {
     return costAnalyses.reduce(
-      (sum, analysis) => sum + analysis.materialCost,
+      (sum, analysis) => sum + (analysis.material_cost || 0),
       0
     );
   };
 
   const getTotalLaborCost = () => {
-    return costAnalyses.reduce((sum, analysis) => sum + analysis.laborCost, 0);
+    return costAnalyses.reduce((sum, analysis) => sum + (analysis.labor_cost || 0), 0);
   };
 
   const getTotalOverheadCost = () => {
     return costAnalyses.reduce(
-      (sum, analysis) => sum + analysis.overheadCost,
+      (sum, analysis) => sum + (analysis.overhead_cost || 0),
       0
     );
   };
 
   const getTotalCost = () => {
-    return costAnalyses.reduce((sum, analysis) => sum + analysis.totalCost, 0);
+    return costAnalyses.reduce((sum, analysis) => sum + (analysis.total_cost || 0), 0);
   };
 
   const getAverageCostPerUnit = () => {
     const totalQuantity = costAnalyses.reduce(
-      (sum, analysis) => sum + analysis.quantity,
+      (sum, analysis) => sum + (analysis.quantity || 0),
       0
     );
     return totalQuantity > 0 ? getTotalCost() / totalQuantity : 0;
@@ -412,46 +385,46 @@ export default function MaterialCostAnalysis() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {costAnalyses.map((analysis) => (
-                      <TableRow key={analysis.workOrderId}>
+                    {filteredCostAnalyses.map((analysis) => (
+                      <TableRow key={analysis.work_order_id}>
                         <TableCell className="font-medium">
-                          {analysis.workOrderId}
+                          {analysis.work_order_id}
                         </TableCell>
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {analysis.productName}
+                              {analysis.product_name}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {analysis.workOrderNumber}
+                              {analysis.work_order_number}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {analysis.quantity.toLocaleString()}
+                          {(analysis.quantity || 0).toLocaleString()}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(analysis.materialCost)}
+                          {formatCurrency(analysis.material_cost)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(analysis.laborCost)}
+                          {formatCurrency(analysis.labor_cost)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(analysis.totalCost)}
+                          {formatCurrency(analysis.total_cost)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(analysis.costPerUnit)}
+                          {formatCurrency(analysis.cost_per_unit)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {getVarianceIcon(analysis.costVariance)}
+                            {getVarianceIcon(analysis.cost_variance)}
                             <span
-                              className={getVarianceColor(analysis.costVariance)}
+                              className={getVarianceColor(analysis.cost_variance)}
                             >
-                              {formatCurrency(analysis.costVariance)}
+                              {formatCurrency(analysis.cost_variance)}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              ({analysis.costVariancePercentage.toFixed(1)}%)
+                              ({(analysis.cost_variance_percentage || 0).toFixed(1)}%)
                             </span>
                           </div>
                         </TableCell>
@@ -499,25 +472,25 @@ export default function MaterialCostAnalysis() {
                 </TableHeader>
                 <TableBody>
                   {costVariances.map((variance) => (
-                    <TableRow key={variance.workOrderId}>
+                    <TableRow key={variance.work_order_id}>
                       <TableCell className="font-medium">
-                        {variance.workOrderId}
+                        {variance.work_order_id}
                       </TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {variance.productName}
+                            {variance.product_name}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {variance.workOrderNumber}
+                            {variance.work_order_number}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(variance.plannedCost)}
+                        {formatCurrency(variance.planned_cost)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(variance.actualCost)}
+                        {formatCurrency(variance.actual_cost)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -529,7 +502,7 @@ export default function MaterialCostAnalysis() {
                       </TableCell>
                       <TableCell>
                         <span className={getVarianceColor(variance.variance)}>
-                          {variance.variancePercentage.toFixed(1)}%
+                          {(variance.variance_percentage || 0).toFixed(1)}%
                         </span>
                       </TableCell>
                       <TableCell>
@@ -578,25 +551,25 @@ export default function MaterialCostAnalysis() {
                         {trend.period}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(trend.materialCost)}
+                        {formatCurrency(trend.material_cost)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(trend.laborCost)}
+                        {formatCurrency(trend.labor_cost)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(trend.overheadCost)}
+                        {formatCurrency(trend.overhead_cost)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(trend.totalCost)}
+                        {formatCurrency(trend.total_cost)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCurrency(trend.costPerUnit)}
+                        {formatCurrency(trend.cost_per_unit)}
                       </TableCell>
                       <TableCell>
                         {index > 0 && (
                           <div className="flex items-center gap-2">
-                            {trend.costPerUnit >
-                            costTrends[index - 1].costPerUnit ? (
+                            {trend.cost_per_unit >
+                            costTrends[index - 1].cost_per_unit ? (
                               <>
                                 <TrendingUp className="h-4 w-4 text-red-600" />
                                 <span className="text-red-600">Increasing</span>
@@ -665,7 +638,7 @@ export default function MaterialCostAnalysis() {
                         <div>
                           <div className="text-sm font-medium">Total Cost</div>
                           <div className="text-2xl font-bold">
-                            {formatCurrency(center.totalCost)}
+                            {formatCurrency(center.total_cost)}
                           </div>
                         </div>
                         <div>
@@ -673,13 +646,13 @@ export default function MaterialCostAnalysis() {
                             Material Cost
                           </div>
                           <div className="text-2xl font-bold">
-                            {formatCurrency(center.materialCost)}
+                            {formatCurrency(center.material_cost)}
                           </div>
                         </div>
                         <div>
                           <div className="text-sm font-medium">Labor Cost</div>
                           <div className="text-2xl font-bold">
-                            {formatCurrency(center.laborCost)}
+                            {formatCurrency(center.labor_cost)}
                           </div>
                         </div>
                         <div>
@@ -687,7 +660,7 @@ export default function MaterialCostAnalysis() {
                             Overhead Cost
                           </div>
                           <div className="text-2xl font-bold">
-                            {formatCurrency(center.overheadCost)}
+                            {formatCurrency(center.overhead_cost)}
                           </div>
                         </div>
                       </div>
@@ -713,7 +686,7 @@ export default function MaterialCostAnalysis() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
-              Cost Analysis Details - {selectedAnalysis?.workOrderId}
+              Cost Analysis Details - {selectedAnalysis?.work_order_id}
             </DialogTitle>
             <DialogDescription>
               Detailed breakdown of material costs and variances
@@ -732,25 +705,25 @@ export default function MaterialCostAnalysis() {
                     <div>
                       <div className="text-sm font-medium">Product</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedAnalysis.productName}
+                        {selectedAnalysis.product_name}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Quantity</div>
                       <div className="text-sm text-muted-foreground">
-                        {selectedAnalysis.quantity.toLocaleString()}
+                        {(selectedAnalysis.quantity || 0).toLocaleString()}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Total Cost</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatCurrency(selectedAnalysis.totalCost)}
+                        {formatCurrency(selectedAnalysis.total_cost)}
                       </div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Cost per Unit</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatCurrency(selectedAnalysis.costPerUnit)}
+                        {formatCurrency(selectedAnalysis.cost_per_unit)}
                       </div>
                     </div>
                   </div>
@@ -767,25 +740,25 @@ export default function MaterialCostAnalysis() {
                     <div className="flex justify-between items-center">
                       <span>Material Cost</span>
                       <span className="font-medium">
-                        {formatCurrency(selectedAnalysis.materialCost)}
+                        {formatCurrency(selectedAnalysis.material_cost)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Labor Cost</span>
                       <span className="font-medium">
-                        {formatCurrency(selectedAnalysis.laborCost)}
+                        {formatCurrency(selectedAnalysis.labor_cost)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Overhead Cost</span>
                       <span className="font-medium">
-                        {formatCurrency(selectedAnalysis.overheadCost)}
+                        {formatCurrency(selectedAnalysis.overhead_cost)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center border-t pt-2">
                       <span className="font-medium">Total Cost</span>
                       <span className="font-medium text-lg">
-                        {formatCurrency(selectedAnalysis.totalCost)}
+                        {formatCurrency(selectedAnalysis.total_cost)}
                       </span>
                     </div>
                   </div>
@@ -793,7 +766,7 @@ export default function MaterialCostAnalysis() {
               </Card>
 
               {/* Material Breakdown */}
-              {selectedAnalysis.materialBreakdown.length > 0 && (
+              {selectedAnalysis.material_breakdown.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Material Cost Breakdown</CardTitle>
@@ -811,34 +784,34 @@ export default function MaterialCostAnalysis() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedAnalysis.materialBreakdown.map((material) => (
-                          <TableRow key={material.materialId}>
+                        {selectedAnalysis.material_breakdown.map((material) => (
+                          <TableRow key={material.material_id}>
                             <TableCell className="font-medium">
-                              {material.materialName}
+                              {material.material_name}
                             </TableCell>
-                            <TableCell>{material.quantityUsed}</TableCell>
+                            <TableCell>{material.quantity_used}</TableCell>
                             <TableCell>
-                              {formatCurrency(material.unitCost)}
+                              {formatCurrency(material.unit_cost)}
                             </TableCell>
                             <TableCell className="font-medium">
-                              {formatCurrency(material.totalCost)}
+                              {formatCurrency(material.total_cost)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <span>
-                                  {material.costPercentage.toFixed(1)}%
+                                  {(material.cost_percentage || 0).toFixed(1)}%
                                 </span>
                                 <Progress
-                                  value={material.costPercentage}
+                                  value={material.cost_percentage}
                                   className="h-2 w-16"
                                 />
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div>{material.wastageQuantity} units</div>
+                                <div>{material.wastage_quantity} units</div>
                                 <div className="text-muted-foreground">
-                                  {formatCurrency(material.wastageCost)}
+                                  {formatCurrency(material.wastage_cost)}
                                 </div>
                               </div>
                             </TableCell>
@@ -860,13 +833,13 @@ export default function MaterialCostAnalysis() {
                     <div className="flex justify-between items-center">
                       <span>Cost Variance</span>
                       <div className="flex items-center gap-2">
-                        {getVarianceIcon(selectedAnalysis.costVariance)}
+                        {getVarianceIcon(selectedAnalysis.cost_variance)}
                         <span
                           className={getVarianceColor(
-                            selectedAnalysis.costVariance
+                            selectedAnalysis.cost_variance
                           )}
                         >
-                          {formatCurrency(selectedAnalysis.costVariance)}
+                          {formatCurrency(selectedAnalysis.cost_variance)}
                         </span>
                       </div>
                     </div>
@@ -874,22 +847,22 @@ export default function MaterialCostAnalysis() {
                       <span>Variance Percentage</span>
                       <span
                         className={getVarianceColor(
-                          selectedAnalysis.costVariance
+                          selectedAnalysis.cost_variance
                         )}
                       >
-                        {selectedAnalysis.costVariancePercentage.toFixed(1)}%
+                        {(selectedAnalysis.cost_variance_percentage || 0).toFixed(1)}%
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full ${
-                          selectedAnalysis.costVariance < 0
+                          selectedAnalysis.cost_variance < 0
                             ? "bg-green-600"
                             : "bg-red-600"
                         }`}
                         style={{
                           width: `${Math.min(
-                            Math.abs(selectedAnalysis.costVariancePercentage),
+                            Math.abs(selectedAnalysis.cost_variance_percentage || 0),
                             100
                           )}%`,
                         }}

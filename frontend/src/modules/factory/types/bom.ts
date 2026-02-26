@@ -160,29 +160,29 @@ export interface MaterialShortage {
 }
 
 export interface MaterialCostAnalysis {
-  workOrderId: string;
-  workOrderNumber: string;
-  productName: string;
+  work_order_id: string;
+  work_order_number: string;
+  product_name: string;
   quantity: number;
-  materialCost: number;
-  laborCost: number;
-  overheadCost: number;
-  totalCost: number;
-  costPerUnit: number;
-  materialBreakdown: MaterialCostBreakdown[];
-  costVariance: number;
-  costVariancePercentage: number;
+  material_cost: number;
+  labor_cost: number;
+  overhead_cost: number;
+  total_cost: number;
+  cost_per_unit: number;
+  material_breakdown: MaterialCostBreakdown[];
+  cost_variance: number;
+  cost_variance_percentage: number;
 }
 
 export interface MaterialCostBreakdown {
-  materialId: string;
-  materialName: string;
-  quantityUsed: number;
-  unitCost: number;
-  totalCost: number;
-  costPercentage: number;
-  wastageQuantity: number;
-  wastageCost: number;
+  material_id: string;
+  material_name: string;
+  quantity_used: number;
+  unit_cost: number;
+  total_cost: number;
+  cost_percentage: number;
+  wastage_quantity: number;
+  wastage_cost: number;
 }
 
 // BOM Statistics
@@ -234,32 +234,32 @@ export interface BOMQueryParams {
 }
 
 export interface CostVariance {
-  workOrderId: string;
-  workOrderNumber: string;
-  productName: string;
-  plannedCost: number;
-  actualCost: number;
+  work_order_id: string;
+  work_order_number: string;
+  product_name: string;
+  planned_cost: number;
+  actual_cost: number;
   variance: number;
-  variancePercentage: number;
+  variance_percentage: number;
   status: "favorable" | "unfavorable" | "on_target";
 }
 
 export interface CostTrend {
   period: string;
-  materialCost: number;
-  laborCost: number;
-  overheadCost: number;
-  totalCost: number;
-  costPerUnit: number;
+  material_cost: number;
+  labor_cost: number;
+  overhead_cost: number;
+  total_cost: number;
+  cost_per_unit: number;
 }
 
 export interface CostCenter {
   id: string;
   name: string;
-  totalCost: number;
-  materialCost: number;
-  laborCost: number;
-  overheadCost: number;
+  total_cost: number;
+  material_cost: number;
+  labor_cost: number;
+  overhead_cost: number;
   efficiency: number;
   variance: number;
 }
