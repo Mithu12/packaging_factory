@@ -34,10 +34,10 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
-    "nodemailer": "^6.9.7",
+    "nodemailer": "^8.0.1",
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
-    "puppeteer": "^21.6.1",
+    "puppeteer": "^24.37.5",
     "winston": "^3.17.0"
   },
   "devDependencies": {

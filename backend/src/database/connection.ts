@@ -5,8 +5,7 @@ import {MyLogger} from "@/utils/new-logger";
 dotenv.config();
 
 // Enable SSL for production or when explicitly set
-const isProduction = process.env.NODE_ENV === 'production';
-const sslEnabled = process.env.DB_SSL === 'true' || isProduction;
+const sslEnabled = process.env.DB_SSL === 'true';
 
 const pool = new Pool({
     host: process.env.DB_HOST || 'localhost',
