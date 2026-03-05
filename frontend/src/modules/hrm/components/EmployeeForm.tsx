@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { CalendarIcon, Save, X } from 'lucide-react';
-import { EmployeeFormProps, CreateEmployeeForm } from '../types';
+import { EmployeeFormProps, CreateEmployeeForm, Department, Designation, Employee } from '../types';
+import { HRMApiService } from '../services/hrm-api';
 import { RBACApi } from '@/services/rbac-api';
 import { Role } from '@/services/rbac-types';
 
@@ -64,6 +65,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   });
 
   const [roles, setRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [managers, setManagers] = useState<Employee[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -124,7 +128,31 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         console.error("Failed to fetch roles", error);
       }
     };
+
+    const fetchDropdownData = async () => {
+      try {
+        const [deptRes, desigRes, managerRes] = await Promise.all([
+          HRMApiService.getDepartments({ is_active: true, limit: 100 }),
+          HRMApiService.getDesignations({ is_active: true, limit: 100 }),
+          HRMApiService.getEmployees({ is_active: true, limit: 1000 })
+        ]);
+
+        if (deptRes && deptRes.departments) {
+          setDepartments(deptRes.departments);
+        }
+        if (desigRes && desigRes.designations) {
+          setDesignations(desigRes.designations);
+        }
+        if (managerRes && managerRes.employees) {
+          setManagers(managerRes.employees);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dropdown data", error);
+      }
+    };
+
     fetchRoles();
+    fetchDropdownData();
   }, []);
 
   const validateForm = (): boolean => {
@@ -689,7 +717,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Add department options */}
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                          {dept.name} ({dept.code})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -701,7 +733,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Add designation options */}
+                      {designations.map((desig) => (
+                        <SelectItem key={desig.id} value={desig.id.toString()}>
+                          {desig.title} ({desig.code})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -713,7 +749,11 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                       <SelectValue placeholder="Select reporting manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Add manager options */}
+                      {managers.map((mgr) => (
+                        <SelectItem key={mgr.id} value={mgr.id.toString()}>
+                          {mgr.first_name} {mgr.last_name} ({mgr.employee_id})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

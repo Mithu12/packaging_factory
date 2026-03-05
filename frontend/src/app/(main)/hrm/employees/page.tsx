@@ -58,7 +58,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { HRMApiService } from '@/modules/hrm/services/hrm-api';
-import { Employee, EmployeeListResponse, CreateEmployeeForm } from '@/modules/hrm/types';
+import { Employee, EmployeeListResponse, CreateEmployeeForm, Department } from '@/modules/hrm/types';
 import EmployeeForm from '@/modules/hrm/components/EmployeeForm';
 
 const EmployeeManagement: React.FC = () => {
@@ -66,6 +66,7 @@ const EmployeeManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -83,20 +84,43 @@ const EmployeeManagement: React.FC = () => {
     employment_type: '',
     is_active: ''
   });
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     loadEmployees();
-  }, [pagination.page, searchTerm, filters]);
+  }, [pagination.page, debouncedSearchTerm, filters]);
+
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
+  const loadDepartments = async () => {
+    try {
+      const response = await HRMApiService.getDepartments({ is_active: true, limit: 100 });
+      if (response && response.departments) {
+        setDepartments(response.departments);
+      }
+    } catch (err) {
+      console.error('Failed to load departments', err);
+    }
+  };
 
   const loadEmployees = async () => {
     try {
       setLoading(true);
       const response: EmployeeListResponse = await HRMApiService.getEmployees({
-        search: searchTerm || undefined,
+        search: debouncedSearchTerm || undefined,
         department_id: filters.department_id ? parseInt(filters.department_id) : undefined,
         designation_id: filters.designation_id ? parseInt(filters.designation_id) : undefined,
-        employment_type: filters.employment_type || undefined,
-        is_active: filters.is_active !== '' ? filters.is_active === 'true' : undefined,
+        employment_type: filters.employment_type && filters.employment_type !== 'all' ? filters.employment_type : undefined,
+        is_active: filters.is_active && filters.is_active !== 'all' ? filters.is_active === 'true' : undefined,
         page: pagination.page,
         limit: pagination.limit,
         sort_by: 'created_at',
@@ -170,11 +194,11 @@ const EmployeeManagement: React.FC = () => {
   const handleExportEmployees = async () => {
     try {
       const blob = await HRMApiService.exportEmployees({
-        search: searchTerm || undefined,
+        search: debouncedSearchTerm || undefined,
         department_id: filters.department_id ? parseInt(filters.department_id) : undefined,
         designation_id: filters.designation_id ? parseInt(filters.designation_id) : undefined,
-        employment_type: filters.employment_type || undefined,
-        is_active: filters.is_active !== '' ? filters.is_active === 'true' : undefined
+        employment_type: filters.employment_type && filters.employment_type !== 'all' ? filters.employment_type : undefined,
+        is_active: filters.is_active && filters.is_active !== 'all' ? filters.is_active === 'true' : undefined
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -269,38 +293,59 @@ const EmployeeManagement: React.FC = () => {
                 />
               </div>
             </div>
-            <Select value={filters.department_id} onValueChange={(value) => setFilters(prev => ({ ...prev, department_id: value }))}>
+            <Select 
+              value={filters.department_id || "all"} 
+              onValueChange={(value) => setFilters(prev => ({ ...prev, department_id: value === "all" ? "" : value }))}
+            >
               <SelectTrigger className="w-[180px]" data-testid="department-filter-select">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
-                {/* Add department options */}
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id.toString()}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Select value={filters.employment_type} onValueChange={(value) => setFilters(prev => ({ ...prev, employment_type: value }))}>
+            <Select value={filters.employment_type || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, employment_type: value === "all" ? "" : value }))}>
               <SelectTrigger className="w-[150px]" data-testid="employment-type-filter-select">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="permanent">Permanent</SelectItem>
                 <SelectItem value="contract">Contract</SelectItem>
                 <SelectItem value="intern">Intern</SelectItem>
                 <SelectItem value="consultant">Consultant</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filters.is_active} onValueChange={(value) => setFilters(prev => ({ ...prev, is_active: value }))}>
+            <Select value={filters.is_active || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, is_active: value === "all" ? "" : value }))}>
               <SelectTrigger className="w-[120px]" data-testid="status-filter-select">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="true">Active</SelectItem>
                 <SelectItem value="false">Inactive</SelectItem>
               </SelectContent>
             </Select>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm('');
+                setFilters({
+                  department_id: '',
+                  designation_id: '',
+                  employment_type: '',
+                  is_active: ''
+                });
+              }}
+            >
+              Reset Filters
+            </Button>
           </div>
-          <Button onClick={() => loadEmployees()} data-testid="apply-filter-button">
-            Apply Filters
-          </Button>
         </CardContent>
       </Card>
 

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Designation, CreateDesignationForm, DesignationFormProps, Department } from '../types';
+import { HRMApiService } from '../services/hrm-api';
 
 // Dummy data for departments and designations (for reporting hierarchy)
 const DUMMY_DEPARTMENTS: Department[] = [
@@ -47,6 +48,7 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [departments, setDepartments] = useState<Department[]>([]);
   const [availableDesignations, setAvailableDesignations] = useState<Designation[]>([]);
+  const [loadingDropdowns, setLoadingDropdowns] = useState(false);
 
   useEffect(() => {
     if (designation) {
@@ -62,9 +64,24 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
       });
     }
 
-    // Load departments and designations (simulated)
-    setDepartments(DUMMY_DEPARTMENTS.filter(dept => dept.is_active));
-    setAvailableDesignations(DUMMY_DESIGNATIONS.filter(desg => desg.is_active));
+    const fetchDropdownData = async () => {
+      setLoadingDropdowns(true);
+      try {
+        const [deptRes, desigRes] = await Promise.all([
+          HRMApiService.getDepartments({ is_active: true, limit: 1000 }),
+          HRMApiService.getDesignations({ is_active: true, limit: 1000 })
+        ]);
+        
+        setDepartments(deptRes?.departments || []);
+        setAvailableDesignations(desigRes?.designations || []);
+      } catch (error) {
+        console.error('Error fetching dropdown data for DesignationForm:', error);
+      } finally {
+        setLoadingDropdowns(false);
+      }
+    };
+
+    fetchDropdownData();
   }, [designation]);
 
   const validateForm = (): boolean => {
@@ -126,7 +143,7 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
   };
 
   const getFilteredDesignations = () => {
-    if (!formData.department_id) return availableDesignations;
+    if (!formData.department_id || !availableDesignations) return availableDesignations || [];
     return availableDesignations.filter(desg => desg.department_id === formData.department_id);
   };
 
@@ -167,7 +184,7 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
               <SelectValue placeholder="Select Department" />
             </SelectTrigger>
             <SelectContent>
-              {departments.map((dept) => (
+              {departments?.map((dept) => (
                 <SelectItem key={dept.id} value={dept.id.toString()}>
                   {dept.name} ({dept.code})
                 </SelectItem>
@@ -233,7 +250,7 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No Reporting Manager</SelectItem>
-              {getFilteredDesignations().map((desg) => (
+              {getFilteredDesignations()?.map((desg) => (
                 <SelectItem key={desg.id} value={desg.id.toString()}>
                   {desg.title} ({desg.code})
                 </SelectItem>

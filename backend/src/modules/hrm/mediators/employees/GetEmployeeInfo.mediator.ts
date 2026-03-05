@@ -35,7 +35,7 @@ export class GetEmployeeInfoMediator {
         LEFT JOIN departments as d ON e.department_id = d.id
         LEFT JOIN designations as des ON e.designation_id = des.id
         LEFT JOIN employees as rm ON e.reporting_manager_id = rm.id
-        WHERE e.is_active = true
+        WHERE 1=1
       `;
 
       const values: any[] = [];
@@ -107,7 +107,7 @@ export class GetEmployeeInfoMediator {
         LEFT JOIN departments as d ON e.department_id = d.id
         LEFT JOIN designations as des ON e.designation_id = des.id
         LEFT JOIN employees as rm ON e.reporting_manager_id = rm.id
-        WHERE e.is_active = true
+        WHERE 1=1
       `;
 
       let countParamIndex = 1;
@@ -159,7 +159,7 @@ export class GetEmployeeInfoMediator {
       const total = parseInt(countResult.rows[0].count);
 
       const result = {
-        employees,
+        employees: employees.map(emp => this.mapToEmployee(emp)),
         total,
         page,
         limit,
@@ -181,6 +181,61 @@ export class GetEmployeeInfoMediator {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Map database row to Employee object with nested relations
+   */
+  private static mapToEmployee(row: any): Employee {
+    if (!row) return row;
+
+    const employee: Employee = { ...row };
+
+    // Set department object
+    if (row.department_id) {
+      employee.department = {
+        id: row.department_id,
+        name: row.department_name,
+        code: row.department_code,
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      };
+    }
+
+    // Set designation object
+    if (row.designation_id) {
+      employee.designation = {
+        id: row.designation_id,
+        title: row.designation_title,
+        code: row.designation_code,
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      };
+    }
+
+    // Set reporting manager object
+    if (row.reporting_manager_id) {
+      employee.reporting_manager = {
+        id: row.reporting_manager_id,
+        first_name: row.reporting_manager_first_name,
+        last_name: row.reporting_manager_last_name,
+        full_name: row.reporting_manager_name,
+        employee_id: '',
+        employment_type: 'permanent',
+        probation_period_months: 6,
+        notice_period_days: 30,
+        shift_type: 'day',
+        skill_level: 'intermediate',
+        availability_status: 'available',
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      } as Employee;
+    }
+
+    return employee;
   }
 
   /**
@@ -216,7 +271,7 @@ export class GetEmployeeInfoMediator {
         throw new Error('Employee not found');
       }
 
-      const employee = result.rows[0];
+      const employee = this.mapToEmployee(result.rows[0]);
 
       MyLogger.success(action, {
         employeeId: employee.id,
@@ -265,7 +320,7 @@ export class GetEmployeeInfoMediator {
         employeesCount: employees.length
       });
 
-      return employees;
+      return result.rows.map(emp => this.mapToEmployee(emp));
     } catch (error) {
       MyLogger.error(action, error);
       throw error;
@@ -307,7 +362,7 @@ export class GetEmployeeInfoMediator {
         employeesCount: employees.length
       });
 
-      return employees;
+      return result.rows.map(emp => this.mapToEmployee(emp));
     } catch (error) {
       MyLogger.error(action, error);
       throw error;
@@ -365,7 +420,7 @@ export class GetEmployeeInfoMediator {
         resultsCount: employees.length
       });
 
-      return employees;
+      return result.rows.map(emp => this.mapToEmployee(emp));
     } catch (error) {
       MyLogger.error(action, error);
       throw error;
@@ -469,7 +524,7 @@ export class GetEmployeeInfoMediator {
         hierarchyCount: hierarchy.length
       });
 
-      return hierarchy;
+      return result.rows.map(emp => this.mapToEmployee(emp));
     } catch (error) {
       MyLogger.error(action, error);
       throw error;

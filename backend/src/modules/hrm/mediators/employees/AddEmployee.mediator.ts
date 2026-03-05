@@ -8,6 +8,16 @@ import { AuthMediator } from '@/mediators/auth/AuthMediator';
 export class AddEmployeeMediator {
 
   /**
+   * Helper to convert empty strings to null for database compatibility
+   */
+  private static toNullIfEmpty(value: any): any {
+    if (typeof value === 'string' && value.trim() === '') {
+      return null;
+    }
+    return value;
+  }
+
+  /**
    * Create a new employee
    */
   static async createEmployee(employeeData: CreateEmployeeRequest, createdBy?: number): Promise<Employee> {
@@ -24,7 +34,7 @@ export class AddEmployeeMediator {
 
       // Create user account first if employee doesn't already have a user_id
       let newUser = null;
-      if (!employeeData.user_id) {
+      if (!employeeData.user_id && employeeData.create_user_account !== false) {
         try {
           const employeeRoleId = employeeData.role_id;
 
@@ -89,15 +99,15 @@ export class AddEmployeeMediator {
 
       const values = [
         employeeId, employeeData.factory_id, userId,
-        employeeData.first_name, employeeData.last_name, employeeData.date_of_birth,
+        employeeData.first_name, employeeData.last_name, this.toNullIfEmpty(employeeData.date_of_birth),
         employeeData.gender, employeeData.marital_status, employeeData.nationality,
         employeeData.address, employeeData.city, employeeData.state, employeeData.postal_code,
         employeeData.country, employeeData.phone, employeeData.emergency_contact_name,
         employeeData.emergency_contact_phone, employeeData.emergency_contact_relationship,
         employeeData.blood_group, employeeData.cnic, employeeData.passport_number,
         employeeData.tax_id, employeeData.designation_id, employeeData.reporting_manager_id,
-        employeeData.department_id, employeeData.employment_type, employeeData.join_date,
-        employeeData.confirmation_date, employeeData.termination_date,
+        employeeData.department_id, employeeData.employment_type, this.toNullIfEmpty(employeeData.join_date),
+        this.toNullIfEmpty(employeeData.confirmation_date), this.toNullIfEmpty(employeeData.termination_date),
         employeeData.probation_period_months, employeeData.notice_period_days,
         employeeData.work_location, employeeData.shift_type, employeeData.bank_account_number,
         employeeData.bank_name, employeeData.skill_level, employeeData.availability_status,
@@ -228,7 +238,62 @@ export class AddEmployeeMediator {
       throw new Error('Employee not found');
     }
 
-    return result.rows[0];
+    return this.mapToEmployee(result.rows[0]);
+  }
+
+  /**
+   * Map database row to Employee object with nested relations
+   */
+  private static mapToEmployee(row: any): Employee {
+    if (!row) return row;
+
+    const employee: Employee = { ...row };
+
+    // Set department object
+    if (row.department_id) {
+      employee.department = {
+        id: row.department_id,
+        name: row.department_name,
+        code: row.department_code,
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      };
+    }
+
+    // Set designation object
+    if (row.designation_id) {
+      employee.designation = {
+        id: row.designation_id,
+        title: row.designation_title,
+        code: row.designation_code,
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      };
+    }
+
+    // Set reporting manager object
+    if (row.reporting_manager_id) {
+      employee.reporting_manager = {
+        id: row.reporting_manager_id,
+        first_name: row.reporting_manager_first_name,
+        last_name: row.reporting_manager_last_name,
+        full_name: row.reporting_manager_name,
+        employee_id: '',
+        employment_type: 'permanent',
+        probation_period_months: 6,
+        notice_period_days: 30,
+        shift_type: 'day',
+        skill_level: 'intermediate',
+        availability_status: 'available',
+        is_active: true,
+        created_at: '',
+        updated_at: ''
+      } as Employee;
+    }
+
+    return employee;
   }
 
 }

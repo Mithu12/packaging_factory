@@ -9,7 +9,8 @@ export const serializeSuccessResponse = (res: Response, data: any, message: stri
 }
 
 export const serializeErrorResponse = (res: Response, data: any, code: string, message: string, ) => {
-    return res.json({
+    const statusCode = parseInt(code) || 500;
+    return res.status(statusCode).json({
         success: false,
         data,
         errorCode: code,

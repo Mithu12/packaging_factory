@@ -59,9 +59,9 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
     try {
       // For now, we'll use a hardcoded role ID for "Head Of Department"
       // In the future, we should fetch this dynamically
-      const headOfDepartmentRoleId = 60; // This should be fetched from the database
+      const headOfDepartmentRoleId = 58; // Fixed ID for head_of_department role
       const response = await HRMApiService.getEmployeesByUserRole(headOfDepartmentRoleId);
-      setHeadOfDepartmentUsers(response.employees);
+      setHeadOfDepartmentUsers(response?.employees || []);
     } catch (error) {
       console.error('Error loading Head of Department users:', error);
       // Fallback to empty list - users can still create departments without managers
@@ -76,8 +76,8 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
     setLoadingDepartments(true);
     try {
       // Load all departments for parent department selection
-      const response = await HRMApiService.getDepartments({ limit: 1000 }); // Get all departments
-      setDepartments(response.departments);
+      const response = await HRMApiService.getDepartments({ limit: 1000 });
+      setDepartments(response?.departments || []);
     } catch (error) {
       console.error('Error loading departments:', error);
       // Fallback to empty list - users can still create departments without parent
@@ -196,8 +196,8 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No manager assigned</SelectItem>
-              {headOfDepartmentUsers.map((employee) => (
-                <SelectItem key={employee.employee_id} value={employee.employee_id.toString()}>
+              {headOfDepartmentUsers?.map((employee) => (
+                <SelectItem key={employee.employee_id} value={employee.id.toString()}>
                   {employee.full_name} ({employee.employee_id})
                 </SelectItem>
               ))}
@@ -224,7 +224,7 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
             <SelectContent>
               <SelectItem value="none">No parent department</SelectItem>
               {departments
-                .filter(dep => department ? dep.id !== department.id : true) // Exclude current department when editing
+                ?.filter(dep => department ? dep.id !== department.id : true)
                 .map((dep) => (
                   <SelectItem key={dep.id} value={dep.id.toString()}>
                     {dep.name} ({dep.code})
