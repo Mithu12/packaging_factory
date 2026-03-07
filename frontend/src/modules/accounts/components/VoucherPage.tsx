@@ -10,6 +10,7 @@ import {
   EllipsisVertical,
   ArrowUpRight,
   Paperclip,
+  Trash2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -544,6 +545,13 @@ export function VoucherPage({
                   </Button>
                 </div>
                 <ScrollArea className="h-[220px] pr-4">
+                  <div className="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_40px] gap-3 px-1 text-xs font-bold text-muted-foreground mb-2">
+                    <div>Account</div>
+                    <div>DR / Debit</div>
+                    <div>CR / Credit</div>
+                    <div>Cost Center</div>
+                    <div></div>
+                  </div>
                   <div className="space-y-3">
                     {lines.map((line) => (
                       <div key={line.id} className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_40px]">
@@ -595,8 +603,8 @@ export function VoucherPage({
                             ))}
                           </SelectContent>
                         </Select>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveLine(line.id)}>
-                          �
+                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveLine(line.id)} className="text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -699,8 +707,8 @@ export function VoucherPage({
                       <TableHeader>
                         <TableRow>
                           <TableHead>Account</TableHead>
-                          <TableHead className="text-right">Debit</TableHead>
-                          <TableHead className="text-right">Credit</TableHead>
+                          <TableHead className="text-right">DR / Debit</TableHead>
+                          <TableHead className="text-right">CR / Credit</TableHead>
                           <TableHead>Cost Center</TableHead>
                           <TableHead>Description</TableHead>
                         </TableRow>
