@@ -21,7 +21,12 @@ class GenerateCcAccountsMediator implements MediatorInterface {
         `SELECT * FROM chart_of_accounts 
          WHERE cost_center_id IS NULL 
          AND status = 'Active'
-         AND id NOT IN (SELECT DISTINCT parent_id FROM chart_of_accounts WHERE parent_id IS NOT NULL)`
+         AND id NOT IN (
+           SELECT DISTINCT parent_id 
+           FROM chart_of_accounts 
+           WHERE parent_id IS NOT NULL 
+           AND cost_center_id IS NULL
+         )`
       );
       const templates = templateResult.rows;
 
@@ -42,11 +47,13 @@ class GenerateCcAccountsMediator implements MediatorInterface {
         // Convert template to Control if it's not already
         // Wait, if it has ledger entries, we might need caution, 
         // but typically in this model the parent becomes the aggregator.
-        await client.query(
-          "UPDATE chart_of_accounts SET type = 'Control' WHERE id = $1",
-          [template.id]
-        );
-        convertedToControl++;
+        if (template.type !== 'Control') {
+          await client.query(
+            "UPDATE chart_of_accounts SET type = 'Control' WHERE id = $1",
+            [template.id]
+          );
+          convertedToControl++;
+        }
 
         for (const cc of costCenters) {
           // Check if CC-specific account already exists
