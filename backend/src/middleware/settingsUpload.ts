@@ -19,7 +19,14 @@ const storage = multer.diskStorage({
     // Generate unique filename with timestamp
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    const filename = `invoice-logo-${uniqueSuffix}${ext}`;
+    
+    // Determine prefix based on request path
+    let prefix = 'invoice-logo';
+    if (req.path.includes('system-logo')) {
+      prefix = 'system-logo';
+    }
+    
+    const filename = `${prefix}-${uniqueSuffix}${ext}`;
     cb(null, filename);
   }
 });
@@ -60,6 +67,7 @@ const upload = multer({
 
 // Middleware for single logo upload
 export const uploadInvoiceLogo = upload.single('logo');
+export const uploadSystemLogo = upload.single('logo');
 
 // Middleware for handling upload errors
 export const handleLogoUploadError = (error: any, req: Request, res: any, next: any) => {

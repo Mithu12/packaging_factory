@@ -142,6 +142,13 @@ router.post(
 // Employee Salary Routes
 // =====================================================
 
+// Get global salary history
+router.get(
+  "/salary-history/all",
+  requirePermission(PERMISSIONS.HR_EMPLOYEES_READ),
+  expressAsyncHandler(EmployeeController.getGlobalSalaryHistory)
+);
+
 // Get employee salary history
 router.get(
   "/:id/salary-history",

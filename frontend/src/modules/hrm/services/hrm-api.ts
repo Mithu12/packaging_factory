@@ -287,6 +287,11 @@ export class HRMApiService {
     });
   }
 
+  static async getGlobalSalaryHistory(params?: { limit?: number; offset?: number; }): Promise<{ history: any[], total: number }> {
+    const queryString = buildQueryString(params);
+    return makeRequest<{ history: any[], total: number }>(`${this.BASE_URL}/employees/salary-history/all${queryString}`);
+  }
+
   // ========== Payroll Management ==========
   
   static async getPayrollPeriods(filters?: {

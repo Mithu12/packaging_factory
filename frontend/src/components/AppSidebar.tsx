@@ -70,6 +70,7 @@ import {
 } from "@/components/rbac/PermissionGuard";
 import { ModuleStatusIndicator } from "@/components/ModuleStatusIndicator";
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
+import { SettingsApi } from "@/services/settings-api";
 
 type MenuItem = {
   title: string;
@@ -597,6 +598,33 @@ export function AppSidebar() {
   const currentPath = pathname;
   const isCollapsed = state === "collapsed";
   const { hasPermission, isLoading } = useRBAC();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [systemName, setSystemName] = useState<string>("ERP SYSTEM");
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const companySettings = await SettingsApi.getCompanySettings();
+        
+        // Handle Logo
+        if (companySettings.system_logo) {
+          const apiUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9000';
+          const fullUrl = companySettings.system_logo.startsWith('http') 
+            ? companySettings.system_logo 
+            : `${apiUrl}${companySettings.system_logo}`;
+          setLogoUrl(fullUrl);
+        }
+
+        // Handle System Name
+        if (companySettings.company_name) {
+          setSystemName(companySettings.company_name);
+        }
+      } catch (error) {
+        // Silently fail, fallback will be used
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const matchesPath = useCallback(
     (path: string) => {
@@ -674,16 +702,20 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="p-4 border-b">
-          <h2
-            className={`font-bold text-lg ${isCollapsed ? "hidden" : "block"}`}
-          >
-            ERP
-          </h2>
-          {isCollapsed && (
-            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-              <Package className="w-4 h-4 text-primary-foreground" />
-            </div>
+        <div className="p-4 border-b flex items-center gap-3 min-h-[65px]">
+          <div className="flex-shrink-0">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain" />
+            ) : (
+              <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+                <Package className="w-4 h-4 text-primary-foreground" />
+              </div>
+            )}
+          </div>
+          {!isCollapsed && (
+            <h2 className="font-bold text-lg truncate uppercase">
+              {systemName}
+            </h2>
           )}
         </div>
 

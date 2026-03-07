@@ -321,6 +321,25 @@ class EmployeeController {
   }
 
   /**
+   * Get global salary history
+   */
+  async getGlobalSalaryHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/hrm/salary-history/all";
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      MyLogger.info(action, { limit, offset });
+
+      const result = await GetEmployeeInfoMediator.getGlobalSalaryHistory(limit, offset);
+
+      MyLogger.success(action, { historyCount: result.history.length, total: result.total });
+      serializeSuccessResponse(res, result, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get employee salary history
    */
   async getEmployeeSalaryHistory(req: Request, res: Response, next: NextFunction): Promise<void> {

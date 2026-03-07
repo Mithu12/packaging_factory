@@ -713,6 +713,56 @@ export class GetEmployeeInfoMediator {
   }
 
   /**
+   * Get global salary history
+   */
+  static async getGlobalSalaryHistory(limit: number = 50, offset: number = 0): Promise<{ history: any[], total: number }> {
+    const action = "GetEmployeeInfoMediator.getGlobalSalaryHistory";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { limit, offset });
+
+      // Get total count
+      const countQuery = 'SELECT COUNT(*) as count FROM employee_salary_history';
+      const countResult = await client.query(countQuery);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get history with employee details
+      const query = `
+        SELECT 
+          h.*,
+          e.first_name,
+          e.last_name,
+          e.employee_id as employee_code,
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as full_name,
+          d.name as department_name,
+          des.title as designation_title
+        FROM employee_salary_history h
+        JOIN employees e ON h.employee_id = e.id
+        LEFT JOIN departments d ON e.department_id = d.id
+        LEFT JOIN designations des ON e.designation_id = des.id
+        ORDER BY h.effective_date DESC, h.created_at DESC
+        LIMIT $1 OFFSET $2
+      `;
+
+      const result = await client.query(query, [limit, offset]);
+      const history = result.rows;
+
+      MyLogger.success(action, {
+        historyCount: history.length,
+        total
+      });
+
+      return { history, total };
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Export employees data
    */
   static async exportEmployees(queryParams: EmployeeQueryParams, format: string): Promise<Buffer> {

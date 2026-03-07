@@ -9,7 +9,7 @@ import { MyLogger } from '@/utils/new-logger';
 import { authenticate } from '@/middleware/auth';
 import { requirePermission, requireSystemAdmin, PERMISSIONS } from '@/middleware/permission';
 import { auditMiddleware } from '@/middleware/audit';
-import { uploadInvoiceLogo, handleLogoUploadError } from '@/middleware/settingsUpload';
+import { uploadInvoiceLogo, uploadSystemLogo, handleLogoUploadError } from '@/middleware/settingsUpload';
 
 const router = express.Router();
 const settingsMediator = new SettingsMediator();
@@ -279,6 +279,129 @@ router.delete('/upload/invoice-logo',
       
       MyLogger.success(action);
       serializeSuccessResponse(res, null, 'Invoice logo deleted successfully');
+    } catch (error) {
+      MyLogger.error(action, error);
+      next(error);
+    }
+  })
+);
+
+// Upload system logo
+router.post('/upload/system-logo', 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.SETTINGS_UPDATE),
+  uploadSystemLogo,
+  handleLogoUploadError,
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'Upload System Logo API';
+    MyLogger.info(action);
+    
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          success: false,
+          message: 'No file uploaded',
+          error: {
+            message: 'Please upload a logo image file',
+            details: 'Supported formats: PNG, JPG, JPEG, SVG. Max size: 2MB'
+          }
+        });
+        return;
+      }
+
+      const logoUrl = `/uploads/settings/${req.file.filename}`;
+      
+      // Get current logo to delete old file if exists
+      const currentLogoSetting = await settingsMediator.getSetting('company', 'system_logo');
+      if (currentLogoSetting && typeof currentLogoSetting.value === 'string' && currentLogoSetting.value) {
+        const oldLogoPath = currentLogoSetting.value;
+        if (oldLogoPath.startsWith('/uploads/settings/')) {
+          const oldFilename = oldLogoPath.replace('/uploads/settings/', '');
+          const oldFilePath = path.join(process.cwd(), 'uploads', 'settings', oldFilename);
+          try {
+            if (fs.existsSync(oldFilePath)) {
+              fs.unlinkSync(oldFilePath);
+              MyLogger.info('Deleted old system logo', { oldLogoPath });
+            }
+          } catch (deleteError) {
+            MyLogger.warn('Failed to delete old logo file', { oldLogoPath, error: deleteError });
+          }
+        }
+      }
+      
+      // Save the logo URL to settings
+      const setting = await settingsMediator.setSetting({
+        category: 'company',
+        key: 'system_logo',
+        value: logoUrl,
+        data_type: 'string',
+        description: 'System logo URL'
+      });
+      
+      MyLogger.success(action, { logoUrl });
+      serializeSuccessResponse(res, { 
+        logoUrl,
+        setting 
+      }, 'System logo uploaded successfully');
+    } catch (error) {
+      MyLogger.error(action, error);
+      // Clean up uploaded file on error
+      if (req.file) {
+        try {
+          const filePath = path.join(process.cwd(), 'uploads', 'settings', req.file.filename);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (cleanupError) {
+          MyLogger.warn('Failed to cleanup uploaded file after error', { error: cleanupError });
+        }
+      }
+      next(error);
+    }
+  })
+);
+
+// Delete system logo
+router.delete('/upload/system-logo', 
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.SETTINGS_UPDATE),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = 'Delete System Logo API';
+    MyLogger.info(action);
+    
+    try {
+      // Get current logo setting
+      const currentLogoSetting = await settingsMediator.getSetting('company', 'system_logo');
+      
+      if (currentLogoSetting && typeof currentLogoSetting.value === 'string' && currentLogoSetting.value) {
+        const logoPath = currentLogoSetting.value;
+        if (logoPath.startsWith('/uploads/settings/')) {
+          const filename = logoPath.replace('/uploads/settings/', '');
+          const filePath = path.join(process.cwd(), 'uploads', 'settings', filename);
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              MyLogger.info('Deleted system logo file', { logoPath });
+            }
+          } catch (deleteError) {
+            MyLogger.warn('Failed to delete logo file', { logoPath, error: deleteError });
+          }
+        }
+      }
+      
+      // Remove the logo setting
+      await settingsMediator.setSetting({
+        category: 'company',
+        key: 'system_logo',
+        value: '',
+        data_type: 'string',
+        description: 'System logo URL'
+      });
+      
+      MyLogger.success(action);
+      serializeSuccessResponse(res, null, 'System logo deleted successfully');
     } catch (error) {
       MyLogger.error(action, error);
       next(error);

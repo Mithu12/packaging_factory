@@ -36,24 +36,28 @@ const SalaryUpdatePage: React.FC = () => {
   const [departments, setDepartments] = useState<any[]>([]);
   const [designations, setDesignations] = useState<any[]>([]);
   const [salaryHistory, setSalaryHistory] = useState<any[]>([]);
+  const [totalSalaryHistory, setTotalSalaryHistory] = useState<number>(0);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [empsRes, deptsRes, desigRes] = await Promise.all([
+      const [empsRes, deptsRes, desigRes, historyRes] = await Promise.all([
         HRMApiService.getEmployees({ limit: 500 }),
         HRMApiService.getDepartments(),
         HRMApiService.getDesignations(),
+        HRMApiService.getGlobalSalaryHistory({ limit: 100 }),
       ]);
       setEmployees(empsRes.employees || []);
       setDepartments(deptsRes.departments || []);
       setDesignations(desigRes.designations || []);
+      setSalaryHistory(historyRes.history || []);
+      setTotalSalaryHistory(historyRes.total || 0);
     } catch (err) {
       toast({ title: "Error", description: "Failed to load data", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -66,6 +70,7 @@ const SalaryUpdatePage: React.FC = () => {
         data.effective_date,
         data.reason || "Salary increment"
       );
+      await loadData();
       toast({ title: "Success", description: "Salary increment applied" });
       setActiveTab("history");
     } catch (err) {
@@ -91,6 +96,7 @@ const SalaryUpdatePage: React.FC = () => {
           `Promotion: ${data.reason || ""}`
         ),
       ]);
+      await loadData();
       toast({ title: "Success", description: "Promotion processed" });
       setActiveTab("history");
     } catch (err) {
@@ -109,6 +115,7 @@ const SalaryUpdatePage: React.FC = () => {
           HRMApiService.updateEmployeeSalary(empId, new_salary, effective_date, reason || "Bulk update")
         )
       );
+      await loadData();
       toast({ title: "Success", description: `Salary updated for ${(employee_ids || []).length} employees` });
       setActiveTab("history");
     } catch (err) {
@@ -121,8 +128,10 @@ const SalaryUpdatePage: React.FC = () => {
   const totalEmployees = employees.length;
   const pendingIncrements = 0;
   const pendingPromotions = 0;
-  const totalIncrements = 0;
-  const totalPromotions = 0;
+  
+  // Calculate stats from history
+  const totalIncrements = salaryHistory.filter((h: any) => !h.reason?.includes("Promotion")).length;
+  const totalPromotions = salaryHistory.filter((h: any) => h.reason?.includes("Promotion")).length;
 
   return (
     <div className="space-y-6">
@@ -195,7 +204,7 @@ const SalaryUpdatePage: React.FC = () => {
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{salaryHistory.length}</div>
+            <div className="text-2xl font-bold">{totalSalaryHistory}</div>
             <p className="text-xs text-muted-foreground">
               Salary changes tracked
             </p>

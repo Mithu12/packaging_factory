@@ -40,6 +40,7 @@ export interface CompanySettings {
   phone: string;
   tax_id: string;
   invoice_logo?: string;
+  system_logo?: string;
 }
 
 export interface SystemSettings {

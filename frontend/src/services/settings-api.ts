@@ -162,6 +162,24 @@ class SettingsApiService {
       method: 'DELETE'
     });
   }
+
+  // System logo upload
+  async uploadSystemLogo(file: File): Promise<{ logoUrl: string; setting: Setting }> {
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    return makeRequest<{ logoUrl: string; setting: Setting }>(`${this.baseUrl}/upload/system-logo`, {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  // Delete system logo
+  async deleteSystemLogo(): Promise<void> {
+    return makeRequest<void>(`${this.baseUrl}/upload/system-logo`, {
+      method: 'DELETE'
+    });
+  }
 }
 
 export const SettingsApi = new SettingsApiService();
