@@ -662,7 +662,7 @@ export default function EditProduct() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pv">PV (Personal Volume)</Label>
+                  <Label htmlFor="pv">PV Points</Label>
                   <Input
                     id="pv"
                     type="number"

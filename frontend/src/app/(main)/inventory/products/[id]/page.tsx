@@ -670,7 +670,7 @@ export default function ProductDetails() {
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">PV (Personal Volume)</span>
+                <span className="text-sm text-muted-foreground">PV Points</span>
                 <span className="font-medium">{product.pv || 0}</span>
               </div>
               <Separator />
