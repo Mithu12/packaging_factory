@@ -40,7 +40,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
   const [selectedReturnForView, setSelectedReturnForView] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [orderLineItems, setOrderLineItems] = useState<SalesOrderLineItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<{[key: number]: {selected: boolean, quantity: number, condition: string}}>({});
+  const [selectedItems, setSelectedItems] = useState<{[key: number]: {selected: boolean, quantity: number, condition: string, notes: string}}>({});
   const [createReturnData, setCreateReturnData] = useState<Partial<CreateReturnRequest>>({
     return_type: 'full',
     reason: 'defective_product',
@@ -110,12 +110,13 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
       if (orderWithDetails && orderWithDetails.line_items) {
         setOrderLineItems(orderWithDetails.line_items);
         // Initialize selection state
-        const initialSelection: {[key: number]: {selected: boolean, quantity: number, condition: string}} = {};
+        const initialSelection: {[key: number]: {selected: boolean, quantity: number, condition: string, notes: string}} = {};
         orderWithDetails.line_items.forEach(item => {
           initialSelection[item.id] = {
             selected: false,
             quantity: item.quantity,
-            condition: 'good'
+            condition: 'good',
+            notes: ''
           };
         });
         setSelectedItems(initialSelection);
@@ -174,6 +175,16 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
     }));
   };
 
+  const handleItemNotesChange = (itemId: number, notes: string) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        notes
+      }
+    }));
+  };
+
   const handleCreateReturn = async () => {
     if (!selectedOrder) {
       toast({
@@ -197,7 +208,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
           returned_quantity: itemData.quantity,
           item_condition: itemData.condition as 'good' | 'damaged' | 'defective' | 'expired' | 'other',
           restockable: itemData.condition === 'good',
-          notes: ''
+          notes: itemData.notes
         };
       })
       .filter(Boolean);
@@ -382,7 +393,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
               Process Return
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>Create New Return</DialogTitle>
               <DialogDescription>
@@ -439,15 +450,16 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                       Select Items to Return
                     </Label>
                     {orderLineItems.length > 0 ? (
-                      <div className="border rounded-lg max-h-60 overflow-y-auto">
-                        <Table>
+                      <div className="border rounded-lg max-h-60 overflow-auto">
+                        <Table className="min-w-[800px]">
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-12">Select</TableHead>
                               <TableHead>Product</TableHead>
                               <TableHead>Original Qty</TableHead>
-                              <TableHead>Return Qty</TableHead>
+                               <TableHead>Return Qty</TableHead>
                               <TableHead>Condition</TableHead>
+                              <TableHead>Remarks</TableHead>
                               <TableHead>Price</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -495,6 +507,15 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                                       <SelectItem value="other">Other</SelectItem>
                                     </SelectContent>
                                   </Select>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    placeholder="Item remarks..."
+                                    value={selectedItems[item.id]?.notes || ''}
+                                    onChange={(e) => handleItemNotesChange(item.id, e.target.value)}
+                                    disabled={!selectedItems[item.id]?.selected}
+                                    className="w-32 h-8 text-xs"
+                                  />
                                 </TableCell>
                                 <TableCell>{formatCurrency(item.unit_price)}</TableCell>
                               </TableRow>
@@ -549,12 +570,12 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                     </Select>
                   </div>
 
-                  {/* Notes */}
+                  {/* Remarks */}
                   <div className="space-y-2">
-                    <Label htmlFor="notes">Notes (Optional)</Label>
+                    <Label htmlFor="remarks">Remarks (Optional)</Label>
                     <Textarea
-                      id="notes"
-                      placeholder="Additional notes about the return..."
+                      id="remarks"
+                      placeholder="Additional remarks about the return..."
                       value={createReturnData.notes || ''}
                       onChange={(e) => setCreateReturnData(prev => ({ ...prev, notes: e.target.value }))}
                     />
@@ -680,6 +701,11 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                       Refund: {formatCurrency(returnItem.final_refund_amount)} • 
                       {new Date(returnItem.return_date).toLocaleDateString()}
                     </p>
+                    {returnItem.notes && (
+                      <p className="text-xs text-gray-500 italic mt-1 line-clamp-1">
+                        Remarks: {returnItem.notes}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={getStatusBadgeVariant(returnItem.return_status)} className="capitalize">
@@ -715,15 +741,13 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                         {processing === returnItem.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Complete'}
                       </Button>
                     )}
-                    {(returnItem.return_status === 'completed' || returnItem.return_status === 'rejected') && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewReturn(returnItem.id)}
-                      >
-                        View
-                      </Button>
-                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewReturn(returnItem.id)}
+                    >
+                      View
+                    </Button>
                   </div>
                 </div>
               ))
@@ -876,7 +900,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                 </div>
               </div>
 
-              {/* Return Reason */}
+              {/* Return Reason & Remarks */}
               <div>
                 <h3 className="font-semibold mb-2">Return Reason</h3>
                 <p className="text-sm bg-gray-50 p-3 rounded">
@@ -884,7 +908,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                 </p>
                 {selectedReturnForView.notes && (
                   <div className="mt-2">
-                    <h4 className="font-medium text-sm">Additional Notes:</h4>
+                    <h4 className="font-medium text-sm">Remarks:</h4>
                     <p className="text-sm bg-gray-50 p-3 rounded mt-1">{selectedReturnForView.notes}</p>
                   </div>
                 )}
@@ -894,15 +918,16 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
               {selectedReturnForView.items && selectedReturnForView.items.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-2">Returned Items</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
+                  <div className="border rounded-lg overflow-auto">
+                    <Table className="min-w-[800px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Product</TableHead>
                           <TableHead>SKU</TableHead>
                           <TableHead>Original Qty</TableHead>
-                          <TableHead>Returned Qty</TableHead>
+                           <TableHead>Returned Qty</TableHead>
                           <TableHead>Condition</TableHead>
+                          <TableHead>Remarks</TableHead>
                           <TableHead>Unit Price</TableHead>
                           <TableHead>Refund Amount</TableHead>
                         </TableRow>
@@ -914,10 +939,13 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({ salesOrders, onR
                             <TableCell>{item.product_sku}</TableCell>
                             <TableCell>{item.original_quantity}</TableCell>
                             <TableCell>{item.returned_quantity}</TableCell>
-                            <TableCell>
+                             <TableCell>
                               <Badge variant="outline" className="capitalize">
                                 {item.item_condition}
                               </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[150px] truncate" title={item.notes}>
+                              {item.notes || '-'}
                             </TableCell>
                             <TableCell>{formatCurrency(item.original_unit_price)}</TableCell>
                             <TableCell>{formatCurrency(item.line_refund_amount)}</TableCell>
