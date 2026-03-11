@@ -790,15 +790,21 @@ export class ReturnsMediator {
               notes: originalOrder.notes,
             };
 
-            // Create reversing voucher for the return
-            const reversingResult = await salesAccountsIntegrationService.createReversingVoucher(orderData, processedBy || 1);
-            if (reversingResult?.success) {
-              reversingVoucherId = reversingResult.voucherId;
-              MyLogger.success(`${action}.reversingVoucher`, {
+            // Create return voucher for the partial/full return
+            const returnData = {
+              refundAmount: Number(salesReturn.final_refund_amount),
+              taxAmount: Number(salesReturn.tax_returned),
+              notes: salesReturn.notes
+            };
+
+            const integrationResult = await salesAccountsIntegrationService.createReturnVoucher(orderData, returnData, processedBy || 1);
+            if (integrationResult?.success) {
+              reversingVoucherId = integrationResult.voucherId;
+              MyLogger.success(`${action}.returnVoucher`, {
                 returnId,
                 originalVoucherId: originalOrder.voucher_id,
-                reversingVoucherId,
-                reversingVoucherNo: reversingResult.voucherNo
+                returnVoucherId: reversingVoucherId,
+                returnVoucherNo: integrationResult.voucherNo
               });
             }
           }

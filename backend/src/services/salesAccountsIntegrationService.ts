@@ -243,60 +243,103 @@ class SalesAccountsIntegrationService {
     }
   }
 
-  async createReversingVoucher(order: SalesOrderAccountingData, userId: number): Promise<VoucherCreationResult | null> {
-    const action = 'Create Reversing Sales Voucher';
+  async createReturnVoucher(order: SalesOrderAccountingData, returnData: { refundAmount: number; taxAmount: number; notes?: string }, userId: number): Promise<VoucherCreationResult | null> {
+    const action = 'Create Return Voucher';
 
-    if (!this.isAccountsAvailable() || !order.voucher_id) {
-      MyLogger.info(action, { message: 'Accounts not available or no original voucher', orderId: order.id });
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available, skipping return voucher creation', orderId: order.id });
       return null;
     }
 
     try {
       const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
-      if (!accountsServices?.updateVoucherMediator) {
-        MyLogger.warn(action, { message: 'Update voucher mediator not available' });
+      if (!accountsServices?.voucherMediator || !accountsServices?.updateVoucherMediator) {
         return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts services unavailable' };
       }
 
-      // Create reversing entry for the original voucher
-      const reversingVoucher = await accountsServices.updateVoucherMediator.createReversingEntry(order.voucher_id, userId);
-
-      // Update order to reference the reversing voucher
-      await pool.query(
-        `UPDATE sales_orders
-         SET reversing_voucher_id = $1,
-             accounting_integrated = FALSE,
-             accounting_integration_error = NULL,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [reversingVoucher.id, order.id]
-      );
-
-      MyLogger.success(action, {
-        orderId: order.id,
-        originalVoucherId: order.voucher_id,
-        reversingVoucherId: reversingVoucher.id,
-        reversingVoucherNo: reversingVoucher.voucherNo
-      });
-
-      return { voucherId: reversingVoucher.id, voucherNo: reversingVoucher.voucherNo, success: true };
-    } catch (error: any) {
-      MyLogger.error(action, error, { orderId: order.id });
-
-      try {
-        await pool.query(
-          `UPDATE sales_orders
-           SET accounting_integrated = FALSE,
-               accounting_integration_error = $1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2`,
-          [error?.message || 'Failed to create reversing voucher', order.id]
+      let costCenterId = undefined;
+      if (order.distribution_center_id) {
+        const dcResult = await pool.query(
+          'SELECT cost_center_id FROM distribution_centers WHERE id = $1',
+          [order.distribution_center_id]
         );
-      } catch (persistError) {
-        MyLogger.error(`${action}.persistError`, persistError, { orderId: order.id });
+        costCenterId = dcResult.rows[0]?.cost_center_id || undefined;
       }
 
-      return { voucherId: 0, voucherNo: '', success: false, error: error?.message || 'Failed to create reversing voucher' };
+      const cashAccount = await this.findAccount('Assets', 'Cash', costCenterId);
+      const receivableAccount = await this.findAccount('Assets', 'Receivable', costCenterId);
+      const revenueAccount = await this.findAccount('Revenue', 'Sales Revenue', costCenterId);
+      const taxPayableAccount = await this.findAccount('Liabilities', 'Tax Payable', costCenterId);
+
+      if (!revenueAccount || (!cashAccount && !receivableAccount)) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Required accounts not configured' };
+      }
+
+      // In a return, we reverse the original entry:
+      // Debit Revenue, Debit Tax, Credit Cash/Receivable
+      const lines: Array<{ accountId: number; debit: number; credit: number; description?: string } > = [];
+      
+      const refundAmount = returnData.refundAmount;
+      const taxAmount = returnData.taxAmount;
+      const netAmount = refundAmount - taxAmount;
+
+      if (netAmount > 0) {
+        lines.push({ accountId: revenueAccount.id, debit: netAmount, credit: 0, description: `Sales return for ${order.order_number}` });
+      }
+      if (taxAmount > 0 && taxPayableAccount) {
+        lines.push({ accountId: taxPayableAccount.id, debit: taxAmount, credit: 0, description: `Tax reversal for ${order.order_number} return` });
+      }
+
+      // Credit cash or receivable based on where the money is coming from (here assuming same as original for simplicity, 
+      // but usually returns are paid from cash or credited to customer balance)
+      if (refundAmount > 0) {
+        // If order was fully paid, refund cash. If not, credit receivable.
+        if (order.due_amount <= 0 && cashAccount) {
+          lines.push({ accountId: cashAccount.id, debit: 0, credit: refundAmount, description: `Refund payment for ${order.order_number}` });
+        } else if (receivableAccount) {
+          lines.push({ accountId: receivableAccount.id, debit: 0, credit: refundAmount, description: `Credit to A/R for ${order.order_number} return` });
+        } else if (cashAccount) {
+          lines.push({ accountId: cashAccount.id, debit: 0, credit: refundAmount, description: `Refund payment for ${order.order_number}` });
+        }
+      }
+
+      const totalDebits = lines.reduce((s, l) => s + l.debit, 0);
+      const totalCredits = lines.reduce((s, l) => s + l.credit, 0);
+      if (Math.abs(totalDebits - totalCredits) > 0.01) {
+        return { voucherId: 0, voucherNo: '', success: false, error: 'Return voucher lines not balanced' };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(),
+        reference: `REV-${order.order_number}`,
+        payee: order.customer_name || undefined,
+        amount: totalDebits,
+        narration: `Sales Return - ${order.order_number}${returnData.notes ? ` - ${returnData.notes}` : ''}`,
+        costCenterId: costCenterId,
+        lines: lines.map(line => ({ ...line, costCenterId })),
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+
+      // Link the vouchers if original voucher exists for visibility in accounting audit trails
+      if (order.voucher_id) {
+        await pool.query(
+          'UPDATE vouchers SET reversed_by_voucher_id = $1 WHERE id = $2',
+          [voucher.id, order.voucher_id]
+        );
+        await pool.query(
+          'UPDATE vouchers SET reverses_voucher_id = $1 WHERE id = $2',
+          [order.voucher_id, voucher.id]
+        );
+      }
+
+      MyLogger.success(action, { orderId: order.id, voucherId: voucher.id, voucherNo: voucher.voucherNo });
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { orderId: order.id });
+      return { voucherId: 0, voucherNo: '', success: false, error: error?.message || 'Failed to create return voucher' };
     }
   }
 

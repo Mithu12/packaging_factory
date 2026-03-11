@@ -153,8 +153,20 @@ export function VoucherPage({
   const loadData = async () => {
     try {
       setIsLoading(true)
+      const dateFrom = dateRange?.from?.toISOString()
+      const dateTo = dateRange?.to ? (() => {
+        const d = new Date(dateRange.to)
+        d.setHours(23, 59, 59, 999)
+        return d.toISOString()
+      })() : undefined
+
       const [vouchersResponse, costCentersResponse, accountsResponse] = await Promise.all([
-        VouchersApiService.getVouchers({ type, limit: 1000, dateFrom: dateRange?.from?.toISOString(), dateTo: dateRange?.to?.toISOString() }),
+        VouchersApiService.getVouchers({ 
+          type, 
+          limit: 1000, 
+          dateFrom, 
+          dateTo 
+        }),
         CostCentersApiService.getCostCenters({ limit: 1000 }),
         ChartOfAccountsApiService.getChartOfAccountsTree()
       ])
