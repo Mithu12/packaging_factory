@@ -87,6 +87,7 @@ interface OrderEntryFormProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     order?: FactoryCustomerOrder | null;
+    initialStatus?: "draft" | "pending" | "quoted" | "approved";
     onSubmit: (data: CreateCustomerOrderRequest) => Promise<void>;
 }
 
@@ -94,6 +95,7 @@ export default function OrderEntryForm({
                                            open,
                                            onOpenChange,
                                            order,
+                                           initialStatus,
                                            onSubmit,
                                        }: OrderEntryFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -305,13 +307,11 @@ export default function OrderEntryForm({
                         specifications: item.specifications,
                     };
                 }),
+                status: initialStatus || 'pending',
             };
             console.log('Order data:', orderData);
 
             await onSubmit(orderData);
-            // Close dialog and reset form after successful submission
-            onOpenChange(false);
-            form.reset();
         } catch (error) {
             console.error("Error submitting order:", error);
         } finally {

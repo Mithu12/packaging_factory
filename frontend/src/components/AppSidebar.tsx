@@ -307,7 +307,7 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.FACTORY_CUSTOMERS_READ,
       },
       {
-        title: "Customer Orders",
+        title: "Orders & Quotations",
         url: "/factory/customer-orders",
         icon: ShoppingCart,
         permission: PERMISSIONS.FACTORY_ORDERS_READ,

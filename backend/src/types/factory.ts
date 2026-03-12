@@ -1,5 +1,60 @@
 // Factory Module Types
 
+export enum QuotationStatus {
+    DRAFT = 'draft',
+    SENT = 'sent',
+    APPROVED = 'approved',
+    REJECTED = 'rejected',
+    CONVERTED = 'converted',
+    EXPIRED = 'expired',
+}
+
+export interface Quotation extends FactoryCustomerOrder {
+    quotation_number: string;
+    quotation_date: string;
+}
+
+export type QuotationLineItem = OrderLineItem;
+
+export interface CreateQuotationRequest {
+    factory_customer_id: number;
+    factory_id: number;
+    quotation_date?: string;
+    valid_until?: string;
+    notes?: string;
+    terms?: string;
+    reference?: string;
+    discount?: number;
+    tax_rate?: number;
+    line_items: Array<{
+        product_id?: number;
+        description: string;
+        quantity: number;
+        unit?: string;
+        unit_price: number;
+    }>;
+}
+
+export interface UpdateQuotationRequest extends Partial<CreateQuotationRequest> {
+    status?: QuotationStatus;
+}
+
+export interface QuotationQueryParams extends OrderQueryParams {
+    status?: QuotationStatus | '';
+}
+
+export interface QuotationStats {
+    total_quotations: number;
+    draft_count: number;
+    sent_count: number;
+    approved_count: number;
+    rejected_count: number;
+    converted_count: number;
+    total_value: number;
+    approved_value: number;
+    conversion_rate: number;
+}
+
 // Factory Types
 export interface Factory {
     id: string;
@@ -94,6 +149,11 @@ export interface FactoryCustomerOrder {
     billing_address: Address;
     line_items: OrderLineItem[];
     attachments: string[];
+    valid_until?: string;
+    subtotal?: number;
+    tax_rate?: number;
+    tax_amount?: number;
+    discount_amount_total?: number;
     created_by: string;
     created_at: string;
     updated_by?: string;
@@ -180,6 +240,11 @@ export interface CreateCustomerOrderRequest {
     shipping_address: Address;
     billing_address: Address;
     line_items: CreateOrderLineItemRequest[];
+    status?: FactoryCustomerOrderStatus;
+    valid_until?: string;
+    subtotal?: number;
+    tax_rate?: number;
+    tax_amount?: number;
 }
 
 export interface CreateOrderLineItemRequest {
@@ -202,6 +267,11 @@ export interface UpdateCustomerOrderRequest {
     shipping_address?: Address;
     billing_address?: Address;
     line_items?: UpdateOrderLineItemRequest[];
+    status?: FactoryCustomerOrderStatus;
+    valid_until?: string;
+    subtotal?: number;
+    tax_rate?: number;
+    tax_amount?: number;
 }
 
 export interface UpdateOrderLineItemRequest {
@@ -243,6 +313,7 @@ export interface OrderQueryParams {
     status?: string;
     priority?: string;
     factory_customer_id?: number;
+    factory_id?: number;
     date_from?: string;
     date_to?: string;
     sales_person?: string;

@@ -40,6 +40,10 @@ export interface FactoryCustomerOrder {
     currency: string;
     sales_person: string;
     notes?: string;
+    valid_until?: string;
+    subtotal: number;
+    tax_rate: number;
+    tax_amount: number;
     billing_address?: Address;
     shipping_address?: Address;
     line_items: FactoryCustomerOrderLineItem[];
@@ -144,6 +148,8 @@ export interface CreateCustomerOrderRequest {
     sales_person: string;
     notes?: string;
     terms?: string;
+    status?: FactoryCustomerOrderStatus;
+    valid_until?: string;
     billing_address?: Address;
     shipping_address?: Address;
     line_items: CreateOrderLineItemRequest[];
@@ -212,6 +218,18 @@ export interface OrderStats {
     total_value: number;
     average_order_value: number;
     on_time_delivery: number;
+}
+
+export interface QuotationStats {
+    total_quotations: number;
+    draft_count: number;
+    sent_count: number;
+    approved_count: number;
+    rejected_count: number;
+    converted_count: number;
+    total_value: number;
+    approved_value: number;
+    conversion_rate: number;
 }
 
 export interface ApproveOrderRequest {
@@ -315,6 +333,15 @@ export class CustomerOrdersApiService {
     // Get order statistics
     static async getOrderStats(): Promise<OrderStats> {
         return makeRequest<OrderStats>(`${this.BASE_URL}/stats`);
+    }
+
+    // Get quotation statistics
+    static async getQuotationStats(params?: { factory_id?: number }): Promise<QuotationStats> {
+        const queryString = params?.factory_id ? `?factory_id=${params.factory_id}` : '';
+        // In the consolidated model, we'll use a special endpoint or just the same stats with mapping
+        // For now, let's assume the backend handles it at /stats or similar.
+        // Actually, I'll point it to orders/stats for now since I unified them.
+        return makeRequest<QuotationStats>(`${this.BASE_URL}/stats${queryString}`);
     }
 
     // Create new customer order

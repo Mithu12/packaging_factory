@@ -223,7 +223,11 @@ export class GetCustomerOrderInfoMediator {
                 updated_by: row.updated_by,
                 updated_at: row.updated_at,
                 approved_by: row.approved_by,
-                approved_at: row.approved_at ,
+                approved_at: row.approved_at,
+                valid_until: row.valid_until,
+                subtotal: row.subtotal ? parseFloat(row.subtotal) : undefined,
+                tax_rate: row.tax_rate ? parseFloat(row.tax_rate) : undefined,
+                tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : undefined,
             }));
 
             const totalPages = Math.ceil(total / limit);
@@ -356,6 +360,10 @@ export class GetCustomerOrderInfoMediator {
                 updated_at: row.updated_at ? row.updated_at : undefined,
                 approved_by: row.approved_by,
                 approved_at: row.approved_at ? row.approved_at : undefined,
+                valid_until: row.valid_until,
+                subtotal: row.subtotal ? parseFloat(row.subtotal) : undefined,
+                tax_rate: row.tax_rate ? parseFloat(row.tax_rate) : undefined,
+                tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : undefined,
                 factory_id: row.factory_id,
                 factory_name: row.factory_name,
                 factory_cost_center_id: row.factory_cost_center_id,

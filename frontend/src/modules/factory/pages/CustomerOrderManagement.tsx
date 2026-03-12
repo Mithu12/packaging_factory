@@ -77,6 +77,12 @@ export default function CustomerOrderManagement() {
         average_order_value: 0,
         on_time_delivery: 0,
     });
+    const [quotationStats, setQuotationStats] = useState({
+        total_quotations: 0,
+        approved_value: 0,
+        conversion_rate: 0,
+        total_value: 0
+    });
     const [search, setSearch] = useState<OrderQueryParams>({
         search: "",
         sort_by: "order_date",
@@ -92,6 +98,8 @@ export default function CustomerOrderManagement() {
     const [showShippingDialog, setShowShippingDialog] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [mainTab, setMainTab] = useState<string>("orders");
+    const [initialStatus, setInitialStatus] = useState<"draft" | "pending" | "quoted" | "approved" | undefined>(undefined);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [shippingData, setShippingData] = useState({
@@ -136,8 +144,17 @@ export default function CustomerOrderManagement() {
     // Load stats from API
     const loadStats = async () => {
         try {
-            const statsData = await CustomerOrdersApiService.getOrderStats();
+            const [statsData, qStatsData] = await Promise.all([
+                CustomerOrdersApiService.getOrderStats(),
+                CustomerOrdersApiService.getQuotationStats()
+            ]);
             setStats(statsData);
+            setQuotationStats({
+                total_quotations: qStatsData.total_quotations,
+                approved_value: qStatsData.approved_value,
+                conversion_rate: qStatsData.conversion_rate,
+                total_value: qStatsData.total_value
+            });
         } catch (err) {
             console.error('Error loading stats:', err);
         }
@@ -308,11 +325,21 @@ export default function CustomerOrderManagement() {
 
     const handleEditOrder = (order: FactoryCustomerOrder) => {
         setSelectedOrder(order);
+        setError(null);
         setShowOrderEntry(true);
     };
 
     const handleCreateOrder = () => {
         setSelectedOrder(null);
+        setError(null);
+        setInitialStatus("pending");
+        setShowOrderEntry(true);
+    };
+
+    const handleCreateQuotation = () => {
+        setSelectedOrder(null);
+        setError(null);
+        setInitialStatus("quoted");
         setShowOrderEntry(true);
     };
 
@@ -335,6 +362,7 @@ export default function CustomerOrderManagement() {
             setSelectedOrder(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save order');
+            throw err; // Re-throw to prevent child component from closing dialog
         }
     };
 
@@ -343,9 +371,9 @@ export default function CustomerOrderManagement() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Customer Order Management</h1>
+                    <h1 className="text-3xl font-bold">Order & Quotation Management</h1>
                     <p className="text-muted-foreground">
-                        Create, manage, and track customer orders
+                        Create, manage, and track customer quotations and orders
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -360,6 +388,10 @@ export default function CustomerOrderManagement() {
                         <RefreshCw className="h-4 w-4 mr-2"/>
                         Refresh
                     </Button>
+                    <Button variant="outline" onClick={handleCreateQuotation}>
+                        <Plus className="h-4 w-4 mr-2"/>
+                        New Quotation
+                    </Button>
                     <Button onClick={handleCreateOrder}>
                         <Plus className="h-4 w-4 mr-2"/>
                         New Order
@@ -371,64 +403,88 @@ export default function CustomerOrderManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {mainTab === 'orders' ? 'Total Orders' : 'Total Quotations'}
+                        </CardTitle>
                         <FileText className="h-4 w-4 text-muted-foreground"/>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.total_orders}</div>
-                        <p className="text-xs text-muted-foreground">All time orders</p>
+                        <div className="text-2xl font-bold">
+                            {mainTab === 'orders' ? stats.total_orders : quotationStats.total_quotations}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {mainTab === 'orders' ? 'All time orders' : 'Active and drafted results'}
+                        </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Pending Orders
+                            {mainTab === 'orders' ? 'Pending Orders' : 'Conversion Rate'}
                         </CardTitle>
-                        <Clock className="h-4 w-4 text-muted-foreground"/>
+                        {mainTab === 'orders' ? <Clock className="h-4 w-4 text-muted-foreground"/> : <TrendingUp className="h-4 w-4 text-muted-foreground"/>}
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.pending_orders}</div>
-                        <p className="text-xs text-muted-foreground">Awaiting approval</p>
+                        <div className="text-2xl font-bold">
+                            {mainTab === 'orders' ? stats.pending_orders : `${quotationStats.conversion_rate}%`}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {mainTab === 'orders' ? 'Awaiting approval' : 'Quotations to Orders'}
+                        </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                            {mainTab === 'orders' ? 'Total Order Value' : 'Total Quoted Value'}
+                        </CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground"/>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {formatCurrency(stats.total_value)}
+                            {formatCurrency(mainTab === 'orders' ? stats.total_value : quotationStats.total_value)}
                         </div>
-                        <p className="text-xs text-muted-foreground">All orders value</p>
+                        <p className="text-xs text-muted-foreground">
+                            {mainTab === 'orders' ? 'All orders value' : 'Potential revenue'}
+                        </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            On-Time Delivery
+                            {mainTab === 'orders' ? 'On-Time Delivery' : 'Approved Value'}
                         </CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground"/>
+                        <CheckCircle className="h-4 w-4 text-muted-foreground"/>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.on_time_delivery}%</div>
+                        <div className="text-2xl font-bold">
+                            {mainTab === 'orders' ? `${stats.on_time_delivery}%` : formatCurrency(quotationStats.approved_value)}
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                            Delivery performance
+                            {mainTab === 'orders' ? 'Delivery performance' : 'Ready for conversion'}
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Main Content Tabs */}
-            <Tabs defaultValue="all-orders" className="space-y-4">
+            <Tabs value={mainTab} onValueChange={(val) => {
+                setMainTab(val);
+                if (val === 'quotations') {
+                    setStatusFilter('quoted');
+                } else {
+                    setStatusFilter('all');
+                }
+            }} className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="all-orders">All Orders</TabsTrigger>
+                    <TabsTrigger value="orders">Customer Orders</TabsTrigger>
+                    <TabsTrigger value="quotations">Quotations</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="all-orders" className="space-y-4">
+                <TabsContent value={mainTab} className="space-y-4">
                     {/* Search and Filters */}
                     <Card>
                         <CardContent className="pt-6">
@@ -615,6 +671,7 @@ export default function CustomerOrderManagement() {
                 open={showOrderEntry}
                 onOpenChange={setShowOrderEntry}
                 order={selectedOrder}
+                initialStatus={initialStatus}
                 onSubmit={handleOrderSubmit}
             />
 

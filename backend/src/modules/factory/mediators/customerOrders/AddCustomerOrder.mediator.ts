@@ -25,7 +25,7 @@ async function isUserAdmin(userId: number): Promise<boolean> {
     return result.rows[0].role_id === 1;
 }
 export class AddCustomerOrderMediator {
-    static async generateOrderNumber(): Promise<string> {
+    static async generateOrderNumber(status?: FactoryCustomerOrderStatus): Promise<string> {
         const action = "AddCustomerOrderMediator.generateOrderNumber";
         try {
             MyLogger.info(action);
@@ -35,7 +35,8 @@ export class AddCustomerOrderMediator {
             const result = await pool.query(query);
             const nextNumber = result.rows[0].next_number;
 
-            const orderNumber = `ORD-${new Date().getFullYear()}-${nextNumber.toString().padStart(4, "0")}`;
+            const prefix = status === FactoryCustomerOrderStatus.QUOTED ? 'QTN' : 'ORD';
+            const orderNumber = `${prefix}-${new Date().getFullYear()}-${nextNumber.toString().padStart(4, "0")}`;
 
             MyLogger.success(action, {
                 generatedOrderNumber: orderNumber,
@@ -130,7 +131,7 @@ export class AddCustomerOrderMediator {
             // Validate references
             await this.validateReferences(orderData);
             // Generate order number
-            const orderNumber = await this.generateOrderNumber();
+            const orderNumber = await this.generateOrderNumber(orderData.status);
             MyLogger.info('orderNumber',orderNumber)
             // Get factory_customer details
             const factory_customerQuery = "SELECT name, email, phone FROM factory_customers WHERE id = $1";
@@ -156,12 +157,14 @@ export class AddCustomerOrderMediator {
             // Insert factory_customer order
             const orderQuery = `
         INSERT INTO factory_customer_orders (
-          order_number, factory_customer_id, factory_customer_name, factory_customer_email, factory_customer_phone,
-          order_date, required_date, status, priority, total_value, currency,
+          order_number, factory_customer_id, factory_customer_name, factory_customer_email,
+          factory_customer_phone, order_date, required_date, status, priority,
+          total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
-          attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount
+          attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount,
+          valid_until, subtotal, tax_rate, tax_amount
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
         ) RETURNING *
       `;
 
@@ -172,23 +175,27 @@ export class AddCustomerOrderMediator {
                 factory_customer.email,
                 factory_customer.phone,
                 new Date(),
-                new Date(orderData.required_date),
-                FactoryCustomerOrderStatus.DRAFT,
-                orderData.priority,
+                new Date(orderData.required_date || new Date()), // Fallback for quotes
+                orderData.status || FactoryCustomerOrderStatus.DRAFT,
+                orderData.priority || 'medium',
                 totalValue,
                 'BDT', // Default currency
                 userId, // sales_person is the current user
                 orderData.notes && orderData.notes.trim() !== '' ? orderData.notes : null,
                 orderData.terms && orderData.terms.trim() !== '' ? orderData.terms : null,
-                orderData.payment_terms,
-                JSON.stringify(orderData.shipping_address),
-                JSON.stringify(orderData.billing_address),
+                orderData.payment_terms || 'net_30',
+                orderData.shipping_address ? JSON.stringify(orderData.shipping_address) : null,
+                orderData.billing_address ? JSON.stringify(orderData.billing_address) : null,
                 JSON.stringify([]), // Empty attachments array
                 userId,
                 new Date(),
                 orderData.factory_id,
                 0, // paid_amount - new orders start unpaid
-                totalValue // outstanding_amount - full amount is outstanding
+                totalValue, // outstanding_amount - full amount is outstanding
+                orderData.valid_until ? new Date(orderData.valid_until) : null,
+                orderData.subtotal || totalValue,
+                orderData.tax_rate || 0,
+                orderData.tax_amount || 0
             ];
 
             const orderResult = await client.query(orderQuery, orderValues);
