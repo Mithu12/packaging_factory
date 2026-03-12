@@ -413,6 +413,8 @@ export class GetCustomerOrderInfoMediator {
                     COUNT(*) FILTER (WHERE status = 'in_production') as in_production_orders,
                     COUNT(*) FILTER (WHERE status = 'completed') as completed_orders,
                     COALESCE(SUM(total_value), 0) as total_value,
+                    COALESCE(SUM(total_value) FILTER (WHERE status = 'quoted'), 0) as total_quoted_value,
+                    COALESCE(SUM(total_value) FILTER (WHERE status = 'approved'), 0) as approved_quoted_value,
                     COALESCE(AVG(total_value), 0) as average_order_value,
                     COALESCE(
                                     COUNT(*) FILTER (WHERE status = 'completed' AND required_date >= order_date) * 100.0 /
@@ -435,7 +437,12 @@ export class GetCustomerOrderInfoMediator {
                 completed_orders: parseInt(row.completed_orders),
                 total_value: parseFloat(row.total_value),
                 average_order_value: parseFloat(row.average_order_value),
-                on_time_delivery: parseFloat(row.on_time_delivery)
+                on_time_delivery: parseFloat(row.on_time_delivery),
+                total_quotations: parseInt(row.quoted_orders),
+                approved_value: parseFloat(row.approved_quoted_value),
+                conversion_rate: parseInt(row.total_orders) > 0 ? (parseInt(row.approved_orders) * 100 / (parseInt(row.quoted_orders) + parseInt(row.approved_orders))) : 0,
+                // Total value of only quotations
+                total_quoted_value: parseFloat(row.total_quoted_value)
             };
 
             MyLogger.success(action, stats);

@@ -24,6 +24,9 @@ import {
     Download,
     RefreshCw,
     Wallet,
+    Trash2,
+    XCircle,
+    Printer,
 } from "lucide-react";
 import {useFormatting} from "@/hooks/useFormatting";
 import {
@@ -42,6 +45,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {Label} from "@/components/ui/label";
 import {Textarea} from "@/components/ui/textarea";
 import {
@@ -57,6 +70,7 @@ import {
     FactoryCustomerOrder,
     FactoryCustomerOrderStatus,
     OrderStats as ApiOrderStats,
+    QuotationStats,
     OrderQueryParams,
     CreateCustomerOrderRequest
 } from "../services/customer-orders-api";
@@ -77,7 +91,7 @@ export default function CustomerOrderManagement() {
         average_order_value: 0,
         on_time_delivery: 0,
     });
-    const [quotationStats, setQuotationStats] = useState({
+    const [quotationStats, setQuotationStats] = useState<QuotationStats>({
         total_quotations: 0,
         approved_value: 0,
         conversion_rate: 0,
@@ -98,8 +112,10 @@ export default function CustomerOrderManagement() {
     const [showShippingDialog, setShowShippingDialog] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<FactoryCustomerOrder | null>(null);
     const [mainTab, setMainTab] = useState<string>("orders");
-    const [initialStatus, setInitialStatus] = useState<"draft" | "pending" | "quoted" | "approved" | undefined>(undefined);
+    const [initialStatus, setInitialStatus] = useState<FactoryCustomerOrderStatus>('draft');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [shippingData, setShippingData] = useState({
@@ -150,10 +166,15 @@ export default function CustomerOrderManagement() {
             ]);
             setStats(statsData);
             setQuotationStats({
-                total_quotations: qStatsData.total_quotations,
-                approved_value: qStatsData.approved_value,
-                conversion_rate: qStatsData.conversion_rate,
-                total_value: qStatsData.total_value
+                total_quotations: qStatsData.total_quotations || 0,
+                approved_value: qStatsData.approved_value || 0,
+                conversion_rate: qStatsData.conversion_rate || 0,
+                total_value: qStatsData.total_quoted_value || 0,
+                draft_count: 0,
+                sent_count: 0,
+                approved_count: 0,
+                rejected_count: 0,
+                converted_count: 0
             });
         } catch (err) {
             console.error('Error loading stats:', err);
@@ -276,6 +297,21 @@ export default function CustomerOrderManagement() {
         }
     };
 
+    const handleDeleteOrder = async () => {
+        if (!orderToDelete) return;
+
+        try {
+            await CustomerOrdersApiService.deleteCustomerOrder(orderToDelete.id.toString());
+            setShowDeleteDialog(false);
+            setOrderToDelete(null);
+            await loadOrders();
+            await loadStats();
+        } catch (error) {
+            console.error("Failed to delete order:", error);
+            setError(error instanceof Error ? error.message : 'Failed to delete order');
+        }
+    };
+
     // Since we're using API filtering, we don't need client-side filtering
     // The orders are already filtered by the API based on search and status
     const filteredOrders = orders;
@@ -388,14 +424,17 @@ export default function CustomerOrderManagement() {
                         <RefreshCw className="h-4 w-4 mr-2"/>
                         Refresh
                     </Button>
-                    <Button variant="outline" onClick={handleCreateQuotation}>
-                        <Plus className="h-4 w-4 mr-2"/>
-                        New Quotation
-                    </Button>
-                    <Button onClick={handleCreateOrder}>
-                        <Plus className="h-4 w-4 mr-2"/>
-                        New Order
-                    </Button>
+                    {mainTab === 'quotations' ? (
+                        <Button onClick={handleCreateQuotation}>
+                            <Plus className="h-4 w-4 mr-2"/>
+                            New Quotation
+                        </Button>
+                    ) : (
+                        <Button onClick={handleCreateOrder}>
+                            <Plus className="h-4 w-4 mr-2"/>
+                            New Order
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -634,6 +673,31 @@ export default function CustomerOrderManagement() {
                                                     >
                                                         <Edit className="h-4 w-4"/>
                                                     </Button>
+
+                                                    {/* Approval Actions for Quotations and Pending Orders */}
+                                                    {(order.status === 'quoted' || order.status === 'pending') && (
+                                                        <>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleApproveOrder(order.id.toString(), true)}
+                                                                className="text-green-600 hover:text-green-800"
+                                                                title={order.status === 'quoted' ? 'Convert to Order' : 'Approve Order'}
+                                                            >
+                                                                <CheckCircle className="h-4 w-4"/>
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleApproveOrder(order.id.toString(), false)}
+                                                                className="text-red-600 hover:text-red-800"
+                                                                title={order.status === 'quoted' ? 'Reject Quotation' : 'Reject Order'}
+                                                            >
+                                                                <XCircle className="h-4 w-4"/>
+                                                            </Button>
+                                                        </>
+                                                    )}
+
                                                     {order.outstanding_amount > 0 && ['completed', 'shipped'].includes(order.status) && (
                                                         <Button
                                                             variant="outline"
@@ -651,10 +715,24 @@ export default function CustomerOrderManagement() {
                                                             size="sm"
                                                             onClick={() => handleShipOrder(order)}
                                                             className="text-blue-600 hover:text-blue-800"
+                                                            title="Ship Order"
                                                         >
                                                             <Package className="h-4 w-4"/>
                                                         </Button>
                                                     )}
+                                                    
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setOrderToDelete(order);
+                                                            setShowDeleteDialog(true);
+                                                        }}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="h-4 w-4"/>
+                                                    </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -682,6 +760,25 @@ export default function CustomerOrderManagement() {
                 order={selectedOrder}
                 onEdit={handleEditOrder}
             />
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the 
+                            {orderToDelete?.status === 'quoted' ? ' quotation' : ' order'} #{orderToDelete?.order_number}.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteOrder} className="bg-red-600 hover:bg-red-700">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Shipping Dialog */}
             <Dialog open={showShippingDialog} onOpenChange={setShowShippingDialog}>

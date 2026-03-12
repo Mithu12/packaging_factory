@@ -192,7 +192,7 @@ export default function MaterialRequirementsPlanning() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">
-              Material Requirementsnts Planning
+              Material Requirements Planning
             </h1>
             <p className="text-muted-foreground">
               Plan and manage material requirements for production
@@ -330,7 +330,7 @@ export default function MaterialRequirementsPlanning() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Material Requirementsnts Planning</h1>
+          <h1 className="text-3xl font-bold">Material Requirements Planning</h1>
           <p className="text-muted-foreground">
             Plan and manage material requirements for production
           </p>
@@ -428,7 +428,7 @@ export default function MaterialRequirementsPlanning() {
       {/* Main Content Tabs */}
       <Tabs defaultValue="requirements" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="requirements">Material Requirementsnts</TabsTrigger>
+          <TabsTrigger value="requirements">Material Requirements</TabsTrigger>
           <TabsTrigger value="shortages">Material Shortages</TabsTrigger>
           <TabsTrigger value="planning">Planning Analysis</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -479,7 +479,7 @@ export default function MaterialRequirementsPlanning() {
           {/* Requirements Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Material Requirementsnts</CardTitle>
+              <CardTitle>Material Requirements</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -798,14 +798,24 @@ export default function MaterialRequirementsPlanning() {
                       <span>Average Lead Time</span>
                       <span>{stats.average_lead_time} days</span>
                     </div>
-                    <Progress value={75} className="h-2" />
+                    <Progress
+                      value={Math.min(100, Math.max(0, 100 - stats.average_lead_time * 2))}
+                      className="h-2"
+                    />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>Critical Path Items</span>
                       <span>{stats.critical_shortages}</span>
                     </div>
-                    <Progress value={40} className="h-2" />
+                    <Progress
+                      value={
+                        stats.total_requirements > 0
+                          ? Math.max(0, 100 - (stats.critical_shortages / stats.total_requirements) * 100)
+                          : 0
+                      }
+                      className="h-2"
+                    />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
@@ -874,7 +884,7 @@ export default function MaterialRequirementsPlanning() {
                   className="h-20 flex flex-col items-center justify-center"
                 >
                   <BarChart3 className="h-6 w-6 mb-2" />
-                  <span>Material Requirementsnts Report</span>
+                  <span>Material Requirements Report</span>
                 </Button>
                 <Button
                   variant="outline"

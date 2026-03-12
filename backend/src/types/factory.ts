@@ -245,6 +245,7 @@ export interface CreateCustomerOrderRequest {
     subtotal?: number;
     tax_rate?: number;
     tax_amount?: number;
+    sales_person: string;
 }
 
 export interface CreateOrderLineItemRequest {
@@ -272,6 +273,7 @@ export interface UpdateCustomerOrderRequest {
     subtotal?: number;
     tax_rate?: number;
     tax_amount?: number;
+    sales_person?: string;
 }
 
 export interface UpdateOrderLineItemRequest {
@@ -295,6 +297,11 @@ export interface OrderStats {
     total_value: number;
     average_order_value: number;
     on_time_delivery: number;
+    // Quotation specific stats
+    total_quotations?: number;
+    approved_value?: number;
+    conversion_rate?: number;
+    total_quoted_value?: number;
 }
 
 export interface OrderFilter {

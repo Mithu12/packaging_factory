@@ -1236,7 +1236,7 @@ export default function WorkOrderPlanning() {
               <TabsContent value="materials" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Material Requirementsnts</CardTitle>
+                    <CardTitle>Material Requirements</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {selectedWorkOrder.material_requirements && selectedWorkOrder.material_requirements.length > 0 ? (

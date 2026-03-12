@@ -180,7 +180,7 @@ export class AddCustomerOrderMediator {
                 orderData.priority || 'medium',
                 totalValue,
                 'BDT', // Default currency
-                userId, // sales_person is the current user
+                orderData.sales_person || '', // Use the name from form
                 orderData.notes && orderData.notes.trim() !== '' ? orderData.notes : null,
                 orderData.terms && orderData.terms.trim() !== '' ? orderData.terms : null,
                 orderData.payment_terms || 'net_30',

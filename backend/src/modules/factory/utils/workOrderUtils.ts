@@ -26,6 +26,11 @@ export function ensureFutureIsoDate(dateValue?: string | null): string {
  */
 export async function autoCreateDraftWorkOrders(order: FactoryCustomerOrder, userId: string): Promise<void> {
     const action = "workOrderUtils.autoCreateDraftWorkOrders";
+    MyLogger.info(action, { 
+        orderId: order.id, 
+        orderNumber: order.order_number,
+        lineItemsCount: order.line_items?.length 
+    });
 
     if (!order.line_items || order.line_items.length === 0) {
         MyLogger.info(action, {
@@ -35,42 +40,36 @@ export async function autoCreateDraftWorkOrders(order: FactoryCustomerOrder, use
         return;
     }
 
+    // Check if work orders already exist for this order
     const existingWorkOrders = await pool.query(
-        "SELECT id FROM work_orders WHERE customer_order_id = $1 LIMIT 1",
+        "SELECT id, work_order_number FROM work_orders WHERE customer_order_id = $1",
         [order.id]
     );
 
     if (existingWorkOrders.rows.length > 0) {
         MyLogger.info(action, {
             orderId: order.id,
+            existingCount: existingWorkOrders.rows.length,
             message: "Work orders already exist for this customer order; skipping auto-generation",
         });
         return;
     }
 
-    const generatedWorkOrderIds: string[] = [];
+    const { AddWorkOrderMediator } = await import("../mediators/workOrders/AddWorkOrder.mediator");
 
+    const generatedWorkOrderIds: string[] = [];
     try {
         for (const lineItem of order.line_items) {
             const productId = lineItem.product_id?.toString();
-            const quantity = Number(lineItem.quantity);
+            const quantity = parseFloat(lineItem.quantity.toString());
 
-            if (!productId) {
-                MyLogger.warn(action, {
-                    orderId: order.id,
-                    lineItemId: lineItem.id,
-                    message: "Line item missing product reference; skipping work order generation for this item",
-                });
-                continue;
-            }
-
-            if (!Number.isFinite(quantity) || quantity <= 0) {
-                MyLogger.warn(action, {
+            if (!productId || !quantity || quantity <= 0) {
+                MyLogger.warn(`${action}.skipItem`, {
                     orderId: order.id,
                     lineItemId: lineItem.id,
                     productId,
                     quantity,
-                    message: "Invalid quantity detected; skipping work order generation for this item",
+                    message: "Skipping line item due to missing product ID or invalid quantity"
                 });
                 continue;
             }
@@ -79,47 +78,44 @@ export async function autoCreateDraftWorkOrders(order: FactoryCustomerOrder, use
             const workOrderPayload: CreateWorkOrderRequest = {
                 customer_order_id: order.id,
                 product_id: productId,
-                quantity,
+                quantity: quantity,
                 deadline: ensureFutureIsoDate(deadlineSource),
-                priority: order.priority || "medium",
-                estimated_hours: Math.max(1, Math.round(quantity)),
-                notes: `Auto-generated from customer order ${order.order_number} (line: ${lineItem.product_name}).`,
+                priority: order.priority as any, // Map priority
+                estimated_hours: Math.max(1, Math.round(quantity)), // Simple heuristic: 1 hour per unit
+                notes: `Auto-generated from Order ${order.order_number}${lineItem.specifications ? ': ' + lineItem.specifications : ''}`,
                 specifications: lineItem.specifications || undefined,
             };
 
+            MyLogger.info(`${action}.creating`, { orderId: order.id, productId, quantity });
             const createdWorkOrder = await AddWorkOrderMediator.createWorkOrder(workOrderPayload, userId);
             generatedWorkOrderIds.push(createdWorkOrder.id);
-
-            MyLogger.info(action, {
-                orderId: order.id,
-                lineItemId: lineItem.id,
-                workOrderId: createdWorkOrder.id,
-                workOrderNumber: createdWorkOrder.work_order_number,
-            });
         }
+
+        MyLogger.success(action, {
+            orderId: order.id,
+            workOrdersCreated: generatedWorkOrderIds.length,
+        });
+
     } catch (error) {
         MyLogger.error(action, error, {
             orderId: order.id,
             generatedCount: generatedWorkOrderIds.length,
         });
 
-        // Attempt to clean up any partially created work orders
-        for (const workOrderId of generatedWorkOrderIds) {
-            try {
-                await pool.query("DELETE FROM work_orders WHERE id = $1", [workOrderId]);
-                MyLogger.warn(action, {
-                    orderId: order.id,
-                    workOrderId,
-                    message: "Rolled back auto-generated work order after failure",
-                });
-            } catch (cleanupError: any) {
-                MyLogger.error(`${action}.cleanup`, cleanupError, {
-                    orderId: order.id,
-                    workOrderId,
-                });
+        // Attempt to clean up any partially created work orders to maintain consistency
+        if (generatedWorkOrderIds.length > 0) {
+            MyLogger.info(`${action}.rollback`, { 
+                orderId: order.id, 
+                toDelete: generatedWorkOrderIds 
+            });
+            for (const workOrderId of generatedWorkOrderIds) {
+                try {
+                    await pool.query("DELETE FROM work_orders WHERE id = $1", [workOrderId]);
+                } catch (cleanupError) {
+                    MyLogger.error(`${action}.cleanupError`, cleanupError, { workOrderId });
+                }
             }
         }
-
         throw error;
     }
 }

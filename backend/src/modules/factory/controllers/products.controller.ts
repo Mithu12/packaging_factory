@@ -29,8 +29,14 @@ class ProductsController {
       
       const result = await pool.query(query);
       
-      MyLogger.success(action, { count: result.rows.length });
-      serializeSuccessResponse(res, result.rows, "SUCCESS");
+      const products = result.rows.map(row => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0
+      }));
+      
+      MyLogger.success(action, { count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
     } catch (error) {
       next(error);
     }
@@ -64,8 +70,14 @@ class ProductsController {
       
       const result = await pool.query(query, [`%${q}%`]);
       
-      MyLogger.success(action, { query: q, count: result.rows.length });
-      serializeSuccessResponse(res, result.rows, "SUCCESS");
+      const products = result.rows.map(row => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0
+      }));
+      
+      MyLogger.success(action, { query: q, count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
     } catch (error) {
       next(error);
     }

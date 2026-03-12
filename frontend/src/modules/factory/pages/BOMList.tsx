@@ -128,6 +128,13 @@ export default function BOMList() {
       : "bg-gray-100 text-gray-800";
   };
 
+  const componentsWithSuppliersPct =
+    stats.total_boms * stats.average_components > 0
+      ? ((stats.total_boms * stats.average_components - stats.components_without_supplier) /
+          (stats.total_boms * stats.average_components)) *
+        100
+      : 0;
+
   const handleCopyBOM = (bom: BillOfMaterials) => {
     // Copy BOM functionality
     console.log("Copy BOM:", bom.id);
@@ -518,28 +525,37 @@ export default function BOMList() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Most Expensive</span>
-                    <div className="text-right">
-                      <div className="font-medium">
-                        {stats.most_expensive_bom}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatCurrency(stats.average_cost * 1.5)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Least Expensive</span>
-                    <div className="text-right">
-                      <div className="font-medium">
-                        {stats.least_expensive_bom}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatCurrency(stats.average_cost * 0.3)}
-                      </div>
-                    </div>
-                  </div>
+                  {(() => {
+                    const sortedByCost = [...boms].sort((a, b) => (b.total_cost ?? 0) - (a.total_cost ?? 0));
+                    const mostExpensive = sortedByCost[0];
+                    const leastExpensive = sortedByCost[sortedByCost.length - 1];
+                    return (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Most Expensive</span>
+                          <div className="text-right">
+                            <div className="font-medium">
+                              {(mostExpensive?.parent_product_name ?? stats.most_expensive_bom) || "—"}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {mostExpensive ? formatCurrency(mostExpensive.total_cost) : "—"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Least Expensive</span>
+                          <div className="text-right">
+                            <div className="font-medium">
+                              {(leastExpensive?.parent_product_name ?? stats.least_expensive_bom) || "—"}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {leastExpensive ? formatCurrency(leastExpensive.total_cost) : "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -554,12 +570,14 @@ export default function BOMList() {
                     <div className="flex justify-between text-sm mb-2">
                       <span>Active BOMs</span>
                       <span>
-                        {Math.round((stats.active_boms / stats.total_boms) * 100)}
+                        {stats.total_boms > 0
+                          ? Math.round((stats.active_boms / stats.total_boms) * 100)
+                          : 0}
                         %
                       </span>
                     </div>
                     <Progress
-                      value={(stats.active_boms / stats.total_boms) * 100}
+                      value={stats.total_boms > 0 ? (stats.active_boms / stats.total_boms) * 100 : 0}
                       className="h-2"
                     />
                   </div>
@@ -567,16 +585,14 @@ export default function BOMList() {
                     <div className="flex justify-between text-sm mb-2">
                       <span>Components with Suppliers</span>
                       <span>
-                        {Math.round(
-                          ((stats.total_boms * stats.average_components -
-                            stats.components_without_supplier) /
-                            (stats.total_boms * stats.average_components)) *
-                            100
-                        )}
+                        {Math.round(componentsWithSuppliersPct)}
                         %
                       </span>
                     </div>
-                    <Progress value={85} className="h-2" />
+                    <Progress
+                      value={componentsWithSuppliersPct}
+                      className="h-2"
+                    />
                   </div>
                 </div>
               </CardContent>

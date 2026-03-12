@@ -298,7 +298,7 @@ export default function FactoryDashboard() {
                     key={order.id}
                     className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer"
                     onClick={() =>
-                      router.push(`/factory/orders/${order.id}`)
+                      router.push("/factory/customer-orders")
                     }
                   >
                     <div className="flex-1">

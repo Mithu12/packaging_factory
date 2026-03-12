@@ -157,6 +157,12 @@ export class UpdateCustomerOrderInfoMediator {
                 paramIndex++;
             }
 
+            if (updateData.sales_person) {
+                updateFields.push(`sales_person = $${paramIndex}`);
+                updateValues.push(updateData.sales_person);
+                paramIndex++;
+            }
+
             // Always update the updated_by and updated_at fields
             updateFields.push(`updated_by = $${paramIndex}`, `updated_at = $${paramIndex + 1}`);
             updateValues.push(userId, new Date());
@@ -359,10 +365,18 @@ export class UpdateCustomerOrderInfoMediator {
 
             // Get updated order
             const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+            MyLogger.info(`${action}.fetchOrder`, { orderId: approvalData.order_id });
             const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(approvalData.order_id.toString());
+            
+            MyLogger.info(`${action}.checkOrder`, { 
+                found: !!updatedOrder, 
+                approved: approvalData.approved,
+                status: updatedOrder?.status 
+            });
 
             if (approvalData.approved && updatedOrder) {
                 try {
+                    MyLogger.info(`${action}.triggerAutoWorkOrders`, { orderId: updatedOrder.id });
                     await autoCreateDraftWorkOrders(updatedOrder, userId);
                 } catch (autoCreationError: any) {
                     MyLogger.error(`${action}.autoCreate`, autoCreationError, {

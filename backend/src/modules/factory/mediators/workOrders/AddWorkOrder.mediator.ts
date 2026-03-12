@@ -42,6 +42,7 @@ export class AddWorkOrderMediator {
     const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
       MyLogger.info(action, { workOrderData, userId });
 
       // Get user's accessible factories
@@ -118,9 +119,9 @@ export class AddWorkOrderMediator {
         const operatorsQuery = `
           SELECT id, name, availability_status, current_work_order_id
           FROM operators
-          WHERE id IN (${operatorIds.map(() => '?').join(',')}) AND is_active = true
+          WHERE id = ANY($1::bigint[]) AND is_active = true
         `;
-        const operatorsResult = await client.query(operatorsQuery, operatorIds);
+        const operatorsResult = await client.query(operatorsQuery, [operatorIds]);
 
         if (operatorsResult.rows.length !== operatorIds.length) {
           throw new Error('One or more operators not found or inactive');
@@ -225,9 +226,9 @@ export class AddWorkOrderMediator {
           const updateOperatorQuery = `
             UPDATE operators
             SET availability_status = 'busy', current_work_order_id = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id IN (${workOrderData.assigned_operators.map(() => '?').join(',')})
+            WHERE id = ANY($2::bigint[])
           `;
-          await client.query(updateOperatorQuery, [newWorkOrder.id, ...workOrderData.assigned_operators]);
+          await client.query(updateOperatorQuery, [newWorkOrder.id, workOrderData.assigned_operators]);
         }
       }
 
@@ -447,6 +448,8 @@ export class AddWorkOrderMediator {
 
       // Note: Factory customer order status will be updated to 'in_production' when work orders are RELEASED, not when created
 
+      await client.query('COMMIT');
+
       MyLogger.success(action, {
         workOrderId: workOrder.id,
         workOrderNumber: workOrder.work_order_number
@@ -455,6 +458,7 @@ export class AddWorkOrderMediator {
       return workOrder;
 
     } catch (error) {
+      await client.query('ROLLBACK');
       MyLogger.error(action, error);
       throw error;
     } finally {

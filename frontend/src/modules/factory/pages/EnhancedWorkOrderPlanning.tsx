@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,8 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
+import { WorkOrdersApiService, WorkOrder as ApiWorkOrder, ProductionLine as ApiProductionLine, Operator as ApiOperator } from "@/services/work-orders-api";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -75,28 +78,29 @@ interface EnhancedWorkOrder {
     | "released"
     | "in_progress"
     | "completed"
-    | "on_hold";
+    | "on_hold"
+    | "cancelled";
   priority: "low" | "medium" | "high" | "urgent";
   progress: number;
   estimatedHours: number;
   actualHours: number;
   productionLine: string;
+  productionLineId?: string;
   assignedOperators: string[];
   createdDate: string;
   startDate?: string;
   completionDate?: string;
   notes?: string;
   // Enhanced fields for material management
-  bomId?: string;
-  bomVersion?: string;
-  materialRequirements: MaterialRequirement[];
-  materialAllocations: MaterialAllocation[];
+  materialRequirements: any[];
+  materialAllocations?: any[];
   materialCost: number;
   laborCost: number;
   totalCost: number;
   costPerUnit: number;
   materialAvailability: "available" | "short" | "unavailable";
   criticalPath: boolean;
+  bomVersion?: string;
 }
 
 interface ProductionLine {
@@ -117,6 +121,7 @@ interface Operator {
 }
 
 export default function EnhancedWorkOrderPlanning() {
+  const router = useRouter();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [workOrders, setWorkOrders] = useState<EnhancedWorkOrder[]>([]);
   const [productionLines, setProductionLines] = useState<ProductionLine[]>([]);
@@ -129,156 +134,71 @@ export default function EnhancedWorkOrderPlanning() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
   const [showCostDialog, setShowCostDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchPlanningData = async () => {
+    setIsLoading(true);
+    try {
+      const [woResponse, plResponse, opResponse] = await Promise.all([
+        WorkOrdersApiService.getWorkOrders({ limit: 100 }),
+        WorkOrdersApiService.getProductionLines(),
+        WorkOrdersApiService.getOperators()
+      ]);
+
+      setWorkOrders(woResponse.work_orders.map(wo => ({
+        id: wo.id,
+        orderNumber: wo.work_order_number,
+        product: wo.product_name,
+        productId: wo.product_id,
+        quantity: wo.quantity,
+        deadline: wo.deadline,
+        status: wo.status as any,
+        priority: wo.priority as any,
+        progress: wo.progress,
+        estimatedHours: wo.estimated_hours,
+        actualHours: wo.actual_hours,
+        productionLine: wo.production_line_name || "",
+        productionLineId: wo.production_line_id?.toString() || "",
+        assignedOperators: wo.assigned_operators?.map(o => o.toString()) || [],
+        createdDate: wo.created_at,
+        notes: wo.notes,
+        materialRequirements: wo.material_requirements || [],
+        materialAllocations: [],
+        materialCost: wo.total_material_cost || 0,
+        laborCost: 0,
+        totalCost: wo.total_material_cost || 0,
+        costPerUnit: (wo.total_material_cost || 0) / (wo.quantity || 1),
+        materialAvailability: wo.has_material_shortages ? "short" : "available",
+        criticalPath: false,
+        bomVersion: ""
+      })));
+
+      setProductionLines(plResponse.map(pl => ({
+        id: pl.id,
+        name: pl.name,
+        capacity: pl.capacity,
+        currentLoad: pl.current_load,
+        status: pl.status === 'offline' ? 'maintenance' : pl.status as any,
+        operators: [] // We'd need to fetch assignments to populate this
+      })));
+
+      setOperators(opResponse.map(op => ({
+        id: op.id,
+        name: op.user_name || "Unknown",
+        skill: op.skill_level === 'master' ? 'expert' : op.skill_level as any,
+        currentWorkOrder: op.current_work_order_id,
+        availability: op.availability_status === 'on_leave' ? 'off_duty' : op.availability_status as any
+      })));
+    } catch (error) {
+      console.error("Failed to fetch planning data", error);
+      toast.error("Failed to load production planning data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Mock data - in real app, fetch from API
-    setWorkOrders([
-      {
-        id: "WO-001",
-        orderNumber: "ORD-2024-001",
-        product: "Premium Widget A",
-        productId: "PROD-001",
-        quantity: 500,
-        deadline: "2024-03-20",
-        status: "planned",
-        priority: "high",
-        progress: 0,
-        estimatedHours: 40,
-        actualHours: 0,
-        productionLine: "Line 1",
-        assignedOperators: ["John Doe", "Jane Smith"],
-        createdDate: "2024-03-10",
-        bomId: "BOM-001",
-        bomVersion: "1.2",
-        materialRequirements: [
-          {
-            id: "REQ-001",
-            workOrderId: "WO-001",
-            materialId: "MAT-001",
-            materialName: "Steel Frame",
-            materialSku: "SF-001",
-            requiredQuantity: 100,
-            allocatedQuantity: 80,
-            consumedQuantity: 0,
-            unitOfMeasure: "pcs",
-            status: "allocated",
-            priority: 1,
-            requiredDate: "2024-03-20",
-            bomComponentId: "COMP-001",
-            supplierId: "SUP-001",
-            supplierName: "Steel Works Ltd",
-            unitCost: 25.0,
-            totalCost: 2500.0,
-            leadTimeDays: 7,
-            isCritical: true,
-            notes: "Critical component",
-          },
-        ],
-        materialAllocations: [],
-        materialCost: 2500.0,
-        laborCost: 1200.0,
-        totalCost: 3700.0,
-        costPerUnit: 7.4,
-        materialAvailability: "available",
-        criticalPath: true,
-      },
-      {
-        id: "WO-002",
-        orderNumber: "ORD-2024-002",
-        product: "Standard Widget B",
-        productId: "PROD-002",
-        quantity: 1000,
-        deadline: "2024-03-25",
-        status: "draft",
-        priority: "medium",
-        progress: 0,
-        estimatedHours: 60,
-        actualHours: 0,
-        productionLine: "",
-        assignedOperators: [],
-        createdDate: "2024-03-09",
-        bomId: "BOM-002",
-        bomVersion: "2.0",
-        materialRequirements: [],
-        materialAllocations: [],
-        materialCost: 0,
-        laborCost: 0,
-        totalCost: 0,
-        costPerUnit: 0,
-        materialAvailability: "unavailable",
-        criticalPath: false,
-      },
-    ]);
-
-    setProductionLines([
-      {
-        id: "1",
-        name: "Line 1",
-        capacity: 100,
-        currentLoad: 75,
-        status: "busy",
-        operators: ["John Doe", "Jane Smith"],
-      },
-      {
-        id: "2",
-        name: "Line 2",
-        capacity: 80,
-        currentLoad: 60,
-        status: "busy",
-        operators: ["Mike Johnson", "Sarah Wilson"],
-      },
-      {
-        id: "3",
-        name: "Line 3",
-        capacity: 120,
-        currentLoad: 0,
-        status: "available",
-        operators: [],
-      },
-    ]);
-
-    setOperators([
-      {
-        id: "1",
-        name: "John Doe",
-        skill: "expert",
-        currentWorkOrder: "WO-001",
-        availability: "busy",
-      },
-      {
-        id: "2",
-        name: "Jane Smith",
-        skill: "intermediate",
-        currentWorkOrder: "WO-001",
-        availability: "busy",
-      },
-      {
-        id: "3",
-        name: "Mike Johnson",
-        skill: "expert",
-        currentWorkOrder: "WO-003",
-        availability: "busy",
-      },
-      {
-        id: "4",
-        name: "Sarah Wilson",
-        skill: "beginner",
-        currentWorkOrder: "WO-003",
-        availability: "busy",
-      },
-      {
-        id: "5",
-        name: "Tom Brown",
-        skill: "intermediate",
-        availability: "available",
-      },
-      {
-        id: "6",
-        name: "Lisa Davis",
-        skill: "expert",
-        availability: "available",
-      },
-    ]);
+    fetchPlanningData();
   }, []);
 
   const filteredWorkOrders = workOrders.filter((wo) => {
@@ -337,9 +257,17 @@ export default function EnhancedWorkOrderPlanning() {
     }
   };
 
-  const handleViewWorkOrder = (workOrder: EnhancedWorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setShowDetailsDialog(true);
+  const handleViewWorkOrder = async (workOrder: EnhancedWorkOrder) => {
+    try {
+      const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
+      setSelectedWorkOrder({
+        ...workOrder,
+        materialRequirements: fullWo.material_requirements || []
+      });
+      setShowDetailsDialog(true);
+    } catch (error) {
+      toast.error("Failed to load work order details");
+    }
   };
 
   const handlePlanWorkOrder = (workOrder: EnhancedWorkOrder) => {
@@ -347,36 +275,60 @@ export default function EnhancedWorkOrderPlanning() {
     setShowPlanningDialog(true);
   };
 
-  const handleViewMaterials = (workOrder: EnhancedWorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setShowMaterialDialog(true);
+  const handleViewMaterials = async (workOrder: EnhancedWorkOrder) => {
+    try {
+      const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
+      setSelectedWorkOrder({
+        ...workOrder,
+        materialRequirements: fullWo.material_requirements || []
+      });
+      setShowMaterialDialog(true);
+    } catch (error) {
+      toast.error("Failed to load material requirements");
+    }
   };
 
-  const handleViewCosts = (workOrder: EnhancedWorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setShowCostDialog(true);
+  const handleViewCosts = async (workOrder: EnhancedWorkOrder) => {
+    try {
+      const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
+      setSelectedWorkOrder({
+        ...workOrder,
+        materialRequirements: fullWo.material_requirements || []
+      });
+      setShowCostDialog(true);
+    } catch (error) {
+      toast.error("Failed to load cost breakdown");
+    }
   };
 
-  const handleReleaseWorkOrder = (workOrderId: string) => {
-    setWorkOrders((prev) =>
-      prev.map((wo) =>
-        wo.id === workOrderId ? { ...wo, status: "released" as const } : wo
-      )
-    );
+  const handleReleaseWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, "released");
+      toast.success("Work order released to production");
+      fetchPlanningData();
+    } catch (error) {
+      toast.error("Failed to release work order");
+    }
   };
 
-  const handleStartWorkOrder = (workOrderId: string) => {
-    setWorkOrders((prev) =>
-      prev.map((wo) =>
-        wo.id === workOrderId
-          ? {
-              ...wo,
-              status: "in_progress" as const,
-              startDate: new Date().toISOString().split("T")[0],
-            }
-          : wo
-      )
-    );
+  const handleStartWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.startWorkOrder(workOrderId);
+      toast.success("Work order started");
+      fetchPlanningData();
+    } catch (error) {
+      toast.error("Failed to start work order");
+    }
+  };
+
+  const handleCompleteWorkOrder = async (workOrderId: string) => {
+    try {
+      await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, "completed");
+      toast.success("Work order completed");
+      fetchPlanningData();
+    } catch (error) {
+      toast.error("Failed to complete work order");
+    }
   };
 
   return (
@@ -394,7 +346,7 @@ export default function EnhancedWorkOrderPlanning() {
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </Button>
-          <Button>
+          <Button onClick={() => router.push("/factory/customer-orders")}>
             <Plus className="h-4 w-4 mr-2" />
             Create Work Order
           </Button>
@@ -619,9 +571,30 @@ export default function EnhancedWorkOrderPlanning() {
                             <Button
                               variant="outline"
                               size="sm"
+                              title="Release to Production"
                               onClick={() => handleReleaseWorkOrder(wo.id)}
                             >
                               <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {wo.status === "released" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="Start Production"
+                              onClick={() => handleStartWorkOrder(wo.id)}
+                            >
+                              <Zap className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {wo.status === "in_progress" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="Complete Work Order"
+                              onClick={() => handleCompleteWorkOrder(wo.id)}
+                            >
+                              <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -676,7 +649,7 @@ export default function EnhancedWorkOrderPlanning() {
                         </div>
                         <div>
                           <div className="text-sm font-medium">
-                            Material Requirementsnts
+                            Material Requirements
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {wo.materialRequirements.length} items
@@ -693,7 +666,7 @@ export default function EnhancedWorkOrderPlanning() {
                         <div>
                           <div className="text-sm font-medium">Allocations</div>
                           <div className="text-sm text-muted-foreground">
-                            {wo.materialAllocations.length} allocated
+                            {wo.materialAllocations?.length} allocated
                           </div>
                         </div>
                       </div>
@@ -701,7 +674,7 @@ export default function EnhancedWorkOrderPlanning() {
                       {wo.materialRequirements.length > 0 && (
                         <div className="space-y-2">
                           <div className="text-sm font-medium">
-                            Material Requirementsnts:
+                            Material Requirements:
                           </div>
                           <div className="space-y-1">
                             {wo.materialRequirements.map((req) => (
@@ -733,7 +706,11 @@ export default function EnhancedWorkOrderPlanning() {
                           <Package className="h-4 w-4 mr-2" />
                           View Materials
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push("/inventory/purchase-orders")}
+                        >
                           <ShoppingCart className="h-4 w-4 mr-2" />
                           Create Purchase Order
                         </Button>
@@ -954,11 +931,11 @@ export default function EnhancedWorkOrderPlanning() {
                 </CardContent>
               </Card>
 
-              {/* Material Requirementsnts */}
+              {/* Material Requirements */}
               {selectedWorkOrder.materialRequirements.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Material Requirementsnts</CardTitle>
+                    <CardTitle>Material Requirements</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -1060,6 +1037,82 @@ export default function EnhancedWorkOrderPlanning() {
               </Card>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+ 
+      {/* Planning Dialog */}
+      <Dialog open={showPlanningDialog} onOpenChange={setShowPlanningDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Plan Work Order</DialogTitle>
+            <DialogDescription>
+              Assign production line and operators to {selectedWorkOrder?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="production-line" className="text-right">
+                Line
+              </Label>
+              <Select 
+                onValueChange={(val) => setSelectedWorkOrder(prev => prev ? {...prev, productionLineId: val} : null)}
+                value={selectedWorkOrder?.productionLineId}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select production line" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productionLines.map(line => (
+                    <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Operators</Label>
+              <div className="col-span-3 space-y-2">
+                {operators.filter(op => op.availability === 'available').map(op => (
+                  <div key={op.id} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`op-${op.id}`}
+                      checked={selectedWorkOrder?.assignedOperators.includes(op.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedWorkOrder(prev => {
+                          if (!prev) return null;
+                          const ops = prev.assignedOperators || [];
+                          if (checked) return {...prev, assignedOperators: [...ops, op.id]};
+                          return {...prev, assignedOperators: ops.filter(id => id !== op.id)};
+                        });
+                      }}
+                    />
+                    <label htmlFor={`op-${op.id}`} className="text-sm font-medium leading-none">
+                      {op.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowPlanningDialog(false)}>Cancel</Button>
+            <Button onClick={async () => {
+              if (!selectedWorkOrder) return;
+              try {
+                await WorkOrdersApiService.planWorkOrder(selectedWorkOrder.id, {
+                  production_line_id: Number(selectedWorkOrder.productionLineId),
+                  assigned_operators: selectedWorkOrder.assignedOperators.map(Number),
+                  notes: selectedWorkOrder.notes
+                });
+                toast.success("Work order planned and assigned");
+                setShowPlanningDialog(false);
+                fetchPlanningData();
+              } catch (error) {
+                toast.error("Failed to plan work order");
+              }
+            }}>
+              Confirm Planning
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

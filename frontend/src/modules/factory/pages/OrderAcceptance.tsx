@@ -71,6 +71,7 @@ export default function OrderAcceptance() {
   const [acceptanceNotes, setAcceptanceNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
 
   // Load orders from API
   const loadOrders = useCallback(async () => {
@@ -226,9 +227,12 @@ export default function OrderAcceptance() {
             <Filter className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button
+            variant={viewMode === "calendar" ? "default" : "outline"}
+            onClick={() => setViewMode((v) => (v === "table" ? "calendar" : "table"))}
+          >
             <Calendar className="h-4 w-4 mr-2" />
-            Calendar View
+            {viewMode === "table" ? "Calendar View" : "Table View"}
           </Button>
         </div>
       </div>
@@ -281,12 +285,62 @@ export default function OrderAcceptance() {
         </Card>
       )}
 
-      {/* Orders Table */}
+      {/* Orders Table or Calendar View */}
       <Card>
         <CardHeader>
           <CardTitle>Customer Orders {loading && "(Loading...)"}</CardTitle>
         </CardHeader>
         <CardContent>
+          {viewMode === "calendar" ? (
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading orders...</div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No orders found</div>
+              ) : (
+                (() => {
+                  const byDate = filteredOrders.reduce<Record<string, Order[]>>((acc, order) => {
+                    const dateKey = order.required_date?.split("T")[0] ?? "Unknown";
+                    if (!acc[dateKey]) acc[dateKey] = [];
+                    acc[dateKey].push(order);
+                    return acc;
+                  }, {});
+                  const sortedDates = Object.keys(byDate).sort();
+                  return sortedDates.map((dateKey) => (
+                    <div key={dateKey} className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{formatDate(dateKey)}</span>
+                        <Badge variant="outline">{byDate[dateKey].length} orders</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {byDate[dateKey].map((order) => (
+                          <div
+                            key={order.id}
+                            className="flex items-center justify-between p-2 hover:bg-muted/50 rounded cursor-pointer"
+                            onClick={() => handleViewOrder(order)}
+                          >
+                            <div>
+                              <span className="font-medium">{order.order_number}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {order.factory_customer_name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getStatusColor(order.status)}>
+                                {order.status.replace("_", " ")}
+                              </Badge>
+                              <span className="text-sm">{formatCurrency(order.total_value)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()
+              )}
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -391,6 +445,7 @@ export default function OrderAcceptance() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 

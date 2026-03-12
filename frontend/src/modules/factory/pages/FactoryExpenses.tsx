@@ -616,54 +616,29 @@ export default function FactoryExpenses() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Rent</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: "40%" }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium">40%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Utilities</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-orange-600 h-2 rounded-full"
-                          style={{ width: "25%" }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium">25%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Maintenance</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-red-600 h-2 rounded-full"
-                          style={{ width: "20%" }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium">20%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Consumables</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: "15%" }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium">15%</span>
-                    </div>
-                  </div>
+                  {stats.top_categories && stats.top_categories.length > 0 ? (
+                    stats.top_categories.map((cat) => {
+                      const pct = stats.total_amount > 0
+                        ? Math.round((cat.total_amount / stats.total_amount) * 100)
+                        : 0;
+                      return (
+                        <div key={cat.category_id} className="flex items-center justify-between">
+                          <span className="text-sm">{cat.category_name}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-primary h-2 rounded-full"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium">{pct}%</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No category data available</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -674,16 +649,28 @@ export default function FactoryExpenses() {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600">
-                    +{stats.monthly_trends?.[0]?.total_amount ? '12' : '0'}%
-                  </div>
-                  <p className="text-sm text-muted-foreground">vs last month</p>
-                  <div className="mt-4">
-                    <Progress value={75} className="h-2" />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Budget utilization: 75%
-                    </p>
-                  </div>
+                  {(() => {
+                    const trends = stats.monthly_trends || [];
+                    const thisMonth = trends[trends.length - 1]?.total_amount ?? 0;
+                    const lastMonth = trends.length >= 2 ? trends[trends.length - 2]?.total_amount ?? 0 : 0;
+                    const trendPct = lastMonth > 0
+                      ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100)
+                      : (thisMonth > 0 ? 100 : 0);
+                    return (
+                      <>
+                        <div className={`text-3xl font-bold ${trendPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {trendPct >= 0 ? '+' : ''}{trendPct}%
+                        </div>
+                        <p className="text-sm text-muted-foreground">vs last month</p>
+                        <div className="mt-4">
+                          <Progress value={Math.min(100, Math.max(0, trendPct + 50))} className="h-2" />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            This month: {formatCurrency(thisMonth)}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

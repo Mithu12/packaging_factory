@@ -40,6 +40,7 @@ export interface FactoryCustomerOrder {
     currency: string;
     sales_person: string;
     notes?: string;
+    terms?: string;
     valid_until?: string;
     subtotal: number;
     tax_rate: number;
@@ -150,6 +151,9 @@ export interface CreateCustomerOrderRequest {
     terms?: string;
     status?: FactoryCustomerOrderStatus;
     valid_until?: string;
+    subtotal?: number;
+    tax_rate?: number;
+    tax_amount?: number;
     billing_address?: Address;
     shipping_address?: Address;
     line_items: CreateOrderLineItemRequest[];
@@ -218,18 +222,24 @@ export interface OrderStats {
     total_value: number;
     average_order_value: number;
     on_time_delivery: number;
+    // Quotation specific stats
+    total_quotations?: number;
+    approved_value?: number;
+    conversion_rate?: number;
+    total_quoted_value?: number;
 }
 
 export interface QuotationStats {
     total_quotations: number;
-    draft_count: number;
-    sent_count: number;
-    approved_count: number;
-    rejected_count: number;
-    converted_count: number;
     total_value: number;
     approved_value: number;
     conversion_rate: number;
+    total_quoted_value?: number;
+    draft_count?: number;
+    sent_count?: number;
+    approved_count?: number;
+    rejected_count?: number;
+    converted_count?: number;
 }
 
 export interface ApproveOrderRequest {

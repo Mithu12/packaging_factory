@@ -35,6 +35,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
     FactoryCustomerOrder,
+    FactoryCustomerOrderStatus,
     CreateCustomerOrderRequest,
     OrderPriority,
     CreateOrderLineItemRequest,
@@ -57,11 +58,14 @@ const createOrderFormSchema = (isAdmin: boolean) => z.object({
     priority: z.enum(["low", "medium", "high", "urgent"]),
     currency: z.string().default("BDT"),
     sales_person: z.string().min(1, "Sales person is required"),
+    valid_until: z.string().optional(),
+    tax_rate: z.coerce.number().min(0).max(100).default(0),
     notes: z.string().optional(),
+    terms: z.string().optional(),
     line_items: z.array(z.object({
         product_id: z.string().min(1, "Product is required"),
-        quantity: z.number().min(1, "Quantity must be at least 1"),
-        unit_price: z.number().min(0, "Unit price must be positive"),
+        quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+        unit_price: z.coerce.number().min(0, "Unit price must be positive"),
         specifications: z.string().optional(),
     })).min(1, "At least one line item is required"),
 });
@@ -74,7 +78,10 @@ type OrderFormData = {
     priority: "low" | "medium" | "high" | "urgent";
     currency: string;
     sales_person: string;
+    valid_until?: string;
+    tax_rate: number;
     notes?: string;
+    terms?: string;
     line_items: Array<{
         product_id: string;
         quantity: number;
@@ -87,7 +94,7 @@ interface OrderEntryFormProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     order?: FactoryCustomerOrder | null;
-    initialStatus?: "draft" | "pending" | "quoted" | "approved";
+    initialStatus?: FactoryCustomerOrderStatus;
     onSubmit: (data: CreateCustomerOrderRequest) => Promise<void>;
 }
 
@@ -123,7 +130,10 @@ export default function OrderEntryForm({
             priority: "medium",
             currency: "BDT",
             sales_person: user?.full_name || user?.username || "",
-            notes: "",
+            valid_until: order?.valid_until ? new Date(order.valid_until).toISOString().split('T')[0] : "",
+            tax_rate: order?.tax_rate || 0,
+            notes: order?.notes || "",
+            terms: order?.terms || "",
             line_items: [
                 {
                     product_id: "",
@@ -308,6 +318,11 @@ export default function OrderEntryForm({
                     };
                 }),
                 status: initialStatus || 'pending',
+                valid_until: data.valid_until,
+                tax_rate: data.tax_rate,
+                subtotal: calculateOrderTotal(),
+                tax_amount: (calculateOrderTotal() * data.tax_rate) / 100,
+                terms: data.terms,
             };
             console.log('Order data:', orderData);
 
@@ -345,6 +360,16 @@ export default function OrderEntryForm({
         }, 0);
     };
 
+    const calculateTaxAmount = () => {
+        const subtotal = calculateOrderTotal();
+        const taxRate = form.watch("tax_rate") || 0;
+        return (subtotal * taxRate) / 100;
+    };
+
+    const calculateGrandTotal = () => {
+        return calculateOrderTotal() + calculateTaxAmount();
+    };
+
     // Get product details for display
     const getProductDetails = (productId: string) => {
         const product = products.find(p => p.id.toString() === productId.toString());
@@ -364,12 +389,15 @@ export default function OrderEntryForm({
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-entry-dialog">
                 <DialogHeader>
                     <DialogTitle data-testid="order-entry-title">
-                        {order ? "Edit Customer Order" : "Create New Customer Order"}
+                        {order 
+                            ? (order.status === 'quoted' ? "Edit Quotation" : "Edit Customer Order")
+                            : (initialStatus === 'quoted' ? "Create New Quotation" : "Create New Customer Order")
+                        }
                     </DialogTitle>
                     <DialogDescription data-testid="order-entry-description">
                         {order
-                            ? `Edit order ${order.order_number}`
-                            : "Fill in the details to create a new customer order"
+                            ? `Edit ${order.status === 'quoted' ? 'quotation' : 'order'} ${order.order_number}`
+                            : `Fill in the details to create a new customer ${initialStatus === 'quoted' ? 'quotation' : 'order'}`
                         }
                     </DialogDescription>
                 </DialogHeader>
@@ -504,6 +532,19 @@ export default function OrderEntryForm({
                                     />
                                     <FormField
                                         control={form.control}
+                                        name="valid_until"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Valid Until</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
                                         name="priority"
                                         render={({ field }) => (
                                             <FormItem>
@@ -601,6 +642,24 @@ export default function OrderEntryForm({
                                         </FormItem>
                                     )}
                                 />
+                                <FormField
+                                    control={form.control}
+                                    name="terms"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Terms & Conditions</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    placeholder="Enter any legal terms or payment conditions"
+                                                    className="resize-none"
+                                                    rows={3}
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </CardContent>
                         </Card>
 
@@ -643,7 +702,7 @@ export default function OrderEntryForm({
                                                                 // Auto-fill unit price when product is selected
                                                                 const selectedProduct = products.find(p => p.id.toString() === value.toString());
                                                                 if (selectedProduct) {
-                                                                    form.setValue(`line_items.${index}.unit_price`, selectedProduct.unit_price);
+                                                                    form.setValue(`line_items.${index}.unit_price`, Number(selectedProduct.unit_price));
                                                                 }
                                                             }}
                                                             value={field.value}
@@ -707,7 +766,7 @@ export default function OrderEntryForm({
                                                                     min="1"
                                                                     placeholder="0"
                                                                     {...field}
-                                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                                    onChange={(e) => field.onChange(e.target.value)}
                                                                 />
                                                             </FormControl>
                                                             <FormMessage />
@@ -727,7 +786,7 @@ export default function OrderEntryForm({
                                                                     step="0.01"
                                                                     placeholder="0.00"
                                                                     {...field}
-                                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                    onChange={(e) => field.onChange(e.target.value)}
                                                                 />
                                                             </FormControl>
                                                             <FormMessage />
@@ -764,15 +823,46 @@ export default function OrderEntryForm({
                             </CardContent>
                         </Card>
 
-                        {/* Order Summary */}
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-lg">Order Summary</CardTitle>
+                                <CardTitle className="text-lg">
+                                    {order?.status === 'quoted' || initialStatus === 'quoted' ? 'Quotation Summary' : 'Order Summary'}
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="flex justify-between items-center text-lg font-semibold">
-                                    <span>Total Order Value:</span>
+                            <CardContent className="space-y-2">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span>Subtotal:</span>
                                     <span>{formatCurrency(calculateOrderTotal())}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span>Tax Rate (%):</span>
+                                        <FormField
+                                            control={form.control}
+                                            name="tax_rate"
+                                            render={({ field }) => (
+                                                <FormItem className="w-20">
+                                                    <FormControl>
+                                                        <Input 
+                                                            type="number" 
+                                                            min="0" 
+                                                            max="100" 
+                                                            step="0.01" 
+                                                            {...field} 
+                                                            onChange={(e) => field.onChange(e.target.value)}
+                                                            className="h-8 text-right"
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <span>{formatCurrency(calculateTaxAmount())}</span>
+                                </div>
+                                <Separator />
+                                <div className="flex justify-between items-center text-lg font-semibold">
+                                    <span>Total:</span>
+                                    <span>{formatCurrency(calculateGrandTotal())}</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -789,7 +879,11 @@ export default function OrderEntryForm({
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={isSubmitting} data-testid="submit-order-button">
-                                {isSubmitting ? "Saving..." : order ? "Update Order" : "Create Order"}
+                                {isSubmitting ? "Saving..." : 
+                                    order 
+                                        ? (order.status === 'quoted' ? "Update Quotation" : "Update Order") 
+                                        : (initialStatus === 'quoted' ? "Create Quotation" : "Create Order")
+                                }
                             </Button>
                         </div>
                     </form>
