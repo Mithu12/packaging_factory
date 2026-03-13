@@ -385,6 +385,13 @@ class SettingsMediator {
         { category: 'company', key: 'tax_id', value: 'VAT-123456789', data_type: 'string' as const },
         { category: 'company', key: 'invoice_logo', value: '', data_type: 'string' as const, description: 'Invoice logo URL' },
         { category: 'company', key: 'system_logo', value: '', data_type: 'string' as const, description: 'System logo URL' },
+        { category: 'company', key: 'website', value: 'www.micromediabd.com', data_type: 'string' as const },
+        { category: 'company', key: 'bank_name', value: 'Brac-Bank PLC', data_type: 'string' as const },
+        { category: 'company', key: 'account_name', value: 'MICROMEDIA', data_type: 'string' as const },
+        { category: 'company', key: 'account_number', value: '2075898530001', data_type: 'string' as const },
+        { category: 'company', key: 'bank_branch', value: 'Kawran Bazar Branch', data_type: 'string' as const },
+        { category: 'company', key: 'routing_number', value: '060261397', data_type: 'string' as const },
+        { category: 'company', key: 'facebook_url', value: 'fb.com/micromediabd', data_type: 'string' as const },
         
         // System settings
         { category: 'system', key: 'default_currency', value: 'bdt', data_type: 'string' as const },

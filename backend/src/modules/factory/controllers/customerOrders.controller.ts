@@ -231,6 +231,38 @@ class CustomerOrdersController {
     }
   }
 
+  // Export quotation PDF
+  async exportQuotationPdf(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/pdf";
+      const { id } = req.params;
+      MyLogger.info(action, { orderId: id });
+
+      const userId = req.user?.user_id;
+      const order = await GetCustomerOrderInfoMediator.getCustomerOrderById(id, userId);
+
+      if (!order) {
+        res.status(404).json({
+          success: false,
+          message: "Customer order/quotation not found",
+          data: null
+        });
+        return;
+      }
+
+      // Import generator dynamically to avoid issues if puppeteer has loading problems
+      const { PDFGenerator } = await import('@/services/pdf-generator');
+      const pdfBuffer = await PDFGenerator.generateQuotationPDF(order);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="quotation-${order.order_number}.pdf"`);
+      res.send(pdfBuffer);
+      MyLogger.success(action, { orderId: id, pdfGenerated: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Delete customer order
   async deleteCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

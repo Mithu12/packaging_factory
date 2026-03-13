@@ -362,6 +362,36 @@ export class CustomerOrdersApiService {
         });
     }
 
+    // Download order/quotation PDF
+    static async downloadQuotationPdf(id: number | string): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const response = await fetch(`${baseUrl}/factory/customer-orders/${id}/pdf`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to download PDF');
+        
+        // Extract filename from Content-Disposition if available
+        let filename = `quotation-${id}.pdf`;
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    }
+
     // Update customer order
     static async updateCustomerOrder(id: string, data: UpdateCustomerOrderRequest): Promise<FactoryCustomerOrder> {
         return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}`, {

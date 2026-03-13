@@ -155,6 +155,16 @@ router.get(
     expressAsyncHandler(CustomerOrdersController.getCustomerOrderById)
 );
 
+// GET /api/factory/customer-orders/:id/pdf - Export quotation/order PDF
+router.get(
+    "/:id/pdf",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(orderIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(CustomerOrdersController.exportQuotationPdf)
+);
+
 // POST /api/factory/customer-orders - Create new customer order
 router.post(
     "/",

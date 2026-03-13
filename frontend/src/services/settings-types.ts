@@ -41,19 +41,13 @@ export interface CompanySettings {
   tax_id: string;
   invoice_logo?: string;
   system_logo?: string;
-  // Optional quotation template fields
-  company_website?: string;
-  vat_registration?: string;
-  etin?: string;
-  bank_account_name?: string;
-  bank_account_number?: string;
+  website?: string;
   bank_name?: string;
+  account_name?: string;
+  account_number?: string;
   bank_branch?: string;
-  bank_routing_number?: string;
-  quotation_signature_name?: string;
-  quotation_signature_title?: string;
-  company_secondary_phone?: string;
-  company_facebook?: string;
+  routing_number?: string;
+  facebook_url?: string;
 }
 
 export interface SystemSettings {

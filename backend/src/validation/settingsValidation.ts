@@ -26,7 +26,14 @@ export const validateCompanySettings = (data: any) => {
     company_email: Joi.string().email().max(255).required(),
     company_address: Joi.string().max(500).required(),
     phone: Joi.string().max(50).required(),
-    tax_id: Joi.string().max(50).required()
+    tax_id: Joi.string().max(50).required(),
+    website: Joi.string().max(255).allow('', null).optional(),
+    bank_name: Joi.string().max(255).allow('', null).optional(),
+    account_name: Joi.string().max(255).allow('', null).optional(),
+    account_number: Joi.string().max(255).allow('', null).optional(),
+    bank_branch: Joi.string().max(255).allow('', null).optional(),
+    routing_number: Joi.string().max(255).allow('', null).optional(),
+    facebook_url: Joi.string().max(500).allow('', null).optional()
   });
 
   return schema.validate(data);

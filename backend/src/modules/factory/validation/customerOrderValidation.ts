@@ -73,9 +73,10 @@ const updateOrderLineItemSchema = Joi.object({
 export const updateCustomerOrderSchema = Joi.object({
     factory_customer_id: Joi.number().integer().positive().optional(),
     factory_id:Joi.string(),
-    factory_customer_name: Joi.string().max(255).required(),
-    factory_customer_email: Joi.string().email().required(),
-    factory_customer_phone: Joi.string().max(20).required(),
+    factory_customer_name: Joi.string().max(255).optional(),
+    factory_customer_email: Joi.string().email().optional(),
+    factory_customer_phone: Joi.string().max(20).optional(),
+    sales_person: Joi.string().max(255).optional(),
     order_date:Joi.allow(),
     required_date: Joi.date().iso().greater('now').optional(),
     priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),

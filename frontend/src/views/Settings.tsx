@@ -19,7 +19,11 @@ import {
   Upload,
   Trash2,
   X,
-  DollarSign
+  DollarSign,
+  Globe,
+  Facebook,
+  CreditCard,
+  Building2
 } from "lucide-react"
 import {
   Tabs,
@@ -62,7 +66,14 @@ export default function Settings() {
     phone: '+880 1234 567890',
     tax_id: 'VAT-123456789',
     invoice_logo: '',
-    system_logo: ''
+    system_logo: '',
+    website: '',
+    bank_name: '',
+    account_name: '',
+    account_number: '',
+    bank_branch: '',
+    routing_number: '',
+    facebook_url: ''
   })
   
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
@@ -486,6 +497,21 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
+                      <Globe className="w-4 h-4" />
+                    </span>
+                    <Input 
+                      id="website" 
+                      className="rounded-l-none"
+                      value={companySettings.website}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, website: e.target.value }))}
+                      placeholder="www.yourcompany.com"
+                    />
+                  </div>
+                </div>
 
                 {/* Invoice Logo Upload Section */}
                 <div className="space-y-4 pt-4 border-t">
@@ -682,6 +708,99 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    <CardTitle>Bank Account Information</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bank-name">Bank Name</Label>
+                    <Input 
+                      id="bank-name" 
+                      value={companySettings.bank_name}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, bank_name: e.target.value }))}
+                      placeholder="Brac-Bank PLC"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank-branch">Branch</Label>
+                    <Input 
+                      id="bank-branch" 
+                      value={companySettings.bank_branch}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, bank_branch: e.target.value }))}
+                      placeholder="Kawran Bazar Branch"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account-name">Account Name</Label>
+                    <Input 
+                      id="account-name" 
+                      value={companySettings.account_name}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, account_name: e.target.value }))}
+                      placeholder="MICROMEDIA"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account-number">Account Number</Label>
+                    <Input 
+                      id="account-number" 
+                      value={companySettings.account_number}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, account_number: e.target.value }))}
+                      placeholder="2075898530001"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="routing-number">Routing Number</Label>
+                    <Input 
+                      id="routing-number" 
+                      value={companySettings.routing_number}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, routing_number: e.target.value }))}
+                      placeholder="060261397"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5" />
+                    <CardTitle>Online Presence</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="facebook-url">Facebook Page URL</Label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">
+                        <Facebook className="w-4 h-4" />
+                      </span>
+                      <Input 
+                        id="facebook-url" 
+                        className="rounded-l-none"
+                        value={companySettings.facebook_url}
+                        onChange={(e) => setCompanySettings(prev => ({ ...prev, facebook_url: e.target.value }))}
+                        placeholder="fb.com/micromediabd"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+                    <p className="text-sm text-primary font-medium flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      Tip
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      These details are used to dynamically generate your Quotation Pad design and invoices. Ensure they are accurate before printing.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             <Card>
               <CardHeader>

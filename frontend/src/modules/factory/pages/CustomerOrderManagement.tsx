@@ -76,6 +76,7 @@ import {
 } from "../services/customer-orders-api";
 import OrderEntryForm from "../components/OrderEntryForm";
 import OrderDetailsDialog from "../components/OrderDetailsDialog";
+import {toast} from "sonner";
 
 export default function CustomerOrderManagement() {
     const {formatCurrency, formatDate} = useFormatting();
@@ -294,6 +295,15 @@ export default function CustomerOrderManagement() {
             await loadStats(); // Reload stats
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to update order status');
+        }
+    };
+
+    const handleDownloadPdf = async (order: FactoryCustomerOrder) => {
+        try {
+            toast.info(`Generating ${order.status === 'quoted' ? 'quotation' : 'order'} PDF...`);
+            await CustomerOrdersApiService.downloadQuotationPdf(order.id);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to download PDF");
         }
     };
 
@@ -661,6 +671,14 @@ export default function CustomerOrderManagement() {
                                                         onClick={() => handleViewOrder(order)}
                                                     >
                                                         <Eye className="h-4 w-4"/>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleDownloadPdf(order)}
+                                                        title="Download PDF"
+                                                    >
+                                                        <Printer className="h-4 w-4"/>
                                                     </Button>
                                                     <Button
                                                         variant="outline"

@@ -41,6 +41,13 @@ export interface CompanySettings {
   tax_id: string;
   invoice_logo?: string;
   system_logo?: string;
+  website?: string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  bank_branch?: string;
+  routing_number?: string;
+  facebook_url?: string;
 }
 
 export interface SystemSettings {

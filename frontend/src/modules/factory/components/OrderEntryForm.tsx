@@ -49,6 +49,11 @@ import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_NAMES } from "@/services/rbac-types";
 
+const DEFAULT_QUOTATION_TERMS = `Price Excluding TAX & Vat .
+50% in advance and rest of payment will be Bank Transfer.
+Payment should be made by Cash/Cash Cheque on be heaved Micromedia or Bank Transfer.
+Delivery will be confirm within 10 working days after getting the approval.`;
+
 // Form validation schema factory function
 const createOrderFormSchema = (isAdmin: boolean) => z.object({
     factory_customer_id: z.string().min(1, "Customer is required"),
@@ -251,6 +256,8 @@ export default function OrderEntryForm({
         } else {
             // Creating new order
             const defaultSalesPerson = user ? `${user.full_name || user.username} (${user.username})` : "";
+            const defaultTerms = initialStatus === 'quoted' ? DEFAULT_QUOTATION_TERMS : "";
+            
             form.reset({
                 factory_customer_id: "",
                 ...(isAdmin ? {} : { factory_id: user?.factory_id }),
@@ -260,6 +267,7 @@ export default function OrderEntryForm({
                 currency: "BDT",
                 sales_person: defaultSalesPerson,
                 notes: "",
+                terms: defaultTerms,
                 line_items: [
                     {
                         product_id: "",
@@ -270,7 +278,7 @@ export default function OrderEntryForm({
                 ],
             });
         }
-    }, [order, form, user, isAdmin]);
+    }, [order, form, user, isAdmin, initialStatus]);
 
     const handleSubmit = async (data: OrderFormData) => {
         try {

@@ -1,7 +1,11 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { PurchaseOrderWithDetails } from '@/types/purchaseOrder';
 import { SalesInvoice } from '@/types/salesInvoice';
+import { FactoryCustomerOrder } from '@/types/factory';
 import { MyLogger } from '@/utils/new-logger';
+import SettingsMediator from '@/mediators/settings/SettingsMediator';
+import fs from 'fs';
+import path from 'path';
 
 export class PDFGenerator {
   private static browser: Browser | null = null;
@@ -894,6 +898,462 @@ export class PDFGenerator {
       return Buffer.from(pdfBuffer);
     } catch (error) {
       MyLogger.error(action, error, { invoiceNumber: invoice.invoice_number, invoiceId: invoice.id });
+      throw error;
+    }
+  }
+
+  // Generate HTML template for quotation
+  private static generateQuotationHTML(order: FactoryCustomerOrder, settings?: any): string {
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    };
+
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    };
+
+    // A simple number to words function for the "In Words" section
+    const numberToWords = (num: number) => {
+      const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+      const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+      
+      let numStr = Math.floor(num).toString();
+      if (numStr.length > 9) return 'overflow';
+      const n = ('000000000' + numStr).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+      if (!n) return '';
+      let str = '';
+      str += (n[1] !== '00') ? (a[Number(n[1])] || b[Number(n[1][0])] + ' ' + a[Number(n[1][1])]) + 'Crore ' : '';
+      str += (n[2] !== '00') ? (a[Number(n[2])] || b[Number(n[2][0])] + ' ' + a[Number(n[2][1])]) + 'Lakh ' : '';
+      str += (n[3] !== '00') ? (a[Number(n[3])] || b[Number(n[3][0])] + ' ' + a[Number(n[3][1])]) + 'Thousand ' : '';
+      str += (n[4] !== '0') ? (a[Number(n[4])] || b[Number(n[4][0])] + ' ' + a[Number(n[4][1])]) + 'Hundred ' : '';
+      str += (n[5] !== '00') ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[Number(n[5][0])] + ' ' + a[Number(n[5][1])]) : '';
+      return str.trim() ? str.trim() + ' Taka Only.' : 'Zero Taka Only.';
+    };
+
+    const itemsHtml = order.line_items?.map((item, index) => {
+      const amount = item.quantity * item.unit_price;
+      const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
+      
+      return `
+        <tr>
+          <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
+          <td style="vertical-align: top;">
+            <b>${item.product_name}</b>
+            ${descHtml}
+          </td>
+          <td style="text-align: center; vertical-align: bottom;">${item.quantity}</td>
+          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(item.unit_price)}</td>
+          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(amount)}</td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="5" style="text-align: center;">No items found</td></tr>';
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Quotation ${order.order_number}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0; 
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            color: #000;
+            background: white;
+            line-height: 1.3;
+            padding: 40px;
+            /* To simulate the light blue gradient background, we can add a very faint linear gradient */
+            background: linear-gradient(to bottom right, #f0f8ff, #ffffff 30%, #ffffff 70%, #e0f0ff);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+        }
+        .logo-section h1 {
+            color: #555;
+            font-size: 24pt;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        .logo-section h1 span.logo-icon {
+            color: #d12c2c;
+            font-style: italic;
+            margin-right: 8px;
+            font-size: 28pt;
+        }
+        .logo-section p {
+            color: #d12c2c;
+            font-size: 9pt;
+            font-family: Arial, sans-serif;
+            margin-top: 2px;
+            letter-spacing: 0.5px;
+            margin-left: 50px;
+        }
+        .header-web {
+            font-size: 9pt;
+            font-family: Arial, sans-serif;
+            color: #333;
+            margin-top: 10px;
+        }
+        .date-text {
+            margin-bottom: 15px;
+            font-family: 'Times New Roman', serif;
+        }
+        .title-box {
+            text-align: center;
+            margin-bottom: 20px;
+            margin-top: -20px;
+        }
+        .title {
+            font-size: 14pt;
+            font-weight: bold;
+            text-decoration: underline;
+            font-family: 'Times New Roman', serif;
+        }
+        table.border-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+        }
+        table.border-table th, table.border-table td {
+            border: 1px solid #000;
+            padding: 5px 8px;
+        }
+        table.border-table th {
+            font-weight: bold;
+            text-align: center;
+        }
+        .buyer-supplier-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .buyer-supplier-table th, .buyer-supplier-table td {
+            border: 1px solid #000;
+            padding: 5px 8px;
+            vertical-align: top;
+            width: 50%;
+        }
+        .buyer-supplier-table th {
+            text-align: center;
+            font-weight: bold;
+        }
+        .salutation {
+            margin-bottom: 10px;
+        }
+        .salutation p {
+            margin-bottom: 5px;
+        }
+        .total-row td {
+            font-weight: bold;
+        }
+        .in-words {
+            font-weight: bold;
+            font-style: italic;
+            margin-bottom: 40px;
+            margin-top: 5px;
+        }
+        .terms-conditions {
+            margin-bottom: 20px;
+        }
+        .terms-conditions h4 {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 10px;
+        }
+        .terms-list {
+            display: table;
+        }
+        .terms-list-item {
+            display: table-row;
+        }
+        .terms-list-num {
+            display: table-cell;
+            padding-right: 15px;
+            padding-left: 20px;
+            text-align: right;
+            width: 30px;
+        }
+        .terms-list-text {
+            display: table-cell;
+            padding-bottom: 5px;
+        }
+        .account-info {
+            margin-bottom: 30px;
+            margin-top: 20px;
+            margin-left: 20px;
+        }
+        .account-info h4 {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 10px;
+            margin-left: -20px;
+        }
+        .account-table {
+            border-collapse: collapse;
+        }
+        .account-table td {
+            padding: 2px 10px 2px 0;
+            vertical-align: top;
+        }
+        .account-table td:first-child {
+            font-weight: bold;
+            width: 130px;
+        }
+        .account-table td:nth-child(2) {
+            font-weight: bold;
+            width: 10px;
+        }
+        .account-table td.val {
+            font-weight: bold;
+        }
+        .closing {
+            margin-bottom: 30px;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0px;
+            left: 0px;
+            right: 0px;
+            padding: 15px 40px;
+            font-size: 10pt;
+            font-family: Arial, sans-serif;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(200, 230, 255, 0.4);
+            border-top: 1px solid #888;
+        }
+        .footer-col {
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-section">
+            ${settings?.invoice_logo_base64 ? `
+                <img src="${settings.invoice_logo_base64}" alt="Logo" style="max-height: 80px; max-width: 250px;">
+            ` : `
+                <h1><span class="logo-icon">//</span> ${settings?.company_name || 'MICROMEDIA'}</h1>
+                <p>YOUR ONE-STOP PRINTSHOP</p>
+            `}
+        </div>
+        <div class="header-web">
+            ${settings?.website || 'www.micromediabd.com'}
+        </div>
+    </div>
+    
+    <div class="date-text">
+        Date: ${formatDate(order.order_date)}
+    </div>
+
+    <div class="title-box">
+        <div class="title">Quotation for ${order.notes || "Gift Items"}</div>
+    </div>
+
+    <table class="buyer-supplier-table">
+        <thead>
+            <tr>
+                <th>BUYER</th>
+                <th>SUPPLIER</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    To,<br>
+                    <b>${order.factory_customer_name}</b><br>
+                    ${order.billing_address?.street || ""}<br>
+                    ${order.billing_address?.city || ""}<br>
+                    <br>
+                    Phone: ${order.factory_customer_phone || ""}.<br>
+                    Email: ${order.factory_customer_email || ""}.
+                </td>
+                <td>
+                    <b>${settings?.company_name ? `M/S ${settings.company_name.toUpperCase()}` : 'M/S MICROMEDIA'}</b><br>
+                    Address: ${settings?.company_address || '48, South Begunbari, Tejgaon I/A, Dhaka-1208.'}<br>
+                    ${settings?.phone ? `Phone: ${settings.phone}<br>` : ''}
+                    ${settings?.company_email ? `Email: ${settings.company_email}<br>` : ''}
+                    ${settings?.tax_id ? `Tax ID: ${settings.tax_id}` : 'VAT REGISTRATION NO-004548035-0203'}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="salutation">
+        <p>Dear Sir,</p>
+        <p>As per discussion, we are pleased to submit the quotation of the following items:</p>
+    </div>
+
+    <table class="border-table">
+        <thead>
+            <tr>
+                <th width="8%">S.no</th>
+                <th width="52%">Name of the Product</th>
+                <th width="10%">Qty</th>
+                <th width="15%">U.Price</th>
+                <th width="15%">Amount (Tk.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${itemsHtml}
+            <tr class="total-row">
+                <td colspan="4" style="text-align: right;">Total</td>
+                <td style="text-align: right;">${formatCurrency(order.total_value)}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="in-words">
+        In Word: ${numberToWords(Math.round(order.total_value))}
+    </div>
+
+    <div class="terms-conditions">
+        <h4>Terms & Condition</h4>
+        <div class="terms-list">
+            ${(order.terms || "").trim() ? (order.terms || "").split('\n').filter(line => line.trim()).map((line, index) => `
+                <div class="terms-list-item">
+                    <div class="terms-list-num">${index + 1}</div>
+                    <div class="terms-list-text">${line.trim()}</div>
+                </div>
+            `).join('') : `
+                <div class="terms-list-item">
+                    <div class="terms-list-num">1</div>
+                    <div class="terms-list-text">Price Excluding TAX & Vat .</div>
+                </div>
+                <div class="terms-list-item">
+                    <div class="terms-list-num">2</div>
+                    <div class="terms-list-text">50% in advance and rest of <b>payment will be Bank Transfer.</b></div>
+                </div>
+                <div class="terms-list-item">
+                    <div class="terms-list-num">3</div>
+                    <div class="terms-list-text">Payment should be made by Cash/Cash Cheque on be heaved <b>Micromedia</b> or Bank Transfer.</div>
+                </div>
+                <div class="terms-list-item">
+                    <div class="terms-list-num">4</div>
+                    <div class="terms-list-text">Delivery will be confirm within 10 working days after getting the approval.</div>
+                </div>
+            `}
+        </div>
+    </div>
+
+    <div class="account-info">
+        <h4>Account Information:</h4>
+        <table class="account-table">
+            <tr><td>Account Name</td><td>:</td><td class="val">${settings?.account_name || 'MICROMEDIA'}</td></tr>
+            <tr><td>Account Number</td><td>:</td><td class="val">${settings?.account_number || '2075898530001'}</td></tr>
+            <tr><td>Bank Name</td><td>:</td><td class="val">${settings?.bank_name || 'Brac-Bank PLC'}</td></tr>
+            <tr><td>Branch</td><td>:</td><td class="val">${settings?.bank_branch || 'Kawran Bazar Branch'}</td></tr>
+            <tr><td>Routing Number</td><td>:</td><td class="val">${settings?.routing_number || '060261397'}</td></tr>
+        </table>
+    </div>
+
+    <div class="closing">
+        Your kind Co-operation in this regard will be highly Appreciate.
+    </div>
+
+    <div class="footer">
+        <div class="footer-col">
+            ${settings?.company_address || '48, South Begunbari, Tejgaon I/A, Dhaka-1208.'}
+        </div>
+        <div class="footer-col" style="text-align: center;">
+            ${settings?.phone || '+8802223314188'}
+        </div>
+        <div class="footer-col" style="text-align: left;">
+            ${settings?.company_email || 'micromediaprinting@gmail.com'}<br>
+            ${settings?.facebook_url || 'fb.com/micromediabd'}
+        </div>
+    </div>
+</body>
+</html>
+    `;
+  }
+
+  // Generate PDF for quotation
+  public static async generateQuotationPDF(order: FactoryCustomerOrder): Promise<Buffer> {
+    const action = "PDFGenerator.generateQuotationPDF";
+    try {
+      // Fetch company settings
+      const settingsMediator = new SettingsMediator();
+      const companySettings = await settingsMediator.getSettingsByCategory('company');
+      
+      const settingsData: any = {};
+      for (const [key, setting] of Object.entries(companySettings)) {
+        settingsData[key] = setting.value;
+      }
+
+      // Convert logo to base64 if it exists
+      if (settingsData.invoice_logo) {
+        try {
+          const logoPath = path.join(process.cwd(), settingsData.invoice_logo);
+          if (fs.existsSync(logoPath)) {
+            const logoBuffer = fs.readFileSync(logoPath);
+            const extension = path.extname(logoPath).substring(1);
+            const mimeType = extension === 'svg' ? 'image/svg+xml' : `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+            settingsData.invoice_logo_base64 = `data:${mimeType};base64,${logoBuffer.toString('base64')}`;
+          }
+        } catch (logoError) {
+          MyLogger.warn(`${action}.logoError`, logoError);
+        }
+      }
+
+      const browser = await this.getBrowser();
+      const page = await browser.newPage();
+
+      // Generate HTML content
+      const html = this.generateQuotationHTML(order, settingsData);
+
+      // Set content and wait for it to load
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      // Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+
+      await page.close();
+
+      MyLogger.success(action, { 
+        orderNumber: order.order_number, 
+        orderId: order.id,
+        pdfSize: pdfBuffer.length 
+      });
+
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      MyLogger.error(action, error, { orderNumber: order.order_number, orderId: order.id });
       throw error;
     }
   }
