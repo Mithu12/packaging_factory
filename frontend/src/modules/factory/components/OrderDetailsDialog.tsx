@@ -34,10 +34,15 @@ import {
     Download,
     Wallet,
     CreditCard,
+    Loader2,
 } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
 import { FactoryCustomerOrder, CustomerOrdersApiService, FactoryCustomerPayment } from "../services/customer-orders-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { Progress } from "@/components/ui/progress";
+import { QuotationPDF } from "./QuotationPDF";
+import { SettingsApi } from "@/services/settings-api";
+import type { CompanySettings } from "@/services/settings-types";
 
 interface OrderDetailsDialogProps {
     open: boolean;
@@ -45,6 +50,29 @@ interface OrderDetailsDialogProps {
     order: FactoryCustomerOrder | null;
     onEdit?: (order: FactoryCustomerOrder) => void;
 }
+
+const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            try {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL("image/png"));
+                } else resolve(null);
+            } catch {
+                resolve(null);
+            }
+        };
+        img.onerror = () => resolve(null);
+        img.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "t=" + Date.now();
+    });
+};
 
 export default function OrderDetailsDialog({
                                                open,
@@ -55,6 +83,9 @@ export default function OrderDetailsDialog({
     const { formatCurrency, formatDate } = useFormatting();
     const [paymentHistory, setPaymentHistory] = useState<FactoryCustomerPayment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(false);
+    const [quotationCompanySettings, setQuotationCompanySettings] = useState<CompanySettings | null>(null);
+    const [quotationLogoBase64, setQuotationLogoBase64] = useState<string | null>(null);
+    const [quotationPrintLoading, setQuotationPrintLoading] = useState(false);
 
     // Load payment history when order changes
     useEffect(() => {
@@ -62,6 +93,33 @@ export default function OrderDetailsDialog({
             loadPaymentHistory();
         }
     }, [order?.id, open]);
+
+    // Load company settings and logo when order is a quotation and dialog opens
+    useEffect(() => {
+        if (!order || !open || order.status !== "quoted") return;
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const settings = await SettingsApi.getCompanySettings();
+                if (cancelled) return;
+                setQuotationCompanySettings(settings);
+                if (settings.invoice_logo) {
+                    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:9000";
+                    const logoUrl = settings.invoice_logo.startsWith("http")
+                        ? settings.invoice_logo
+                        : `${baseUrl}${settings.invoice_logo}`;
+                    const base64 = await loadLogoAsBase64(logoUrl);
+                    if (!cancelled && base64) setQuotationLogoBase64(base64);
+                }
+            } catch (error) {
+                console.error("Failed to load company settings for quotation:", error);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [order?.id, order?.status, open]);
 
     const loadPaymentHistory = async () => {
         if (!order) return;
@@ -112,6 +170,66 @@ export default function OrderDetailsDialog({
         return quantity * unitPrice;
     };
 
+    const formatCurrencyForPDF = (val: number) => {
+        return val.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
+
+    const handlePrintQuotation = async () => {
+        if (!order || order.status !== "quoted") return;
+        setQuotationPrintLoading(true);
+        try {
+            const blob = await pdf(
+                <QuotationPDF
+                    order={order}
+                    companySettings={quotationCompanySettings}
+                    logoBase64={quotationLogoBase64}
+                    formatCurrency={formatCurrencyForPDF}
+                />
+            ).toBlob();
+            const url = window.URL.createObjectURL(blob);
+            const printWindow = window.open(url);
+            if (printWindow) {
+                printWindow.onload = () => {
+                    printWindow.print();
+                };
+            }
+        } catch (error) {
+            console.error("Failed to print quotation:", error);
+        } finally {
+            setQuotationPrintLoading(false);
+        }
+    };
+
+    const handleDownloadQuotation = async () => {
+        if (!order || order.status !== "quoted") return;
+        setQuotationPrintLoading(true);
+        try {
+            const blob = await pdf(
+                <QuotationPDF
+                    order={order}
+                    companySettings={quotationCompanySettings}
+                    logoBase64={quotationLogoBase64}
+                    formatCurrency={formatCurrencyForPDF}
+                />
+            ).toBlob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `quotation-${order.order_number}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Failed to download quotation:", error);
+        } finally {
+            setQuotationPrintLoading(false);
+        }
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -125,31 +243,35 @@ Order Details
 Order Number: ${order.order_number}
 Customer: ${order.factory_customer_name}
 Email: ${order.factory_customer_email}
-Phone: ${order.factory_customer_phone || 'N/A'}
+Phone: ${order.factory_customer_phone || "N/A"}
 Order Date: ${formatDate(order.order_date)}
 Required Date: ${formatDate(order.required_date)}
-Status: ${order.status.replace('_', ' ').toUpperCase()}
+Status: ${order.status.replace("_", " ").toUpperCase()}
 Priority: ${order.priority.toUpperCase()}
 Sales Person: ${order.sales_person}
 
 Line Items:
 -----------
-${order.line_items.map((item, index) => `
+${order.line_items
+    .map(
+        (item, index) => `
 ${index + 1}. ${item.product_name} (${item.product_sku})
    Quantity: ${item.quantity}
    Unit Price: ${formatCurrency(item.unit_price)}
    Total: ${formatCurrency(calculateLineTotal(item.quantity, item.unit_price))}
-   ${item.notes ? `Notes: ${item.notes}` : ''}
-`).join('')}
+   ${item.notes ? `Notes: ${item.notes}` : ""}
+`
+    )
+    .join("")}
 
 Total Order Value: ${formatCurrency(order.total_value)} ${order.currency}
 
-${order.notes ? `Notes: ${order.notes}` : ''}
+${order.notes ? `Notes: ${order.notes}` : ""}
     `.trim();
 
-        const blob = new Blob([orderText], { type: 'text/plain' });
+        const blob = new Blob([orderText], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `order-${order.order_number}.txt`;
         document.body.appendChild(a);
@@ -170,14 +292,47 @@ ${order.notes ? `Notes: ${order.notes}` : ''}
                             </DialogDescription>
                         </div>
                         <div className="flex space-x-2" data-testid="order-details-actions">
-                            <Button variant="outline" size="sm" onClick={handlePrint}>
-                                <Printer className="h-4 w-4 mr-2" />
-                                Print
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleDownload}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                            </Button>
+                            {order.status === "quoted" ? (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handlePrintQuotation}
+                                        disabled={quotationPrintLoading}
+                                    >
+                                        {quotationPrintLoading ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Printer className="h-4 w-4 mr-2" />
+                                        )}
+                                        Print Quotation
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleDownloadQuotation}
+                                        disabled={quotationPrintLoading}
+                                    >
+                                        {quotationPrintLoading ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4 mr-2" />
+                                        )}
+                                        Download Quotation
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button variant="outline" size="sm" onClick={handlePrint}>
+                                        <Printer className="h-4 w-4 mr-2" />
+                                        Print
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={handleDownload}>
+                                        <Download className="h-4 w-4 mr-2" />
+                                        Download
+                                    </Button>
+                                </>
+                            )}
                             {onEdit && (
                                 <Button size="sm" onClick={() => onEdit(order)}>
                                     <Edit className="h-4 w-4 mr-2" />

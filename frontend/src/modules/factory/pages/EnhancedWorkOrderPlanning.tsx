@@ -1100,6 +1100,99 @@ export default function EnhancedWorkOrderPlanning() {
         </DialogContent>
       </Dialog>
  
+      {/* Material Requirements Dialog */}
+      <Dialog open={showMaterialDialog} onOpenChange={setShowMaterialDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Material Requirements - {selectedWorkOrder?.id}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedWorkOrder && (
+            <div className="space-y-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Required</TableHead>
+                    <TableHead>Allocated</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Cost</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedWorkOrder.materialRequirements.map((req) => (
+                    <TableRow key={req.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{req.materialName}</div>
+                          <div className="text-sm text-muted-foreground">{req.materialSku}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {req.requiredQuantity} {req.unitOfMeasure}
+                      </TableCell>
+                      <TableCell>
+                        {req.allocatedQuantity} {req.unitOfMeasure}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(req.status)}>{req.status.toUpperCase()}</Badge>
+                      </TableCell>
+                      <TableCell>{req.supplierName || "Not assigned"}</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(req.totalCost)}</TableCell>
+                      <TableCell>
+                        {(req.status === 'pending' || req.status === 'short') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleAllocateMaterial(req)}
+                            title="Allocate Material"
+                          >
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cost Analysis Dialog */}
+      <Dialog open={showCostDialog} onOpenChange={setShowCostDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Cost Analysis - {selectedWorkOrder?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedWorkOrder && (
+            <div className="space-y-4 py-4">
+              <div className="flex justify-between items-center py-2 border-b">
+                <span>Material Cost</span>
+                <span className="font-medium">{formatCurrency(selectedWorkOrder.materialCost)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span>Labor Cost</span>
+                <span className="font-medium">{formatCurrency(selectedWorkOrder.laborCost)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="font-bold">Total Cost</span>
+                <span className="font-bold text-lg">{formatCurrency(selectedWorkOrder.totalCost)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span>Cost per Unit</span>
+                <span className="font-medium">{formatCurrency(selectedWorkOrder.costPerUnit)}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+ 
       {/* Planning Dialog */}
       <Dialog open={showPlanningDialog} onOpenChange={setShowPlanningDialog}>
         <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
