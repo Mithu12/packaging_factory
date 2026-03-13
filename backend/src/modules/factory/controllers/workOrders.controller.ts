@@ -57,6 +57,22 @@ class WorkOrdersController {
     }
   }
 
+  // Get purchases for a work order
+  async getWorkOrderPurchases(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/work-orders/:id/purchases";
+      const { id } = req.params;
+      MyLogger.info(action, { workOrderId: id });
+
+      const purchases = await GetWorkOrderInfoMediator.getWorkOrderPurchases(id);
+
+      MyLogger.success(action, { workOrderId: id, purchasesCount: purchases.length });
+      serializeSuccessResponse(res, purchases, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Get work order statistics
   async getWorkOrderStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

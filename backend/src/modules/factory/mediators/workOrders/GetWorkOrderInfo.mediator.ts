@@ -654,4 +654,36 @@ export class GetWorkOrderInfoMediator {
       client.release();
     }
   }
+  static async getWorkOrderPurchases(workOrderId: string): Promise<any[]> {
+    const action = "GetWorkOrderInfoMediator.getWorkOrderPurchases";
+    const client = await pool.connect();
+
+    try {
+      MyLogger.info(action, { workOrderId });
+
+      const query = `
+        SELECT 
+          po.*,
+          s.name as supplier_name
+        FROM purchase_orders po
+        LEFT JOIN suppliers s ON po.supplier_id = s.id
+        WHERE po.work_order_id = $1
+        ORDER BY po.created_at DESC
+      `;
+
+      const result = await client.query(query, [workOrderId]);
+      
+      MyLogger.success(action, { 
+        workOrderId, 
+        count: result.rows.length 
+      });
+
+      return result.rows;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

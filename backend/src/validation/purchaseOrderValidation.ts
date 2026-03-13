@@ -47,6 +47,20 @@ export const createPurchaseOrderSchema = Joi.object({
       'string.max': 'Notes cannot exceed 1000 characters'
     }),
   
+  work_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Work Order ID must be a number',
+      'number.integer': 'Work Order ID must be an integer',
+      'number.positive': 'Work Order ID must be positive'
+    }),
+    
+  customer_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Customer Order ID must be a number',
+      'number.integer': 'Customer Order ID must be an integer',
+      'number.positive': 'Customer Order ID must be positive'
+    }),
+  
   line_items: Joi.array().items(
     Joi.object({
       product_id: Joi.number().integer().positive().required()
@@ -137,6 +151,20 @@ export const updatePurchaseOrderSchema = Joi.object({
   notes: Joi.string().max(1000).optional()
     .messages({
       'string.max': 'Notes cannot exceed 1000 characters'
+    }),
+  
+  work_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Work Order ID must be a number',
+      'number.integer': 'Work Order ID must be an integer',
+      'number.positive': 'Work Order ID must be positive'
+    }),
+    
+  customer_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Customer Order ID must be a number',
+      'number.integer': 'Customer Order ID must be an integer',
+      'number.positive': 'Customer Order ID must be positive'
     }),
   
   line_items: Joi.array().items(
@@ -274,6 +302,20 @@ export const purchaseOrderQuerySchema = Joi.object({
       'number.base': 'Supplier ID must be a number',
       'number.integer': 'Supplier ID must be an integer',
       'number.positive': 'Supplier ID must be positive'
+    }),
+  
+  work_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Work Order ID must be a number',
+      'number.integer': 'Work Order ID must be an integer',
+      'number.positive': 'Work Order ID must be positive'
+    }),
+    
+  customer_order_id: Joi.number().integer().positive().optional()
+    .messages({
+      'number.base': 'Customer Order ID must be a number',
+      'number.integer': 'Customer Order ID must be an integer',
+      'number.positive': 'Customer Order ID must be positive'
     }),
   
   priority: Joi.string().valid('low', 'normal', 'high', 'urgent').optional()

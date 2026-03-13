@@ -273,6 +273,11 @@ export class WorkOrdersApiService {
     return makeRequest<WorkOrder>(`${this.BASE_URL}/${id}`);
   }
 
+  // Get associated purchases for a work order
+  static async getWorkOrderPurchases(id: string): Promise<any[]> {
+    return makeRequest<any[]>(`${this.BASE_URL}/${id}/purchases`);
+  }
+
   // Get work order statistics
   static async getWorkOrderStats(): Promise<WorkOrderStats> {
     return makeRequest<WorkOrderStats>(`${this.BASE_URL}/stats`);

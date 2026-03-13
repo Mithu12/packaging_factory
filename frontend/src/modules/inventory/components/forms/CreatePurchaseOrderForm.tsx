@@ -47,9 +47,14 @@ interface CreatePurchaseOrderFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onOrderCreated?: () => void
+  defaultValues?: {
+    work_order_id?: number;
+    customer_order_id?: number;
+    items?: { product_id: number; product_name: string; quantity: number }[];
+  }
 }
 
-export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: CreatePurchaseOrderFormProps) {
+export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, defaultValues }: CreatePurchaseOrderFormProps) {
   const [formData, setFormData] = useState({
     supplier_id: "",
     expected_delivery_date: "",
@@ -58,12 +63,24 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
     payment_terms: "Net 30",
     delivery_terms: "FOB Destination",
     department: "",
-    project: ""
+    project: "",
+    work_order_id: defaultValues?.work_order_id?.toString() || "",
+    customer_order_id: defaultValues?.customer_order_id?.toString() || ""
   })
 
-  const [items, setItems] = useState<PurchaseOrderItem[]>([
-    { id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }
-  ])
+  // Initialize items from defaults if provided
+  const initialItems = defaultValues?.items && defaultValues.items.length > 0 
+    ? defaultValues.items.map((item, index) => ({
+        id: (index + 1).toString(),
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: 0,
+        total: 0
+      }))
+    : [{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }];
+
+  const [items, setItems] = useState<PurchaseOrderItem[]>(initialItems)
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -129,6 +146,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
         department: formData.department || undefined,
         project: formData.project || undefined,
         notes: formData.notes || undefined,
+        work_order_id: formData.work_order_id ? parseInt(formData.work_order_id) : undefined,
+        customer_order_id: formData.customer_order_id ? parseInt(formData.customer_order_id) : undefined,
         line_items: validItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -154,9 +173,11 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
         payment_terms: "Net 30",
         delivery_terms: "FOB Destination",
         department: "",
-        project: ""
+        project: "",
+        work_order_id: defaultValues?.work_order_id?.toString() || "",
+        customer_order_id: defaultValues?.customer_order_id?.toString() || ""
       })
-      setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }])
+      setItems(initialItems)
       
       onOrderCreated?.()
       onOpenChange(false)
@@ -202,6 +223,13 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated }: 
         // Calculate total when quantity or unit_price changes
         if (field === 'quantity' || field === 'unit_price') {
           updated.total = updated.quantity * updated.unit_price
+        } else if (field === 'product_id' && typeof value === 'number') {
+          // If changing product manually, pull unit price from product cost_price
+          const product = products.find(p => p.id === value)
+          if (product && updated.unit_price === 0) {
+            updated.unit_price = product.cost_price || 0;
+            updated.total = updated.quantity * updated.unit_price;
+          }
         }
         
         return updated

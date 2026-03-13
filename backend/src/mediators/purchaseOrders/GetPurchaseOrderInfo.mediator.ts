@@ -33,6 +33,8 @@ class GetPurchaseOrderInfoMediator {
                 priority,
                 start_date,
                 end_date,
+                work_order_id,
+                customer_order_id,
                 sortBy = 'created_at',
                 sortOrder = 'desc'
             } = params;
@@ -58,6 +60,18 @@ class GetPurchaseOrderInfoMediator {
             if (supplier_id) {
                 whereConditions.push(`po.supplier_id = $${paramIndex}`);
                 queryParams.push(supplier_id);
+                paramIndex++;
+            }
+            
+            if (work_order_id) {
+                whereConditions.push(`po.work_order_id = $${paramIndex}`);
+                queryParams.push(work_order_id);
+                paramIndex++;
+            }
+
+            if (customer_order_id) {
+                whereConditions.push(`po.customer_order_id = $${paramIndex}`);
+                queryParams.push(customer_order_id);
                 paramIndex++;
             }
 

@@ -47,9 +47,9 @@ class AddPurchaseOrderMediator {
                 INSERT INTO purchase_orders (
                     po_number, supplier_id, expected_delivery_date, priority,
                     payment_terms, delivery_terms, department, project, notes,
-                    total_amount, created_by
+                    total_amount, created_by, work_order_id, customer_order_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING *
             `;
 
@@ -64,7 +64,9 @@ class AddPurchaseOrderMediator {
                 data.project,
                 data.notes,
                 totalAmount,
-                'System User' // TODO: Get from authentication
+                'System User', // TODO: Get from authentication
+                data.work_order_id || null,
+                data.customer_order_id || null
             ];
 
             const poResult = await client.query(poQuery, poValues);

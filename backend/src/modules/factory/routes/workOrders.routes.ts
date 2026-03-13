@@ -160,5 +160,12 @@ router.get(
   expressAsyncHandler(workOrdersController.getWorkOrderById)
 );
 
+// Get associated purchases for a work order
+router.get(
+  "/:id/purchases",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
+  expressAsyncHandler(workOrdersController.getWorkOrderPurchases)
+);
+
 
 export default router;

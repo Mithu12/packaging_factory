@@ -29,9 +29,11 @@ import {
   Zap,
   MapPin,
   ShoppingCart,
+  History,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import { WorkOrdersApiService, WorkOrder as ApiWorkOrder, ProductionLine as ApiProductionLine, Operator as ApiOperator } from "@/services/work-orders-api";
+import { CreatePurchaseOrderForm } from "@/modules/inventory/components/forms/CreatePurchaseOrderForm";
 import { toast } from "sonner";
 import {
   Table,
@@ -138,6 +140,13 @@ export default function EnhancedWorkOrderPlanning() {
   const [showShortageWarning, setShowShortageWarning] = useState(false);
   const [workOrderToRelease, setWorkOrderToRelease] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showCreatePODialog, setShowCreatePODialog] = useState(false);
+  const [poDefaultValues, setPoDefaultValues] = useState<{
+    work_order_id?: number;
+    customer_order_id?: number;
+    items?: { product_id: number; product_name: string; quantity: number }[];
+  } | undefined>(undefined);
+  const [associatedPurchases, setAssociatedPurchases] = useState<any[]>([]);
 
   const fetchPlanningData = async () => {
     setIsLoading(true);
@@ -307,6 +316,28 @@ export default function EnhancedWorkOrderPlanning() {
     }
   };
 
+  const handleCreatePO = (wo: EnhancedWorkOrder, shortageItems?: any[]) => {
+    setPoDefaultValues({
+      work_order_id: Number(wo.id),
+      customer_order_id: undefined, // Need ID here if available
+      items: shortageItems ? shortageItems.map(item => ({
+        product_id: Number(item.materialId),
+        product_name: item.materialName,
+        quantity: item.requiredQuantity - item.allocatedQuantity
+      })) : []
+    });
+    setShowCreatePODialog(true);
+  };
+
+  const fetchAssociatedPurchases = async (workOrderId: string) => {
+    try {
+      const purchases = await WorkOrdersApiService.getWorkOrderPurchases(workOrderId);
+      setAssociatedPurchases(purchases);
+    } catch (error) {
+      console.error("Failed to fetch associated purchases", error);
+    }
+  };
+
   const handleViewWorkOrder = async (workOrder: EnhancedWorkOrder) => {
     try {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
@@ -314,6 +345,7 @@ export default function EnhancedWorkOrderPlanning() {
         ...workOrder,
         materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
       });
+      fetchAssociatedPurchases(workOrder.id);
       setShowDetailsDialog(true);
     } catch (error) {
       toast.error("Failed to load work order details");
@@ -769,7 +801,7 @@ export default function EnhancedWorkOrderPlanning() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push("/inventory/purchase-orders")}
+                          onClick={() => handleCreatePO(wo, wo.materialRequirements.filter(r => r.status === 'short'))}
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
                           Create Purchase Order
@@ -1076,15 +1108,28 @@ export default function EnhancedWorkOrderPlanning() {
                             </TableCell>
                             <TableCell>
                               {(req.status === 'pending' || req.status === 'short') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => handleAllocateMaterial(req)}
-                                  title="Allocate Material"
-                                >
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                </Button>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleAllocateMaterial(req)}
+                                    title="Allocate Material"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  {req.status === 'short' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => handleCreatePO(selectedWorkOrder, [req])}
+                                      title="Create Purchase Order"
+                                    >
+                                      <ShoppingCart className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                  )}
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1129,6 +1174,56 @@ export default function EnhancedWorkOrderPlanning() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Associated Purchases */}
+              {associatedPurchases.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      Associated Purchase Orders
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>PO Number</TableHead>
+                          <TableHead>Supplier</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {associatedPurchases.map((po) => (
+                          <TableRow key={po.id}>
+                            <TableCell className="font-medium">{po.po_number}</TableCell>
+                            <TableCell>{po.supplier_name}</TableCell>
+                            <TableCell>{formatDate(po.order_date)}</TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(po.status)}>
+                                {po.status.toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{formatCurrency(po.total_amount)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => router.push(`/inventory/purchase-orders?id=${po.id}`)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1335,6 +1430,18 @@ export default function EnhancedWorkOrderPlanning() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <CreatePurchaseOrderForm
+        open={showCreatePODialog}
+        onOpenChange={setShowCreatePODialog}
+        defaultValues={poDefaultValues}
+        onOrderCreated={() => {
+          if (selectedWorkOrder) {
+            fetchAssociatedPurchases(selectedWorkOrder.id);
+          }
+          fetchPlanningData();
+        }}
+      />
     </div>
   );
 }

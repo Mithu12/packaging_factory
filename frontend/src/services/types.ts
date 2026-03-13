@@ -399,6 +399,8 @@ export interface PurchaseOrder {
   created_by: string;
   approved_by?: string;
   approved_date?: string;
+  work_order_id?: number;
+  customer_order_id?: number;
   // New approval fields
   submitted_at?: string;
   submitted_by?: number;
@@ -458,6 +460,8 @@ export interface CreatePurchaseOrderRequest {
   department?: string;
   project?: string;
   notes?: string;
+  work_order_id?: number;
+  customer_order_id?: number;
   line_items: CreatePurchaseOrderLineItemRequest[];
 }
 
@@ -478,6 +482,8 @@ export interface UpdatePurchaseOrderRequest {
   department?: string;
   project?: string;
   notes?: string;
+  work_order_id?: number;
+  customer_order_id?: number;
   line_items?: UpdatePurchaseOrderLineItemRequest[];
 }
 
@@ -503,6 +509,8 @@ export interface PurchaseOrderQueryParams {
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   start_date?: string;
   end_date?: string;
+  work_order_id?: number;
+  customer_order_id?: number;
   sortBy?: 'id' | 'po_number' | 'order_date' | 'expected_delivery_date' | 'total_amount' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
 }
