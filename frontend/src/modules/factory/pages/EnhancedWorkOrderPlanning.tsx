@@ -68,6 +68,7 @@ import {
 interface EnhancedWorkOrder {
   id: string;
   orderNumber: string;
+  customerOrderNumber?: string;
   product: string;
   productId: string;
   quantity: number;
@@ -148,6 +149,7 @@ export default function EnhancedWorkOrderPlanning() {
       setWorkOrders(woResponse.work_orders.map(wo => ({
         id: wo.id,
         orderNumber: wo.work_order_number,
+        customerOrderNumber: wo.customer_order_number,
         product: wo.product_name,
         productId: wo.product_id,
         quantity: wo.quantity,
@@ -533,8 +535,9 @@ export default function EnhancedWorkOrderPlanning() {
                       <TableCell>
                         <div>
                           <div className="font-medium">{wo.product}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {wo.orderNumber}
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+                            <ShoppingCart className="h-3 w-3" />
+                            {wo.customerOrderNumber || wo.orderNumber}
                           </div>
                         </div>
                       </TableCell>
@@ -973,6 +976,26 @@ export default function EnhancedWorkOrderPlanning() {
                         {formatCurrency(selectedWorkOrder.costPerUnit)}
                       </div>
                     </div>
+                    {selectedWorkOrder.customerOrderNumber && (
+                      <div className="col-span-2">
+                        <div className="text-sm font-medium">Parent Order/Quotation</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <ShoppingCart className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-bold text-primary">
+                            {selectedWorkOrder.customerOrderNumber}
+                          </span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 px-2 text-xs"
+                            onClick={() => router.push(`/factory/customer-orders?search=${selectedWorkOrder.customerOrderNumber}`)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View Order
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -23,6 +23,7 @@ export interface WorkOrder {
   id: string;
   work_order_number: string;
   customer_order_id?: number;
+  customer_order_number?: string;
   product_id: string;
   product_name: string;
   product_sku: string;

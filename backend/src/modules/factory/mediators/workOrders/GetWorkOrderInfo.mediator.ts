@@ -190,12 +190,14 @@ export class GetWorkOrderInfoMediator {
           wo.completed_at,
           wo.notes,
           wo.specifications,
+          fco.order_number as customer_order_number,
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
           COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+        LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
         LEFT JOIN (
           SELECT
             wmr.work_order_id,
@@ -231,6 +233,7 @@ export class GetWorkOrderInfoMediator {
         production_line_id: row.production_line_id,
         production_line_name: row.production_line_name,
         assigned_operator_ids: row.assigned_operator_ids || [],
+        customer_order_number: row.customer_order_number,
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
@@ -328,12 +331,14 @@ export class GetWorkOrderInfoMediator {
           wo.completed_at,
           wo.notes,
           wo.specifications,
+          fco.order_number as customer_order_number,
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
           COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+        LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
         LEFT JOIN (
           SELECT
             wmr.work_order_id,
@@ -428,6 +433,7 @@ export class GetWorkOrderInfoMediator {
         production_line_id: row.production_line_id,
         production_line_name: row.production_line_name,
         assigned_operator_ids: row.assigned_operator_ids || [],
+        customer_order_number: row.customer_order_number,
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
