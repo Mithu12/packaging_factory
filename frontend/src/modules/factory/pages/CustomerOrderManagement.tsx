@@ -27,6 +27,7 @@ import {
     Trash2,
     XCircle,
     Printer,
+    MoreHorizontal,
 } from "lucide-react";
 import {useFormatting} from "@/hooks/useFormatting";
 import {
@@ -64,6 +65,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {Progress} from "@/components/ui/progress";
 import {
     CustomerOrdersApiService,
@@ -682,115 +691,94 @@ export default function CustomerOrderManagement() {
                                             </TableCell>
                                             <TableCell>{order.sales_person}</TableCell>
                                             <TableCell>
-                                                <div className="flex gap-2">
+                                                <div className="flex items-center gap-2">
                                                     <Button
-                                                        variant="outline"
+                                                        variant="ghost"
                                                         size="sm"
                                                         onClick={() => handleViewOrder(order)}
+                                                        className="h-8 w-8 p-0"
+                                                        title="View Details"
                                                     >
-                                                        <Eye className="h-4 w-4"/>
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleDownloadPdf(order)}
-                                                        title={order.status === 'quoted' ? "Download Quotation" : "Download Order"}
-                                                    >
-                                                        <Printer className="h-4 w-4"/>
-                                                    </Button>
-                                                    {order.status === 'completed' || order.status === 'shipped' ? (
-                                                        <>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDownloadInvoice(order)}
-                                                                title="Download Invoice/Bill"
-                                                                className="text-indigo-600 hover:text-indigo-800"
-                                                            >
-                                                                <FileText className="h-4 w-4"/>
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDownloadChallan(order)}
-                                                                title="Download Challan"
-                                                                className="text-teal-600 hover:text-teal-800"
-                                                            >
-                                                                <FileText className="h-4 w-4"/>
-                                                            </Button>
-                                                        </>
-                                                    ) : null}
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleEditOrder(order)}
-                                                        disabled={['approved', 'completed', 'shipped'].includes(order.status)}
-                                                        title={['approved', 'completed', 'shipped'].includes(order.status)
-                                                            ? 'Approved/completed/shipped orders cannot be edited'
-                                                            : 'Edit order'}
-                                                    >
-                                                        <Edit className="h-4 w-4"/>
+                                                        <Eye className="h-4 w-4" />
                                                     </Button>
 
-                                                    {/* Approval Actions for Quotations and Pending Orders */}
-                                                    {(order.status === 'quoted' || order.status === 'pending') && (
-                                                        <>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleApproveOrder(order.id.toString(), true)}
-                                                                className="text-green-600 hover:text-green-800"
-                                                                title={order.status === 'quoted' ? 'Convert to Order' : 'Approve Order'}
-                                                            >
-                                                                <CheckCircle className="h-4 w-4"/>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                                <span className="sr-only">Open menu</span>
+                                                                <MoreHorizontal className="h-4 w-4" />
                                                             </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleApproveOrder(order.id.toString(), false)}
-                                                                className="text-red-600 hover:text-red-800"
-                                                                title={order.status === 'quoted' ? 'Reject Quotation' : 'Reject Order'}
-                                                            >
-                                                                <XCircle className="h-4 w-4"/>
-                                                            </Button>
-                                                        </>
-                                                    )}
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-56">
+                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                            <DropdownMenuSeparator />
+                                                            
+                                                            <DropdownMenuItem onClick={() => handleEditOrder(order)} disabled={['approved', 'completed', 'shipped'].includes(order.status)}>
+                                                                <Edit className="mr-2 h-4 w-4" />
+                                                                <span>Edit Order</span>
+                                                            </DropdownMenuItem>
+                                                            
+                                                            <DropdownMenuItem onClick={() => handleDownloadPdf(order)}>
+                                                                <Printer className="mr-2 h-4 w-4" />
+                                                                <span>{order.status === 'quoted' ? "Download Quotation" : "Download Order"}</span>
+                                                            </DropdownMenuItem>
 
-                                                    {order.outstanding_amount > 0 && ['completed', 'shipped'].includes(order.status) && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleRecordPayment(order)}
-                                                            className="text-green-600 hover:text-green-800"
-                                                            title="Record Payment"
-                                                        >
-                                                            <Wallet className="h-4 w-4"/>
-                                                        </Button>
-                                                    )}
-                                                    {order.status === 'completed' && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleShipOrder(order)}
-                                                            className="text-blue-600 hover:text-blue-800"
-                                                            title="Ship Order"
-                                                        >
-                                                            <Package className="h-4 w-4"/>
-                                                        </Button>
-                                                    )}
-                                                    
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setOrderToDelete(order);
-                                                            setShowDeleteDialog(true);
-                                                        }}
-                                                        className="text-red-600 hover:text-red-800"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 className="h-4 w-4"/>
-                                                    </Button>
+                                                            {(order.status === 'completed' || order.status === 'shipped') && (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(order)} className="text-indigo-600">
+                                                                        <FileText className="mr-2 h-4 w-4" />
+                                                                        <span>Download Invoice</span>
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handleDownloadChallan(order)} className="text-teal-600">
+                                                                        <FileText className="mr-2 h-4 w-4" />
+                                                                        <span>Download Challan</span>
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+
+                                                            <DropdownMenuSeparator />
+
+                                                            {(order.status === 'quoted' || order.status === 'pending') && (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => handleApproveOrder(order.id.toString(), true)} className="text-green-600">
+                                                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                                                        <span>{order.status === 'quoted' ? 'Convert to Order' : 'Approve Order'}</span>
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handleApproveOrder(order.id.toString(), false)} className="text-red-600">
+                                                                        <XCircle className="mr-2 h-4 w-4" />
+                                                                        <span>{order.status === 'quoted' ? 'Reject Quotation' : 'Reject Order'}</span>
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+
+                                                            {order.outstanding_amount > 0 && ['completed', 'shipped'].includes(order.status) && (
+                                                                <DropdownMenuItem onClick={() => handleRecordPayment(order)} className="text-green-600">
+                                                                    <Wallet className="mr-2 h-4 w-4" />
+                                                                    <span>Record Payment</span>
+                                                                </DropdownMenuItem>
+                                                            )}
+
+                                                            {order.status === 'completed' && (
+                                                                <DropdownMenuItem onClick={() => handleShipOrder(order)} className="text-blue-600">
+                                                                    <Package className="mr-2 h-4 w-4" />
+                                                                    <span>Ship Order</span>
+                                                                </DropdownMenuItem>
+                                                            )}
+
+                                                            <DropdownMenuSeparator />
+                                                            
+                                                            <DropdownMenuItem 
+                                                                onClick={() => {
+                                                                    setOrderToDelete(order);
+                                                                    setShowDeleteDialog(true);
+                                                                }}
+                                                                className="text-red-600 focus:text-red-600"
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                <span>Delete</span>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
