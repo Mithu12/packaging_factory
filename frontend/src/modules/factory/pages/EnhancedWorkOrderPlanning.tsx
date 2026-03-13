@@ -135,6 +135,8 @@ export default function EnhancedWorkOrderPlanning() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
   const [showCostDialog, setShowCostDialog] = useState(false);
+  const [showShortageWarning, setShowShortageWarning] = useState(false);
+  const [workOrderToRelease, setWorkOrderToRelease] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchPlanningData = async () => {
@@ -350,9 +352,18 @@ export default function EnhancedWorkOrderPlanning() {
   };
 
   const handleReleaseWorkOrder = async (workOrderId: string) => {
+    const wo = workOrders.find(w => w.id === workOrderId);
+    if (wo?.materialAvailability === 'short' && !showShortageWarning) {
+      setWorkOrderToRelease(workOrderId);
+      setShowShortageWarning(true);
+      return;
+    }
+
     try {
       await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, "released");
       toast.success("Work order released to production");
+      setShowShortageWarning(false);
+      setWorkOrderToRelease(null);
       fetchPlanningData();
     } catch (error) {
       toast.error("Failed to release work order");
@@ -1287,6 +1298,39 @@ export default function EnhancedWorkOrderPlanning() {
               }
             }}>
               Confirm Planning
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shortage Warning Dialog */}
+      <Dialog open={showShortageWarning} onOpenChange={setShowShortageWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Material Shortage Warning
+            </DialogTitle>
+            <DialogDescription>
+              This work order has material shortages. Releasing it now will only allocate currently available stock.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-sm text-muted-foreground">
+            <p>You will need to manually allocate the missing materials once they are purchased and received in inventory.</p>
+            <p className="mt-2 font-medium">Do you still want to release this work order to production?</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => {
+              setShowShortageWarning(false);
+              setWorkOrderToRelease(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => workOrderToRelease && handleReleaseWorkOrder(workOrderToRelease)}
+            >
+              Continue to Release
             </Button>
           </div>
         </DialogContent>

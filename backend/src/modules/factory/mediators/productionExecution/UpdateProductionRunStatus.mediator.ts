@@ -3,6 +3,7 @@ import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { UpdateWorkOrderMediator } from '../workOrders/UpdateWorkOrder.mediator';
 
 export interface UpdateProductionRunStatusRequest {
   status: 'in_progress' | 'paused' | 'completed' | 'cancelled';
@@ -257,12 +258,20 @@ export class UpdateProductionRunStatusMediator {
              WHERE id = $2`,
             [userId, run.work_order_id]
           );
-          
           MyLogger.info(`${action}: Parent work order marked as completed`, {
             workOrderId: run.work_order_id,
             totalProduced,
             targetQuantity
           });
+
+          // Sync parent factory customer order if applicable
+          const coResult = await client.query(
+            'SELECT customer_order_id FROM work_orders WHERE id = $1',
+            [run.work_order_id]
+          );
+          if (coResult.rows.length > 0 && coResult.rows[0].customer_order_id) {
+            await UpdateWorkOrderMediator.syncCustomerOrderStatus(client, coResult.rows[0].customer_order_id, userId);
+          }
         } else {
           // Update progress percentage
           const progress = Math.min(100, (totalProduced / targetQuantity) * 100);

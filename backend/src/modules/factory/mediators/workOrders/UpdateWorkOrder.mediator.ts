@@ -487,7 +487,7 @@ export class UpdateWorkOrderMediator {
       const updatedWorkOrder = updateResult.rows[0];
 
       // Handle material requirement recalculation if quantity changed
-      if (updateData.quantity !== undefined && parseFloat(updateData.quantity) !== parseFloat(existingWorkOrder.quantity)) {
+      if (updateData.quantity !== undefined && updateData.quantity !== parseFloat(existingWorkOrder.quantity)) {
         await recalculateMaterialRequirements(
           client,
           workOrderId,
@@ -618,6 +618,67 @@ export class UpdateWorkOrderMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  static async syncCustomerOrderStatus(client: any, customerOrderId: number | string, userId: number | string): Promise<void> {
+    const action = "UpdateWorkOrderMediator.syncCustomerOrderStatus";
+    
+    // Check if all work orders for this factory customer order are completed
+    const workOrderCheckQuery = `
+      SELECT
+        COUNT(*) as total_work_orders,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_work_orders,
+        COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as active_work_orders
+      FROM work_orders
+      WHERE customer_order_id = $1
+    `;
+
+    const workOrderResult = await client.query(workOrderCheckQuery, [customerOrderId]);
+
+    if (workOrderResult.rows.length > 0) {
+      const stats = workOrderResult.rows[0];
+      const totalWorkOrders = parseInt(stats.total_work_orders) || 0;
+      const completedWorkOrders = parseInt(stats.completed_work_orders) || 0;
+      const activeWorkOrders = parseInt(stats.active_work_orders) || 0;
+
+      // Mark as completed only if all work orders are completed or cancelled, 
+      // and at least one work order was actually completed (not just everything cancelled)
+      if (totalWorkOrders > 0 && activeWorkOrders === 0 && completedWorkOrders > 0) {
+        await client.query(`
+          UPDATE factory_customer_orders
+          SET status = 'completed',
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1 AND status != 'completed'
+        `, [customerOrderId]);
+
+        MyLogger.info(`${action}: Factory customer order marked as completed`, {
+          customerOrderId,
+          totalWorkOrders,
+          completedWorkOrders,
+          activeWorkOrders
+        });
+      } else if (totalWorkOrders > 0 && activeWorkOrders === 0 && completedWorkOrders === 0) {
+        // All were cancelled or none completed - reset to approved to allow re-creation if needed
+        const orderQuery = `
+          SELECT status FROM factory_customer_orders WHERE id = $1
+        `;
+        const orderResult = await client.query(orderQuery, [customerOrderId]);
+        
+        if (orderResult.rows.length > 0 && orderResult.rows[0].status === 'in_production') {
+          await client.query(`
+            UPDATE factory_customer_orders
+            SET status = 'approved',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [customerOrderId]);
+
+          MyLogger.info(`${action}: Factory customer order status reset to approved`, {
+            customerOrderId,
+            reason: "All work orders completed or cancelled, but none were completed successfully"
+          });
+        }
+      }
     }
   }
 
@@ -1066,42 +1127,7 @@ export class UpdateWorkOrderMediator {
 
         // Update linked factory customer order status if applicable
         if (currentWorkOrder.customer_order_id) {
-          // Check if all work orders for this factory customer order are completed
-          const workOrderCheckQuery = `
-            SELECT
-              COUNT(*) as total_work_orders,
-              COUNT(*) FILTER (WHERE status = 'completed') as completed_work_orders,
-              COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as active_work_orders
-            FROM work_orders
-            WHERE customer_order_id = $1
-          `;
-
-          const workOrderResult = await client.query(workOrderCheckQuery, [currentWorkOrder.customer_order_id]);
-
-          if (workOrderResult.rows.length > 0) {
-            const stats = workOrderResult.rows[0];
-            const totalWorkOrders = parseInt(stats.total_work_orders) || 0;
-            const completedWorkOrders = parseInt(stats.completed_work_orders) || 0;
-            const activeWorkOrders = parseInt(stats.active_work_orders) || 0;
-
-            // Mark as completed only if all work orders are completed
-            if (totalWorkOrders > 0 && completedWorkOrders == totalWorkOrders && activeWorkOrders == 0) {
-              await client.query(`
-                UPDATE factory_customer_orders
-                SET status = 'completed',
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1 AND status != 'completed'
-              `, [currentWorkOrder.customer_order_id]);
-
-              MyLogger.info(`${action}: Factory customer order marked as completed`, {
-                workOrderId,
-                factoryCustomerOrderId: currentWorkOrder.customer_order_id,
-                totalWorkOrders,
-                completedWorkOrders,
-                activeWorkOrders
-              });
-            }
-          }
+          await UpdateWorkOrderMediator.syncCustomerOrderStatus(client, currentWorkOrder.customer_order_id, userId);
         }
       } else if (newStatus === 'cancelled') {
         // Cancel any open material shortages for cancelled work orders
@@ -1120,52 +1146,7 @@ export class UpdateWorkOrderMediator {
 
         // Update factory customer order status if work order is cancelled
         if (currentWorkOrder.customer_order_id) {
-          const workOrderCheckQuery = `
-            SELECT
-              COUNT(*) as total_work_orders,
-              COUNT(*) FILTER (WHERE status = 'completed') as completed_work_orders,
-              COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as active_work_orders
-            FROM work_orders
-            WHERE customer_order_id = $1
-          `;
-
-          const workOrderResult = await client.query(workOrderCheckQuery, [currentWorkOrder.customer_order_id]);
-
-          if (workOrderResult.rows.length > 0) {
-            const stats = workOrderResult.rows[0];
-            const totalWorkOrders = parseInt(stats.total_work_orders) || 0;
-            const completedWorkOrders = parseInt(stats.completed_work_orders) || 0;
-            const activeWorkOrders = parseInt(stats.active_work_orders) || 0;
-
-            // Check current factory customer order status
-            const orderQuery = `
-              SELECT status FROM factory_customer_orders WHERE id = $1
-            `;
-            const orderResult = await client.query(orderQuery, [currentWorkOrder.customer_order_id]);
-
-            if (orderResult.rows.length > 0) {
-              const currentOrderStatus = orderResult.rows[0].status;
-
-              if (activeWorkOrders === 0 && currentOrderStatus === 'in_production') {
-                // No active work orders and order is in production - set back to approved
-                await client.query(`
-                  UPDATE factory_customer_orders
-                  SET status = 'approved',
-                      updated_at = CURRENT_TIMESTAMP
-                  WHERE id = $1
-                `, [currentWorkOrder.customer_order_id]);
-
-                MyLogger.info(`${action}: Factory customer order status reset to approved`, {
-                  workOrderId,
-                  factoryCustomerOrderId: currentWorkOrder.customer_order_id,
-                  totalWorkOrders,
-                  completedWorkOrders,
-                  activeWorkOrders,
-                  reason: "Last work order cancelled, no active work orders remaining"
-                });
-              }
-            }
-          }
+          await UpdateWorkOrderMediator.syncCustomerOrderStatus(client, currentWorkOrder.customer_order_id, userId);
         }
       }
 
