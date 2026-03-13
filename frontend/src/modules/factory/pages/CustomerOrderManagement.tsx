@@ -307,6 +307,24 @@ export default function CustomerOrderManagement() {
         }
     };
 
+    const handleDownloadInvoice = async (order: FactoryCustomerOrder) => {
+        try {
+            toast.info(`Generating Invoice PDF...`);
+            await CustomerOrdersApiService.downloadInvoicePdf(order.id);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to download Invoice");
+        }
+    };
+
+    const handleDownloadChallan = async (order: FactoryCustomerOrder) => {
+        try {
+            toast.info(`Generating Challan PDF...`);
+            await CustomerOrdersApiService.downloadChallanPdf(order.id);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to download Challan");
+        }
+    };
+
     const handleDeleteOrder = async () => {
         if (!orderToDelete) return;
 
@@ -676,10 +694,32 @@ export default function CustomerOrderManagement() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => handleDownloadPdf(order)}
-                                                        title="Download PDF"
+                                                        title={order.status === 'quoted' ? "Download Quotation" : "Download Order"}
                                                     >
                                                         <Printer className="h-4 w-4"/>
                                                     </Button>
+                                                    {order.status === 'completed' || order.status === 'shipped' ? (
+                                                        <>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDownloadInvoice(order)}
+                                                                title="Download Invoice/Bill"
+                                                                className="text-indigo-600 hover:text-indigo-800"
+                                                            >
+                                                                <FileText className="h-4 w-4"/>
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDownloadChallan(order)}
+                                                                title="Download Challan"
+                                                                className="text-teal-600 hover:text-teal-800"
+                                                            >
+                                                                <FileText className="h-4 w-4"/>
+                                                            </Button>
+                                                        </>
+                                                    ) : null}
                                                     <Button
                                                         variant="outline"
                                                         size="sm"

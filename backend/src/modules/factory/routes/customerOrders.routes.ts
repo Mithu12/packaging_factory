@@ -165,6 +165,26 @@ router.get(
     expressAsyncHandler(CustomerOrdersController.exportQuotationPdf)
 );
 
+// GET /api/factory/customer-orders/:id/invoice - Export invoice (Bill) PDF
+router.get(
+    "/:id/invoice",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(orderIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(CustomerOrdersController.exportInvoicePdf)
+);
+
+// GET /api/factory/customer-orders/:id/challan - Export challan PDF
+router.get(
+    "/:id/challan",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(orderIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(CustomerOrdersController.exportChallanPdf)
+);
+
 // POST /api/factory/customer-orders - Create new customer order
 router.post(
     "/",
@@ -296,6 +316,14 @@ router.get(
     requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
     validateParams(orderIdSchema),
     expressAsyncHandler(CustomerOrdersController.getPaymentSummary)
+);
+
+// GET /api/factory/customer-orders/payments/all - Get all customer payments across all orders
+router.get(
+    "/payments/all",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    expressAsyncHandler(CustomerOrdersController.getAllPayments)
 );
 
 export default router;

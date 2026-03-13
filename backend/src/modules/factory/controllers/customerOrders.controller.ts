@@ -263,6 +263,68 @@ class CustomerOrdersController {
     }
   }
 
+  // Export Invoice (Bill) PDF
+  async exportInvoicePdf(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/invoice";
+      const { id } = req.params;
+      MyLogger.info(action, { orderId: id });
+
+      const userId = req.user?.user_id;
+      const order = await GetCustomerOrderInfoMediator.getCustomerOrderById(id, userId);
+
+      if (!order) {
+        res.status(404).json({
+          success: false,
+          message: "Customer order not found",
+          data: null
+        });
+        return;
+      }
+
+      const { PDFGenerator } = await import('@/services/pdf-generator');
+      const pdfBuffer = await PDFGenerator.generateInvoicePDF(order);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.order_number}.pdf"`);
+      res.send(pdfBuffer);
+      MyLogger.success(action, { orderId: id, pdfGenerated: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Export Challan PDF
+  async exportChallanPdf(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/challan";
+      const { id } = req.params;
+      MyLogger.info(action, { orderId: id });
+
+      const userId = req.user?.user_id;
+      const order = await GetCustomerOrderInfoMediator.getCustomerOrderById(id, userId);
+
+      if (!order) {
+        res.status(404).json({
+          success: false,
+          message: "Customer order not found",
+          data: null
+        });
+        return;
+      }
+
+      const { PDFGenerator } = await import('@/services/pdf-generator');
+      const pdfBuffer = await PDFGenerator.generateChallanPDF(order);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="challan-${order.order_number}.pdf"`);
+      res.send(pdfBuffer);
+      MyLogger.success(action, { orderId: id, pdfGenerated: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Delete customer order
   async deleteCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -511,6 +573,25 @@ class CustomerOrdersController {
       MyLogger.success(action, { orderId, summary });
 
       serializeSuccessResponse(res, summary, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get all customer payments across all orders
+  async getAllPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/payments/all"; // Using a unique path to avoid conflict with /:id/payments
+      MyLogger.info(action, { query: req.query });
+      
+      const result = await FactoryCustomerPaymentsMediator.getAllPayments(req.query);
+      
+      MyLogger.success(action, {
+        total: result.total,
+        count: result.payments.length
+      });
+
+      serializeSuccessResponse(res, result, "SUCCESS");
     } catch (error) {
       next(error);
     }

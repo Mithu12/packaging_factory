@@ -181,9 +181,9 @@ export class GetCustomerOrderInfoMediator {
             `;
 
             queryParams.push(limit, offset);
-            // MyLogger.info('ordersQuery',{ordersQuery,queryParams})
+            MyLogger.info('ordersQuery', { factory_customer_id, params: queryParams });
             const ordersResult = await client.query(ordersQuery, queryParams);
-// MyLogger.info('asd================================', ordersResult.rows)
+            MyLogger.info('ordersResult', { count: ordersResult.rows.length });
             const orders: FactoryCustomerOrder[] = ordersResult.rows.map(row => ({
                 id: row.id,
                 order_number: row.order_number,
@@ -201,7 +201,7 @@ export class GetCustomerOrderInfoMediator {
                 priority: row.priority,
                 total_value: parseFloat(row.total_value),
                 paid_amount: row.paid_amount ? parseFloat(row.paid_amount) : 0,
-                outstanding_amount: row.outstanding_amount ? parseFloat(row.outstanding_amount) : parseFloat(row.total_value),
+                outstanding_amount: row.outstanding_amount !== null && row.outstanding_amount !== undefined ? parseFloat(row.outstanding_amount) : parseFloat(row.total_value),
                 currency: row.currency,
                 sales_person: row.sales_person,
                 notes: row.notes,

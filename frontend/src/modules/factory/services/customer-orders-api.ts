@@ -279,6 +279,8 @@ export interface RecordPaymentRequest {
 export interface FactoryCustomerPayment {
     id: number;
     factory_customer_order_id: string;
+    order_number?: string;
+    customer_name?: string;
     factory_customer_id: string;
     factory_id?: number;
     factory_sales_invoice_id?: number;
@@ -373,6 +375,64 @@ export class CustomerOrdersApiService {
         
         // Extract filename from Content-Disposition if available
         let filename = `quotation-${id}.pdf`;
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    }
+
+    // Download invoice (Bill) PDF
+    static async downloadInvoicePdf(id: number | string): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const response = await fetch(`${baseUrl}/factory/customer-orders/${id}/invoice`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to download Invoice PDF');
+        
+        let filename = `invoice-${id}.pdf`;
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    }
+
+    // Download challan PDF
+    static async downloadChallanPdf(id: number | string): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const response = await fetch(`${baseUrl}/factory/customer-orders/${id}/challan`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to download Challan PDF');
+        
+        let filename = `challan-${id}.pdf`;
         const disposition = response.headers.get('content-disposition');
         if (disposition && disposition.includes('filename=')) {
             const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
@@ -539,6 +599,34 @@ export class CustomerOrdersApiService {
     // Get payment summary
     static async getPaymentSummary(orderId: string): Promise<PaymentSummary> {
         return makeRequest<PaymentSummary>(`/factory/customer-orders/${orderId}/payments/summary`);
+    }
+
+    // Get all customer payments across all orders
+    static async getAllPayments(params?: {
+        page?: number;
+        limit?: number;
+        customer_id?: string;
+        factory_id?: string;
+        start_date?: string;
+        end_date?: string;
+        search?: string;
+    }): Promise<{
+        payments: FactoryCustomerPayment[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }> {
+        const queryString = params ? '?' + new URLSearchParams(
+            Object.entries(params).reduce((acc, [key, value]) => {
+                if (value !== undefined && value !== null) {
+                    acc[key] = String(value);
+                }
+                return acc;
+            }, {} as Record<string, string>)
+        ).toString() : '';
+
+        return makeRequest(`${this.BASE_URL}/payments/all${queryString}`);
     }
 }
 

@@ -319,6 +319,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
       },
       {
+        title: "Customer Payments",
+        url: "/factory/payments",
+        icon: Wallet,
+        permission: PERMISSIONS.FACTORY_ORDERS_READ,
+      },
+      {
         title: "Order Acceptance",
         url: "/factory/orders",
         icon: Package,

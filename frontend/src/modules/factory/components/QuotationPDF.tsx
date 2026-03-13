@@ -313,25 +313,25 @@ export function QuotationPDF({
   const buyerAddress = formatAddress(order.billing_address);
 
   const hasBankInfo =
-    companySettings?.bank_account_name ||
-    companySettings?.bank_account_number ||
+    companySettings?.account_name ||
+    companySettings?.account_number ||
     companySettings?.bank_name;
 
   const signatureName =
-    companySettings?.quotation_signature_name || companyName;
+    (companySettings as any)?.quotation_signature_name || companyName;
   const signatureTitle =
-    companySettings?.quotation_signature_title || "Authorized Signatory";
+    (companySettings as any)?.quotation_signature_title || "Authorized Signatory";
 
   const footerAddress =
     companySettings?.company_address || "";
   const footerPhones = [
     companySettings?.phone,
-    companySettings?.company_secondary_phone,
+    (companySettings as any)?.company_secondary_phone,
   ]
     .filter(Boolean)
     .join(" | ");
   const footerEmail = companySettings?.company_email || "";
-  const footerFacebook = companySettings?.company_facebook || "";
+  const footerFacebook = companySettings?.facebook_url || (companySettings as any)?.company_facebook || "";
 
   return (
     <Document title={`Quotation-${order.order_number}`}>
@@ -355,9 +355,9 @@ export function QuotationPDF({
             </View>
           </View>
           <View style={styles.headerRight}>
-            {(companySettings?.company_website || companySettings?.company_email) && (
+            {(companySettings?.website || companySettings?.company_email) && (
               <Text style={styles.website}>
-                {companySettings.company_website || companySettings.company_email}
+                {companySettings.website || companySettings.company_email}
               </Text>
             )}
           </View>
@@ -396,14 +396,14 @@ export function QuotationPDF({
                   Address: {companySettings.company_address}
                 </Text>
               )}
-              {companySettings?.etin && (
+              {(companySettings?.tax_id || (companySettings as any)?.etin) && (
                 <Text style={styles.infoLine}>
-                  E-TIN-{companySettings.etin}
+                  E-TIN-{companySettings.tax_id || (companySettings as any).etin}
                 </Text>
               )}
-              {companySettings?.vat_registration && (
+              {(companySettings as any)?.vat_registration && (
                 <Text style={styles.infoLine}>
-                  VAT REGISTRATION NO-{companySettings.vat_registration}
+                  VAT REGISTRATION NO-{(companySettings as any).vat_registration}
                 </Text>
               )}
               {companySettings?.phone && (
@@ -411,9 +411,9 @@ export function QuotationPDF({
                   Mobile: {companySettings.phone}
                 </Text>
               )}
-              {(companySettings?.company_website || companySettings?.company_email) && (
+              {(companySettings?.website || companySettings?.company_email) && (
                 <Text style={styles.infoLine}>
-                  Web: {companySettings.company_website || companySettings.company_email}
+                  Web: {companySettings.website || companySettings.company_email}
                 </Text>
               )}
             </View>
@@ -478,19 +478,19 @@ export function QuotationPDF({
           {/* Account Information */}
           {hasBankInfo && (
             <View style={styles.bankSection}>
-              {companySettings?.bank_account_name && (
+              {companySettings?.account_name && (
                 <View style={styles.bankRow}>
                   <Text style={styles.bankLabel}>Account Name:</Text>
                   <Text style={styles.bankValue}>
-                    {companySettings.bank_account_name}
+                    {companySettings.account_name}
                   </Text>
                 </View>
               )}
-              {companySettings?.bank_account_number && (
+              {companySettings?.account_number && (
                 <View style={styles.bankRow}>
                   <Text style={styles.bankLabel}>Account Number:</Text>
                   <Text style={styles.bankValue}>
-                    {companySettings.bank_account_number}
+                    {companySettings.account_number}
                   </Text>
                 </View>
               )}
@@ -510,11 +510,11 @@ export function QuotationPDF({
                   </Text>
                 </View>
               )}
-              {companySettings?.bank_routing_number && (
+              {companySettings?.routing_number && (
                 <View style={styles.bankRow}>
                   <Text style={styles.bankLabel}>Routing Number:</Text>
                   <Text style={styles.bankValue}>
-                    {companySettings.bank_routing_number}
+                    {companySettings.routing_number}
                   </Text>
                 </View>
               )}

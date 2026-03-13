@@ -197,7 +197,7 @@ export class FactoryCustomerPaymentsMediator {
         LEFT JOIN users u ON fcp.recorded_by = u.id
         LEFT JOIN vouchers v ON fcp.voucher_id = v.id
         WHERE fcp.factory_customer_order_id = $1
-        ORDER BY fcp.payment_date DESC, fcp.created_at DESC
+        ORDER BY fcp.payment_date DESC, fcp.recorded_at DESC
       `;
       
       const result = await pool.query(query, [orderId]);
@@ -266,6 +266,113 @@ export class FactoryCustomerPaymentsMediator {
       
     } catch (error) {
       MyLogger.error('Error fetching payment summary', { orderId, error });
+      throw error;
+    }
+  }
+  /**
+   * Get all factory customer payments with filtering and pagination
+   */
+  async getAllPayments(params: any): Promise<{ payments: FactoryCustomerPayment[], total: number, page: number, limit: number, totalPages: number }> {
+    try {
+      const page = parseInt(params.page as string) || 1;
+      const limit = parseInt(params.limit as string) || 20;
+      const offset = (page - 1) * limit;
+      const { customer_id, factory_id, start_date, end_date, search } = params;
+
+      let query = `
+        SELECT 
+          fcp.*,
+          fco.order_number,
+          fc.name as customer_name,
+          f.name as factory_name,
+          u.username as recorded_by_username,
+          v.voucher_no as voucher_no
+        FROM factory_customer_payments fcp
+        JOIN factory_customer_orders fco ON fcp.factory_customer_order_id = fco.id
+        JOIN factory_customers fc ON fcp.factory_customer_id = fc.id
+        JOIN factories f ON fcp.factory_id = f.id
+        LEFT JOIN users u ON fcp.recorded_by = u.id
+        LEFT JOIN vouchers v ON fcp.voucher_id = v.id
+        WHERE 1=1
+      `;
+      
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (customer_id) {
+        query += ` AND fcp.factory_customer_id = $${paramIndex}`;
+        values.push(customer_id);
+        paramIndex++;
+      }
+
+      if (factory_id) {
+        query += ` AND fcp.factory_id = $${paramIndex}`;
+        values.push(factory_id);
+        paramIndex++;
+      }
+
+      if (start_date) {
+        query += ` AND fcp.payment_date >= $${paramIndex}`;
+        values.push(start_date);
+        paramIndex++;
+      }
+
+      if (end_date) {
+        query += ` AND fcp.payment_date <= $${paramIndex}`;
+        values.push(end_date);
+        paramIndex++;
+      }
+
+      if (search) {
+        query += ` AND (fc.name ILIKE $${paramIndex} OR fco.order_number ILIKE $${paramIndex} OR fcp.payment_reference ILIKE $${paramIndex})`;
+        values.push(`%${search}%`);
+        paramIndex++;
+      }
+
+      // Get total count
+      const countQuery = `SELECT COUNT(*) FROM (${query}) as count_query`;
+      const countResult = await pool.query(countQuery, values);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Add ordering and pagination
+      query += ` ORDER BY fcp.payment_date DESC, fcp.recorded_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      values.push(limit, offset);
+
+      const result = await pool.query(query, values);
+      
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        payments: result.rows.map((row: any) => ({
+          id: row.id,
+          factory_customer_order_id: row.factory_customer_order_id,
+          order_number: row.order_number,
+          customer_name: row.customer_name,
+          factory_name: row.factory_name,
+          factory_customer_id: row.factory_customer_id,
+          factory_id: row.factory_id,
+          payment_amount: parseFloat(row.payment_amount),
+          payment_date: row.payment_date,
+          payment_method: row.payment_method,
+          payment_reference: row.payment_reference,
+          notes: row.notes,
+          recorded_by: row.recorded_by,
+          recorded_at: row.recorded_at,
+          recorded_by_username: row.recorded_by_username,
+          factory_sales_invoice_id: row.factory_sales_invoice_id,
+          additional_metadata: row.additional_metadata,
+          updated_at: row.updated_at,
+          voucher_id: row.voucher_id,
+          voucher_no: row.voucher_no
+        })),
+        total,
+        page,
+        limit,
+        totalPages
+      };
+      
+    } catch (error) {
+      MyLogger.error('Error fetching all payment history', { error });
       throw error;
     }
   }
