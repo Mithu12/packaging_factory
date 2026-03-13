@@ -713,7 +713,7 @@ export default function CustomerOrderManagement() {
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                             <DropdownMenuSeparator />
                                                             
-                                                            <DropdownMenuItem onClick={() => handleEditOrder(order)} disabled={['approved', 'completed', 'shipped'].includes(order.status)}>
+                                                            <DropdownMenuItem onClick={() => handleEditOrder(order)} disabled={['approved', 'in_production', 'completed', 'shipped'].includes(order.status)}>
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 <span>Edit Order</span>
                                                             </DropdownMenuItem>
@@ -772,6 +772,7 @@ export default function CustomerOrderManagement() {
                                                                     setOrderToDelete(order);
                                                                     setShowDeleteDialog(true);
                                                                 }}
+                                                                disabled={['approved', 'in_production', 'completed', 'shipped'].includes(order.status)}
                                                                 className="text-red-600 focus:text-red-600"
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
