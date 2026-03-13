@@ -97,101 +97,152 @@ async function allocateMaterialsForWorkOrder(
   const requirementsResult = await client.query(requirementsQuery, [workOrderId]);
 
   for (const requirement of requirementsResult.rows) {
-    const requiredQuantity = parseFloat(requirement.required_quantity);
+    const totalRequired = parseFloat(requirement.required_quantity);
+    const alreadyAllocated = parseFloat(requirement.allocated_quantity) || 0;
+    const remainingToAllocate = Math.max(0, totalRequired - alreadyAllocated);
+
+    if (remainingToAllocate <= 0) continue;
+
     const currentStock = parseFloat(requirement.current_stock) || 0;
     const reservedStock = parseFloat(requirement.reserved_stock) || 0;
-    const availableStock = currentStock - reservedStock;
+    const availableStock = Math.max(0, currentStock - reservedStock);
 
-    if (availableStock >= requiredQuantity) {
-      // Create allocation record
-      await client.query(`
-        INSERT INTO work_order_material_allocations (
-          work_order_requirement_id,
-          inventory_item_id,
-          allocated_quantity,
-          allocated_from_location,
-          allocated_by,
-          status,
-          notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        requirement.id,
-        requirement.material_id,
-        requiredQuantity,
-        'Main Warehouse',
-        userId,
-        'allocated',
-        `Auto-allocated when work order ${workOrderId} was released`
-      ]);
+    if (availableStock <= 0) continue;
 
-      // Update requirement status to allocated
+    const quantityToAllocate = Math.min(availableStock, remainingToAllocate);
+
+    if (quantityToAllocate <= 0) continue;
+
+    // Create allocation record
+    await client.query(`
+      INSERT INTO work_order_material_allocations (
+        work_order_requirement_id,
+        inventory_item_id,
+        allocated_quantity,
+        allocated_from_location,
+        allocated_by,
+        status,
+        notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [
+      requirement.id,
+      requirement.material_id,
+      quantityToAllocate,
+      'Main Warehouse',
+      userId,
+      'allocated',
+      `${quantityToAllocate === remainingToAllocate ? 'Full' : 'Partial'} allocation when work order ${workOrderId} was released`
+    ]);
+
+    // Update requirement status and quantity
+    await client.query(`
+      UPDATE work_order_material_requirements
+      SET allocated_quantity = allocated_quantity + $1,
+          status = CASE
+            WHEN (allocated_quantity + $1) >= required_quantity THEN 'allocated'::text
+            ELSE 'short'::text
+          END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [quantityToAllocate, requirement.id]);
+
+    // Reserve the stock
+    await client.query(`
+      UPDATE products
+      SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [quantityToAllocate, requirement.material_id]);
+
+    MyLogger.info("Material allocated for work order", {
+      workOrderId,
+      materialId: requirement.material_id,
+      allocated: quantityToAllocate,
+      totalRequired
+    });
+  }
+}
+
+async function recalculateMaterialRequirements(
+  client: any,
+  workOrderId: string,
+  newQuantity: number,
+  productId: string,
+  userId: string
+): Promise<void> {
+  const action = "recalculateMaterialRequirements";
+  MyLogger.info(action, { workOrderId, newQuantity, productId });
+
+  // Fetch active BOM components
+  const bomQuery = `
+    SELECT bc.*, p.name as material_name, p.sku as material_sku, p.unit_of_measure as material_uom, p.cost_price as material_cost
+    FROM bill_of_materials bom
+    JOIN bom_components bc ON bom.id = bc.bom_id
+    JOIN products p ON bc.component_product_id = p.id
+    WHERE bom.parent_product_id = $1 AND bom.is_active = true
+  `;
+  const bomResult = await client.query(bomQuery, [productId]);
+
+  if (bomResult.rows.length === 0) {
+    MyLogger.warn(action, { message: "No active BOM found for product during requirement recalculation", productId });
+    return;
+  }
+
+  const bomComponents = bomResult.rows;
+
+  for (const component of bomComponents) {
+    const perUnitQty = parseFloat(component.quantity_required);
+    const scrapFactor = parseFloat(component.scrap_factor || "0");
+    const totalRequired = perUnitQty * newQuantity * (1 + scrapFactor / 100);
+
+    // Check if requirement already exists for this material
+    const existingReqQuery = `
+      SELECT id, allocated_quantity FROM work_order_material_requirements
+      WHERE work_order_id = $1 AND material_id = $2
+    `;
+    const existingReqResult = await client.query(existingReqQuery, [workOrderId, component.component_product_id]);
+
+    if (existingReqResult.rows.length > 0) {
+      const existingReq = existingReqResult.rows[0];
+      const allocated = parseFloat(existingReq.allocated_quantity) || 0;
+
       await client.query(`
         UPDATE work_order_material_requirements
-        SET allocated_quantity = allocated_quantity + $1,
-            status = CASE
-              WHEN (allocated_quantity + $1) >= required_quantity THEN 'allocated'::text
-              ELSE status
+        SET required_quantity = $1,
+            unit_cost = $2,
+            total_cost = $1 * $2,
+            status = CASE 
+              WHEN $1 <= $3 THEN 'allocated'::text
+              WHEN $3 > 0 THEN 'short'::text
+              ELSE 'pending'::text
             END,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [requiredQuantity, requirement.id]);
-
-      // Reserve the stock
-      await client.query(`
-        UPDATE products
-        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [requiredQuantity, requirement.material_id]);
-
-      MyLogger.info("Material allocated for work order", {
-        workOrderId,
-        materialId: requirement.material_id,
-        quantity: requiredQuantity
-      });
-    } else if (availableStock > 0) {
-      // Partial allocation
-      await client.query(`
-        INSERT INTO work_order_material_allocations (
-          work_order_requirement_id,
-          inventory_item_id,
-          allocated_quantity,
-          allocated_from_location,
-          allocated_by,
-          status,
-          notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        WHERE id = $4
       `, [
-        requirement.id,
-        requirement.material_id,
-        availableStock,
-        'Main Warehouse',
-        userId,
-        'allocated',
-        `Partial allocation when work order ${workOrderId} was released`
+        totalRequired, 
+        parseFloat(component.material_cost || component.unit_cost || "0"), 
+        allocated, 
+        existingReq.id
       ]);
-
-      // Update requirement status to short (partial allocation)
+    } else {
+      // Create new requirement if it doesn't exist
       await client.query(`
-        UPDATE work_order_material_requirements
-        SET allocated_quantity = allocated_quantity + $1,
-            status = 'short'::text,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [availableStock, requirement.id]);
-
-      // Reserve the available stock
-      await client.query(`
-        UPDATE products
-        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [availableStock, requirement.material_id]);
-
-      MyLogger.info("Partial material allocation for work order", {
-        workOrderId,
-        materialId: requirement.material_id,
-        allocated: availableStock,
-        required: requiredQuantity
-      });
+        INSERT INTO work_order_material_requirements (
+          work_order_id, material_id, material_name, material_sku,
+          required_quantity, allocated_quantity, consumed_quantity,
+          unit_of_measure, status, required_date, bom_component_id,
+          unit_cost, total_cost
+        ) VALUES ($1, $2, $3, $4, $5, 0, 0, $6, 'pending', CURRENT_DATE, $7, $8, $9)
+      `, [
+        workOrderId, 
+        component.component_product_id, 
+        component.material_name, 
+        component.material_sku,
+        totalRequired, 
+        component.material_uom, 
+        component.id,
+        component.material_cost || component.unit_cost, 
+        totalRequired * parseFloat(component.material_cost || component.unit_cost || "0")
+      ]);
     }
   }
 }
@@ -434,6 +485,18 @@ export class UpdateWorkOrderMediator {
       }
 
       const updatedWorkOrder = updateResult.rows[0];
+
+      // Handle material requirement recalculation if quantity changed
+      if (updateData.quantity !== undefined && parseFloat(updateData.quantity) !== parseFloat(existingWorkOrder.quantity)) {
+        await recalculateMaterialRequirements(
+          client,
+          workOrderId,
+          parseFloat(updatedWorkOrder.quantity),
+          updatedWorkOrder.product_id,
+          userId
+        );
+      }
+
       const previousLineId = existingWorkOrder.production_line_id ? existingWorkOrder.production_line_id.toString() : null;
       const newLineId = updatedWorkOrder.production_line_id ? updatedWorkOrder.production_line_id.toString() : null;
       const previousLoad = calculateProductionLineLoad(parseFloat(existingWorkOrder.estimated_hours) || 0);
@@ -871,6 +934,47 @@ export class UpdateWorkOrderMediator {
             SET availability_status = 'busy', updated_at = CURRENT_TIMESTAMP
             WHERE id = ANY($1::integer[])
           `, [operatorIds]);
+        }
+
+        // Check if a production run already exists
+        const runCheck = await client.query(
+          'SELECT id FROM production_runs WHERE work_order_id = $1 LIMIT 1',
+          [workOrderId]
+        );
+
+        if (runCheck.rows.length === 0) {
+          // Auto-create a production run if none exists to maintain system consistency
+          const runNumberResult = await client.query(
+            "SELECT nextval('production_run_sequence') as seq"
+          );
+          const nextSeq = runNumberResult.rows[0].seq;
+          const runNumber = `PR-${String(nextSeq).padStart(6, '0')}`;
+
+          await client.query(
+            `INSERT INTO production_runs (
+              run_number,
+              work_order_id,
+              production_line_id,
+              target_quantity,
+              status,
+              actual_start_time,
+              started_by,
+              notes
+            ) VALUES ($1, $2, $3, $4, 'in_progress', CURRENT_TIMESTAMP, $5, $6)`,
+            [
+              runNumber,
+              workOrderId,
+              updatedWorkOrder.production_line_id || null,
+              updatedWorkOrder.quantity,
+              userId,
+              'Auto-created when work order was started from planning page'
+            ]
+          );
+
+          MyLogger.info("Auto-created production run for work order", {
+            workOrderId,
+            runNumber
+          });
         }
       }
 

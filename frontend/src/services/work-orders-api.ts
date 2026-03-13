@@ -130,6 +130,16 @@ export interface UpdateWorkOrderRequest {
   actual_hours?: number;
 }
 
+export interface CreateMaterialAllocationRequest {
+  work_order_requirement_id: string;
+  inventory_item_id: number;
+  allocated_quantity: number;
+  allocated_from_location: string;
+  expiry_date?: string;
+  batch_number?: string;
+  notes?: string;
+}
+
 export interface WorkOrderQueryParams {
   page?: number;
   limit?: number;
@@ -225,6 +235,7 @@ export class WorkOrdersApiService {
   private static readonly PRODUCTION_LINES_URL = '/production-lines';
   private static readonly OPERATORS_URL = '/operators';
   private static readonly ASSIGNMENTS_URL = '/assignments';
+  private static readonly ALLOCATIONS_URL = '/factory/material-allocations';
 
   // =====================================================
   // Work Order CRUD Operations
@@ -435,6 +446,18 @@ export class WorkOrdersApiService {
   static async deleteWorkOrderAssignment(assignmentId: string): Promise<{ deleted: boolean }> {
     return makeRequest<{ deleted: boolean }>(`${this.BASE_URL + this.ASSIGNMENTS_URL}/${assignmentId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // =====================================================
+  // Material Allocation Management
+  // =====================================================
+
+  // Create material allocation
+  static async createMaterialAllocation(data: CreateMaterialAllocationRequest): Promise<any> {
+    return makeRequest<any>(this.ALLOCATIONS_URL, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 

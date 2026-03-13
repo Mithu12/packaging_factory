@@ -66,6 +66,18 @@ export class AddMaterialAllocationMediator {
         );
       }
 
+      // Check for over-allocation
+      const requiredQuantity = parseFloat(requirement.required_quantity);
+      const alreadyAllocated = parseFloat(requirement.allocated_quantity) || 0;
+      const remainingToAllocate = requiredQuantity - alreadyAllocated;
+
+      if (data.allocated_quantity > remainingToAllocate) {
+        throw createError(
+          `Cannot allocate more than required. Required: ${requiredQuantity}, Already allocated: ${alreadyAllocated}, Requested: ${data.allocated_quantity}`,
+          400
+        );
+      }
+
       // 2. Check inventory availability
       const inventoryResult = await client.query(
         'SELECT id, current_stock, reserved_stock FROM products WHERE id = $1',

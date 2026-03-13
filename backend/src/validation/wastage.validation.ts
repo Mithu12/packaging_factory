@@ -1,5 +1,10 @@
 import Joi from 'joi';
 
+const numericIdSchema = Joi.alternatives().try(
+  Joi.number().integer().positive(),
+  Joi.string().pattern(/^\d+$/)
+);
+
 export const approveWastageSchema = Joi.object({
   notes: Joi.string().max(500).allow('', null).optional(),
 });
@@ -11,7 +16,7 @@ export const wastageQuerySchema = Joi.object({
   status: Joi.string()
     .valid('', 'pending', 'approved', 'rejected')
     .optional(),
-  work_order_id: Joi.string().uuid().optional(),
+  work_order_id: numericIdSchema.optional(),
   sort_by: Joi.string()
     .valid('recorded_date', 'material_name', 'quantity', 'cost', 'status')
     .default('recorded_date'),
@@ -19,6 +24,5 @@ export const wastageQuerySchema = Joi.object({
 });
 
 export const wastageParamsSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: numericIdSchema.required(),
 });
-

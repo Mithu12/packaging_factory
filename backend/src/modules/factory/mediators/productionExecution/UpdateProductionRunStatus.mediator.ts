@@ -71,6 +71,17 @@ export class UpdateProductionRunStatusMediator {
         [runId, run.status === 'paused' ? 'resume' : 'start', 'success', userId]
       );
 
+      // Synchronize parent Work Order status
+      await client.query(
+        `UPDATE work_orders
+         SET status = 'in_progress',
+             started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by = $1
+         WHERE id = $2 AND status != 'in_progress'`,
+        [userId, run.work_order_id]
+      );
+
       await client.query('COMMIT');
 
       MyLogger.success(action, { runId });
@@ -218,6 +229,53 @@ export class UpdateProductionRunStatusMediator {
         ) VALUES ($1, $2, $3, $4, $5, $6)`,
         [runId, 'complete', 'success', producedQty, data.notes, userId]
       );
+
+      // Synchronize parent Work Order status if target is met
+      const woStatsResult = await client.query(
+        `SELECT 
+           quantity as target_quantity,
+           (SELECT COALESCE(SUM(produced_quantity), 0) FROM production_runs WHERE work_order_id = wo.id AND status = 'completed') as total_produced
+         FROM work_orders wo
+         WHERE id = $1`,
+        [run.work_order_id]
+      );
+
+      if (woStatsResult.rows.length > 0) {
+        const woStats = woStatsResult.rows[0];
+        const totalProduced = parseFloat(woStats.total_produced);
+        const targetQuantity = parseFloat(woStats.target_quantity);
+
+        if (totalProduced >= targetQuantity) {
+          // All production runs for this work order are done and target met
+          await client.query(
+            `UPDATE work_orders
+             SET status = 'completed',
+                 completed_at = CURRENT_TIMESTAMP,
+                 progress = 100,
+                 updated_at = CURRENT_TIMESTAMP,
+                 updated_by = $1
+             WHERE id = $2`,
+            [userId, run.work_order_id]
+          );
+          
+          MyLogger.info(`${action}: Parent work order marked as completed`, {
+            workOrderId: run.work_order_id,
+            totalProduced,
+            targetQuantity
+          });
+        } else {
+          // Update progress percentage
+          const progress = Math.min(100, (totalProduced / targetQuantity) * 100);
+          await client.query(
+            `UPDATE work_orders
+             SET progress = $1,
+                 updated_at = CURRENT_TIMESTAMP,
+                 updated_by = $2
+             WHERE id = $3`,
+            [progress, userId, run.work_order_id]
+          );
+        }
+      }
 
       await client.query('COMMIT');
 

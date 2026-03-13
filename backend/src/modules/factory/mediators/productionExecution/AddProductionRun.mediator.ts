@@ -37,9 +37,27 @@ export class AddProductionRunMediator {
       const workOrder = workOrderResult.rows[0];
 
       // Only allow production runs from released work orders
-      if (workOrder.status !== 'released') {
+      if (workOrder.status !== 'released' && workOrder.status !== 'in_progress') {
         throw createError(
-          `Cannot create production run for work order in ${workOrder.status} status. Only released work orders can be used for production runs.`,
+          `Cannot create production run for work order in ${workOrder.status} status. Only released or in-progress work orders can be used for production runs.`,
+          400
+        );
+      }
+
+      // Check for over-production
+      const runStatsResult = await client.query(
+        `SELECT COALESCE(SUM(target_quantity), 0) as total_scheduled
+         FROM production_runs
+         WHERE work_order_id = $1 AND status != 'cancelled'`,
+        [data.work_order_id]
+      );
+      
+      const totalScheduled = parseFloat(runStatsResult.rows[0].total_scheduled);
+      const remainingToSchedule = parseFloat(workOrder.quantity) - totalScheduled;
+
+      if (data.target_quantity > remainingToSchedule + 0.001) { // Allow small float margin
+        throw createError(
+          `Target quantity (${data.target_quantity}) exceeds remaining work order quantity (${remainingToSchedule.toFixed(2)}).`,
           400
         );
       }

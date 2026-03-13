@@ -257,12 +257,58 @@ export default function EnhancedWorkOrderPlanning() {
     }
   };
 
+  const mapMaterialRequirements = (requirements: any[]) => {
+    return requirements.map((req) => ({
+      id: req.id,
+      materialId: req.material_id,
+      materialName: req.material_name,
+      materialSku: req.material_sku,
+      requiredQuantity: parseFloat(req.required_quantity || 0),
+      allocatedQuantity: parseFloat(req.allocated_quantity || 0),
+      unitOfMeasure: req.unit_of_measure,
+      status: req.status,
+      supplierName: req.supplier_name,
+      totalCost: parseFloat(req.total_cost || 0),
+    }));
+  };
+
+  const handleAllocateMaterial = async (requirement: any) => {
+    try {
+      if (!selectedWorkOrder) return;
+      
+      const quantityToAllocate = requirement.requiredQuantity - requirement.allocatedQuantity;
+      if (quantityToAllocate <= 0) {
+        toast.info("Material already fully allocated");
+        return;
+      }
+
+      await WorkOrdersApiService.createMaterialAllocation({
+        work_order_requirement_id: requirement.id,
+        inventory_item_id: Number(requirement.materialId),
+        allocated_quantity: quantityToAllocate,
+        allocated_from_location: 'Main Warehouse'
+      });
+      
+      toast.success(`Allocated ${quantityToAllocate} units of ${requirement.materialName}`);
+      
+      const fullWo = await WorkOrdersApiService.getWorkOrderById(selectedWorkOrder.id);
+      setSelectedWorkOrder({
+        ...selectedWorkOrder,
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
+      });
+      
+      fetchPlanningData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to allocate material");
+    }
+  };
+
   const handleViewWorkOrder = async (workOrder: EnhancedWorkOrder) => {
     try {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
       setSelectedWorkOrder({
         ...workOrder,
-        materialRequirements: fullWo.material_requirements || []
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
       });
       setShowDetailsDialog(true);
     } catch (error) {
@@ -280,7 +326,7 @@ export default function EnhancedWorkOrderPlanning() {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
       setSelectedWorkOrder({
         ...workOrder,
-        materialRequirements: fullWo.material_requirements || []
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
       });
       setShowMaterialDialog(true);
     } catch (error) {
@@ -293,7 +339,7 @@ export default function EnhancedWorkOrderPlanning() {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
       setSelectedWorkOrder({
         ...workOrder,
-        materialRequirements: fullWo.material_requirements || []
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
       });
       setShowCostDialog(true);
     } catch (error) {
@@ -852,7 +898,7 @@ export default function EnhancedWorkOrderPlanning() {
 
       {/* Work Order Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Work Order Details - {selectedWorkOrder?.id}
@@ -947,6 +993,7 @@ export default function EnhancedWorkOrderPlanning() {
                           <TableHead>Status</TableHead>
                           <TableHead>Supplier</TableHead>
                           <TableHead>Cost</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -992,6 +1039,19 @@ export default function EnhancedWorkOrderPlanning() {
                             </TableCell>
                             <TableCell className="font-medium">
                               {formatCurrency(req.totalCost)}
+                            </TableCell>
+                            <TableCell>
+                              {(req.status === 'pending' || req.status === 'short') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleAllocateMaterial(req)}
+                                  title="Allocate Material"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1042,7 +1102,7 @@ export default function EnhancedWorkOrderPlanning() {
  
       {/* Planning Dialog */}
       <Dialog open={showPlanningDialog} onOpenChange={setShowPlanningDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Plan Work Order</DialogTitle>
             <DialogDescription>
