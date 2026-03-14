@@ -76,8 +76,15 @@ router.delete(
 // Mark attendance (check-in/check-out)
 router.post(
   "/mark",
-  requirePermission(PERMISSIONS.HR_EMPLOYEES_CREATE),
-  expressAsyncHandler(AttendanceController.createAttendanceRecord)
+  requirePermission(PERMISSIONS.HR_ATTENDANCE_CREATE),
+  expressAsyncHandler(AttendanceController.markAttendance)
+);
+
+// Mark attendance for specific employee (HR)
+router.post(
+  "/:employeeId/mark",
+  requirePermission(PERMISSIONS.HR_ATTENDANCE_CREATE),
+  expressAsyncHandler(AttendanceController.markAttendance)
 );
 
 // =====================================================

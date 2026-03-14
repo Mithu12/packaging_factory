@@ -510,6 +510,7 @@ export interface CreateAttendanceRecordRequest {
   notes?: string;
   recorded_by?: string;
   is_manual_entry?: boolean;
+  status?: 'present' | 'absent' | 'late' | 'half_day' | 'holiday';
 }
 
 export interface CreateWorkScheduleRequest {

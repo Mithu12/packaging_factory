@@ -195,9 +195,11 @@ class AttendanceMediator implements MediatorInterface {
           ar.*,
           e.first_name,
           e.last_name,
-          e.employee_id
+          e.employee_id AS employee_code,
+          d.name AS department_name
         FROM attendance_records as ar
         JOIN employees as e ON ar.employee_id = e.id
+        LEFT JOIN departments as d ON e.department_id = d.id
       `;
 
       const values: any[] = [];
@@ -500,29 +502,36 @@ class AttendanceMediator implements MediatorInterface {
     action: 'check_in' | 'check_out' | 'break_start' | 'break_end',
     location?: string,
     notes?: string,
-    markedBy?: number
+    markedBy?: number,
+    recordDate?: string,
+    checkInTime?: string,
+    checkOutTime?: string
   ): Promise<AttendanceRecord> {
     const actionLog = "AttendanceMediator.markAttendance";
     const client = await pool.connect();
 
     try {
-      MyLogger.info(actionLog, { employeeId, action, location, notes, markedBy });
+      MyLogger.info(actionLog, { employeeId, action, location, notes, markedBy, recordDate, checkInTime, checkOutTime });
 
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
 
-      // Get or create today's attendance record
+      const targetDate = recordDate || today;
+      const customCheckIn = checkInTime && /^([01]?[0-9]|2[0-3]):[0-5][0-9]/.test(checkInTime) ? checkInTime : null;
+      const customCheckOut = checkOutTime && /^([01]?[0-9]|2[0-3]):[0-5][0-9]/.test(checkOutTime) ? checkOutTime : null;
+
+      // Get or create the attendance record for the target date
       const recordResult = await client.query(
         'SELECT * FROM attendance_records WHERE employee_id = $1 AND attendance_date = $2',
-        [employeeId, today]
+        [employeeId, targetDate]
       );
       let record = recordResult.rows[0];
 
       if (!record) {
-        // Create new record for today
+        // Create new record for the target date
         record = {
           employee_id: employeeId,
-          attendance_date: today,
+          attendance_date: targetDate,
           status: 'present',
           recorded_by: 'system',
           is_manual_entry: false,
@@ -544,38 +553,46 @@ class AttendanceMediator implements MediatorInterface {
       const updateData: any = { updated_at: new Date() };
 
       switch (action) {
-        case 'check_in':
-          updateData.check_in_time = now;
+        case 'check_in': {
+          const timeToUse = customCheckIn || now;
+          updateData.check_in_time = timeToUse;
           updateData.status = 'present';
           break;
-        case 'check_out':
-          updateData.check_out_time = now;
+        }
+        case 'check_out': {
+          const timeToUse = customCheckOut || now;
+          updateData.check_out_time = timeToUse;
           // Calculate total hours
           if (record.check_in_time) {
             updateData.total_hours_worked = AttendanceMediator.calculateHoursWorked(
               record.check_in_time,
-              now,
+              timeToUse,
               record.break_start_time,
               record.break_end_time
             );
             updateData.overtime_hours = Math.max(0, updateData.total_hours_worked - 8);
           }
           break;
-        case 'break_start':
-          updateData.break_start_time = now;
+        }
+        case 'break_start': {
+          const timeToUse = customCheckIn || customCheckOut || now;
+          updateData.break_start_time = timeToUse;
           break;
-        case 'break_end':
-          updateData.break_end_time = now;
+        }
+        case 'break_end': {
+          const timeToUse = customCheckIn || customCheckOut || now;
+          updateData.break_end_time = timeToUse;
           // Recalculate total hours
           if (record.check_in_time && record.check_out_time) {
             updateData.total_hours_worked = AttendanceMediator.calculateHoursWorked(
               record.check_in_time,
               record.check_out_time,
-              now,
-              record.break_start_time
+              record.break_start_time,
+              timeToUse
             );
           }
           break;
+        }
       }
 
       if (location) updateData.location = location;
@@ -618,6 +635,14 @@ class AttendanceMediator implements MediatorInterface {
   }
 
   /**
+   * Normalize time string to HH:MM for Date parsing (handles "09:00", "09:00:00", etc.)
+   */
+  private static normalizeTimeForParse(t: string): string {
+    const match = t.match(/^(\d{1,2}):(\d{2})/);
+    return match ? `${match[1].padStart(2, '0')}:${match[2]}` : t;
+  }
+
+  /**
    * Calculate hours worked between times
    */
   private static calculateHoursWorked(
@@ -628,17 +653,22 @@ class AttendanceMediator implements MediatorInterface {
   ): number {
     if (!checkInTime || !checkOutTime) return 0;
 
-    const checkIn = new Date(`1970-01-01T${checkInTime}:00`);
-    const checkOut = new Date(`1970-01-01T${checkOutTime}:00`);
+    const ci = AttendanceMediator.normalizeTimeForParse(checkInTime);
+    const co = AttendanceMediator.normalizeTimeForParse(checkOutTime);
+    const checkIn = new Date(`1970-01-01T${ci}:00`);
+    const checkOut = new Date(`1970-01-01T${co}:00`);
 
     let totalMinutes = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+    if (isNaN(totalMinutes)) return 0;
 
     // Subtract break time if both break times are provided
     if (breakStartTime && breakEndTime) {
-      const breakStart = new Date(`1970-01-01T${breakStartTime}:00`);
-      const breakEnd = new Date(`1970-01-01T${breakEndTime}:00`);
+      const bs = AttendanceMediator.normalizeTimeForParse(breakStartTime);
+      const be = AttendanceMediator.normalizeTimeForParse(breakEndTime);
+      const breakStart = new Date(`1970-01-01T${bs}:00`);
+      const breakEnd = new Date(`1970-01-01T${be}:00`);
       const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
-      totalMinutes -= breakMinutes;
+      totalMinutes -= isNaN(breakMinutes) ? 0 : breakMinutes;
     }
 
     return Math.max(0, totalMinutes / 60); // Convert to hours

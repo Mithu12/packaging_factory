@@ -571,16 +571,25 @@ export class HRMApiService {
 
   static async markAttendance(
     action: 'check_in' | 'check_out' | 'break_start' | 'break_end',
+    employeeId?: number,
     location?: string,
-    notes?: string
+    notes?: string,
+    recordDate?: string,
+    checkInTime?: string,
+    checkOutTime?: string
   ): Promise<{ attendance_record: AttendanceRecord }> {
-    return makeRequest<{ attendance_record: AttendanceRecord }>(`${this.BASE_URL}/attendance/mark`, {
+    const url = employeeId
+      ? `${this.BASE_URL}/attendance/${employeeId}/mark`
+      : `${this.BASE_URL}/attendance/mark`;
+
+    const body: Record<string, unknown> = { action, location, notes };
+    if (recordDate) body.record_date = recordDate;
+    if (checkInTime) body.check_in_time = checkInTime;
+    if (checkOutTime) body.check_out_time = checkOutTime;
+
+    return makeRequest<{ attendance_record: AttendanceRecord }>(url, {
       method: 'POST',
-      body: JSON.stringify({
-        action,
-        location,
-        notes
-      }),
+      body: JSON.stringify(body),
     });
   }
 

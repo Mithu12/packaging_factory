@@ -44,6 +44,29 @@ const getStatusColor = (status: string) => {
   }
 };
 
+/** Extract HH:MM from time value (handles "09:00", "09:00:00", ISO strings, etc.) */
+const formatTimeDisplay = (value: unknown): string | null => {
+  if (value == null || value === "") return null;
+  const s = String(value);
+  const timeMatch = s.match(/(\d{1,2}):(\d{2})/);
+  if (timeMatch) return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
+  return null;
+};
+
+/** Compute hours between two time strings when total_hours_worked is missing */
+const computeHoursFromTimes = (checkIn: string | null, checkOut: string | null): number | null => {
+  if (!checkIn || !checkOut) return null;
+  const parse = (t: string) => {
+    const m = String(t).match(/(\d{1,2}):(\d{2})/);
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : NaN;
+  };
+  const inMins = parse(checkIn);
+  const outMins = parse(checkOut);
+  if (isNaN(inMins) || isNaN(outMins)) return null;
+  const diffMins = outMins - inMins;
+  return diffMins > 0 ? Math.round((diffMins / 60) * 10) / 10 : null;
+};
+
 const AttendanceMarkingPage: React.FC = () => {
   const { toast } = useToast();
   const today = new Date().toISOString().split("T")[0];
@@ -56,16 +79,10 @@ const AttendanceMarkingPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
-  const [bulkStatus, setBulkStatus] = useState("present");
-  const [bulkCheckIn, setBulkCheckIn] = useState("");
-  const [bulkCheckOut, setBulkCheckOut] = useState("");
-  const [bulkNotes, setBulkNotes] = useState("");
-
+  const [markingMode, setMarkingMode] = useState<"check_in" | "check_out">("check_in");
   const [individualForm, setIndividualForm] = useState({
     employee_id: 0,
-    status: "present",
-    check_in_time: "",
-    check_out_time: "",
+    time: "",
     location: "",
     notes: "",
   });
@@ -105,49 +122,47 @@ const AttendanceMarkingPage: React.FC = () => {
     if (!individualForm.employee_id) return;
     try {
       setSubmitting(true);
-      await HRMApiService.createAttendanceRecord(individualForm.employee_id, {
-        employee_id: individualForm.employee_id,
-        attendance_date: selectedDate,
-        status: individualForm.status as any,
-        check_in_time: individualForm.check_in_time || undefined,
-        check_out_time: individualForm.check_out_time || undefined,
-        location: individualForm.location || undefined,
-        notes: individualForm.notes || undefined,
-        recorded_by: "HR Admin",
-        is_manual_entry: true,
-      });
-      toast({ title: "Success", description: "Attendance marked successfully" });
-      setIndividualForm({ employee_id: 0, status: "present", check_in_time: "", check_out_time: "", location: "", notes: "" });
+      const checkInTime = markingMode === "check_in" && individualForm.time ? individualForm.time : undefined;
+      const checkOutTime = markingMode === "check_out" && individualForm.time ? individualForm.time : undefined;
+      await HRMApiService.markAttendance(
+        markingMode,
+        individualForm.employee_id,
+        individualForm.location || undefined,
+        individualForm.notes || undefined,
+        selectedDate,
+        checkInTime,
+        checkOutTime
+      );
+      toast({ title: "Success", description: `Employee ${markingMode === "check_in" ? "checked in" : "checked out"} successfully` });
+      setIndividualForm({ employee_id: 0, time: "", location: "", notes: "" });
       await loadData();
     } catch (err) {
-      toast({ title: "Error", description: "Failed to mark attendance", variant: "destructive" });
+      toast({ title: "Error", description: `Failed to ${markingMode.replace("_", " ")}`, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const [bulkMode, setBulkMode] = useState<"check_in" | "check_out">("check_in");
+  const [bulkTime, setBulkTime] = useState("");
+  const [bulkNotes, setBulkNotes] = useState("");
 
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedEmployeeIds.length === 0) return;
     try {
       setSubmitting(true);
+      const checkInTime = bulkMode === "check_in" && bulkTime ? bulkTime : undefined;
+      const checkOutTime = bulkMode === "check_out" && bulkTime ? bulkTime : undefined;
       await Promise.all(
         selectedEmployeeIds.map((empId) =>
-          HRMApiService.createAttendanceRecord(empId, {
-            employee_id: empId,
-            attendance_date: selectedDate,
-            status: bulkStatus as any,
-            check_in_time: bulkCheckIn || undefined,
-            check_out_time: bulkCheckOut || undefined,
-            notes: bulkNotes || undefined,
-            recorded_by: "HR Admin",
-            is_manual_entry: true,
-          })
+          HRMApiService.markAttendance(bulkMode, empId, undefined, bulkNotes || undefined, selectedDate, checkInTime, checkOutTime)
         )
       );
       toast({ title: "Success", description: `Attendance marked for ${selectedEmployeeIds.length} employees` });
       setSelectedEmployeeIds([]);
-      setBulkCheckIn(""); setBulkCheckOut(""); setBulkNotes("");
+      setBulkTime("");
+      setBulkNotes("");
       await loadData();
     } catch (err) {
       toast({ title: "Error", description: "Failed to mark bulk attendance", variant: "destructive" });
@@ -159,6 +174,14 @@ const AttendanceMarkingPage: React.FC = () => {
   const markedCount = attendanceRecords.length;
   const pendingCount = employees.length - markedCount;
   const presentCount = attendanceRecords.filter((r) => r.status === "present" || r.status === "late").length;
+
+  const selectedEmployeeRecord = individualForm.employee_id
+    ? attendanceRecords.find((r) => Number(r.employee_id) === Number(individualForm.employee_id))
+    : null;
+  const wouldDuplicateIndividual =
+    selectedEmployeeRecord &&
+    ((markingMode === "check_in" && formatTimeDisplay(selectedEmployeeRecord.check_in_time)) ||
+      (markingMode === "check_out" && formatTimeDisplay(selectedEmployeeRecord.check_out_time)));
 
   return (
     <div className="space-y-6">
@@ -213,6 +236,25 @@ const AttendanceMarkingPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleIndividualSubmit} className="space-y-4">
+                <div className="flex bg-muted p-1 rounded-lg w-fit">
+                  <Button 
+                    type="button"
+                    variant={markingMode === "check_in" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setMarkingMode("check_in")}
+                  >
+                    Check In
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant={markingMode === "check_out" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setMarkingMode("check_out")}
+                  >
+                    Check Out
+                  </Button>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Employee</Label>
@@ -229,41 +271,86 @@ const AttendanceMarkingPage: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {individualForm.employee_id && (() => {
+                      const existing = attendanceRecords.find(
+                        (r) => Number(r.employee_id) === Number(individualForm.employee_id)
+                      );
+                      if (!existing) {
+                        return (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Not marked for {selectedDate}
+                          </p>
+                        );
+                      }
+                      const checkIn = formatTimeDisplay(existing.check_in_time);
+                      const checkOut = formatTimeDisplay(existing.check_out_time);
+                      const hours =
+                        existing.total_hours_worked != null && !isNaN(Number(existing.total_hours_worked))
+                          ? Number(existing.total_hours_worked)
+                          : checkIn && checkOut
+                            ? computeHoursFromTimes(
+                                String(existing.check_in_time),
+                                String(existing.check_out_time)
+                              )
+                            : null;
+                      const wouldDuplicate =
+                        (markingMode === "check_in" && checkIn) ||
+                        (markingMode === "check_out" && checkOut);
+                      return (
+                        <div className="mt-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className={getStatusColor(existing.status)}>
+                              {existing.status.replace(/_/g, " ")}
+                            </Badge>
+                            {wouldDuplicate && (
+                              <span className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                Already {markingMode === "check_in" ? "checked in" : "checked out"}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {checkIn && checkOut
+                              ? `${checkIn} - ${checkOut}${hours != null ? ` (${hours}h)` : ""}`
+                              : checkIn
+                                ? `Check-in: ${checkIn}`
+                                : checkOut
+                                  ? `Check-out: ${checkOut}`
+                                  : "—"}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select
-                      value={individualForm.status}
-                      onValueChange={(v) => setIndividualForm((p) => ({ ...p, status: v }))}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ATTENDANCE_STATUSES.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>{markingMode === "check_in" ? "Check In" : "Check Out"} Time</Label>
+                    <Input type="time" value={individualForm.time} onChange={(e) => setIndividualForm((p) => ({ ...p, time: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground">Leave empty to use current time</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Check In Time</Label>
-                    <Input type="time" value={individualForm.check_in_time} onChange={(e) => setIndividualForm((p) => ({ ...p, check_in_time: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Check Out Time</Label>
-                    <Input type="time" value={individualForm.check_out_time} onChange={(e) => setIndividualForm((p) => ({ ...p, check_out_time: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input value={individualForm.location} onChange={(e) => setIndividualForm((p) => ({ ...p, location: e.target.value }))} placeholder="Office / Remote" />
-                  </div>
+                  {markingMode === "check_in" && (
+                    <div className="space-y-2">
+                      <Label>Location</Label>
+                      <Input value={individualForm.location} onChange={(e) => setIndividualForm((p) => ({ ...p, location: e.target.value }))} placeholder="Office / Remote" />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Notes</Label>
                     <Textarea value={individualForm.notes} onChange={(e) => setIndividualForm((p) => ({ ...p, notes: e.target.value }))} rows={2} />
                   </div>
                 </div>
-                <Button type="submit" disabled={!individualForm.employee_id || submitting}>
+                <Button
+                  type="submit"
+                  disabled={!individualForm.employee_id || submitting || !!wouldDuplicateIndividual}
+                >
                   <Save className="h-4 w-4 mr-2" />
-                  {submitting ? "Saving..." : "Mark Attendance"}
+                  {submitting
+                    ? "Saving..."
+                    : wouldDuplicateIndividual
+                      ? `Already ${markingMode === "check_in" ? "checked in" : "checked out"}`
+                      : markingMode === "check_in"
+                        ? "Mark Check In"
+                        : "Mark Check Out"}
                 </Button>
               </form>
             </CardContent>
@@ -279,25 +366,30 @@ const AttendanceMarkingPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBulkSubmit} className="space-y-4">
+                <div className="flex bg-muted p-1 rounded-lg w-fit">
+                  <Button 
+                    type="button"
+                    variant={bulkMode === "check_in" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setBulkMode("check_in")}
+                  >
+                    Bulk Check In
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant={bulkMode === "check_out" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setBulkMode("check_out")}
+                  >
+                    Bulk Check Out
+                  </Button>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ATTENDANCE_STATUSES.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Check In Time</Label>
-                    <Input type="time" value={bulkCheckIn} onChange={(e) => setBulkCheckIn(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Check Out Time</Label>
-                    <Input type="time" value={bulkCheckOut} onChange={(e) => setBulkCheckOut(e.target.value)} />
+                    <Label>{bulkMode === "check_in" ? "Check In" : "Check Out"} Time</Label>
+                    <Input type="time" value={bulkTime} onChange={(e) => setBulkTime(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Leave empty to use current time</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Notes</Label>
@@ -306,7 +398,7 @@ const AttendanceMarkingPage: React.FC = () => {
                 </div>
                 <Button type="submit" disabled={selectedEmployeeIds.length === 0 || submitting}>
                   <Save className="h-4 w-4 mr-2" />
-                  {submitting ? "Saving..." : `Mark Attendance (${selectedEmployeeIds.length} selected)`}
+                  {submitting ? "Saving..." : `Mark ${bulkMode === "check_in" ? "Check In" : "Check Out"} (${selectedEmployeeIds.length} selected)`}
                 </Button>
               </form>
             </CardContent>
@@ -352,7 +444,7 @@ const AttendanceMarkingPage: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredEmployees.map((emp) => {
-                      const existing = attendanceRecords.find((r) => r.employee_id === emp.id);
+                      const existing = attendanceRecords.find((r) => Number(r.employee_id) === Number(emp.id));
                       return (
                         <TableRow key={emp.id}>
                           <TableCell>
@@ -401,21 +493,46 @@ const AttendanceMarkingPage: React.FC = () => {
                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <p className="font-medium">
-                          {record.employee?.first_name} {record.employee?.last_name}
+                          {record.employee?.first_name ?? record.first_name} {record.employee?.last_name ?? record.last_name}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {record.employee?.employee_id} • {record.employee?.department?.name}
+                          {record.employee?.employee_id ?? record.employee_code ?? record.employee_id} • {record.employee?.department?.name ?? record.department_name ?? "—"}
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <p className="text-sm">
-                            {record.check_in_time && record.check_out_time
-                              ? `${record.check_in_time} - ${record.check_out_time}`
-                              : "No time recorded"}
+                            {(() => {
+                              const checkIn = formatTimeDisplay(
+                                record.check_in_time ?? (record as { checkInTime?: unknown }).checkInTime
+                              );
+                              const checkOut = formatTimeDisplay(
+                                record.check_out_time ?? (record as { checkOutTime?: unknown }).checkOutTime
+                              );
+                              if (checkIn && checkOut) return `${checkIn} - ${checkOut}`;
+                              if (checkIn) return `Check-in: ${checkIn}`;
+                              if (checkOut) return `Check-out: ${checkOut}`;
+                              return "No time recorded";
+                            })()}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {record.total_hours_worked ? `${record.total_hours_worked}h` : ""}
+                            {(() => {
+                              const fromBackend =
+                                record.total_hours_worked != null &&
+                                !isNaN(Number(record.total_hours_worked))
+                                  ? Number(record.total_hours_worked)
+                                  : null;
+                              const checkInRaw =
+                                record.check_in_time ?? (record as { checkInTime?: unknown }).checkInTime;
+                              const checkOutRaw =
+                                record.check_out_time ?? (record as { checkOutTime?: unknown }).checkOutTime;
+                              const computed =
+                                fromBackend ??
+                                (checkInRaw != null && checkOutRaw != null
+                                  ? computeHoursFromTimes(String(checkInRaw), String(checkOutRaw))
+                                  : null);
+                              return computed != null ? `${computed}h` : "";
+                            })()}
                           </p>
                         </div>
                         <Badge className={getStatusColor(record.status)}>

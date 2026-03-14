@@ -536,7 +536,7 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Leave Applications",
-        url: "/hrm/leave-applications",
+        url: "/hrm/leave-application",
         icon: FileText,
         permission: PERMISSIONS.HR_LEAVE_READ,
       },
@@ -554,25 +554,25 @@ const menuSections: MenuSection[] = [
       },
       {
         title: "Mark Attendance",
-        url: "/hrm/attendance/marking",
+        url: "/hrm/attendance-marking",
         icon: Calendar,
         permission: PERMISSIONS.HR_ATTENDANCE_CREATE,
       },
       {
         title: "Shift Management",
-        url: "/hrm/attendance/shifts",
+        url: "/hrm/shifts",
         icon: Activity,
         permission: PERMISSIONS.HR_ATTENDANCE_MANAGE,
       },
       {
         title: "Attendance Regularization",
-        url: "/hrm/attendance/regularization",
+        url: "/hrm/attendance-regularization",
         icon: FileText,
         permission: PERMISSIONS.HR_ATTENDANCE_READ,
       },
       {
         title: "Attendance Reports",
-        url: "/hrm/attendance/reports",
+        url: "/hrm/attendance-reports",
         icon: BarChart3,
         permission: PERMISSIONS.HR_REPORTS_READ,
       },

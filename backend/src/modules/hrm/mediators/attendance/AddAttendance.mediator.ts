@@ -102,6 +102,33 @@ export class AddAttendanceMediator {
       // Validate attendance record
       await this.validateAttendanceRecord(recordData, employeeId);
 
+      // Calculate total hours worked
+      let totalHoursWorked = 0;
+      if (recordData.check_in_time && recordData.check_out_time) {
+        const checkIn = new Date(`1970-01-01T${recordData.check_in_time}:00`);
+        const checkOut = new Date(`1970-01-01T${recordData.check_out_time}:00`);
+        let totalMinutes = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+
+        if (recordData.break_start_time && recordData.break_end_time) {
+          const breakStart = new Date(`1970-01-01T${recordData.break_start_time}:00`);
+          const breakEnd = new Date(`1970-01-01T${recordData.break_end_time}:00`);
+          totalMinutes -= (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+        }
+        totalHoursWorked = Math.max(0, totalMinutes / 60);
+      }
+
+      const overtimeHours = Math.max(0, totalHoursWorked - 8);
+
+      // Determine status
+      let status = recordData.status || 'present';
+      if (!recordData.check_in_time || !recordData.check_out_time) {
+        status = 'absent';
+      } else if (totalHoursWorked < 4) {
+        status = 'half_day';
+      } else if (recordData.check_in_time > '09:00') {
+        status = 'late';
+      }
+
       const newRecord = {
         employee_id: employeeId,
         attendance_date: recordData.attendance_date,
@@ -109,17 +136,24 @@ export class AddAttendanceMediator {
         check_out_time: recordData.check_out_time,
         break_start_time: recordData.break_start_time,
         break_end_time: recordData.break_end_time,
+        total_hours_worked: totalHoursWorked,
+        overtime_hours: overtimeHours,
+        status: status,
         location: recordData.location,
         notes: recordData.notes,
         recorded_by: recordData.recorded_by,
         is_manual_entry: recordData.is_manual_entry,
-        created_by: createdBy,
-        created_at: new Date()
+        created_at: new Date(),
+        updated_at: new Date()
       };
 
       const insertQuery = `
-        INSERT INTO attendance_records (employee_id, attendance_date, check_in_time, check_out_time, break_start_time, break_end_time, location, notes, recorded_by, is_manual_entry, created_by, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO attendance_records (
+          employee_id, attendance_date, check_in_time, check_out_time, 
+          break_start_time, break_end_time, total_hours_worked, overtime_hours, 
+          status, location, notes, recorded_by, is_manual_entry, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `;
 
@@ -130,12 +164,15 @@ export class AddAttendanceMediator {
         newRecord.check_out_time,
         newRecord.break_start_time,
         newRecord.break_end_time,
+        newRecord.total_hours_worked,
+        newRecord.overtime_hours,
+        newRecord.status,
         newRecord.location,
         newRecord.notes,
         newRecord.recorded_by,
         newRecord.is_manual_entry,
-        newRecord.created_by,
-        newRecord.created_at
+        newRecord.created_at,
+        newRecord.updated_at
       ];
 
       const result = await client.query(insertQuery, values);
