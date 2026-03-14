@@ -523,6 +523,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.HR_PAYROLL_READ,
       },
       {
+        title: "Advance Salary",
+        url: "/hrm/advance-salary",
+        icon: Banknote,
+        permission: PERMISSIONS.HR_PAYROLL_READ,
+      },
+      {
         title: "Leave Types",
         url: "/hrm/leave-types",
         icon: Calendar,

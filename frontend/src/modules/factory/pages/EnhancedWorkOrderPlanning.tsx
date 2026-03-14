@@ -105,6 +105,7 @@ interface EnhancedWorkOrder {
   materialAvailability: "available" | "short" | "unavailable";
   criticalPath: boolean;
   bomVersion?: string;
+  poProductIds?: number[];
 }
 
 interface ProductionLine {
@@ -185,7 +186,8 @@ export default function EnhancedWorkOrderPlanning() {
         costPerUnit: (wo.total_material_cost || 0) / (wo.quantity || 1),
         materialAvailability: wo.has_material_shortages ? "short" : "available",
         criticalPath: false,
-        bomVersion: ""
+        bomVersion: "",
+        poProductIds: wo.po_product_ids || []
       })));
 
       setProductionLines(plResponse.map(pl => ({
@@ -345,7 +347,8 @@ export default function EnhancedWorkOrderPlanning() {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
       setSelectedWorkOrder({
         ...workOrder,
-        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || []),
+        poProductIds: fullWo.po_product_ids
       });
       fetchAssociatedPurchases(workOrder.id);
       setShowDetailsDialog(true);
@@ -803,7 +806,19 @@ export default function EnhancedWorkOrderPlanning() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCreatePO(wo, wo.materialRequirements.filter(r => r.status === 'short'))}
+                          onClick={() => {
+                            const shortRequirements = wo.materialRequirements.filter(r => r.status === 'short');
+                            const filteredRequirements = shortRequirements.filter(r => 
+                              !wo.poProductIds?.includes(Number(r.materialId))
+                            );
+                            
+                            if (filteredRequirements.length === 0 && shortRequirements.length > 0) {
+                              toast.info("All short items already have associated Purchase Orders");
+                              return;
+                            }
+                            
+                            handleCreatePO(wo, filteredRequirements);
+                          }}
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
                           Create Purchase Order
@@ -1109,30 +1124,52 @@ export default function EnhancedWorkOrderPlanning() {
                               {formatCurrency(req.totalCost)}
                             </TableCell>
                             <TableCell>
-                              {(req.status === 'pending' || req.status === 'short') && (
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => handleAllocateMaterial(req)}
-                                    title="Allocate Material"
-                                  >
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  {req.status === 'short' && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0"
-                                      onClick={() => handleCreatePO(selectedWorkOrder, [req])}
-                                      title="Create Purchase Order"
-                                    >
-                                      <ShoppingCart className="h-4 w-4 text-blue-600" />
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
+                              {(() => {
+                                const existingPO = associatedPurchases.find(po => 
+                                  Array.isArray(po.product_ids) && po.product_ids.includes(Number(req.materialId))
+                                );
+
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex gap-1">
+                                      {(req.status === 'pending' || req.status === 'short') && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => handleAllocateMaterial(req)}
+                                          title="Allocate Material"
+                                        >
+                                          <CheckCircle className="h-4 w-4 text-green-600" />
+                                        </Button>
+                                      )}
+                                      
+                                      {req.status === 'short' && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => handleCreatePO(selectedWorkOrder, [req])}
+                                          title={existingPO ? `PO ${existingPO.po_number} already exists` : "Create Purchase Order"}
+                                          disabled={!!existingPO}
+                                        >
+                                          <ShoppingCart className={`h-4 w-4 ${existingPO ? 'text-muted-foreground' : 'text-blue-600'}`} />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    
+                                    {existingPO && (
+                                      <div 
+                                        className="text-[10px] text-blue-600 font-medium cursor-pointer hover:underline flex items-center gap-0.5"
+                                        onClick={() => router.push(`/inventory/purchase-orders/${existingPO.id}`)}
+                                      >
+                                        <ShoppingCart className="h-2 w-2" />
+                                        {existingPO.po_number}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1214,7 +1251,7 @@ export default function EnhancedWorkOrderPlanning() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => router.push(`/inventory/purchase-orders?id=${po.id}`)}
+                                onClick={() => router.push(`/inventory/purchase-orders/${po.id}`)}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>

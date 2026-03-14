@@ -15,6 +15,8 @@ import { toast } from '@/components/ui/sonner';
 import { useFormatting } from '@/hooks/useFormatting';
 import { ApiService, Expense, ExpenseCategory, ApiError } from '@/services/api';
 import { AccountsIntegrationBadge } from '@/components/AccountsIntegrationBadge';
+import { CostCentersApiService, CostCenter } from '@/services/accounts-api';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Plus,
   Search,
@@ -37,7 +39,8 @@ import {
   Download,
   Upload,
   Image,
-  X as XIcon
+  X as XIcon,
+  AlertCircle
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -62,6 +65,7 @@ interface ExpenseFormData {
   department: string;
   project: string;
   notes: string;
+  cost_center_id: string;
   receipt_file?: File;
 }
 
@@ -87,6 +91,9 @@ export default function ExpensesPage() {
   // State
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [accountPreview, setAccountPreview] = useState<{ id: number; name: string; code: string } | null>(null);
+  const [accountPreviewLoading, setAccountPreviewLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -102,6 +109,7 @@ export default function ExpensesPage() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all-categories');
+  const [selectedCostCenter, setSelectedCostCenter] = useState<string>('all-cost-centers');
   const [selectedStatus, setSelectedStatus] = useState<string>('all-status');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all-payment-methods');
   const [sortBy, setSortBy] = useState<string>('created_at');
@@ -122,6 +130,7 @@ export default function ExpensesPage() {
     department: '',
     project: '',
     notes: '',
+    cost_center_id: '',
     receipt_file: undefined
   });
 
@@ -140,6 +149,7 @@ export default function ExpensesPage() {
 
       if (searchTerm) params.search = searchTerm;
       if (selectedCategory !== 'all-categories') params.category_id = selectedCategory;
+      if (selectedCostCenter !== 'all-cost-centers') params.cost_center_id = selectedCostCenter;
       if (selectedStatus !== 'all-status') params.status = selectedStatus;
       if (selectedPaymentMethod !== 'all-payment-methods') params.payment_method = selectedPaymentMethod;
 
@@ -170,11 +180,44 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadData();
-  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedStatus, selectedPaymentMethod]);
+  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedCostCenter, selectedStatus, selectedPaymentMethod]);
 
   useEffect(() => {
     loadExpenseCategories();
   }, []);
+
+  // Load cost centers
+  useEffect(() => {
+    const loadCostCenters = async () => {
+      try {
+        const response = await CostCentersApiService.getCostCenters({ limit: 500, status: 'Active' });
+        setCostCenters(response.data || []);
+      } catch (err) {
+        console.error('Failed to load cost centers:', err);
+        setCostCenters([]);
+      }
+    };
+    loadCostCenters();
+  }, []);
+
+  // Fetch account preview when category or cost center changes
+  useEffect(() => {
+    if (!formData.category_id) {
+      setAccountPreview(null);
+      return;
+    }
+    const categoryId = parseInt(formData.category_id);
+    if (isNaN(categoryId)) {
+      setAccountPreview(null);
+      return;
+    }
+    const costCenterId = formData.cost_center_id ? parseInt(formData.cost_center_id) : undefined;
+    setAccountPreviewLoading(true);
+    ApiService.getExpenseAccountPreview(categoryId, costCenterId)
+      .then((res) => setAccountPreview(res.account))
+      .catch(() => setAccountPreview(null))
+      .finally(() => setAccountPreviewLoading(false));
+  }, [formData.category_id, formData.cost_center_id]);
 
   // Form handlers
   const handleInputChange = (field: keyof ExpenseFormData, value: string) => {
@@ -196,6 +239,7 @@ export default function ExpensesPage() {
       department: '',
       project: '',
       notes: '',
+      cost_center_id: '',
       receipt_file: undefined
     });
   };
@@ -217,11 +261,13 @@ export default function ExpensesPage() {
     e.preventDefault();
     
     try {
-      const expenseData = {
+      const expenseData: Record<string, unknown> = {
         ...formData,
         category_id: parseInt(formData.category_id),
         amount: parseFloat(formData.amount)
       };
+
+      expenseData.cost_center_id = formData.cost_center_id ? parseInt(formData.cost_center_id) : null;
 
       // Remove receipt_file from the data object as it's handled separately
       delete (expenseData as any).receipt_file;
@@ -270,7 +316,8 @@ export default function ExpensesPage() {
       receipt_number: expense.receipt_number || '',
       department: expense.department || '',
       project: expense.project || '',
-      notes: expense.notes || ''
+      notes: expense.notes || '',
+      cost_center_id: expense.cost_center_id?.toString() || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -350,6 +397,7 @@ export default function ExpensesPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategory('all-categories');
+    setSelectedCostCenter('all-cost-centers');
     setSelectedStatus('all-status');
     setSelectedPaymentMethod('all-payment-methods');
     setCurrentPage(1);
@@ -429,6 +477,42 @@ export default function ExpensesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div>
+                    <Label htmlFor="cost_center">Cost Center</Label>
+                    <Select value={formData.cost_center_id || 'none'} onValueChange={(value) => handleInputChange('cost_center_id', value === 'none' ? '' : value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select cost center" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {costCenters.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id.toString()}>
+                            {cc.name} ({cc.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.category_id && (
+                    <div className="md:col-span-2 space-y-2">
+                      {accountPreviewLoading ? (
+                        <p className="text-sm text-muted-foreground">Loading expense account...</p>
+                      ) : accountPreview ? (
+                        <p className="text-sm text-muted-foreground">
+                          Expense account: <span className="font-medium">{accountPreview.code} - {accountPreview.name}</span>
+                        </p>
+                      ) : (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            No expense account configured for this category and cost center. Accounting integration may fail when the expense is approved.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="amount">Amount *</Label>
@@ -660,6 +744,23 @@ export default function ExpensesPage() {
             </div>
 
             <div>
+              <Label htmlFor="cost-center-filter">Cost Center</Label>
+              <Select value={selectedCostCenter} onValueChange={setSelectedCostCenter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Cost Centers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-cost-centers">All Cost Centers</SelectItem>
+                  {costCenters.map((cc) => (
+                    <SelectItem key={cc.id} value={cc.id.toString()}>
+                      {cc.name} ({cc.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <Label htmlFor="status-filter">Status</Label>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
@@ -732,6 +833,7 @@ export default function ExpensesPage() {
                     <TableHead>Expense #</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Cost Center</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -748,6 +850,7 @@ export default function ExpensesPage() {
                       <TableCell>
                         <Badge variant="outline">{expense.category_name}</Badge>
                       </TableCell>
+                      <TableCell>{expense.cost_center_name ? `${expense.cost_center_name} (${expense.cost_center_code})` : '-'}</TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(expense.amount)} {expense.currency}
                       </TableCell>
@@ -922,6 +1025,42 @@ export default function ExpensesPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label htmlFor="edit-cost_center">Cost Center</Label>
+                <Select value={formData.cost_center_id || 'none'} onValueChange={(value) => handleInputChange('cost_center_id', value === 'none' ? '' : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select cost center" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {costCenters.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id.toString()}>
+                        {cc.name} ({cc.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.category_id && (
+                <div className="md:col-span-2 space-y-2">
+                  {accountPreviewLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading expense account...</p>
+                  ) : accountPreview ? (
+                    <p className="text-sm text-muted-foreground">
+                      Expense account: <span className="font-medium">{accountPreview.code} - {accountPreview.name}</span>
+                    </p>
+                  ) : (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        No expense account configured for this category and cost center. Accounting integration may fail when the expense is approved.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="edit-amount">Amount *</Label>

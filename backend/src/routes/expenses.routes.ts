@@ -3,6 +3,7 @@ import {
     createExpenseSchema,
     updateExpenseSchema,
     expenseQuerySchema,
+    previewAccountQuerySchema,
     approveExpenseSchema,
     rejectExpenseSchema,
     payExpenseSchema
@@ -93,6 +94,14 @@ router.get('/stats',
   authenticate, 
   requirePermission(PERMISSIONS.EXPENSES_READ), 
   expressAsyncHandler(ExpensesController.getExpenseStats)
+);
+
+// GET /api/expenses/preview-account - Get expense account preview for category and cost center
+router.get('/preview-account', 
+  authenticate, 
+  requirePermission(PERMISSIONS.EXPENSES_READ), 
+  validateQuery(previewAccountQuerySchema), 
+  expressAsyncHandler(ExpensesController.getExpenseAccountPreview)
 );
 
 // GET /api/expenses/:id - Get expense by ID
@@ -258,6 +267,13 @@ router.patch('/:id/pay',
         next(error)
     }
 }));
+
+// GET /api/expenses/:id/account-debited - Get account debited for expense (from voucher or preview)
+router.get('/:id/account-debited',
+  authenticate,
+  requirePermission(PERMISSIONS.EXPENSES_READ),
+  expressAsyncHandler(ExpensesController.getExpenseAccountDebited)
+);
 
 // GET /api/expenses/:id/accounts-integration - Get accounts integration status
 router.get('/:id/accounts-integration', 

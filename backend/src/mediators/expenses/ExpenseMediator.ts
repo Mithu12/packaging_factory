@@ -4,6 +4,7 @@ import { createError } from '@/utils/responseHelper';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { accountsIntegrationService, ExpenseAccountingData } from '@/services/accountsIntegrationService';
+import ExpenseCategoryMediator from '@/mediators/expenses/ExpenseCategoryMediator';
 import {
   Expense,
   CreateExpenseRequest,
@@ -30,8 +31,8 @@ class ExpenseMediator {
         INSERT INTO expenses (
           expense_number, title, description, category_id, amount, currency,
           expense_date, payment_method, vendor_name, vendor_contact,
-          receipt_number, receipt_url, department, project, tags, notes, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          receipt_number, receipt_url, department, project, tags, notes, created_by, cost_center_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING *
       `;
 
@@ -52,7 +53,8 @@ class ExpenseMediator {
         data.project || null,
         data.tags || null,
         data.notes || null,
-        createdBy
+        createdBy,
+        data.cost_center_id ?? null
       ];
 
       const result = await client.query(insertQuery, values);
@@ -84,11 +86,14 @@ class ExpenseMediator {
         SELECT 
           e.*,
           ec.name as category_name,
+          cc.name as cost_center_name,
+          cc.code as cost_center_code,
           u1.username as created_by_name,
           u2.username as approved_by_name,
           u3.username as paid_by_name
         FROM expenses e
         LEFT JOIN expense_categories ec ON e.category_id = ec.id
+        LEFT JOIN cost_centers cc ON e.cost_center_id = cc.id
         LEFT JOIN users u1 ON e.created_by = u1.id
         LEFT JOIN users u2 ON e.approved_by = u2.id
         LEFT JOIN users u3 ON e.paid_by = u3.id
@@ -132,6 +137,12 @@ class ExpenseMediator {
       if (params.project) {
         query += ` AND e.project = $${paramIndex}`;
         queryParams.push(params.project);
+        paramIndex++;
+      }
+
+      if (params.cost_center_id) {
+        query += ` AND e.cost_center_id = $${paramIndex}`;
+        queryParams.push(params.cost_center_id);
         paramIndex++;
       }
 
@@ -230,6 +241,12 @@ class ExpenseMediator {
         countParamIndex++;
       }
 
+      if (params.cost_center_id) {
+        countQuery += ` AND e.cost_center_id = $${countParamIndex}`;
+        countParams.push(params.cost_center_id);
+        countParamIndex++;
+      }
+
       if (params.start_date) {
         countQuery += ` AND e.expense_date >= $${countParamIndex}`;
         countParams.push(params.start_date);
@@ -294,11 +311,14 @@ class ExpenseMediator {
         SELECT 
           e.*,
           ec.name as category_name,
+          cc.name as cost_center_name,
+          cc.code as cost_center_code,
           u1.username as created_by_name,
           u2.username as approved_by_name,
           u3.username as paid_by_name
         FROM expenses e
         LEFT JOIN expense_categories ec ON e.category_id = ec.id
+        LEFT JOIN cost_centers cc ON e.cost_center_id = cc.id
         LEFT JOIN users u1 ON e.created_by = u1.id
         LEFT JOIN users u2 ON e.approved_by = u2.id
         LEFT JOIN users u3 ON e.paid_by = u3.id
@@ -749,7 +769,8 @@ class ExpenseMediator {
         department: expense.department,
         project: expense.project,
         notes: expense.notes,
-        createdBy: expense.created_by
+        createdBy: expense.created_by,
+        costCenterId: expense.cost_center_id ?? undefined
       };
 
       // Emit the event
@@ -781,6 +802,60 @@ class ExpenseMediator {
   }
 
   /**
+   * Get expense account preview for a category and optional cost center.
+   * Returns the account that would be used when creating a voucher.
+   */
+  async getExpenseAccountPreview(categoryId: number, costCenterId?: number): Promise<{ account: { id: number; name: string; code: string } | null }> {
+    try {
+      const category = await ExpenseCategoryMediator.getExpenseCategoryById(categoryId);
+      const account = await accountsIntegrationService.getExpenseAccountPreview(category.name, costCenterId);
+      return { account };
+    } catch (error) {
+      MyLogger.error('Get Expense Account Preview', error, { categoryId, costCenterId });
+      return { account: null };
+    }
+  }
+
+  /**
+   * Get the account debited for an expense.
+   * For paid/approved expenses: looks up the actual account from the voucher.
+   * For pending: uses the preview (resolved from category + cost center).
+   */
+  async getExpenseAccountDebited(expenseId: number): Promise<{ account: { id: number; name: string; code: string } | null }> {
+    const client = await pool.connect();
+    try {
+      const expense = await this.getExpenseById(expenseId);
+
+      // For paid/approved expenses, try to get the actual account from the voucher
+      if (expense.status === 'paid' || expense.status === 'approved') {
+        const voucherQuery = `
+          SELECT coa.id, coa.code, coa.name
+          FROM vouchers v
+          JOIN voucher_lines vl ON v.id = vl.voucher_id
+          JOIN chart_of_accounts coa ON vl.account_id = coa.id
+          WHERE v.reference = $1 AND v.type = 'Payment' AND vl.debit > 0
+          LIMIT 1
+        `;
+        const voucherResult = await client.query(voucherQuery, [expense.expense_number]);
+        if (voucherResult.rows.length > 0) {
+          const row = voucherResult.rows[0];
+          return {
+            account: { id: row.id, name: row.name, code: row.code }
+          };
+        }
+      }
+
+      // Fall back to preview (category + cost center resolution)
+      return await this.getExpenseAccountPreview(expense.category_id, expense.cost_center_id ?? undefined);
+    } catch (error) {
+      MyLogger.error('Get Expense Account Debited', error, { expenseId });
+      return { account: null };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Get accounts integration status for an expense
    * This provides visibility into whether accounting integration is available
    */
@@ -805,7 +880,8 @@ class ExpenseMediator {
         department: expense.department,
         project: expense.project,
         notes: expense.notes,
-        createdBy: expense.created_by
+        createdBy: expense.created_by,
+        costCenterId: expense.cost_center_id ?? undefined
       };
 
       const canIntegrate = accountsIntegrationService.canIntegrateExpense(expenseData);

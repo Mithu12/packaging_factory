@@ -153,7 +153,34 @@ class ExpensesController {
         }
     }
 
-    // Additional filtering methods can be added when mediator methods are available
+    async getExpenseAccountPreview(req: Request, res: Response, next: NextFunction): Promise<void> {
+        let action = 'GET /api/expenses/preview-account';
+        try {
+            const categoryId = parseInt(req.query.category_id as string);
+            const costCenterId = req.query.cost_center_id ? parseInt(req.query.cost_center_id as string) : undefined;
+            MyLogger.info(action, { categoryId, costCenterId });
+            const result = await ExpenseMediator.getExpenseAccountPreview(categoryId, costCenterId);
+            MyLogger.success(action, { categoryId, hasAccount: !!result.account });
+            serializeSuccessResponse(res, result, 'SUCCESS');
+        } catch (error) {
+            MyLogger.error(action, error);
+            throw error;
+        }
+    }
+
+    async getExpenseAccountDebited(req: Request, res: Response, next: NextFunction): Promise<void> {
+        let action = 'GET /api/expenses/:id/account-debited';
+        try {
+            const id = parseInt(req.params.id);
+            MyLogger.info(action, { expenseId: id });
+            const result = await ExpenseMediator.getExpenseAccountDebited(id);
+            MyLogger.success(action, { expenseId: id, hasAccount: !!result.account });
+            serializeSuccessResponse(res, result, 'SUCCESS');
+        } catch (error) {
+            MyLogger.error(action, error, { expenseId: req.params.id });
+            throw error;
+        }
+    }
 }
 
 export default new ExpensesController();

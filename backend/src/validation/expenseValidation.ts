@@ -14,8 +14,9 @@ export const createExpenseSchema = Joi.object({
   receipt_url: Joi.string().max(500).optional().allow(null, ''),
   department: Joi.string().max(100).optional().allow(null, ''),
   project: Joi.string().max(100).optional().allow(null, ''),
-  tags: Joi.array().items(Joi.string().max(50)).optional().allow(null),
+  tags: Joi.array().items(Joi.string().max(50)).optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
 });
 
 export const updateExpenseSchema = Joi.object({
@@ -34,6 +35,12 @@ export const updateExpenseSchema = Joi.object({
   project: Joi.string().max(100).optional().allow(null, ''),
   tags: Joi.array().items(Joi.string().max(50)).optional().allow(null),
   notes: Joi.string().max(1000).optional().allow(null, ''),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
+});
+
+export const previewAccountQuerySchema = Joi.object({
+  category_id: Joi.number().integer().positive().required(),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
 });
 
 export const expenseQuerySchema = Joi.object({
@@ -45,6 +52,7 @@ export const expenseQuerySchema = Joi.object({
   payment_method: Joi.string().optional().allow(null, ''),
   department: Joi.string().optional().allow(null, ''),
   project: Joi.string().optional().allow(null, ''),
+  cost_center_id: Joi.number().integer().positive().optional().allow(null),
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
   min_amount: Joi.number().min(0).optional(),

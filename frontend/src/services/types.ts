@@ -439,6 +439,8 @@ export interface PurchaseOrderWithDetails extends PurchaseOrder {
   supplier_address: string;
   line_items: PurchaseOrderLineItem[];
   timeline: PurchaseOrderTimeline[];
+  linked_work_order_number?: string;
+  linked_customer_order_number?: string;
 }
 
 export interface PurchaseOrderTimeline {
@@ -1033,6 +1035,9 @@ export interface Expense {
   updated_at: string;
   // Joined fields
   category_name?: string;
+  cost_center_id?: number;
+  cost_center_name?: string;
+  cost_center_code?: string;
   created_by_name?: string;
   approved_by_name?: string;
   paid_by_name?: string;
@@ -1054,6 +1059,7 @@ export interface CreateExpenseRequest {
   project?: string;
   tags?: string[];
   notes?: string;
+  cost_center_id?: number;
 }
 
 export interface UpdateExpenseRequest {
@@ -1072,6 +1078,7 @@ export interface UpdateExpenseRequest {
   project?: string;
   tags?: string[];
   notes?: string;
+  cost_center_id?: number;
 }
 
 export interface ExpenseQueryParams {
@@ -1083,6 +1090,7 @@ export interface ExpenseQueryParams {
   payment_method?: string;
   department?: string;
   project?: string;
+  cost_center_id?: number;
   start_date?: string;
   end_date?: string;
   min_amount?: number;

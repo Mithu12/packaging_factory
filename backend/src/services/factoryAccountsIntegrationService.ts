@@ -1017,6 +1017,14 @@ class FactoryAccountsIntegrationService {
 
       const totalCost = workOrderData.totalWipCost;
 
+      if (!totalCost || totalCost <= 0) {
+        MyLogger.info(action, {
+          message: 'Skipping FG transfer voucher - zero or missing WIP cost',
+          workOrderId: workOrderData.workOrderId,
+        });
+        return null;
+      }
+
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(workOrderData.completedDate),

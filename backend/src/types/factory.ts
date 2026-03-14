@@ -437,6 +437,7 @@ export interface WorkOrder {
     material_requirements_count?: number;
     total_material_cost?: number;
     has_material_shortages?: boolean;
+    po_product_ids?: number[];
     // Populated from joins
     created_by_name?: string;
     updated_by_name?: string;

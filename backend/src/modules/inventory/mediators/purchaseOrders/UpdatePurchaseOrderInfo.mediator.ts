@@ -126,6 +126,18 @@ class UpdatePurchaseOrderInfoMediator {
         paramIndex++;
       }
 
+      if (data.work_order_id !== undefined) {
+        updateFields.push(`work_order_id = $${paramIndex}`);
+        updateValues.push(data.work_order_id);
+        paramIndex++;
+      }
+
+      if (data.customer_order_id !== undefined) {
+        updateFields.push(`customer_order_id = $${paramIndex}`);
+        updateValues.push(data.customer_order_id);
+        paramIndex++;
+      }
+
       if (updateFields.length === 0) {
         throw createError("No fields to update", 400);
       }

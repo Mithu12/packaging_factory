@@ -8,6 +8,7 @@ import departmentsRoutes from "./departments.routes";
 import designationsRoutes from "./designations.routes";
 import shiftsRoutes from "./shifts.routes";
 import attendanceRegularizationRoutes from "./attendance-regularization.routes";
+import advanceSalaryRoutes from "./advanceSalary.routes";
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use("/departments", departmentsRoutes);
 router.use("/designations", designationsRoutes);
 router.use("/shifts", shiftsRoutes);
 router.use("/attendance-regularization", attendanceRegularizationRoutes);
+router.use("/advance-salary", advanceSalaryRoutes);
 
 export default router;

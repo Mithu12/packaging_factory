@@ -161,6 +161,34 @@ export class ExpenseApi {
     }
   }
 
+  // Get account debited for an expense (from voucher for paid/approved, or preview for pending)
+  static async getExpenseAccountDebited(expenseId: number): Promise<{ account: { id: number; name: string; code: string } | null }> {
+    try {
+      return await makeRequest(`${this.baseUrl}/${expenseId}/account-debited`, { method: 'GET' });
+    } catch (error) {
+      console.error('Error fetching expense account debited:', error);
+      return { account: null };
+    }
+  }
+
+  // Get expense account preview for category and optional cost center
+  static async getExpenseAccountPreview(
+    categoryId: number,
+    costCenterId?: number
+  ): Promise<{ account: { id: number; name: string; code: string } | null }> {
+    try {
+      const params = new URLSearchParams();
+      params.append('category_id', categoryId.toString());
+      if (costCenterId !== undefined && costCenterId !== null) {
+        params.append('cost_center_id', costCenterId.toString());
+      }
+      return await makeRequest(`${this.baseUrl}/preview-account?${params.toString()}`, { method: 'GET' });
+    } catch (error) {
+      console.error('Error fetching expense account preview:', error);
+      return { account: null };
+    }
+  }
+
   // Get expense statistics
   static async getExpenseStats(params?: { start_date?: string; end_date?: string; department?: string }): Promise<ExpenseStats> {
     try {

@@ -684,9 +684,10 @@ export class PaymentMediator {
   }
 
   /**
-   * Trigger accounting integration for a payment
+   * Trigger accounting integration for a payment.
+   * Public so ApprovalMediator can call it when payment is approved via approval workflow.
    */
-  private static async triggerPaymentAccounting(paymentId: number, userId: any): Promise<void> {
+  static async triggerPaymentAccounting(paymentId: number, userId: number): Promise<void> {
     try {
       // Get full payment details including joined fields
       const payment = await this.getPaymentById(paymentId);

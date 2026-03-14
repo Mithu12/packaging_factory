@@ -194,7 +194,7 @@ export class GetWorkOrderInfoMediator {
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
-          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
+          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages, COALESCE(po_stats.po_product_ids, '{}') as po_product_ids
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
         LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
@@ -207,6 +207,15 @@ export class GetWorkOrderInfoMediator {
           FROM work_order_material_requirements wmr
           GROUP BY wmr.work_order_id
         ) mr_stats ON wo.id = mr_stats.work_order_id
+        LEFT JOIN (
+          SELECT 
+            po.work_order_id,
+            array_agg(DISTINCT poli.product_id) as po_product_ids
+          FROM purchase_orders po
+          JOIN purchase_order_line_items poli ON po.id = poli.purchase_order_id
+          WHERE po.work_order_id IS NOT NULL
+          GROUP BY po.work_order_id
+        ) po_stats ON wo.id = po_stats.work_order_id
         ${whereClause}
         ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -245,7 +254,8 @@ export class GetWorkOrderInfoMediator {
         // Material requirements integration
         material_requirements_count: parseInt(row.material_requirements_count || 0),
         total_material_cost: parseFloat(row.total_material_cost || 0),
-        has_material_shortages: row.has_material_shortages || false
+        has_material_shortages: row.has_material_shortages || false,
+        po_product_ids: row.po_product_ids || []
       }));
 
       const totalPages = Math.ceil(total / limit);
@@ -335,7 +345,7 @@ export class GetWorkOrderInfoMediator {
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
-          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages
+          COALESCE(mr_stats.has_material_shortages, false) as has_material_shortages, COALESCE(po_stats.po_product_ids, '{}') as po_product_ids
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
         LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
@@ -348,6 +358,15 @@ export class GetWorkOrderInfoMediator {
           FROM work_order_material_requirements wmr
           GROUP BY wmr.work_order_id
         ) mr_stats ON wo.id = mr_stats.work_order_id
+        LEFT JOIN (
+          SELECT 
+            po.work_order_id,
+            array_agg(DISTINCT poli.product_id) as po_product_ids
+          FROM purchase_orders po
+          JOIN purchase_order_line_items poli ON po.id = poli.purchase_order_id
+          WHERE po.work_order_id IS NOT NULL
+          GROUP BY po.work_order_id
+        ) po_stats ON wo.id = po_stats.work_order_id
         ${whereClause}
       `;
 
@@ -446,7 +465,8 @@ export class GetWorkOrderInfoMediator {
         material_requirements,
         material_requirements_count: parseInt(row.material_requirements_count || 0),
         total_material_cost: parseFloat(row.total_material_cost || 0),
-        has_material_shortages: row.has_material_shortages || false
+        has_material_shortages: row.has_material_shortages || false,
+        po_product_ids: row.po_product_ids || []
       };
 
       MyLogger.success(action, { workOrderId });
@@ -664,10 +684,13 @@ export class GetWorkOrderInfoMediator {
       const query = `
         SELECT 
           po.*,
-          s.name as supplier_name
+          s.name as supplier_name,
+          array_agg(poli.product_id) as product_ids
         FROM purchase_orders po
         LEFT JOIN suppliers s ON po.supplier_id = s.id
+        LEFT JOIN purchase_order_line_items poli ON po.id = poli.purchase_order_id
         WHERE po.work_order_id = $1
+        GROUP BY po.id, s.name
         ORDER BY po.created_at DESC
       `;
 

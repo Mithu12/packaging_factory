@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { ApprovalHistory } from '@/types/purchaseOrder';
 import { MyLogger } from '@/utils/new-logger';
+import { PaymentMediator } from '@/modules/inventory/mediators/payments/PaymentMediator';
 
 export class ApprovalMediator {
     
@@ -135,6 +136,19 @@ export class ApprovalMediator {
             }
 
             await client.query('COMMIT');
+
+            // Trigger accounts integration for approved payments (voucher creation)
+            if (entityType === 'payment' && action === 'approve') {
+                try {
+                    const userId = typeof approvedBy === 'string' ? parseInt(approvedBy, 10) : approvedBy;
+                    await PaymentMediator.triggerPaymentAccounting(entityId, userId);
+                } catch (accError: any) {
+                    MyLogger.error('ApprovalMediator.paymentAccounting', accError, {
+                        paymentId: entityId,
+                        message: 'Failed to create payment voucher, but approval succeeded'
+                    });
+                }
+            }
             MyLogger.success(mediatorAction, { entityType, entityId, approvedBy, action, newStatus });
             
         } catch (error) {

@@ -112,9 +112,15 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
           }));
 
           if (defaultValues.items && defaultValues.items.length > 0) {
+            let firstSupplierId = "";
             const populatedItems = defaultValues.items.map((item, index) => {
               const product = currentProducts.find(p => p.id === item.product_id);
               const unit_price = product?.cost_price || 0;
+              
+              if (index === 0 && product?.supplier_id) {
+                firstSupplierId = product.supplier_id.toString();
+              }
+
               return {
                 id: (index + 1).toString(),
                 product_id: item.product_id,
@@ -124,7 +130,17 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                 total: item.quantity * unit_price
               };
             });
+            
             setItems(populatedItems);
+            
+            if (firstSupplierId) {
+              setFormData(prev => ({
+                ...prev,
+                supplier_id: firstSupplierId
+              }));
+              // Also update the local state if needed for some reason, 
+              // but formData is what the Select uses.
+            }
           }
         } else {
           setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
@@ -310,7 +326,11 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
+              <Select 
+                key={`supplier-select-${suppliers.length}`}
+                value={formData.supplier_id} 
+                onValueChange={(value) => handleInputChange("supplier_id", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={loading ? "Loading suppliers..." : "Select supplier"} />
                 </SelectTrigger>

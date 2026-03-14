@@ -582,6 +582,22 @@ export default function PurchaseOrderDetails() {
                   <p className="font-medium">{purchaseOrder.project}</p>
                 </div>
               )}
+              {purchaseOrder.linked_work_order_number && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Linked Work Order</label>
+                  <p className="font-medium text-primary cursor-pointer hover:underline" onClick={() => router.push(`/factory/work-orders?search=${purchaseOrder.linked_work_order_number}`)}>
+                    {purchaseOrder.linked_work_order_number}
+                  </p>
+                </div>
+              )}
+              {purchaseOrder.linked_customer_order_number && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Linked Customer Order</label>
+                  <p className="font-medium text-primary cursor-pointer hover:underline" onClick={() => router.push(`/factory/customer-orders?search=${purchaseOrder.linked_customer_order_number}`)}>
+                    {purchaseOrder.linked_customer_order_number}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

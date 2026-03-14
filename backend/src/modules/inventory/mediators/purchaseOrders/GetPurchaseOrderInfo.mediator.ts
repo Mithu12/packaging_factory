@@ -151,9 +151,13 @@ class GetPurchaseOrderInfoMediator {
                     s.contact_person as supplier_contact,
                     s.email as supplier_email,
                     s.phone as supplier_phone,
-                    s.address as supplier_address
+                    s.address as supplier_address,
+                    wo.work_order_number as linked_work_order_number,
+                    fco.order_number as linked_customer_order_number
                 FROM purchase_orders po
                 LEFT JOIN suppliers s ON po.supplier_id = s.id
+                LEFT JOIN work_orders wo ON po.work_order_id = wo.id
+                LEFT JOIN factory_customer_orders fco ON po.customer_order_id = fco.id
                 WHERE po.id = $1
             `;
 

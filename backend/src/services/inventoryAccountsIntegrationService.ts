@@ -3,6 +3,7 @@ import { eventBus, EVENT_NAMES, EventPayload } from '@/utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 import { VoucherType } from '@/types/accounts';
 import pool from '@/database/connection';
+import { logVoucherFailureFromError } from './voucherFailureLogService';
 
 /**
  * Inventory Accounts Integration Service
@@ -507,8 +508,23 @@ class InventoryAccountsIntegrationService {
       // But if we have a DC context for the payment, we should use it.
 
       if (!apAccount || !cashAccount) {
-        return { voucherId: 0, voucherNo: '', success: false, error: 'Accounts not configured' };
+        const errMsg = 'Accounts not configured (Accounts Payable, Cash)';
+        logVoucherFailureFromError({
+          sourceModule: 'inventory',
+          operationType: 'addSupplierPaymentVoucher',
+          sourceEntityType: 'payment',
+          sourceEntityId: paymentData.paymentId,
+          errorMessage: errMsg,
+          payload: { paymentNumber: paymentData.paymentNumber, supplierName: paymentData.supplierName },
+          userId,
+        });
+        return { voucherId: 0, voucherNo: '', success: false, error: errMsg };
       }
+
+      const costCenterId = await this.getCostCenterForPayment(
+        paymentData.paymentId,
+        paymentData.invoiceId
+      );
 
       const voucherData = {
         type: VoucherType.PAYMENT,
@@ -517,18 +533,21 @@ class InventoryAccountsIntegrationService {
         payee: paymentData.supplierName,
         amount: paymentData.amount,
         narration: `Payment to ${paymentData.supplierName} ${paymentData.invoiceNumber ? `for Invoice ${paymentData.invoiceNumber}` : ''}`,
+        costCenterId,
         lines: [
           {
             accountId: apAccount.id,
             debit: paymentData.amount,
             credit: 0,
-            description: `Settle ${paymentData.invoiceNumber || 'Account'}`
+            description: `Settle ${paymentData.invoiceNumber || 'Account'}`,
+            costCenterId
           },
           {
             accountId: cashAccount.id,
             debit: 0,
             credit: paymentData.amount,
-            description: `Paid via ${paymentData.paymentMethod}`
+            description: `Paid via ${paymentData.paymentMethod}`,
+            costCenterId
           }
         ]
       };
@@ -545,6 +564,15 @@ class InventoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { paymentData });
+      logVoucherFailureFromError({
+        sourceModule: 'inventory',
+        operationType: 'addSupplierPaymentVoucher',
+        sourceEntityType: 'payment',
+        sourceEntityId: paymentData.paymentId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { paymentNumber: paymentData.paymentNumber, supplierName: paymentData.supplierName },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message };
     }
   }
@@ -556,6 +584,46 @@ class InventoryAccountsIntegrationService {
     try {
       const result = await pool.query('SELECT cost_center_id FROM distribution_centers WHERE id = $1', [dcId]);
       return result.rows[0]?.cost_center_id || undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  /**
+   * Resolve cost center for a supplier payment.
+   * Tiered: (1) Factory from invoice's PO when linked to work order/customer order, (2) Primary DC.
+   * Works in factory-only setups (no distribution centers).
+   */
+  private async getCostCenterForPayment(
+    _paymentId: number,
+    invoiceId?: number
+  ): Promise<number | undefined> {
+    try {
+      // Step A: Factory from invoice's PO (work_order_id or customer_order_id)
+      if (invoiceId) {
+        const factoryResult = await pool.query(
+          `SELECT f.cost_center_id
+           FROM invoices i
+           JOIN purchase_orders po ON i.purchase_order_id = po.id
+           LEFT JOIN work_orders wo ON po.work_order_id = wo.id
+           LEFT JOIN factory_customer_orders fco_wo ON wo.customer_order_id = fco_wo.id
+           LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
+           LEFT JOIN factory_customer_orders fco_po ON po.customer_order_id = fco_po.id
+           LEFT JOIN factories f ON f.id = COALESCE(fco_wo.factory_id, pl.factory_id, fco_po.factory_id)
+           WHERE i.id = $1 AND f.cost_center_id IS NOT NULL
+           LIMIT 1`,
+          [invoiceId]
+        );
+        const cc = factoryResult.rows[0]?.cost_center_id;
+        if (cc != null) return cc;
+      }
+
+      // Step B: Primary distribution center
+      const dcResult = await pool.query(
+        'SELECT cost_center_id FROM distribution_centers WHERE is_primary = true LIMIT 1',
+        []
+      );
+      return dcResult.rows[0]?.cost_center_id ?? undefined;
     } catch (error) {
       return undefined;
     }

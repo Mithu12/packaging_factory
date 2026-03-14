@@ -37,6 +37,8 @@ export default function ExpenseDetailsPage() {
   const { formatCurrency, formatDate, formatDateTime } = useFormatting();
   
   const [expense, setExpense] = useState<Expense | null>(null);
+  const [accountDebited, setAccountDebited] = useState<{ id: number; name: string; code: string } | null>(null);
+  const [accountDebitedLoading, setAccountDebitedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +64,19 @@ export default function ExpenseDetailsPage() {
   useEffect(() => {
     fetchExpense();
   }, [id]);
+
+  // Fetch account debited (from voucher for paid/approved, or preview for pending)
+  useEffect(() => {
+    if (!expense?.id) {
+      setAccountDebited(null);
+      return;
+    }
+    setAccountDebitedLoading(true);
+    ApiService.getExpenseAccountDebited(expense.id)
+      .then((res) => setAccountDebited(res.account))
+      .catch(() => setAccountDebited(null))
+      .finally(() => setAccountDebitedLoading(false));
+  }, [expense?.id]);
 
   const handleApprove = async () => {
     if (!expense) return;
@@ -261,6 +276,26 @@ export default function ExpenseDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Category</label>
                   <p className="font-medium">{expense.category_name}</p>
+                </div>
+                {(expense.cost_center_name || expense.cost_center_code) && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Cost Center</label>
+                    <p className="font-medium">
+                      {expense.cost_center_name
+                        ? `${expense.cost_center_name}${expense.cost_center_code ? ` (${expense.cost_center_code})` : ''}`
+                        : expense.cost_center_code}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Account Debited</label>
+                  {accountDebitedLoading ? (
+                    <p className="font-medium text-muted-foreground">Loading...</p>
+                  ) : accountDebited ? (
+                    <p className="font-medium">{accountDebited.code} - {accountDebited.name}</p>
+                  ) : (
+                    <p className="font-medium text-muted-foreground">Not configured</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Expense Date</label>

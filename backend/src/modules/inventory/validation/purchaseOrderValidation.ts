@@ -9,6 +9,9 @@ export const createPurchaseOrderSchema = Joi.object({
     "any.required": "Supplier ID is required",
   }),
 
+  work_order_id: Joi.number().integer().positive().optional().allow(null),
+  customer_order_id: Joi.number().integer().positive().optional().allow(null),
+
   expected_delivery_date: Joi.date().iso().required().messages({
     "date.base": "Expected delivery date must be a valid date",
     "date.format": "Expected delivery date must be in ISO format (YYYY-MM-DD)",
@@ -125,6 +128,9 @@ export const updatePurchaseOrderSchema = Joi.object({
   notes: Joi.string().max(1000).optional().messages({
     "string.max": "Notes cannot exceed 1000 characters",
   }),
+
+  work_order_id: Joi.number().integer().positive().optional().allow(null),
+  customer_order_id: Joi.number().integer().positive().optional().allow(null),
 
   line_items: Joi.array()
     .items(

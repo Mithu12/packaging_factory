@@ -22,6 +22,7 @@ export interface ExpenseAccountingData {
   project?: string;
   notes?: string;
   createdBy: number;
+  costCenterId?: number;
 }
 
 export interface VoucherCreationResult {
@@ -71,8 +72,7 @@ class AccountsIntegrationService {
         expenseId: expenseData.expenseId
       });
       
-      // Resolve cost center if possible (e.g. from department mapping or passed in)
-      const costCenterId = undefined; // Expenses might have CC in a real scenario
+      const costCenterId = expenseData.costCenterId;
 
       const expenseAccount = await this.getDefaultExpenseAccount(expenseData.categoryName, costCenterId);
       const cashAccount = await this.getDefaultCashAccount(costCenterId);
@@ -233,7 +233,27 @@ class AccountsIntegrationService {
         accounts: generalExpenseAccounts.data?.map((acc: { id: any; name: any; code: any; }) => ({ id: acc.id, name: acc.name, code: acc.code }))
       });
 
-      return generalExpenseAccounts.data?.[0] || null;
+      if (generalExpenseAccounts.data?.[0]) return generalExpenseAccounts.data[0];
+
+      // Final fallback: get any expense account when no category-specific or general account exists
+      MyLogger.info('Get Default Expense Account', { 
+        categoryName,
+        message: 'Trying any expense account as fallback'
+      });
+      const anyExpenseParams: any = {
+        category: 'Expenses',
+        status: 'Active',
+        limit: 1
+      };
+      if (costCenterId) {
+        const anyCcRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList({
+          ...anyExpenseParams,
+          costCenterId
+        });
+        if (anyCcRes?.data?.[0]) return anyCcRes.data[0];
+      }
+      const anyExpenseRes = await accountsServices.chartOfAccountsMediator.getChartOfAccountList(anyExpenseParams);
+      return anyExpenseRes?.data?.[0] || null;
 
     } catch (error) {
       MyLogger.error('Get Default Expense Account', error, { categoryName });
@@ -283,6 +303,16 @@ class AccountsIntegrationService {
       MyLogger.error('Get Default Cash Account', error);
       return null;
     }
+  }
+
+  /**
+   * Get expense account preview for a category and optional cost center.
+   * Returns the account that would be used when creating a voucher.
+   */
+  async getExpenseAccountPreview(categoryName: string, costCenterId?: number): Promise<{ id: number; name: string; code: string } | null> {
+    const account = await this.getDefaultExpenseAccount(categoryName, costCenterId);
+    if (!account) return null;
+    return { id: account.id, name: account.name, code: account.code };
   }
 
   /**

@@ -1,4 +1,4 @@
-﻿// Main API service that combines all modules
+// Main API service that combines all modules
 export { SupplierApi } from '../modules/inventory/services/supplier-api';
 export { default as SupplierCategoryApi } from '../modules/inventory/services/supplier-category-api';
 export { CategoryApi } from '../modules/inventory/services/category-api';
@@ -412,6 +412,14 @@ export class ApiService {
 
   static async getExpenseStats(params?: any) {
     return ExpenseApi.getExpenseStats(params);
+  }
+
+  static async getExpenseAccountPreview(categoryId: number, costCenterId?: number) {
+    return ExpenseApi.getExpenseAccountPreview(categoryId, costCenterId);
+  }
+
+  static async getExpenseAccountDebited(expenseId: number) {
+    return ExpenseApi.getExpenseAccountDebited(expenseId);
   }
 
   // Expense Category methods
