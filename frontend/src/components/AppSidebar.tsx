@@ -457,6 +457,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.COST_CENTER_LEDGER_READ,
       },
       {
+        title: "Voucher Failures",
+        url: "/accounts/voucher-failures",
+        icon: AlertTriangle,
+        permission: PERMISSIONS.VOUCHERS_READ,
+      },
+      {
         title: "DC Accounts",
         url: "/accounts/dc-wise",
         icon: Building2,

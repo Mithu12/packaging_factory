@@ -1,6 +1,5 @@
 import { moduleRegistry, MODULE_NAMES } from '@/utils/moduleRegistry';
 import { MyLogger } from '@/utils/new-logger';
-import { registerFactoryAccountingListeners } from '@/services/factoryAccountsIntegrationService';
 
 // Import mediators
 import AddCustomerOrderMediator from './mediators/customerOrders/AddCustomerOrder.mediator';

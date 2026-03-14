@@ -4,6 +4,7 @@ import { MyLogger } from '@/utils/new-logger';
 import { VoucherType } from '@/types/accounts';
 import pool from '@/database/connection';
 import { factoryEventLogService } from './factoryEventLogService';
+import { logVoucherFailureFromError } from './voucherFailureLogService';
 
 /**
  * Factory Accounts Integration Service
@@ -188,17 +189,27 @@ class FactoryAccountsIntegrationService {
       });
 
       if (!receivableAccount || !deferredRevenueAccount) {
+        const errMsg = 'Required accounts not configured. Please set up Accounts Receivable and Deferred Revenue accounts.';
         MyLogger.warn(action, { 
           message: 'Required accounts not found',
           orderId: orderData.orderId,
           hasReceivableAccount: !!receivableAccount,
           hasDeferredRevenueAccount: !!deferredRevenueAccount
         });
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryOrderReceivable',
+          sourceEntityType: 'customer_order',
+          sourceEntityId: parseInt(orderData.orderId),
+          errorMessage: errMsg,
+          payload: { orderNumber: orderData.orderNumber },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured. Please set up Accounts Receivable and Deferred Revenue accounts.'
+          error: errMsg
         };
       }
 
@@ -288,6 +299,16 @@ class FactoryAccountsIntegrationService {
           failureCategory
         );
       }
+
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryOrderReceivable',
+        sourceEntityType: 'customer_order',
+        sourceEntityId: parseInt(orderData.orderId),
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { orderNumber: orderData.orderNumber },
+        userId,
+      });
 
       return {
         voucherId: 0,
@@ -508,11 +529,21 @@ class FactoryAccountsIntegrationService {
       const rawMaterialsAccount = await this.getDefaultAccount('raw_materials');
 
       if (!wipAccount || !rawMaterialsAccount) {
+        const errMsg = 'Required accounts not configured (WIP, Raw Materials)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addMaterialConsumptionVoucher',
+          sourceEntityType: 'material_consumption',
+          sourceEntityId: consumptionData.consumptionId,
+          errorMessage: errMsg,
+          payload: { workOrderId: consumptionData.workOrderId },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (WIP, Raw Materials)'
+          error: errMsg
         };
       }
 
@@ -578,6 +609,15 @@ class FactoryAccountsIntegrationService {
 
     } catch (error: any) {
       MyLogger.error(action, error, { consumptionData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addMaterialConsumptionVoucher',
+        sourceEntityType: 'material_consumption',
+        sourceEntityId: consumptionData.consumptionId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { workOrderId: consumptionData.workOrderId },
+        userId,
+      });
       return {
         voucherId: 0,
         voucherNo: '',
@@ -614,11 +654,21 @@ class FactoryAccountsIntegrationService {
       const rawMaterialsAccount = await this.getDefaultAccount('raw_materials');
 
       if (!wastageExpenseAccount || !rawMaterialsAccount) {
+        const errMsg = 'Required accounts not configured (Wastage Expense, Raw Materials)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addWastageVoucher',
+          sourceEntityType: 'material_wastage',
+          sourceEntityId: wastageData.wastageId,
+          errorMessage: errMsg,
+          payload: { workOrderId: wastageData.workOrderId },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (Wastage Expense, Raw Materials)'
+          error: errMsg
         };
       }
 
@@ -675,6 +725,15 @@ class FactoryAccountsIntegrationService {
 
     } catch (error: any) {
       MyLogger.error(action, error, { wastageData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addWastageVoucher',
+        sourceEntityType: 'material_wastage',
+        sourceEntityId: wastageData.wastageId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { workOrderId: wastageData.workOrderId },
+        userId,
+      });
       return {
         voucherId: 0,
         voucherNo: '',
@@ -758,11 +817,21 @@ class FactoryAccountsIntegrationService {
       const wagesPayableAccount = await this.getDefaultAccount('wages_payable');
 
       if (!wipAccount || !wagesPayableAccount) {
+        const errMsg = 'Required accounts not configured (WIP, Wages Payable)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addProductionRunVouchers',
+          sourceEntityType: 'production_run',
+          sourceEntityId: productionRunData.runId,
+          errorMessage: errMsg,
+          payload: { runNumber: productionRunData.runNumber },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (WIP, Wages Payable)'
+          error: errMsg
         };
       }
 
@@ -802,6 +871,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { productionRunData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addProductionRunVouchers',
+        sourceEntityType: 'production_run',
+        sourceEntityId: productionRunData.runId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { runNumber: productionRunData.runNumber },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -829,11 +907,21 @@ class FactoryAccountsIntegrationService {
       const overheadAppliedAccount = await this.getDefaultAccount('factory_overhead_applied');
 
       if (!wipAccount || !overheadAppliedAccount) {
+        const errMsg = 'Required accounts not configured (WIP, Factory Overhead Applied)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addProductionRunVouchers',
+          sourceEntityType: 'production_run',
+          sourceEntityId: productionRunData.runId,
+          errorMessage: errMsg,
+          payload: { runNumber: productionRunData.runNumber },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (WIP, Factory Overhead Applied)'
+          error: errMsg
         };
       }
 
@@ -873,6 +961,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { productionRunData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addProductionRunVouchers',
+        sourceEntityType: 'production_run',
+        sourceEntityId: productionRunData.runId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { runNumber: productionRunData.runNumber },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -900,11 +997,21 @@ class FactoryAccountsIntegrationService {
       const wipAccount = await this.getDefaultAccount('wip');
 
       if (!finishedGoodsAccount || !wipAccount) {
+        const errMsg = 'Required accounts not configured (Finished Goods, WIP)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addWorkOrderCompletionVoucher',
+          sourceEntityType: 'work_order',
+          sourceEntityId: workOrderData.workOrderId,
+          errorMessage: errMsg,
+          payload: { workOrderNumber: workOrderData.workOrderNumber },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (Finished Goods, WIP)'
+          error: errMsg
         };
       }
 
@@ -966,6 +1073,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { workOrderData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addWorkOrderCompletionVoucher',
+        sourceEntityType: 'work_order',
+        sourceEntityId: workOrderData.workOrderId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { workOrderNumber: workOrderData.workOrderNumber },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -973,6 +1089,23 @@ class FactoryAccountsIntegrationService {
   // ========================================
   // ADVANCED FEATURES: Revenue Recognition & Returns
   // ========================================
+
+  /**
+   * Wrapper for order shipment: creates revenue (if policy = on_shipment) and COGS vouchers.
+   * Called directly from ship controller via InterModuleConnector (no event listeners).
+   */
+  async createOrderShipmentVouchers(
+    orderData: OrderAccountingData & { costOfGoodsSold?: number },
+    userId: number
+  ): Promise<void> {
+    const policy = await this.getRevenueRecognitionPolicy();
+    if (policy === 'on_shipment') {
+      await this.createRevenueRecognitionVoucher(orderData, userId);
+    }
+    if (orderData.costOfGoodsSold && orderData.costOfGoodsSold > 0) {
+      await this.createCOGSVoucher(orderData, userId);
+    }
+  }
 
   /**
    * Create revenue recognition voucher when order is shipped
@@ -998,11 +1131,21 @@ class FactoryAccountsIntegrationService {
       const salesRevenueAccount = await this.getDefaultAccount('sales_revenue');
 
       if (!deferredRevenueAccount || !salesRevenueAccount) {
+        const errMsg = 'Required accounts not configured (Deferred Revenue, Sales Revenue)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryOrderShipmentVoucher',
+          sourceEntityType: 'customer_order',
+          sourceEntityId: parseInt(orderData.orderId),
+          errorMessage: errMsg,
+          payload: { orderNumber: orderData.orderNumber, voucherType: 'revenue' },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (Deferred Revenue, Sales Revenue)'
+          error: errMsg
         };
       }
 
@@ -1053,6 +1196,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { orderData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryOrderShipmentVoucher',
+        sourceEntityType: 'customer_order',
+        sourceEntityId: parseInt(orderData.orderId),
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { orderNumber: orderData.orderNumber, voucherType: 'revenue' },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -1090,11 +1242,21 @@ class FactoryAccountsIntegrationService {
       const finishedGoodsAccount = await this.getDefaultAccount('finished_goods');
 
       if (!cogsAccount || !finishedGoodsAccount) {
+        const errMsg = 'Required accounts not configured (COGS, Finished Goods)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryOrderShipmentVoucher',
+          sourceEntityType: 'customer_order',
+          sourceEntityId: parseInt(orderData.orderId),
+          errorMessage: errMsg,
+          payload: { orderNumber: orderData.orderNumber, voucherType: 'cogs' },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (COGS, Finished Goods)'
+          error: errMsg
         };
       }
 
@@ -1154,6 +1316,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { orderData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryOrderShipmentVoucher',
+        sourceEntityType: 'customer_order',
+        sourceEntityId: parseInt(orderData.orderId),
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { orderNumber: orderData.orderNumber, voucherType: 'cogs' },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -1215,11 +1386,21 @@ class FactoryAccountsIntegrationService {
       const receivableAccount = await this.getDefaultAccount('accounts_receivable');
 
       if (!salesReturnsAccount || !receivableAccount) {
+        const errMsg = 'Required accounts not configured (Sales Returns, Accounts Receivable)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryReturnVoucher',
+          sourceEntityType: 'customer_return',
+          sourceEntityId: parseInt(returnData.returnId),
+          errorMessage: errMsg,
+          payload: { returnNumber: returnData.returnNumber },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured (Sales Returns, Accounts Receivable)'
+          error: errMsg
         };
       }
 
@@ -1260,6 +1441,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { returnData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryReturnVoucher',
+        sourceEntityType: 'customer_return',
+        sourceEntityId: parseInt(returnData.returnId),
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { returnNumber: returnData.returnNumber, voucherType: 'credit_note' },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -1282,11 +1472,21 @@ class FactoryAccountsIntegrationService {
       const salesReturnsAccount = await this.getDefaultAccount('sales_returns');
 
       if (!deferredRevenueAccount || !salesReturnsAccount) {
+        const errMsg = 'Required accounts not configured';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryReturnVoucher',
+          sourceEntityType: 'customer_return',
+          sourceEntityId: parseInt(returnData.returnId),
+          errorMessage: errMsg,
+          payload: { returnNumber: returnData.returnNumber, voucherType: 'ar_reversal' },
+          userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured'
+          error: errMsg
         };
       }
 
@@ -1327,6 +1527,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { returnData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryReturnVoucher',
+        sourceEntityType: 'customer_return',
+        sourceEntityId: parseInt(returnData.returnId),
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { returnNumber: returnData.returnNumber, voucherType: 'ar_reversal' },
+        userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }
@@ -1357,11 +1566,21 @@ class FactoryAccountsIntegrationService {
       const accountsReceivableAccount = await this.getDefaultAccount('accounts_receivable');
 
       if (!cashBankAccount || !accountsReceivableAccount) {
+        const errMsg = 'Required accounts not configured';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addFactoryPaymentVoucher',
+          sourceEntityType: 'factory_customer_payment',
+          sourceEntityId: paymentData.paymentId,
+          errorMessage: errMsg,
+          payload: { orderNumber: paymentData.orderNumber },
+          userId: paymentData.userId,
+        });
         return {
           voucherId: 0,
           voucherNo: '',
           success: false,
-          error: 'Required accounts not configured'
+          error: errMsg
         };
       }
 
@@ -1464,6 +1683,15 @@ class FactoryAccountsIntegrationService {
       return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
     } catch (error: any) {
       MyLogger.error(action, error, { paymentData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addFactoryPaymentVoucher',
+        sourceEntityType: 'factory_customer_payment',
+        sourceEntityId: paymentData.paymentId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { orderNumber: paymentData.orderNumber },
+        userId: paymentData.userId,
+      });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }
   }

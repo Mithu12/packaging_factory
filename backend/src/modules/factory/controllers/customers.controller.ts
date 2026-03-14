@@ -185,34 +185,45 @@ class CustomersController {
       const action = "POST /api/factory/customers";
       MyLogger.info(action, { customerData: req.body });
 
-      const {
-        name,
-        email,
-        phone,
-        company,
-        address,
-        credit_limit,
-        payment_terms,
-      } = req.body;
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isSalesRepAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.SALESREP
+      );
 
-      const query = `
-        INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
-      `;
+      if (isSalesRepAvailable) {
+        const customer = await sharedCustomerService.createCustomer(req.body);
+        MyLogger.success(action, { customerId: customer.id, shared: true });
+        serializeSuccessResponse(res, customer, "SUCCESS");
+      } else {
+        const {
+          name,
+          email,
+          phone,
+          company,
+          address,
+          credit_limit,
+          payment_terms,
+        } = req.body;
 
-      const result = await pool.query(query, [
-        name,
-        email,
-        phone || null,
-        company || null,
-        address || {},
-        credit_limit || null,
-        payment_terms || "net_30",
-      ]);
+        const query = `
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+        `;
 
-      MyLogger.success(action, { customerId: result.rows[0].id, name });
-      serializeSuccessResponse(res, result.rows[0], "SUCCESS");
+        const result = await pool.query(query, [
+          name,
+          email,
+          phone || null,
+          company || null,
+          address || {},
+          credit_limit || null,
+          payment_terms || "net_30",
+        ]);
+
+        MyLogger.success(action, { customerId: result.rows[0].id, name, shared: false });
+        serializeSuccessResponse(res, result.rows[0], "SUCCESS");
+      }
     } catch (error) {
       next(error);
     }
@@ -229,48 +240,71 @@ class CustomersController {
       const { id } = req.params;
       MyLogger.info(action, { customerId: id, updateData: req.body });
 
-      const {
-        name,
-        email,
-        phone,
-        company,
-        address,
-        credit_limit,
-        payment_terms,
-        is_active,
-      } = req.body;
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isSalesRepAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.SALESREP
+      );
 
-      const query = `
-        UPDATE factory_customers 
-        SET name = $1, email = $2, phone = $3, company = $4, address = $5, 
-            credit_limit = $6, payment_terms = $7, is_active = $8, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $9
-        RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
-      `;
+      if (isSalesRepAvailable) {
+        // Shared update logic - ID might be a number (if coming from sales_rep) or UUID
+        const numericId = !isNaN(Number(id)) ? Number(id) : id as any;
+        const customer = await sharedCustomerService.updateCustomer(numericId, req.body);
+        
+        if (!customer) {
+          res.status(404).json({
+            success: false,
+            message: "Customer not found",
+            data: null,
+          });
+          return;
+        }
 
-      const result = await pool.query(query, [
-        name,
-        email,
-        phone || null,
-        company || null,
-        address || {},
-        credit_limit || null,
-        payment_terms || "net_30",
-        is_active !== undefined ? is_active : true,
-        id,
-      ]);
+        MyLogger.success(action, { customerId: id, updated: true, shared: true });
+        serializeSuccessResponse(res, customer, "SUCCESS");
+      } else {
+        const {
+          name,
+          email,
+          phone,
+          company,
+          address,
+          credit_limit,
+          payment_terms,
+          is_active,
+        } = req.body;
 
-      if (result.rows.length === 0) {
-        res.status(404).json({
-          success: false,
-          message: "Customer not found",
-          data: null,
-        });
-        return;
+        const query = `
+          UPDATE factory_customers 
+          SET name = $1, email = $2, phone = $3, company = $4, address = $5, 
+              credit_limit = $6, payment_terms = $7, is_active = $8, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $9
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+        `;
+
+        const result = await pool.query(query, [
+          name,
+          email,
+          phone || null,
+          company || null,
+          address || {},
+          credit_limit || null,
+          payment_terms || "net_30",
+          is_active !== undefined ? is_active : true,
+          id,
+        ]);
+
+        if (result.rows.length === 0) {
+          res.status(404).json({
+            success: false,
+            message: "Customer not found",
+            data: null,
+          });
+          return;
+        }
+
+        MyLogger.success(action, { customerId: id, updated: true, shared: false });
+        serializeSuccessResponse(res, result.rows[0], "SUCCESS");
       }
-
-      MyLogger.success(action, { customerId: id, updated: true });
-      serializeSuccessResponse(res, result.rows[0], "SUCCESS");
     } catch (error) {
       next(error);
     }
@@ -287,26 +321,47 @@ class CustomersController {
       const { id } = req.params;
       MyLogger.info(action, { customerId: id });
 
-      const query = `
-        UPDATE factory_customers 
-        SET is_active = false, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING id
-      `;
+      // Check if both factory and sales-rep modules are available for shared customers
+      const isSalesRepAvailable = moduleRegistry.isModuleAvailable(
+        MODULE_NAMES.SALESREP
+      );
 
-      const result = await pool.query(query, [id]);
+      if (isSalesRepAvailable) {
+        const result = await sharedCustomerService.deleteCustomer(id);
+        
+        if (!result) {
+          res.status(404).json({
+            success: false,
+            message: "Customer not found",
+            data: null,
+          });
+          return;
+        }
 
-      if (result.rows.length === 0) {
-        res.status(404).json({
-          success: false,
-          message: "Customer not found",
-          data: null,
-        });
-        return;
+        MyLogger.success(action, { customerId: id, deleted: true, shared: true });
+        serializeSuccessResponse(res, { deleted: true }, "SUCCESS");
+      } else {
+        const query = `
+          UPDATE factory_customers 
+          SET is_active = false, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+          RETURNING id
+        `;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+          res.status(404).json({
+            success: false,
+            message: "Customer not found",
+            data: null,
+          });
+          return;
+        }
+
+        MyLogger.success(action, { customerId: id, deleted: true, shared: false });
+        serializeSuccessResponse(res, { deleted: true }, "SUCCESS");
       }
-
-      MyLogger.success(action, { customerId: id, deleted: true });
-      serializeSuccessResponse(res, { deleted: true }, "SUCCESS");
     } catch (error) {
       next(error);
     }

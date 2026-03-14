@@ -8,6 +8,7 @@ import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
 import { CreateCustomerOrderRequest, UpdateCustomerOrderRequest, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, RecordFactoryOrderPaymentRequest } from "@/types/factory";
 import pool from "@/database/connection";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 
 class CustomerOrdersController {
   // Get all customer orders with pagination and filtering
@@ -471,6 +472,48 @@ class CustomerOrdersController {
           message: 'Failed to generate invoice, but order shipping succeeded'
         });
         // Don't fail the shipping operation if invoice generation fails
+      }
+
+      // Accounts integration: revenue (if on_shipment) and COGS vouchers
+      try {
+        const orderDetailResult = await pool.query(
+          `SELECT co.id, co.order_number, co.total_value, co.currency, co.order_date,
+                  co.factory_id, co.factory_customer_id, co.factory_customer_name, co.factory_customer_email,
+                  f.name as factory_name, f.cost_center_id as factory_cost_center_id
+           FROM factory_customer_orders co
+           LEFT JOIN factories f ON co.factory_id = f.id
+           WHERE co.id = $1`,
+          [id]
+        );
+        const orderDetail = orderDetailResult.rows[0];
+        if (orderDetail) {
+          const cogsResult = await pool.query(
+            `SELECT COALESCE(SUM(total_wip_cost), 0) as cost_of_goods_sold
+             FROM work_orders WHERE customer_order_id = $1 AND status = 'completed'`,
+            [id]
+          );
+          const costOfGoodsSold = parseFloat(cogsResult.rows[0]?.cost_of_goods_sold || '0') || 0;
+          const orderData = {
+            orderId: id,
+            orderNumber: orderDetail.order_number,
+            customerId: String(orderDetail.factory_customer_id),
+            customerName: orderDetail.factory_customer_name,
+            customerEmail: orderDetail.factory_customer_email,
+            totalValue: parseFloat(orderDetail.total_value || '0'),
+            currency: orderDetail.currency || 'BDT',
+            orderDate: orderDetail.order_date,
+            factoryId: orderDetail.factory_id,
+            factoryName: orderDetail.factory_name,
+            factoryCostCenterId: orderDetail.factory_cost_center_id,
+            costOfGoodsSold,
+          };
+          await interModuleConnector.accModule.addFactoryOrderShipmentVoucher(orderData, typeof userId === 'string' ? parseInt(userId) : userId);
+        }
+      } catch (accError: any) {
+        MyLogger.error(`${action}.accountsIntegrationFailed`, accError, {
+          orderId: id,
+          message: 'Failed to create shipment vouchers, but order shipping succeeded'
+        });
       }
 
       MyLogger.success(action, {

@@ -526,7 +526,7 @@ class SharedCustomerService {
             data.phone || factoryResult.rows[0].phone,
             typeof data.address === "string"
               ? data.address
-              : data.address
+              : typeof data.address === "object" && data.address !== null
               ? JSON.stringify(data.address)
               : JSON.stringify(factoryResult.rows[0].address || {}),
             data.city || null,
@@ -562,7 +562,9 @@ class SharedCustomerService {
           data.phone,
           data.company,
           typeof data.address === "string"
-            ? JSON.stringify({ address: data.address })
+            ? data.address
+            : typeof data.address === "object" && data.address !== null
+            ? JSON.stringify(data.address)
             : data.address,
           data.credit_limit,
           data.payment_terms,
@@ -597,7 +599,7 @@ class SharedCustomerService {
           data.phone,
           typeof data.address === "string"
             ? data.address
-            : data.address
+            : typeof data.address === "object" && data.address !== null
             ? JSON.stringify(data.address)
             : null,
           data.city,
@@ -615,6 +617,81 @@ class SharedCustomerService {
     } catch (error) {
       await client.query("ROLLBACK");
       MyLogger.error(action, error, { customerId: id, updateData: data });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Delete customer (soft delete) from the appropriate table(s)
+   */
+  async deleteCustomer(id: number | string): Promise<boolean> {
+    const action = "SharedCustomerService.deleteCustomer";
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+      MyLogger.info(action, { customerId: id });
+
+      if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
+        // Soft delete in factory_customers
+        const factoryQuery = `
+          UPDATE factory_customers 
+          SET is_active = false, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+          RETURNING id
+        `;
+        const factoryResult = await client.query(factoryQuery, [id]);
+
+        // Also check if there's a corresponding sales_rep_customer
+        // Note: We don't have a direct link, but we can look by ID if it's the same 
+        // OR if this was a string ID (UUID), it definitely matches factory_customers
+        
+        // In this system, we usually delete by the primary table ID.
+        // If it's a UUID, it's factory. If it's numeric, it might be sales_rep.
+        
+        if (factoryResult.rows.length > 0) {
+           await client.query("COMMIT");
+           return true;
+        }
+
+        // If not found in factory, try sales_rep_customers (soft delete if column exists, otherwise hard delete or just return false)
+        // sales_rep_customers doesn't have is_active in initial migration, but V62 added it to SharedCustomer interface. 
+        // Let's check V62 or use a safe approach.
+        const salesRepQuery = `
+          UPDATE sales_rep_customers 
+          SET updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+          RETURNING id
+        `;
+        const salesRepResult = await client.query(salesRepQuery, [id]);
+        
+        await client.query("COMMIT");
+        return (factoryResult.rows.length > 0 || salesRepResult.rows.length > 0);
+      } else if (this.isFactoryAvailable()) {
+        const query = `
+          UPDATE factory_customers 
+          SET is_active = false, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+          RETURNING id
+        `;
+        const result = await client.query(query, [id]);
+        await client.query("COMMIT");
+        return result.rows.length > 0;
+      } else {
+        const query = `
+          DELETE FROM sales_rep_customers 
+          WHERE id = $1
+          RETURNING id
+        `;
+        const result = await client.query(query, [id]);
+        await client.query("COMMIT");
+        return result.rows.length > 0;
+      }
+    } catch (error) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, { customerId: id });
       throw error;
     } finally {
       client.release();
@@ -727,13 +804,24 @@ class SharedCustomerService {
    * Map database row to SharedCustomer interface
    */
   private mapToSharedCustomer(row: any): SharedCustomer {
+    let address = row.address;
+    
+    // Parse address if it is a JSON string (comes as string from UNION queries)
+    if (typeof address === 'string') {
+      try {
+        address = JSON.parse(address);
+      } catch (e) {
+        // Keep as string if parsing fails
+      }
+    }
+
     return {
       id: row.id,
       name: row.name,
       email: row.email,
       phone: row.phone,
       company: row.company,
-      address: row.address,
+      address: address,
       city: row.city,
       state: row.state,
       postal_code: row.postal_code,

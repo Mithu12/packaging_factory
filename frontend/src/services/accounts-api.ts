@@ -710,6 +710,48 @@ export class VouchersApiService {
 }
 
 // =====================================================
+// VOUCHER FAILURES API SERVICE
+// =====================================================
+
+export interface VoucherFailure {
+  id: number;
+  sourceModule: string;
+  operationType: string;
+  sourceEntityType: string;
+  sourceEntityId: number;
+  errorMessage: string;
+  failureCategory: string;
+  payload: Record<string, unknown> | null;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+export interface VoucherFailureQueryParams {
+  page?: number;
+  limit?: number;
+  sourceModule?: string;
+  operationType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export class VoucherFailuresApiService {
+  private static readonly BASE_URL = '/accounts/voucher-failures';
+
+  static async getVoucherFailures(params?: VoucherFailureQueryParams): Promise<PaginatedResponse<VoucherFailure>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.sourceModule) queryParams.append('sourceModule', params.sourceModule);
+    if (params?.operationType) queryParams.append('operationType', params.operationType);
+    if (params?.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) queryParams.append('dateTo', params.dateTo);
+    const url = queryParams.toString() ? `${this.BASE_URL}?${queryParams.toString()}` : this.BASE_URL;
+    return makeRequest<PaginatedResponse<VoucherFailure>>(url, { method: 'GET' });
+  }
+}
+
+// =====================================================
 // LEDGER API SERVICE
 // =====================================================
 

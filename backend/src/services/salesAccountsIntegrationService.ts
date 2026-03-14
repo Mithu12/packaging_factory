@@ -243,6 +243,22 @@ class SalesAccountsIntegrationService {
     }
   }
 
+  /**
+   * Create reversing voucher for cancelled/refunded sales order.
+   * Wraps createReturnVoucher with full order amount.
+   */
+  async createReversingVoucher(order: SalesOrderAccountingData, userId: number): Promise<VoucherCreationResult | null> {
+    return this.createReturnVoucher(
+      order,
+      {
+        refundAmount: order.total_amount || 0,
+        taxAmount: order.tax_amount || 0,
+        notes: `Order ${order.status}`,
+      },
+      userId
+    );
+  }
+
   async createReturnVoucher(order: SalesOrderAccountingData, returnData: { refundAmount: number; taxAmount: number; notes?: string }, userId: number): Promise<VoucherCreationResult | null> {
     const action = 'Create Return Voucher';
 

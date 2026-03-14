@@ -71,6 +71,7 @@ interface EnhancedWorkOrder {
   id: string;
   orderNumber: string;
   customerOrderNumber?: string;
+  customerOrderId?: number;
   product: string;
   productId: string;
   quantity: number;
@@ -161,6 +162,7 @@ export default function EnhancedWorkOrderPlanning() {
         id: wo.id,
         orderNumber: wo.work_order_number,
         customerOrderNumber: wo.customer_order_number,
+        customerOrderId: wo.customer_order_id,
         product: wo.product_name,
         productId: wo.product_id,
         quantity: wo.quantity,
@@ -319,7 +321,7 @@ export default function EnhancedWorkOrderPlanning() {
   const handleCreatePO = (wo: EnhancedWorkOrder, shortageItems?: any[]) => {
     setPoDefaultValues({
       work_order_id: Number(wo.id),
-      customer_order_id: undefined, // Need ID here if available
+      customer_order_id: wo.customerOrderId,
       items: shortageItems ? shortageItems.map(item => ({
         product_id: Number(item.materialId),
         product_name: item.materialName,

@@ -92,9 +92,63 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
   // Fetch suppliers and products when component mounts
   useEffect(() => {
     if (open) {
-      fetchData()
+      const initForm = async () => {
+        let currentProducts = products;
+        
+        // If products are not loaded yet, fetch them first
+        if (currentProducts.length === 0) {
+          const result = await fetchData();
+          currentProducts = result.products;
+        } else {
+          // If they are loaded, still fetch fresh data in background
+          fetchData();
+        }
+
+        if (defaultValues) {
+          setFormData(prev => ({
+            ...prev,
+            work_order_id: defaultValues.work_order_id?.toString() || prev.work_order_id,
+            customer_order_id: defaultValues.customer_order_id?.toString() || prev.customer_order_id,
+          }));
+
+          if (defaultValues.items && defaultValues.items.length > 0) {
+            const populatedItems = defaultValues.items.map((item, index) => {
+              const product = currentProducts.find(p => p.id === item.product_id);
+              const unit_price = product?.cost_price || 0;
+              return {
+                id: (index + 1).toString(),
+                product_id: item.product_id,
+                product_name: item.product_name || product?.name || "",
+                quantity: item.quantity,
+                unit_price: unit_price,
+                total: item.quantity * unit_price
+              };
+            });
+            setItems(populatedItems);
+          }
+        } else {
+          setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
+        }
+      };
+
+      initForm();
+    } else {
+      // Reset when closed
+      setFormData({
+        supplier_id: "",
+        expected_delivery_date: "",
+        priority: "normal",
+        notes: "",
+        payment_terms: "Net 30",
+        delivery_terms: "FOB Destination",
+        department: "",
+        project: "",
+        work_order_id: "",
+        customer_order_id: ""
+      });
+      setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
     }
-  }, [open])
+  }, [open, defaultValues])
 
   const fetchData = async () => {
     try {
@@ -106,11 +160,13 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
       
       setSuppliers(suppliersResponse.suppliers)
       setProducts(productsResponse.products)
+      return { suppliers: suppliersResponse.suppliers, products: productsResponse.products };
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load suppliers and products', {
         description: 'Please try again later.'
       })
+      return { suppliers: [], products: [] };
     } finally {
       setLoading(false)
     }
@@ -363,6 +419,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                     <TableRow key={item.id}>
                       <TableCell>
                         <Select 
+                          key={`product-select-${item.id}-${products.length}`}
                           value={item.product_id.toString()} 
                           onValueChange={(value) => updateItem(item.id, "product_id", parseInt(value))}
                         >
