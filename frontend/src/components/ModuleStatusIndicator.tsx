@@ -62,11 +62,11 @@ export const ModuleStatusIndicator: React.FC<ModuleStatusIndicatorProps> = ({
             description: 'Expense management and tracking'
           },
           {
-            name: 'ecommerce',
-            displayName: 'E-commerce',
-            icon: <ShoppingCart className="w-4 h-4" />,
-            available: true, // For now assuming it is available since we just added it
-            description: 'E-commerce management and sliders'
+            name: 'factory',
+            displayName: 'Factory',
+            icon: <Package className="w-4 h-4" />,
+            available: true,
+            description: 'Factory operations, work orders, and production'
           }
         ];
 

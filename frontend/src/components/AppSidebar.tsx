@@ -45,7 +45,6 @@ import {
   CreditCard,
   Bell,
   Database,
-  RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -94,67 +93,7 @@ const menuSections: MenuSection[] = [
         title: "Dashboard",
         url: "/dashboard",
         icon: BarChart3,
-        permission: PERMISSIONS.SYSTEM_DASHBOARD_READ,
-      },
-    ],
-  },
-  {
-    title: "Ecommerce",
-    icon: ShoppingCart,
-    items: [
-      {
-        title: "E-commerce",
-        url: "/ecommerce-dashboard",
-        icon: ShoppingCart,
-        permission: PERMISSIONS.ECOMMERCE_DASHBOARD_READ,
-      },
-      {
-        title: "Sliders",
-        url: "/ecom/sliders",
-        icon: Layers,
-        permission: PERMISSIONS.ECOMMERCE_SLIDERS_READ,
-      },
-    ],
-  },
-  {
-    title: "Sales & POS",
-    icon: Calculator,
-    items: [
-      {
-        title: "POS Manager",
-        url: "/pos-manager",
-        icon: Calculator,
-        permission: PERMISSIONS.SALES_ORDERS_CREATE, // POS requires sales order creation
-      },
-      {
-        title: "Customers",
-        url: "/sales/customers",
-        icon: Users,
-        permission: PERMISSIONS.CUSTOMERS_READ,
-      },
-      {
-        title: "Orders",
-        url: "/sales/orders",
-        icon: ShoppingCart,
-        permission: PERMISSIONS.SALES_ORDERS_READ,
-      },
-      {
-        title: "Returns",
-        url: "/sales/returns",
-        icon: RotateCcw,
-        permission: PERMISSIONS.SALES_ORDERS_READ,
-      },
-      {
-        title: "Transactions",
-        url: "/sales/transactions",
-        icon: Receipt,
-        permission: PERMISSIONS.SALES_ORDERS_READ,
-      },
-      {
-        title: "Pricing",
-        url: "/sales/pricing",
-        icon: DollarSign,
-        permission: PERMISSIONS.SALES_ORDERS_READ,
+        permission: PERMISSIONS.FACTORY_DASHBOARD_READ,
       },
     ],
   },
@@ -265,7 +204,7 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
       },
       {
-        title: "Payments",
+        title: "Supplier Payments",
         url: "/inventory/payments",
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
@@ -582,12 +521,6 @@ const menuSections: MenuSection[] = [
     title: "Reports",
     icon: FileText,
     items: [
-      {
-        title: "Sales Reports",
-        url: "/reports/sales-reports",
-        icon: FileText,
-        permission: PERMISSIONS.SALES_REPORTS_READ,
-      },
       {
         title: "Purchase Reports",
         url: "/reports/purchase-reports",

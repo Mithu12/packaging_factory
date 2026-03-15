@@ -10,8 +10,8 @@ const router = express.Router();
 router.get(
   '/stats',
   authenticate,
-  // Dashboard stats should be accessible to anyone who can view sales orders
-  requirePermission(PERMISSIONS.SALES_ORDERS_READ),
+  // Dashboard stats accessible to users with factory or system dashboard permission
+  requirePermission(PERMISSIONS.FACTORY_DASHBOARD_READ),
   expressAsyncHandler(DashboardController.getDashboardStats)
 );
 

@@ -10,12 +10,10 @@ import path from "path";
 // Import routes
 import authRoutes from "./routes/auth.routes";
 import settingsRoutes from "./routes/settings.routes";
-import customerRoutes from "./routes/customers.routes";
 import expenseRoutes from "./routes/expenses.routes";
 import expenseCategoryRoutes from "./routes/expenseCategories.routes";
 import roleRoutes from "./routes/roles.routes";
 import rbacRoutes from "./routes/rbac.routes";
-import returnsRoutes from "./routes/returns.routes";
 import licenseRoutes from "./routes/license.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import backupRoutes from "./routes/backup.routes";
@@ -144,12 +142,10 @@ app.use("/api/factory", factoryRoutes);
 app.use("/api/hrm", hrmRoutes);
 app.use("/api/salesrep", salesRepRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/customers", customerRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/roles", roleRoutes);
-app.use("/api/returns", returnsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/backup", backupRoutes);
 
@@ -206,7 +202,7 @@ const initializeModules = async (): Promise<void> => {
 
     MyLogger.success(action, {
       message: "All modules initialized successfully",
-      availableModules: ['accounts', 'expenses', 'factory', 'hrm', 'salesrep', 'ecommerce']
+      availableModules: ['accounts', 'expenses', 'factory', 'hrm', 'salesrep']
     });
 
     console.log("✅ Module initialization completed successfully");

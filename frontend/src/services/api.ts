@@ -8,8 +8,6 @@ export { ProductApi } from '../modules/inventory/services/product-api';
 export { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
 export { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
 export { DistributionApi } from '../modules/inventory/services/distribution-api';
-export { CustomerApi } from '../modules/sales/services/customer-api';
-export { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 export { ExpenseApi } from './expense-api';
 export { ExpenseCategoryApi } from './expense-category-api';
 
@@ -28,8 +26,6 @@ import { ProductApi } from '../modules/inventory/services/product-api';
 import { StockAdjustmentApi } from '../modules/inventory/services/stock-adjustment-api';
 import { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-api';
 import { DistributionApi } from '../modules/inventory/services/distribution-api';
-import { CustomerApi } from '../modules/sales/services/customer-api';
-import { SalesOrderApi } from '../modules/sales/services/sales-order-api';
 import { ExpenseApi } from './expense-api';
 import { ExpenseCategoryApi } from './expense-category-api';
 
@@ -297,76 +293,6 @@ export class ApiService {
 
   static async searchPurchaseOrders(query: string, limit = 10) {
     return PurchaseOrderApi.searchPurchaseOrders(query, limit);
-  }
-
-  // Customer methods
-  static async getCustomers(params?: any) {
-    return CustomerApi.getCustomers(params);
-  }
-
-  static async getCustomer(id: number) {
-    return CustomerApi.getCustomer(id);
-  }
-
-  static async createCustomer(data: any) {
-    return CustomerApi.createCustomer(data);
-  }
-
-  static async updateCustomer(id: number, data: any) {
-    return CustomerApi.updateCustomer(id, data);
-  }
-
-  static async toggleCustomerStatus(id: number) {
-    return CustomerApi.toggleCustomerStatus(id);
-  }
-
-  static async toggleCustomerErpAccess(id: number) {
-    return CustomerApi.toggleErpAccess(id);
-  }
-
-  static async updateCustomerLoyaltyPoints(id: number, points: number) {
-    return CustomerApi.updateCustomerLoyaltyPoints(id, points);
-  }
-
-  static async deleteCustomer(id: number) {
-    return CustomerApi.deleteCustomer(id);
-  }
-
-  static async getCustomerStats() {
-    return CustomerApi.getCustomerStats();
-  }
-
-  static async searchCustomers(query: string, limit = 10) {
-    return CustomerApi.searchCustomers(query, limit);
-  }
-
-  static async getCustomersByType(customerType: string) {
-    return CustomerApi.getCustomersByType(customerType);
-  }
-
-  // Sales Order methods
-  static async getSalesOrders(params?: any) {
-    return SalesOrderApi.getSalesOrders(params);
-  }
-
-  static async getSalesOrder(id: number) {
-    return SalesOrderApi.getSalesOrder(id);
-  }
-
-  static async createSalesOrder(data: any) {
-    return SalesOrderApi.createSalesOrder(data);
-  }
-
-  static async updateSalesOrder(id: number, data: any) {
-    return SalesOrderApi.updateSalesOrder(id, data);
-  }
-
-  static async getPOSStats() {
-    return SalesOrderApi.getPOSStats();
-  }
-
-  static async searchSalesOrders(query: string, limit = 10) {
-    return SalesOrderApi.searchSalesOrders(query, limit);
   }
 
   // Expense methods

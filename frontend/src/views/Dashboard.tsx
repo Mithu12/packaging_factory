@@ -119,33 +119,33 @@ export default function Dashboard() {
   const handleQuickAction = (action: string) => {
     switch (action) {
       case "create-po":
-        router.push("/purchase-orders");
+        router.push("/inventory/purchase-orders");
         toast.success("Redirected to Purchase Orders", {
           description: "Click 'Create Purchase Order' to get started."
         });
         break;
       case "add-product":
-        router.push("/products");
+        router.push("/inventory/products");
         toast.success("Redirected to Products", {
           description: "Click 'Add Product' to add a new item."
         });
         break;
       case "add-supplier":
-        router.push("/suppliers");
+        router.push("/inventory/suppliers");
         toast.success("Redirected to Suppliers", {
           description: "Click 'Add Supplier' to add a new vendor."
         });
         break;
       case "record-payment":
-        router.push("/payments");
+        router.push("/inventory/payments");
         toast.success("Redirected to Payments", {
           description: "Click 'Record Payment' to log a payment."
         });
         break;
       case "new-sale":
-        router.push("/pos");
-        toast.success("Redirected to POS", {
-          description: "Start a new sale."
+        router.push("/factory/customer-orders");
+        toast.success("Redirected to Customer Orders", {
+          description: "Create or manage factory customer orders."
         });
         break;
       default:
@@ -528,7 +528,7 @@ export default function Dashboard() {
                 </div>
                 Customer Payments
               </span>
-              <Button variant="outline" size="sm" onClick={() => router.push("sales/customers")} className="border-violet-200 hover:bg-violet-50 text-violet-700">
+              <Button variant="outline" size="sm" onClick={() => router.push("/factory/customers")} className="border-violet-200 hover:bg-violet-50 text-violet-700">
                 View All
               </Button>
             </CardTitle>
