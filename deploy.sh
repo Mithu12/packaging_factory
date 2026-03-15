@@ -4,7 +4,7 @@
 # Configuration
 # ----------------------------
 REMOTE_USER="root"
-REMOTE_HOST="109.199.118.157"
+REMOTE_HOST="5.189.152.216"
 REMOTE_APP_PATH="/app"
 REMOTE_BACKEND_PATH="/app/backend"
 REMOTE_FRONTEND_PATH="/app/frontend"
