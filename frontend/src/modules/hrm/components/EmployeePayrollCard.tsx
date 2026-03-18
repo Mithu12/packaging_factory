@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 import { EmployeePayrollCardProps } from '../types';
 
+const formatCurrency = (amount: number, currency: string) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+
 const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
   employee,
   payrollRecord,
@@ -28,7 +31,8 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
   isSelected = false,
   onSelect,
   onViewPayslip,
-  loading = false
+  loading = false,
+  currency = "USD"
 }) => {
   const getStatusBadge = () => {
     if (paymentRecord?.status === 'completed') {
@@ -151,34 +155,34 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Basic Salary:</span>
-                    <span className="font-medium">PKR {payrollRecord.basic_salary.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.basic_salary ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">HRA:</span>
-                    <span className="font-medium">PKR {payrollRecord.house_rent_allowance.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.house_rent_allowance ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Transport:</span>
-                    <span className="font-medium">PKR {payrollRecord.transport_allowance.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.transport_allowance ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Medical:</span>
-                    <span className="font-medium">PKR {payrollRecord.medical_allowance.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.medical_allowance ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Bonus:</span>
-                    <span className="font-medium">PKR {payrollRecord.bonus.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.bonus ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Overtime:</span>
-                    <span className="font-medium">PKR {payrollRecord.overtime_pay.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.overtime_pay ?? payrollRecord.overtime_amount ?? 0, currency)}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between pt-2 border-t">
                   <span className="font-medium">Total Earnings:</span>
                   <span className="font-bold text-green-600">
-                    PKR {payrollRecord.total_earnings.toLocaleString()}
+                    {formatCurrency(payrollRecord.total_earnings ?? 0, currency)}
                   </span>
                 </div>
               </div>
@@ -193,26 +197,26 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Income Tax:</span>
-                    <span className="font-medium">PKR {payrollRecord.income_tax.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.income_tax ?? payrollRecord.tax_deduction ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Provident Fund:</span>
-                    <span className="font-medium">PKR {payrollRecord.provident_fund.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.provident_fund ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Insurance:</span>
-                    <span className="font-medium">PKR {payrollRecord.insurance.toLocaleString()}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.insurance ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Loan:</span>
-                    <span className="font-medium">PKR {payrollRecord.loan_deduction.toLocaleString()}</span>
+                    <span className="text-muted-foreground">Advance Salary / Loan:</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.loan_deduction ?? payrollRecord.loan_deductions ?? 0, currency)}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between pt-2 border-t">
                   <span className="font-medium">Total Deductions:</span>
                   <span className="font-bold text-red-600">
-                    PKR {payrollRecord.total_deductions.toLocaleString()}
+                    {formatCurrency(payrollRecord.total_deductions ?? 0, currency)}
                   </span>
                 </div>
               </div>
@@ -221,7 +225,7 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
               <div className="flex justify-between items-center pt-3 border-t-2 border-primary">
                 <span className="text-lg font-bold">Net Salary:</span>
                 <span className="text-xl font-bold text-primary">
-                  PKR {payrollRecord.net_salary.toLocaleString()}
+                  {formatCurrency(payrollRecord.net_salary ?? 0, currency)}
                 </span>
               </div>
             </div>
@@ -246,7 +250,7 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Amount:</span>
                   <span className="font-medium">
-                    PKR {paymentRecord.amount.toLocaleString()}
+                    {formatCurrency(paymentRecord.amount ?? 0, currency)}
                   </span>
                 </div>
 

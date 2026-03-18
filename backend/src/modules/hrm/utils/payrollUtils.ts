@@ -34,8 +34,8 @@ export class PayrollUtils {
       // Get attendance records for the period
       const attendanceQuery = `
         SELECT * FROM attendance_records
-        WHERE employee_id = $1 AND record_date BETWEEN $2 AND $3
-        ORDER BY record_date, record_time
+        WHERE employee_id = $1 AND attendance_date BETWEEN $2 AND $3
+        ORDER BY attendance_date, check_in_time
       `;
       const attendanceResult = await client.query(attendanceQuery, [employeeId, periodStart, periodEnd]);
 

@@ -95,6 +95,20 @@ router.post(
 );
 
 /**
+ * @route   POST /api/factory/production-runs/:id/resume
+ * @desc    Resume production run
+ * @access  Private (FACTORY_PRODUCTION_RUNS_UPDATE)
+ */
+router.post(
+  '/:id/resume',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_PRODUCTION_RUNS_UPDATE),
+  validateParams(productionRunParamsSchema),
+  auditMiddleware,
+  productionExecutionController.resumeProductionRun
+);
+
+/**
  * @route   POST /api/factory/production-runs/:id/complete
  * @desc    Complete production run
  * @access  Private (FACTORY_PRODUCTION_RUNS_UPDATE)

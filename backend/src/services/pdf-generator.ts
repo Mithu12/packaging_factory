@@ -2094,6 +2094,129 @@ export class PDFGenerator {
     }
   }
 
+  /**
+   * Generate payroll salary sheet PDF
+   */
+  static async generatePayrollSalarySheetPDF(
+    periodName: string,
+    details: Array<{
+      employee_code: string;
+      employee_name: string;
+      department_name: string;
+      designation_title: string;
+      basic_salary: number;
+      total_earnings: number;
+      total_deductions: number;
+      net_salary: number;
+      status: string;
+      payment_date?: string;
+      payment_reference?: string;
+    }>
+  ): Promise<Buffer> {
+    const action = "PDFGenerator.generatePayrollSalarySheetPDF";
+
+    try {
+      MyLogger.info(action, { periodName, rowCount: details.length });
+
+      const settingsMediator = new SettingsMediator();
+      const systemSettings = await settingsMediator.getSettingsByCategory('system');
+      const currency = (systemSettings.default_currency?.value as string || 'USD').toUpperCase();
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(amount);
+      };
+
+      const rowsHtml = details.map((d) => `
+        <tr>
+          <td>${d.employee_code || '-'}</td>
+          <td>${d.employee_name || '-'}</td>
+          <td>${d.department_name || '-'}</td>
+          <td>${d.designation_title || '-'}</td>
+          <td style="text-align:right">${formatCurrency(parseFloat(String(d.basic_salary || 0)))}</td>
+          <td style="text-align:right">${formatCurrency(parseFloat(String(d.total_earnings || 0)))}</td>
+          <td style="text-align:right">${formatCurrency(parseFloat(String(d.total_deductions || 0)))}</td>
+          <td style="text-align:right">${formatCurrency(parseFloat(String(d.net_salary || 0)))}</td>
+          <td>${d.status || '-'}</td>
+          <td>${d.payment_date ? new Date(d.payment_date).toLocaleDateString() : '-'}</td>
+        </tr>
+      `).join('');
+
+      const totalEarnings = details.reduce((s, d) => s + parseFloat(String(d.total_earnings || 0)), 0);
+      const totalDeductions = details.reduce((s, d) => s + parseFloat(String(d.total_deductions || 0)), 0);
+      const totalNet = details.reduce((s, d) => s + parseFloat(String(d.net_salary || 0)), 0);
+
+      const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Salary Sheet - ${periodName}</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #333; padding: 20px; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .period { color: #6b7280; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th { background: #f3f4f6; padding: 10px; text-align: left; font-weight: 600; }
+    td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .totals { margin-top: 20px; font-weight: 600; }
+    .totals td { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <h1>Salary Sheet</h1>
+  <p class="period">${periodName} - Generated ${new Date().toLocaleDateString()}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Employee ID</th>
+        <th>Name</th>
+        <th>Department</th>
+        <th>Designation</th>
+        <th>Basic Salary</th>
+        <th>Total Earnings</th>
+        <th>Total Deductions</th>
+        <th>Net Salary</th>
+        <th>Status</th>
+        <th>Payment Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+      <tr class="totals">
+        <td colspan="5" style="text-align:right">Total</td>
+        <td style="text-align:right">${formatCurrency(totalEarnings)}</td>
+        <td style="text-align:right">${formatCurrency(totalDeductions)}</td>
+        <td style="text-align:right">${formatCurrency(totalNet)}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+      const browser = await this.getBrowser();
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
+      });
+      await page.close();
+
+      MyLogger.success(action, { periodName, pdfSize: pdfBuffer.length });
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      MyLogger.error(action, error, { periodName });
+      throw error;
+    }
+  }
+
   // Close browser instance
   static async closeBrowser(): Promise<void> {
     if (this.browser) {

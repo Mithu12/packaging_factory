@@ -80,6 +80,11 @@ export interface EcommerceSettings {
   auto_customer_signup: boolean;
 }
 
+export interface PayrollSettings {
+  payroll_salary_mode: 'hourly' | 'monthly';
+  payroll_overtime_enabled: boolean;
+}
+
 export interface IntegrationSettings {
   email_service_connected: boolean;
   email_service_config: {
@@ -106,6 +111,7 @@ export interface IntegrationSettings {
 export interface AllSettings {
   company: CompanySettings;
   system: SystemSettings;
+  payroll: PayrollSettings;
   notifications: NotificationSettings;
   security: SecuritySettings;
   ecommerce: EcommerceSettings;

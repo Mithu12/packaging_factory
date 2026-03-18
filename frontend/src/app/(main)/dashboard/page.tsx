@@ -1,12 +1,11 @@
 "use client";
 
-import Dashboard from "@/views/Dashboard";
+import FactoryDashboard from "@/modules/factory/pages/FactoryDashboard";
 
 export default function DashboardPage() {
- 
   return (
-   <>
-    <Dashboard/>
-   </>
-  )
+    <>
+      <FactoryDashboard />
+    </>
+  );
 }

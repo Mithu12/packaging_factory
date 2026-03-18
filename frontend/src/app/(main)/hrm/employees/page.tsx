@@ -152,9 +152,43 @@ const EmployeeManagement: React.FC = () => {
   };
 
   const handleUpdateEmployee = async (id: number, data: Partial<CreateEmployeeForm>) => {
+    const dateFields = ['date_of_birth', 'join_date', 'confirmation_date', 'termination_date'];
+    const idFields = ['designation_id', 'reporting_manager_id', 'department_id'];
+
+    const sanitize = (k: string, v: unknown): unknown => {
+      if (dateFields.includes(k)) {
+        if (v === '' || v === undefined) return null;
+        return v;
+      }
+      if (idFields.includes(k)) {
+        if (v === '' || v === undefined) return null;
+        const num = typeof v === 'string' ? parseInt(v, 10) : v;
+        return (typeof num === 'number' && !isNaN(num)) ? num : null;
+      }
+      if (v === '') return null;
+      return v;
+    };
+
+    const updateFields = [
+      'first_name', 'last_name', 'date_of_birth', 'gender', 'marital_status',
+      'nationality', 'address', 'city', 'state', 'postal_code', 'country',
+      'phone', 'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship',
+      'blood_group', 'cnic', 'passport_number', 'tax_id',
+      'designation_id', 'reporting_manager_id', 'department_id',
+      'employment_type', 'join_date', 'confirmation_date', 'termination_date',
+      'probation_period_months', 'notice_period_days', 'work_location', 'shift_type',
+      'bank_account_number', 'bank_name', 'skill_level', 'availability_status', 'hourly_rate',
+    ] as const;
+    const filtered = Object.fromEntries(
+      updateFields
+        .filter((k) => data[k] !== undefined)
+        .map((k) => [k, sanitize(k, data[k])])
+        .filter(([, v]) => v !== undefined)
+    );
     try {
-      await HRMApiService.updateEmployee(id, data);
+      await HRMApiService.updateEmployee(id, filtered);
       setIsFormOpen(false);
+      setSelectedEmployee(null);
       loadEmployees();
     } catch (err) {
       throw err;
@@ -270,7 +304,13 @@ const EmployeeManagement: React.FC = () => {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setIsFormOpen(true)} data-testid="add-employee-button">
+          <Button
+            onClick={() => {
+              setSelectedEmployee(null);
+              setIsFormOpen(true);
+            }}
+            data-testid="add-employee-button"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
@@ -461,7 +501,13 @@ const EmployeeManagement: React.FC = () => {
       </Card>
 
       {/* Employee Form Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) setSelectedEmployee(null);
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="employee-form-dialog">
           <DialogHeader>
             <DialogTitle data-testid="employee-form-title">

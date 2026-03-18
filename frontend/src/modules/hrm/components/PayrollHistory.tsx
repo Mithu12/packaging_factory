@@ -36,7 +36,8 @@ const PayrollHistory: React.FC<PayrollHistoryProps> = ({
   filters,
   onFilterChange,
   onExport,
-  loading = false
+  loading = false,
+  currency = "USD"
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterData, setFilterData] = useState({
@@ -181,7 +182,7 @@ const PayrollHistory: React.FC<PayrollHistoryProps> = ({
   };
 
   const formatCurrency = (amount: number) => {
-    return `PKR ${amount.toLocaleString()}`;
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
   };
 
   const formatDate = (dateString: string) => {

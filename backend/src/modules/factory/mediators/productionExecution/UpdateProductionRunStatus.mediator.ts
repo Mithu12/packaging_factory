@@ -159,6 +159,84 @@ export class UpdateProductionRunStatusMediator {
     }
   }
 
+  static async resumeProductionRun(runId: string, userId: number): Promise<any> {
+    const action = 'Resume Production Run';
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { runId, userId });
+
+      const runResult = await client.query(
+        'SELECT * FROM production_runs WHERE id = $1',
+        [runId]
+      );
+
+      if (runResult.rows.length === 0) {
+        throw createError('Production run not found', 404);
+      }
+
+      const run = runResult.rows[0];
+
+      if (run.status !== 'completed') {
+        throw createError(
+          `Cannot resume production run with status: ${run.status}. Only completed runs can be resumed.`,
+          400
+        );
+      }
+
+      const producedQty = parseFloat(run.produced_quantity || '0');
+      const targetQty = parseFloat(run.target_quantity || '0');
+
+      if (producedQty >= targetQty) {
+        throw createError(
+          'Cannot resume: production run has already met or exceeded its target quantity.',
+          400
+        );
+      }
+
+      await client.query(
+        `UPDATE production_runs
+         SET status = 'in_progress',
+             actual_end_time = NULL,
+             completed_by = NULL
+         WHERE id = $1`,
+        [runId]
+      );
+
+      await client.query(
+        `INSERT INTO production_run_events (
+          production_run_id,
+          event_type,
+          event_status,
+          performed_by
+        ) VALUES ($1, $2, $3, $4)`,
+        [runId, 'resume', 'success', userId]
+      );
+
+      await client.query(
+        `UPDATE work_orders
+         SET status = 'in_progress',
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by = $1
+         WHERE id = $2`,
+        [userId, run.work_order_id]
+      );
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, { runId });
+
+      return { success: true, message: 'Production run resumed successfully' };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async completeProductionRun(
     runId: string,
     data: UpdateProductionRunStatusRequest,
@@ -187,10 +265,22 @@ export class UpdateProductionRunStatusMediator {
         throw createError('Production run already completed', 400);
       }
 
-      // Calculate metrics
-      const producedQty = data.produced_quantity || run.produced_quantity;
-      const goodQty = data.good_quantity || run.good_quantity;
-      const rejectedQty = data.rejected_quantity || run.rejected_quantity;
+      // Calculate metrics: for resumed runs (existing produced_quantity > 0), treat submitted values as increments
+      const existingProduced = parseFloat(run.produced_quantity || '0');
+      const existingGood = parseFloat(run.good_quantity || '0');
+      const existingRejected = parseFloat(run.rejected_quantity || '0');
+      const producedQty =
+        existingProduced > 0
+          ? existingProduced + (data.produced_quantity ?? 0)
+          : (data.produced_quantity ?? run.produced_quantity);
+      const goodQty =
+        existingProduced > 0
+          ? existingGood + (data.good_quantity ?? 0)
+          : (data.good_quantity ?? run.good_quantity);
+      const rejectedQty =
+        existingProduced > 0
+          ? existingRejected + (data.rejected_quantity ?? 0)
+          : (data.rejected_quantity ?? run.rejected_quantity);
       
       const qualityPercentage = producedQty > 0 ? (goodQty / producedQty) * 100 : 0;
       const efficiencyPercentage = run.target_quantity > 0 ? (producedQty / run.target_quantity) * 100 : 0;
@@ -327,35 +417,43 @@ export class UpdateProductionRunStatusMediator {
         });
       }
 
-      // Emit event for accounts integration
+      // Emit event for accounts integration (skip if re-completing a resumed run to avoid double-counting)
+      const hasExistingVouchers = run.labor_voucher_id != null || run.overhead_voucher_id != null;
       try {
-        const productionRunData = {
-          runId,
-          runNumber: run.run_number,
-          workOrderId: run.work_order_id,
-          productionLineId: run.production_line_id,
-          targetQuantity: run.target_quantity,
-          producedQuantity: producedQty,
-          goodQuantity: goodQty,
-          rejectedQuantity: rejectedQty,
-          runtimeMinutes,
-          laborCost,
-          overheadCost,
-          completedDate: new Date().toISOString(),
-          costCenterId: factoryInfo?.line_cost_center_id, // Prefer production line cost center
-          factoryId: factoryInfo?.factory_id,
-          factoryName: factoryInfo?.factory_name,
-          factoryCostCenterId: factoryInfo?.factory_cost_center_id
-        };
+        if (!hasExistingVouchers) {
+          const productionRunData = {
+            runId,
+            runNumber: run.run_number,
+            workOrderId: run.work_order_id,
+            productionLineId: run.production_line_id,
+            targetQuantity: run.target_quantity,
+            producedQuantity: producedQty,
+            goodQuantity: goodQty,
+            rejectedQuantity: rejectedQty,
+            runtimeMinutes,
+            laborCost,
+            overheadCost,
+            completedDate: new Date().toISOString(),
+            costCenterId: factoryInfo?.line_cost_center_id, // Prefer production line cost center
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id
+          };
 
-        eventBus.emit(EVENT_NAMES.PRODUCTION_RUN_COMPLETED, {
-          productionRunData,
-          userId
-        });
+          eventBus.emit(EVENT_NAMES.PRODUCTION_RUN_COMPLETED, {
+            productionRunData,
+            userId
+          });
 
-        // Central Bridge: Call accounts module directly via InterModuleConnector
-        MyLogger.info(`${action}.bridge`, { runId });
-        await interModuleConnector.accModule.addProductionRunVouchers(productionRunData, userId);
+          // Central Bridge: Call accounts module directly via InterModuleConnector
+          MyLogger.info(`${action}.bridge`, { runId });
+          await interModuleConnector.accModule.addProductionRunVouchers(productionRunData, userId);
+        } else {
+          MyLogger.info(`${action}.skipVouchers`, {
+            runId,
+            message: 'Skipping voucher creation for re-completed run (resumed from completed)'
+          });
+        }
       } catch (eventError: any) {
         MyLogger.error(`${action}.eventEmit`, eventError, {
           runId,

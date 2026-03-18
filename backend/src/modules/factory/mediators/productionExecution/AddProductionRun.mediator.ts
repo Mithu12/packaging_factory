@@ -44,20 +44,33 @@ export class AddProductionRunMediator {
         );
       }
 
-      // Check for over-production
+      // Check for over-production: work order quantity = target good units
+      // Remaining good = work order target - good from completed runs
       const runStatsResult = await client.query(
-        `SELECT COALESCE(SUM(target_quantity), 0) as total_scheduled
+        `SELECT
+           COALESCE(SUM(CASE WHEN status = 'completed' THEN good_quantity ELSE 0 END), 0) as total_good_produced,
+           COALESCE(SUM(CASE WHEN status = 'completed' THEN produced_quantity ELSE 0 END), 0) as total_produced,
+           COALESCE(SUM(CASE WHEN status = 'completed' THEN rejected_quantity ELSE 0 END), 0) as total_rejected
          FROM production_runs
          WHERE work_order_id = $1 AND status != 'cancelled'`,
         [data.work_order_id]
       );
-      
-      const totalScheduled = parseFloat(runStatsResult.rows[0].total_scheduled);
-      const remainingToSchedule = parseFloat(workOrder.quantity) - totalScheduled;
 
-      if (data.target_quantity > remainingToSchedule + 0.001) { // Allow small float margin
+      const totalGoodProduced = parseFloat(runStatsResult.rows[0].total_good_produced);
+      const totalProduced = parseFloat(runStatsResult.rows[0].total_produced);
+      const totalRejected = parseFloat(runStatsResult.rows[0].total_rejected);
+      const remainingGood = Math.max(0, parseFloat(workOrder.quantity) - totalGoodProduced);
+
+      // Allow target up to remaining good, or higher to account for expected rejections
+      const rejectionRate = totalProduced > 0 ? totalRejected / totalProduced : 0;
+      const maxTargetToSchedule =
+        rejectionRate < 1 && remainingGood > 0
+          ? Math.ceil(remainingGood / (1 - rejectionRate))
+          : remainingGood;
+
+      if (data.target_quantity > maxTargetToSchedule + 0.001) {
         throw createError(
-          `Target quantity (${data.target_quantity}) exceeds remaining work order quantity (${remainingToSchedule.toFixed(2)}).`,
+          `Target quantity (${data.target_quantity}) exceeds remaining capacity (~${maxTargetToSchedule.toFixed(0)} units to yield ${remainingGood.toFixed(0)} good, ${(rejectionRate * 100).toFixed(0)}% rejection rate).`,
           400
         );
       }

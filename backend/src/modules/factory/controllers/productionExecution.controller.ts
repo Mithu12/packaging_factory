@@ -77,6 +77,20 @@ export const pauseProductionRun = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
+ * @desc    Resume production run
+ * @route   POST /api/factory/production-runs/:id/resume
+ * @access  Private (FACTORY_PRODUCTION_RUNS_UPDATE)
+ */
+export const resumeProductionRun = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user!.user_id;
+
+  const result = await UpdateProductionRunStatusMediator.resumeProductionRun(id, userId);
+
+  serializeSuccessResponse(res, result, 'Production run resumed successfully');
+});
+
+/**
  * @desc    Complete production run
  * @route   POST /api/factory/production-runs/:id/complete
  * @access  Private (FACTORY_PRODUCTION_RUNS_UPDATE)

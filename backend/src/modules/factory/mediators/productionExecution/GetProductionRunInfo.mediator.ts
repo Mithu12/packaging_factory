@@ -94,6 +94,15 @@ export class GetProductionRunInfoMediator {
       const countResult = await pool.query(countQuery, queryParams);
       const total = parseInt(countResult.rows[0].count);
 
+      // Use COALESCE for actual_start_time so new runs (NULL) sort by created_at and appear in list
+      const validSortFields = ['run_number', 'actual_start_time', 'status', 'target_quantity', 'efficiency_percentage', 'created_at'];
+      const orderColumn =
+        sort_by === 'actual_start_time'
+          ? 'COALESCE(pr.actual_start_time, pr.created_at)'
+          : validSortFields.includes(sort_by)
+            ? `pr.${sort_by}`
+            : 'COALESCE(pr.actual_start_time, pr.created_at)';
+
       // Get production runs with details
       const runsQuery = `
         SELECT 
@@ -107,7 +116,7 @@ export class GetProductionRunInfoMediator {
         LEFT JOIN operators o ON pr.operator_id = o.id
         LEFT JOIN users u ON o.user_id = u.id
         WHERE ${whereClause}
-        ORDER BY pr.${sort_by} ${sort_order}
+        ORDER BY ${orderColumn} ${sort_order} NULLS LAST, pr.id DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 

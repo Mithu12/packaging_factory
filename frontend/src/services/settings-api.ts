@@ -5,6 +5,7 @@ import {
   SettingsByCategory,
   CompanySettings,
   SystemSettings,
+  PayrollSettings,
   NotificationSettings,
   SecuritySettings,
   EcommerceSettings,
@@ -90,6 +91,19 @@ class SettingsApiService {
 
   async updateSystemSettings(settings: Partial<SystemSettings>): Promise<Setting[]> {
     return this.updateSettings('system', settings);
+  }
+
+  async getPayrollSettings(): Promise<PayrollSettings> {
+    const settings = await this.getSettingsByCategory('payroll');
+    const result: any = {};
+    Object.values(settings).forEach(setting => {
+      result[setting.key] = setting.value;
+    });
+    return result as PayrollSettings;
+  }
+
+  async updatePayrollSettings(settings: Partial<PayrollSettings>): Promise<Setting[]> {
+    return this.updateSettings('payroll', settings);
   }
 
   async getNotificationSettings(): Promise<NotificationSettings> {

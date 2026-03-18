@@ -33,14 +33,29 @@ import {
   AlertCircle,
   FileText,
   Receipt,
+  Plus,
 } from "lucide-react";
-import { PayrollPageProps } from "../types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PayrollPageProps, PaymentRecord } from "../types";
 import PayrollCalculator from "../components/PayrollCalculator";
 import PaymentForm from "../components/PaymentForm";
 import PayrollHistory from "../components/PayrollHistory";
 import EmployeePayrollCard from "../components/EmployeePayrollCard";
 import { HRMApiService } from "../services/hrm-api";
+import { SettingsApi } from "@/services/settings-api";
 import { useToast } from "@/components/ui/use-toast";
+
+const formatCurrencyWith = (currency: string) => (amount: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 
 const PayrollPage: React.FC = () => {
   const { toast } = useToast();
@@ -49,23 +64,33 @@ const PayrollPage: React.FC = () => {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currency, setCurrency] = useState("USD");
   const [payrollPeriods, setPayrollPeriods] = useState<any[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [showCreatePeriodDialog, setShowCreatePeriodDialog] = useState(false);
+  const [newPeriod, setNewPeriod] = useState({
+    name: "",
+    start_date: "",
+    end_date: "",
+    period_type: "monthly" as const,
+  });
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [periodsRes, empsRes, deptsRes] = await Promise.all([
+      const [periodsRes, empsRes, deptsRes, systemSettings] = await Promise.all([
         HRMApiService.getPayrollPeriods(),
         HRMApiService.getEmployees({ limit: 500 }),
         HRMApiService.getDepartments(),
+        SettingsApi.getSystemSettings().catch(() => ({ default_currency: "usd" })),
       ]);
       const periods = periodsRes.periods || [];
       setPayrollPeriods(periods);
       setEmployees(empsRes.employees || []);
       setDepartments(deptsRes.departments || []);
+      setCurrency(((systemSettings?.default_currency as string) || "USD").toUpperCase());
       if (periods.length > 0 && !selectedPeriodId) {
         setSelectedPeriodId(periods[0].id.toString());
       }
@@ -94,13 +119,38 @@ const PayrollPage: React.FC = () => {
     (p) => p.id.toString() === selectedPeriodId
   );
   const currentPayrollRecords = payrollRecords;
-  const currentPaymentRecords: any[] = [];
+
+  // Derive payment records from payroll_details (no separate payroll payments table)
+  const currentPaymentRecords: PaymentRecord[] = currentPayrollRecords.map((pr: any) => ({
+    id: pr.id,
+    employee_id: pr.employee_id,
+    payroll_period_id: pr.payroll_period_id || parseInt(selectedPeriodId || "0"),
+    amount: parseFloat(pr.net_salary || 0),
+    payment_method: "other",
+    payment_date: pr.payment_date || pr.approved_at || pr.created_at || new Date().toISOString(),
+    status: pr.status === "paid" ? "completed" : pr.status === "cancelled" ? "cancelled" : "pending",
+    transaction_reference: pr.payment_reference || "",
+    check_number: "",
+    payroll_record_id: pr.id,
+    created_by: 0,
+    created_at: pr.created_at || new Date().toISOString(),
+    updated_at: pr.updated_at || new Date().toISOString(),
+  }));
 
   const handleCalculatePayroll = async (data: any) => {
+    const periodId = parseInt(selectedPeriodId, 10);
+    if (!selectedPeriodId || isNaN(periodId)) {
+      toast({
+        title: "Error",
+        description: "Select a payroll period first",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setLoading(true);
       await HRMApiService.calculatePayroll({
-        payroll_period_id: parseInt(selectedPeriodId),
+        payroll_period_id: periodId,
         employee_ids: data.employee_ids || [],
       });
       toast({ title: "Success", description: "Payroll calculated" });
@@ -133,11 +183,18 @@ const PayrollPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `payroll-${selectedPeriodId}.${format === "excel" ? "xlsx" : "pdf"}`;
+      const periodName = (currentPeriod?.name || `period-${selectedPeriodId}`).replace(/[^a-zA-Z0-9-_]/g, "_");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `salary-sheet-${periodName}-${dateStr}.${format === "excel" ? "xlsx" : "pdf"}`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      toast({ title: "Error", description: "Export failed", variant: "destructive" });
+      toast({ title: "Success", description: "Salary sheet exported successfully" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Export failed. Calculate payroll for this period first.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -159,24 +216,77 @@ const PayrollPage: React.FC = () => {
     }
   };
 
+  const handleGeneratePayslips = (_employeeIds: number[]) => {
+    if (!selectedPeriodId) {
+      toast({ title: "Error", description: "Select a payroll period first", variant: "destructive" });
+      return;
+    }
+    handleExportData("excel");
+  };
+
+  const handleCreatePeriod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPeriod.name || !newPeriod.start_date || !newPeriod.end_date) {
+      toast({ title: "Error", description: "Fill in all required fields", variant: "destructive" });
+      return;
+    }
+    if (newPeriod.start_date > newPeriod.end_date) {
+      toast({ title: "Error", description: "End date must be after start date", variant: "destructive" });
+      return;
+    }
+    try {
+      setLoading(true);
+      await HRMApiService.createPayrollPeriod({
+        name: newPeriod.name,
+        start_date: newPeriod.start_date,
+        end_date: newPeriod.end_date,
+        period_type: newPeriod.period_type,
+      });
+      toast({ title: "Success", description: "Payroll period created" });
+      setShowCreatePeriodDialog(false);
+      setNewPeriod({ name: "", start_date: "", end_date: "", period_type: "monthly" });
+      await loadData();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to create period",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const suggestPeriodFromMonth = (month: number, year: number) => {
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
+    setNewPeriod((prev) => ({
+      ...prev,
+      name: `${monthNames[month - 1]} ${year}`,
+      start_date: start.toISOString().slice(0, 10),
+      end_date: end.toISOString().slice(0, 10),
+    }));
+  };
+
   // Calculate summary statistics
   const summaryStats = {
-    totalEmployees: employees.length,
+    totalEmployees: currentPayrollRecords.length || employees.length,
     totalGrossSalary: currentPayrollRecords.reduce(
-      (sum, record) => sum + (record.total_earnings || 0),
+      (sum: number, record: any) => sum + parseFloat(record.total_earnings || 0),
       0
     ),
     totalDeductions: currentPayrollRecords.reduce(
-      (sum, record) => sum + (record.total_deductions || 0),
+      (sum: number, record: any) => sum + parseFloat(record.total_deductions || 0),
       0
     ),
     totalNetSalary: currentPayrollRecords.reduce(
-      (sum, record) => sum + (record.net_salary || 0),
+      (sum: number, record: any) => sum + parseFloat(record.net_salary || 0),
       0
     ),
-    paidEmployees: 0,
-    pendingPayments: 0,
-    failedPayments: 0,
+    paidEmployees: currentPaymentRecords.filter((p: any) => p.status === "completed").length,
+    pendingPayments: currentPaymentRecords.filter((p: any) => p.status === "pending").length,
+    failedPayments: currentPaymentRecords.filter((p: any) => p.status === "failed" || p.status === "cancelled").length,
   };
 
   return (
@@ -208,24 +318,44 @@ const PayrollPage: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="space-y-2">
               <label className="text-sm font-medium">Payroll Period</label>
-              <Select
-                value={selectedPeriodId}
-                onValueChange={setSelectedPeriodId}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {payrollPeriods.map((period) => (
-                    <SelectItem key={period.id} value={period.id.toString()}>
-                      {period.name} - {period.status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select
+                  value={selectedPeriodId}
+                  onValueChange={setSelectedPeriodId}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payrollPeriods.map((period) => (
+                      <SelectItem key={period.id} value={period.id.toString()}>
+                        {period.name} - {period.status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const now = new Date();
+                    suggestPeriodFromMonth(now.getMonth() + 1, now.getFullYear());
+                    setShowCreatePeriodDialog(true);
+                  }}
+                  title="Add new payroll period"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {payrollPeriods.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No periods yet. Click + to create one.
+                </p>
+              )}
             </div>
 
             {currentPeriod && (
@@ -238,7 +368,7 @@ const PayrollPage: React.FC = () => {
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
-                    PKR {summaryStats.totalGrossSalary.toLocaleString()}
+                    {formatCurrencyWith(currency)(summaryStats.totalGrossSalary)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Gross Salary
@@ -246,7 +376,7 @@ const PayrollPage: React.FC = () => {
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-red-600">
-                    PKR {summaryStats.totalDeductions.toLocaleString()}
+                    {formatCurrencyWith(currency)(summaryStats.totalDeductions)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Deductions
@@ -254,7 +384,7 @@ const PayrollPage: React.FC = () => {
                 </div>
                 <div className="text-center p-3 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    PKR {summaryStats.totalNetSalary.toLocaleString()}
+                    {formatCurrencyWith(currency)(summaryStats.totalNetSalary)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Net Salary
@@ -380,7 +510,10 @@ const PayrollPage: React.FC = () => {
                 selectedEmployeeIds={selectedEmployeeIds}
                 onCalculate={handleCalculatePayroll}
                 onSelectAll={handleSelectAll}
+                onGeneratePayslips={handleGeneratePayslips}
                 loading={loading}
+                canCalculate={!!selectedPeriodId}
+                currency={currency}
               />
             </CardContent>
           </Card>
@@ -409,6 +542,7 @@ const PayrollPage: React.FC = () => {
                   onSubmit={handleProcessPayments}
                   onCancel={() => setShowPaymentForm(false)}
                   loading={loading}
+                  currency={currency}
                 />
               ) : (
                 <div className="text-center py-8">
@@ -467,6 +601,7 @@ const PayrollPage: React.FC = () => {
                         console.log("View payslip for", employee.id)
                       }
                       loading={loading}
+                      currency={currency}
                     />
                   );
                 })}
@@ -494,11 +629,67 @@ const PayrollPage: React.FC = () => {
                 departments={departments as any}
                 onExport={handleExportData}
                 loading={loading}
+                currency={currency}
               />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create Period Dialog */}
+      <Dialog open={showCreatePeriodDialog} onOpenChange={setShowCreatePeriodDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Payroll Period</DialogTitle>
+            <DialogDescription>
+              Create a new payroll period (e.g., a month) for salary calculations.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreatePeriod} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="period-name">Period Name *</Label>
+              <Input
+                id="period-name"
+                placeholder="e.g., March 2026"
+                value={newPeriod.name}
+                onChange={(e) => setNewPeriod((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Start Date *</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={newPeriod.start_date}
+                  onChange={(e) => setNewPeriod((p) => ({ ...p, start_date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end-date">End Date *</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={newPeriod.end_date}
+                  onChange={(e) => setNewPeriod((p) => ({ ...p, end_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreatePeriodDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Period"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

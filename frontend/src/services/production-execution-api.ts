@@ -197,6 +197,17 @@ export class ProductionExecutionApiService {
     );
   }
 
+  static async resumeProductionRun(
+    id: string
+  ): Promise<{ success: boolean; message: string }> {
+    return makeRequest<{ success: boolean; message: string }>(
+      `/factory/production-runs/${id}/resume`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
   static async completeProductionRun(
     id: string,
     data: CompleteProductionRunRequest

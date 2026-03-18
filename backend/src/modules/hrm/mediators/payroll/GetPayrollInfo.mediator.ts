@@ -201,14 +201,17 @@ export class GetPayrollInfoMediator {
 
       const employee = employeeResult.rows[0];
 
-      // Get salary components assigned to employee
+      // Get salary components assigned to employee (use employee_salary_structure - table from V55 migration)
       const componentsQuery = `
         SELECT
           pc.*,
-          esc.amount as assigned_amount,
-          esc.percentage as assigned_percentage
+          ess.amount as assigned_amount,
+          ess.percentage as assigned_percentage
         FROM payroll_components pc
-        LEFT JOIN employee_salary_components esc ON pc.id = esc.component_id AND esc.employee_id = $1
+        LEFT JOIN employee_salary_structure ess ON pc.id = ess.payroll_component_id AND ess.employee_id = $1
+          AND ess.is_active = true
+          AND ess.effective_from <= CURRENT_DATE
+          AND (ess.effective_to IS NULL OR ess.effective_to >= CURRENT_DATE)
         WHERE pc.is_active = true
         ORDER BY pc.component_type, pc.name
       `;
@@ -249,10 +252,19 @@ export class GetPayrollInfoMediator {
   }
 
   /**
-   * Get payroll runs for a period
+   * Get payroll runs for a period (legacy - delegates to getPayrollDetailsForPeriod)
    */
   static async getPayrollRuns(periodId: number): Promise<any[]> {
-    const action = "GetPayrollInfoMediator.getPayrollRuns";
+    return this.getPayrollDetailsForPeriod(periodId);
+  }
+
+  /**
+   * Get payroll details (employee-level records) for a period.
+   * Joins payroll_details with payroll_runs, employees, departments, designations.
+   * Uses the latest run for the period if multiple exist.
+   */
+  static async getPayrollDetailsForPeriod(periodId: number): Promise<any[]> {
+    const action = "GetPayrollInfoMediator.getPayrollDetailsForPeriod";
     const client = await pool.connect();
 
     try {
@@ -260,28 +272,56 @@ export class GetPayrollInfoMediator {
 
       const query = `
         SELECT
-          pr.*,
+          pd.id,
+          pd.payroll_run_id,
+          pd.employee_id,
+          pd.basic_salary,
+          pd.total_earnings,
+          pd.total_deductions,
+          pd.net_salary,
+          pd.working_days,
+          pd.paid_days,
+          pd.absent_days,
+          pd.overtime_hours,
+          pd.overtime_amount,
+          pd.leave_deductions,
+          pd.loan_deductions,
+          pd.tax_deduction,
+          pd.status,
+          pd.payment_date,
+          pd.payment_reference,
+          pd.approved_at,
           e.employee_id as employee_code,
-          CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+          CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee_name,
           d.name as department_name,
-          des.title as designation_title
-        FROM payroll_runs pr
-        JOIN employees e ON pr.employee_id = e.id
+          des.title as designation_title,
+          pp.id as payroll_period_id,
+          pp.name as payroll_period_name
+        FROM payroll_details pd
+        JOIN payroll_runs pr ON pd.payroll_run_id = pr.id
+        JOIN payroll_periods pp ON pr.payroll_period_id = pp.id
+        JOIN employees e ON pd.employee_id = e.id
         LEFT JOIN departments d ON e.department_id = d.id
         LEFT JOIN designations des ON e.designation_id = des.id
-        WHERE pr.period_id = $1
+        WHERE pr.payroll_period_id = $1
+          AND pr.id = (
+            SELECT id FROM payroll_runs
+            WHERE payroll_period_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+          )
         ORDER BY e.first_name, e.last_name
       `;
 
       const result = await client.query(query, [periodId]);
-      const runs = result.rows;
+      const details = result.rows;
 
       MyLogger.success(action, {
         periodId,
-        runsCount: runs.length
+        detailsCount: details.length
       });
 
-      return runs;
+      return details;
     } catch (error) {
       MyLogger.error(action, error);
       throw error;

@@ -426,6 +426,10 @@ class SettingsMediator {
         
         // E-commerce settings
         { category: 'ecommerce', key: 'auto_customer_signup', value: 'false', data_type: 'boolean' as const },
+
+        // Payroll settings
+        { category: 'payroll', key: 'payroll_salary_mode', value: 'hourly', data_type: 'string' as const, description: 'Salary calculation: hourly (by hours worked) or monthly (by days present, deducting absent)' },
+        { category: 'payroll', key: 'payroll_overtime_enabled', value: 'true', data_type: 'boolean' as const, description: 'Include overtime in payroll (1.5x rate)' },
       ]
 
       for (const setting of defaultSettings) {

@@ -980,6 +980,7 @@ export interface EmployeePayrollCardProps {
   onSelect?: (selected: boolean) => void;
   onViewPayslip?: () => void;
   loading?: boolean;
+  currency?: string;
 }
 
 export interface PayrollCalculatorProps {
@@ -987,7 +988,11 @@ export interface PayrollCalculatorProps {
   selectedEmployeeIds: number[];
   onCalculate: (data: PayrollCalculationForm) => Promise<void>;
   onSelectAll: (selected: boolean) => void;
+  onGeneratePayslips?: (employeeIds: number[]) => void;
   loading?: boolean;
+  /** When false, disables Calculate Payroll (e.g. no period selected) */
+  canCalculate?: boolean;
+  currency?: string;
 }
 
 export interface PaymentFormProps {
@@ -996,6 +1001,7 @@ export interface PaymentFormProps {
   onSubmit: (data: PaymentProcessingForm) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  currency?: string;
 }
 
 export interface PayrollHistoryProps {
@@ -1007,6 +1013,7 @@ export interface PayrollHistoryProps {
   onFilterChange?: (filters: PayrollFilter) => void;
   onExport?: (format: "excel" | "pdf") => Promise<void>;
   loading?: boolean;
+  currency?: string;
 }
 
 // Leave Type Configuration Types

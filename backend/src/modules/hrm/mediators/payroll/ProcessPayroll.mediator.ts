@@ -3,6 +3,7 @@ import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
+import SettingsMediator from '@/mediators/settings/SettingsMediator';
 
 export class ProcessPayrollMediator {
 
@@ -28,6 +29,15 @@ export class ProcessPayrollMediator {
 
       const period = periodResult.rows[0];
 
+      // Get payroll settings (salary mode, overtime)
+      const settingsMediator = new SettingsMediator();
+      const payrollSettings = await settingsMediator.getSettingsByCategory('payroll');
+      const salaryMode = (payrollSettings.payroll_salary_mode?.value as string || 'hourly').toLowerCase();
+      const isMonthlyMode = salaryMode === 'monthly';
+      const overtimeVal = payrollSettings.payroll_overtime_enabled?.value;
+      const overtimeEnabled = String(overtimeVal ?? true).toLowerCase() !== 'false';
+      MyLogger.info(action, { salaryMode, isMonthlyMode, overtimeEnabled });
+
       // Get employees to process
       let employeeIds: number[] = [];
       if (calcRequest.employee_ids && calcRequest.employee_ids.length > 0) {
@@ -39,55 +49,78 @@ export class ProcessPayrollMediator {
         employeeIds = employeesResult.rows.map((row: any) => row.id);
       }
 
-      // Process each employee
-      const payrollRuns: any[] = [];
+      // Create one payroll_run for the period (schema: payroll_runs)
+      const runNumber = `PR-${calcRequest.payroll_period_id}-${Date.now()}`;
+      const runInsert = await client.query(
+        `INSERT INTO payroll_runs (payroll_period_id, run_number, status, total_employees, total_gross_salary, total_deductions, total_net_salary, processed_by, processed_at, notes)
+         VALUES ($1, $2, $3, 0, 0, 0, 0, $4, $5, $6) RETURNING *`,
+        [calcRequest.payroll_period_id, runNumber, calcRequest.dry_run ? 'draft' : 'processing', calculatedBy, new Date(), calcRequest.dry_run ? 'Dry run' : 'Live calculation']
+      );
+      const payrollRun = runInsert.rows[0];
+
+      // Process each employee and insert payroll_details
+      const payrollDetails: any[] = [];
       for (const employeeId of employeeIds) {
         try {
-          const payrollData = await this.calculateEmployeePayroll(employeeId, period, calcRequest);
-          const run = await this.createPayrollRun(employeeId, calcRequest.payroll_period_id, payrollData, calculatedBy);
-          payrollRuns.push(run);
+          const payrollData = await this.calculateEmployeePayroll(employeeId, period, calcRequest, isMonthlyMode, overtimeEnabled);
+          const detail = await this.insertPayrollDetail(client, payrollRun.id, employeeId, payrollData);
+          payrollDetails.push(detail);
+
+          if (!calcRequest.dry_run) {
+            await client.query(
+              'UPDATE payroll_runs SET total_gross_salary = total_gross_salary + $1, total_deductions = total_deductions + $2, total_net_salary = total_net_salary + $3 WHERE id = $4',
+              [payrollData.grossPay, payrollData.totalDeductions + payrollData.tax, payrollData.netPay, payrollRun.id]
+            );
+          }
         } catch (error) {
           MyLogger.error(`Payroll calculation failed for employee ${employeeId}`, error);
           // Continue processing other employees
         }
       }
 
-      await client.query('COMMIT');
-
-      // Update period status to calculated
-      await client.query(
-        'UPDATE payroll_periods SET status = $1, updated_at = $2 WHERE id = $3',
-        ['completed', new Date(), calcRequest.payroll_period_id]
-      );
+      if (!calcRequest.dry_run) {
+        await client.query(
+          'UPDATE payroll_runs SET status = $1, total_employees = $2, updated_at = $3 WHERE id = $4',
+          ['completed', payrollDetails.length, new Date(), payrollRun.id]
+        );
+        // Update period status to closed (constraint allows: open, processing, closed, cancelled)
+        await client.query(
+          'UPDATE payroll_periods SET status = $1, updated_at = $2 WHERE id = $3',
+          ['closed', new Date(), calcRequest.payroll_period_id]
+        );
+        await client.query('COMMIT');
+      } else {
+        await client.query('ROLLBACK');
+      }
 
       const result: PayrollRun = {
-        id: 0, // This would be set if we created a master run record
+        id: payrollRun.id,
         payroll_period_id: calcRequest.payroll_period_id,
-        run_number: `RUN-${Date.now()}`, // Generate a run number
-        status: 'completed',
-        total_employees: payrollRuns.length,
-        total_gross_salary: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.grossPay || 0), 0),
-        total_deductions: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.deductions || 0), 0),
-        total_net_salary: payrollRuns.reduce((sum, run) => sum + (run.payroll_data?.netPay || 0), 0),
+        run_number: payrollRun.run_number,
+        status: payrollRun.status,
+        total_employees: payrollDetails.length,
+        total_gross_salary: payrollDetails.reduce((s, d) => s + (d.total_earnings || 0), 0),
+        total_deductions: payrollDetails.reduce((s, d) => s + (d.total_deductions || 0) + (d.tax_deduction || 0), 0),
+        total_net_salary: payrollDetails.reduce((s, d) => s + (d.net_salary || 0), 0),
         processed_by: calculatedBy,
         processed_at: new Date().toISOString(),
         posted_to_accounting: false,
         created_by: calculatedBy,
-        created_at: new Date().toISOString(),
+        created_at: payrollRun.created_at,
         updated_at: new Date().toISOString()
       };
 
       // Publish event
       eventBus.emit('payroll.calculated', {
         periodId: calcRequest.payroll_period_id,
-        employeeCount: payrollRuns.length,
+        employeeCount: payrollDetails.length,
         totalGrossSalary: result.total_gross_salary,
         calculatedBy
       });
 
       MyLogger.success(action, {
         periodId: calcRequest.payroll_period_id,
-        employeeCount: payrollRuns.length,
+        employeeCount: payrollDetails.length,
         totalGrossSalary: result.total_gross_salary,
         calculatedBy
       });
@@ -108,14 +141,16 @@ export class ProcessPayrollMediator {
   private static async calculateEmployeePayroll(
     employeeId: number,
     period: any,
-    calcRequest: PayrollCalculationRequest
+    calcRequest: PayrollCalculationRequest,
+    isMonthlyMode: boolean = false,
+    overtimeEnabled: boolean = true
   ): Promise<any> {
     const client = await pool.connect();
 
     try {
       // Get employee details
       const employeeQuery = `
-        SELECT e.*, d.name as department_name, des.title as designation_title
+        SELECT e.*, d.name as department_name, des.title as designation_title, des.min_salary as designation_min_salary
         FROM employees e
         LEFT JOIN departments d ON e.department_id = d.id
         LEFT JOIN designations des ON e.designation_id = des.id
@@ -133,31 +168,45 @@ export class ProcessPayrollMediator {
       // Get attendance records for the period
       const attendanceQuery = `
         SELECT * FROM attendance_records
-        WHERE employee_id = $1 AND record_date BETWEEN $2 AND $3
-        ORDER BY record_date, record_time
+        WHERE employee_id = $1 AND attendance_date BETWEEN $2 AND $3
+        ORDER BY attendance_date, check_in_time
       `;
 
       const attendanceResult = await client.query(attendanceQuery, [employeeId, period.start_date, period.end_date]);
 
-      // Calculate working days and overtime
-      const workingDays = this.calculateWorkingDays(period.start_date, period.end_date);
-      const regularHours = workingDays * 8; // 8 hours per day
+      // Use actual attendance hours only (no fallback)
+      let regularHours = 0;
       let overtimeHours = 0;
+      let daysPresent = 0;
 
       for (const record of attendanceResult.rows) {
-        if (record.record_type === 'overtime_start' || record.record_type === 'overtime_end') {
-          overtimeHours += 1; // Simplified calculation
+        const recordOvertime = parseFloat(record.overtime_hours || '0');
+        let recordTotal = parseFloat(record.total_hours_worked || '0');
+
+        // If total_hours_worked is missing, compute from check_in/check_out
+        if (isNaN(recordTotal) || recordTotal <= 0) {
+          recordTotal = this.computeHoursFromTimes(record.check_in_time, record.check_out_time);
+        }
+        if (recordTotal > 0) {
+          daysPresent++;
+          // Regular = total - overtime (overtime is typically already in total_hours_worked)
+          const regular = Math.max(0, recordTotal - recordOvertime);
+          regularHours += regular;
+          overtimeHours += recordOvertime;
         }
       }
 
-      // Get salary components
+      // Get salary components (use employee_salary_structure - table from V55 migration)
       const componentsQuery = `
         SELECT
           pc.*,
-          esc.amount as assigned_amount,
-          esc.percentage as assigned_percentage
+          ess.amount as assigned_amount,
+          ess.percentage as assigned_percentage
         FROM payroll_components pc
-        LEFT JOIN employee_salary_components esc ON pc.id = esc.component_id AND esc.employee_id = $1
+        LEFT JOIN employee_salary_structure ess ON pc.id = ess.payroll_component_id AND ess.employee_id = $1
+          AND ess.is_active = true
+          AND ess.effective_from <= CURRENT_DATE
+          AND (ess.effective_to IS NULL OR ess.effective_to >= CURRENT_DATE)
         WHERE pc.is_active = true
         ORDER BY pc.component_type, pc.name
       `;
@@ -165,25 +214,57 @@ export class ProcessPayrollMediator {
       const componentsResult = await client.query(componentsQuery, [employeeId]);
       const components = componentsResult.rows;
 
-      // Calculate earnings
-      let totalEarnings = parseFloat(employee.hourly_rate || '0') * regularHours;
-      let bonuses = 0;
+      // Use hourly_rate; fallback to employee_salary_structure (basic) or designation min_salary when 0
+      let hourlyRate = parseFloat(employee.hourly_rate || '0');
+      if (hourlyRate <= 0) {
+        const basicComponent = components.find((c: any) => c.component_type === 'earning' && (c.category === 'basic' || c.name?.toLowerCase().includes('basic')));
+        const basicMonthly = basicComponent ? parseFloat(basicComponent.assigned_amount || '0') : 0;
+        if (basicMonthly > 0) {
+          hourlyRate = basicMonthly / (8 * 22); // monthly to hourly (22 working days)
+        } else {
+          const designationMin = parseFloat(employee.designation_min_salary || '0');
+          if (designationMin > 0) {
+            hourlyRate = designationMin / (8 * 22);
+          }
+        }
+      }
+      const workingDaysInPeriod = this.calculateWorkingDays(period.start_date, period.end_date);
+
+      let totalEarnings: number;
       let overtimePay = 0;
 
+      const includeOvertime = overtimeEnabled && (calcRequest.include_overtime !== false);
+
+      if (isMonthlyMode) {
+        // Monthly: salary = (hourly_rate * 8 * working_days) * (days_present / working_days) - deducts for absent days
+        const monthlyFullPay = hourlyRate * 8 * workingDaysInPeriod;
+        const payForDaysPresent = workingDaysInPeriod > 0
+          ? monthlyFullPay * (daysPresent / workingDaysInPeriod)
+          : 0;
+        totalEarnings = payForDaysPresent;
+        if (includeOvertime && overtimeHours > 0) {
+          overtimePay = hourlyRate * overtimeHours * 1.5;
+          totalEarnings += overtimePay;
+        }
+      } else {
+        // Hourly: salary = hourly_rate * hours_worked
+        totalEarnings = hourlyRate * regularHours;
+        if (includeOvertime && overtimeHours > 0) {
+          overtimePay = hourlyRate * overtimeHours * 1.5;
+          totalEarnings += overtimePay;
+        }
+      }
+
+      let bonuses = 0;
       if (calcRequest.include_loans !== false) {
         bonuses = this.calculateBonuses(employeeId, period.start_date, period.end_date);
         totalEarnings += bonuses;
       }
 
-      if (calcRequest.include_overtime !== false && overtimeHours > 0) {
-        overtimePay = parseFloat(employee.hourly_rate || '0') * overtimeHours * 1.5;
-        totalEarnings += overtimePay;
-      }
-
-      // Calculate deductions
+      // Calculate deductions (advance salary / loans from employee_loans)
       let totalDeductions = 0;
       if (calcRequest.include_loans !== false) {
-        totalDeductions = this.calculateDeductions(employeeId, period.start_date, period.end_date);
+        totalDeductions = await this.calculateDeductions(employeeId, period.start_date, period.end_date);
       }
 
       // Calculate tax (simplified)
@@ -204,7 +285,7 @@ export class ProcessPayrollMediator {
         grossPay,
         tax,
         netPay,
-        workingDays,
+        workingDays: daysPresent,
         periodStart: period.start_date,
         periodEnd: period.end_date
       };
@@ -219,35 +300,50 @@ export class ProcessPayrollMediator {
   }
 
   /**
-   * Create payroll run record
+   * Insert payroll_detail for an employee (schema: payroll_details)
    */
-  private static async createPayrollRun(employeeId: number, periodId: number, payrollData: any, calculatedBy?: number): Promise<any> {
-    const client = await pool.connect();
+  private static async insertPayrollDetail(client: any, payrollRunId: number, employeeId: number, payrollData: any): Promise<any> {
+    const totalDeductions = (payrollData.totalDeductions || 0) + (payrollData.tax || 0);
+    const insertQuery = `
+      INSERT INTO payroll_details (
+        payroll_run_id, employee_id, basic_salary, total_earnings, total_deductions, net_salary,
+        working_days, overtime_hours, overtime_amount, loan_deductions, tax_deduction, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `;
+    const result = await client.query(insertQuery, [
+      payrollRunId,
+      employeeId,
+      payrollData.baseSalary || 0,
+      payrollData.grossPay || 0,
+      totalDeductions,
+      payrollData.netPay || 0,
+      payrollData.workingDays || 0,
+      payrollData.overtimeHours || 0,
+      payrollData.overtimePay || 0,
+      payrollData.totalDeductions || 0,
+      payrollData.tax || 0,
+      'calculated'
+    ]);
+    return result.rows[0];
+  }
 
-    try {
-      const insertQuery = `
-        INSERT INTO payroll_runs (
-          employee_id, period_id, payroll_data, status, calculated_by, calculated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `;
-
-      const runResult = await client.query(insertQuery, [
-        employeeId,
-        periodId,
-        JSON.stringify(payrollData),
-        'calculated',
-        calculatedBy,
-        new Date()
-      ]);
-
-      return runResult.rows[0];
-    } catch (error) {
-      MyLogger.error(`Payroll run creation failed for employee ${employeeId}`, error);
-      throw error;
-    } finally {
-      client.release();
-    }
+  /**
+   * Compute hours between check-in and check-out time strings
+   */
+  private static computeHoursFromTimes(checkIn: string | null, checkOut: string | null): number {
+    if (!checkIn || !checkOut) return 0;
+    const parse = (t: string) => {
+      const s = String(t).trim();
+      const timePart = s.includes('T') ? s.split('T')[1] : s;
+      const m = (timePart || s).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseInt(m[3] || '0', 10) / 60 : NaN;
+    };
+    const inMins = parse(checkIn);
+    const outMins = parse(checkOut);
+    if (isNaN(inMins) || isNaN(outMins)) return 0;
+    const diffMins = outMins - inMins;
+    return diffMins > 0 ? Math.round((diffMins / 60) * 100) / 100 : 0;
   }
 
   /**
@@ -282,12 +378,38 @@ export class ProcessPayrollMediator {
   }
 
   /**
-   * Calculate deductions for an employee
+   * Calculate deductions for an employee (advance salary / loans from employee_loans)
    */
-  private static calculateDeductions(employeeId: number, startDate: string, endDate: string): number {
-    // This would query actual deduction records
-    // For now, return a placeholder calculation
-    return 0;
+  private static async calculateDeductions(employeeId: number, startDate: string, endDate: string): Promise<number> {
+    const client = await pool.connect();
+    try {
+      const query = `
+        SELECT
+          id,
+          monthly_installment,
+          remaining_amount,
+          paid_installments,
+          total_installments,
+          start_date
+        FROM employee_loans
+        WHERE employee_id = $1
+          AND status = 'active'
+          AND remaining_amount > 0
+          AND start_date <= $2
+          AND paid_installments < total_installments
+      `;
+      const result = await client.query(query, [employeeId, endDate]);
+      let totalDeduction = 0;
+      for (const loan of result.rows) {
+        const installment = parseFloat(loan.monthly_installment || '0');
+        const remaining = parseFloat(loan.remaining_amount || '0');
+        const deduction = Math.min(installment, remaining);
+        totalDeduction += deduction;
+      }
+      return totalDeduction;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -313,14 +435,18 @@ export class ProcessPayrollMediator {
         [baseSalary, new Date(), employeeId]
       );
 
-      // Remove existing salary components for this employee
-      await client.query('DELETE FROM employee_salary_components WHERE employee_id = $1', [employeeId]);
+      // Deactivate existing salary structure for this employee
+      await client.query(
+        'UPDATE employee_salary_structure SET is_active = false, effective_to = CURRENT_DATE WHERE employee_id = $1',
+        [employeeId]
+      );
 
-      // Insert new salary components
+      // Insert new salary structure entries
       for (const component of components) {
         await client.query(
-          'INSERT INTO employee_salary_components (employee_id, component_id, amount, percentage) VALUES ($1, $2, $3, $4)',
-          [employeeId, component.component_id, component.amount, component.percentage]
+          `INSERT INTO employee_salary_structure (employee_id, payroll_component_id, amount, percentage, effective_from, is_active, created_by)
+           VALUES ($1, $2, $3, $4, CURRENT_DATE, true, $5)`,
+          [employeeId, component.component_id, component.amount ?? 0, component.percentage, setupBy]
         );
       }
 

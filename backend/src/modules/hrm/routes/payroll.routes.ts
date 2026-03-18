@@ -134,7 +134,14 @@ router.post(
 // Payroll Export Routes
 // =====================================================
 
-// Export payroll
+// Export payroll by period (must be before /export/:runId)
+router.get(
+  "/export/period/:periodId",
+  requirePermission(PERMISSIONS.HR_PAYROLL_READ),
+  expressAsyncHandler(PayrollController.exportPayrollByPeriod)
+);
+
+// Export payroll by run ID
 router.get(
   "/export/:runId",
   requirePermission(PERMISSIONS.HR_PAYROLL_READ),

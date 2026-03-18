@@ -196,6 +196,7 @@ class AttendanceMediator implements MediatorInterface {
           e.first_name,
           e.last_name,
           e.employee_id AS employee_code,
+          e.department_id,
           d.name AS department_name
         FROM attendance_records as ar
         JOIN employees as e ON ar.employee_id = e.id

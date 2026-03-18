@@ -32,6 +32,32 @@ const getStatusColor = (status: string) => {
   }
 };
 
+/** Compute hours between two time strings (handles "HH:MM", "HH:MM:SS", or ISO datetime) */
+const computeHoursFromTimes = (checkIn: string | null | undefined, checkOut: string | null | undefined): number | null => {
+  if (!checkIn || !checkOut) return null;
+  const extractTime = (t: string) => {
+    const s = String(t).trim();
+    const afterT = s.includes("T") ? s.split("T")[1] : s;
+    const m = (afterT || s).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + (parseInt(m[3] || "0", 10) / 60) : NaN;
+  };
+  const inMins = extractTime(checkIn);
+  const outMins = extractTime(checkOut);
+  if (isNaN(inMins) || isNaN(outMins)) return null;
+  const diffMins = outMins - inMins;
+  return diffMins > 0 ? Math.round((diffMins / 60) * 100) / 100 : null;
+};
+
+/** Format hours for display - never shows NaN */
+const formatHours = (r: { total_hours_worked?: number | string | null; check_in_time?: string | null; check_out_time?: string | null }) => {
+  const fromBackend = r.total_hours_worked != null && !isNaN(Number(r.total_hours_worked))
+    ? Number(r.total_hours_worked)
+    : null;
+  const computed = fromBackend ?? computeHoursFromTimes(r.check_in_time, r.check_out_time);
+  if (computed == null || isNaN(computed)) return "—";
+  return `${computed.toFixed(2)}h`;
+};
+
 const AttendanceReportsPage: React.FC = () => {
   const { toast } = useToast();
   const [records, setRecords] = useState<any[]>([]);
@@ -64,14 +90,17 @@ const AttendanceReportsPage: React.FC = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   const filteredRecords = records.filter((r) => {
-    const emp = r.employee;
+    const firstName = r.first_name ?? r.employee?.first_name ?? "";
+    const lastName = r.last_name ?? r.employee?.last_name ?? "";
+    const empId = r.employee_code ?? r.employee?.employee_id ?? "";
+    const deptId = r.department_id ?? r.employee?.department_id;
     const matchesSearch =
       !searchTerm ||
-      emp?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp?.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+      firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(empId).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept =
-      deptFilter === "all" || emp?.department_id?.toString() === deptFilter;
+      deptFilter === "all" || deptId?.toString() === deptFilter;
     return matchesSearch && matchesDept;
   });
 
@@ -90,7 +119,7 @@ const AttendanceReportsPage: React.FC = () => {
   const attendanceRate = stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : "0";
 
   const deptStats = departments.map((dept) => {
-    const deptRecs = filteredRecords.filter((r) => r.employee?.department_id === dept.id);
+    const deptRecs = filteredRecords.filter((r) => (r.department_id ?? r.employee?.department_id) === dept.id);
     const s = calcStats(deptRecs);
     return { ...dept, ...s, rate: s.total > 0 ? ((s.present / s.total) * 100).toFixed(1) : "0" };
   }).filter((d) => d.total > 0);
@@ -348,8 +377,8 @@ const AttendanceReportsPage: React.FC = () => {
                       <TableRow key={r.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{r.employee?.first_name} {r.employee?.last_name}</p>
-                            <p className="text-xs text-muted-foreground">{r.employee?.employee_id}</p>
+                            <p className="font-medium">{r.first_name ?? r.employee?.first_name} {r.last_name ?? r.employee?.last_name}</p>
+                            <p className="text-xs text-muted-foreground">{r.employee_code ?? r.employee?.employee_id ?? "—"}</p>
                           </div>
                         </TableCell>
                         <TableCell>{r.attendance_date}</TableCell>
@@ -358,7 +387,7 @@ const AttendanceReportsPage: React.FC = () => {
                         </TableCell>
                         <TableCell>{r.check_in_time || "—"}</TableCell>
                         <TableCell>{r.check_out_time || "—"}</TableCell>
-                        <TableCell>{r.total_hours_worked ? `${r.total_hours_worked}h` : "—"}</TableCell>
+                        <TableCell>{formatHours(r)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

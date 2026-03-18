@@ -389,16 +389,24 @@ export class HRMApiService {
     return makeRequest<{ dashboard: any }>(`${this.BASE_URL}/payroll/dashboard`);
   }
 
-  static async exportPayroll(runId: number, format: string = 'excel'): Promise<Blob> {
+  static async exportPayroll(periodId: number, format: string = 'excel'): Promise<Blob> {
     const queryString = buildQueryString({ format });
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/payroll/export/${runId}${queryString}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api'}${this.BASE_URL}/payroll/export/period/${periodId}${queryString}`, {
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Export failed: ${response.statusText}`);
+      const errText = await response.text();
+      let errMsg = `Export failed: ${response.statusText}`;
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.error) errMsg = errJson.error;
+      } catch {
+        // use default
+      }
+      throw new Error(errMsg);
     }
-    
+
     return response.blob();
   }
 

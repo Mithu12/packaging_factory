@@ -70,9 +70,57 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   const [managers, setManagers] = useState<Employee[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const getInitialFormData = (): CreateEmployeeForm => ({
+    employee_id: '',
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: undefined,
+    marital_status: undefined,
+    nationality: '',
+    address: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'Pakistan',
+    phone: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relationship: '',
+    blood_group: '',
+    cnic: '',
+    passport_number: '',
+    tax_id: '',
+    designation_id: undefined,
+    reporting_manager_id: undefined,
+    department_id: undefined,
+    employment_type: 'permanent',
+    join_date: '',
+    confirmation_date: '',
+    probation_period_months: 6,
+    notice_period_days: 30,
+    work_location: '',
+    shift_type: 'day',
+    bank_account_number: '',
+    bank_name: '',
+    skill_level: 'beginner',
+    availability_status: 'available',
+    hourly_rate: undefined,
+    termination_date: '',
+    create_user_account: true,
+    username: '',
+    email: '',
+    password: '',
+    role_id: undefined,
+  });
+
   useEffect(() => {
     if (employee) {
+      const departmentId = employee.department_id ?? employee.department?.id;
+      const designationId = employee.designation_id ?? employee.designation?.id;
+      const hasUserAccount = !!employee.user_id;
       setFormData({
+        ...getInitialFormData(),
         employee_id: employee.employee_id,
         first_name: employee.first_name || '',
         last_name: employee.last_name || '',
@@ -93,9 +141,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         cnic: employee.cnic || '',
         passport_number: employee.passport_number || '',
         tax_id: employee.tax_id || '',
-        designation_id: employee.designation_id,
+        designation_id: designationId,
         reporting_manager_id: employee.reporting_manager_id,
-        department_id: employee.department_id,
+        department_id: departmentId,
         employment_type: employee.employment_type,
         join_date: employee.join_date || '',
         confirmation_date: employee.confirmation_date || '',
@@ -103,17 +151,20 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         notice_period_days: employee.notice_period_days,
         work_location: employee.work_location || '',
         shift_type: employee.shift_type,
+        termination_date: employee.termination_date || '',
         bank_account_number: employee.bank_account_number || '',
         bank_name: employee.bank_name || '',
         skill_level: employee.skill_level,
         availability_status: employee.availability_status,
         hourly_rate: employee.hourly_rate,
-        create_user_account: true,
+        create_user_account: !hasUserAccount,
         username: '',
         email: '',
         password: '',
         role_id: undefined,
       });
+    } else {
+      setFormData(getInitialFormData());
     }
   }, [employee]);
 
@@ -626,6 +677,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
           <Separator />
 
+          {formData.create_user_account ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">User Account Creation</CardTitle>
@@ -701,6 +753,16 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </div>
             </CardContent>
           </Card>
+          ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">User Account</CardTitle>
+              <CardDescription>
+                This employee already has a user account
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          )}
 
           <Separator />
 

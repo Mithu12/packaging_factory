@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import ExcelJS from 'exceljs';
 import {
   PayrollPeriod,
   PayrollComponent,
@@ -14,6 +15,7 @@ import { ProcessPayrollMediator } from '../mediators/payroll/ProcessPayroll.medi
 import { UpdatePayrollMediator } from '../mediators/payroll/UpdatePayroll.mediator';
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
+import { PDFGenerator } from '../../../services/pdf-generator';
 
 class PayrollController {
 
@@ -163,9 +165,18 @@ class PayrollController {
       const action = "POST /api/hrm/payroll/calculate";
       MyLogger.info(action, { body: req.body });
 
+      const payrollPeriodId = parseInt(req.body.payroll_period_id, 10);
+      if (isNaN(payrollPeriodId) || payrollPeriodId <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Valid payroll_period_id is required. Select a payroll period first.'
+        });
+        return;
+      }
+
       const calcRequest: PayrollCalculationRequest = {
-        payroll_period_id: parseInt(req.body.payroll_period_id),
-        employee_ids: req.body.employee_ids?.map((id: string) => parseInt(id)),
+        payroll_period_id: payrollPeriodId,
+        employee_ids: req.body.employee_ids?.map((id: string) => parseInt(id, 10)).filter((id: number) => !isNaN(id)),
         include_overtime: req.body.include_overtime !== false,
         include_loans: req.body.include_loans !== false,
         dry_run: req.body.dry_run === true
@@ -180,22 +191,21 @@ class PayrollController {
   }
 
   /**
-   * Get payroll runs
+   * Get payroll runs (employee-level payroll details for a period)
    */
   async getPayrollRuns(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const action = "GET /api/hrm/payroll/runs";
       MyLogger.info(action, { query: req.query });
 
-      const filters = {
-        payroll_period_id: req.query.payroll_period_id ? parseInt(req.query.payroll_period_id as string) : undefined,
-        status: req.query.status as string,
-        processed_by: req.query.processed_by ? parseInt(req.query.processed_by as string) : undefined
-      };
+      const periodId = req.query.payroll_period_id ? parseInt(req.query.payroll_period_id as string) : undefined;
 
-      // For now, returning mock data
-      // In a real implementation, you'd query the database
-      const runs: PayrollRun[] = [];
+      if (!periodId) {
+        serializeSuccessResponse(res, { runs: [] }, 'Payroll runs retrieved successfully');
+        return;
+      }
+
+      const runs = await GetPayrollInfoMediator.getPayrollDetailsForPeriod(periodId);
 
       serializeSuccessResponse(res, { runs }, 'Payroll runs retrieved successfully');
     } catch (error) {
@@ -332,6 +342,99 @@ class PayrollController {
       };
 
       serializeSuccessResponse(res, { dashboard }, 'Payroll dashboard retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export payroll salary sheet by period (Excel or PDF)
+   */
+  async exportPayrollByPeriod(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/hrm/payroll/export/period/:periodId";
+      const periodId = parseInt(req.params.periodId);
+      const format = ((req.query.format as string) || 'excel').toLowerCase();
+
+      MyLogger.info(action, { periodId, format });
+
+      const details = await GetPayrollInfoMediator.getPayrollDetailsForPeriod(periodId);
+
+      if (details.length === 0) {
+        res.status(404).json({
+          success: false,
+          error: 'No payroll data found for this period. Calculate payroll first.'
+        });
+        return;
+      }
+
+      const periodName = (details[0]?.payroll_period_name as string) || `Period-${periodId}`;
+      const safeName = periodName.replace(/[^a-zA-Z0-9-_]/g, '_');
+      const dateStr = new Date().toISOString().slice(0, 10);
+
+      const mapRow = (d: any) => ({
+        employee_code: d.employee_code || '',
+        employee_name: d.employee_name || '',
+        department_name: d.department_name || '',
+        designation_title: d.designation_title || '',
+        basic_salary: parseFloat(d.basic_salary || 0),
+        total_earnings: parseFloat(d.total_earnings || 0),
+        total_deductions: parseFloat(d.total_deductions || 0),
+        net_salary: parseFloat(d.net_salary || 0),
+        status: d.status || '',
+        payment_date: d.payment_date,
+        payment_reference: d.payment_reference || ''
+      });
+
+      if (format === 'pdf') {
+        const pdfBuffer = await PDFGenerator.generatePayrollSalarySheetPDF(
+          periodName,
+          details.map(mapRow)
+        );
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=salary-sheet-${safeName}-${dateStr}.pdf`);
+        res.send(pdfBuffer);
+      } else {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Salary Sheet');
+
+        sheet.columns = [
+          { header: 'Employee ID', key: 'employee_code', width: 14 },
+          { header: 'Name', key: 'employee_name', width: 24 },
+          { header: 'Department', key: 'department_name', width: 18 },
+          { header: 'Designation', key: 'designation_title', width: 18 },
+          { header: 'Basic Salary', key: 'basic_salary', width: 14 },
+          { header: 'Total Earnings', key: 'total_earnings', width: 14 },
+          { header: 'Total Deductions', key: 'total_deductions', width: 14 },
+          { header: 'Net Salary', key: 'net_salary', width: 14 },
+          { header: 'Status', key: 'status', width: 12 },
+          { header: 'Payment Date', key: 'payment_date', width: 14 }
+        ];
+
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.alignment = { horizontal: 'left' };
+
+        details.forEach((d) => {
+          sheet.addRow({
+            employee_code: d.employee_code || '',
+            employee_name: d.employee_name || '',
+            department_name: d.department_name || '',
+            designation_title: d.designation_title || '',
+            basic_salary: parseFloat(d.basic_salary || 0),
+            total_earnings: parseFloat(d.total_earnings || 0),
+            total_deductions: parseFloat(d.total_deductions || 0),
+            net_salary: parseFloat(d.net_salary || 0),
+            status: d.status || '',
+            payment_date: d.payment_date ? new Date(d.payment_date).toLocaleDateString() : ''
+          });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=salary-sheet-${safeName}-${dateStr}.xlsx`);
+        res.send(Buffer.from(buffer));
+      }
     } catch (error) {
       next(error);
     }

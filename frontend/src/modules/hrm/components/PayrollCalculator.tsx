@@ -12,12 +12,18 @@ import { Separator } from '@/components/ui/separator';
 import { Calculator, Users, CheckCircle, Clock, AlertCircle, DollarSign } from 'lucide-react';
 import { PayrollCalculatorProps, Employee, PayrollCalculationForm } from '../types';
 
+const formatCurrency = (amount: number, currency: string) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+
 const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
   employees,
   selectedEmployeeIds,
   onCalculate,
   onSelectAll,
-  loading = false
+  onGeneratePayslips,
+  loading = false,
+  canCalculate = true,
+  currency = "USD"
 }) => {
   const [calculationData, setCalculationData] = useState<PayrollCalculationForm>({
     month: new Date().getMonth() + 1,
@@ -165,7 +171,7 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
               </div>
 
               <div className="flex items-end">
-                <Button type="submit" disabled={loading} className="w-full">
+                <Button type="submit" disabled={loading || !canCalculate} className="w-full">
                   <Calculator className="h-4 w-4 mr-2" />
                   {loading ? 'Calculating...' : 'Calculate Payroll'}
                 </Button>
@@ -256,7 +262,7 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">Est. Salary:</span>
                           <span className="font-medium">
-                            PKR {(employee.designation?.min_salary || 50000).toLocaleString()}
+                            {formatCurrency(employee.designation?.min_salary || 50000, currency)}
                           </span>
                         </div>
                       </div>
@@ -287,7 +293,7 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
 
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  PKR {calculateEstimatedTotal().toLocaleString()}
+                  {formatCurrency(calculateEstimatedTotal(), currency)}
                 </div>
                 <div className="text-sm text-muted-foreground">Est. Total Salary</div>
               </div>
@@ -301,7 +307,7 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
 
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
-                  PKR {(calculateEstimatedTotal() / selectedEmployeeIds.length).toLocaleString()}
+                  {formatCurrency(calculateEstimatedTotal() / selectedEmployeeIds.length, currency)}
                 </div>
                 <div className="text-sm text-muted-foreground">Avg. per Employee</div>
               </div>
@@ -332,11 +338,8 @@ const PayrollCalculator: React.FC<PayrollCalculatorProps> = ({
           Clear Selection
         </Button>
         <Button
-          onClick={() => {
-            // Generate payslips for selected employees
-            console.log('Generate payslips for:', selectedEmployeeIds);
-          }}
-          disabled={loading || selectedEmployeeIds.length === 0}
+          onClick={() => onGeneratePayslips?.(selectedEmployeeIds)}
+          disabled={loading || !onGeneratePayslips}
         >
           Generate Payslips
         </Button>

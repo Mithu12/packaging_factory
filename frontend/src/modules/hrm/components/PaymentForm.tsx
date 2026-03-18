@@ -24,12 +24,16 @@ import {
 import { PaymentFormProps } from '../types';
 import { getPaymentMethodOptions } from '../data/payroll-data';
 
+const formatCurrency = (amount: number, currency: string) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
+
 const PaymentForm: React.FC<PaymentFormProps> = ({
   selectedEmployees,
   selectedPayrollRecords,
   onSubmit,
   onCancel,
-  loading = false
+  loading = false,
+  currency = "USD"
 }) => {
   const [formData, setFormData] = useState({
     payroll_period_id: selectedPayrollRecords[0]?.payroll_period_id || 1,
@@ -171,14 +175,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
             <div className="text-center p-3 bg-muted rounded-lg">
               <div className="text-2xl font-bold text-green-600">
-                PKR {totalAmount.toLocaleString()}
+                {formatCurrency(totalAmount, currency)}
               </div>
               <div className="text-sm text-muted-foreground">Total Amount</div>
             </div>
 
             <div className="text-center p-3 bg-muted rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
-                PKR {(totalAmount / selectedEmployees.length).toLocaleString()}
+                {formatCurrency(totalAmount / selectedEmployees.length, currency)}
               </div>
               <div className="text-sm text-muted-foreground">Avg. per Employee</div>
             </div>
@@ -197,7 +201,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
               {selectedEmployees.map(employee => (
                 <Badge key={employee.id} variant="secondary" className="text-xs">
-                  {employee.full_name} - PKR {selectedPayrollRecords.find(r => r.employee_id === employee.id)?.net_salary.toLocaleString()}
+                  {employee.full_name} - {formatCurrency(selectedPayrollRecords.find(r => r.employee_id === employee.id)?.net_salary ?? 0, currency)}
                 </Badge>
               ))}
             </div>

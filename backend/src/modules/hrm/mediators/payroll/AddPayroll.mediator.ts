@@ -13,19 +13,22 @@ export class AddPayrollMediator {
     try {
       MyLogger.info(action, { periodData, createdBy });
 
+      const periodType = periodData.period_type || 'monthly';
+
       const insertQuery = `
         INSERT INTO payroll_periods (
-          name, start_date, end_date, status, description, created_by, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          name, period_type, start_date, end_date, status, description, created_by, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
       const values = [
         periodData.name,
+        periodType,
         periodData.start_date,
         periodData.end_date,
         'open', // status defaults to open
-        periodData.description,
+        periodData.description || null,
         createdBy,
         new Date()
       ];

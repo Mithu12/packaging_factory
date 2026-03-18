@@ -43,6 +43,7 @@ import { SettingsApi } from "@/services/settings-api"
 import { 
   CompanySettings, 
   SystemSettings, 
+  PayrollSettings,
   NotificationSettings, 
   SecuritySettings, 
   EcommerceSettings,
@@ -81,6 +82,11 @@ export default function Settings() {
     timezone: 'bdt',
     date_format: 'dd/mm/yyyy',
     number_format: 'bd'
+  })
+
+  const [payrollSettings, setPayrollSettings] = useState<PayrollSettings>({
+    payroll_salary_mode: 'hourly',
+    payroll_overtime_enabled: true
   })
   
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -140,9 +146,10 @@ export default function Settings() {
       
       // Try to load all settings, if they don't exist, initialize defaults
       try {
-        const [company, system, notifications, security, ecommerce, integrations] = await Promise.all([
+        const [company, system, payroll, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
+          SettingsApi.getPayrollSettings().catch(() => ({ payroll_salary_mode: 'hourly' })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
           SettingsApi.getEcommerceSettings(),
@@ -151,6 +158,10 @@ export default function Settings() {
         
         setCompanySettings(company)
         setSystemSettings(system)
+        setPayrollSettings({
+          payroll_salary_mode: ((payroll?.payroll_salary_mode as string) || 'hourly') as 'hourly' | 'monthly',
+          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false
+        })
         setNotificationSettings(notifications)
         setSecuritySettings(security)
         setEcommerceSettings(ecommerce)
@@ -161,9 +172,10 @@ export default function Settings() {
         await SettingsApi.initializeDefaultSettings()
         
         // Reload settings after initialization
-        const [company, system, notifications, security, ecommerce, integrations] = await Promise.all([
+        const [company, system, payroll, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
+          SettingsApi.getPayrollSettings().catch(() => ({ payroll_salary_mode: 'hourly' })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
           SettingsApi.getEcommerceSettings(),
@@ -172,6 +184,10 @@ export default function Settings() {
         
         setCompanySettings(company)
         setSystemSettings(system)
+        setPayrollSettings({
+          payroll_salary_mode: ((payroll?.payroll_salary_mode as string) || 'hourly') as 'hourly' | 'monthly',
+          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false
+        })
         setNotificationSettings(notifications)
         setSecuritySettings(security)
         setEcommerceSettings(ecommerce)
@@ -207,6 +223,9 @@ export default function Settings() {
             SettingsApi.updateSecuritySettings(securitySettings),
             SettingsApi.updateEcommerceSettings(ecommerceSettings)
           ])
+          break
+        case 'payroll':
+          await SettingsApi.updatePayrollSettings(payrollSettings)
           break
         case 'integrations':
           await SettingsApi.updateIntegrationSettings(integrationSettings)
@@ -433,6 +452,7 @@ export default function Settings() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
@@ -886,6 +906,83 @@ export default function Settings() {
                         <SelectItem value="in">IN (1,23,456.78) - Indian Format</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Payroll Settings */}
+        <TabsContent value="payroll">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  <CardTitle>Payroll Salary Calculation</CardTitle>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Choose how employee salary is calculated. Only one mode can be active.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Salary Calculation Mode</Label>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div
+                      className={`flex flex-col p-4 border rounded-lg cursor-pointer transition-colors ${
+                        payrollSettings.payroll_salary_mode === 'hourly'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-input hover:bg-muted/50'
+                      }`}
+                      onClick={() => setPayrollSettings(prev => ({ ...prev, payroll_salary_mode: 'hourly' }))}
+                    >
+                      <div className="font-medium flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center">
+                          {payrollSettings.payroll_salary_mode === 'hourly' && (
+                            <span className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        Hour Count
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Salary is calculated by actual hours worked from attendance records.
+                      </p>
+                    </div>
+                    <div
+                      className={`flex flex-col p-4 border rounded-lg cursor-pointer transition-colors ${
+                        payrollSettings.payroll_salary_mode === 'monthly'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-input hover:bg-muted/50'
+                      }`}
+                      onClick={() => setPayrollSettings(prev => ({ ...prev, payroll_salary_mode: 'monthly' }))}
+                    >
+                      <div className="font-medium flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center">
+                          {payrollSettings.payroll_salary_mode === 'monthly' && (
+                            <span className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        Month Count
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Salary is calculated monthly, deducting for absent days based on attendance.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-6 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">Overtime Count</Label>
+                      <p className="text-sm text-muted-foreground">Include overtime hours in payroll (paid at 1.5x rate)</p>
+                    </div>
+                    <Switch
+                      checked={payrollSettings.payroll_overtime_enabled !== false}
+                      onCheckedChange={(checked) => setPayrollSettings(prev => ({ ...prev, payroll_overtime_enabled: checked }))}
+                    />
                   </div>
                 </div>
               </CardContent>

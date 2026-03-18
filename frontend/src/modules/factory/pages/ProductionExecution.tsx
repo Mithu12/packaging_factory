@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   Filter,
   Plus,
   RefreshCw,
+  RotateCw,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -117,6 +118,13 @@ export default function ProductionExecution() {
   };
   const [createRunData, setCreateRunData] =
     useState<CreateRunFormState>(emptyCreateRunState);
+  const [continuationRerunStats, setContinuationRerunStats] = useState<{
+    remainingGood: number;
+    totalGoodProduced: number;
+    totalRejected: number;
+    rejectionRate: number;
+    estimatedToProduce: number;
+  } | null>(null);
 
   // API query parameters
   const queryParams: ProductionRunQueryParams = {
@@ -146,7 +154,7 @@ export default function ProductionExecution() {
       WorkOrdersApiService.getWorkOrders({
         limit: 500,
         sort_by: "deadline",
-        status: "released" // Only show released work orders for production runs
+        // Include released and in_progress for create/continuation runs
       }),
   });
 
@@ -164,13 +172,17 @@ export default function ProductionExecution() {
   const createRunMutation = useMutation({
     mutationFn: (data: CreateProductionRunRequest) =>
       ProductionExecutionApiService.createProductionRun(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
         queryKey: productionExecutionQueryKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: productionExecutionQueryKeys.lists(),
       });
       toast.success("Production run created successfully");
       setShowCreateRunDialog(false);
       setCreateRunData(emptyCreateRunState);
+      setContinuationRerunStats(null);
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to create production run");
@@ -189,6 +201,21 @@ export default function ProductionExecution() {
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to start production run");
+    },
+  });
+
+  // Resume production run mutation
+  const resumeMutation = useMutation({
+    mutationFn: (id: string) =>
+      ProductionExecutionApiService.resumeProductionRun(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: productionExecutionQueryKeys.all,
+      });
+      toast.success("Production run resumed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to resume production run");
     },
   });
 
@@ -280,7 +307,82 @@ export default function ProductionExecution() {
       ProductionExecutionApiService.getProductionRunById(selectedRunId!),
     enabled: !!selectedRunId && showRunDetails,
   });
-  const workOrders = workOrdersData?.work_orders || [];
+  const allWorkOrders = workOrdersData?.work_orders || [];
+  const workOrdersBase = allWorkOrders.filter(
+    (wo: WorkOrder) => wo.status === "released" || wo.status === "in_progress"
+  );
+
+  // When opening via Continue Production, the pre-selected work order may not be in the list
+  // (e.g. pagination, factory filter). Fetch it by ID so it appears in the dropdown.
+  const preSelectedWoId =
+    showCreateRunDialog && createRunData.work_order_id
+      ? createRunData.work_order_id
+      : null;
+  const needFetchedWorkOrder =
+    !!preSelectedWoId &&
+    !workOrdersBase.some(
+      (w: WorkOrder) => w.id.toString() === preSelectedWoId
+    );
+
+  const { data: fetchedWorkOrder } = useQuery({
+    queryKey: ["work-order", preSelectedWoId],
+    queryFn: () =>
+      WorkOrdersApiService.getWorkOrderById(preSelectedWoId!),
+    enabled: !!needFetchedWorkOrder && !!preSelectedWoId,
+  });
+
+  const workOrders = (() => {
+    if (
+      fetchedWorkOrder &&
+      preSelectedWoId &&
+      fetchedWorkOrder.id?.toString() === preSelectedWoId
+    ) {
+      const alreadyIncluded = workOrdersBase.some(
+        (w: WorkOrder) => w.id.toString() === preSelectedWoId
+      );
+      if (!alreadyIncluded) {
+        return [...workOrdersBase, fetchedWorkOrder];
+      }
+    }
+    return workOrdersBase;
+  })();
+
+  // When fetched work order loads for continuation run, update target_quantity if it was 0
+  useEffect(() => {
+    if (
+      fetchedWorkOrder &&
+      preSelectedWoId &&
+      createRunData.work_order_id === preSelectedWoId &&
+      createRunData.notes?.startsWith("Continuation run for")
+    ) {
+      const woQuantity = Number(fetchedWorkOrder.quantity ?? 0);
+      const totalProduced = productionRuns
+        .filter(
+          (r: ProductionRun) =>
+            r.work_order_id.toString() === preSelectedWoId &&
+            r.status === "completed"
+        )
+        .reduce(
+          (sum: number, r: ProductionRun) =>
+            sum + Number(r.produced_quantity ?? 0),
+          0
+        );
+      const remaining = Math.max(0, woQuantity - totalProduced);
+      if (remaining > 0 && createRunData.target_quantity === "") {
+        setCreateRunData((prev) => ({
+          ...prev,
+          target_quantity: String(remaining),
+        }));
+      }
+    }
+  }, [
+    fetchedWorkOrder,
+    preSelectedWoId,
+    createRunData.work_order_id,
+    createRunData.notes,
+    createRunData.target_quantity,
+    productionRuns,
+  ]);
   const productionLines = productionLinesData || [];
   const operators = operatorsData || [];
   const createDialogLoading =
@@ -293,6 +395,7 @@ export default function ProductionExecution() {
 
   const handleOpenCreateRun = () => {
     setCreateRunData(emptyCreateRunState);
+    setContinuationRerunStats(null);
     setShowCreateRunDialog(true);
   };
 
@@ -352,8 +455,8 @@ export default function ProductionExecution() {
     createRunMutation.mutate(payload);
   };
 
-  const handleStartRun = (run: ProductionRun) => {
-    startMutation.mutate(run.id.toString());
+  const handleStartRunById = (runId: string) => {
+    startMutation.mutate(runId);
   };
 
   const handlePauseRun = (run: ProductionRun) => {
@@ -362,10 +465,11 @@ export default function ProductionExecution() {
 
   const handleCompleteRun = (run: ProductionRun) => {
     setSelectedRun(run);
+    const existing = Number(run.produced_quantity ?? 0);
     setCompleteData({
-      produced_quantity: run.produced_quantity || 0,
-      good_quantity: run.good_quantity || 0,
-      rejected_quantity: run.rejected_quantity || 0,
+      produced_quantity: existing > 0 ? 0 : existing,
+      good_quantity: existing > 0 ? 0 : Number(run.good_quantity ?? 0),
+      rejected_quantity: existing > 0 ? 0 : Number(run.rejected_quantity ?? 0),
       notes: "",
     });
     setShowCompleteDialog(true);
@@ -383,6 +487,56 @@ export default function ProductionExecution() {
   const handleViewDetails = (run: ProductionRun) => {
     setSelectedRun(run);
     setShowRunDetails(true);
+  };
+
+  const handleContinueProduction = (run: ProductionRun) => {
+    const wo = allWorkOrders.find(
+      (w: WorkOrder) => w.id.toString() === run.work_order_id.toString()
+    );
+    const woQuantity = wo ? Number(wo.quantity) : 0;
+    const completedRunsForWo = productionRuns.filter(
+      (r: ProductionRun) =>
+        r.work_order_id.toString() === run.work_order_id.toString() &&
+        r.status === "completed"
+    );
+    const totalGoodProduced = completedRunsForWo.reduce(
+      (sum: number, r: ProductionRun) => sum + Number(r.good_quantity ?? 0),
+      0
+    );
+    const totalProduced = completedRunsForWo.reduce(
+      (sum: number, r: ProductionRun) => sum + Number(r.produced_quantity ?? 0),
+      0
+    );
+    const totalRejected = completedRunsForWo.reduce(
+      (sum: number, r: ProductionRun) => sum + Number(r.rejected_quantity ?? 0),
+      0
+    );
+    const remainingGood = Math.max(0, woQuantity - totalGoodProduced);
+    const rejectionRate =
+      totalProduced > 0 ? totalRejected / totalProduced : 0;
+    const estimatedToProduce =
+      rejectionRate < 1 && remainingGood > 0
+        ? Math.ceil(remainingGood / (1 - rejectionRate))
+        : remainingGood;
+
+    setCreateRunData({
+      ...emptyCreateRunState,
+      work_order_id: run.work_order_id.toString(),
+      production_line_id: run.production_line_id?.toString() ?? "",
+      operator_id: run.operator_id?.toString() ?? "",
+      target_quantity: estimatedToProduce > 0 ? String(estimatedToProduce) : "",
+      scheduled_start_time: "",
+      planned_cycle_time_seconds: "",
+      notes: `Continuation run for ${run.run_number}`,
+    });
+    setContinuationRerunStats({
+      remainingGood,
+      totalGoodProduced,
+      totalRejected,
+      rejectionRate,
+      estimatedToProduce,
+    });
+    setShowCreateRunDialog(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -620,6 +774,8 @@ export default function ProductionExecution() {
                     const StatusIcon = getStatusIcon(run.status);
                     const targetQuantity = Number(run.target_quantity ?? 0);
                     const producedQuantity = Number(run.produced_quantity ?? 0);
+                    const goodQuantity = Number(run.good_quantity ?? 0);
+                    const rejectedQuantity = Number(run.rejected_quantity ?? 0);
                     const efficiency = Number(run.efficiency_percentage ?? 0);
                     const quality = Number(run.quality_percentage ?? 0);
                     const progress =
@@ -630,6 +786,13 @@ export default function ProductionExecution() {
                       Math.max(progress, 0),
                       100
                     );
+                    const remainingGood = Math.max(0, targetQuantity - goodQuantity);
+                    const rejectionRate =
+                      producedQuantity > 0 ? rejectedQuantity / producedQuantity : 0;
+                    const estimatedToRerun =
+                      rejectionRate < 1 && remainingGood > 0
+                        ? Math.ceil(remainingGood / (1 - rejectionRate))
+                        : remainingGood;
 
                     return (
                       <TableRow key={run.id}>
@@ -657,6 +820,16 @@ export default function ProductionExecution() {
                           <div className="space-y-1">
                             <div className="text-sm">
                               {producedQuantity} / {targetQuantity}
+                              {run.status === "completed" &&
+                                goodQuantity < targetQuantity &&
+                                remainingGood > 0 && (
+                                  <span
+                                    className="ml-1 text-xs text-amber-600 dark:text-amber-400"
+                                    title={`${remainingGood} good needed; ~${estimatedToRerun} to produce (${(rejectionRate * 100).toFixed(0)}% rejection rate)`}
+                                  >
+                                    (rerun: ~{estimatedToRerun})
+                                  </span>
+                                )}
                             </div>
                             <Progress value={normalizedProgress} className="h-2" />
                           </div>
@@ -682,8 +855,13 @@ export default function ProductionExecution() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleStartRun(run)}
+                                data-run-id={run.id}
+                                onClick={(e) => {
+                                  const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                  if (id) handleStartRunById(id);
+                                }}
                                 disabled={startMutation.isPending}
+                                title="Start run"
                               >
                                 <Play className="h-4 w-4" />
                               </Button>
@@ -693,8 +871,13 @@ export default function ProductionExecution() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handlePauseRun(run)}
+                                  data-run-id={run.id}
+                                  onClick={(e) => {
+                                    const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                    if (id) pauseMutation.mutate({ id });
+                                  }}
                                   disabled={pauseMutation.isPending}
+                                  title="Pause run"
                                 >
                                   <Pause className="h-4 w-4" />
                                 </Button>
@@ -707,7 +890,15 @@ export default function ProductionExecution() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => handleCompleteRun(run)}
+                                  data-run-id={run.id}
+                                  onClick={(e) => {
+                                    const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                    if (id) {
+                                      const r = productionRuns.find((p: ProductionRun) => p.id.toString() === id);
+                                      if (r) handleCompleteRun(r);
+                                    }
+                                  }}
+                                  title="Complete run"
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
@@ -717,12 +908,46 @@ export default function ProductionExecution() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleStartRun(run)}
+                                data-run-id={run.id}
+                                onClick={(e) => {
+                                  const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                  if (id) handleStartRunById(id);
+                                }}
                                 disabled={startMutation.isPending}
+                                title="Resume run"
                               >
                                 <Play className="h-4 w-4" />
                               </Button>
                             )}
+                            {run.status === "completed" &&
+                              producedQuantity < targetQuantity && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    data-run-id={run.id}
+                                    onClick={(e) => {
+                                      const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                      if (id) resumeMutation.mutate(id);
+                                    }}
+                                    disabled={resumeMutation.isPending}
+                                    title="Resume this run (reopen and continue on same run)"
+                                  >
+                                    <RotateCw className="h-4 w-4 mr-1" />
+                                    Resume
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleContinueProduction(run)}
+                                    disabled={createRunMutation.isPending}
+                                    title="Create new run for remaining quantity"
+                                  >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    New run
+                                  </Button>
+                                </>
+                              )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -749,6 +974,7 @@ export default function ProductionExecution() {
           setShowCreateRunDialog(open);
           if (!open) {
             setCreateRunData(emptyCreateRunState);
+            setContinuationRerunStats(null);
           }
         }}
       >
@@ -848,6 +1074,27 @@ export default function ProductionExecution() {
                 </Select>
               </div>
             </div>
+
+            {continuationRerunStats && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-1 text-sm">
+                <div className="font-medium text-amber-900 dark:text-amber-100">
+                  Rerun estimate (accounting for rejections)
+                </div>
+                <div className="text-amber-800 dark:text-amber-200 space-y-0.5">
+                  <div>
+                    Good units needed: {formatNumber(continuationRerunStats.remainingGood)} (target − {formatNumber(continuationRerunStats.totalGoodProduced)} already good)
+                  </div>
+                  {continuationRerunStats.totalRejected > 0 && (
+                    <div>
+                      Past rejection rate: {(continuationRerunStats.rejectionRate * 100).toFixed(1)}% ({formatNumber(continuationRerunStats.totalRejected)} rejected of {formatNumber(continuationRerunStats.totalGoodProduced + continuationRerunStats.totalRejected)} produced)
+                    </div>
+                  )}
+                  <div className="font-medium">
+                    Suggested target: {formatNumber(continuationRerunStats.estimatedToProduce)} units to produce (to yield ~{formatNumber(continuationRerunStats.remainingGood)} good)
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1172,44 +1419,66 @@ export default function ProductionExecution() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {selectedRun && Number(selectedRun.produced_quantity ?? 0) > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Previously produced: {selectedRun.produced_quantity} (good:{" "}
+                {selectedRun.good_quantity ?? 0}, rejected:{" "}
+                {selectedRun.rejected_quantity ?? 0}). Enter additional produced.
+              </p>
+            )}
             <div>
-              <Label htmlFor="produced">Produced Quantity</Label>
+              <Label htmlFor="produced">
+                {selectedRun && Number(selectedRun.produced_quantity ?? 0) > 0
+                  ? "Additional Produced"
+                  : "Produced Quantity"}
+              </Label>
               <Input
                 id="produced"
                 type="number"
+                min={0}
                 value={completeData.produced_quantity}
                 onChange={(e) =>
                   setCompleteData({
                     ...completeData,
-                    produced_quantity: Number(e.target.value),
+                    produced_quantity: Number(e.target.value) || 0,
                   })
                 }
               />
             </div>
             <div>
-              <Label htmlFor="good">Good Quantity</Label>
+              <Label htmlFor="good">
+                {selectedRun && Number(selectedRun.produced_quantity ?? 0) > 0
+                  ? "Additional Good"
+                  : "Good Quantity"}
+              </Label>
               <Input
                 id="good"
                 type="number"
+                min={0}
                 value={completeData.good_quantity}
                 onChange={(e) =>
                   setCompleteData({
                     ...completeData,
-                    good_quantity: Number(e.target.value),
+                    good_quantity: Number(e.target.value) || 0,
                   })
                 }
               />
             </div>
             <div>
-              <Label htmlFor="rejected">Rejected Quantity</Label>
+              <Label htmlFor="rejected">
+                {selectedRun && Number(selectedRun.produced_quantity ?? 0) > 0
+                  ? "Additional Rejected"
+                  : "Rejected Quantity"}
+              </Label>
               <Input
                 id="rejected"
                 type="number"
+                min={0}
                 value={completeData.rejected_quantity}
                 onChange={(e) =>
                   setCompleteData({
                     ...completeData,
-                    rejected_quantity: Number(e.target.value),
+                    rejected_quantity: Number(e.target.value) || 0,
                   })
                 }
               />
