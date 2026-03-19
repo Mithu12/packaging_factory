@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -29,7 +29,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -48,11 +48,35 @@ import { UsersApiService, User } from "@/services/users-api";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROLE_NAMES } from "@/services/rbac-types";
+import { QuickAddProductDialog } from "./QuickAddProductDialog";
+import { QuickAddCustomerDialog } from "./QuickAddCustomerDialog";
+import type { Product } from "@/services/types";
 
 const DEFAULT_QUOTATION_TERMS = `Price Excluding TAX & Vat .
 50% in advance and rest of payment will be Bank Transfer.
 Payment should be made by Cash/Cash Cheque on be heaved Micromedia or Bank Transfer.
 Delivery will be confirm within 10 working days after getting the approval.`;
+
+/** Compare ids as strings so number/string mismatch never breaks selection or lookups. */
+function idEq(a: unknown, b: unknown): boolean {
+    return String(a) === String(b);
+}
+
+function productToFactoryProduct(created: Product): FactoryProduct {
+    return {
+        id: Number(created.id),
+        name: created.name,
+        sku: created.sku,
+        description: created.description,
+        unit_price: Number(created.selling_price),
+        currency: "BDT",
+        current_stock:
+            created.current_stock != null ? Number(created.current_stock) : undefined,
+        status: created.status,
+        created_at: created.created_at,
+        updated_at: created.updated_at,
+    };
+}
 
 // Form validation schema factory function
 const createOrderFormSchema = (isAdmin: boolean) => z.object({
@@ -119,6 +143,10 @@ export default function OrderEntryForm({
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [loadingFactories, setLoadingFactories] = useState(false);
     const [loadingUsers, setLoadingUsers] = useState(false);
+    const [quickAddProductOpen, setQuickAddProductOpen] = useState(false);
+    const [quickAddCustomerOpen, setQuickAddCustomerOpen] = useState(false);
+    const [quickAddLineIndex, setQuickAddLineIndex] = useState<number | null>(null);
+    const quickAddLineIndexRef = useRef<number | null>(null);
     const { formatCurrency } = useFormatting();
     const { user } = useAuth();
 
@@ -156,26 +184,30 @@ export default function OrderEntryForm({
     });
 
     // Load customers and products
-    const loadCustomers = useCallback(async () => {
+    const loadCustomers = useCallback(async (): Promise<FactoryCustomer[]> => {
         try {
             setLoadingCustomers(true);
             const data = await CustomerOrdersApiService.getAllCustomers();
             setCustomers(data);
+            return data;
         } catch (error) {
             console.error('Error loading customers:', error);
+            return [];
         } finally {
             setLoadingCustomers(false);
         }
     }, []);
 
-    const loadProducts = useCallback(async () => {
+    const loadProducts = useCallback(async (): Promise<FactoryProduct[]> => {
         try {
             setLoadingProducts(true);
             const data = await CustomerOrdersApiService.getAllProducts();
             console.log('Loaded products:', data);
             setProducts(data);
+            return data;
         } catch (error) {
             console.error('Error loading products:', error);
+            return [];
         } finally {
             setLoadingProducts(false);
         }
@@ -285,7 +317,7 @@ export default function OrderEntryForm({
             setIsSubmitting(true);
 
             // Find selected customer
-            const selectedCustomer = customers.find(c => c.id.toString() === data.factory_customer_id);
+            const selectedCustomer = customers.find(c => idEq(c.id, data.factory_customer_id));
 
             const orderData: CreateCustomerOrderRequest = {
                 factory_customer_id: parseInt(data.factory_customer_id),
@@ -293,7 +325,18 @@ export default function OrderEntryForm({
                 factory_customer_email: selectedCustomer?.email || "",
                 factory_customer_phone: selectedCustomer?.phone,
                 payment_terms: selectedCustomer?.payment_terms,
-                factory_id: data.factory_id, // Include factory_id only if it exists
+                factory_id: (() => {
+                    const raw = data.factory_id as unknown;
+                    if (raw === undefined || raw === null || raw === "") {
+                        return undefined;
+                    }
+                    const s = String(raw).trim();
+                    if (!s) {
+                        return undefined;
+                    }
+                    const n = Number(s);
+                    return Number.isFinite(n) ? s : undefined;
+                })(),
                 order_date: data.order_date,
                 required_date: data.required_date,
                 priority: data.priority,
@@ -315,9 +358,9 @@ export default function OrderEntryForm({
                     postal_code: selectedCustomer?.address?.postal_code || "",
                 },
                 line_items: data.line_items.map(item => {
-                    const selectedProduct = products.find(p => p.id.toString() === item.product_id);
+                    const selectedProduct = products.find(p => idEq(p.id, item.product_id));
                     return {
-                        product_id: parseInt(item.product_id),
+                        product_id: parseInt(String(item.product_id), 10),
                         // product_name: selectedProduct?.name || "",
                         // product_sku: selectedProduct?.sku || "",
                         quantity: item.quantity,
@@ -326,7 +369,9 @@ export default function OrderEntryForm({
                     };
                 }),
                 status: initialStatus || 'pending',
-                valid_until: data.valid_until,
+                valid_until: data.valid_until?.trim()
+                    ? data.valid_until.trim()
+                    : undefined,
                 tax_rate: data.tax_rate,
                 subtotal: calculateOrderTotal(),
                 tax_amount: (calculateOrderTotal() * data.tax_rate) / 100,
@@ -380,7 +425,7 @@ export default function OrderEntryForm({
 
     // Get product details for display
     const getProductDetails = (productId: string) => {
-        const product = products.find(p => p.id.toString() === productId.toString());
+        const product = products.find(p => idEq(p.id, productId));
         console.log('Getting product details for ID:', productId, 'Found:', product, 'All products:', products);
         return product;
     };
@@ -393,6 +438,54 @@ export default function OrderEntryForm({
     };
 
     return (
+        <>
+        <QuickAddCustomerDialog
+            open={quickAddCustomerOpen}
+            onOpenChange={setQuickAddCustomerOpen}
+            onCustomerCreated={async (created: FactoryCustomer) => {
+                const idStr = String(created.id);
+                const loaded = await loadCustomers();
+                // Prefer POST response (includes address) over list row shape
+                const next = [
+                    created,
+                    ...loaded.filter((c) => !idEq(c.id, idStr)),
+                ];
+                setCustomers(next);
+                form.setValue("factory_customer_id", idStr, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true,
+                });
+            }}
+        />
+        <QuickAddProductDialog
+            open={quickAddProductOpen}
+            onOpenChange={setQuickAddProductOpen}
+            onProductCreated={async (created: Product) => {
+                const idx = quickAddLineIndexRef.current;
+                const idStr = String(created.id);
+                const unitPrice = Number(created.selling_price);
+                const loaded = await loadProducts();
+                let nextList = loaded;
+                if (!nextList.some((p) => idEq(p.id, idStr))) {
+                    nextList = [productToFactoryProduct(created), ...nextList];
+                    setProducts(nextList);
+                }
+                if (idx !== null && idx >= 0) {
+                    form.setValue(`line_items.${idx}.product_id`, idStr, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                        shouldTouch: true,
+                    });
+                    form.setValue(`line_items.${idx}.unit_price`, unitPrice, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                    });
+                }
+                quickAddLineIndexRef.current = null;
+                setQuickAddLineIndex(null);
+            }}
+        />
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-entry-dialog">
                 <DialogHeader>
@@ -423,8 +516,24 @@ export default function OrderEntryForm({
                                     name="factory_customer_id"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel data-testid="customer-select-label">Customer *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <div className="flex items-center gap-2">
+                                                <FormLabel className="flex-1" data-testid="customer-select-label">Customer *</FormLabel>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="shrink-0 h-8 w-8"
+                                                    title="Quick add customer"
+                                                    onClick={() => setQuickAddCustomerOpen(true)}
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <Select
+                                                key={`customer-select-${customers.length}-${field.value ?? ""}`}
+                                                onValueChange={(v) => field.onChange(String(v))}
+                                                value={field.value ? String(field.value) : ""}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger data-testid="customer-select-trigger">
                                                         <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select a customer"} />
@@ -432,7 +541,7 @@ export default function OrderEntryForm({
                                                 </FormControl>
                                                 <SelectContent>
                                                     {customers.map((customer) => (
-                                                        <SelectItem key={customer.id} value={customer.id.toString()}>
+                                                        <SelectItem key={customer.id} value={String(customer.id)}>
                                                             <div className="flex flex-col">
                                                                 <span className="font-medium">{customer.name}</span>
                                                                 <span className="text-sm text-muted-foreground">{customer.email}</span>
@@ -448,7 +557,9 @@ export default function OrderEntryForm({
                                 {form.watch("factory_customer_id") && (
                                     <div className="bg-muted p-3 rounded-md">
                                         {(() => {
-                                            const selectedCustomer = customers.find(c => c.id.toString() === form.watch("factory_customer_id"));
+                                            const selectedCustomer = customers.find(c =>
+                                                idEq(c.id, form.watch("factory_customer_id"))
+                                            );
                                             return selectedCustomer ? (
                                                 <div className="space-y-1 text-sm">
                                                     <div><strong>Name:</strong> {selectedCustomer.name}</div>
@@ -496,7 +607,7 @@ export default function OrderEntryForm({
                                     <div className="bg-muted p-3 rounded-md">
                                         <div className="space-y-1 text-sm">
                                             <div><strong>Factory:</strong> {
-                                                factories.find(f => f.id.toString() === user.factory_id.toString())?.name ||
+                                                factories.find(f => idEq(f.id, user.factory_id))?.name ||
                                                 `Factory ID: ${user.factory_id}`
                                             }</div>
                                         </div>
@@ -702,18 +813,33 @@ export default function OrderEntryForm({
                                                 name={`line_items.${index}.product_id`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Product *</FormLabel>
+                                                        <div className="flex items-center gap-2">
+                                                            <FormLabel className="flex-1">Product *</FormLabel>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="icon"
+                                                                className="shrink-0 h-8 w-8"
+                                                                title="Quick add product"
+                                                                onClick={() => {
+                                                                    quickAddLineIndexRef.current = index;
+                                                                    setQuickAddLineIndex(index);
+                                                                    setQuickAddProductOpen(true);
+                                                                }}
+                                                            >
+                                                                <Plus className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                         <Select
+                                                            key={`product-select-${index}-${products.length}-${field.value ?? ""}`}
                                                             onValueChange={(value) => {
-                                                                console.log(value)
-                                                                field.onChange(value);
-                                                                // Auto-fill unit price when product is selected
-                                                                const selectedProduct = products.find(p => p.id.toString() === value.toString());
+                                                                field.onChange(String(value));
+                                                                const selectedProduct = products.find(p => idEq(p.id, value));
                                                                 if (selectedProduct) {
                                                                     form.setValue(`line_items.${index}.unit_price`, Number(selectedProduct.unit_price));
                                                                 }
                                                             }}
-                                                            value={field.value}
+                                                            value={field.value ? String(field.value) : ""}
                                                         >
                                                             <FormControl>
                                                                 <SelectTrigger>
@@ -722,7 +848,7 @@ export default function OrderEntryForm({
                                                             </FormControl>
                                                             <SelectContent>
                                                                 {products.map((product) => (
-                                                                    <SelectItem key={product.id} value={product.id.toString()}>
+                                                                    <SelectItem key={product.id} value={String(product.id)}>
                                                                         <div className="flex flex-col">
                                                                             <span className="font-medium">{product.name}</span>
                                                                             <span className="text-sm text-muted-foreground">
@@ -898,5 +1024,6 @@ export default function OrderEntryForm({
                 </Form>
             </DialogContent>
         </Dialog>
+        </>
     );
 }

@@ -139,7 +139,8 @@ export class GetCustomerOrderInfoMediator {
             const countResult = await client.query(countQuery, queryParams);
             const total = parseInt(countResult.rows[0].total);
 
-            // Get orders
+            // Get orders — line items via LATERAL so we avoid GROUP BY on co.* (PostgreSQL requires all
+            // co columns in GROUP BY when json_agg is used, unless functional dependency is recognized).
             const ordersQuery = `
                 SELECT
                     co.*,
@@ -147,8 +148,12 @@ export class GetCustomerOrderInfoMediator {
                     f.name as factory_name,
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
-                    COALESCE(
-                                    json_agg(
+                    COALESCE(li_rows.line_items, '[]'::json) as line_items
+                FROM factory_customer_orders co
+                         JOIN factories f ON co.factory_id = f.id
+                         LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                         LEFT JOIN LATERAL (
+                             SELECT json_agg(
                                     json_build_object(
                                             'id', li.id,
                                             'order_id', li.order_id,
@@ -167,15 +172,11 @@ export class GetCustomerOrderInfoMediator {
                                             'is_optional', li.is_optional,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
-                                            ) FILTER (WHERE li.id IS NOT NULL),
-                                    '[]'::json
-                    ) as line_items
-                FROM factory_customer_orders co
-                         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
-                         JOIN factories f ON co.factory_id = f.id
-                         LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                             ) FILTER (WHERE li.id IS NOT NULL) AS line_items
+                             FROM factory_customer_order_line_items li
+                             WHERE li.order_id = co.id
+                         ) li_rows ON true
                     ${whereClause}
-                GROUP BY co.id, f.id, f.name, f.cost_center_id, cc.name
                     ${orderClause}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
@@ -285,8 +286,12 @@ export class GetCustomerOrderInfoMediator {
                     f.name as factory_name,
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
-                    COALESCE(
-                                    json_agg(
+                    COALESCE(li_rows.line_items, '[]'::json) as line_items
+                FROM factory_customer_orders co
+                         JOIN factories f ON co.factory_id = f.id
+                         LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                         LEFT JOIN LATERAL (
+                             SELECT json_agg(
                                     json_build_object(
                                             'id', li.id,
                                             'order_id', li.order_id,
@@ -305,15 +310,11 @@ export class GetCustomerOrderInfoMediator {
                                             'is_optional', li.is_optional,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
-                                            ) FILTER (WHERE li.id IS NOT NULL),
-                                    '[]'::json
-                    ) as line_items
-                FROM factory_customer_orders co
-                         LEFT JOIN factory_customer_order_line_items li ON co.id = li.order_id
-                         JOIN factories f ON co.factory_id = f.id
-                         LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                             ) FILTER (WHERE li.id IS NOT NULL) AS line_items
+                             FROM factory_customer_order_line_items li
+                             WHERE li.order_id = co.id
+                         ) li_rows ON true
                 WHERE co.id = $1${factoryFilter}
-        GROUP BY co.id, f.id, f.name, f.cost_center_id, cc.name
       `;
 
             const result = await client.query(query, queryParams);

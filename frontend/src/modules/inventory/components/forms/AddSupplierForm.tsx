@@ -24,7 +24,7 @@ import { ApiService, CreateSupplierRequest, ApiError } from "@/services/api"
 interface AddSupplierFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSupplierAdded?: () => void
+  onSupplierAdded?: (supplier?: { id: number; name: string }) => void
 }
 
 export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupplierFormProps) {
@@ -105,7 +105,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         status: 'active'
       }
 
-      await ApiService.createSupplier(supplierData)
+      const created = await ApiService.createSupplier(supplierData)
 
       toast.success("Supplier added successfully!", {
         description: `${formData.name} has been added to your supplier directory.`
@@ -122,7 +122,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         city: "",
         state: "",
         zipCode: "",
-        country: "",
+        country: "Bangladesh",
         category: "",
         taxId: "",
         paymentTerms: "",
@@ -132,7 +132,11 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
       setShowNewCategoryInput(false)
       setNewCategoryName("")
 
-      onSupplierAdded?.()
+      onSupplierAdded?.(
+        created?.id != null
+          ? { id: created.id, name: created.name }
+          : undefined
+      )
       onOpenChange(false)
     } catch (error) {
       if (error instanceof ApiError) {

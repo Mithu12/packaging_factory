@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/sonner"
 import { Plus, Trash2 } from "lucide-react"
+import { QuickAddSupplierDialog } from "@/modules/factory/components/QuickAddSupplierDialog"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
 import { SupplierApi } from "@/modules/inventory/services/supplier-api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
@@ -86,6 +87,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
   const [products, setProducts] = useState<Product[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [addSupplierOpen, setAddSupplierOpen] = useState(false)
 
   const { formatCurrency } = useFormatting()
 
@@ -312,7 +314,20 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
 
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0)
 
+  const handleSupplierCreated = async (supplier?: { id: number; name: string }) => {
+    await fetchData()
+    if (supplier?.id != null) {
+      handleInputChange("supplier_id", String(supplier.id))
+    }
+  }
+
   return (
+    <>
+    <QuickAddSupplierDialog
+      open={addSupplierOpen}
+      onOpenChange={setAddSupplierOpen}
+      onSupplierCreated={handleSupplierCreated}
+    />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -325,18 +340,30 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="supplier" className="flex-1">Supplier *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 h-8 w-8"
+                  title="Add new supplier"
+                  onClick={() => setAddSupplierOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               <Select 
-                key={`supplier-select-${suppliers.length}`}
-                value={formData.supplier_id} 
-                onValueChange={(value) => handleInputChange("supplier_id", value)}
+                key={`supplier-select-${suppliers.length}-${formData.supplier_id}`}
+                value={formData.supplier_id ? String(formData.supplier_id) : ""} 
+                onValueChange={(value) => handleInputChange("supplier_id", String(value))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={loading ? "Loading suppliers..." : "Select supplier"} />
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                    <SelectItem key={supplier.id} value={String(supplier.id)}>
                       {supplier.name}
                     </SelectItem>
                   ))}
@@ -523,5 +550,6 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         </form>
       </DialogContent>
     </Dialog>
+    </>
   )
 }

@@ -141,7 +141,8 @@ export interface CreateCustomerOrderRequest {
     factory_customer_email: string;
     factory_customer_phone?: string;
     payment_terms?: string;
-    factory_id?: number;
+    /** API Joi schema expects string (numeric id as string). */
+    factory_id?: string;
     order_date: string;
     required_date: string;
     priority: OrderPriority;
@@ -173,7 +174,7 @@ export interface UpdateCustomerOrderRequest {
     factory_customer_email?: string;
     factory_customer_phone?: string;
     payment_terms?: string;
-    factory_id?: number;
+    factory_id?: string;
     order_date?: string;
     required_date?: string;
     priority?: OrderPriority;
