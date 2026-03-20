@@ -87,7 +87,36 @@ build_backend() {
 build_frontend() {
     log "Building frontend..."
     cd "$FRONTEND_DIR" || { log "Failed to enter frontend directory"; exit 1; }
+
+    local had_local_env=0
+    if [[ -f .env.local ]]; then
+        cp .env.local backup.env.local || { log "Failed to backup .env.local"; exit 1; }
+        had_local_env=1
+    fi
+
+    restore_frontend_env() {
+        if [[ "$had_local_env" == "1" ]] && [[ -f backup.env.local ]]; then
+            mv backup.env.local .env.local
+        else
+            rm -f backup.env.local
+            if [[ "$had_local_env" == "0" ]]; then
+                rm -f .env.local
+            fi
+        fi
+    }
+    trap restore_frontend_env EXIT
+
+    if [[ ! -f .env.production ]]; then
+        log "Error: frontend/.env.production not found"
+        exit 1
+    fi
+    cp .env.production .env.local || { log "Failed to copy .env.production to .env.local"; exit 1; }
+
     npm run build || { log "Frontend build failed"; exit 1; }
+
+    trap - EXIT
+    restore_frontend_env
+
     cd ..
 
     log "Packaging frontend for deployment..."

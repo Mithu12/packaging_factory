@@ -175,7 +175,7 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Overtime:</span>
-                    <span className="font-medium">{formatCurrency(payrollRecord.overtime_pay ?? payrollRecord.overtime_amount ?? 0, currency)}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.overtime_pay ?? 0, currency)}</span>
                   </div>
                 </div>
 
@@ -197,7 +197,7 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Income Tax:</span>
-                    <span className="font-medium">{formatCurrency(payrollRecord.income_tax ?? payrollRecord.tax_deduction ?? 0, currency)}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.income_tax ?? 0, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Provident Fund:</span>
@@ -209,7 +209,7 @@ const EmployeePayrollCard: React.FC<EmployeePayrollCardProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Advance Salary / Loan:</span>
-                    <span className="font-medium">{formatCurrency(payrollRecord.loan_deduction ?? payrollRecord.loan_deductions ?? 0, currency)}</span>
+                    <span className="font-medium">{formatCurrency(payrollRecord.loan_deduction ?? 0, currency)}</span>
                   </div>
                 </div>
 

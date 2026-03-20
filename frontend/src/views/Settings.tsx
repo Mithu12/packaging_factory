@@ -149,7 +149,10 @@ export default function Settings() {
         const [company, system, payroll, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
-          SettingsApi.getPayrollSettings().catch(() => ({ payroll_salary_mode: 'hourly' })),
+          SettingsApi.getPayrollSettings().catch((): PayrollSettings => ({
+            payroll_salary_mode: 'hourly',
+            payroll_overtime_enabled: true,
+          })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
           SettingsApi.getEcommerceSettings(),
@@ -175,7 +178,10 @@ export default function Settings() {
         const [company, system, payroll, notifications, security, ecommerce, integrations] = await Promise.all([
           SettingsApi.getCompanySettings(),
           SettingsApi.getSystemSettings(),
-          SettingsApi.getPayrollSettings().catch(() => ({ payroll_salary_mode: 'hourly' })),
+          SettingsApi.getPayrollSettings().catch((): PayrollSettings => ({
+            payroll_salary_mode: 'hourly',
+            payroll_overtime_enabled: true,
+          })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
           SettingsApi.getEcommerceSettings(),
