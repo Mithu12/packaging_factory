@@ -1,5 +1,5 @@
 import pool from "@/database/connection";
-import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest } from "@/types/factory";
+import { UpdateCustomerOrderRequest, FactoryCustomerOrder, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, CreateWorkOrderRequest, UpdateOrderLineItemRequest } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
 import { AddWorkOrderMediator } from "../workOrders/AddWorkOrder.mediator";
 import { autoCreateDraftWorkOrders } from "../../utils/workOrderUtils";
@@ -22,6 +22,13 @@ async function isUserAdmin(userId: number): Promise<boolean> {
 
 // Assuming role_id 1 is admin based on common patterns
     return result.rows[0].role_id === 1;
+}
+
+function normalizeFactoryOrderStatus(status: unknown): string {
+    return String(status ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_');
 }
 
 // Utility functions moved to backend/src/modules/factory/utils/workOrderUtils.ts
@@ -68,10 +75,13 @@ export class UpdateCustomerOrderInfoMediator {
             }
 
             const existingOrder = existingOrderResult.rows[0];
+            const existingStatusNorm = normalizeFactoryOrderStatus(existingOrder.status);
 
             // Check if order can be updated (not approved, completed, or shipped)
-            if (['approved', 'completed', 'shipped'].includes(existingOrder.status)) {
-                throw new Error(`Cannot update order in ${existingOrder.status} status. Only draft and pending orders can be edited.`);
+            if (['approved', 'completed', 'shipped'].includes(existingStatusNorm)) {
+                throw new Error(
+                    `Cannot update order in ${existingStatusNorm} status. Edits are allowed until the order is approved, completed, or shipped.`
+                );
             }
 
             // Build update query dynamically
@@ -171,6 +181,37 @@ export class UpdateCustomerOrderInfoMediator {
             // Handle line items update if provided
             let newTotalValue = existingOrder.total_value;
             if (updateData.line_items) {
+                if (
+                    existingStatusNorm === 'quoted' &&
+                    updateData.capture_quoted_snapshot === true
+                ) {
+                    const liRes = await client.query(
+                        `SELECT product_id, product_name, product_sku, quantity, unit_price, line_total, specifications
+                         FROM factory_customer_order_line_items
+                         WHERE order_id = $1
+                         ORDER BY created_at ASC`,
+                        [orderId]
+                    );
+                    const quotedSnapshot = {
+                        captured_at: new Date().toISOString(),
+                        order_number: existingOrder.order_number,
+                        total_value: parseFloat(String(existingOrder.total_value)),
+                        currency: existingOrder.currency ?? 'BDT',
+                        line_items: liRes.rows.map((r) => ({
+                            product_id: r.product_id,
+                            product_name: r.product_name,
+                            product_sku: r.product_sku,
+                            quantity: parseFloat(String(r.quantity)),
+                            unit_price: parseFloat(String(r.unit_price)),
+                            line_total: parseFloat(String(r.line_total)),
+                            specifications: r.specifications ?? null,
+                        })),
+                    };
+                    updateFields.push(`quoted_snapshot = $${paramIndex}`);
+                    updateValues.push(JSON.stringify(quotedSnapshot));
+                    paramIndex++;
+                }
+
                 // Delete existing line items
                 await client.query('DELETE FROM factory_customer_order_line_items WHERE order_id = $1', [orderId]);
 
@@ -329,9 +370,10 @@ export class UpdateCustomerOrderInfoMediator {
             const order = orderResult.rows[0];
             const previousStatus = order.status;
             const previousNotes = order.notes;
+            const orderStatusNorm = normalizeFactoryOrderStatus(order.status);
 
-            if (!['pending', 'quoted'].includes(order.status)) {
-                throw new Error(`Order cannot be approved from ${order.status} status`);
+            if (!['pending', 'quoted'].includes(orderStatusNorm)) {
+                throw new Error(`Order cannot be approved from ${orderStatusNorm} status`);
             }
 
             const newStatus = approvalData.approved ? 'approved' : 'rejected';
@@ -460,6 +502,279 @@ export class UpdateCustomerOrderInfoMediator {
 
             return updatedOrder!;
 
+        } catch (error: any) {
+            if (transactionActive) {
+                await client.query('ROLLBACK');
+            }
+            MyLogger.error(action, error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Replace line items and approve in one transaction (convert quotation or accept pending with line edits).
+     * If the order is already approved, returns the current order (idempotent retry / stale UI).
+     */
+    static async convertOrderWithLinesAndApprove(
+        orderId: string,
+        payload: { line_items: UpdateOrderLineItemRequest[]; notes?: string },
+        userId: string
+    ): Promise<FactoryCustomerOrder> {
+        const action = "UpdateCustomerOrderInfoMediator.convertOrderWithLinesAndApprove";
+        const client = await pool.connect();
+        let transactionActive = false;
+
+        try {
+            await client.query('BEGIN');
+            transactionActive = true;
+
+            MyLogger.info(action, { orderId, userId, lineCount: payload.line_items.length });
+
+            const currentUserId = parseInt(userId);
+            let userFactories: string[] = [];
+            if (currentUserId) {
+                const admin = await isUserAdmin(currentUserId);
+                if (!admin) {
+                    const factories = await getUserFactories(currentUserId);
+                    userFactories = factories.map(f => f.factory_id);
+                }
+            }
+
+            let orderQuery = "SELECT * FROM factory_customer_orders WHERE id = $1";
+            let queryParams: any[] = [orderId];
+            if (currentUserId && userFactories.length > 0) {
+                const factoryIds = userFactories.map((_, index) => `$${queryParams.length + index + 1}`);
+                orderQuery += ` AND factory_id IN (${factoryIds.join(', ')})`;
+                queryParams.push(...userFactories);
+            }
+
+            const orderResult = await client.query(`${orderQuery} FOR UPDATE`, queryParams);
+            if (orderResult.rows.length === 0) {
+                throw new Error(`Customer order with ID ${orderId} not found or access denied`);
+            }
+
+            const existingOrder = orderResult.rows[0];
+            const previousStatus = existingOrder.status;
+            const previousNotes = existingOrder.notes;
+            const existingStatusNorm = normalizeFactoryOrderStatus(existingOrder.status);
+
+            if (existingStatusNorm === 'approved') {
+                await client.query('COMMIT');
+                transactionActive = false;
+                const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+                const existing = await GetCustomerOrderInfoMediator.getCustomerOrderById(orderId);
+                if (!existing) {
+                    throw new Error('Order not found');
+                }
+                MyLogger.info(action, { orderId, idempotentApproved: true });
+                return existing;
+            }
+
+            if (!['pending', 'quoted'].includes(existingStatusNorm)) {
+                throw new Error(`Cannot convert order from ${existingStatusNorm} status`);
+            }
+
+            let quotedSnapshotJson: string | null = null;
+            if (existingStatusNorm === 'quoted') {
+                const liRes = await client.query(
+                    `SELECT product_id, product_name, product_sku, quantity, unit_price, line_total, specifications
+                     FROM factory_customer_order_line_items
+                     WHERE order_id = $1
+                     ORDER BY created_at ASC`,
+                    [orderId]
+                );
+                const quotedSnapshot = {
+                    captured_at: new Date().toISOString(),
+                    order_number: existingOrder.order_number,
+                    total_value: parseFloat(String(existingOrder.total_value)),
+                    currency: existingOrder.currency ?? 'BDT',
+                    line_items: liRes.rows.map((r) => ({
+                        product_id: r.product_id,
+                        product_name: r.product_name,
+                        product_sku: r.product_sku,
+                        quantity: parseFloat(String(r.quantity)),
+                        unit_price: parseFloat(String(r.unit_price)),
+                        line_total: parseFloat(String(r.line_total)),
+                        specifications: r.specifications ?? null,
+                    })),
+                };
+                quotedSnapshotJson = JSON.stringify(quotedSnapshot);
+            }
+
+            await client.query('DELETE FROM factory_customer_order_line_items WHERE order_id = $1', [orderId]);
+
+            let newTotalValue = 0;
+            for (const item of payload.line_items) {
+                const productId = parseInt(String(item.product_id), 10);
+                const quantity = parseFloat(String(item.quantity));
+                const unitPrice = parseFloat(String(item.unit_price));
+                if (!Number.isFinite(productId) || productId <= 0) {
+                    throw new Error(`Invalid product_id on line item`);
+                }
+                if (!Number.isFinite(quantity) || quantity <= 0) {
+                    throw new Error(`Invalid quantity on line item (must be > 0)`);
+                }
+                if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+                    throw new Error(`Invalid unit_price on line item`);
+                }
+
+                const productQuery = "SELECT name, sku, unit_of_measure, status FROM products WHERE id = $1";
+                const productResult = await client.query(productQuery, [productId]);
+
+                if (productResult.rows.length === 0) {
+                    throw new Error(`Product with ID ${productId} not found`);
+                }
+
+                if (productResult.rows[0].status !== 'active') {
+                    throw new Error(`Product ${productResult.rows[0].name} is not active`);
+                }
+
+                const product = productResult.rows[0];
+                const discountPct = item.discount_percentage
+                    ? parseFloat(String(item.discount_percentage))
+                    : 0;
+                const discountAmount =
+                    discountPct > 0 ? (unitPrice * quantity * discountPct) / 100 : 0;
+                const lineTotal = unitPrice * quantity - discountAmount;
+                newTotalValue += lineTotal;
+
+                const lineItemQuery = `
+                        INSERT INTO factory_customer_order_line_items (
+                            order_id, product_id, product_name, product_sku, description,
+                            quantity, unit_price, discount_percentage, discount_amount, line_total,
+                            unit_of_measure, specifications, delivery_date, is_optional, created_at
+                        ) VALUES (
+                                     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                                 )
+                    `;
+
+                await client.query(lineItemQuery, [
+                    orderId,
+                    productId,
+                    product.name,
+                    product.sku,
+                    item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
+                    quantity,
+                    unitPrice,
+                    discountPct > 0 ? discountPct : null,
+                    discountAmount,
+                    lineTotal,
+                    product.unit_of_measure,
+                    item.specifications && item.specifications.trim() !== '' ? item.specifications : null,
+                    item.delivery_date ? new Date(item.delivery_date) : null,
+                    item.is_optional || false,
+                    new Date(),
+                ]);
+            }
+
+            const now = new Date();
+            const notesVal =
+                payload.notes && payload.notes.trim() !== '' ? payload.notes.trim() : null;
+
+            let pi = 1;
+            const updVals: any[] = [];
+            const sets: string[] = [];
+            sets.push(`total_value = $${pi++}`);
+            updVals.push(newTotalValue);
+            sets.push(`outstanding_amount = $${pi++} - COALESCE(paid_amount, 0)`);
+            updVals.push(newTotalValue);
+            if (quotedSnapshotJson !== null) {
+                sets.push(`quoted_snapshot = $${pi++}`);
+                updVals.push(quotedSnapshotJson);
+            }
+            sets.push(`status = 'approved'`);
+            sets.push(`approved_by = $${pi++}`);
+            updVals.push(userId);
+            sets.push(`approved_at = $${pi++}`);
+            updVals.push(now);
+            sets.push(`updated_by = $${pi++}`);
+            updVals.push(userId);
+            sets.push(`updated_at = $${pi++}`);
+            updVals.push(now);
+            sets.push(`notes = $${pi++}`);
+            updVals.push(notesVal);
+
+            const updSql = `UPDATE factory_customer_orders SET ${sets.join(', ')} WHERE id = $${pi}`;
+            updVals.push(orderId);
+
+            await client.query(updSql, updVals);
+
+            await recalcFactoryCustomerFinancials(client, existingOrder.factory_customer_id);
+
+            await client.query('COMMIT');
+            transactionActive = false;
+
+            const { GetCustomerOrderInfoMediator } = await import('./GetCustomerOrderInfo.mediator');
+            const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(orderId);
+
+            if (!updatedOrder) {
+                throw new Error('Order not found after convert');
+            }
+
+            try {
+                MyLogger.info(`${action}.triggerAutoWorkOrders`, { orderId: updatedOrder.id });
+                await autoCreateDraftWorkOrders(updatedOrder, userId);
+            } catch (autoCreationError: any) {
+                MyLogger.error(`${action}.autoCreate`, autoCreationError, {
+                    orderId,
+                    message: 'Auto-generation of work orders failed; reverting customer order status',
+                });
+
+                await pool.query(
+                    `
+                            UPDATE factory_customer_orders
+                            SET
+                                status = $1,
+                                approved_by = NULL,
+                                approved_at = NULL,
+                                notes = $2,
+                                updated_by = $3,
+                                updated_at = $4
+                            WHERE id = $5
+                        `,
+                    [previousStatus, previousNotes || null, userId, new Date(), orderId]
+                );
+
+                throw autoCreationError;
+            }
+
+            const finalOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(orderId);
+
+            try {
+                const ord = finalOrder!;
+                const orderData = {
+                    orderId: ord.id,
+                    orderNumber: ord.order_number,
+                    customerId: ord.factory_customer_id,
+                    customerName: ord.factory_customer_name,
+                    customerEmail: ord.factory_customer_email,
+                    totalValue: ord.total_value,
+                    currency: ord.currency || 'BDT',
+                    orderDate: ord.order_date || new Date().toISOString(),
+                    factoryId: ord.factory_id,
+                    factoryName: ord.factory_name,
+                    factoryCostCenterId: ord.factory_cost_center_id,
+                    lineItems: ord.line_items,
+                    notes: notesVal ?? undefined,
+                };
+
+                eventBus.emit(EVENT_NAMES.FACTORY_ORDER_APPROVED, {
+                    orderData,
+                    userId: parseInt(userId),
+                });
+
+                await interModuleConnector.accModule.addFactoryOrderReceivable(orderData, parseInt(userId));
+            } catch (eventError: any) {
+                MyLogger.error(`${action}.eventEmit`, eventError, {
+                    orderId,
+                    message: 'Failed to emit FACTORY_ORDER_APPROVED event, but order convert succeeded',
+                });
+            }
+
+            MyLogger.success(action, { orderId, newStatus: 'approved' });
+            return finalOrder!;
         } catch (error: any) {
             if (transactionActive) {
                 await client.query('ROLLBACK');

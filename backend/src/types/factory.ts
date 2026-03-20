@@ -122,6 +122,23 @@ export enum FactoryCustomerOrderPaymentTerms {
     CASH = 'cash',
     ADVANCE = 'advance',
 }
+/** Stored when a quoted order is converted; view-only history of lines before final line replace. */
+export interface QuotedOrderSnapshot {
+    captured_at: string;
+    order_number?: string;
+    total_value: number;
+    currency?: string;
+    line_items: Array<{
+        product_id: number;
+        product_name: string;
+        product_sku: string;
+        quantity: number;
+        unit_price: number;
+        line_total: number;
+        specifications?: string | null;
+    }>;
+}
+
 export interface FactoryCustomerOrder {
     id: number;
     order_number: string;
@@ -168,6 +185,7 @@ export interface FactoryCustomerOrder {
     actual_delivery_date?: string;
     shipping_cost?: number;
     delivery_status?: string;
+    quoted_snapshot?: QuotedOrderSnapshot | null;
 }
 
 export interface OrderLineItem {
@@ -274,6 +292,8 @@ export interface UpdateCustomerOrderRequest {
     tax_rate?: number;
     tax_amount?: number;
     sales_person?: string;
+    /** When true with line_items on a quoted order, persist current lines to quoted_snapshot before replace. */
+    capture_quoted_snapshot?: boolean;
 }
 
 export interface UpdateOrderLineItemRequest {
@@ -285,6 +305,12 @@ export interface UpdateOrderLineItemRequest {
     specifications?: string;
     delivery_date?: string;
     is_optional?: boolean;
+}
+
+/** Single request: replace lines + approve (quoted/pending). Idempotent if already approved. */
+export interface ConvertOrderWithLinesRequest {
+    line_items: UpdateOrderLineItemRequest[];
+    notes?: string;
 }
 
 export interface OrderStats {

@@ -58,12 +58,13 @@ export const createCustomerOrderSchema = Joi.object({
 });
 
 // Update order line item validation schema
+// Note: avoid .precision(n) on quantity/unit_price — binary floats from JSON often fail Joi precision checks.
 const updateOrderLineItemSchema = Joi.object({
     id: Joi.number().integer().positive().optional(),
     product_id: Joi.number().integer().positive().required(),
-    quantity: Joi.number().positive().required(),
-    unit_price: Joi.number().min(0).precision(2).required(),
-    discount_percentage: Joi.number().min(0).max(100).precision(2).optional(),
+    quantity: Joi.number().positive().max(1e12).required(),
+    unit_price: Joi.number().min(0).max(1e15).required(),
+    discount_percentage: Joi.number().min(0).max(100).optional(),
     specifications: Joi.string().max(1000).optional().allow(''),
     delivery_date: Joi.date().iso().optional(),
     is_optional: Joi.boolean().optional(),
@@ -78,7 +79,8 @@ export const updateCustomerOrderSchema = Joi.object({
     factory_customer_phone: Joi.string().max(20).optional(),
     sales_person: Joi.string().max(255).optional(),
     order_date:Joi.allow(),
-    required_date: Joi.date().iso().greater('now').optional(),
+    // Edits must allow past required dates (e.g. quoted orders created earlier); create still enforces future dates.
+    required_date: Joi.date().iso().optional(),
     priority: Joi.string().valid('low', 'medium', 'high', 'urgent').optional(),
     status: Joi.string().valid('draft', 'pending', 'quoted', 'approved', 'rejected', 'in_production', 'completed', 'shipped', 'cancelled').optional(),
     valid_until: Joi.date().iso().optional().allow(null).empty(''),
@@ -91,6 +93,7 @@ export const updateCustomerOrderSchema = Joi.object({
     shipping_address: addressSchema.optional(),
     billing_address: addressSchema.optional(),
     line_items: Joi.array().items(updateOrderLineItemSchema).min(1).optional(),
+    capture_quoted_snapshot: Joi.boolean().optional(),
 }).min(1); // At least one field must be provided
 
 // Order query parameters validation schema
@@ -120,6 +123,12 @@ export const orderQuerySchema = Joi.object({
 export const approveOrderSchema = Joi.object({
     approved: Joi.boolean().required(),
     notes: Joi.string().max(1000).optional().allow(''),
+});
+
+// Atomically replace line items and approve (convert quotation / accept pending)
+export const convertOrderWithLinesSchema = Joi.object({
+    line_items: Joi.array().items(updateOrderLineItemSchema).min(1).required(),
+    notes: Joi.string().max(2000).optional().allow(''),
 });
 
 // Update order status validation schema

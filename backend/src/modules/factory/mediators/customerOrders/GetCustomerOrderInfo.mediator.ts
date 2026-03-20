@@ -229,6 +229,7 @@ export class GetCustomerOrderInfoMediator {
                 subtotal: row.subtotal ? parseFloat(row.subtotal) : undefined,
                 tax_rate: row.tax_rate ? parseFloat(row.tax_rate) : undefined,
                 tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : undefined,
+                quoted_snapshot: row.quoted_snapshot ?? null,
             }));
 
             const totalPages = Math.ceil(total / limit);
@@ -369,6 +370,7 @@ export class GetCustomerOrderInfoMediator {
                 factory_name: row.factory_name,
                 factory_cost_center_id: row.factory_cost_center_id,
                 factory_cost_center_name: row.factory_cost_center_name,
+                quoted_snapshot: row.quoted_snapshot ?? null,
             };
 
             MyLogger.success(action, { orderId, found: true });

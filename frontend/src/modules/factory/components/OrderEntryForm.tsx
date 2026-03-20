@@ -277,7 +277,12 @@ export default function OrderEntryForm({
                 priority: order.priority,
                 currency: order.currency,
                 sales_person: order.sales_person,
+                valid_until: order.valid_until
+                    ? new Date(order.valid_until).toISOString().split("T")[0]
+                    : "",
+                tax_rate: order.tax_rate ?? 0,
                 notes: order.notes || "",
+                terms: order.terms || "",
                 line_items: order.line_items.map(item => ({
                     product_id: item.product_id.toString(),
                     quantity: item.quantity,
@@ -368,7 +373,8 @@ export default function OrderEntryForm({
                         specifications: item.specifications,
                     };
                 }),
-                status: initialStatus || 'pending',
+                // Preserve status when editing (quoted/pending/draft); new orders use initialStatus.
+                status: order ? order.status : initialStatus || "pending",
                 valid_until: data.valid_until?.trim()
                     ? data.valid_until.trim()
                     : undefined,

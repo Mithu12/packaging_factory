@@ -45,6 +45,9 @@ import {
   OrderQueryParams,
   UpdateOrderStatusRequest,
 } from "../services/customer-orders-api";
+import { ApproveOrderLinesDialog } from "../components/ApproveOrderLinesDialog";
+import { toast } from "sonner";
+import { normalizeFactoryOrderStatus } from "../utils/orderStatusNormalize";
 
 // Use the API types directly
 type Order = FactoryCustomerOrder;
@@ -69,6 +72,7 @@ export default function OrderAcceptance() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [acceptanceNotes, setAcceptanceNotes] = useState("");
+  const [orderForLineApproval, setOrderForLineApproval] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
@@ -101,6 +105,10 @@ export default function OrderAcceptance() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  const openConvertModalForOrder = (order: Order) => {
+    setOrderForLineApproval(order);
+  };
 
   // Orders are already filtered by the API, so we use them directly
   const filteredOrders = orders;
@@ -179,21 +187,6 @@ export default function OrderAcceptance() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit order for approval');
       console.error('Error submitting for approval:', err);
-    }
-  };
-
-  const handleAcceptOrder = async (orderId: string) => {
-    try {
-      await CustomerOrdersApiService.approveCustomerOrder(orderId, true, acceptanceNotes || undefined);
-
-      // Reload orders to get updated status
-      await loadOrders();
-
-      setShowOrderDetails(false);
-      setAcceptanceNotes("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to accept order');
-      console.error('Error accepting order:', err);
     }
   };
 
@@ -423,7 +416,7 @@ export default function OrderAcceptance() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleAcceptOrder(order.id.toString())}
+                            onClick={() => void openConvertModalForOrder(order)}
                             className="text-green-600 hover:text-green-700"
                           >
                             <Check className="h-4 w-4" />
@@ -624,7 +617,15 @@ export default function OrderAcceptance() {
                       <X className="h-4 w-4 mr-2" />
                       Reject Order
                     </Button>
-                    <Button onClick={() => handleAcceptOrder(selectedOrder.id.toString())}>
+                    <Button
+                      onClick={() => {
+                        void (async () => {
+                          if (!selectedOrder) return;
+                          await openConvertModalForOrder(selectedOrder);
+                          setShowOrderDetails(false);
+                        })();
+                      }}
+                    >
                       <Check className="h-4 w-4 mr-2" />
                       Accept Order
                     </Button>
@@ -635,6 +636,76 @@ export default function OrderAcceptance() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ApproveOrderLinesDialog
+        open={orderForLineApproval !== null}
+        onOpenChange={(open) => {
+          if (!open) setOrderForLineApproval(null);
+        }}
+        order={orderForLineApproval}
+        defaultApprovalNotes={acceptanceNotes}
+        onConfirm={async ({ line_items, notes }) => {
+          if (!orderForLineApproval) return;
+          const id = orderForLineApproval.id.toString();
+          try {
+            const latest = await CustomerOrdersApiService.getCustomerOrderById(id);
+            const st = normalizeFactoryOrderStatus(latest.status);
+            if (st === "approved") {
+              toast.success("Order was already approved.", {
+                description: `Order #${latest.order_number}`,
+              });
+              setOrderForLineApproval(null);
+              setShowOrderDetails(false);
+              setAcceptanceNotes("");
+              setError(null);
+              await loadOrders();
+              return;
+            }
+            if (!["quoted", "pending"].includes(st)) {
+              toast.info(`This order is ${st.replace(/_/g, " ")}.`, {
+                description: "Refreshing the list.",
+              });
+              setOrderForLineApproval(null);
+              await loadOrders();
+              return;
+            }
+            await CustomerOrdersApiService.convertOrderWithLines(id, { line_items, notes });
+            toast.success("Order accepted", {
+              description: `Order #${orderForLineApproval.order_number}`,
+            });
+            setOrderForLineApproval(null);
+            setShowOrderDetails(false);
+            setAcceptanceNotes("");
+            setError(null);
+            await loadOrders();
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("approved status") || msg.includes("Cannot update order")) {
+              try {
+                const fresh = await CustomerOrdersApiService.getCustomerOrderById(id);
+                if (normalizeFactoryOrderStatus(fresh.status) === "approved") {
+                  toast.success("Order was already approved.", {
+                    description: `Order #${fresh.order_number}`,
+                  });
+                  setOrderForLineApproval(null);
+                  setShowOrderDetails(false);
+                  setAcceptanceNotes("");
+                  setError(null);
+                  await loadOrders();
+                  return;
+                }
+              } catch {
+                /* use original error below */
+              }
+            }
+            const finalMsg =
+              err instanceof Error ? err.message : "Failed to accept order";
+            setError(finalMsg);
+            console.error("Error accepting order:", err);
+            throw err;
+          }
+        }}
+      />
     </div>
   );
 }

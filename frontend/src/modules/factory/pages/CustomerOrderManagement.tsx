@@ -28,6 +28,7 @@ import {
     XCircle,
     Printer,
     MoreHorizontal,
+    History,
 } from "lucide-react";
 import {useFormatting} from "@/hooks/useFormatting";
 import {
@@ -85,7 +86,11 @@ import {
 } from "../services/customer-orders-api";
 import OrderEntryForm from "../components/OrderEntryForm";
 import OrderDetailsDialog from "../components/OrderDetailsDialog";
+import { ApproveOrderLinesDialog } from "../components/ApproveOrderLinesDialog";
+import { QuotedSnapshotDialog } from "../components/QuotedSnapshotDialog";
+import type { QuotedOrderSnapshot } from "../services/customer-orders-api";
 import {toast} from "sonner";
+import { normalizeFactoryOrderStatus } from "../utils/orderStatusNormalize";
 
 export default function CustomerOrderManagement() {
     const {formatCurrency, formatDate} = useFormatting();
@@ -143,6 +148,10 @@ export default function CustomerOrderManagement() {
     });
     const [totalPages, setTotalPages] = useState(1);
     const [totalOrders, setTotalOrders] = useState(0);
+    const [orderForLineApproval, setOrderForLineApproval] = useState<FactoryCustomerOrder | null>(
+        null
+    );
+    const [quotedSnapshotOrder, setQuotedSnapshotOrder] = useState<FactoryCustomerOrder | null>(null);
 
     // Load orders from API
     const loadOrders = useCallback(async () => {
@@ -200,6 +209,27 @@ export default function CustomerOrderManagement() {
     }, []);
 
     // Note: Using real API data instead of mock data
+
+    function parseQuotedSnapshot(order: FactoryCustomerOrder | null): QuotedOrderSnapshot | null {
+        if (!order?.quoted_snapshot) return null;
+        const raw = order.quoted_snapshot;
+        if (typeof raw === "string") {
+            try {
+                return JSON.parse(raw) as QuotedOrderSnapshot;
+            } catch {
+                return null;
+            }
+        }
+        if (typeof raw === "object" && Array.isArray((raw as QuotedOrderSnapshot).line_items)) {
+            return raw as QuotedOrderSnapshot;
+        }
+        return null;
+    }
+
+    const openConvertModalForOrder = (order: FactoryCustomerOrder) => {
+        setError(null);
+        setOrderForLineApproval(order);
+    };
 
     // Handle search
     const handleSearch = (searchTerm: string) => {
@@ -396,10 +426,25 @@ export default function CustomerOrderManagement() {
         setShowOrderDetails(true);
     };
 
-    const handleEditOrder = (order: FactoryCustomerOrder) => {
-        setSelectedOrder(order);
+    const handleEditOrder = async (order: FactoryCustomerOrder) => {
         setError(null);
-        setShowOrderEntry(true);
+        try {
+            const fresh = await CustomerOrdersApiService.getCustomerOrderById(order.id.toString());
+            const st = normalizeFactoryOrderStatus(fresh.status);
+            // Match backend: only approved / completed / shipped cannot be edited via PUT.
+            if (["approved", "completed", "shipped"].includes(st)) {
+                toast.info(`This order is ${st.replace(/_/g, " ")} and cannot be edited.`, {
+                    description: "Refreshing the list.",
+                });
+                await loadOrders();
+                await loadStats();
+                return;
+            }
+            setSelectedOrder(fresh);
+            setShowOrderEntry(true);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Could not load order for edit.");
+        }
     };
 
     const handleCreateOrder = () => {
@@ -419,8 +464,11 @@ export default function CustomerOrderManagement() {
     const handleOrderSubmit = async (orderData: CreateCustomerOrderRequest) => {
         try {
             if (selectedOrder) {
-                // Update existing order
-                await CustomerOrdersApiService.updateCustomerOrder(selectedOrder.id.toString(), orderData);
+                // Let the API enforce status (quoted, pending, draft, in_production, etc. are editable).
+                await CustomerOrdersApiService.updateCustomerOrder(
+                    selectedOrder.id.toString(),
+                    orderData
+                );
             } else {
                 // Create new order
                 await CustomerOrdersApiService.createCustomerOrder(orderData);
@@ -713,7 +761,10 @@ export default function CustomerOrderManagement() {
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                             <DropdownMenuSeparator />
                                                             
-                                                            <DropdownMenuItem onClick={() => handleEditOrder(order)} disabled={['approved', 'in_production', 'completed', 'shipped'].includes(order.status)}>
+                                                            <DropdownMenuItem
+                                                                onClick={() => void handleEditOrder(order)}
+                                                                disabled={['approved', 'completed', 'shipped'].includes(order.status)}
+                                                            >
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 <span>Edit Order</span>
                                                             </DropdownMenuItem>
@@ -722,6 +773,15 @@ export default function CustomerOrderManagement() {
                                                                 <Printer className="mr-2 h-4 w-4" />
                                                                 <span>{order.status === 'quoted' ? "Download Quotation" : "Download Order"}</span>
                                                             </DropdownMenuItem>
+
+                                                            {parseQuotedSnapshot(order) && order.status !== "quoted" && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() => setQuotedSnapshotOrder(order)}
+                                                                >
+                                                                    <History className="mr-2 h-4 w-4" />
+                                                                    <span>Show quotation</span>
+                                                                </DropdownMenuItem>
+                                                            )}
 
                                                             {(order.status === 'completed' || order.status === 'shipped') && (
                                                                 <>
@@ -740,7 +800,7 @@ export default function CustomerOrderManagement() {
 
                                                             {(order.status === 'quoted' || order.status === 'pending') && (
                                                                 <>
-                                                                    <DropdownMenuItem onClick={() => handleApproveOrder(order.id.toString(), true)} className="text-green-600">
+                                                                    <DropdownMenuItem onClick={() => void openConvertModalForOrder(order)} className="text-green-600">
                                                                         <CheckCircle className="mr-2 h-4 w-4" />
                                                                         <span>{order.status === 'quoted' ? 'Convert to Order' : 'Approve Order'}</span>
                                                                     </DropdownMenuItem>
@@ -806,6 +866,87 @@ export default function CustomerOrderManagement() {
                 onOpenChange={setShowOrderDetails}
                 order={selectedOrder}
                 onEdit={handleEditOrder}
+            />
+
+            <QuotedSnapshotDialog
+                open={quotedSnapshotOrder !== null}
+                onOpenChange={(o) => {
+                    if (!o) setQuotedSnapshotOrder(null);
+                }}
+                orderNumber={quotedSnapshotOrder?.order_number ?? ""}
+                snapshot={quotedSnapshotOrder ? parseQuotedSnapshot(quotedSnapshotOrder) : null}
+            />
+
+            <ApproveOrderLinesDialog
+                open={orderForLineApproval !== null}
+                onOpenChange={(open) => {
+                    if (!open) setOrderForLineApproval(null);
+                }}
+                order={orderForLineApproval}
+                onConfirm={async ({ line_items, notes }) => {
+                    if (!orderForLineApproval) return;
+                    const id = orderForLineApproval.id.toString();
+                    try {
+                        const latest = await CustomerOrdersApiService.getCustomerOrderById(id);
+                        const st = normalizeFactoryOrderStatus(latest.status);
+                        if (st === "approved") {
+                            toast.success("Order was already approved.", {
+                                description: `Order #${latest.order_number}`,
+                            });
+                            setOrderForLineApproval(null);
+                            setError(null);
+                            await loadOrders();
+                            await loadStats();
+                            return;
+                        }
+                        if (!["quoted", "pending"].includes(st)) {
+                            toast.info(`This order is ${st.replace(/_/g, " ")}.`, {
+                                description: "Refreshing the list.",
+                            });
+                            setOrderForLineApproval(null);
+                            await loadOrders();
+                            await loadStats();
+                            return;
+                        }
+                        await CustomerOrdersApiService.convertOrderWithLines(id, { line_items, notes });
+                        toast.success(
+                            orderForLineApproval.status === "quoted"
+                                ? "Quotation converted to order"
+                                : "Order approved",
+                            { description: `Order #${orderForLineApproval.order_number}` }
+                        );
+                        setOrderForLineApproval(null);
+                        setError(null);
+                        await loadOrders();
+                        await loadStats();
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        if (
+                            msg.includes("approved status") ||
+                            msg.includes("Cannot update order")
+                        ) {
+                            try {
+                                const fresh = await CustomerOrdersApiService.getCustomerOrderById(id);
+                                if (normalizeFactoryOrderStatus(fresh.status) === "approved") {
+                                    toast.success("Order was already approved.", {
+                                        description: `Order #${fresh.order_number}`,
+                                    });
+                                    setOrderForLineApproval(null);
+                                    setError(null);
+                                    await loadOrders();
+                                    await loadStats();
+                                    return;
+                                }
+                            } catch {
+                                /* use original error below */
+                            }
+                        }
+                        const finalMsg =
+                            err instanceof Error ? err.message : "Failed to convert or approve order";
+                        setError(finalMsg);
+                        throw err;
+                    }
+                }}
             />
 
             {/* Delete Confirmation Dialog */}

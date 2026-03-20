@@ -117,6 +117,25 @@ class CustomerOrdersController {
     }
   }
 
+  // Convert quotation / accept pending: apply line items and approve atomically
+  async convertOrderWithLines(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "POST /api/factory/customer-orders/:id/convert-with-lines";
+      const orderId = req.params.id;
+      MyLogger.info(action, { orderId, bodyKeys: Object.keys(req.body || {}) });
+      const userId = req.user?.user_id;
+      const result = await UpdateCustomerOrderInfoMediator.convertOrderWithLinesAndApprove(
+        orderId,
+        req.body,
+        userId!.toString()
+      );
+      MyLogger.success(action, { orderId, orderNumber: result.order_number });
+      serializeSuccessResponse(res, result, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Approve/reject customer order
   async approveCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

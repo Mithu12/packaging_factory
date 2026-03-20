@@ -35,9 +35,16 @@ import {
     Wallet,
     CreditCard,
     Loader2,
+    History,
 } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
-import { FactoryCustomerOrder, CustomerOrdersApiService, FactoryCustomerPayment } from "../services/customer-orders-api";
+import {
+    FactoryCustomerOrder,
+    CustomerOrdersApiService,
+    FactoryCustomerPayment,
+    type QuotedOrderSnapshot,
+} from "../services/customer-orders-api";
+import { QuotedSnapshotDialog } from "./QuotedSnapshotDialog";
 import { useFormatting } from "@/hooks/useFormatting";
 import { Progress } from "@/components/ui/progress";
 import { QuotationPDF } from "./QuotationPDF";
@@ -86,6 +93,7 @@ export default function OrderDetailsDialog({
     const [quotationCompanySettings, setQuotationCompanySettings] = useState<CompanySettings | null>(null);
     const [quotationLogoBase64, setQuotationLogoBase64] = useState<string | null>(null);
     const [quotationPrintLoading, setQuotationPrintLoading] = useState(false);
+    const [quotedSnapshotOpen, setQuotedSnapshotOpen] = useState(false);
 
     // Load payment history when order changes
     useEffect(() => {
@@ -137,6 +145,22 @@ export default function OrderDetailsDialog({
     };
 
     if (!order) return null;
+
+    const parsedQuotedSnapshot: QuotedOrderSnapshot | null = (() => {
+        const raw = order.quoted_snapshot;
+        if (!raw) return null;
+        if (typeof raw === "string") {
+            try {
+                return JSON.parse(raw) as QuotedOrderSnapshot;
+            } catch {
+                return null;
+            }
+        }
+        if (typeof raw === "object" && Array.isArray((raw as QuotedOrderSnapshot).line_items)) {
+            return raw as QuotedOrderSnapshot;
+        }
+        return null;
+    })();
 
     const paymentProgress = order.total_value > 0
         ? (order.paid_amount / order.total_value) * 100
@@ -281,6 +305,13 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
     };
 
     return (
+        <>
+        <QuotedSnapshotDialog
+            open={quotedSnapshotOpen}
+            onOpenChange={setQuotedSnapshotOpen}
+            orderNumber={order.order_number}
+            snapshot={parsedQuotedSnapshot}
+        />
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-details-dialog">
                 <DialogHeader>
@@ -332,6 +363,17 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                         Download
                                     </Button>
                                 </>
+                            )}
+                            {parsedQuotedSnapshot && order.status !== "quoted" && (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setQuotedSnapshotOpen(true)}
+                                >
+                                    <History className="h-4 w-4 mr-2" />
+                                    Show quotation
+                                </Button>
                             )}
                             {onEdit && (
                                 <Button size="sm" onClick={() => onEdit(order)}>
@@ -664,5 +706,6 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                 </div>
             </DialogContent>
         </Dialog>
+        </>
     );
 }

@@ -4,6 +4,7 @@ import {
     updateCustomerOrderSchema,
     orderQuerySchema,
     approveOrderSchema,
+    convertOrderWithLinesSchema,
     updateOrderStatusSchema,
     orderIdSchema,
     bulkUpdateOrderStatusSchema,
@@ -20,6 +21,7 @@ import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
 import { auditMiddleware } from "@/middleware/audit";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
+import { createError } from "@/middleware/errorHandler";
 
 const router = express.Router();
 router.use(authenticate);
@@ -32,15 +34,17 @@ const validateRequest = (schema: any) => {
         const action = "Validate Request Body";
         try {
             MyLogger.info(action, { endpoint: req.path, method: req.method });
-            const { error, value } = schema.validate(req.body);
+            const { error, value } = schema.validate(req.body, { stripUnknown: true });
             if (error) {
                 MyLogger.warn(action, {
                     endpoint: req.path,
                     method: req.method,
                     validationErrors: error.details,
                 });
-                res.status(400)
-                throw new Error("Validation error");
+                const detailMsg = error.details
+                    .map((d: { message: string }) => d.message.replace(/"/g, ""))
+                    .join("; ");
+                return next(createError(detailMsg || "Invalid request body", 400));
             }
             req.body = value;
             next();
@@ -204,6 +208,17 @@ router.put(
     validateRequest(updateCustomerOrderSchema),
     auditMiddleware,
     expressAsyncHandler(CustomerOrdersController.updateCustomerOrder)
+);
+
+// POST /api/factory/customer-orders/:id/convert-with-lines - Replace lines + approve in one transaction
+router.post(
+    "/:id/convert-with-lines",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_APPROVE),
+    validateParams(orderIdSchema),
+    validateRequest(convertOrderWithLinesSchema),
+    auditMiddleware,
+    expressAsyncHandler(CustomerOrdersController.convertOrderWithLines)
 );
 
 // POST /api/factory/customer-orders/:id/approve - Approve/Reject customer order

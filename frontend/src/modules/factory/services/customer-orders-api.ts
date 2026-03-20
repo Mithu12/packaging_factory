@@ -21,6 +21,23 @@ export type FactoryCustomerOrderStatus =
 
 export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
 
+/** DB JSONB `quoted_snapshot`; set when converting from quotation (view only). */
+export interface QuotedOrderSnapshot {
+    captured_at: string;
+    order_number?: string;
+    total_value: number;
+    currency?: string;
+    line_items: Array<{
+        product_id: number;
+        product_name: string;
+        product_sku: string;
+        quantity: number;
+        unit_price: number;
+        line_total: number;
+        specifications?: string | null;
+    }>;
+}
+
 export interface FactoryCustomerOrder {
     id: number;
     order_number: string;
@@ -58,6 +75,7 @@ export interface FactoryCustomerOrder {
     actual_delivery_date?: string;
     shipping_cost?: number;
     delivery_status?: string;
+    quoted_snapshot?: QuotedOrderSnapshot | null;
 }
 
 export interface FactoryCustomerOrderLineItem {
@@ -69,6 +87,8 @@ export interface FactoryCustomerOrderLineItem {
     quantity: number;
     unit_price: number;
     total_price: number;
+    /** Present on some API responses (maps to DB `line_total`). */
+    line_total?: number;
     notes?: string;
     specifications?: string;
     created_at: string;
@@ -185,6 +205,8 @@ export interface UpdateCustomerOrderRequest {
     billing_address?: Address;
     shipping_address?: Address;
     line_items?: UpdateOrderLineItemRequest[];
+    /** When true on a quoted order, backend stores current lines in quoted_snapshot before replace. */
+    capture_quoted_snapshot?: boolean;
 }
 
 export interface UpdateOrderLineItemRequest {
@@ -195,6 +217,8 @@ export interface UpdateOrderLineItemRequest {
     quantity: number;
     unit_price: number;
     notes?: string;
+    /** Backend update schema uses `specifications` (line item text). */
+    specifications?: string;
 }
 
 export interface OrderQueryParams {
@@ -466,6 +490,17 @@ export class CustomerOrdersApiService {
         return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}/approve`, {
             method: 'POST',
             body: JSON.stringify({ approved, notes }),
+        });
+    }
+
+    /** Replace line items and approve in one request (convert quotation / accept with line edits). */
+    static async convertOrderWithLines(
+        id: string,
+        data: { line_items: UpdateOrderLineItemRequest[]; notes?: string }
+    ): Promise<FactoryCustomerOrder> {
+        return makeRequest<FactoryCustomerOrder>(`${this.BASE_URL}/${id}/convert-with-lines`, {
+            method: 'POST',
+            body: JSON.stringify(data),
         });
     }
 
