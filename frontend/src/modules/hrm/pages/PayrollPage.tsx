@@ -495,14 +495,38 @@ const PayrollPage: React.FC = () => {
 
         <TabsContent value="payroll" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Payroll Processing
-              </CardTitle>
-              <CardDescription>
-                Calculate and process payroll for the selected period
-              </CardDescription>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Payroll Processing
+                </CardTitle>
+                <CardDescription>
+                  Calculate payroll, then export the salary sheet (Excel or PDF) for the selected period
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedPeriodId || loading}
+                  onClick={() => handleExportData("excel")}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedPeriodId || loading}
+                  onClick={() => handleExportData("pdf")}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <PayrollCalculator
