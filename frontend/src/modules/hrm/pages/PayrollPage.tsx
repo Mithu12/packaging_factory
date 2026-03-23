@@ -339,7 +339,7 @@ const PayrollPage: React.FC = () => {
                 </Select>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="quickAdd"
                   size="icon"
                   onClick={() => {
                     const now = new Date();

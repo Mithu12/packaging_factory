@@ -441,7 +441,7 @@ export default function EditPurchaseOrder() {
                     <Package className="w-5 h-5" />
                     Order Items
                   </CardTitle>
-                  <Button type="button" onClick={addLineItem} size="sm">
+                  <Button type="button" variant="add" onClick={addLineItem} size="sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Item
                   </Button>

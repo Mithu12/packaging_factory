@@ -264,7 +264,7 @@ export default function Distribution() {
           </div>
           <PermissionButton
             permission={PERMISSIONS.WAREHOUSES_CREATE}
-            className="bg-primary hover:bg-primary/90"
+            variant="add"
             onClick={() => setShowCreateCenterForm(true)}
           >
             <Plus className="w-4 h-4 mr-2" />

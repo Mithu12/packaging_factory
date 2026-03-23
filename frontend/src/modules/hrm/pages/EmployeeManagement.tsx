@@ -270,7 +270,7 @@ const EmployeeManagement: React.FC = () => {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setIsFormOpen(true)} data-testid="add-employee-button">
+          <Button type="button" variant="add" onClick={() => setIsFormOpen(true)} data-testid="add-employee-button">
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>

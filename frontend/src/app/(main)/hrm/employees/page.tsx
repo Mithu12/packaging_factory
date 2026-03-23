@@ -305,6 +305,8 @@ const EmployeeManagement: React.FC = () => {
             Export
           </Button>
           <Button
+            type="button"
+            variant="add"
             onClick={() => {
               setSelectedEmployee(null);
               setIsFormOpen(true);

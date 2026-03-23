@@ -686,7 +686,7 @@ export default function WorkOrderPlanning() {
             <Filter className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateWorkOrder} disabled={createWorkOrderMutation.isPending} data-testid="create-work-order-button">
+          <Button type="button" variant="add" onClick={handleCreateWorkOrder} disabled={createWorkOrderMutation.isPending} data-testid="create-work-order-button">
             {createWorkOrderMutation.isPending ? (
               <>
                 <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-spinner" />
@@ -1594,6 +1594,8 @@ export default function WorkOrderPlanning() {
                 Cancel
               </Button>
               <Button
+                type="button"
+                variant="add"
                 onClick={handleSubmitCreateWorkOrder}
                 disabled={createWorkOrderMutation.isPending}
               >

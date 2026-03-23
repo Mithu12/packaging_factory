@@ -591,7 +591,7 @@ export default function ChartOfAccounts() {
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
           <DialogTrigger asChild>
-            <Button>
+            <Button type="button" variant="add">
               <Plus className="mr-2 h-4 w-4" />
               Add new account
             </Button>

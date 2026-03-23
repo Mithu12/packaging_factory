@@ -402,7 +402,7 @@ const DepartmentManagement: React.FC = () => {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button type="button" variant="add" onClick={() => setIsFormOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Department
           </Button>

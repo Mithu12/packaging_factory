@@ -753,6 +753,8 @@ export default function MaterialRequirementsPlanning() {
                           View Details
                         </Button>
                         <Button
+                          type="button"
+                          variant="quickAdd"
                           size="sm"
                           onClick={() => handleGeneratePOForShortage(shortage)}
                           disabled={

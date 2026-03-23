@@ -151,7 +151,7 @@ export default function SupplierOrders() {
             <p className="text-muted-foreground">Orders from {supplier?.name || 'Supplier'}</p>
           </div>
         </div>
-        <Button onClick={() => router.push("/inventory/purchase-orders/new")}>
+        <Button type="button" variant="add" onClick={() => router.push("/inventory/purchase-orders/new")}>
           <Plus className="w-4 h-4 mr-2" />
           New Purchase Order
         </Button>

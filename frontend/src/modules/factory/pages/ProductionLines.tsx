@@ -317,7 +317,7 @@ export default function ProductionLinesPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateProductionLine} disabled={createProductionLineMutation.isPending} data-testid="add-production-line-button">
+          <Button type="button" variant="add" onClick={handleCreateProductionLine} disabled={createProductionLineMutation.isPending} data-testid="add-production-line-button">
             {createProductionLineMutation.isPending ? (
               <>
                 <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-line-spinner" />

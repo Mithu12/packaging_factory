@@ -352,7 +352,7 @@ export default function MaterialAllocationPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={handleCreateAllocation} disabled={createAllocationMutation.isPending}>
+          <Button type="button" variant="add" onClick={handleCreateAllocation} disabled={createAllocationMutation.isPending}>
             {createAllocationMutation.isPending ? (
               <>
                 <Clock className="h-4 w-4 mr-2 animate-spin" />

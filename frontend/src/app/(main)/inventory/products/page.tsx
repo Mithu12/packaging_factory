@@ -212,7 +212,7 @@ export default function Products() {
           </div>
           <PermissionButton
             permission={PERMISSIONS.PRODUCTS_CREATE}
-            className="bg-primary hover:bg-primary/90"
+            variant="add"
             onClick={() => setShowAddForm(true)} data-testid="add-product-button"
           >
             <Plus className="w-4 h-4 mr-2" />

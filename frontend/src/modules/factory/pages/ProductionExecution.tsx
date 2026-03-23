@@ -578,6 +578,8 @@ export default function ProductionExecution() {
           <p className="text-gray-500" data-testid="production-execution-subtitle">Monitor and control production runs</p>
         </div>
         <Button
+          type="button"
+          variant="add"
           onClick={handleOpenCreateRun}
           disabled={createRunMutation.isPending}
           data-testid="create-run-button"
@@ -937,7 +939,8 @@ export default function ProductionExecution() {
                                     Resume
                                   </Button>
                                   <Button
-                                    variant="outline"
+                                    type="button"
+                                    variant="quickAdd"
                                     size="sm"
                                     onClick={() => handleContinueProduction(run)}
                                     disabled={createRunMutation.isPending}

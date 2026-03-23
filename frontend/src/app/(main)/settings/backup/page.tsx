@@ -129,9 +129,10 @@ export default function BackupPage() {
           </p>
         </div>
         <Button 
+          type="button"
+          variant="add"
           onClick={handleCreateBackup} 
           disabled={creating || loading}
-          className="bg-primary hover:bg-primary/90"
         >
           {creating ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -442,7 +442,7 @@ export default function EnhancedWorkOrderPlanning() {
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </Button>
-          <Button onClick={() => router.push("/factory/customer-orders")}>
+          <Button type="button" variant="add" onClick={() => router.push("/factory/customer-orders")}>
             <Plus className="h-4 w-4 mr-2" />
             Create Work Order
           </Button>

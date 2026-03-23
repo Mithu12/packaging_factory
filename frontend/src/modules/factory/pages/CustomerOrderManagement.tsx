@@ -510,12 +510,12 @@ export default function CustomerOrderManagement() {
                         Refresh
                     </Button>
                     {mainTab === 'quotations' ? (
-                        <Button onClick={handleCreateQuotation}>
+                        <Button type="button" variant="add" onClick={handleCreateQuotation}>
                             <Plus className="h-4 w-4 mr-2"/>
                             New Quotation
                         </Button>
                     ) : (
-                        <Button onClick={handleCreateOrder}>
+                        <Button type="button" variant="add" onClick={handleCreateOrder}>
                             <Plus className="h-4 w-4 mr-2"/>
                             New Order
                         </Button>

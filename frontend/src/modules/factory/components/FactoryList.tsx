@@ -137,7 +137,7 @@ const FactoryList: React.FC<FactoryListProps> = ({ onFactorySelect }) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Factory Management</CardTitle>
-            <Button onClick={handleCreateFactory} data-testid="add-factory-button">
+            <Button type="button" variant="add" onClick={handleCreateFactory} data-testid="add-factory-button">
               <Plus className="mr-2 h-4 w-4" />
               Add Factory
             </Button>

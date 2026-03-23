@@ -214,7 +214,7 @@ export default function Origins() {
             Manage product origins and manufacturing locations
           </p>
         </div>
-        <Button onClick={handleAdd}>
+        <Button type="button" variant="add" onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Add Origin
         </Button>

@@ -1,4 +1,4 @@
-﻿import { useState } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -575,7 +575,8 @@ export function CreateDistributionCenterForm({
                   />
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="quickAdd"
+                    size="icon"
                     onClick={() => addFacility(newFacility)}
                     disabled={!newFacility}
                   >

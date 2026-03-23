@@ -445,7 +445,7 @@ export default function PaymentsPage() {
         </div>
         <div className="flex gap-2">
           {canCreatePayments && (
-            <Button onClick={() => setShowRecordPaymentForm(true)}>
+            <Button type="button" variant="add" onClick={() => setShowRecordPaymentForm(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Record Payment
             </Button>

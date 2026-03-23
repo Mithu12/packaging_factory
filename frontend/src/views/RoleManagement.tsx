@@ -205,7 +205,7 @@ const RoleManagement: React.FC = () => {
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button type="button" variant="add">
               <Plus className="w-4 h-4 mr-2" />
               Create Role
             </Button>

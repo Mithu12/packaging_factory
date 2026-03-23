@@ -291,7 +291,7 @@ const AttendanceRegularizationPage: React.FC = () => {
             onOpenChange={setIsRegularizationDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button onClick={resetRegularizationForm}>
+              <Button type="button" variant="add" onClick={resetRegularizationForm}>
                 <Plus className="h-4 w-4 mr-2" />
                 Request Regularization
               </Button>

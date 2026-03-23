@@ -457,9 +457,10 @@ export default function MaterialConsumptionPage() {
         </div>
         <div className="flex gap-2" data-testid="material-consumption-actions">
           <Button
+            type="button"
             onClick={handleOpenCreateDialog}
             disabled={createConsumptionMutation.isPending}
-            variant="outline"
+            variant="quickAdd"
             data-testid="log-consumption-button"
           >
             {createConsumptionMutation.isPending ? (
@@ -475,6 +476,8 @@ export default function MaterialConsumptionPage() {
             )}
           </Button>
           <Button
+            type="button"
+            variant="add"
             onClick={handleOpenBulkCreateDialog}
             disabled={createBulkConsumptionMutation.isPending}
             data-testid="bulk-consumption-button"

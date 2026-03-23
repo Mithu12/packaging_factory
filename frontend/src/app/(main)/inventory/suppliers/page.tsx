@@ -181,7 +181,7 @@ export default function Suppliers() {
           </div>
           <PermissionButton
             permission={PERMISSIONS.SUPPLIERS_CREATE}
-            className="bg-primary hover:bg-primary/90"
+            variant="add"
             onClick={() => setShowAddForm(true)}
           >
             <Plus className="w-4 h-4 mr-2" />

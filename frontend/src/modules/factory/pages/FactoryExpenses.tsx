@@ -270,7 +270,7 @@ export default function FactoryExpenses() {
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </Button>
-          <Button onClick={() => setShowExpenseDialog(true)}>
+          <Button type="button" variant="add" onClick={() => setShowExpenseDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Record Expense
           </Button>

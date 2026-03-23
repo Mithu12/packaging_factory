@@ -288,7 +288,7 @@ const LeaveApplicationPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           {isEmployee && (
-            <Button onClick={() => setShowCreateForm(true)}>
+            <Button type="button" variant="add" onClick={() => setShowCreateForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Apply for Leave
             </Button>

@@ -208,7 +208,7 @@ export default function AdvanceSalaryPage() {
             Manage employee salary advances and track payroll deductions
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
+        <Button type="button" variant="add" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Advance
         </Button>

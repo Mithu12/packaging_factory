@@ -227,7 +227,7 @@ export default function PurchaseOrders() {
           <p className="text-muted-foreground">Create and manage purchase orders for your suppliers</p>
         </div>
         <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_CREATE}>
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
+          <Button type="button" variant="add" onClick={() => setShowCreateForm(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Create Purchase Order
           </Button>

@@ -429,7 +429,7 @@ export default function ExpensesPage() {
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button type="button" variant="add" onClick={resetForm}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Expense
               </Button>
@@ -820,7 +820,7 @@ export default function ExpensesPage() {
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No expenses found</p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Button type="button" variant="add" onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add First Expense
               </Button>

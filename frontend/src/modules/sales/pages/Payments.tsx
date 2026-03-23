@@ -951,7 +951,8 @@ export default function Payments() {
             Payment Schedule
           </Button>
           <Button
-            className="bg-primary hover:bg-primary/90"
+            type="button"
+            variant="add"
             onClick={() => setShowRecordPaymentForm(true)}
           >
             <Plus className="w-4 h-4 mr-2" />

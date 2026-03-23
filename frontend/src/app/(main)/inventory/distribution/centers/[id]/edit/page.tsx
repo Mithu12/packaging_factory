@@ -667,7 +667,8 @@ export default function EditDistributionCenter() {
                     />
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="quickAdd"
+                      size="icon"
                       onClick={() => addFacility(newFacility)}
                       disabled={!newFacility}
                     >

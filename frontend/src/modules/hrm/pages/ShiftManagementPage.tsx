@@ -312,7 +312,7 @@ const ShiftManagementPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetShiftForm}>
+              <Button type="button" variant="add" onClick={resetShiftForm}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Shift
               </Button>
@@ -654,7 +654,7 @@ const ShiftManagementPage: React.FC = () => {
                     onOpenChange={setIsAssignmentDialogOpen}
                   >
                     <DialogTrigger asChild>
-                      <Button onClick={resetAssignmentForm}>
+                      <Button type="button" variant="add" onClick={resetAssignmentForm}>
                         <Plus className="h-4 w-4 mr-2" />
                         Assign Shift
                       </Button>

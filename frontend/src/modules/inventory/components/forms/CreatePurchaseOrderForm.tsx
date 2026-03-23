@@ -344,7 +344,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                 <Label htmlFor="supplier" className="flex-1">Supplier *</Label>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="quickAdd"
                   size="icon"
                   className="shrink-0 h-8 w-8"
                   title="Add new supplier"
@@ -444,7 +444,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Order Items</h3>
-              <Button type="button" onClick={addItem} size="sm">
+              <Button type="button" variant="add" onClick={addItem} size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Item
               </Button>

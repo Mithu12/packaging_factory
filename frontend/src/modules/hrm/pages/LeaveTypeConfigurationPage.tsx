@@ -157,7 +157,7 @@ const LeaveTypeConfigurationPage: React.FC = () => {
             Define and manage different types of leave available to employees
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
+        <Button type="button" variant="add" onClick={() => setShowCreateForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Leave Type
         </Button>

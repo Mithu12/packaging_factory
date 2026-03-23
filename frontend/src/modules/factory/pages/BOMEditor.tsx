@@ -481,7 +481,7 @@ export default function BOMEditor() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Components</CardTitle>
-                <Button onClick={() => setShowAddComponent(true)}>
+                <Button type="button" variant="add" onClick={() => setShowAddComponent(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Component
                 </Button>
@@ -619,7 +619,8 @@ export default function BOMEditor() {
                   </SelectContent>
                 </Select>
                 <Button
-                  variant="outline"
+                  type="button"
+                  variant="quickAdd"
                   size="sm"
                   onClick={() => router.push("/factory/materials")}
                 >

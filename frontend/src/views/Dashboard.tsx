@@ -287,7 +287,7 @@ export default function Dashboard() {
             Refresh
           </Button>
           <div className="relative group">
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button type="button" variant="add">
               <Plus className="w-4 h-4 mr-2" />
               Quick Actions
             </Button>

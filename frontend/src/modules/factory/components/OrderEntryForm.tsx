@@ -526,7 +526,7 @@ export default function OrderEntryForm({
                                                 <FormLabel className="flex-1" data-testid="customer-select-label">Customer *</FormLabel>
                                                 <Button
                                                     type="button"
-                                                    variant="outline"
+                                                    variant="quickAdd"
                                                     size="icon"
                                                     className="shrink-0 h-8 w-8"
                                                     title="Quick add customer"
@@ -792,7 +792,7 @@ export default function OrderEntryForm({
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="text-lg">Order Items</CardTitle>
-                                <Button type="button" onClick={addLineItem} size="sm">
+                                <Button type="button" variant="add" onClick={addLineItem} size="sm">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Add Item
                                 </Button>
@@ -823,7 +823,7 @@ export default function OrderEntryForm({
                                                             <FormLabel className="flex-1">Product *</FormLabel>
                                                             <Button
                                                                 type="button"
-                                                                variant="outline"
+                                                                variant="quickAdd"
                                                                 size="icon"
                                                                 className="shrink-0 h-8 w-8"
                                                                 title="Quick add product"

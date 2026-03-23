@@ -222,7 +222,7 @@ export function QuickAddProductDialog({
                 <Label className="flex-1">Supplier *</Label>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="quickAdd"
                   size="icon"
                   className="shrink-0 h-8 w-8"
                   title="Add new supplier"

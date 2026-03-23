@@ -399,7 +399,7 @@ const ApprovalWorkflowConfig: React.FC<ApprovalWorkflowConfigProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">Approval Levels</Label>
-                <Button variant="outline" size="sm" onClick={addApprovalLevel}>
+                <Button type="button" variant="quickAdd" size="sm" onClick={addApprovalLevel}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Level
                 </Button>

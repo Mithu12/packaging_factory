@@ -230,6 +230,7 @@ export default function Brands() {
           </div>
           <PermissionButton
             permission={PERMISSIONS.BRANDS_CREATE}
+            variant="add"
             onClick={handleAdd}
           >
             <Plus className="h-4 w-4 mr-2" />

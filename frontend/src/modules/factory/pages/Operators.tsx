@@ -370,7 +370,7 @@ export default function OperatorsPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleCreateOperator} disabled={createOperatorMutation.isPending}>
+          <Button type="button" variant="add" onClick={handleCreateOperator} disabled={createOperatorMutation.isPending}>
             {createOperatorMutation.isPending ? (
               <>
                 <Clock className="h-4 w-4 mr-2 animate-spin" />

@@ -12,6 +12,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        /** Primary create / new-record CTAs (headers, “Add Product”, etc.) */
+        add: "bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/30 ring-2 ring-primary/45 ring-offset-2 ring-offset-background hover:bg-primary/90 hover:shadow-lg hover:ring-primary/60",
+        /** Inline “on the go” add (quick-add customer/product next to selects) */
+        quickAdd:
+          "border-2 border-primary/70 bg-primary/8 text-primary hover:bg-primary/15 hover:border-primary shadow-sm ring-2 ring-primary/25 ring-offset-1 ring-offset-background [&_svg]:text-primary",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

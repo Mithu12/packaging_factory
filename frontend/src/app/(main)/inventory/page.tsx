@@ -242,7 +242,7 @@ export default function Inventory() {
             <BarChart3 className="w-4 h-4 mr-2" />
             Reports
           </Button>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button type="button" variant="add">
             <Plus className="w-4 h-4 mr-2" />
             Stock Adjustment
           </Button>

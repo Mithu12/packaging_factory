@@ -192,7 +192,7 @@ export default function BOMList() {
             <Download className="h-4 w-4 mr-2" />
             Export BOM
           </Button>
-          <Button onClick={handleCreateBOM} data-testid="create-bom-button">
+          <Button type="button" variant="add" onClick={handleCreateBOM} data-testid="create-bom-button">
             <Plus className="h-4 w-4 mr-2" />
             Create BOM
           </Button>
