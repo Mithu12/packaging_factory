@@ -1,0 +1,3 @@
+
+ALTER TABLE employees
+    ALTER COLUMN country DROP DEFAULT;

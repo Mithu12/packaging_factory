@@ -642,14 +642,13 @@ export const calculateLeaveDays = (
       const month = date.getMonth() + 1;
       const day = date.getDate();
 
-      // Skip major Pakistani holidays
+      // Fixed-date Bangladesh public holidays (simplified; lunar/religious days omitted)
       if (
-        (month === 8 && day === 14) || // Independence Day
-        (month === 3 && day === 23) || // Pakistan Day
-        (month === 12 && day === 25) || // Quaid-e-Azam Day
-        (month === 5 && day === 1)
+        (month === 2 && day === 21) || // Language Martyrs' Day
+        (month === 3 && day === 26) || // Independence Day
+        (month === 12 && day === 16) || // Victory Day
+        (month === 5 && day === 1) // May Day
       ) {
-        // Labour Day
         continue;
       }
     }

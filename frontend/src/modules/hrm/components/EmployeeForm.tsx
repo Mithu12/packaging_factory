@@ -33,7 +33,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     city: '',
     state: '',
     postal_code: '',
-    country: 'Pakistan',
+    country: 'Bangladesh',
     phone: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
@@ -82,7 +82,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     city: '',
     state: '',
     postal_code: '',
-    country: 'Pakistan',
+    country: 'Bangladesh',
     phone: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
@@ -132,7 +132,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         city: employee.city || '',
         state: employee.state || '',
         postal_code: employee.postal_code || '',
-        country: employee.country || 'Pakistan',
+        country: employee.country || 'Bangladesh',
         phone: employee.phone || '',
         emergency_contact_name: employee.emergency_contact_name || '',
         emergency_contact_phone: employee.emergency_contact_phone || '',
@@ -420,7 +420,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 data-testid="nationality-input"
                 value={formData.nationality}
                 onChange={(e) => handleInputChange('nationality', e.target.value)}
-                placeholder="Pakistani"
+                placeholder="Enter nationality"
               />
             </div>
 

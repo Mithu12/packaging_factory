@@ -349,7 +349,7 @@ export const mockPaymentRecords: Omit<PaymentRecord, 'employee' | 'payroll_recor
     payment_date: '2024-10-25',
     amount: 113500,
     bank_account_number: '1234567890123458',
-    bank_name: 'National Bank of Pakistan',
+    bank_name: 'National Bank of Bangladesh',
     transaction_reference: 'TXN-20241025-003',
     status: 'completed' as const,
     processed_by: 1,

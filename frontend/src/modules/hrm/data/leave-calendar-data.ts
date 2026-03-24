@@ -434,20 +434,21 @@ export const mockEmployees = [
   },
 ];
 
-// Public Holidays for 2024
+// Public holidays for 2024 (Bangladesh — mock data; lunar dates are tentative)
 export const mockPublicHolidays = [
   { date: "2024-01-01", name: "New Year's Day", type: "public" },
-  { date: "2024-02-05", name: "Kashmir Day", type: "public" },
-  { date: "2024-03-23", name: "Pakistan Day", type: "public" },
-  { date: "2024-04-01", name: "Easter Monday", type: "religious" },
-  { date: "2024-05-01", name: "Labour Day", type: "public" },
+  { date: "2024-02-21", name: "Language Martyrs' Day", type: "public" },
+  { date: "2024-03-26", name: "Independence Day", type: "public" },
+  { date: "2024-04-11", name: "Eid-ul-Fitr (Tentative)", type: "religious" },
+  { date: "2024-04-14", name: "Pahela Baishakh", type: "public" },
+  { date: "2024-05-01", name: "May Day", type: "public" },
   { date: "2024-06-17", name: "Eid-ul-Adha (Tentative)", type: "religious" },
-  { date: "2024-07-16", name: "Eid-ul-Azha Holiday", type: "religious" },
-  { date: "2024-07-17", name: "Eid-ul-Azha Holiday", type: "religious" },
-  { date: "2024-08-14", name: "Independence Day", type: "public" },
-  { date: "2024-09-16", name: "Eid Milad-un-Nabi", type: "religious" },
-  { date: "2024-11-09", name: "Iqbal Day", type: "public" },
-  { date: "2024-12-25", name: "Quaid-e-Azam Day", type: "public" },
+  { date: "2024-06-18", name: "Eid-ul-Adha Holiday", type: "religious" },
+  { date: "2024-06-19", name: "Eid-ul-Adha Holiday", type: "religious" },
+  { date: "2024-08-15", name: "National Mourning Day", type: "public" },
+  { date: "2024-09-16", name: "Eid Milad-un-Nabi (Tentative)", type: "religious" },
+  { date: "2024-12-16", name: "Victory Day", type: "public" },
+  { date: "2024-12-25", name: "Christmas Day", type: "public" },
   { date: "2024-12-31", name: "New Year's Eve", type: "public" },
 ];
 
