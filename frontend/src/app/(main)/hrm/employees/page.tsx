@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { HRMApiService } from '@/modules/hrm/services/hrm-api';
 import { Employee, EmployeeListResponse, CreateEmployeeForm, Department } from '@/modules/hrm/types';
+import { monthlyFromHourly } from '@/modules/hrm/utils/employeeSalaryRates';
 import EmployeeForm from '@/modules/hrm/components/EmployeeForm';
 
 const EmployeeManagement: React.FC = () => {
@@ -177,7 +178,7 @@ const EmployeeManagement: React.FC = () => {
       'designation_id', 'reporting_manager_id', 'department_id',
       'employment_type', 'join_date', 'confirmation_date', 'termination_date',
       'probation_period_months', 'notice_period_days', 'work_location', 'shift_type',
-      'bank_account_number', 'bank_name', 'skill_level', 'availability_status', 'hourly_rate',
+      'bank_account_number', 'bank_name', 'skill_level', 'availability_status', 'hourly_rate', 'monthly_rate',
     ] as const;
     const filtered = Object.fromEntries(
       updateFields
@@ -639,12 +640,21 @@ const EmployeeManagement: React.FC = () => {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Hourly Rate</label>
+                    <label className="text-sm font-medium">Monthly rate</label>
                     <p className="text-sm text-muted-foreground">
-                      {selectedEmployee.hourly_rate ?
-                        HRMApiService.formatCurrency(selectedEmployee.hourly_rate) :
-                        'Not set'
-                      }
+                      {selectedEmployee.monthly_rate != null
+                        ? HRMApiService.formatCurrency(selectedEmployee.monthly_rate)
+                        : selectedEmployee.hourly_rate != null
+                          ? HRMApiService.formatCurrency(monthlyFromHourly(Number(selectedEmployee.hourly_rate)))
+                          : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Hourly rate</label>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedEmployee.hourly_rate != null
+                        ? HRMApiService.formatCurrency(selectedEmployee.hourly_rate)
+                        : 'Not set'}
                     </p>
                   </div>
                 </div>

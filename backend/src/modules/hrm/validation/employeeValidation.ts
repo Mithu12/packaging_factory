@@ -86,6 +86,7 @@ export const createEmployeeSchema = Joi.object({
   skill_level: skillLevelSchema,
   availability_status: availabilityStatusSchema,
   hourly_rate: Joi.number().min(0).precision(2).optional(),
+  monthly_rate: Joi.number().min(0).precision(2).optional(),
 });
 
 // Update employee validation schema
@@ -125,6 +126,7 @@ export const updateEmployeeSchema = Joi.object({
   skill_level: skillLevelSchema.optional(),
   availability_status: availabilityStatusSchema.optional(),
   hourly_rate: Joi.number().min(0).precision(2).optional(),
+  monthly_rate: Joi.number().min(0).precision(2).optional(),
 });
 
 // Employee query validation schema

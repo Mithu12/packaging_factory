@@ -55,6 +55,8 @@ export interface Employee {
     current_work_order_id?: number;
     availability_status: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    /** Derived from hourly using 8h × 22 working days; kept in sync on save */
+    monthly_rate?: number;
     is_active: boolean;
 
     created_at: string;
@@ -575,6 +577,7 @@ export interface CreateEmployeeRequest {
     skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    monthly_rate?: number;
     department?: string; // Legacy field for backward compatibility
     current_work_order_id?: number;
     create_user_account?: boolean;
@@ -618,6 +621,7 @@ export interface UpdateEmployeeRequest {
     skill_level?: 'beginner' | 'intermediate' | 'expert' | 'master';
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
+    monthly_rate?: number;
     cnic?: string;
     is_active?: boolean;
 }

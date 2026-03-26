@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { CalendarIcon, Save, X } from 'lucide-react';
 import { EmployeeFormProps, CreateEmployeeForm, Department, Designation, Employee } from '../types';
 import { HRMApiService } from '../services/hrm-api';
+import { hourlyFromMonthly, monthlyFromHourly, STANDARD_MONTHLY_WORK_HOURS } from '../utils/employeeSalaryRates';
 import { RBACApi } from '@/services/rbac-api';
 import { Role } from '@/services/rbac-types';
 
@@ -57,6 +58,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     skill_level: 'beginner',
     availability_status: 'available',
     hourly_rate: undefined,
+    monthly_rate: undefined,
     create_user_account: true,
     username: '',
     email: '',
@@ -106,6 +108,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     skill_level: 'beginner',
     availability_status: 'available',
     hourly_rate: undefined,
+    monthly_rate: undefined,
     termination_date: '',
     create_user_account: true,
     username: '',
@@ -157,6 +160,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         skill_level: employee.skill_level,
         availability_status: employee.availability_status,
         hourly_rate: employee.hourly_rate,
+        monthly_rate:
+          employee.monthly_rate ??
+          (employee.hourly_rate != null ? monthlyFromHourly(Number(employee.hourly_rate)) : undefined),
         create_user_account: !hasUserAccount,
         username: '',
         email: '',
@@ -277,6 +283,34 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleHourlyRateInput = (raw: string) => {
+    if (raw.trim() === '') {
+      setFormData((prev) => ({ ...prev, hourly_rate: undefined, monthly_rate: undefined }));
+      return;
+    }
+    const hourly = parseFloat(raw);
+    if (Number.isNaN(hourly) || hourly < 0) return;
+    setFormData((prev) => ({
+      ...prev,
+      hourly_rate: hourly,
+      monthly_rate: monthlyFromHourly(hourly),
+    }));
+  };
+
+  const handleMonthlyRateInput = (raw: string) => {
+    if (raw.trim() === '') {
+      setFormData((prev) => ({ ...prev, hourly_rate: undefined, monthly_rate: undefined }));
+      return;
+    }
+    const monthly = parseFloat(raw);
+    if (Number.isNaN(monthly) || monthly < 0) return;
+    setFormData((prev) => ({
+      ...prev,
+      monthly_rate: monthly,
+      hourly_rate: hourlyFromMonthly(monthly),
+    }));
   };
 
   return (
@@ -594,17 +628,43 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="hourly_rate">Hourly Rate</Label>
-              <Input
-                id="hourly_rate"
-                data-testid="hourly-rate-input"
-                type="number"
-                step="0.01"
-                value={formData.hourly_rate || ''}
-                onChange={(e) => handleInputChange('hourly_rate', parseFloat(e.target.value) || undefined)}
-                placeholder="100.00"
-              />
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Compensation (monthly ↔ hourly)</Label>
+              <p className="text-xs text-muted-foreground">
+                Uses {STANDARD_MONTHLY_WORK_HOURS} hours per month (8h × 22 days), same as payroll conversion.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="monthly_rate" className="text-muted-foreground">
+                    Monthly rate
+                  </Label>
+                  <Input
+                    id="monthly_rate"
+                    data-testid="monthly-rate-input"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={formData.monthly_rate ?? ''}
+                    onChange={(e) => handleMonthlyRateInput(e.target.value)}
+                    placeholder="e.g. 17600"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hourly_rate" className="text-muted-foreground">
+                    Hourly rate
+                  </Label>
+                  <Input
+                    id="hourly_rate"
+                    data-testid="hourly-rate-input"
+                    type="number"
+                    step="0.0001"
+                    min={0}
+                    value={formData.hourly_rate ?? ''}
+                    onChange={(e) => handleHourlyRateInput(e.target.value)}
+                    placeholder="e.g. 100"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">

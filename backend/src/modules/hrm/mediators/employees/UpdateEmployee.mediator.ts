@@ -1,5 +1,6 @@
 import { Employee, UpdateEmployeeRequest } from '../../../../types/hrm';
 import pool from '../../../../database/connection';
+import { normalizeEmployeeRates, STANDARD_MONTHLY_WORK_HOURS } from '../../utils/employeeSalaryRates';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
@@ -19,10 +20,21 @@ export class UpdateEmployeeMediator {
       // Get current employee data
       const currentEmployee = await this.getEmployeeById(employeeId);
 
+      const patch: UpdateEmployeeRequest = { ...updateData };
+      if ('hourly_rate' in patch || 'monthly_rate' in patch) {
+        const normalized = normalizeEmployeeRates({
+          hourly_rate: 'hourly_rate' in patch ? patch.hourly_rate : undefined,
+          monthly_rate: 'monthly_rate' in patch ? patch.monthly_rate : undefined,
+        });
+        if (Object.keys(normalized).length > 0) {
+          Object.assign(patch, normalized);
+        }
+      }
+
       // Check if NID already exists (if being updated)
-      if (updateData.cnic && updateData.cnic !== currentEmployee.cnic) {
+      if (patch.cnic && patch.cnic !== currentEmployee.cnic) {
         const existingCnicQuery = 'SELECT id FROM employees WHERE cnic = $1 AND id != $2';
-        const existingCnicResult = await client.query(existingCnicQuery, [updateData.cnic, employeeId]);
+        const existingCnicResult = await client.query(existingCnicQuery, [patch.cnic, employeeId]);
 
         if (existingCnicResult.rows.length > 0) {
           throw new Error('NID already exists');
@@ -30,7 +42,7 @@ export class UpdateEmployeeMediator {
       }
 
       const updatedEmployeeData = {
-        ...updateData,
+        ...patch,
         updated_at: new Date()
       };
 
@@ -62,7 +74,7 @@ export class UpdateEmployeeMediator {
           success: true,
           durationMs: 0,
           oldValues: currentEmployee,
-          newValues: updateData
+          newValues: patch
         });
       }
 
@@ -280,15 +292,17 @@ export class UpdateEmployeeMediator {
         new Date()
       ]);
 
+      const newMonthly = Math.round(newSalary * STANDARD_MONTHLY_WORK_HOURS * 100) / 100;
+
       // Update employee salary
       const updateQuery = `
         UPDATE employees
-        SET hourly_rate = $1, updated_at = $2
-        WHERE id = $3
+        SET hourly_rate = $1, monthly_rate = $2, updated_at = $3
+        WHERE id = $4
         RETURNING *
       `;
 
-      const updateResult = await client.query(updateQuery, [newSalary, new Date(), employeeId]);
+      const updateResult = await client.query(updateQuery, [newSalary, newMonthly, new Date(), employeeId]);
       const updatedEmployee = updateResult.rows[0];
 
       // Create audit log
@@ -304,8 +318,8 @@ export class UpdateEmployeeMediator {
           responseStatus: 200,
           success: true,
           durationMs: 0,
-          oldValues: { hourly_rate: employee.hourly_rate },
-          newValues: { hourly_rate: newSalary }
+          oldValues: { hourly_rate: employee.hourly_rate, monthly_rate: employee.monthly_rate },
+          newValues: { hourly_rate: newSalary, monthly_rate: newMonthly }
         });
       }
 

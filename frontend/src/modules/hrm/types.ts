@@ -46,6 +46,7 @@ export interface Employee {
   current_work_order_id?: number;
   availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
+  monthly_rate?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -444,6 +445,7 @@ export interface CreateEmployeeForm {
   skill_level: "beginner" | "intermediate" | "expert" | "master";
   availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
+  monthly_rate?: number;
   // User account creation fields
   create_user_account?: boolean;
   username?: string;

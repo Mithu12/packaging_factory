@@ -1,5 +1,6 @@
 import { Employee, CreateEmployeeRequest } from '../../../../types/hrm';
 import pool from '../../../../database/connection';
+import { normalizeEmployeeRates } from '../../utils/employeeSalaryRates';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
@@ -29,30 +30,33 @@ export class AddEmployeeMediator {
 
       await client.query('BEGIN');
 
+      const ratePatch = normalizeEmployeeRates(employeeData);
+      const employeeDataWithRates: CreateEmployeeRequest = { ...employeeData, ...ratePatch };
+
       // Generate employee ID if not provided
-      const employeeId = employeeData.employee_id || await this.generateEmployeeId();
+      const employeeId = employeeDataWithRates.employee_id || await this.generateEmployeeId();
 
       // Create user account first if employee doesn't already have a user_id
       let newUser = null;
-      if (!employeeData.user_id && employeeData.create_user_account !== false) {
+      if (!employeeDataWithRates.user_id && employeeDataWithRates.create_user_account !== false) {
         try {
-          const employeeRoleId = employeeData.role_id;
+          const employeeRoleId = employeeDataWithRates.role_id;
 
           if (!employeeRoleId) {
             throw new Error('Role ID is required to create a user account for the employee.');
           }
 
           // Use form data for username, email, and password if provided, otherwise use defaults
-          const username = employeeData.username || employeeId.toLowerCase();
-          const email = employeeData.email || `${employeeId.toLowerCase()}@company.com`;
-          const password = employeeData.password || `TempPass${Date.now()}${Math.floor(Math.random() * 10000)}`;
+          const username = employeeDataWithRates.username || employeeId.toLowerCase();
+          const email = employeeDataWithRates.email || `${employeeId.toLowerCase()}@company.com`;
+          const password = employeeDataWithRates.password || `TempPass${Date.now()}${Math.floor(Math.random() * 10000)}`;
 
           // Create user data using form data where available
           const userData = {
             username: username,
             email: email,
-            full_name: `${employeeData.first_name || ''} ${employeeData.last_name || ''}`.trim(),
-            mobile_number: employeeData.phone || undefined,
+            full_name: `${employeeDataWithRates.first_name || ''} ${employeeDataWithRates.last_name || ''}`.trim(),
+            mobile_number: employeeDataWithRates.phone || undefined,
             departments: [], // Empty departments array for now
             role_id: employeeRoleId, // Use the actual Employee role ID
             password: password
@@ -78,7 +82,7 @@ export class AddEmployeeMediator {
       }
 
       // Insert employee with the user_id (either provided or newly created)
-      const userId = employeeData.user_id || newUser?.id;
+      const userId = employeeDataWithRates.user_id || newUser?.id;
       const insertQuery = `
         INSERT INTO employees (
           employee_id, factory_id, user_id, first_name, last_name, date_of_birth,
@@ -89,29 +93,31 @@ export class AddEmployeeMediator {
           employment_type, join_date, confirmation_date, termination_date,
           probation_period_months, notice_period_days, work_location, shift_type,
           bank_account_number, bank_name, skill_level, availability_status,
-          hourly_rate, department, current_work_order_id, is_active
+          hourly_rate, monthly_rate, department, current_work_order_id, is_active
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
           $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29,
-          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
+          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42
         ) RETURNING *
       `;
 
       const values = [
-        employeeId, employeeData.factory_id, userId,
-        employeeData.first_name, employeeData.last_name, this.toNullIfEmpty(employeeData.date_of_birth),
-        employeeData.gender, employeeData.marital_status, employeeData.nationality,
-        employeeData.address, employeeData.city, employeeData.state, employeeData.postal_code,
-        employeeData.country, employeeData.phone, employeeData.emergency_contact_name,
-        employeeData.emergency_contact_phone, employeeData.emergency_contact_relationship,
-        employeeData.blood_group, employeeData.cnic, employeeData.passport_number,
-        employeeData.tax_id, employeeData.designation_id, employeeData.reporting_manager_id,
-        employeeData.department_id, employeeData.employment_type, this.toNullIfEmpty(employeeData.join_date),
-        this.toNullIfEmpty(employeeData.confirmation_date), this.toNullIfEmpty(employeeData.termination_date),
-        employeeData.probation_period_months, employeeData.notice_period_days,
-        employeeData.work_location, employeeData.shift_type, employeeData.bank_account_number,
-        employeeData.bank_name, employeeData.skill_level, employeeData.availability_status,
-        employeeData.hourly_rate, employeeData.department, employeeData.current_work_order_id, true
+        employeeId, employeeDataWithRates.factory_id, userId,
+        employeeDataWithRates.first_name, employeeDataWithRates.last_name, this.toNullIfEmpty(employeeDataWithRates.date_of_birth),
+        employeeDataWithRates.gender, employeeDataWithRates.marital_status, employeeDataWithRates.nationality,
+        employeeDataWithRates.address, employeeDataWithRates.city, employeeDataWithRates.state, employeeDataWithRates.postal_code,
+        employeeDataWithRates.country, employeeDataWithRates.phone, employeeDataWithRates.emergency_contact_name,
+        employeeDataWithRates.emergency_contact_phone, employeeDataWithRates.emergency_contact_relationship,
+        employeeDataWithRates.blood_group, employeeDataWithRates.cnic, employeeDataWithRates.passport_number,
+        employeeDataWithRates.tax_id, employeeDataWithRates.designation_id, employeeDataWithRates.reporting_manager_id,
+        employeeDataWithRates.department_id, employeeDataWithRates.employment_type, this.toNullIfEmpty(employeeDataWithRates.join_date),
+        this.toNullIfEmpty(employeeDataWithRates.confirmation_date), this.toNullIfEmpty(employeeDataWithRates.termination_date),
+        employeeDataWithRates.probation_period_months, employeeDataWithRates.notice_period_days,
+        employeeDataWithRates.work_location, employeeDataWithRates.shift_type, employeeDataWithRates.bank_account_number,
+        employeeDataWithRates.bank_name, employeeDataWithRates.skill_level, employeeDataWithRates.availability_status,
+        employeeDataWithRates.hourly_rate ?? null,
+        employeeDataWithRates.monthly_rate ?? null,
+        employeeDataWithRates.department, employeeDataWithRates.current_work_order_id, true
       ];
 
       const result = await client.query(insertQuery, values);
