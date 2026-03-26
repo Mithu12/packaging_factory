@@ -222,9 +222,9 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     }
 
     if (!formData.cnic?.trim()) {
-      newErrors.cnic = 'CNIC is required';
+      newErrors.cnic = 'NID is required';
     } else if (formData.cnic.length !== 15) {
-      newErrors.cnic = 'CNIC must be 15 digits';
+      newErrors.cnic = 'NID must be 15 digits';
     }
 
     if (!formData.employment_type) {
@@ -376,7 +376,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cnic">CNIC *</Label>
+              <Label htmlFor="cnic">NID *</Label>
               <Input
                 id="cnic"
                 data-testid="cnic-input"

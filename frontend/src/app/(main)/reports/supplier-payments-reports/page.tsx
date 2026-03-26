@@ -426,7 +426,7 @@ export default function SupplierPaymentsReportsPage() {
           </Tabs>
         </div>
       ) : (
-        <Card className="flex h-[400px] flex-col items-center justify-center border-none shadow-md bg-white/50 backdrop-blur-sm">
+        <Card className="flex h-[400px] flex-col items-center justify-center border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-slate-950/50">
           <AlertCircle className="h-10 w-10 text-muted-foreground opacity-20 mb-4" />
           <p className="text-muted-foreground">Select a date range to generate the report.</p>
         </Card>

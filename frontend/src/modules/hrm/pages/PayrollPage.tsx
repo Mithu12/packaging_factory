@@ -18,14 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import {
   Calculator,
   CreditCard,
-  Download,
   Eye,
-  Filter,
-  Users,
   DollarSign,
   Calendar,
   CheckCircle,
@@ -415,48 +411,48 @@ const PayrollPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Payroll & Payments</h1>
-          <p className="text-muted-foreground mt-1">
-            Process monthly payroll and track employee payments
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm">
-            {currentPeriod?.name || "No Period Selected"}
-          </Badge>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">Payroll & Payments</h1>
+        <p className="text-muted-foreground mt-1 max-w-2xl">
+          Choose a period, then work through the tabs: calculate salaries, mark payments, print payslips, or review
+          history.
+        </p>
       </div>
 
-      {/* Period Selector */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Payroll Period Selection
-          </CardTitle>
-          <CardDescription>
-            Select the payroll period to view and process payments
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5 shrink-0 text-muted-foreground" />
+                Period & overview
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Figures update for the payroll period you select. Create a new period with the + button if needed.
+              </CardDescription>
+            </div>
+            {currentPeriod && (
+              <Badge variant="secondary" className="w-fit shrink-0">
+                {currentPeriod.name}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Payroll Period</label>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-8">
+            <div className="space-y-2 shrink-0">
+              <label htmlFor="payroll-period-select" className="text-sm font-medium text-muted-foreground">
+                Active period
+              </label>
               <div className="flex gap-2">
-                <Select
-                  value={selectedPeriodId}
-                  onValueChange={setSelectedPeriodId}
-                >
-                  <SelectTrigger className="w-48">
+                <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+                  <SelectTrigger id="payroll-period-select" className="w-[min(100vw-8rem,280px)]">
                     <SelectValue placeholder="Select period" />
                   </SelectTrigger>
                   <SelectContent>
                     {payrollPeriods.map((period) => (
                       <SelectItem key={period.id} value={period.id.toString()}>
-                        {period.name} - {period.status}
+                        {period.name} — {period.status}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -476,42 +472,83 @@ const PayrollPage: React.FC = () => {
                 </Button>
               </div>
               {payrollPeriods.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No periods yet. Click + to create one.
-                </p>
+                <p className="text-sm text-muted-foreground">No periods yet. Click + to create one.</p>
               )}
             </div>
 
             {currentPeriod && (
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">
-                    {summaryStats.totalEmployees}
+              <div className="min-w-0 flex-1 space-y-2 border-t lg:border-t-0 lg:border-l lg:pl-8 pt-4 lg:pt-0">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Totals & payment status
+                </p>
+                <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Employees</div>
+                    <div className="font-semibold tabular-nums">{summaryStats.totalEmployees}</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Employees</div>
-                </div>
-                <div className="text-center p-3 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrencyWith(currency)(summaryStats.totalGrossSalary)}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Gross</div>
+                    <div className="font-semibold tabular-nums text-green-600 dark:text-green-500">
+                      {formatCurrencyWith(currency)(summaryStats.totalGrossSalary)}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Gross Salary
+                  <div>
+                    <div className="text-xs text-muted-foreground">Deductions</div>
+                    <div className="font-semibold tabular-nums text-red-600 dark:text-red-500">
+                      {formatCurrencyWith(currency)(summaryStats.totalDeductions)}
+                    </div>
                   </div>
-                </div>
-                <div className="text-center p-3 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
-                    {formatCurrencyWith(currency)(summaryStats.totalDeductions)}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Net</div>
+                    <div className="font-semibold tabular-nums text-blue-600 dark:text-blue-500">
+                      {formatCurrencyWith(currency)(summaryStats.totalNetSalary)}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Deductions
+                  <div className="hidden sm:block w-px bg-border self-stretch min-h-[2.25rem]" aria-hidden />
+                  <div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      Paid
+                    </div>
+                    <div className="font-semibold tabular-nums text-green-600 dark:text-green-500">
+                      {summaryStats.paidEmployees}
+                      <span className="text-muted-foreground font-normal text-xs">
+                        {" "}
+                        / {summaryStats.totalEmployees}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="text-center p-3 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrencyWith(currency)(summaryStats.totalNetSalary)}
+                  <div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-orange-600" />
+                      Pending
+                    </div>
+                    <div className="font-semibold tabular-nums text-orange-600 dark:text-orange-500">
+                      {summaryStats.pendingPayments}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Net Salary
+                  <div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 text-red-600" />
+                      Issues
+                    </div>
+                    <div className="font-semibold tabular-nums text-red-600 dark:text-red-500">
+                      {summaryStats.failedPayments}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Paid %
+                    </div>
+                    <div className="font-semibold tabular-nums">
+                      {summaryStats.totalEmployees > 0
+                        ? Math.round(
+                            (summaryStats.paidEmployees / summaryStats.totalEmployees) * 100
+                          )
+                        : 0}
+                      %
+                    </div>
                   </div>
                 </div>
               </div>
@@ -520,139 +557,36 @@ const PayrollPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Payment Status Overview */}
-      {currentPeriod && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Paid Employees
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {summaryStats.paidEmployees}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summaryStats.totalEmployees} total employees
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pending Payments
-              </CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {summaryStats.pendingPayments}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Awaiting processing
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Failed Payments
-              </CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {summaryStats.failedPayments}
-              </div>
-              <p className="text-xs text-muted-foreground">Require attention</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Payment Rate
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summaryStats.totalEmployees > 0
-                  ? Math.round(
-                      (summaryStats.paidEmployees /
-                        summaryStats.totalEmployees) *
-                        100
-                    )
-                  : 0}
-                %
-              </div>
-              <p className="text-xs text-muted-foreground">Completion rate</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="payroll" className="flex items-center gap-2">
-            <Calculator className="h-4 w-4" />
-            Payroll Processing
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-4">
+          <TabsTrigger value="payroll" className="gap-1.5 px-2 py-2 text-xs sm:text-sm">
+            <Calculator className="h-4 w-4 shrink-0" />
+            <span className="truncate">Calculate</span>
           </TabsTrigger>
-          <TabsTrigger value="payments" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Payment Processing
+          <TabsTrigger value="payments" className="gap-1.5 px-2 py-2 text-xs sm:text-sm">
+            <CreditCard className="h-4 w-4 shrink-0" />
+            <span className="truncate">Pay</span>
           </TabsTrigger>
-          <TabsTrigger value="payslips" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Payslips
+          <TabsTrigger value="payslips" className="gap-1.5 px-2 py-2 text-xs sm:text-sm">
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="truncate">Payslips</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <Receipt className="h-4 w-4" />
-            Payment History
+          <TabsTrigger value="history" className="gap-1.5 px-2 py-2 text-xs sm:text-sm">
+            <Receipt className="h-4 w-4 shrink-0" />
+            <span className="truncate">History</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="payroll" className="space-y-6">
+        <TabsContent value="payroll" className="mt-4 space-y-4">
           <Card>
-            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1.5">
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Payroll Processing
-                </CardTitle>
-                <CardDescription>
-                  Calculate payroll, then export the salary sheet (Excel or PDF) for the selected period
-                </CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedPeriodId || loading}
-                  onClick={() => handleExportData("excel")}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Excel
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedPeriodId || loading}
-                  onClick={() => handleExportData("pdf")}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export PDF
-                </Button>
-              </div>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Run payroll</CardTitle>
+              <CardDescription className="mt-1">
+                Uses the period selected above. Export the salary sheet from the History tab after you calculate.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <PayrollCalculator
                 employees={employees as any}
                 selectedEmployeeIds={selectedEmployeeIds}
@@ -663,24 +597,22 @@ const PayrollPage: React.FC = () => {
                 canCalculate={!!selectedPeriodId}
                 currency={currency}
                 pickerRows={calculatorPickerRows}
+                selectedPeriod={currentPeriod ?? null}
               />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-6">
+        <TabsContent value="payments" className="mt-4 space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Processing
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Record payments</CardTitle>
               <CardDescription>
-                Choose employees with unpaid lines for this period, then enter payment details. This list only
-                shows staff included in the latest payroll run for the selected period.
+                Only employees with an unpaid line for this period appear here. Select them, then continue to enter
+                how you paid.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               {showPaymentForm ? (
                 <PaymentForm
                   selectedEmployees={employees.filter((emp) =>
@@ -736,16 +668,13 @@ const PayrollPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payslips" className="space-y-6">
+        <TabsContent value="payslips" className="mt-4 space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Employee Payslips
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Payslips</CardTitle>
               <CardDescription>
-                Pick employees from the list, then open payslip details to review or print (save as PDF from the
-                print dialog).
+                Use the row action for quick open, or select one employee and click below. Print from the details
+                dialog to save PDF.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -788,15 +717,12 @@ const PayrollPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6">
+        <TabsContent value="history" className="mt-4 space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
-                Payment History & Audit Trail
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">History & audit</CardTitle>
               <CardDescription>
-                View payment history and audit trail for all payroll periods
+                Payment activity and salary sheet export (Excel / PDF) for the selected period.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -806,6 +732,7 @@ const PayrollPage: React.FC = () => {
                 employees={employees as any}
                 departments={departments as any}
                 onExport={handleExportData}
+                exportDisabled={!selectedPeriodId}
                 loading={loading}
                 currency={currency}
               />

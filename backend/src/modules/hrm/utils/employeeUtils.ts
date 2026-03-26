@@ -15,7 +15,7 @@ export class EmployeeUtils {
   }
 
   /**
-   * Check if CNIC already exists
+   * Check if NID already exists
    */
   static async checkCnicExists(cnic: string, excludeEmployeeId?: number): Promise<boolean> {
     const query = 'SELECT id FROM employees WHERE cnic = $1';
@@ -151,7 +151,7 @@ export class EmployeeUtils {
     }
 
     if (employeeData.cnic && !/^\d{5}-\d{7}-\d{1}$/.test(employeeData.cnic)) {
-      errors.push('CNIC format must be XXXXX-XXXXXXX-X');
+      errors.push('NID format must be XXXXX-XXXXXXX-X');
     }
 
     if (employeeData.phone && !/^(\+92|0)[0-9]{10}$/.test(employeeData.phone)) {

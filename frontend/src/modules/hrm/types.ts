@@ -928,8 +928,6 @@ export interface PayrollSummary {
 
 // Form Types
 export interface PayrollCalculationForm {
-  month: number;
-  year: number;
   employee_ids?: number[];
   recalculate_all?: boolean;
 }
@@ -1007,6 +1005,8 @@ export interface PayrollCalculatorProps {
   currency?: string;
   /** Rows for employee table; built in parent from employees + period payroll */
   pickerRows: PayrollPickerRow[];
+  /** Period selected on the payroll page (read-only context for calculate) */
+  selectedPeriod?: PayrollPeriod | null;
 }
 
 export interface PaymentFormProps {
@@ -1026,6 +1026,8 @@ export interface PayrollHistoryProps {
   filters?: PayrollFilter;
   onFilterChange?: (filters: PayrollFilter) => void;
   onExport?: (format: "excel" | "pdf") => Promise<void>;
+  /** When true, salary sheet export buttons are disabled (e.g. no period selected on payroll page) */
+  exportDisabled?: boolean;
   loading?: boolean;
   currency?: string;
 }

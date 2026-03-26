@@ -50,7 +50,7 @@ export function ProductSearch({ products, onAddToCart, isLoading = false }: Prod
 
         <div className="relative">
           {isLoading && (
-            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg">
+            <div className="absolute inset-0 bg-white/60 dark:bg-background/70 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg">
               <div className="flex flex-col items-center gap-2">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                 <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading Products...</p>
@@ -65,8 +65,8 @@ export function ProductSearch({ products, onAddToCart, isLoading = false }: Prod
                 key={product.id}
                 className={`border rounded-lg p-3 transition-shadow ${
                   isOutOfStock
-                    ? "bg-gray-50 border-gray-200 cursor-not-allowed opacity-60"
-                    : "bg-white border cursor-pointer hover:shadow-md"
+                    ? "bg-gray-50 border-gray-200 dark:bg-muted/40 dark:border-border cursor-not-allowed opacity-60"
+                    : "bg-white dark:bg-card border dark:border-border cursor-pointer hover:shadow-md"
                 }`}
                 onClick={() => !isOutOfStock && onAddToCart(product)}
               >

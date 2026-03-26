@@ -36,6 +36,7 @@ const PayrollHistory: React.FC<PayrollHistoryProps> = ({
   filters,
   onFilterChange,
   onExport,
+  exportDisabled = false,
   loading = false,
   currency = "USD"
 }) => {
@@ -220,6 +221,37 @@ const PayrollHistory: React.FC<PayrollHistoryProps> = ({
 
   return (
     <div className="space-y-6">
+      {onExport ? (
+        <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium">Salary sheet export</p>
+            <p className="text-xs text-muted-foreground">
+              Full payroll sheet for the period selected on the Payroll page (same as calculate / pay).
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || exportDisabled}
+              onClick={() => handleExport("excel")}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || exportDisabled}
+              onClick={() => handleExport("pdf")}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
@@ -371,22 +403,8 @@ const PayrollHistory: React.FC<PayrollHistoryProps> = ({
             </div>
           </div>
 
-          {/* Export Buttons */}
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              Showing {filteredPaymentRecords.length} of {paymentRecords.length} records
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
-                <Download className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleExport('pdf')}>
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </Button>
-            </div>
+          <div className="border-t pt-4 text-sm text-muted-foreground">
+            Showing {filteredPaymentRecords.length} of {paymentRecords.length} records
           </div>
         </CardContent>
       </Card>

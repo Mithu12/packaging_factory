@@ -19,13 +19,13 @@ export class UpdateEmployeeMediator {
       // Get current employee data
       const currentEmployee = await this.getEmployeeById(employeeId);
 
-      // Check if CNIC already exists (if being updated)
+      // Check if NID already exists (if being updated)
       if (updateData.cnic && updateData.cnic !== currentEmployee.cnic) {
         const existingCnicQuery = 'SELECT id FROM employees WHERE cnic = $1 AND id != $2';
         const existingCnicResult = await client.query(existingCnicQuery, [updateData.cnic, employeeId]);
 
         if (existingCnicResult.rows.length > 0) {
-          throw new Error('CNIC already exists');
+          throw new Error('NID already exists');
         }
       }
 

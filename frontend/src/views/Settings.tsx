@@ -554,7 +554,7 @@ export default function Settings() {
                     <div className="flex-shrink-0">
                       {getLogoUrl() ? (
                         <div className="relative group">
-                          <div className="w-48 h-20 border rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+                          <div className="w-48 h-20 border rounded-lg overflow-hidden bg-card flex items-center justify-center p-2">
                             <img 
                               src={getLogoUrl()!} 
                               alt="Invoice Logo" 
@@ -651,7 +651,7 @@ export default function Settings() {
                     <div className="flex-shrink-0">
                       {getLogoUrl('system') ? (
                         <div className="relative group">
-                          <div className="w-20 h-20 border rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+                          <div className="w-20 h-20 border rounded-lg overflow-hidden bg-card flex items-center justify-center p-2">
                             <img 
                               src={getLogoUrl('system')!} 
                               alt="System Logo" 

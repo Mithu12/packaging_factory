@@ -1204,7 +1204,7 @@ export default function ExpensesPage() {
                           }}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-background/90 rounded-full p-2">
                             <Image className="w-4 h-4" />
                           </div>
                         </div>

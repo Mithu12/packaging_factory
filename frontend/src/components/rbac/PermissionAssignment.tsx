@@ -343,12 +343,12 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                       onClick={() => setSelectedModule(module)}
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                          ? 'border-blue-500 bg-blue-50 shadow-md dark:bg-blue-950/40 dark:border-blue-500'
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm dark:border-border dark:hover:border-muted-foreground/40 dark:bg-card/50'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-semibold text-sm text-gray-900">{module}</h4>
+                        <h4 className="font-semibold text-sm text-gray-900 dark:text-foreground">{module}</h4>
                         {stats.assigned > 0 && (
                           <Badge variant="default" className="bg-blue-500 text-xs">
                             {stats.assigned}
@@ -356,11 +356,11 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                         )}
                       </div>
                       <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-gray-600">
+                        <div className="flex justify-between text-xs text-gray-600 dark:text-muted-foreground">
                           <span>{stats.assigned}/{stats.total} assigned</span>
                           <span className="font-medium">{stats.percentage}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 dark:bg-muted rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all ${
                               stats.percentage === 100 ? 'bg-green-500' : stats.percentage > 0 ? 'bg-blue-500' : 'bg-gray-300'
@@ -378,7 +378,7 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
 
           {/* Module Details */}
           {selectedModule && (
-            <Card className="border-2 border-blue-200">
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -397,7 +397,7 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                       size="sm"
                       variant="outline"
                       onClick={() => handleModuleToggle(selectedModule, true)}
-                      className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                      className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950/40 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950/60"
                     >
                       <Check className="w-4 h-4 mr-1" />
                       Select All
@@ -406,7 +406,7 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                       size="sm"
                       variant="outline"
                       onClick={() => handleModuleToggle(selectedModule, false)}
-                      className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                      className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/60"
                     >
                       <X className="w-4 h-4 mr-1" />
                       Clear All
@@ -415,7 +415,7 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
+                <div className="w-full bg-gray-200 dark:bg-muted rounded-full h-2.5 mt-3">
                   <div
                     className={`h-2.5 rounded-full transition-all duration-500 ${
                       getModuleStats(selectedModule).percentage === 100
@@ -487,23 +487,23 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                           };
 
                           return (
-                            <div key={resource} className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+                            <div key={resource} className="border border-gray-200 dark:border-border rounded-lg overflow-hidden">
+                              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-muted dark:to-muted px-4 py-3 border-b border-gray-200 dark:border-border">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xl">{getResourceIcon(resource)}</span>
-                                    <h4 className="font-semibold text-gray-900 capitalize">{resource}</h4>
+                                    <h4 className="font-semibold text-gray-900 dark:text-foreground capitalize">{resource}</h4>
                                   </div>
                                   <div className="flex items-center gap-3">
-                                    <Badge variant="outline" className="bg-white">
+                                    <Badge variant="outline" className="bg-background">
                                       {resourceStats.assigned}/{resourceStats.total} selected
                                     </Badge>
-                                    <span className="text-sm font-medium text-gray-600">
+                                    <span className="text-sm font-medium text-gray-600 dark:text-muted-foreground">
                                       {resourceStats.percentage}%
                                     </span>
                                   </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                <div className="w-full bg-gray-200 dark:bg-muted rounded-full h-1.5 mt-2">
                                   <div
                                     className={`h-1.5 rounded-full transition-all ${
                                       resourceStats.percentage === 100 ? 'bg-green-500' : resourceStats.percentage > 0 ? 'bg-blue-500' : 'bg-gray-400'
@@ -521,8 +521,8 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                                         key={permission.id}
                                         className={`p-3 border rounded-lg cursor-pointer transition-all ${
                                           isSelected
-                                            ? 'border-blue-500 bg-blue-50'
-                                            : 'border-gray-200 hover:border-blue-300'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-500'
+                                            : 'border-gray-200 hover:border-blue-300 dark:border-border dark:hover:border-blue-500'
                                         }`}
                                         onClick={() => handlePermissionToggle(permission.id)}
                                       >
@@ -530,12 +530,12 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
                                           <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
                                             isSelected
                                               ? 'border-blue-500 bg-blue-500'
-                                              : 'border-gray-300'
+                                              : 'border-gray-300 dark:border-muted-foreground/50'
                                           }`}>
                                             {isSelected && <Check className="w-3 h-3 text-white" />}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <h5 className="font-medium text-sm text-gray-900 mb-1">
+                                            <h5 className="font-medium text-sm text-gray-900 dark:text-foreground mb-1">
                                               {permission.display_name}
                                             </h5>
                                             <div className="flex gap-2 flex-wrap">
@@ -565,12 +565,12 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
 
           {/* Summary Alert */}
           {totalSelected > 0 && (
-            <Alert className="bg-blue-50 border-blue-200">
+            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
               <AlertDescription className="text-sm">
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
-                    <p className="font-semibold text-blue-900 mb-1">Selection Summary</p>
-                    <p className="text-blue-800">
+                    <p className="font-semibold text-blue-900 dark:text-blue-100 mb-1">Selection Summary</p>
+                    <p className="text-blue-800 dark:text-blue-200">
                       You have selected <span className="font-bold">{totalSelected}</span> permissions out of{' '}
                       <span className="font-bold">{totalAvailable}</span> available (
                       <span className="font-bold">{Math.round((totalSelected / totalAvailable) * 100)}%</span> coverage).
@@ -584,7 +584,7 @@ export const PermissionAssignment: React.FC<PermissionAssignmentProps> = ({ role
       </div>
 
       {/* Fixed Action Bar */}
-      <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 px-6 py-4 flex justify-end gap-3">
+      <div className="flex-shrink-0 bg-card border-t-2 border-border px-6 py-4 flex justify-end gap-3">
         <Button
           variant="outline"
           onClick={onClose}

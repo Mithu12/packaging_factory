@@ -535,7 +535,7 @@ const EmployeeManagement: React.FC = () => {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">CNIC</label>
+                    <label className="text-sm font-medium">NID</label>
                     <p className="text-sm text-muted-foreground">
                       {selectedEmployee.cnic || 'Not provided'}
                     </p>

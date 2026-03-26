@@ -330,11 +330,11 @@ export default function FactoryDashboard() {
 
       {/* Inventory Overview & Customer Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-orange-50/50 border-orange-100 shadow-md hover:shadow-lg transition-all duration-300">
+        <Card className="bg-orange-50/50 border-orange-100 dark:bg-orange-950/20 dark:border-orange-900 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                <div className="p-2 rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 Inventory Overview
@@ -343,7 +343,7 @@ export default function FactoryDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => router.push("/inventory")}
-                className="border-orange-200 hover:bg-orange-50 text-orange-700"
+                className="border-orange-200 hover:bg-orange-50 text-orange-700 dark:border-orange-800 dark:hover:bg-orange-950/40 dark:text-orange-300"
               >
                 Manage
               </Button>
@@ -352,19 +352,19 @@ export default function FactoryDashboard() {
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 rounded-lg bg-white/60 border border-orange-100/50 shadow-sm">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-orange-100/50 shadow-sm dark:bg-orange-950/30 dark:border-orange-900/40">
                   <p className="text-2xl font-bold text-foreground">
                     {statsLoading ? "..." : stats?.total_products || 0}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Products</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-white/60 border border-amber-200/50 shadow-sm">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-amber-200/50 shadow-sm dark:bg-amber-950/30 dark:border-amber-900/40">
                   <p className="text-2xl font-bold text-amber-600">
                     {statsLoading ? "..." : stats?.low_stock_count || 0}
                   </p>
                   <p className="text-xs text-muted-foreground">Low Stock</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-white/60 border border-red-200/50 shadow-sm">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-red-200/50 shadow-sm dark:bg-red-950/30 dark:border-red-900/40">
                   <p className="text-2xl font-bold text-red-600">
                     {statsLoading ? "..." : stats?.out_of_stock_count || 0}
                   </p>
@@ -372,8 +372,8 @@ export default function FactoryDashboard() {
                 </div>
               </div>
               {(stats?.low_stock_count || 0) > 0 && (
-                <div className="p-3 mt-4 rounded-lg bg-amber-50 border border-amber-200">
-                  <p className="text-sm text-amber-800">
+                <div className="p-3 mt-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
                     <AlertTriangle className="w-4 h-4 inline mr-2" />
                     {stats?.low_stock_count} products need restocking soon
                   </p>
@@ -383,11 +383,11 @@ export default function FactoryDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-violet-50/50 border-violet-100 shadow-md hover:shadow-lg transition-all duration-300">
+        <Card className="bg-violet-50/50 border-violet-100 dark:bg-violet-950/20 dark:border-violet-900 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-violet-100 text-violet-600">
+                <div className="p-2 rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
                   <Users className="w-5 h-5" />
                 </div>
                 Customer Payments
@@ -396,7 +396,7 @@ export default function FactoryDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => router.push("/factory/customers")}
-                className="border-violet-200 hover:bg-violet-50 text-violet-700"
+                className="border-violet-200 hover:bg-violet-50 text-violet-700 dark:border-violet-800 dark:hover:bg-violet-950/40 dark:text-violet-300"
               >
                 View All
               </Button>
@@ -405,13 +405,13 @@ export default function FactoryDashboard() {
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm dark:bg-violet-950/30 dark:border-violet-900/40">
                   <p className="text-2xl font-bold text-foreground">
                     {statsLoading ? "..." : formatCurrency(stats?.total_outstanding_dues || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Outstanding</p>
                 </div>
-                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm">
+                <div className="text-center p-4 rounded-lg bg-white/60 border border-violet-100/50 shadow-sm dark:bg-violet-950/30 dark:border-violet-900/40">
                   <p className="text-2xl font-bold text-violet-600">
                     {statsLoading ? "..." : stats?.customers_with_dues || 0}
                   </p>
@@ -419,8 +419,8 @@ export default function FactoryDashboard() {
                 </div>
               </div>
               {(stats?.total_outstanding_dues || 0) > 0 && (
-                <div className="p-3 mt-4 rounded-lg bg-violet-50 border border-violet-200">
-                  <p className="text-sm text-violet-800">
+                <div className="p-3 mt-4 rounded-lg bg-violet-50 border border-violet-200 dark:bg-violet-950/30 dark:border-violet-800">
+                  <p className="text-sm text-violet-800 dark:text-violet-200">
                     <Wallet className="w-4 h-4 inline mr-2" />
                     Collect outstanding dues to improve cash flow
                   </p>

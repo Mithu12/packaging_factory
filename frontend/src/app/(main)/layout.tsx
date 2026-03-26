@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { Bell, Search } from "lucide-react";
 import { ProtectedRoute } from "@/components/rbac/ProtectedRoute";
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <div className="flex items-center gap-2">
+                <ModeToggle />
                 <Button variant="ghost" size="icon">
                   <Bell className="h-4 w-4" />
                 </Button>

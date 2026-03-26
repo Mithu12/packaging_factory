@@ -562,9 +562,9 @@ export default function PurchaseReportsPage() {
                         : "0.0%"}
                     </span>
                   </div>
-                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-white h-full transition-all duration-500 rounded-full" 
+                  <div className="w-full bg-white/20 dark:bg-slate-700/50 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-white dark:bg-slate-200 h-full transition-all duration-500 rounded-full"
                       style={{ 
                         width: `${payments && payments.totals.total_amount > 0 
                           ? (payments.totals.total_paid / payments.totals.total_amount) * 100 
