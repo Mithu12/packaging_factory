@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -45,11 +45,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PayrollPageProps, PaymentRecord } from "../types";
+import type {
+  Employee,
+  EmployeePayrollRecord,
+  PaymentRecord,
+  PayrollPickerRow,
+} from "../types";
 import PayrollCalculator from "../components/PayrollCalculator";
+import PayrollEmployeePicker from "../components/PayrollEmployeePicker";
 import PaymentForm from "../components/PaymentForm";
 import PayrollHistory from "../components/PayrollHistory";
-import EmployeePayrollCard from "../components/EmployeePayrollCard";
+import PayslipPreviewDialog from "../components/PayslipPreviewDialog";
 import { HRMApiService } from "../services/hrm-api";
 import { SettingsApi } from "@/services/settings-api";
 import { useToast } from "@/components/ui/use-toast";
@@ -57,11 +63,22 @@ import { useToast } from "@/components/ui/use-toast";
 const formatCurrencyWith = (currency: string) => (amount: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 
+function employeeDisplayName(emp: { full_name?: string; first_name?: string; last_name?: string; id: number }) {
+  const n = (emp.full_name || `${emp.first_name || ""} ${emp.last_name || ""}`).trim();
+  return n || `Employee #${emp.id}`;
+}
+
 const PayrollPage: React.FC = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("payroll");
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [paymentSelectedEmployeeIds, setPaymentSelectedEmployeeIds] = useState<number[]>([]);
+  const [payslipSelectedEmployeeIds, setPayslipSelectedEmployeeIds] = useState<number[]>([]);
+  const [payslipPreviewOpen, setPayslipPreviewOpen] = useState(false);
+  const [payslipPreviewEmployee, setPayslipPreviewEmployee] = useState<Employee | null>(null);
+  const [payslipPreviewRecord, setPayslipPreviewRecord] = useState<EmployeePayrollRecord | null>(null);
+  const [payslipPreviewPaymentRecord, setPayslipPreviewPaymentRecord] = useState<PaymentRecord | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState("USD");
@@ -115,6 +132,79 @@ const PayrollPage: React.FC = () => {
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { if (selectedPeriodId) loadPayrollRecords(selectedPeriodId); }, [selectedPeriodId, loadPayrollRecords]);
 
+  useEffect(() => {
+    setPaymentSelectedEmployeeIds([]);
+    setPayslipSelectedEmployeeIds([]);
+    setPayslipPreviewOpen(false);
+    setPayslipPreviewEmployee(null);
+    setPayslipPreviewRecord(null);
+    setPayslipPreviewPaymentRecord(null);
+    setShowPaymentForm(false);
+  }, [selectedPeriodId]);
+
+  const payrollByEmployee = useMemo(() => {
+    const m = new Map<number, { status: string; net_salary: number }>();
+    for (const r of payrollRecords) {
+      m.set(r.employee_id, {
+        status: String(r.status || ""),
+        net_salary: parseFloat(String(r.net_salary)) || 0,
+      });
+    }
+    return m;
+  }, [payrollRecords]);
+
+  const calculatorPickerRows: PayrollPickerRow[] = useMemo(() => {
+    return employees.map((emp) => {
+      const pr = payrollByEmployee.get(emp.id);
+      return {
+        employeeId: emp.id,
+        displayName: employeeDisplayName(emp),
+        employeeCode: String(emp.employee_id ?? emp.id),
+        departmentLabel: emp.department?.name || "—",
+        designationLabel: emp.designation?.title || "—",
+        netSalary: pr?.net_salary,
+        payrollStatus: pr?.status,
+      };
+    });
+  }, [employees, payrollByEmployee]);
+
+  const paymentPickerRows: PayrollPickerRow[] = useMemo(() => {
+    const out: PayrollPickerRow[] = [];
+    for (const r of payrollRecords) {
+      if (r.status === "paid" || r.status === "cancelled") continue;
+      const emp = employees.find((e) => e.id === r.employee_id);
+      if (!emp) continue;
+      out.push({
+        employeeId: emp.id,
+        displayName: employeeDisplayName(emp),
+        employeeCode: String(emp.employee_id ?? emp.id),
+        departmentLabel: emp.department?.name || "—",
+        designationLabel: emp.designation?.title || "—",
+        netSalary: parseFloat(String(r.net_salary)) || 0,
+        payrollStatus: String(r.status || ""),
+      });
+    }
+    return out;
+  }, [payrollRecords, employees]);
+
+  const payslipPickerRows: PayrollPickerRow[] = useMemo(() => {
+    const out: PayrollPickerRow[] = [];
+    for (const r of payrollRecords) {
+      const emp = employees.find((e) => e.id === r.employee_id);
+      if (!emp) continue;
+      out.push({
+        employeeId: emp.id,
+        displayName: employeeDisplayName(emp),
+        employeeCode: String(emp.employee_id ?? emp.id),
+        departmentLabel: emp.department?.name || "—",
+        designationLabel: emp.designation?.title || "—",
+        netSalary: parseFloat(String(r.net_salary)) || 0,
+        payrollStatus: String(r.status || ""),
+      });
+    }
+    return out;
+  }, [payrollRecords, employees]);
+
   const currentPeriod = payrollPeriods.find(
     (p) => p.id.toString() === selectedPeriodId
   );
@@ -163,14 +253,44 @@ const PayrollPage: React.FC = () => {
   };
 
   const handleProcessPayments = async (data: any) => {
+    const runId = currentPayrollRecords[0]?.payroll_run_id as number | undefined;
+    if (!runId) {
+      toast({
+        title: "Error",
+        description: "Calculate payroll for this period first (no payroll run found).",
+        variant: "destructive",
+      });
+      return;
+    }
+    const employeeIds: number[] = Array.isArray(data.employee_ids) ? data.employee_ids : [];
+    if (employeeIds.length === 0) {
+      toast({
+        title: "Error",
+        description: "Select at least one employee to pay.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setLoading(true);
-      await HRMApiService.approvePayrollRun(parseInt(selectedPeriodId));
-      toast({ title: "Success", description: "Payments processed" });
+      await HRMApiService.processPayrollPayments(runId, {
+        employee_ids: employeeIds,
+        payment_method: data.payment_method,
+        payment_date: data.payment_date,
+        bank_account_number: data.bank_account_number,
+        bank_name: data.bank_name,
+        check_number: data.check_number,
+        notes: data.notes,
+      });
+      toast({ title: "Success", description: "Payments recorded" });
       setShowPaymentForm(false);
       await loadPayrollRecords(selectedPeriodId);
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to process payments", variant: "destructive" });
+    } catch (err: any) {
+      const msg =
+        err?.message ||
+        (typeof err === "object" && err !== null && "error" in err && String((err as { error?: string }).error)) ||
+        "Failed to process payments";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -200,28 +320,32 @@ const PayrollPage: React.FC = () => {
     }
   };
 
-  const handleSelectAll = (selected: boolean) => {
-    if (selected) {
-      setSelectedEmployeeIds(employees.map((emp) => emp.id));
-    } else {
-      setSelectedEmployeeIds([]);
-    }
-  };
-
-  const handleSelectEmployee = (employeeId: number, selected: boolean) => {
-    if (selected) {
-      setSelectedEmployeeIds((prev) => [...prev, employeeId]);
-    } else {
-      setSelectedEmployeeIds((prev) => prev.filter((id) => id !== employeeId));
-    }
-  };
-
   const handleGeneratePayslips = (_employeeIds: number[]) => {
     if (!selectedPeriodId) {
       toast({ title: "Error", description: "Select a payroll period first", variant: "destructive" });
       return;
     }
     handleExportData("excel");
+  };
+
+  const openPayslipForEmployee = (employeeId: number) => {
+    const emp = employees.find((e) => e.id === employeeId) as Employee | undefined;
+    const rec = currentPayrollRecords.find(
+      (r: EmployeePayrollRecord) => r.employee_id === employeeId
+    ) as EmployeePayrollRecord | undefined;
+    if (!emp || !rec) {
+      toast({
+        title: "Payslip unavailable",
+        description: "No payroll record for this employee in the selected period.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const pay = currentPaymentRecords.find((p) => p.employee_id === employeeId) ?? null;
+    setPayslipPreviewEmployee(emp);
+    setPayslipPreviewRecord(rec);
+    setPayslipPreviewPaymentRecord(pay);
+    setPayslipPreviewOpen(true);
   };
 
   const handleCreatePeriod = async (e: React.FormEvent) => {
@@ -533,11 +657,12 @@ const PayrollPage: React.FC = () => {
                 employees={employees as any}
                 selectedEmployeeIds={selectedEmployeeIds}
                 onCalculate={handleCalculatePayroll}
-                onSelectAll={handleSelectAll}
+                onSelectionChange={setSelectedEmployeeIds}
                 onGeneratePayslips={handleGeneratePayslips}
                 loading={loading}
                 canCalculate={!!selectedPeriodId}
                 currency={currency}
+                pickerRows={calculatorPickerRows}
               />
             </CardContent>
           </Card>
@@ -551,17 +676,18 @@ const PayrollPage: React.FC = () => {
                 Payment Processing
               </CardTitle>
               <CardDescription>
-                Process payments for selected employees
+                Choose employees with unpaid lines for this period, then enter payment details. This list only
+                shows staff included in the latest payroll run for the selected period.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {showPaymentForm ? (
                 <PaymentForm
                   selectedEmployees={employees.filter((emp) =>
-                    selectedEmployeeIds.includes(emp.id)
+                    paymentSelectedEmployeeIds.includes(emp.id)
                   )}
-                  selectedPayrollRecords={currentPayrollRecords.filter(
-                    (record) => selectedEmployeeIds.includes(record.employee_id)
+                  selectedPayrollRecords={currentPayrollRecords.filter((record) =>
+                    paymentSelectedEmployeeIds.includes(record.employee_id)
                   )}
                   onSubmit={handleProcessPayments}
                   onCancel={() => setShowPaymentForm(false)}
@@ -569,22 +695,42 @@ const PayrollPage: React.FC = () => {
                   currency={currency}
                 />
               ) : (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">
-                    Process Employee Payments
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    Select employees from the payroll list and process their
-                    payments
-                  </p>
-                  {selectedEmployeeIds.length > 0 && (
-                    <Button onClick={() => setShowPaymentForm(true)}>
-                      Process Payment for {selectedEmployeeIds.length} Employee
-                      {selectedEmployeeIds.length > 1 ? "s" : ""}
-                    </Button>
+                <>
+                  {paymentPickerRows.length === 0 ? (
+                    <div className="text-center py-10 rounded-lg border border-dashed">
+                      <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-medium mb-2">No unpaid payroll lines</h3>
+                      <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                        Calculate payroll for this period first. Employees already marked paid are hidden here.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <PayrollEmployeePicker
+                        rows={paymentPickerRows}
+                        selectedIds={paymentSelectedEmployeeIds}
+                        onSelectionChange={setPaymentSelectedEmployeeIds}
+                        currency={currency}
+                        contextLabel="to pay"
+                        emptyMessage="No unpaid employees in this run."
+                        showNetColumn
+                        showStatusColumn
+                      />
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <Button
+                          type="button"
+                          onClick={() => setShowPaymentForm(true)}
+                          disabled={paymentSelectedEmployeeIds.length === 0 || loading}
+                        >
+                          Continue to payment details
+                          {paymentSelectedEmployeeIds.length > 0
+                            ? ` (${paymentSelectedEmployeeIds.length})`
+                            : ""}
+                        </Button>
+                      </div>
+                    </>
                   )}
-                </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -598,38 +744,46 @@ const PayrollPage: React.FC = () => {
                 Employee Payslips
               </CardTitle>
               <CardDescription>
-                View and generate payslips for employees
+                Pick employees from the list, then open payslip details to review or print (save as PDF from the
+                print dialog).
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {currentPayrollRecords.map((record) => {
-                  const employee = employees.find(
-                    (emp) => emp.id === record.employee_id
-                  );
-                  if (!employee) return null;
-
-                  return (
-                    <EmployeePayrollCard
-                      key={record.id}
-                      employee={employee as any}
-                      payrollRecord={record}
-                      paymentRecord={currentPaymentRecords.find(
-                        (p) => p.employee_id === employee.id
-                      )}
-                      isSelected={selectedEmployeeIds.includes(employee.id)}
-                      onSelect={(selected) =>
-                        handleSelectEmployee(employee.id, selected)
-                      }
-                      onViewPayslip={() =>
-                        console.log("View payslip for", employee.id)
-                      }
-                      loading={loading}
-                      currency={currency}
-                    />
-                  );
-                })}
-              </div>
+            <CardContent className="space-y-4">
+              {payslipPickerRows.length === 0 ? (
+                <div className="text-center py-10 rounded-lg border border-dashed">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">No payroll data for this period</h3>
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                    Calculate payroll for the selected period first.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <PayrollEmployeePicker
+                    rows={payslipPickerRows}
+                    selectedIds={payslipSelectedEmployeeIds}
+                    onSelectionChange={setPayslipSelectedEmployeeIds}
+                    currency={currency}
+                    contextLabel="listed for payslips"
+                    emptyMessage="No payroll lines for this period."
+                    showNetColumn
+                    showStatusColumn
+                    onViewEmployee={openPayslipForEmployee}
+                    viewButtonLabel="Details"
+                  />
+                  <div className="flex flex-wrap justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={payslipSelectedEmployeeIds.length !== 1 || loading}
+                      onClick={() => openPayslipForEmployee(payslipSelectedEmployeeIds[0])}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Open payslip (selected)
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -714,6 +868,23 @@ const PayrollPage: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <PayslipPreviewDialog
+        open={payslipPreviewOpen}
+        onOpenChange={(open) => {
+          setPayslipPreviewOpen(open);
+          if (!open) {
+            setPayslipPreviewEmployee(null);
+            setPayslipPreviewRecord(null);
+            setPayslipPreviewPaymentRecord(null);
+          }
+        }}
+        employee={payslipPreviewEmployee}
+        payrollRecord={payslipPreviewRecord}
+        paymentRecord={payslipPreviewPaymentRecord}
+        periodDisplayName={currentPeriod?.name || "Selected period"}
+        currency={currency}
+      />
     </div>
   );
 };

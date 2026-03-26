@@ -371,6 +371,27 @@ export class HRMApiService {
     });
   }
 
+  static async processPayrollPayments(
+    runId: number,
+    data: {
+      employee_ids: number[];
+      payment_method: 'bank_transfer' | 'check' | 'cash' | 'other';
+      payment_date: string;
+      bank_account_number?: string;
+      bank_name?: string;
+      check_number?: string;
+      notes?: string;
+    }
+  ): Promise<{ payroll_run: PayrollRun; updated_count: number }> {
+    return makeRequest<{ payroll_run: PayrollRun; updated_count: number }>(
+      `${this.BASE_URL}/payroll/runs/${runId}/pay`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
   static async getPayrollSummary(periodId: number): Promise<{ summary: PayrollSummary }> {
     return makeRequest<{ summary: PayrollSummary }>(`${this.BASE_URL}/payroll/summary/${periodId}`);
   }

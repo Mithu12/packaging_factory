@@ -98,6 +98,19 @@ export const approvePayrollRunSchema = Joi.object({
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
+// Record payroll payments (per-employee lines on a run)
+export const recordPayrollPaymentsSchema = Joi.object({
+  employee_ids: Joi.array().items(Joi.number().integer().positive()).min(1).required(),
+  payment_method: Joi.string()
+    .valid('bank_transfer', 'check', 'cash', 'other')
+    .required(),
+  payment_date: Joi.string().required(),
+  bank_account_number: Joi.string().max(100).optional().allow(''),
+  bank_name: Joi.string().max(200).optional().allow(''),
+  check_number: Joi.string().max(100).optional().allow(''),
+  notes: Joi.string().max(2000).optional().allow(''),
+});
+
 // Payroll summary query validation schema
 export const payrollSummaryQuerySchema = Joi.object({
   period_id: Joi.number().required(),

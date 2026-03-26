@@ -1,21 +1,24 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   CreditCard,
-  CheckCircle,
   AlertCircle,
-  DollarSign,
-  Calendar,
   Building,
   FileText,
   Save,
@@ -47,7 +50,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [bankVerificationStatus, setBankVerificationStatus] = useState<'idle' | 'verifying' | 'verified' | 'failed'>('idle');
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      payroll_period_id: selectedPayrollRecords[0]?.payroll_period_id ?? prev.payroll_period_id,
+      employee_ids: selectedEmployees.map((e) => e.id),
+    }));
+  }, [selectedEmployees, selectedPayrollRecords]);
 
   const paymentMethodOptions = getPaymentMethodOptions();
 
@@ -109,50 +119,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
-  const handleBankVerification = async () => {
-    if (!formData.bank_account_number || !formData.bank_name) {
-      return;
-    }
-
-    setBankVerificationStatus('verifying');
-
-    // Simulate bank verification API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Mock verification result (90% success rate)
-    const isValid = Math.random() > 0.1;
-
-    setBankVerificationStatus(isValid ? 'verified' : 'failed');
-  };
-
-  const getBankVerificationDisplay = () => {
-    switch (bankVerificationStatus) {
-      case 'verifying':
-        return (
-          <div className="flex items-center gap-2 text-blue-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm">Verifying bank details...</span>
-          </div>
-        );
-      case 'verified':
-        return (
-          <div className="flex items-center gap-2 text-green-600">
-            <CheckCircle className="h-4 w-4" />
-            <span className="text-sm">Bank details verified</span>
-          </div>
-        );
-      case 'failed':
-        return (
-          <div className="flex items-center gap-2 text-red-600">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">Bank verification failed</span>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Payment Summary */}
@@ -195,15 +161,39 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             </div>
           </div>
 
-          {/* Selected Employees List */}
           <div className="mt-4 space-y-2">
-            <Label className="text-base font-medium">Selected Employees:</Label>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-              {selectedEmployees.map(employee => (
-                <Badge key={employee.id} variant="secondary" className="text-xs">
-                  {employee.full_name} - {formatCurrency(selectedPayrollRecords.find(r => r.employee_id === employee.id)?.net_salary ?? 0, currency)}
-                </Badge>
-              ))}
+            <Label className="text-base font-medium">Employees in this batch</Label>
+            <div className="rounded-md border max-h-[min(40vh,320px)] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="hidden sm:table-cell">ID</TableHead>
+                    <TableHead className="text-right">Net pay</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedEmployees.map((employee) => {
+                    const net =
+                      selectedPayrollRecords.find((r) => r.employee_id === employee.id)?.net_salary ?? 0;
+                    const name =
+                      employee.full_name ||
+                      `${employee.first_name || ""} ${employee.last_name || ""}`.trim() ||
+                      `#${employee.id}`;
+                    return (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{name}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                          {employee.employee_id}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrency(Number(net) || 0, currency)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           </div>
         </CardContent>
@@ -296,29 +286,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               </div>
             </div>
 
-            {/* Bank Verification */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Bank Account Verification</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBankVerification}
-                  disabled={bankVerificationStatus === 'verifying' || !formData.bank_account_number || !formData.bank_name}
-                >
-                  {bankVerificationStatus === 'verifying' ? 'Verifying...' : 'Verify Account'}
-                </Button>
-              </div>
-
-              {getBankVerificationDisplay() && (
-                <Alert>
-                  <AlertDescription>
-                    {getBankVerificationDisplay()}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
           </CardContent>
         </Card>
       )}
@@ -401,9 +368,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
           <X className="h-4 w-4 mr-2" />
-          Cancel
+          Back to selection
         </Button>
-        <Button type="submit" disabled={loading || bankVerificationStatus === 'failed'}>
+        <Button type="submit" disabled={loading}>
           <Save className="h-4 w-4 mr-2" />
           {loading ? 'Processing...' : 'Process Payments'}
         </Button>

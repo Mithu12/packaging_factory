@@ -16,6 +16,8 @@ import { UpdatePayrollMediator } from '../mediators/payroll/UpdatePayroll.mediat
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 import { PDFGenerator } from '../../../services/pdf-generator';
+import { recordPayrollPaymentsSchema } from '../validation/payrollValidation';
+import type { RecordPayrollPaymentsInput } from '../mediators/payroll/UpdatePayroll.mediator';
 
 class PayrollController {
 
@@ -263,6 +265,42 @@ class PayrollController {
       serializeSuccessResponse(res, { payroll_run: approvedRun }, 'Payroll run approved successfully');
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * Record payroll payments for selected employees on a run
+   */
+  async recordPayrollPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'POST /api/hrm/payroll/runs/:id/pay';
+      const runId = parseInt(req.params.id, 10);
+      if (isNaN(runId) || runId <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid payroll run id' });
+        return;
+      }
+
+      const { error, value } = recordPayrollPaymentsSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
+      if (error) {
+        res.status(400).json({
+          success: false,
+          error: error.details.map((d) => d.message).join('; ')
+        });
+        return;
+      }
+
+      const body = value as RecordPayrollPaymentsInput;
+      MyLogger.info(action, { runId, employeeCount: body.employee_ids.length });
+
+      const result = await UpdatePayrollMediator.recordPayrollPayments(runId, body, req.user?.user_id);
+
+      serializeSuccessResponse(
+        res,
+        { payroll_run: result.payroll_run, updated_count: result.updated_count },
+        'Payroll payments recorded successfully'
+      );
+    } catch (err) {
+      next(err);
     }
   }
 

@@ -4,6 +4,34 @@ import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 
+export interface RecordPayrollPaymentsInput {
+  employee_ids: number[];
+  payment_method: string;
+  payment_date: string;
+  bank_account_number?: string;
+  bank_name?: string;
+  check_number?: string;
+  notes?: string;
+}
+
+function buildPayrollPaymentReference(input: RecordPayrollPaymentsInput): string {
+  const parts: string[] = [`m:${input.payment_method}`];
+  if (input.check_number?.trim()) {
+    parts.push(`chk:${input.check_number.trim()}`);
+  }
+  if (input.bank_account_number?.trim()) {
+    const acct = input.bank_account_number.replace(/\s/g, '');
+    const tail = acct.length > 4 ? acct.slice(-4) : acct;
+    parts.push(`acct:***${tail}`);
+  }
+  if (input.bank_name?.trim()) {
+    const bn = input.bank_name.trim();
+    parts.push(`bn:${bn.length > 20 ? `${bn.slice(0, 17)}...` : bn}`);
+  }
+  const s = parts.join('|');
+  return s.length > 100 ? `${s.slice(0, 97)}...` : s;
+}
+
 export class UpdatePayrollMediator {
 
   /**
@@ -26,8 +54,9 @@ export class UpdatePayrollMediator {
 
       const run = runResult.rows[0];
 
-      // Check if run is in correct status for approval
-      if (run.status !== 'calculated') {
+      // ProcessPayrollMediator sets 'completed' after calculation; legacy runs may use 'calculated'
+      const approvableStatuses = ['calculated', 'completed'];
+      if (!approvableStatuses.includes(run.status)) {
         throw new Error('Payroll run must be calculated before approval');
       }
 
@@ -70,13 +99,13 @@ export class UpdatePayrollMediator {
       // Publish event
       eventBus.emit('payroll.approved', {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         approvedBy
       });
 
       MyLogger.success(action, {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         approvedBy
       });
 
@@ -102,7 +131,7 @@ export class UpdatePayrollMediator {
       // Get all calculated runs for the period
       const runsQuery = `
         SELECT id FROM payroll_runs
-        WHERE period_id = $1 AND status = 'calculated'
+        WHERE payroll_period_id = $1 AND status IN ('calculated', 'completed')
       `;
 
       const runsResult = await client.query(runsQuery, [periodId]);
@@ -125,10 +154,10 @@ export class UpdatePayrollMediator {
         }
       }
 
-      // Update period status
+      // Period CHECK allows open/processing/closed/cancelled — align with calculate flow (closed)
       await client.query(
         'UPDATE payroll_periods SET status = $1, updated_at = $2 WHERE id = $3',
-        ['approved', new Date(), periodId]
+        ['closed', new Date(), periodId]
       );
 
       // Create audit log for period approval
@@ -145,7 +174,7 @@ export class UpdatePayrollMediator {
           success: true,
           durationMs: 0,
           oldValues: { status: 'calculated' },
-          newValues: { status: 'approved' }
+          newValues: { status: 'closed' }
         });
       }
 
@@ -236,7 +265,7 @@ export class UpdatePayrollMediator {
       // Publish event
       eventBus.emit('payroll.paid', {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         employeeId: run.employee_id,
         amount: run.payroll_data?.netPay,
         approvedBy
@@ -244,7 +273,7 @@ export class UpdatePayrollMediator {
 
       MyLogger.success(action, {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         amount: run.payroll_data?.netPay,
         approvedBy
       });
@@ -252,6 +281,134 @@ export class UpdatePayrollMediator {
       return updatedRun;
     } catch (error) {
       MyLogger.error(action, error, { runId, approvedBy });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Record payments for selected employees on a payroll run (updates payroll_details).
+   * Auto-approves the run when still in completed/calculated; sets run to paid when all lines are paid.
+   */
+  static async recordPayrollPayments(
+    runId: number,
+    input: RecordPayrollPaymentsInput,
+    processedBy?: number
+  ): Promise<{ payroll_run: PayrollRun; updated_count: number }> {
+    const action = 'UpdatePayrollMediator.recordPayrollPayments';
+    const client = await pool.connect();
+
+    if (!input.employee_ids?.length) {
+      throw new Error('At least one employee_id is required');
+    }
+
+    try {
+      await client.query('BEGIN');
+
+      const runResult = await client.query(
+        'SELECT * FROM payroll_runs WHERE id = $1 FOR UPDATE',
+        [runId]
+      );
+      if (runResult.rows.length === 0) {
+        throw new Error('Payroll run not found');
+      }
+      const run = runResult.rows[0];
+
+      if (!['completed', 'calculated', 'approved'].includes(run.status)) {
+        throw new Error(
+          `Cannot record payments for payroll run in status "${run.status}". Calculate payroll first.`
+        );
+      }
+
+      if (run.status === 'completed' || run.status === 'calculated') {
+        await client.query(
+          `UPDATE payroll_runs
+           SET status = 'approved', approved_by = $1, approved_at = $2, updated_at = $2
+           WHERE id = $3`,
+          [processedBy ?? null, new Date(), runId]
+        );
+      }
+
+      const paymentRef = buildPayrollPaymentReference(input);
+      const notesTrim = input.notes?.trim() || null;
+
+      const updateResult = await client.query(
+        `UPDATE payroll_details
+         SET status = 'paid',
+             payment_date = $1::date,
+             payment_reference = $2,
+             notes = COALESCE($3, notes),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE payroll_run_id = $4
+           AND employee_id = ANY($5::bigint[])
+           AND status = 'calculated'
+         RETURNING id`,
+        [input.payment_date, paymentRef, notesTrim, runId, input.employee_ids]
+      );
+
+      if (updateResult.rowCount === 0) {
+        throw new Error(
+          'No payroll lines were updated. Selected employees may already be paid or are not in this run.'
+        );
+      }
+
+      const remaining = await client.query(
+        `SELECT COUNT(*)::int AS c FROM payroll_details WHERE payroll_run_id = $1 AND status <> 'paid'`,
+        [runId]
+      );
+      if (remaining.rows[0].c === 0) {
+        await client.query(
+          `UPDATE payroll_runs SET status = 'paid', paid_at = $1, updated_at = $1 WHERE id = $2`,
+          [new Date(), runId]
+        );
+      }
+
+      const finalRun = await client.query('SELECT * FROM payroll_runs WHERE id = $1', [runId]);
+
+      await client.query('COMMIT');
+
+      if (processedBy) {
+        const auditService = new AuditService();
+        await auditService.logActivity({
+          userId: processedBy,
+          action: 'RECORD_PAYROLL_PAYMENTS',
+          resourceType: 'payroll_run',
+          resourceId: runId,
+          endpoint: '/api/hrm/payroll/runs/pay',
+          method: 'POST',
+          responseStatus: 200,
+          success: true,
+          durationMs: 0,
+          oldValues: { status: run.status },
+          newValues: {
+            employees_paid: input.employee_ids.length,
+            payment_method: input.payment_method,
+            payment_date: input.payment_date
+          }
+        });
+      }
+
+      eventBus.emit('payroll.payments.recorded', {
+        runId,
+        periodId: run.payroll_period_id,
+        employeeIds: input.employee_ids,
+        processedBy
+      });
+
+      MyLogger.success(action, {
+        runId,
+        updatedCount: updateResult.rowCount,
+        finalStatus: finalRun.rows[0]?.status
+      });
+
+      return {
+        payroll_run: finalRun.rows[0],
+        updated_count: updateResult.rowCount ?? 0
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { runId, input });
       throw error;
     } finally {
       client.release();
@@ -320,14 +477,14 @@ export class UpdatePayrollMediator {
       // Publish event
       eventBus.emit('payroll.cancelled', {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         reason,
         cancelledBy
       });
 
       MyLogger.success(action, {
         runId,
-        periodId: run.period_id,
+        periodId: run.payroll_period_id,
         reason,
         cancelledBy
       });

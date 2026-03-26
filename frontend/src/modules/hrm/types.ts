@@ -983,16 +983,30 @@ export interface EmployeePayrollCardProps {
   currency?: string;
 }
 
+/** Row model for payroll employee table pickers (calculate / pay) */
+export interface PayrollPickerRow {
+  employeeId: number;
+  displayName: string;
+  employeeCode: string;
+  departmentLabel: string;
+  designationLabel: string;
+  netSalary?: number;
+  payrollStatus?: string;
+}
+
 export interface PayrollCalculatorProps {
   employees: Employee[];
   selectedEmployeeIds: number[];
   onCalculate: (data: PayrollCalculationForm) => Promise<void>;
-  onSelectAll: (selected: boolean) => void;
+  /** Table picker selection (full list replace) */
+  onSelectionChange: (employeeIds: number[]) => void;
   onGeneratePayslips?: (employeeIds: number[]) => void;
   loading?: boolean;
   /** When false, disables Calculate Payroll (e.g. no period selected) */
   canCalculate?: boolean;
   currency?: string;
+  /** Rows for employee table; built in parent from employees + period payroll */
+  pickerRows: PayrollPickerRow[];
 }
 
 export interface PaymentFormProps {

@@ -541,10 +541,13 @@ export const calculatePayrollTotals = (records) => {
 };
 
 export const generatePayslipData = (payrollRecord: EmployeePayrollRecord, employee: Employee) => {
+  const displayName =
+    (employee.full_name || `${employee.first_name || ""} ${employee.last_name || ""}`).trim() ||
+    `Employee #${employee.id}`;
   return {
     employee: {
       id: employee.id,
-      name: employee.full_name,
+      name: displayName,
       employee_id: employee.employee_id,
       designation: employee.designation?.title,
       department: employee.department?.name,

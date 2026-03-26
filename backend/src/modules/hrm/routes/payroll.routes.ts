@@ -101,6 +101,13 @@ router.post(
   expressAsyncHandler(PayrollController.approvePayrollRun)
 );
 
+// Record payments for selected employees (updates payroll_details; may mark run paid)
+router.post(
+  "/runs/:id/pay",
+  requirePermission(PERMISSIONS.HR_PAYROLL_PROCESS),
+  expressAsyncHandler(PayrollController.recordPayrollPayments)
+);
+
 // =====================================================
 // Payroll Summary and Dashboard Routes
 // =====================================================

@@ -121,3 +121,31 @@ All colors MUST be HSL.
   }
 }
 
+/* Payslip modal: print-friendly layout (only while payslip dialog is open) */
+@media print {
+  body.payslip-print-active .payslip-detail-view,
+  body.payslip-print-active .payslip-detail-view * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.payslip-print-active .payslip-detail-view {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.payslip-print-active [data-radix-dialog-overlay] {
+    display: none !important;
+  }
+
+  body.payslip-print-active [data-radix-dialog-content] {
+    position: static !important;
+    transform: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
