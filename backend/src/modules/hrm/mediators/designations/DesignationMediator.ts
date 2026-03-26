@@ -7,6 +7,10 @@ import {
 import { MediatorInterface } from '../../../../types';
 import pool from '../../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
+import {
+  baseCodeFromLabel,
+  ensureUniqueDesignationCode
+} from '../../utils/hrmCodeUtils';
 
 type DesignationListResult = {
   designations: Designation[];
@@ -292,9 +296,18 @@ class DesignationMediator implements MediatorInterface {
     try {
       MyLogger.info(action, { designationData, createdBy });
 
-      // Check code uniqueness
+      const trimmedCode = designationData.code?.trim();
+      const code =
+        trimmedCode && trimmedCode.length > 0
+          ? trimmedCode.toUpperCase()
+          : await ensureUniqueDesignationCode(
+              client,
+              baseCodeFromLabel(designationData.title, 'DESG')
+            );
+
+      // Check code uniqueness (client-supplied codes)
       const existingCodeQuery = 'SELECT id FROM designations WHERE code = $1';
-      const existingCode = await client.query(existingCodeQuery, [designationData.code]);
+      const existingCode = await client.query(existingCodeQuery, [code]);
       if (existingCode.rows.length > 0) {
         throw new Error('Designation code already exists');
       }
@@ -311,6 +324,7 @@ class DesignationMediator implements MediatorInterface {
 
       const newDesignation = {
         ...designationData,
+        code,
         is_active: true,
         created_at: new Date(),
         updated_at: new Date()

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Designation, CreateDesignationForm, DesignationFormProps, Department } from '../types';
 import { HRMApiService } from '../services/hrm-api';
+import { suggestCodeFromLabel } from '../utils/suggest-code-from-label';
 
 // Dummy data for departments and designations (for reporting hierarchy)
 const DUMMY_DEPARTMENTS: Department[] = [
@@ -46,12 +47,14 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const codeEditedByUser = useRef(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [availableDesignations, setAvailableDesignations] = useState<Designation[]>([]);
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
 
   useEffect(() => {
     if (designation) {
+      codeEditedByUser.current = true;
       setFormData({
         title: designation.title,
         code: designation.code,
@@ -61,6 +64,18 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
         min_salary: designation.min_salary,
         max_salary: designation.max_salary,
         reports_to_id: designation.reports_to_id
+      });
+    } else {
+      codeEditedByUser.current = false;
+      setFormData({
+        title: '',
+        code: '',
+        department_id: undefined,
+        grade_level: '',
+        description: '',
+        min_salary: undefined,
+        max_salary: undefined,
+        reports_to_id: undefined
       });
     }
 
@@ -91,14 +106,13 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
       newErrors.title = 'Designation title is required';
     }
 
-    if (!formData.code.trim()) {
-      newErrors.code = 'Designation code is required';
-    } else if (formData.code.length < 2) {
-      newErrors.code = 'Designation code must be at least 2 characters';
-    }
-
-    if (formData.code && !/^[A-Z0-9]+$/.test(formData.code)) {
-      newErrors.code = 'Designation code must contain only uppercase letters and numbers';
+    const codeTrim = formData.code.trim();
+    if (codeTrim) {
+      if (codeTrim.length < 2) {
+        newErrors.code = 'Designation code must be at least 2 characters';
+      } else if (!/^[A-Z0-9]+$/.test(codeTrim)) {
+        newErrors.code = 'Designation code must contain only uppercase letters and numbers';
+      }
     }
 
     if (!formData.grade_level.trim()) {
@@ -128,12 +142,18 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
   };
 
   const handleInputChange = (field: keyof CreateDesignationForm, value: string | number | undefined) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    if (field === 'code') {
+      codeEditedByUser.current = true;
+    }
 
-    // Clear error when user starts typing
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'title' && !designation && !codeEditedByUser.current) {
+        next.code = suggestCodeFromLabel(String(value), 'DESG');
+      }
+      return next;
+    });
+
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -163,15 +183,19 @@ const DesignationForm: React.FC<DesignationFormProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="code">Designation Code *</Label>
+          <Label htmlFor="code">Designation Code</Label>
           <Input
             id="code"
             value={formData.code}
             onChange={(e) => handleInputChange('code', e.target.value.toUpperCase())}
-            placeholder="e.g., SWE001"
+            placeholder="Auto-filled from title; override if needed"
+            maxLength={20}
             className={errors.code ? 'border-destructive' : ''}
           />
           {errors.code && <p className="text-sm text-destructive">{errors.code}</p>}
+          <p className="text-xs text-muted-foreground">
+            Uppercase letters and numbers only. Leave blank to generate on save.
+          </p>
         </div>
 
         <div className="space-y-2">

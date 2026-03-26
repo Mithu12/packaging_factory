@@ -2,6 +2,10 @@ import { Department, CreateDepartmentRequest, UpdateDepartmentRequest, Departmen
 import { MediatorInterface } from '../../../../types';
 import pool from '../../../../database/connection';
 import { MyLogger } from '@/utils/new-logger';
+import {
+  baseCodeFromLabel,
+  ensureUniqueDepartmentCode
+} from '../../utils/hrmCodeUtils';
 
 class DepartmentMediator implements MediatorInterface {
   constructor() {}
@@ -211,9 +215,18 @@ class DepartmentMediator implements MediatorInterface {
     try {
       MyLogger.info(action, { departmentData, createdBy });
 
+      const trimmedCode = departmentData.code?.trim();
+      const code =
+        trimmedCode && trimmedCode.length > 0
+          ? trimmedCode.toUpperCase()
+          : await ensureUniqueDepartmentCode(
+              client,
+              baseCodeFromLabel(departmentData.name, 'DEPT')
+            );
+
       // Check if department code already exists
       const existingDeptQuery = 'SELECT id FROM departments WHERE code = $1';
-      const existingDeptResult = await client.query(existingDeptQuery, [departmentData.code]);
+      const existingDeptResult = await client.query(existingDeptQuery, [code]);
 
       if (existingDeptResult.rows.length > 0) {
         throw new Error('Department code already exists');
@@ -221,6 +234,7 @@ class DepartmentMediator implements MediatorInterface {
 
       const newDepartment = {
         ...departmentData,
+        code,
         is_active: true,
         created_at: new Date(),
         updated_at: new Date()

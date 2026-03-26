@@ -36,7 +36,7 @@ router.get('/:id', getDepartmentById);
  * @route   POST /api/hrm/departments
  * @desc    Create new department
  * @access  Private
- * @body    { name, code, description?, manager_id?, parent_department_id? }
+ * @body    { name, code?, description?, manager_id?, parent_department_id? } — code optional, auto-generated from name when omitted
  */
 router.post('/', createDepartment);
 

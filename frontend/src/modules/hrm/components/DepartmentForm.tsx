@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Department, CreateDepartmentForm, DepartmentFormProps } from '../types';
 import { HRMApiService } from '../services/hrm-api';
+import { suggestCodeFromLabel } from '../utils/suggest-code-from-label';
 
 const DepartmentForm: React.FC<DepartmentFormProps> = ({
   department,
@@ -24,6 +25,7 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const codeEditedByUser = useRef(false);
   const [headOfDepartmentUsers, setHeadOfDepartmentUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -31,6 +33,7 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
 
   useEffect(() => {
     if (department) {
+      codeEditedByUser.current = true;
       setFormData({
         name: department.name,
         code: department.code,
@@ -39,6 +42,7 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
         parent_department_id: department.parent_department_id
       });
     } else {
+      codeEditedByUser.current = false;
       setFormData({
         name: '',
         code: '',
@@ -94,14 +98,13 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
       newErrors.name = 'Department name is required';
     }
 
-    if (!formData.code.trim()) {
-      newErrors.code = 'Department code is required';
-    } else if (formData.code.length < 2) {
-      newErrors.code = 'Department code must be at least 2 characters';
-    }
-
-    if (formData.code && !/^[A-Z0-9]+$/.test(formData.code)) {
-      newErrors.code = 'Department code must contain only uppercase letters and numbers';
+    const codeTrim = formData.code.trim();
+    if (codeTrim) {
+      if (codeTrim.length < 2) {
+        newErrors.code = 'Department code must be at least 2 characters';
+      } else if (!/^[A-Z0-9]+$/.test(codeTrim)) {
+        newErrors.code = 'Department code must contain only uppercase letters and numbers';
+      }
     }
 
     setErrors(newErrors);
@@ -123,12 +126,18 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
   };
 
   const handleInputChange = (field: keyof CreateDepartmentForm, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    if (field === 'code') {
+      codeEditedByUser.current = true;
+    }
 
-    // Clear error when user starts typing
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'name' && !department && !codeEditedByUser.current) {
+        next.code = suggestCodeFromLabel(String(value), 'DEPT');
+      }
+      return next;
+    });
+
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -159,22 +168,20 @@ const DepartmentForm: React.FC<DepartmentFormProps> = ({
 
         {/* Department Code */}
         <div className="space-y-2">
-          <Label htmlFor="code">
-            Department Code <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="code">Department Code</Label>
           <Input
             id="code"
             value={formData.code}
             onChange={(e) => handleInputChange('code', e.target.value.toUpperCase())}
-            placeholder="e.g., HR001"
-            maxLength={10}
+            placeholder="Auto-filled from name; override if needed"
+            maxLength={20}
             className={errors.code ? 'border-destructive' : ''}
           />
           {errors.code && (
             <p className="text-sm text-destructive">{errors.code}</p>
           )}
           <p className="text-xs text-muted-foreground">
-            Use uppercase letters and numbers only
+            Uppercase letters and numbers only. Leave blank to generate on save.
           </p>
         </div>
 

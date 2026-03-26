@@ -392,7 +392,8 @@ export interface EmployeeTransfer {
 // Request/Response Types for Departments
 export interface CreateDepartmentRequest {
     name: string;
-    code: string;
+    /** Omit or leave empty to auto-generate from name */
+    code?: string;
     description?: string;
     manager_id?: number;
     parent_department_id?: number;
@@ -421,7 +422,8 @@ export interface DepartmentQueryParams {
 // Request/Response Types for Designations
 export interface CreateDesignationRequest {
     title: string;
-    code: string;
+    /** Omit or leave empty to auto-generate from title */
+    code?: string;
     department_id?: number;
     grade_level?: string;
     description?: string;

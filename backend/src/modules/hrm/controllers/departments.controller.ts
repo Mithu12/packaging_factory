@@ -96,10 +96,10 @@ export const createDepartment = async (req: Request, res: Response): Promise<voi
     const departmentData: CreateDepartmentRequest = req.body;
 
     // Basic validation
-    if (!departmentData.name || !departmentData.code) {
+    if (!departmentData.name?.trim()) {
       res.status(400).json({
         success: false,
-        message: 'Department name and code are required'
+        message: 'Department name is required'
       });
       return;
     }

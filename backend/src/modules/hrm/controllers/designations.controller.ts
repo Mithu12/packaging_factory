@@ -78,10 +78,10 @@ class DesignationsController {
       MyLogger.info(action, { body: req.body });
 
       const designationData: CreateDesignationRequest = req.body;
-      if (!designationData.title || !designationData.code) {
+      if (!designationData.title?.trim()) {
         res.status(400).json({
           success: false,
-          message: 'Designation title and code are required'
+          message: 'Designation title is required'
         });
         return;
       }

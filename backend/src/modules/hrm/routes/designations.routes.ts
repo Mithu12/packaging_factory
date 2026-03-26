@@ -57,6 +57,7 @@ router.get(
  * @route   POST /api/hrm/designations
  * @desc    Create new designation
  * @access  Private
+ * @body    title required; code optional (auto-generated from title when omitted)
  */
 router.post(
   "/",
