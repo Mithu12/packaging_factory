@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,40 @@ import type { Product } from "@/services/types";
 import { generateSimpleSKU } from "@/utils/sku-generator";
 import { generateBarcode } from "@/utils/barcode-generator";
 import { QuickAddSupplierDialog } from "./QuickAddSupplierDialog";
+
+function hasSelectedCategoryId(value: string): boolean {
+  return value.trim() !== "";
+}
+
+function extractCategoriesFromResponse(payload: unknown): Category[] {
+  if (payload == null) {
+    return [];
+  }
+  if (Array.isArray(payload)) {
+    return payload as Category[];
+  }
+  if (typeof payload !== "object") {
+    return [];
+  }
+  const o = payload as Record<string, unknown>;
+  const raw = o.categories ?? o.items ?? o.data ?? o.results;
+  if (Array.isArray(raw)) {
+    return raw as Category[];
+  }
+  return [];
+}
+
+function getCategoryRowId(row: unknown): string | null {
+  if (row == null || typeof row !== "object") {
+    return null;
+  }
+  const r = row as Record<string, unknown>;
+  const raw = r.id ?? r.category_id ?? r.ID;
+  if (raw == null) {
+    return null;
+  }
+  return String(raw);
+}
 
 function buildQuickSku(name: string): string {
   const fromName = generateSimpleSKU(name).replace(/^-|-$/g, "");
@@ -63,16 +97,33 @@ export function QuickAddProductDialog({
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addSupplierOpen, setAddSupplierOpen] = useState(false);
+  const [categorySelectKey, setCategorySelectKey] = useState(0);
+  const prevOpenRef = useRef(false);
 
   const loadCategoriesAndSuppliers = useCallback(async () => {
     try {
       setLoadingMeta(true);
-      const [catRes, supRes] = await Promise.all([
+      const settled = await Promise.allSettled([
         ApiService.getCategories({ limit: 100 }),
         SupplierApi.getSuppliers({ limit: 100 }),
       ]);
-      setCategories(catRes.categories ?? []);
-      setSuppliers(supRes.suppliers ?? []);
+      if (settled[0].status === "fulfilled") {
+        setCategories(extractCategoriesFromResponse(settled[0].value));
+      } else {
+        console.error("Failed to load categories:", settled[0].reason);
+        setCategories([]);
+      }
+      if (settled[1].status === "fulfilled") {
+        const v = settled[1].value as { suppliers?: Supplier[] };
+        const sups = v?.suppliers;
+        setSuppliers(Array.isArray(sups) ? sups : []);
+      } else {
+        console.error("Failed to load suppliers:", settled[1].reason);
+        setSuppliers([]);
+      }
+      if (settled.some((r) => r.status === "rejected")) {
+        toast.error("Failed to load categories or suppliers");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load categories or suppliers");
@@ -81,14 +132,36 @@ export function QuickAddProductDialog({
     }
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      loadCategoriesAndSuppliers();
+  useLayoutEffect(() => {
+    if (!open) {
+      prevOpenRef.current = false;
+      return;
+    }
+    const justOpened = !prevOpenRef.current;
+    prevOpenRef.current = true;
+    if (justOpened) {
+      setCategorySelectKey((k) => k + 1);
       setName("");
       setSellingPrice("");
-      setCategoryId("");
       setSupplierId("");
     }
+    setCategoryId((prev) => {
+      let next = justOpened ? "" : prev;
+      if (!hasSelectedCategoryId(next) && categories.length > 0) {
+        const rowId = getCategoryRowId(categories[0]);
+        if (rowId !== null) {
+          next = rowId;
+        }
+      }
+      return next;
+    });
+  }, [open, categories]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    void loadCategoriesAndSuppliers();
   }, [open, loadCategoriesAndSuppliers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,7 +175,7 @@ export function QuickAddProductDialog({
       toast.error("Enter a valid selling price greater than zero");
       return;
     }
-    if (!categoryId) {
+    if (!hasSelectedCategoryId(categoryId)) {
       toast.error("Select a category");
       return;
     }
@@ -196,7 +269,10 @@ export function QuickAddProductDialog({
             <div className="space-y-2">
               <Label>Category *</Label>
               <Select
-                value={categoryId}
+                key={categorySelectKey}
+                value={
+                  hasSelectedCategoryId(categoryId) ? String(categoryId) : undefined
+                }
                 onValueChange={setCategoryId}
                 disabled={loadingMeta}
               >
@@ -209,7 +285,7 @@ export function QuickAddProductDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
+                    <SelectItem key={String(c.id)} value={String(c.id)}>
                       {c.name}
                     </SelectItem>
                   ))}

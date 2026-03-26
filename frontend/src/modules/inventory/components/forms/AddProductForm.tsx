@@ -1,4 +1,10 @@
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +48,52 @@ interface AddProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProductAdded?: () => void;
+}
+
+function formCategoryIdString(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  return String(value).trim();
+}
+
+function toNumericCategoryId(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** Normalizes GET /categories payloads (shape differs across API versions). */
+function extractCategoriesFromResponse(payload: unknown): Category[] {
+  if (payload == null) {
+    return [];
+  }
+  if (Array.isArray(payload)) {
+    return payload as Category[];
+  }
+  if (typeof payload !== "object") {
+    return [];
+  }
+  const o = payload as Record<string, unknown>;
+  const raw = o.categories ?? o.items ?? o.data ?? o.results;
+  if (Array.isArray(raw)) {
+    return raw as Category[];
+  }
+  return [];
+}
+
+function getCategoryRowId(row: unknown): string | null {
+  if (row == null || typeof row !== "object") {
+    return null;
+  }
+  const r = row as Record<string, unknown>;
+  const raw = r.id ?? r.category_id ?? r.ID;
+  if (raw == null) {
+    return null;
+  }
+  return String(raw);
 }
 
 interface ProductFormData {
@@ -117,6 +169,30 @@ export function AddProductForm({
     Partial<Record<keyof ProductFormData, boolean>>
   >({});
 
+  /** Bumps when the add dialog opens so Radix Select remounts with fresh options/value. */
+  const [categorySelectKey, setCategorySelectKey] = useState(0);
+
+  const loadSubcategoriesForCategory = useCallback(async (categoryId: unknown) => {
+    const n = toNumericCategoryId(categoryId);
+    if (!Number.isFinite(n)) {
+      setSubcategories([]);
+      return;
+    }
+    try {
+      const subcategoriesData = await ApiService.getSubcategories({
+        category_id: n,
+        limit: 100,
+      });
+      const raw = subcategoriesData.subcategories;
+      setSubcategories(Array.isArray(raw) ? raw : []);
+    } catch (err) {
+      console.error("Failed to fetch subcategories:", err);
+      setSubcategories([]);
+    }
+  }, []);
+
+  const prevOpenRef = useRef(false);
+
   const clearFieldError = (field: keyof ProductFormData) => {
     setValidationErrors((prev) => {
       if (!prev[field]) {
@@ -162,35 +238,115 @@ export function AddProductForm({
     }
   };
 
-  // Fetch categories and suppliers when dialog opens
-  useEffect(() => {
-    if (open) {
-      const fetchData = async () => {
-        try {
-          setLoading(true);
-          const [categoriesData, brandsData, originsData, suppliersData] =
-            await Promise.all([
-              ApiService.getCategories({ limit: 100 }),
-              ApiService.getBrands({ limit: 100 }),
-              ApiService.getOrigins({ limit: 100 }),
-              ApiService.getSuppliers({ limit: 100 }),
-            ]);
-
-          setCategories(categoriesData.categories);
-          setBrands(brandsData);
-          setOrigins(originsData);
-          setSuppliers(suppliersData.suppliers);
-        } catch (err) {
-          console.error("Failed to fetch data:", err);
-          toast.error("Failed to load form data");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchData();
+  // When the dialog opens or the category list updates: on open, clear category; if still empty, select the first row (one update avoids races with async fetch).
+  useLayoutEffect(() => {
+    if (!open) {
+      prevOpenRef.current = false;
+      return;
     }
+
+    const justOpened = !prevOpenRef.current;
+    prevOpenRef.current = true;
+
+    if (justOpened) {
+      setCategorySelectKey((k) => k + 1);
+    }
+
+    setFormData((prev) => {
+      let category_id = prev.category_id;
+      let subcategory_id = prev.subcategory_id;
+      if (justOpened) {
+        category_id = "";
+        subcategory_id = "";
+      }
+      if (
+        formCategoryIdString(category_id) === "" &&
+        categories.length > 0
+      ) {
+        const rowId = getCategoryRowId(categories[0]);
+        if (rowId !== null) {
+          category_id = rowId;
+        }
+      }
+      if (
+        category_id === prev.category_id &&
+        subcategory_id === prev.subcategory_id
+      ) {
+        return prev;
+      }
+      return { ...prev, category_id, subcategory_id };
+    });
+  }, [open, categories]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const settled = await Promise.allSettled([
+          ApiService.getCategories({ limit: 100 }),
+          ApiService.getBrands({ limit: 100 }),
+          ApiService.getOrigins({ limit: 100 }),
+          ApiService.getSuppliers({ limit: 100 }),
+        ]);
+
+        if (settled[0].status === "fulfilled") {
+          setCategories(extractCategoriesFromResponse(settled[0].value));
+        } else {
+          console.error("Failed to load categories:", settled[0].reason);
+          setCategories([]);
+        }
+
+        if (settled[1].status === "fulfilled") {
+          const v = settled[1].value;
+          setBrands(Array.isArray(v) ? v : []);
+        } else {
+          console.error("Failed to load brands:", settled[1].reason);
+          setBrands([]);
+        }
+
+        if (settled[2].status === "fulfilled") {
+          const v = settled[2].value;
+          setOrigins(Array.isArray(v) ? v : []);
+        } else {
+          console.error("Failed to load origins:", settled[2].reason);
+          setOrigins([]);
+        }
+
+        if (settled[3].status === "fulfilled") {
+          const v = settled[3].value as { suppliers?: Supplier[] };
+          const sups = v?.suppliers;
+          setSuppliers(Array.isArray(sups) ? sups : []);
+        } else {
+          console.error("Failed to load suppliers:", settled[3].reason);
+          setSuppliers([]);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+        toast.error("Failed to load form data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const cid = formCategoryIdString(formData.category_id);
+    if (cid === "") {
+      setSubcategories([]);
+      return;
+    }
+    void loadSubcategoriesForCategory(cid);
+  }, [open, formData.category_id, loadSubcategoriesForCategory]);
 
   const handleCategoryChange = async (categoryId: string) => {
     setFormData((prev) => ({
@@ -199,37 +355,23 @@ export function AddProductForm({
       subcategory_id: "",
     }));
 
-    if (categoryId) {
+    if (formCategoryIdString(categoryId) !== "") {
       clearFieldError("category_id");
     }
 
     // Regenerate SKU if product name exists
     if (formData.name.trim()) {
       const categoryName = categories.find(
-        (cat) => cat.id.toString() === categoryId
+        (cat) => String(cat.id) === categoryId
       )?.name;
       const brandName = brands.find(
-        (brand) => brand.id.toString() === formData.brand_id
+        (brand) => String(brand.id) === String(formData.brand_id)
       )?.name;
 
       const generatedSKU = generateSKU(formData.name, categoryName, brandName);
       setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     }
 
-    if (categoryId) {
-      try {
-        const subcategoriesData = await ApiService.getSubcategories({
-          category_id: parseInt(categoryId),
-          limit: 100,
-        });
-        setSubcategories(subcategoriesData.subcategories);
-      } catch (err) {
-        console.error("Failed to fetch subcategories:", err);
-        setSubcategories([]);
-      }
-    } else {
-      setSubcategories([]);
-    }
   };
 
   const removeImage = () => {
@@ -388,10 +530,10 @@ export function AddProductForm({
     // Auto-generate SKU when product name changes
     if (field === "name" && value.trim()) {
       const categoryName = categories.find(
-        (cat) => cat.id.toString() === formData.category_id
+        (cat) => String(cat.id) === String(formData.category_id)
       )?.name;
       const brandName = brands.find(
-        (brand) => brand.id.toString() === formData.brand_id
+        (brand) => String(brand.id) === String(formData.brand_id)
       )?.name;
 
       const generatedSKU = generateSKU(value, categoryName, brandName);
@@ -401,10 +543,10 @@ export function AddProductForm({
     // Regenerate SKU when brand changes (if product name exists)
     if (field === "brand_id" && formData.name.trim()) {
       const categoryName = categories.find(
-        (cat) => cat.id.toString() === formData.category_id
+        (cat) => String(cat.id) === String(formData.category_id)
       )?.name;
       const brandName = brands.find(
-        (brand) => brand.id.toString() === value
+        (brand) => String(brand.id) === String(value)
       )?.name;
 
       const generatedSKU = generateSKU(formData.name, categoryName, brandName);
@@ -419,10 +561,10 @@ export function AddProductForm({
     }
 
     const categoryName = categories.find(
-      (cat) => cat.id.toString() === formData.category_id
+      (cat) => String(cat.id) === String(formData.category_id)
     )?.name;
     const brandName = brands.find(
-      (brand) => brand.id.toString() === formData.brand_id
+      (brand) => String(brand.id) === String(formData.brand_id)
     )?.name;
 
     const generatedSKU = generateSKU(formData.name, categoryName, brandName);
@@ -576,7 +718,12 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
                   <Select
-                    value={formData.category_id}
+                    key={categorySelectKey}
+                    value={
+                      formCategoryIdString(formData.category_id) !== ""
+                        ? String(formData.category_id)
+                        : undefined
+                    }
                     onValueChange={handleCategoryChange}
                   >
                     <SelectTrigger
@@ -589,8 +736,8 @@ export function AddProductForm({
                     <SelectContent>
                       {categories.map((category) => (
                         <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
+                          key={String(category.id)}
+                          value={String(category.id)}
                         >
                           {category.name}
                         </SelectItem>

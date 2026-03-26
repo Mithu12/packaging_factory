@@ -151,9 +151,33 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
+  // {
+  //   title: "Catalog",
+  //   icon: FolderTree,
+  //   items: [
+  //     {
+  //       title: "Categories",
+  //       url: "/inventory/categories",
+  //       icon: FolderTree,
+  //       permission: PERMISSIONS.CATEGORIES_READ,
+  //     },
+  //     {
+  //       title: "Brands",
+  //       url: "/inventory/brands",
+  //       icon: Tag,
+  //       permission: PERMISSIONS.BRANDS_READ,
+  //     },
+  //     {
+  //       title: "Origins",
+  //       url: "/inventory/origins",
+  //       icon: MapPin,
+  //       permission: PERMISSIONS.ORIGINS_READ,
+  //     },
+  //   ],
+  // },
   {
-    title: "Catalog",
-    icon: FolderTree,
+    title: "Procurement & Inventory",
+    icon: Truck,
     items: [
       {
         title: "Products",
@@ -162,41 +186,17 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PRODUCTS_READ,
       },
       {
-        title: "Categories",
-        url: "/inventory/categories",
-        icon: FolderTree,
-        permission: PERMISSIONS.CATEGORIES_READ,
-      },
-      {
-        title: "Brands",
-        url: "/inventory/brands",
-        icon: Tag,
-        permission: PERMISSIONS.BRANDS_READ,
-      },
-      {
-        title: "Origins",
-        url: "/inventory/origins",
-        icon: MapPin,
-        permission: PERMISSIONS.ORIGINS_READ,
-      },
-    ],
-  },
-  {
-    title: "Procurement & Inventory",
-    icon: Truck,
-    items: [
-      {
         title: "Suppliers",
         url: "/inventory/suppliers",
         icon: Users,
         permission: PERMISSIONS.SUPPLIERS_READ,
       },
-      {
-        title: "Inventory",
-        url: "/inventory",
-        icon: Truck,
-        permission: PERMISSIONS.INVENTORY_TRACK,
-      },
+      // {
+      //   title: "Inventory",
+      //   url: "/inventory",
+      //   icon: Truck,
+      //   permission: PERMISSIONS.INVENTORY_TRACK,
+      // },
       {
         title: "Purchase Orders",
         url: "/inventory/purchase-orders",
@@ -209,12 +209,12 @@ const menuSections: MenuSection[] = [
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
       },
-      {
-        title: "Distribution",
-        url: "/inventory/distribution",
-        icon: Truck,
-        permission: PERMISSIONS.WAREHOUSES_READ,
-      },
+      // {
+      //   title: "Distribution",
+      //   url: "/inventory/distribution",
+      //   icon: Truck,
+      //   permission: PERMISSIONS.WAREHOUSES_READ,
+      // },
     ],
   },
   {
@@ -401,12 +401,12 @@ const menuSections: MenuSection[] = [
         icon: AlertTriangle,
         permission: PERMISSIONS.VOUCHERS_READ,
       },
-      {
-        title: "DC Accounts",
-        url: "/accounts/dc-wise",
-        icon: Building2,
-        permission: PERMISSIONS.BALANCE_SHEET_READ,
-      },
+      // {
+      //   title: "DC Accounts",
+      //   url: "/accounts/dc-wise",
+      //   icon: Building2,
+      //   permission: PERMISSIONS.BALANCE_SHEET_READ,
+      // },
       {
         title: "Income Statement",
         url: "/accounts/income-statement",
