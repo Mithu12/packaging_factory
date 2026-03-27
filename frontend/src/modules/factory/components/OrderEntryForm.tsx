@@ -62,6 +62,16 @@ function idEq(a: unknown, b: unknown): boolean {
     return String(a) === String(b);
 }
 
+function isFactoryFieldEmpty(value: unknown): boolean {
+    if (value === undefined || value === null) {
+        return true;
+    }
+    if (typeof value === "number") {
+        return !Number.isFinite(value);
+    }
+    return String(value).trim() === "";
+}
+
 function productToFactoryProduct(created: Product): FactoryProduct {
     return {
         id: Number(created.id),
@@ -101,7 +111,8 @@ const createOrderFormSchema = (isAdmin: boolean) => z.object({
 
 type OrderFormData = {
     factory_customer_id: string;
-    factory_id?: number;
+    /** String from Select for admins; number when bound from user/order. */
+    factory_id?: string | number;
     order_date: string;
     required_date: string;
     priority: "low" | "medium" | "high" | "urgent";
@@ -316,6 +327,24 @@ export default function OrderEntryForm({
             });
         }
     }, [order, form, user, isAdmin, initialStatus]);
+
+    // Admins: pre-select the first factory when creating a new order/quotation once factories are loaded.
+    useEffect(() => {
+        if (!open || order != null || !isAdmin) {
+            return;
+        }
+        if (factories.length === 0) {
+            return;
+        }
+        if (!isFactoryFieldEmpty(form.getValues("factory_id"))) {
+            return;
+        }
+        const first = factories[0];
+        if (first?.id == null) {
+            return;
+        }
+        form.setValue("factory_id", String(first.id), { shouldDirty: false });
+    }, [open, order, isAdmin, factories, form]);
 
     const handleSubmit = async (data: OrderFormData) => {
         try {
