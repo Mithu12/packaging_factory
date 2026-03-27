@@ -52,7 +52,7 @@ export function QuickAddCustomerDialog({
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState<string>("net_30");
+  const [paymentTerms, setPaymentTerms] = useState<string>("cash_on_delivery");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -65,7 +65,7 @@ export function QuickAddCustomerDialog({
       setCustomerName("");
       setEmail("");
       setPhone("");
-      setPaymentTerms("net_30");
+      setPaymentTerms("cash_on_delivery");
       setStreet("");
       setCity("");
       setState("");

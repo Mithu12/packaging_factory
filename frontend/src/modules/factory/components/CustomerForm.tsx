@@ -37,6 +37,8 @@ import {
   UpdateCustomerRequest,
 } from "../services/customer-orders-api";
 
+const DEFAULT_PAYMENT_TERMS = "cash_on_delivery";
+
 // Form validation schema
 const customerFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -80,7 +82,7 @@ function CustomerForm({
       phone: "",
       company: "",
       credit_limit: 0,
-      payment_terms: "net_30",
+      payment_terms: DEFAULT_PAYMENT_TERMS,
       is_active: true,
       address: {
         street: "",
@@ -102,7 +104,7 @@ function CustomerForm({
         phone: customer.phone || "",
         company: customer.company || "",
         credit_limit: customer.credit_limit || 0,
-        payment_terms: customer.payment_terms || "net_30",
+        payment_terms: customer.payment_terms || DEFAULT_PAYMENT_TERMS,
         is_active: customer.is_active !== false,
         address: {
           street: customer.address?.street || "",
@@ -120,7 +122,7 @@ function CustomerForm({
         phone: "",
         company: "",
         credit_limit: 0,
-        payment_terms: "net_30",
+        payment_terms: DEFAULT_PAYMENT_TERMS,
         is_active: true,
         address: {
           street: "",
@@ -143,7 +145,7 @@ function CustomerForm({
         phone: data.phone || undefined,
         company: data.company || undefined,
         credit_limit: data.credit_limit || undefined,
-        payment_terms: data.payment_terms || "net_30", // Always provide payment_terms
+        payment_terms: data.payment_terms || DEFAULT_PAYMENT_TERMS,
         is_active: data.is_active !== undefined ? data.is_active : true,
         address: data.address && (
           data.address.street || 
