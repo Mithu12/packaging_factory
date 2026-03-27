@@ -97,60 +97,60 @@ const menuSections: MenuSection[] = [
       },
     ],
   },
-  {
-    title: "Sales Rep",
-    icon: User,
-    items: [
-      {
-        title: "Dashboard",
-        url: "/sr/dashboard",
-        icon: BarChart3,
-        permission: PERMISSIONS.SALES_REP_DASHBOARD_READ,
-      },
-      {
-        title: "Customers",
-        url: "/sr/customers",
-        icon: Users,
-        permission: PERMISSIONS.SALES_REP_CUSTOMERS_READ,
-      },
-      {
-        title: "Orders",
-        url: "/sr/orders",
-        icon: ShoppingCart,
-        permission: PERMISSIONS.SALES_REP_ORDERS_READ,
-      },
-      {
-        title: "Invoices & Payments",
-        url: "/sr/invoices",
-        icon: FileText,
-        permission: PERMISSIONS.SALES_REP_INVOICES_READ,
-      },
-      {
-        title: "Payments",
-        url: "/sr/payments",
-        icon: CreditCard,
-        permission: PERMISSIONS.SALES_REP_PAYMENTS_READ,
-      },
-      {
-        title: "Deliveries",
-        url: "/sr/deliveries",
-        icon: Truck,
-        permission: PERMISSIONS.SALES_REP_DELIVERIES_READ,
-      },
-      {
-        title: "Reports",
-        url: "/sr/reports",
-        icon: BarChart3,
-        permission: PERMISSIONS.SALES_REP_REPORTS_READ,
-      },
-      {
-        title: "Notifications",
-        url: "/sr/notifications",
-        icon: Bell,
-        permission: PERMISSIONS.SALES_REP_NOTIFICATIONS_READ,
-      },
-    ],
-  },
+  // {
+  //   title: "Sales Rep",
+  //   icon: User,
+  //   items: [
+  //     {
+  //       title: "Dashboard",
+  //       url: "/sr/dashboard",
+  //       icon: BarChart3,
+  //       permission: PERMISSIONS.SALES_REP_DASHBOARD_READ,
+  //     },
+  //     {
+  //       title: "Customers",
+  //       url: "/sr/customers",
+  //       icon: Users,
+  //       permission: PERMISSIONS.SALES_REP_CUSTOMERS_READ,
+  //     },
+  //     {
+  //       title: "Orders",
+  //       url: "/sr/orders",
+  //       icon: ShoppingCart,
+  //       permission: PERMISSIONS.SALES_REP_ORDERS_READ,
+  //     },
+  //     {
+  //       title: "Invoices & Payments",
+  //       url: "/sr/invoices",
+  //       icon: FileText,
+  //       permission: PERMISSIONS.SALES_REP_INVOICES_READ,
+  //     },
+  //     {
+  //       title: "Payments",
+  //       url: "/sr/payments",
+  //       icon: CreditCard,
+  //       permission: PERMISSIONS.SALES_REP_PAYMENTS_READ,
+  //     },
+  //     {
+  //       title: "Deliveries",
+  //       url: "/sr/deliveries",
+  //       icon: Truck,
+  //       permission: PERMISSIONS.SALES_REP_DELIVERIES_READ,
+  //     },
+  //     {
+  //       title: "Reports",
+  //       url: "/sr/reports",
+  //       icon: BarChart3,
+  //       permission: PERMISSIONS.SALES_REP_REPORTS_READ,
+  //     },
+  //     {
+  //       title: "Notifications",
+  //       url: "/sr/notifications",
+  //       icon: Bell,
+  //       permission: PERMISSIONS.SALES_REP_NOTIFICATIONS_READ,
+  //     },
+  //   ],
+  // },
   // {
   //   title: "Catalog",
   //   icon: FolderTree,
@@ -222,17 +222,17 @@ const menuSections: MenuSection[] = [
     icon: Building2,
     items: [
       {
-        title: "Factory Dashboard",
+        title: "Order Dashboard",
         url: "/factory",
         icon: BarChart3,
         permission: PERMISSIONS.FACTORY_DASHBOARD_READ,
       },
-      {
-        title: "Factory Management",
-        url: "/factory/management",
-        icon: Building2,
-        permission: PERMISSIONS.FACTORY_MANAGEMENT_READ,
-      },
+      // {
+      //   title: "Factory Management",
+      //   url: "/factory/management",
+      //   icon: Building2,
+      //   permission: PERMISSIONS.FACTORY_MANAGEMENT_READ,
+      // },
       {
         title: "Bill of Materials",
         url: "/factory/bom",
@@ -323,12 +323,12 @@ const menuSections: MenuSection[] = [
         icon: Settings,
         permission: PERMISSIONS.FACTORY_PRODUCTION_LINES_READ,
       },
-      {
-        title: "Operators",
-        url: "/factory/operators",
-        icon: UserCog,
-        permission: PERMISSIONS.FACTORY_OPERATORS_READ,
-      },
+      // {
+      //   title: "Operators",
+      //   url: "/factory/operators",
+      //   icon: UserCog,
+      //   permission: PERMISSIONS.FACTORY_OPERATORS_READ,
+      // },
     ],
   },
   {

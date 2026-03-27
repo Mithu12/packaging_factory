@@ -33,6 +33,10 @@ function hasSelectedCategoryId(value: string): boolean {
   return value.trim() !== "";
 }
 
+function hasSelectedSupplierId(value: string): boolean {
+  return value.trim() !== "";
+}
+
 function extractCategoriesFromResponse(payload: unknown): Category[] {
   if (payload == null) {
     return [];
@@ -57,6 +61,18 @@ function getCategoryRowId(row: unknown): string | null {
   }
   const r = row as Record<string, unknown>;
   const raw = r.id ?? r.category_id ?? r.ID;
+  if (raw == null) {
+    return null;
+  }
+  return String(raw);
+}
+
+function getSupplierRowId(row: unknown): string | null {
+  if (row == null || typeof row !== "object") {
+    return null;
+  }
+  const r = row as Record<string, unknown>;
+  const raw = r.id ?? r.supplier_id ?? r.ID;
   if (raw == null) {
     return null;
   }
@@ -98,6 +114,7 @@ export function QuickAddProductDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addSupplierOpen, setAddSupplierOpen] = useState(false);
   const [categorySelectKey, setCategorySelectKey] = useState(0);
+  const [supplierSelectKey, setSupplierSelectKey] = useState(0);
   const prevOpenRef = useRef(false);
 
   const loadCategoriesAndSuppliers = useCallback(async () => {
@@ -141,9 +158,9 @@ export function QuickAddProductDialog({
     prevOpenRef.current = true;
     if (justOpened) {
       setCategorySelectKey((k) => k + 1);
+      setSupplierSelectKey((k) => k + 1);
       setName("");
       setSellingPrice("");
-      setSupplierId("");
     }
     setCategoryId((prev) => {
       let next = justOpened ? "" : prev;
@@ -155,7 +172,17 @@ export function QuickAddProductDialog({
       }
       return next;
     });
-  }, [open, categories]);
+    setSupplierId((prev) => {
+      let next = justOpened ? "" : prev;
+      if (!hasSelectedSupplierId(next) && suppliers.length > 0) {
+        const rowId = getSupplierRowId(suppliers[0]);
+        if (rowId !== null) {
+          next = rowId;
+        }
+      }
+      return next;
+    });
+  }, [open, categories, suppliers]);
 
   useEffect(() => {
     if (!open) {
@@ -179,7 +206,7 @@ export function QuickAddProductDialog({
       toast.error("Select a category");
       return;
     }
-    if (!supplierId) {
+    if (!hasSelectedSupplierId(supplierId)) {
       toast.error("Select a supplier");
       return;
     }
@@ -308,8 +335,12 @@ export function QuickAddProductDialog({
                 </Button>
               </div>
               <Select
-                key={`quick-product-suppliers-${suppliers.length}-${supplierId}`}
-                value={supplierId}
+                key={supplierSelectKey}
+                value={
+                  hasSelectedSupplierId(supplierId)
+                    ? String(supplierId)
+                    : undefined
+                }
                 onValueChange={(v) => setSupplierId(String(v))}
                 disabled={loadingMeta}
               >
