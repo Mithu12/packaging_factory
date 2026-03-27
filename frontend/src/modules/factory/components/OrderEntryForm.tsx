@@ -900,21 +900,21 @@ export default function OrderEntryForm({
                                             />
 
                                             {form.watch(`line_items.${index}.product_id`) && (
-                                                <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
+                                                <div className="rounded-md border border-border bg-muted p-3">
                                                     {(() => {
                                                         const productId = form.watch(`line_items.${index}.product_id`);
                                                         const selectedProduct = getProductDetails(productId);
                                                         return selectedProduct ? (
-                                                            <div className="space-y-1 text-sm">
-                                                                <div><strong>Product:</strong> {selectedProduct.name}</div>
-                                                                <div><strong>SKU:</strong> {selectedProduct.sku}</div>
-                                                                <div><strong>Unit Price:</strong> {formatCurrency(selectedProduct.unit_price)}</div>
+                                                            <div className="space-y-1 text-sm text-foreground">
+                                                                <div><span className="font-medium text-muted-foreground">Product:</span>{" "}{selectedProduct.name}</div>
+                                                                <div><span className="font-medium text-muted-foreground">SKU:</span>{" "}{selectedProduct.sku}</div>
+                                                                <div><span className="font-medium text-muted-foreground">Unit Price:</span>{" "}{formatCurrency(selectedProduct.unit_price)}</div>
                                                                 {selectedProduct.current_stock !== undefined && (
-                                                                    <div><strong>Stock:</strong> {selectedProduct.current_stock}</div>
+                                                                    <div><span className="font-medium text-muted-foreground">Stock:</span>{" "}{selectedProduct.current_stock}</div>
                                                                 )}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-sm text-red-600">
+                                                            <div className="text-sm text-destructive">
                                                                 Product not found (ID: {productId})
                                                             </div>
                                                         );
