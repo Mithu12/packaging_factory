@@ -23,7 +23,8 @@ import {
   DesignationHierarchyNode,
   HRDashboardData,
   PayrollSummary,
-  AttendanceSummary
+  AttendanceSummary,
+  PayrollPaymentAccountPreview,
 } from '../types';
 
 // Helper function to build query string
@@ -382,13 +383,31 @@ export class HRMApiService {
       check_number?: string;
       notes?: string;
     }
-  ): Promise<{ payroll_run: PayrollRun; updated_count: number }> {
-    return makeRequest<{ payroll_run: PayrollRun; updated_count: number }>(
-      `${this.BASE_URL}/payroll/runs/${runId}/pay`,
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
+  ): Promise<{
+    payroll_run: PayrollRun;
+    updated_count: number;
+    voucher_id: number | null;
+    voucher_no: string | null;
+    voucher_warning: string | null;
+  }> {
+    return makeRequest<{
+      payroll_run: PayrollRun;
+      updated_count: number;
+      voucher_id: number | null;
+      voucher_no: string | null;
+      voucher_warning: string | null;
+    }>(`${this.BASE_URL}/payroll/runs/${runId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getPayrollPaymentAccountPreview(
+    payment_method: 'bank_transfer' | 'check' | 'cash' | 'other'
+  ): Promise<{ preview: PayrollPaymentAccountPreview }> {
+    const queryString = buildQueryString({ payment_method });
+    return makeRequest<{ preview: PayrollPaymentAccountPreview }>(
+      `${this.BASE_URL}/payroll/payment-account-preview${queryString}`
     );
   }
 

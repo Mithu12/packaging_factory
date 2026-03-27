@@ -289,6 +289,15 @@ export default function EnhancedWorkOrderPlanning() {
     }));
   };
 
+  const requirementNeedsProcurement = (req: {
+    status: string;
+    allocatedQuantity: number;
+    requiredQuantity: number;
+  }) =>
+    req.status === 'short' ||
+    (req.status === 'pending' &&
+      req.allocatedQuantity < req.requiredQuantity);
+
   const handleAllocateMaterial = async (requirement: any) => {
     try {
       if (!selectedWorkOrder) return;
@@ -311,7 +320,9 @@ export default function EnhancedWorkOrderPlanning() {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(selectedWorkOrder.id);
       setSelectedWorkOrder({
         ...selectedWorkOrder,
-        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || []),
+        materialAvailability: fullWo.has_material_shortages ? 'short' : 'available',
+        poProductIds: fullWo.po_product_ids || selectedWorkOrder.poProductIds,
       });
       
       fetchPlanningData();
@@ -348,7 +359,8 @@ export default function EnhancedWorkOrderPlanning() {
       setSelectedWorkOrder({
         ...workOrder,
         materialRequirements: mapMaterialRequirements(fullWo.material_requirements || []),
-        poProductIds: fullWo.po_product_ids
+        poProductIds: fullWo.po_product_ids,
+        materialAvailability: fullWo.has_material_shortages ? 'short' : 'available',
       });
       fetchAssociatedPurchases(workOrder.id);
       setShowDetailsDialog(true);
@@ -367,8 +379,11 @@ export default function EnhancedWorkOrderPlanning() {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
       setSelectedWorkOrder({
         ...workOrder,
-        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || [])
+        materialRequirements: mapMaterialRequirements(fullWo.material_requirements || []),
+        poProductIds: fullWo.po_product_ids,
+        materialAvailability: fullWo.has_material_shortages ? 'short' : 'available',
       });
+      fetchAssociatedPurchases(workOrder.id);
       setShowMaterialDialog(true);
     } catch (error) {
       toast.error("Failed to load material requirements");
@@ -806,18 +821,39 @@ export default function EnhancedWorkOrderPlanning() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            const shortRequirements = wo.materialRequirements.filter(r => r.status === 'short');
-                            const filteredRequirements = shortRequirements.filter(r => 
-                              !wo.poProductIds?.includes(Number(r.materialId))
-                            );
-                            
-                            if (filteredRequirements.length === 0 && shortRequirements.length > 0) {
-                              toast.info("All short items already have associated Purchase Orders");
-                              return;
+                          onClick={async () => {
+                            try {
+                              const fullWo = await WorkOrdersApiService.getWorkOrderById(wo.id);
+                              const reqs = mapMaterialRequirements(
+                                fullWo.material_requirements || []
+                              );
+                              const candidate = reqs.filter(requirementNeedsProcurement);
+                              const filteredRequirements = candidate.filter(
+                                (r) =>
+                                  !fullWo.po_product_ids?.includes(Number(r.materialId))
+                              );
+
+                              if (
+                                filteredRequirements.length === 0 &&
+                                candidate.length > 0
+                              ) {
+                                toast.info(
+                                  "All short items already have associated Purchase Orders"
+                                );
+                                return;
+                              }
+                              if (filteredRequirements.length === 0) {
+                                toast.info(
+                                  "No materials need a purchase order for this work order"
+                                );
+                                return;
+                              }
+                              handleCreatePO(wo, filteredRequirements);
+                            } catch {
+                              toast.error(
+                                "Failed to load work order for purchase order"
+                              );
                             }
-                            
-                            handleCreatePO(wo, filteredRequirements);
                           }}
                         >
                           <ShoppingCart className="h-4 w-4 mr-2" />
@@ -1144,12 +1180,12 @@ export default function EnhancedWorkOrderPlanning() {
                                         </Button>
                                       )}
                                       
-                                      {req.status === 'short' && (
+                                      {requirementNeedsProcurement(req) && (
                                         <Button
                                           variant="ghost"
                                           size="sm"
                                           className="h-8 w-8 p-0"
-                                          onClick={() => handleCreatePO(selectedWorkOrder, [req])}
+                                          onClick={() => handleCreatePO(selectedWorkOrder!, [req])}
                                           title={existingPO ? `PO ${existingPO.po_number} already exists` : "Create Purchase Order"}
                                           disabled={!!existingPO}
                                         >
@@ -1311,17 +1347,64 @@ export default function EnhancedWorkOrderPlanning() {
                       <TableCell>{req.supplierName || "Not assigned"}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(req.totalCost)}</TableCell>
                       <TableCell>
-                        {(req.status === 'pending' || req.status === 'short') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleAllocateMaterial(req)}
-                            title="Allocate Material"
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          </Button>
-                        )}
+                        {(() => {
+                          const existingPO = associatedPurchases.find(
+                            (po) =>
+                              Array.isArray(po.product_ids) &&
+                              po.product_ids.includes(Number(req.materialId))
+                          );
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex gap-1">
+                                {(req.status === 'pending' ||
+                                  req.status === 'short') && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleAllocateMaterial(req)}
+                                    title="Allocate Material"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                )}
+                                {requirementNeedsProcurement(req) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() =>
+                                      handleCreatePO(selectedWorkOrder!, [req])
+                                    }
+                                    title={
+                                      existingPO
+                                        ? `PO ${existingPO.po_number} already exists`
+                                        : "Create Purchase Order"
+                                    }
+                                    disabled={!!existingPO}
+                                  >
+                                    <ShoppingCart
+                                      className={`h-4 w-4 ${existingPO ? 'text-muted-foreground' : 'text-blue-600'}`}
+                                    />
+                                  </Button>
+                                )}
+                              </div>
+                              {existingPO && (
+                                <div
+                                  className="text-[10px] text-blue-600 font-medium cursor-pointer hover:underline flex items-center gap-0.5"
+                                  onClick={() =>
+                                    router.push(
+                                      `/inventory/purchase-orders/${existingPO.id}`
+                                    )
+                                  }
+                                >
+                                  <ShoppingCart className="h-2 w-2" />
+                                  {existingPO.po_number}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                     </TableRow>
                   ))}

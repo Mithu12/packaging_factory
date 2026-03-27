@@ -208,6 +208,7 @@ export interface PayrollDetail {
     payment_date?: string;
     payment_reference?: string;
     notes?: string;
+    voucher_id?: number | null;
     created_at: string;
     updated_at: string;
 }

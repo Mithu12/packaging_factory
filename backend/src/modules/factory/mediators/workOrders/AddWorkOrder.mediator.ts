@@ -291,8 +291,10 @@ export class AddWorkOrderMediator {
             // Determine if this is a critical requirement (based on priority or lead time)
             const isCritical = component.lead_time_days > 7 || component.is_optional === false;
 
-            // For draft work orders, we only create requirements with 'pending' status
-            // No allocations are made until the work order is planned or released
+            const availableStock = parseFloat(material.current_stock || '0');
+            const requirementStatus =
+              totalRequiredQuantity > availableStock ? 'short' : 'pending';
+
             const requirementQuery = `
               INSERT INTO work_order_material_requirements (
                 work_order_id,
@@ -327,7 +329,7 @@ export class AddWorkOrderMediator {
               0, // allocated_quantity initially 0 for draft work orders
               0, // consumed_quantity initially 0
               material.unit_of_measure,
-              'pending', // All requirements start as pending for draft work orders
+              requirementStatus,
               1, // priority - could be calculated based on various factors
               workOrderData.deadline,
               component.id,
@@ -341,9 +343,6 @@ export class AddWorkOrderMediator {
             ];
 
             await client.query(requirementQuery, requirementValues);
-
-            // Check for material shortages only if there's insufficient stock
-            const availableStock = parseFloat(material.current_stock || '0');
 
             // Clean up any existing incorrect shortage records for this material and work order
             // (This handles cases where shortages were previously created incorrectly)

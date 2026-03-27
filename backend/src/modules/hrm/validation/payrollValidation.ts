@@ -98,6 +98,13 @@ export const approvePayrollRunSchema = Joi.object({
   notes: Joi.string().max(1000).optional().allow(''),
 });
 
+// Query: preview which chart accounts will be used for payroll payment voucher
+export const payrollPaymentAccountPreviewQuerySchema = Joi.object({
+  payment_method: Joi.string()
+    .valid('bank_transfer', 'check', 'cash', 'other')
+    .required(),
+});
+
 // Record payroll payments (per-employee lines on a run)
 export const recordPayrollPaymentsSchema = Joi.object({
   employee_ids: Joi.array().items(Joi.number().integer().positive()).min(1).required(),

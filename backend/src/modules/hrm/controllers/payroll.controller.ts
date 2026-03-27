@@ -16,8 +16,12 @@ import { UpdatePayrollMediator } from '../mediators/payroll/UpdatePayroll.mediat
 import { serializeSuccessResponse, serializeErrorResponse } from '../../../utils/responseHelper';
 import { MyLogger } from '../../../utils/new-logger';
 import { PDFGenerator } from '../../../services/pdf-generator';
-import { recordPayrollPaymentsSchema } from '../validation/payrollValidation';
+import {
+  recordPayrollPaymentsSchema,
+  payrollPaymentAccountPreviewQuerySchema,
+} from '../validation/payrollValidation';
 import type { RecordPayrollPaymentsInput } from '../mediators/payroll/UpdatePayroll.mediator';
+import { hrmAccountsIntegrationService } from '@/services/hrmAccountsIntegrationService';
 
 class PayrollController {
 
@@ -269,6 +273,34 @@ class PayrollController {
   }
 
   /**
+   * Preview chart accounts used for the payroll payment voucher (Debit expense / Credit cash or bank).
+   */
+  async getPayrollPaymentAccountPreview(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'GET /api/hrm/payroll/payment-account-preview';
+      const { error, value } = payrollPaymentAccountPreviewQuerySchema.validate(req.query, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+      if (error) {
+        res.status(400).json({
+          success: false,
+          error: error.details.map((d) => d.message).join('; '),
+        });
+        return;
+      }
+
+      MyLogger.info(action, { payment_method: value.payment_method });
+      const preview = await hrmAccountsIntegrationService.previewPayrollPaymentAccounts(
+        value.payment_method
+      );
+      serializeSuccessResponse(res, { preview }, 'OK');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * Record payroll payments for selected employees on a run
    */
   async recordPayrollPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -296,7 +328,13 @@ class PayrollController {
 
       serializeSuccessResponse(
         res,
-        { payroll_run: result.payroll_run, updated_count: result.updated_count },
+        {
+          payroll_run: result.payroll_run,
+          updated_count: result.updated_count,
+          voucher_id: result.voucher_id ?? null,
+          voucher_no: result.voucher_no ?? null,
+          voucher_warning: result.voucher_warning ?? null,
+        },
         'Payroll payments recorded successfully'
       );
     } catch (err) {

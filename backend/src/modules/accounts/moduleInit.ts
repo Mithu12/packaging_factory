@@ -5,6 +5,7 @@ import { salesAccountsIntegrationService } from '@/services/salesAccountsIntegra
 import { accountsIntegrationService } from '@/services/accountsIntegrationService';
 import { inventoryAccountsIntegrationService } from '@/services/inventoryAccountsIntegrationService';
 import { factoryAccountsIntegrationService } from '@/services/factoryAccountsIntegrationService';
+import { hrmAccountsIntegrationService } from '@/services/hrmAccountsIntegrationService';
 
 // Import mediators
 import AddVoucherMediator from './mediators/vouchers/AddVoucher.mediator';
@@ -54,6 +55,7 @@ export const initializeAccountsModule = (): void => {
       addCustomerPaymentVoucher: salesAccountsIntegrationService.createCustomerPaymentVoucher.bind(salesAccountsIntegrationService),
       addInternalTransferVoucher: inventoryAccountsIntegrationService.createStockTransferVoucher.bind(inventoryAccountsIntegrationService),
       addSupplierPaymentVoucher: inventoryAccountsIntegrationService.createSupplierPaymentVoucher.bind(inventoryAccountsIntegrationService),
+      addPayrollPaymentVoucher: hrmAccountsIntegrationService.createPayrollPaymentVoucher.bind(hrmAccountsIntegrationService),
       reverseVoucher: salesAccountsIntegrationService.createReversingVoucher.bind(salesAccountsIntegrationService)
     });
 

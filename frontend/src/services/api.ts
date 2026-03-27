@@ -332,6 +332,13 @@ export class ApiService {
     return ExpenseApi.payExpense(id, notes);
   }
 
+  static async approveAndPayExpense(
+    id: number,
+    options?: { approvalNotes?: string; paymentNotes?: string }
+  ) {
+    return ExpenseApi.approveAndPayExpense(id, options);
+  }
+
   static async deleteExpense(id: number) {
     return ExpenseApi.deleteExpense(id);
   }

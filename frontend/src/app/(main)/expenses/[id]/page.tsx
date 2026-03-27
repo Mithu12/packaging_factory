@@ -41,6 +41,7 @@ export default function ExpenseDetailsPage() {
   const [accountDebitedLoading, setAccountDebitedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [approvePayLoading, setApprovePayLoading] = useState(false);
 
   const fetchExpense = async () => {
     if (!id) return;
@@ -129,6 +130,25 @@ export default function ExpenseDetailsPage() {
     }
   };
 
+  const handleApproveAndPay = async () => {
+    if (!expense || approvePayLoading) return;
+    setApprovePayLoading(true);
+    try {
+      await ApiService.approveAndPayExpense(expense.id);
+      toast.success('Expense approved and marked as paid');
+      await fetchExpense();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Failed to approve and pay expense');
+      }
+      await fetchExpense();
+    } finally {
+      setApprovePayLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!expense) return;
     
@@ -214,11 +234,20 @@ export default function ExpenseDetailsPage() {
         <div className="flex items-center gap-2">
           {expense.status === 'pending' && (
             <>
-              <Button onClick={handleApprove} size="sm">
+              <Button onClick={handleApprove} size="sm" disabled={approvePayLoading}>
                 <Check className="w-4 h-4 mr-2" />
                 Approve
               </Button>
-              <Button onClick={handleReject} variant="destructive" size="sm">
+              <Button
+                onClick={handleApproveAndPay}
+                size="sm"
+                variant="secondary"
+                disabled={approvePayLoading}
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                {approvePayLoading ? 'Approving & paying…' : 'Approve and mark paid'}
+              </Button>
+              <Button onClick={handleReject} variant="destructive" size="sm" disabled={approvePayLoading}>
                 <X className="w-4 h-4 mr-2" />
                 Reject
               </Button>
@@ -471,14 +500,25 @@ export default function ExpenseDetailsPage() {
                   <Button 
                     className="w-full justify-start"
                     onClick={handleApprove}
+                    disabled={approvePayLoading}
                   >
                     <Check className="w-4 h-4 mr-2" />
                     Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-start"
+                    onClick={handleApproveAndPay}
+                    disabled={approvePayLoading}
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    {approvePayLoading ? 'Approving & paying…' : 'Approve and mark paid'}
                   </Button>
                   <Button 
                     variant="destructive" 
                     className="w-full justify-start"
                     onClick={handleReject}
+                    disabled={approvePayLoading}
                   >
                     <X className="w-4 h-4 mr-2" />
                     Reject

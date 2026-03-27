@@ -269,7 +269,7 @@ const PayrollPage: React.FC = () => {
     }
     try {
       setLoading(true);
-      await HRMApiService.processPayrollPayments(runId, {
+      const payRes = await HRMApiService.processPayrollPayments(runId, {
         employee_ids: employeeIds,
         payment_method: data.payment_method,
         payment_date: data.payment_date,
@@ -278,7 +278,14 @@ const PayrollPage: React.FC = () => {
         check_number: data.check_number,
         notes: data.notes,
       });
-      toast({ title: "Success", description: "Payments recorded" });
+      let payDesc = "Payments recorded.";
+      if (payRes.voucher_no) {
+        payDesc += ` Accounts voucher ${payRes.voucher_no}.`;
+      }
+      if (payRes.voucher_warning) {
+        payDesc += ` ${payRes.voucher_warning}`;
+      }
+      toast({ title: "Success", description: payDesc });
       setShowPaymentForm(false);
       await loadPayrollRecords(selectedPeriodId);
     } catch (err: any) {

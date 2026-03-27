@@ -99,6 +99,7 @@ export default function ExpensesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [processingApprovePayId, setProcessingApprovePayId] = useState<number | null>(null);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -380,6 +381,25 @@ export default function ExpensesPage() {
       } else {
         toast.error('Failed to mark expense as paid');
       }
+    }
+  };
+
+  const handleApproveAndPay = async (id: number) => {
+    if (processingApprovePayId !== null) return;
+    setProcessingApprovePayId(id);
+    try {
+      await ApiService.approveAndPayExpense(id);
+      toast.success('Expense approved and marked as paid');
+      await loadData();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Failed to approve and pay expense');
+      }
+      await loadData();
+    } finally {
+      setProcessingApprovePayId(null);
     }
   };
 
@@ -889,6 +909,15 @@ export default function ExpensesPage() {
                                 <DropdownMenuItem onClick={() => handleApprove(expense.id)}>
                                   <Check className="w-4 h-4 mr-2" />
                                   Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleApproveAndPay(expense.id)}
+                                  disabled={processingApprovePayId !== null}
+                                >
+                                  <DollarSign className="w-4 h-4 mr-2" />
+                                  {processingApprovePayId === expense.id
+                                    ? 'Approving & paying…'
+                                    : 'Approve and mark paid'}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleReject(expense.id)}>
                                   <X className="w-4 h-4 mr-2" />

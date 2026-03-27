@@ -290,6 +290,7 @@ export class GetPayrollInfoMediator {
           pd.status,
           pd.payment_date,
           pd.payment_reference,
+          pd.voucher_id,
           pd.approved_at,
           e.employee_id as employee_code,
           CONCAT(COALESCE(e.first_name, ''), ' ', COALESCE(e.last_name, '')) as employee_name,

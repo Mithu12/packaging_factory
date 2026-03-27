@@ -3,6 +3,8 @@ import pool from '../../../../database/connection';
 import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { moduleRegistry, MODULE_NAMES } from '@/utils/moduleRegistry';
 
 export interface RecordPayrollPaymentsInput {
   employee_ids: number[];
@@ -295,7 +297,13 @@ export class UpdatePayrollMediator {
     runId: number,
     input: RecordPayrollPaymentsInput,
     processedBy?: number
-  ): Promise<{ payroll_run: PayrollRun; updated_count: number }> {
+  ): Promise<{
+    payroll_run: PayrollRun;
+    updated_count: number;
+    voucher_id?: number | null;
+    voucher_no?: string | null;
+    voucher_warning?: string | null;
+  }> {
     const action = 'UpdatePayrollMediator.recordPayrollPayments';
     const client = await pool.connect();
 
@@ -314,6 +322,11 @@ export class UpdatePayrollMediator {
         throw new Error('Payroll run not found');
       }
       const run = runResult.rows[0];
+
+      const periodRes = await client.query('SELECT name FROM payroll_periods WHERE id = $1', [
+        run.payroll_period_id,
+      ]);
+      const periodName: string | null = periodRes.rows[0]?.name ?? null;
 
       if (!['completed', 'calculated', 'approved'].includes(run.status)) {
         throw new Error(
@@ -343,7 +356,7 @@ export class UpdatePayrollMediator {
          WHERE payroll_run_id = $4
            AND employee_id = ANY($5::bigint[])
            AND status = 'calculated'
-         RETURNING id`,
+         RETURNING id, net_salary`,
         [input.payment_date, paymentRef, notesTrim, runId, input.employee_ids]
       );
 
@@ -368,6 +381,52 @@ export class UpdatePayrollMediator {
 
       await client.query('COMMIT');
 
+      const detailRows = updateResult.rows as { id: string | number; net_salary: string | number }[];
+      const payrollDetailIds = detailRows.map((r) => Number(r.id));
+      const totalNetPay = detailRows.reduce((sum, r) => sum + Number(r.net_salary), 0);
+
+      let voucher_id: number | null = null;
+      let voucher_no: string | null = null;
+      let voucher_warning: string | null = null;
+
+      const voucherUserId = processedBy && processedBy > 0 ? processedBy : 1;
+
+      if (
+        moduleRegistry.isModuleAvailable(MODULE_NAMES.ACCOUNTS) &&
+        payrollDetailIds.length > 0 &&
+        totalNetPay > 0.0001
+      ) {
+        try {
+          const vResult = await interModuleConnector.accModule.addPayrollPaymentVoucher(
+            {
+              payrollRunId: runId,
+              payrollDetailIds,
+              totalNetPay,
+              paymentMethod: input.payment_method,
+              paymentDate: input.payment_date,
+              paymentReference: paymentRef,
+              periodName,
+              notes: notesTrim,
+            },
+            voucherUserId
+          );
+
+          if (vResult?.success && vResult.voucherId) {
+            voucher_id = vResult.voucherId;
+            voucher_no = vResult.voucherNo ?? null;
+            await pool.query(
+              `UPDATE payroll_details SET voucher_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2::bigint[])`,
+              [voucher_id, payrollDetailIds]
+            );
+          } else if (vResult && !vResult.success && vResult.error) {
+            voucher_warning = vResult.error;
+          }
+        } catch (vErr: any) {
+          voucher_warning = vErr?.message || 'Accounting voucher failed';
+          MyLogger.error(`${action}.accounts`, vErr, { runId });
+        }
+      }
+
       if (processedBy) {
         const auditService = new AuditService();
         await auditService.logActivity({
@@ -384,7 +443,9 @@ export class UpdatePayrollMediator {
           newValues: {
             employees_paid: input.employee_ids.length,
             payment_method: input.payment_method,
-            payment_date: input.payment_date
+            payment_date: input.payment_date,
+            voucher_id,
+            voucher_no,
           }
         });
       }
@@ -393,18 +454,23 @@ export class UpdatePayrollMediator {
         runId,
         periodId: run.payroll_period_id,
         employeeIds: input.employee_ids,
-        processedBy
+        processedBy,
+        voucherId: voucher_id,
       });
 
       MyLogger.success(action, {
         runId,
         updatedCount: updateResult.rowCount,
-        finalStatus: finalRun.rows[0]?.status
+        finalStatus: finalRun.rows[0]?.status,
+        voucher_id,
       });
 
       return {
         payroll_run: finalRun.rows[0],
-        updated_count: updateResult.rowCount ?? 0
+        updated_count: updateResult.rowCount ?? 0,
+        voucher_id,
+        voucher_no,
+        voucher_warning,
       };
     } catch (error) {
       await client.query('ROLLBACK');

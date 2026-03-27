@@ -80,6 +80,13 @@ router.post(
   expressAsyncHandler(PayrollController.calculatePayroll)
 );
 
+// Preview accounts for payroll payment voucher (same resolution as POST .../pay)
+router.get(
+  "/payment-account-preview",
+  requirePermission(PERMISSIONS.HR_PAYROLL_PROCESS),
+  expressAsyncHandler(PayrollController.getPayrollPaymentAccountPreview)
+);
+
 // Get all payroll runs
 router.get(
   "/runs",

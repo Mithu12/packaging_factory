@@ -1,5 +1,6 @@
 import { makeRequest } from './api-utils';
 import {
+  ApiError,
   Expense,
   CreateExpenseRequest,
   UpdateExpenseRequest,
@@ -148,6 +149,25 @@ export class ExpenseApi {
     } catch (error) {
       console.error(`Error marking expense ${id} as paid:`, error);
       throw error;
+    }
+  }
+
+  /** Approve then mark paid in one flow (pending → approved → paid). */
+  static async approveAndPayExpense(
+    id: number,
+    options?: { approvalNotes?: string; paymentNotes?: string }
+  ): Promise<Expense> {
+    await this.approveExpense(id, options?.approvalNotes);
+    try {
+      return await this.payExpense(id, options?.paymentNotes);
+    } catch (payError) {
+      const detail =
+        payError instanceof ApiError ? payError.message : 'Unknown error';
+      throw new ApiError(
+        `Expense was approved but could not be marked as paid (${detail}). Use Mark as Paid to retry.`,
+        payError instanceof ApiError ? payError.status : 500,
+        { partialSuccess: true, cause: payError }
+      );
     }
   }
 

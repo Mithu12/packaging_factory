@@ -1011,6 +1011,19 @@ export interface PayrollCalculatorProps {
   selectedPeriod?: PayrollPeriod | null;
 }
 
+/** Matches backend preview for payroll payment voucher posting */
+export interface PayrollPaymentAccountPreview {
+  accounts_module_available: boolean;
+  ready: boolean;
+  debit: { id: number; code: string; name: string } | null;
+  credit: { id: number; code: string; name: string } | null;
+  credit_side: "cash" | "bank";
+  warning: string | null;
+  missing_payroll_expense_account: boolean;
+  missing_payment_account: boolean;
+  setup_steps: string[];
+}
+
 export interface PaymentFormProps {
   selectedEmployees: Employee[];
   selectedPayrollRecords: EmployeePayrollRecord[];

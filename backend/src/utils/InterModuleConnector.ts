@@ -132,6 +132,14 @@ class InterModuleConnector {
     },
 
     /**
+     * Create a payroll cash payment voucher (HRM)
+     */
+    addPayrollPaymentVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addPayrollPaymentVoucher");
+      return null;
+    },
+
+    /**
      * Reverse a voucher entry
      */
     reverseVoucher: async (...args: any[]): Promise<any> => {

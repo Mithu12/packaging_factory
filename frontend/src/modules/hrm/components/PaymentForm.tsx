@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -22,10 +22,13 @@ import {
   Building,
   FileText,
   Save,
-  X
+  X,
+  Landmark,
+  Loader2,
 } from 'lucide-react';
-import { PaymentFormProps } from '../types';
+import { PaymentFormProps, PayrollPaymentAccountPreview } from '../types';
 import { getPaymentMethodOptions } from '../data/payroll-data';
+import { HRMApiService } from '../services/hrm-api';
 
 const formatCurrency = (amount: number, currency: string) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
@@ -50,6 +53,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [accountPreview, setAccountPreview] = useState<PayrollPaymentAccountPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     setFormData((prev) => ({
@@ -58,6 +64,33 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       employee_ids: selectedEmployees.map((e) => e.id),
     }));
   }, [selectedEmployees, selectedPayrollRecords]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const method = formData.payment_method;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    HRMApiService.getPayrollPaymentAccountPreview(method)
+      .then((res) => {
+        if (!cancelled) {
+          setAccountPreview(res.preview);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setAccountPreview(null);
+          setPreviewError(err instanceof Error ? err.message : 'Could not load account preview');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPreviewLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.payment_method]);
 
   const paymentMethodOptions = getPaymentMethodOptions();
 
@@ -238,6 +271,110 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             />
             {errors.payment_date && (
               <p className="text-sm text-destructive">{errors.payment_date}</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Landmark className="h-4 w-4 shrink-0" />
+              Accounts posting (preview)
+            </div>
+            <p className="text-xs text-muted-foreground">
+              When you submit, a payment voucher uses the total net pay for this batch. Debit and credit accounts are
+              resolved from your chart of accounts (Salaries/Payroll expense; Cash for cash payments, Bank otherwise).
+            </p>
+            {previewLoading && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                Loading chart accounts…
+              </p>
+            )}
+            {!previewLoading && previewError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{previewError}</AlertDescription>
+              </Alert>
+            )}
+            {!previewLoading && !previewError && accountPreview && !accountPreview.accounts_module_available && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Accounts module is not available. Payments are saved in HR only; no accounting voucher is created.
+                </AlertDescription>
+              </Alert>
+            )}
+            {!previewLoading && !previewError && accountPreview?.accounts_module_available && !accountPreview.ready && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Chart of accounts needs setup</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  {accountPreview.warning ? (
+                    <p className="text-sm opacity-90">{accountPreview.warning}</p>
+                  ) : null}
+                  <ul className="text-sm space-y-1 rounded-md border bg-background/50 px-3 py-2">
+                    <li>
+                      <span className="text-muted-foreground">Debit (payroll expense): </span>
+                      {accountPreview.missing_payroll_expense_account ? (
+                        <span className="font-medium">missing</span>
+                      ) : (
+                        <span>
+                          {accountPreview.debit?.name}{" "}
+                          <span className="text-muted-foreground">({accountPreview.debit?.code})</span>
+                        </span>
+                      )}
+                    </li>
+                    <li>
+                      <span className="text-muted-foreground">
+                        Credit ({accountPreview.credit_side === "cash" ? "cash" : "bank"}):{" "}
+                      </span>
+                      {accountPreview.missing_payment_account ? (
+                        <span className="font-medium">missing</span>
+                      ) : (
+                        <span>
+                          {accountPreview.credit?.name}{" "}
+                          <span className="text-muted-foreground">({accountPreview.credit?.code})</span>
+                        </span>
+                      )}
+                    </li>
+                  </ul>
+                  {accountPreview.setup_steps && accountPreview.setup_steps.length > 0 ? (
+                    <div>
+                      <p className="text-sm font-medium">
+                        How to fix — add accounts under Chart of accounts:
+                      </p>
+                      <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
+                        {accountPreview.setup_steps.map((step, idx) => (
+                          <li key={idx}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            )}
+            {!previewLoading && !previewError && accountPreview?.ready && accountPreview.debit && accountPreview.credit && (
+              <div className="rounded-md border bg-background text-sm space-y-2 p-3">
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between">
+                  <span className="text-muted-foreground shrink-0">Debit</span>
+                  <span className="font-medium text-right">
+                    {accountPreview.debit.name}{" "}
+                    <span className="text-muted-foreground font-normal">({accountPreview.debit.code})</span>
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground pl-0 sm:pl-0">
+                  Payroll expense — {formatCurrency(totalAmount, currency)} (Σ net pay)
+                </div>
+                <div className="border-t pt-2 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between">
+                  <span className="text-muted-foreground shrink-0">Credit</span>
+                  <span className="font-medium text-right">
+                    {accountPreview.credit.name}{" "}
+                    <span className="text-muted-foreground font-normal">({accountPreview.credit.code})</span>
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {accountPreview.credit_side === "cash" ? "Cash" : "Bank"} — {formatCurrency(totalAmount, currency)}
+                </div>
+              </div>
             )}
           </div>
         </CardContent>

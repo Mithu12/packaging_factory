@@ -89,10 +89,10 @@ const setupHRMIntegration = (): void => {
  * Set up payroll accounting integration
  */
 const setupPayrollAccountingIntegration = (): void => {
-  // This would set up event listeners or hooks that notify the accounts module
-  // when payroll is processed, so it can update financial records
+  // Payroll payment posting to Accounts is handled in UpdatePayrollMediator.recordPayrollPayments
+  // when the accounts module is registered (via interModuleConnector.accModule.addPayrollPaymentVoucher).
   MyLogger.info('Payroll Accounting Integration', {
-    message: 'Payroll accounting integration configured'
+    message: 'Payroll payment vouchers are created when recording payments (if Accounts is available)'
   });
 };
 
