@@ -397,50 +397,6 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="paymentTerms">Payment Terms</Label>
-              <Input
-                id="paymentTerms"
-                value={formData.payment_terms}
-                onChange={(e) => handleInputChange("payment_terms", e.target.value)}
-                placeholder="e.g., Net 30"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="deliveryTerms">Delivery Terms</Label>
-              <Input
-                id="deliveryTerms"
-                value={formData.delivery_terms}
-                onChange={(e) => handleInputChange("delivery_terms", e.target.value)}
-                placeholder="e.g., FOB Destination"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                value={formData.department}
-                onChange={(e) => handleInputChange("department", e.target.value)}
-                placeholder="e.g., IT, Operations"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="project">Project</Label>
-              <Input
-                id="project"
-                value={formData.project}
-                onChange={(e) => handleInputChange("project", e.target.value)}
-                placeholder="e.g., Office Expansion"
-              />
-            </div>
-          </div>
-
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Order Items</h3>

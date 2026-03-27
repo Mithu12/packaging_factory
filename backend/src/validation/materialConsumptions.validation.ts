@@ -46,7 +46,7 @@ export const bulkConsumptionSchema = Joi.object({
   ).min(1).required(),
   work_order_id: numericIdSchema.required(),
   production_line_id: numericIdSchema.allow(null).optional(),
-  operator_id: numericIdSchema.allow(null).optional(),
+  operator_id: numericIdSchema.allow('',null).optional(),
   batch_number: Joi.string().allow('', null).optional(),
   notes: Joi.string().max(500).allow('', null).optional(),
 });
