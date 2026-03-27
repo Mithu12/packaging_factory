@@ -5,13 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,14 +19,7 @@ import {
   FactoryCustomer,
 } from "../services/customer-orders-api";
 
-const PAYMENT_TERMS = [
-  { value: "net_15", label: "Net 15" },
-  { value: "net_30", label: "Net 30" },
-  { value: "net_45", label: "Net 45" },
-  { value: "net_60", label: "Net 60" },
-  { value: "cash_on_delivery", label: "Cash on delivery" },
-  { value: "advance_payment", label: "Advance payment" },
-] as const;
+const DEFAULT_PAYMENT_TERMS = "cash_on_delivery";
 
 export interface QuickAddCustomerDialogProps {
   open: boolean;
@@ -52,7 +38,6 @@ export function QuickAddCustomerDialog({
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState<string>("cash_on_delivery");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -65,7 +50,6 @@ export function QuickAddCustomerDialog({
       setCustomerName("");
       setEmail("");
       setPhone("");
-      setPaymentTerms("cash_on_delivery");
       setStreet("");
       setCity("");
       setState("");
@@ -118,7 +102,7 @@ export function QuickAddCustomerDialog({
         name,
         email: em,
         phone: ph,
-        payment_terms: paymentTerms,
+        payment_terms: DEFAULT_PAYMENT_TERMS,
         address: {
           street: st,
           city: ci,
@@ -188,21 +172,6 @@ export function QuickAddCustomerDialog({
               autoComplete="tel"
               maxLength={20}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Payment terms *</Label>
-            <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_TERMS.map((pt) => (
-                  <SelectItem key={pt.value} value={pt.value}>
-                    {pt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-3 rounded-md border p-3">
