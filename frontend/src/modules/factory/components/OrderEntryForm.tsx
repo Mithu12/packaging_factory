@@ -72,6 +72,30 @@ function isFactoryFieldEmpty(value: unknown): boolean {
     return String(value).trim() === "";
 }
 
+/** Customer records use cash_on_delivery / advance_payment; order API expects cash / advance. */
+const ORDER_PAYMENT_TERMS = new Set([
+    "net_15",
+    "net_30",
+    "net_45",
+    "net_60",
+    "cash",
+    "advance",
+]);
+
+function toOrderPaymentTerms(customerTerms: string | undefined | null): string {
+    const t = (customerTerms ?? "").trim();
+    if (ORDER_PAYMENT_TERMS.has(t)) {
+        return t;
+    }
+    if (t === "cash_on_delivery") {
+        return "cash";
+    }
+    if (t === "advance_payment") {
+        return "advance";
+    }
+    return "net_30";
+}
+
 function productToFactoryProduct(created: Product): FactoryProduct {
     return {
         id: Number(created.id),
@@ -358,7 +382,7 @@ export default function OrderEntryForm({
                 factory_customer_name: selectedCustomer?.name || "",
                 factory_customer_email: selectedCustomer?.email || "",
                 factory_customer_phone: selectedCustomer?.phone,
-                payment_terms: selectedCustomer?.payment_terms,
+                payment_terms: toOrderPaymentTerms(selectedCustomer?.payment_terms),
                 factory_id: (() => {
                     const raw = data.factory_id as unknown;
                     if (raw === undefined || raw === null || raw === "") {
