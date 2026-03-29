@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { useFormatting } from "@/hooks/useFormatting"
 import { Loader2 } from "lucide-react"
@@ -23,7 +23,6 @@ import {
     Upload,
     X,
     Image,
-    Camera,
 } from "lucide-react";
 const PLACEHOLDER_IMAGE = "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=400";
 
@@ -56,6 +55,18 @@ interface EditProductFormData {
   pv: string
 }
 
+/** Validated on submit; compact layout shows only these fields. */
+const EDIT_PRODUCT_REQUIRED_FIELD_KEYS: Array<keyof EditProductFormData> = [
+  "name",
+  "sku",
+  "cost_price",
+  "selling_price",
+  "category_id",
+  "supplier_id",
+  "current_stock",
+  "min_stock_level",
+]
+
 export default function EditProduct() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : params.id?.[0];
@@ -72,6 +83,7 @@ export default function EditProduct() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showAllFields, setShowAllFields] = useState(false)
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>("");
   const [formData, setFormData] = useState<EditProductFormData>({
@@ -263,15 +275,18 @@ export default function EditProduct() {
     e.preventDefault()
 
     if (!id) return
-    
-    // Validation
-    if (!formData.name || !formData.sku || !formData.cost_price || !formData.selling_price) {
+
+    const missingRequired = EDIT_PRODUCT_REQUIRED_FIELD_KEYS.filter((field) => {
+      const value = formData[field]
+      return typeof value === "string" ? value.trim() === "" : !value
+    })
+    if (missingRequired.length > 0) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
     try {
@@ -359,7 +374,7 @@ export default function EditProduct() {
   return (
     <div className="space-y-6" data-testid="edit-product-page">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4 flex-wrap">
         <Button
           variant="ghost"
           size="icon"
@@ -367,9 +382,24 @@ export default function EditProduct() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Edit Product</h1>
-          <p className="text-muted-foreground">Update {product.name} information and settings</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between flex-1 min-w-0">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Edit Product</h1>
+            <p className="text-muted-foreground">Update {product.name} information and settings</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Label
+              htmlFor="edit-product-show-all-fields"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Show all fields
+            </Label>
+            <Switch
+              id="edit-product-show-all-fields"
+              checked={showAllFields}
+              onCheckedChange={setShowAllFields}
+            />
+          </div>
         </div>
       </div>
 
@@ -378,6 +408,7 @@ export default function EditProduct() {
           {/* Main Information */}
           <div className="lg:col-span-2 space-y-6">
             {/* Product Image */}
+            {showAllFields ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -463,6 +494,7 @@ export default function EditProduct() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -495,6 +527,7 @@ export default function EditProduct() {
                       required
                     />
                   </div>
+                  {showAllFields ? (
                   <div>
                     <Label htmlFor="barcode">Barcode</Label>
                     <Input
@@ -507,8 +540,10 @@ export default function EditProduct() {
                       placeholder="Enter barcode"
                     />
                   </div>
+                  ) : null}
                 </div>
 
+                {showAllFields ? (
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -521,6 +556,7 @@ export default function EditProduct() {
                     rows={3}
                   />
                 </div>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -530,9 +566,15 @@ export default function EditProduct() {
                 <CardTitle>Category & Classification</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div
+                  className={
+                    showAllFields
+                      ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+                      : "grid grid-cols-1 gap-4"
+                  }
+                >
                   <div>
-                    <Label htmlFor="category">Category</Label>
+                    <Label htmlFor="category">Category *</Label>
                     <Select value={formData.category_id} onValueChange={handleCategoryChange}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
@@ -546,6 +588,7 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {showAllFields ? (
                   <div>
                     <Label htmlFor="subCategory">Sub Category</Label>
                     <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
@@ -561,6 +604,8 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
+                  ) : null}
+                  {showAllFields ? (
                   <div>
                     <Label htmlFor="brand">Brand</Label>
                     <Select value={formData.brand_id} onValueChange={(value) => handleInputChange("brand_id", value)}>
@@ -576,6 +621,8 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
+                  ) : null}
+                  {showAllFields ? (
                   <div>
                     <Label htmlFor="origin">Origin</Label>
                     <Select value={formData.origin_id} onValueChange={(value) => handleInputChange("origin_id", value)}>
@@ -591,8 +638,10 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
+                  ) : null}
                 </div>
 
+                {showAllFields ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="unit">Unit of Measure</Label>
@@ -610,6 +659,7 @@ export default function EditProduct() {
                     </Select>
                   </div>
                 </div>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -646,6 +696,7 @@ export default function EditProduct() {
                   </div>
                 </div>
 
+                {showAllFields ? (
                 <div>
                   <Label htmlFor="wholesalePrice">Wholesale Price</Label>
                   <Input
@@ -660,7 +711,9 @@ export default function EditProduct() {
                     Leave empty to use selling price for wholesale customers
                   </p>
                 </div>
+                ) : null}
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="pv">PV Points</Label>
                   <Input
@@ -675,7 +728,8 @@ export default function EditProduct() {
                     Loyalty points earned for this product
                   </p>
                 </div>
-                
+                ) : null}
+
                 {hasPricingValues && (
                   <div className="p-3 bg-accent/20 rounded-lg">
                     <div className="text-sm text-muted-foreground">
@@ -690,6 +744,7 @@ export default function EditProduct() {
             </Card>
 
             {/* Physical Properties */}
+            {showAllFields ? (
             <Card>
               <CardHeader>
                 <CardTitle>Physical Properties</CardTitle>
@@ -723,8 +778,10 @@ export default function EditProduct() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
             {/* Warranty & Service Information */}
+            {showAllFields ? (
             <Card>
               <CardHeader>
                 <CardTitle>Warranty & Service Information</CardTitle>
@@ -760,6 +817,7 @@ export default function EditProduct() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
           </div>
 
           {/* Sidebar */}
@@ -771,13 +829,26 @@ export default function EditProduct() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="minStock">Minimum Stock</Label>
+                  <Label htmlFor="currentStock">Current Stock *</Label>
+                  <Input
+                    id="currentStock"
+                    data-testid="edit-product-current-stock"
+                    type="number"
+                    value={formData.current_stock}
+                    onChange={(e) => handleInputChange("current_stock", e.target.value)}
+                    placeholder="0"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="minStock">Minimum Stock *</Label>
                   <Input
                     id="minStock"
                     type="number"
                     value={formData.min_stock_level}
                     onChange={(e) => handleInputChange("min_stock_level", e.target.value)}
                     placeholder="0"
+                    required
                   />
                 </div>
                 {/*<div>*/}
@@ -790,6 +861,7 @@ export default function EditProduct() {
                 {/*    placeholder="0"*/}
                 {/*  />*/}
                 {/*</div>*/}
+                {showAllFields ? (
                 <div>
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
@@ -800,6 +872,7 @@ export default function EditProduct() {
                     placeholder="0"
                   />
                 </div>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -810,7 +883,7 @@ export default function EditProduct() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="supplier">Primary Supplier</Label>
+                  <Label htmlFor="supplier">Primary Supplier *</Label>
                   <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select supplier" />
@@ -824,6 +897,7 @@ export default function EditProduct() {
                     </SelectContent>
                   </Select>
                 </div>
+                {showAllFields ? (
                 <div>
                   <Label htmlFor="status">Status</Label>
                   <Select
@@ -843,6 +917,7 @@ export default function EditProduct() {
                     </SelectContent>
                   </Select>
                 </div>
+                ) : null}
               </CardContent>
             </Card>
 

@@ -19,7 +19,7 @@ export const createProductSchema = Joi.object({
   status: Joi.string()
     .valid("active", "inactive", "discontinued", "out_of_stock")
     .default("active"),
-  barcode: Joi.string().max(50).required(),
+  barcode: Joi.string().max(50).optional().allow(null, ""),
   weight: Joi.number().positive().precision(2).optional().allow(null),
   dimensions: Joi.string().max(100).optional().allow(null, ""),
   tax_rate: Joi.number().min(0).max(100).precision(2).optional().allow(null),

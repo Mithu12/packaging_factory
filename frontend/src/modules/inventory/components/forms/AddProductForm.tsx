@@ -38,6 +38,7 @@ import { Brand } from "@/modules/inventory/services/brand-api";
 import { ProductApi } from "@/modules/inventory/services/product-api";
 import { Upload, X, Image, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { generateSKU, generateSimpleSKU } from "@/utils/sku-generator";
 import {
   generateBarcode,
@@ -124,6 +125,18 @@ interface ProductFormData {
   pv: string;
 }
 
+/** Validated on submit; compact layout shows only these fields. */
+const ADD_PRODUCT_REQUIRED_FIELD_KEYS: Array<keyof ProductFormData> = [
+  "name",
+  "sku",
+  "cost_price",
+  "selling_price",
+  "category_id",
+  "supplier_id",
+  "current_stock",
+  "min_stock_level",
+];
+
 export function AddProductForm({
   open,
   onOpenChange,
@@ -168,6 +181,7 @@ export function AddProductForm({
   const [validationErrors, setValidationErrors] = useState<
     Partial<Record<keyof ProductFormData, boolean>>
   >({});
+  const [showAllFields, setShowAllFields] = useState(false);
 
   /** Bumps when the add dialog opens so Radix Select remounts with fresh options/value. */
   const [categorySelectKey, setCategorySelectKey] = useState(0);
@@ -250,6 +264,7 @@ export function AddProductForm({
 
     if (justOpened) {
       setCategorySelectKey((k) => k + 1);
+      setShowAllFields(false);
     }
 
     setFormData((prev) => {
@@ -385,28 +400,20 @@ export function AddProductForm({
     try {
       console.log(formData);
       // Validation
-      const requiredFields: Array<keyof ProductFormData> = [
-        "name",
-        "sku",
-        "cost_price",
-        "selling_price",
-        "category_id",
-        "supplier_id",
-        "current_stock",
-        "min_stock_level",
-      ];
+      const newValidationErrors = ADD_PRODUCT_REQUIRED_FIELD_KEYS.reduce(
+        (acc, field) => {
+          const value = formData[field];
+          const isMissing =
+            typeof value === "string" ? value.trim() === "" : !value;
 
-      const newValidationErrors = requiredFields.reduce((acc, field) => {
-        const value = formData[field];
-        const isMissing =
-          typeof value === "string" ? value.trim() === "" : !value;
+          if (isMissing) {
+            acc[field] = true;
+          }
 
-        if (isMissing) {
-          acc[field] = true;
-        }
-
-        return acc;
-      }, {} as Partial<Record<keyof ProductFormData, boolean>>);
+          return acc;
+        },
+        {} as Partial<Record<keyof ProductFormData, boolean>>
+      );
 
       setValidationErrors(newValidationErrors);
 
@@ -502,6 +509,7 @@ export function AddProductForm({
       setSelectedImage(null);
       setImagePreview("");
       setValidationErrors({});
+      setShowAllFields(false);
 
       onProductAdded?.();
       onOpenChange(false);
@@ -601,6 +609,19 @@ export function AddProductForm({
             Add a new product to your catalog. Fill in the required information
             below.
           </DialogDescription>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Label
+              htmlFor="add-product-show-all-fields"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Show all fields
+            </Label>
+            <Switch
+              id="add-product-show-all-fields"
+              checked={showAllFields}
+              onCheckedChange={setShowAllFields}
+            />
+          </div>
         </DialogHeader>
 
         <form
@@ -608,8 +629,13 @@ export function AddProductForm({
           className="space-y-4"
           data-testid="add-product-form"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div
+            className={
+              showAllFields ? "grid grid-cols-1 lg:grid-cols-4 gap-6" : "grid gap-6"
+            }
+          >
             {/* Product Image */}
+            {showAllFields ? (
             <div className="space-y-4">
               <Label>Product Image</Label>
               <Card>
@@ -671,9 +697,12 @@ export function AddProductForm({
                 </CardContent>
               </Card>
             </div>
+            ) : null}
 
             {/* Product Information */}
-            <div className="lg:col-span-3 space-y-4">
+            <div
+              className={showAllFields ? "lg:col-span-3 space-y-4" : "space-y-4"}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
@@ -746,6 +775,7 @@ export function AddProductForm({
                   </Select>
                 </div>
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="subCategory">Sub Category</Label>
                   <Select
@@ -769,8 +799,10 @@ export function AddProductForm({
                     </SelectContent>
                   </Select>
                 </div>
+                ) : null}
               </div>
 
+              {showAllFields ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="brand">Brand</Label>
@@ -816,8 +848,16 @@ export function AddProductForm({
                   </Select>
                 </div>
               </div>
+              ) : null}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                className={
+                  showAllFields
+                    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+                    : "grid grid-cols-1 md:grid-cols-2 gap-4"
+                }
+              >
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="unit">Unit</Label>
                   <Select
@@ -839,6 +879,7 @@ export function AddProductForm({
                     </SelectContent>
                   </Select>
                 </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="costPrice">Cost Price *</Label>
@@ -859,7 +900,7 @@ export function AddProductForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="sellingPrice">Selling Price</Label>
+                  <Label htmlFor="sellingPrice">Selling Price *</Label>
                   <Input
                     id="sellingPrice"
                     data-testid="add-product-selling-price"
@@ -870,11 +911,13 @@ export function AddProductForm({
                       handleInputChange("selling_price", e.target.value)
                     }
                     placeholder="0.00"
+                    required
                     className={getFieldErrorClass("selling_price")}
                     aria-invalid={hasFieldError("selling_price")}
                   />
                 </div>
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="wholesalePrice">Wholesale Price</Label>
                   <Input
@@ -894,7 +937,9 @@ export function AddProductForm({
                     Leave empty to use selling price for wholesale customers
                   </p>
                 </div>
+                ) : null}
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="pv">PV Points</Label>
                   <Input
@@ -914,9 +959,16 @@ export function AddProductForm({
                     Loyalty points earned for this product
                   </p>
                 </div>
+                ) : null}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                className={
+                  showAllFields
+                    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+                    : "grid grid-cols-1 md:grid-cols-2 gap-4"
+                }
+              >
                 <div className="space-y-2">
                   <Label htmlFor="currentStock">Current Stock *</Label>
                   <Input
@@ -951,6 +1003,7 @@ export function AddProductForm({
                   />
                 </div>
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
@@ -964,6 +1017,7 @@ export function AddProductForm({
                     placeholder="0"
                   />
                 </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1008,11 +1062,11 @@ export function AddProductForm({
                   </Select>
                 </div>
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="barcode">Barcode</Label>
                   <div className="flex gap-2">
                     <Input
-                      required
                       id="barcode"
                       value={formData.barcode}
                       onChange={(e) =>
@@ -1042,7 +1096,9 @@ export function AddProductForm({
                     </Button>
                   </div>
                 </div>
+                ) : null}
 
+                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
@@ -1062,8 +1118,10 @@ export function AddProductForm({
                     </SelectContent>
                   </Select>
                 </div>
+                ) : null}
               </div>
 
+              {showAllFields ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="weight">Weight (kg)</Label>
@@ -1105,7 +1163,9 @@ export function AddProductForm({
                   />
                 </div>
               </div>
+              ) : null}
 
+              {showAllFields ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="warrantyPeriod">
@@ -1139,7 +1199,9 @@ export function AddProductForm({
                   />
                 </div>
               </div>
+              ) : null}
 
+              {showAllFields ? (
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -1153,7 +1215,9 @@ export function AddProductForm({
                   rows={3}
                 />
               </div>
+              ) : null}
 
+              {showAllFields ? (
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
@@ -1164,6 +1228,7 @@ export function AddProductForm({
                   rows={2}
                 />
               </div>
+              ) : null}
             </div>
           </div>
 
