@@ -631,7 +631,7 @@ export default function OrderEntryForm({
                                 )}
 
                                 {/* Factory Selection - only for admin users */}
-                                {isAdmin && (
+                                {/* {isAdmin && (
                                     <FormField
                                         control={form.control}
                                         name="factory_id"
@@ -659,7 +659,7 @@ export default function OrderEntryForm({
                                             </FormItem>
                                         )}
                                     />
-                                )}
+                                )} */}
 
                                 {/* Factory Display - for regular users */}
                                 {!isAdmin && (

@@ -59,6 +59,14 @@ import {
   bomQueryKeys 
 } from "@/services/bom-api";
 import { ProductApi, Product } from "@/services/api";
+import { QuickAddProductDialog } from "@/modules/factory/components/QuickAddProductDialog";
+
+type ProductsQueryData = {
+  products: Product[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
 export default function BOMEditor() {
   const params = useParams()
@@ -70,6 +78,7 @@ export default function BOMEditor() {
 
   const [components, setComponents] = useState<BOMComponent[]>([]);
   const [showAddComponent, setShowAddComponent] = useState(false);
+  const [quickAddProductOpen, setQuickAddProductOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [newComponent, setNewComponent] = useState({
     component_product_id: "",
@@ -574,6 +583,41 @@ export default function BOMEditor() {
         </div>
       </div>
 
+      <QuickAddProductDialog
+        open={quickAddProductOpen}
+        onOpenChange={setQuickAddProductOpen}
+        onProductCreated={async (created) => {
+          const idStr = String(created.id);
+          queryClient.setQueryData(
+            ["products"],
+            (old: ProductsQueryData | undefined): ProductsQueryData => {
+              if (!old?.products) {
+                return {
+                  products: [created as Product],
+                  total: 1,
+                  page: 1,
+                  limit: 100,
+                };
+              }
+              if (old.products.some((p) => String(p.id) === idStr)) {
+                return old;
+              }
+              return {
+                ...old,
+                products: [created as Product, ...old.products],
+                total: old.total + 1,
+              };
+            }
+          );
+          setSelectedProduct(created as Product);
+          setNewComponent((prev) => ({
+            ...prev,
+            component_product_id: idStr,
+            unit_of_measure: created.unit_of_measure,
+          }));
+        }}
+      />
+
       {/* Add Component Dialog */}
       <Dialog open={showAddComponent} onOpenChange={setShowAddComponent}>
         <DialogContent className="max-w-2xl">
@@ -622,7 +666,7 @@ export default function BOMEditor() {
                   type="button"
                   variant="quickAdd"
                   size="sm"
-                  onClick={() => router.push("/factory/materials")}
+                  onClick={() => setQuickAddProductOpen(true)}
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add New
