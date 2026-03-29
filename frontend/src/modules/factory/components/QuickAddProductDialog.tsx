@@ -97,12 +97,18 @@ export interface QuickAddProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProductCreated?: (product: Product) => void | Promise<void>;
+  /** When false (default), category is auto-filled from the first loaded category. */
+  showCategorySelect?: boolean;
+  /** When false (default), supplier is auto-filled from the first loaded supplier. */
+  showSupplierSelect?: boolean;
 }
 
 export function QuickAddProductDialog({
   open,
   onOpenChange,
   onProductCreated,
+  showCategorySelect = false,
+  showSupplierSelect = false,
 }: QuickAddProductDialogProps) {
   const [name, setName] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
@@ -203,11 +209,19 @@ export function QuickAddProductDialog({
       return;
     }
     if (!hasSelectedCategoryId(categoryId)) {
-      toast.error("Select a category");
+      toast.error(
+        showCategorySelect
+          ? "Select a category"
+          : "No categories available. Add a category first."
+      );
       return;
     }
     if (!hasSelectedSupplierId(supplierId)) {
-      toast.error("Select a supplier");
+      toast.error(
+        showSupplierSelect
+          ? "Select a supplier"
+          : "No suppliers available. Add a supplier first."
+      );
       return;
     }
 
@@ -293,73 +307,79 @@ export function QuickAddProductDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Category *</Label>
-              <Select
-                key={categorySelectKey}
-                value={
-                  hasSelectedCategoryId(categoryId) ? String(categoryId) : undefined
-                }
-                onValueChange={setCategoryId}
-                disabled={loadingMeta}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      loadingMeta ? "Loading..." : "Select category"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={String(c.id)} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label className="flex-1">Supplier *</Label>
-                <Button
-                  type="button"
-                  variant="quickAdd"
-                  size="icon"
-                  className="shrink-0 h-8 w-8"
-                  title="Add new supplier"
-                  onClick={() => setAddSupplierOpen(true)}
+            {showCategorySelect && (
+              <div className="space-y-2">
+                <Label>Category *</Label>
+                <Select
+                  key={categorySelectKey}
+                  value={
+                    hasSelectedCategoryId(categoryId)
+                      ? String(categoryId)
+                      : undefined
+                  }
+                  onValueChange={setCategoryId}
+                  disabled={loadingMeta}
                 >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        loadingMeta ? "Loading..." : "Select category"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={String(c.id)} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Select
-                key={supplierSelectKey}
-                value={
-                  hasSelectedSupplierId(supplierId)
-                    ? String(supplierId)
-                    : undefined
-                }
-                onValueChange={(v) => setSupplierId(String(v))}
-                disabled={loadingMeta}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      loadingMeta ? "Loading..." : "Select supplier"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            )}
+
+            {showSupplierSelect && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="flex-1">Supplier *</Label>
+                  <Button
+                    type="button"
+                    variant="quickAdd"
+                    size="icon"
+                    className="shrink-0 h-8 w-8"
+                    title="Add new supplier"
+                    onClick={() => setAddSupplierOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Select
+                  key={supplierSelectKey}
+                  value={
+                    hasSelectedSupplierId(supplierId)
+                      ? String(supplierId)
+                      : undefined
+                  }
+                  onValueChange={(v) => setSupplierId(String(v))}
+                  disabled={loadingMeta}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        loadingMeta ? "Loading..." : "Select supplier"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <DialogFooter className="gap-2 sm:gap-0">
               <Button

@@ -584,6 +584,7 @@ export default function BOMEditor() {
       </div>
 
       <QuickAddProductDialog
+        showSupplierSelect
         open={quickAddProductOpen}
         onOpenChange={setQuickAddProductOpen}
         onProductCreated={async (created) => {
