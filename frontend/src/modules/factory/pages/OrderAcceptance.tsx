@@ -19,6 +19,7 @@ import {
   Eye,
   Check,
   X,
+  Wallet,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -33,9 +34,17 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,6 +57,7 @@ import {
 import { ApproveOrderLinesDialog } from "../components/ApproveOrderLinesDialog";
 import { toast } from "sonner";
 import { normalizeFactoryOrderStatus } from "../utils/orderStatusNormalize";
+import { factoryOrderAllowsRecordingPayment } from "../utils/orderPaymentEligibility";
 
 // Use the API types directly
 type Order = FactoryCustomerOrder;
@@ -76,6 +86,14 @@ export default function OrderAcceptance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    payment_amount: 0,
+    payment_method: "cash",
+    payment_reference: "",
+    payment_date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
 
   // Load orders from API
   const loadOrders = useCallback(async () => {
@@ -202,6 +220,49 @@ export default function OrderAcceptance() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject order');
       console.error('Error rejecting order:', err);
+    }
+  };
+
+  const openRecordPaymentDialog = () => {
+    if (!selectedOrder) return;
+    setPaymentData({
+      payment_amount: selectedOrder.outstanding_amount,
+      payment_method: "cash",
+      payment_reference: "",
+      payment_date: new Date().toISOString().split("T")[0],
+      notes: "",
+    });
+    setShowPaymentDialog(true);
+  };
+
+  const handlePaymentSubmit = async () => {
+    if (!selectedOrder) return;
+    if (paymentData.payment_amount > selectedOrder.outstanding_amount + 0.001) {
+      toast.error("Payment amount exceeds outstanding balance");
+      return;
+    }
+    try {
+      await CustomerOrdersApiService.recordPayment(
+        selectedOrder.id.toString(),
+        {
+          ...paymentData,
+          additional_metadata: { payment_kind: "advance" },
+        }
+      );
+      setShowPaymentDialog(false);
+      const fresh = await CustomerOrdersApiService.getCustomerOrderById(
+        selectedOrder.id.toString()
+      );
+      setSelectedOrder(fresh);
+      await loadOrders();
+      toast.success("Payment recorded", {
+        description: `Order #${fresh.order_number}`,
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to record payment";
+      toast.error(msg);
+      console.error("Failed to record payment:", err);
     }
   };
 
@@ -496,6 +557,18 @@ export default function OrderAcceptance() {
                       </p>
                     </div>
                     <div>
+                      <Label className="text-sm font-medium">Paid</Label>
+                      <p className="text-sm font-medium text-green-600">
+                        {formatCurrency(selectedOrder.paid_amount)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Outstanding</Label>
+                      <p className="text-sm font-semibold text-orange-600">
+                        {formatCurrency(selectedOrder.outstanding_amount)}
+                      </p>
+                    </div>
+                    <div>
                       <Label className="text-sm font-medium">Deadline</Label>
                       <p className="text-sm text-muted-foreground">
                         {formatDate(selectedOrder.required_date)}
@@ -592,7 +665,18 @@ export default function OrderAcceptance() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                {selectedOrder.outstanding_amount > 0 &&
+                  factoryOrderAllowsRecordingPayment(selectedOrder.status) && (
+                    <Button
+                      variant="secondary"
+                      onClick={openRecordPaymentDialog}
+                      className="text-green-700"
+                    >
+                      <Wallet className="h-4 w-4 mr-2" />
+                      Record payment
+                    </Button>
+                  )}
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -634,6 +718,153 @@ export default function OrderAcceptance() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record payment</DialogTitle>
+            <DialogDescription>
+              Record payment for order #{selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedOrder && (
+              <Card className="bg-muted">
+                <CardContent className="pt-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total value</span>
+                      <span className="font-semibold">
+                        {formatCurrency(selectedOrder.total_value)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Paid</span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(selectedOrder.paid_amount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="font-semibold text-muted-foreground">
+                        Outstanding
+                      </span>
+                      <span className="font-bold text-orange-600">
+                        {formatCurrency(selectedOrder.outstanding_amount)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div>
+              <Label htmlFor="oa-payment-amount">Payment amount *</Label>
+              <Input
+                id="oa-payment-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                max={selectedOrder?.outstanding_amount}
+                placeholder="Enter payment amount"
+                value={paymentData.payment_amount}
+                onChange={(e) =>
+                  setPaymentData((prev) => ({
+                    ...prev,
+                    payment_amount: parseFloat(e.target.value) || 0,
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Maximum:{" "}
+                {formatCurrency(selectedOrder?.outstanding_amount ?? 0)}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="oa-payment-method">Payment method *</Label>
+              <Select
+                value={paymentData.payment_method}
+                onValueChange={(value) =>
+                  setPaymentData((prev) => ({ ...prev, payment_method: value }))
+                }
+              >
+                <SelectTrigger id="oa-payment-method">
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="mobile_payment">Mobile Payment</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="oa-payment-date">Payment date</Label>
+              <Input
+                id="oa-payment-date"
+                type="date"
+                value={paymentData.payment_date}
+                onChange={(e) =>
+                  setPaymentData((prev) => ({
+                    ...prev,
+                    payment_date: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="oa-payment-reference">Payment reference</Label>
+              <Input
+                id="oa-payment-reference"
+                placeholder="Transaction ID, Cheque #, etc."
+                value={paymentData.payment_reference}
+                onChange={(e) =>
+                  setPaymentData((prev) => ({
+                    ...prev,
+                    payment_reference: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="oa-payment-notes">Notes</Label>
+              <Textarea
+                id="oa-payment-notes"
+                placeholder="Additional notes..."
+                rows={3}
+                value={paymentData.notes}
+                onChange={(e) =>
+                  setPaymentData((prev) => ({ ...prev, notes: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPaymentDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handlePaymentSubmit()}
+              disabled={
+                !paymentData.payment_amount || paymentData.payment_amount <= 0
+              }
+            >
+              Record payment
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

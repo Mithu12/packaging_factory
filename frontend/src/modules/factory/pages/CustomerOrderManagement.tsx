@@ -91,6 +91,7 @@ import { QuotedSnapshotDialog } from "../components/QuotedSnapshotDialog";
 import type { QuotedOrderSnapshot } from "../services/customer-orders-api";
 import {toast} from "sonner";
 import { normalizeFactoryOrderStatus } from "../utils/orderStatusNormalize";
+import { factoryOrderAllowsRecordingPayment } from "../utils/orderPaymentEligibility";
 
 export default function CustomerOrderManagement() {
     const {formatCurrency, formatDate} = useFormatting();
@@ -811,7 +812,7 @@ export default function CustomerOrderManagement() {
                                                                 </>
                                                             )}
 
-                                                            {order.outstanding_amount > 0 && ['completed', 'shipped'].includes(order.status) && (
+                                                            {order.outstanding_amount > 0 && factoryOrderAllowsRecordingPayment(order.status) && (
                                                                 <DropdownMenuItem onClick={() => handleRecordPayment(order)} className="text-green-600">
                                                                     <Wallet className="mr-2 h-4 w-4" />
                                                                     <span>Record Payment</span>

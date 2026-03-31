@@ -5,6 +5,14 @@ import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { FactoryCustomerPayment, RecordFactoryOrderPaymentRequest } from '@/types/factory';
 import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
 
+/** Firm orders only: no payments on draft / quote / pending in acceptance queue. */
+const ORDER_STATUSES_ALLOWING_PAYMENT = [
+  'approved',
+  'in_production',
+  'completed',
+  'shipped',
+] as const;
+
 export class FactoryCustomerPaymentsMediator {
   /**
    * Record a payment against a factory customer order
@@ -47,10 +55,11 @@ export class FactoryCustomerPaymentsMediator {
       
       const order = orderResult.rows[0];
       
-      // Only allow payments for completed or shipped orders
-      if (!['completed', 'shipped'].includes(order.status)) {
+      if (
+        !(ORDER_STATUSES_ALLOWING_PAYMENT as readonly string[]).includes(order.status)
+      ) {
         throw new Error(
-          `Payments can only be recorded for completed or shipped orders. Current status: ${order.status}`
+          `Payments cannot be recorded for orders in status "${order.status}". Allowed: ${ORDER_STATUSES_ALLOWING_PAYMENT.join(', ')}`
         );
       }
       
@@ -100,8 +109,16 @@ export class FactoryCustomerPaymentsMediator {
       const newPaidAmount = parseFloat(order.paid_amount) + Number(data.payment_amount);
       const newOutstandingAmount = parseFloat(order.outstanding_amount) - data.payment_amount;
       
-      // Determine if order is now fully paid
-      const newStatus = newOutstandingAmount <= 0.01 ? 'completed' : order.status;
+      const fullyPaid = newOutstandingAmount <= 0.01;
+      let newStatus = order.status;
+      if (fullyPaid) {
+        if (order.status === 'shipped') {
+          newStatus = 'completed';
+        } else if (order.status === 'completed') {
+          newStatus = 'completed';
+        }
+        // approved / in_production: keep workflow status; only financial columns change
+      }
       
       const updateOrderQuery = `
         UPDATE factory_customer_orders
