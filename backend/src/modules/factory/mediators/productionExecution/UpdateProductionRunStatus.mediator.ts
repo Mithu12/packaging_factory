@@ -325,6 +325,7 @@ export class UpdateProductionRunStatusMediator {
       const woStatsResult = await client.query(
         `SELECT 
            quantity as target_quantity,
+           estimated_hours,
            (SELECT COALESCE(SUM(produced_quantity), 0) FROM production_runs WHERE work_order_id = wo.id AND status = 'completed') as total_produced
          FROM work_orders wo
          WHERE id = $1`,
@@ -348,6 +349,27 @@ export class UpdateProductionRunStatusMediator {
              WHERE id = $2`,
             [userId, run.work_order_id]
           );
+
+          // Free up production line load specifically for this work order completion
+          if (run.production_line_id) {
+            const estHours = parseFloat(woStats.estimated_hours || '0');
+            const loadToRemove = Math.min((estHours / 8) * 10, 100);
+            await client.query(
+              `UPDATE production_lines 
+               SET current_load = GREATEST(current_load - $1, 0),
+                   status = CASE WHEN GREATEST(current_load - $1, 0) <= 0 THEN 'available' ELSE status END,
+                   updated_at = CURRENT_TIMESTAMP 
+               WHERE id = $2`,
+              [loadToRemove, run.production_line_id]
+            );
+          }
+
+          // Release assigned operators
+          await client.query(
+            `UPDATE operators SET availability_status = 'available', current_work_order_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE current_work_order_id = $1`,
+            [run.work_order_id]
+          );
+
           MyLogger.info(`${action}: Parent work order marked as completed`, {
             workOrderId: run.work_order_id,
             totalProduced,
@@ -373,6 +395,23 @@ export class UpdateProductionRunStatusMediator {
              WHERE id = $3`,
             [progress, userId, run.work_order_id]
           );
+        }
+      }
+
+      // Free up production line if no other active runs
+      if (run.production_line_id) {
+        const activeRunsResult = await client.query(
+          "SELECT COUNT(*) FROM production_runs WHERE production_line_id = $1 AND status IN ('in_progress', 'scheduled') AND id != $2",
+          [run.production_line_id, runId]
+        );
+        if (parseInt(activeRunsResult.rows[0].count) === 0) {
+          await client.query(
+            "UPDATE production_lines SET status = 'available', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'busy'",
+            [run.production_line_id]
+          );
+          MyLogger.info(`${action}: Production line marked available`, {
+            productionLineId: run.production_line_id
+          });
         }
       }
 

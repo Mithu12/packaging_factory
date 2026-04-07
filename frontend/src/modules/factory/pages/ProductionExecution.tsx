@@ -309,7 +309,7 @@ export default function ProductionExecution() {
   });
   const allWorkOrders = workOrdersData?.work_orders || [];
   const workOrdersBase = allWorkOrders.filter(
-    (wo: WorkOrder) => wo.status === "released" || wo.status === "in_progress"
+    (wo: WorkOrder) => wo.status === "released" || wo.status === "in_progress",
   );
 
   // When opening via Continue Production, the pre-selected work order may not be in the list
@@ -320,14 +320,11 @@ export default function ProductionExecution() {
       : null;
   const needFetchedWorkOrder =
     !!preSelectedWoId &&
-    !workOrdersBase.some(
-      (w: WorkOrder) => w.id.toString() === preSelectedWoId
-    );
+    !workOrdersBase.some((w: WorkOrder) => w.id.toString() === preSelectedWoId);
 
   const { data: fetchedWorkOrder } = useQuery({
     queryKey: ["work-order", preSelectedWoId],
-    queryFn: () =>
-      WorkOrdersApiService.getWorkOrderById(preSelectedWoId!),
+    queryFn: () => WorkOrdersApiService.getWorkOrderById(preSelectedWoId!),
     enabled: !!needFetchedWorkOrder && !!preSelectedWoId,
   });
 
@@ -338,7 +335,7 @@ export default function ProductionExecution() {
       fetchedWorkOrder.id?.toString() === preSelectedWoId
     ) {
       const alreadyIncluded = workOrdersBase.some(
-        (w: WorkOrder) => w.id.toString() === preSelectedWoId
+        (w: WorkOrder) => w.id.toString() === preSelectedWoId,
       );
       if (!alreadyIncluded) {
         return [...workOrdersBase, fetchedWorkOrder];
@@ -360,12 +357,12 @@ export default function ProductionExecution() {
         .filter(
           (r: ProductionRun) =>
             r.work_order_id.toString() === preSelectedWoId &&
-            r.status === "completed"
+            r.status === "completed",
         )
         .reduce(
           (sum: number, r: ProductionRun) =>
             sum + Number(r.produced_quantity ?? 0),
-          0
+          0,
         );
       const remaining = Math.max(0, woQuantity - totalProduced);
       if (remaining > 0 && createRunData.target_quantity === "") {
@@ -401,7 +398,7 @@ export default function ProductionExecution() {
 
   const handleCreateRunFieldChange = (
     field: keyof CreateRunFormState,
-    value: string
+    value: string,
   ) => {
     setCreateRunData((prev) => ({
       ...prev,
@@ -491,29 +488,28 @@ export default function ProductionExecution() {
 
   const handleContinueProduction = (run: ProductionRun) => {
     const wo = allWorkOrders.find(
-      (w: WorkOrder) => w.id.toString() === run.work_order_id.toString()
+      (w: WorkOrder) => w.id.toString() === run.work_order_id.toString(),
     );
     const woQuantity = wo ? Number(wo.quantity) : 0;
     const completedRunsForWo = productionRuns.filter(
       (r: ProductionRun) =>
         r.work_order_id.toString() === run.work_order_id.toString() &&
-        r.status === "completed"
+        r.status === "completed",
     );
     const totalGoodProduced = completedRunsForWo.reduce(
       (sum: number, r: ProductionRun) => sum + Number(r.good_quantity ?? 0),
-      0
+      0,
     );
     const totalProduced = completedRunsForWo.reduce(
       (sum: number, r: ProductionRun) => sum + Number(r.produced_quantity ?? 0),
-      0
+      0,
     );
     const totalRejected = completedRunsForWo.reduce(
       (sum: number, r: ProductionRun) => sum + Number(r.rejected_quantity ?? 0),
-      0
+      0,
     );
     const remainingGood = Math.max(0, woQuantity - totalGoodProduced);
-    const rejectionRate =
-      totalProduced > 0 ? totalRejected / totalProduced : 0;
+    const rejectionRate = totalProduced > 0 ? totalRejected / totalProduced : 0;
     const estimatedToProduce =
       rejectionRate < 1 && remainingGood > 0
         ? Math.ceil(remainingGood / (1 - rejectionRate))
@@ -572,10 +568,23 @@ export default function ProductionExecution() {
   return (
     <div className="p-6 space-y-6" data-testid="production-execution-container">
       {/* Header */}
-      <div className="flex justify-between items-center" data-testid="production-execution-header">
+      <div
+        className="flex justify-between items-center"
+        data-testid="production-execution-header"
+      >
         <div>
-          <h1 className="text-3xl font-bold" data-testid="production-execution-title">Production Execution</h1>
-          <p className="text-gray-500" data-testid="production-execution-subtitle">Monitor and control production runs</p>
+          <h1
+            className="text-3xl font-bold"
+            data-testid="production-execution-title"
+          >
+            Production Execution
+          </h1>
+          <p
+            className="text-gray-500"
+            data-testid="production-execution-subtitle"
+          >
+            Monitor and control production runs
+          </p>
         </div>
         <Button
           type="button"
@@ -586,7 +595,10 @@ export default function ProductionExecution() {
         >
           {createRunMutation.isPending ? (
             <>
-              <Clock className="h-4 w-4 mr-2 animate-spin" data-testid="creating-spinner" />
+              <Clock
+                className="h-4 w-4 mr-2 animate-spin"
+                data-testid="creating-spinner"
+              />
               Creating...
             </>
           ) : (
@@ -599,34 +611,56 @@ export default function ProductionExecution() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4" data-testid="production-stats-grid">
+      <div
+        className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4"
+        data-testid="production-stats-grid"
+      >
         <Card data-testid="total-runs-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500" data-testid="total-runs-title">
+            <CardTitle
+              className="text-sm font-medium text-gray-500"
+              data-testid="total-runs-title"
+            >
               Total Runs
             </CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" data-testid="total-runs-icon" />
+            <Activity
+              className="h-4 w-4 text-blue-500"
+              data-testid="total-runs-icon"
+            />
           </CardHeader>
           <CardContent data-testid="total-runs-content">
             <div className="text-2xl font-bold" data-testid="total-runs-count">
               {statsLoading ? "..." : stats.total_runs}
             </div>
-            <p className="text-xs text-gray-500" data-testid="total-runs-label">All time</p>
+            <p className="text-xs text-gray-500" data-testid="total-runs-label">
+              All time
+            </p>
           </CardContent>
         </Card>
 
         <Card data-testid="active-runs-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500" data-testid="active-runs-title">
+            <CardTitle
+              className="text-sm font-medium text-gray-500"
+              data-testid="active-runs-title"
+            >
               Active Runs
             </CardTitle>
-            <Play className="h-4 w-4 text-green-500" data-testid="active-runs-icon" />
+            <Play
+              className="h-4 w-4 text-green-500"
+              data-testid="active-runs-icon"
+            />
           </CardHeader>
           <CardContent data-testid="active-runs-content">
             <div className="text-2xl font-bold" data-testid="active-runs-count">
               {statsLoading ? "..." : stats.active_runs}
             </div>
-            <p className="text-xs text-gray-500" data-testid="active-runs-label">In progress</p>
+            <p
+              className="text-xs text-gray-500"
+              data-testid="active-runs-label"
+            >
+              In progress
+            </p>
           </CardContent>
         </Card>
 
@@ -786,11 +820,16 @@ export default function ProductionExecution() {
                         : 0;
                     const normalizedProgress = Math.min(
                       Math.max(progress, 0),
-                      100
+                      100,
                     );
-                    const remainingGood = Math.max(0, targetQuantity - goodQuantity);
+                    const remainingGood = Math.max(
+                      0,
+                      targetQuantity - goodQuantity,
+                    );
                     const rejectionRate =
-                      producedQuantity > 0 ? rejectedQuantity / producedQuantity : 0;
+                      producedQuantity > 0
+                        ? rejectedQuantity / producedQuantity
+                        : 0;
                     const estimatedToRerun =
                       rejectionRate < 1 && remainingGood > 0
                         ? Math.ceil(remainingGood / (1 - rejectionRate))
@@ -833,7 +872,10 @@ export default function ProductionExecution() {
                                   </span>
                                 )}
                             </div>
-                            <Progress value={normalizedProgress} className="h-2" />
+                            <Progress
+                              value={normalizedProgress}
+                              className="h-2"
+                            />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -859,7 +901,9 @@ export default function ProductionExecution() {
                                 size="sm"
                                 data-run-id={run.id}
                                 onClick={(e) => {
-                                  const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                  const id = (
+                                    e.currentTarget as HTMLButtonElement
+                                  ).dataset.runId;
                                   if (id) handleStartRunById(id);
                                 }}
                                 disabled={startMutation.isPending}
@@ -875,7 +919,9 @@ export default function ProductionExecution() {
                                   size="sm"
                                   data-run-id={run.id}
                                   onClick={(e) => {
-                                    const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                    const id = (
+                                      e.currentTarget as HTMLButtonElement
+                                    ).dataset.runId;
                                     if (id) pauseMutation.mutate({ id });
                                   }}
                                   disabled={pauseMutation.isPending}
@@ -894,9 +940,14 @@ export default function ProductionExecution() {
                                   size="sm"
                                   data-run-id={run.id}
                                   onClick={(e) => {
-                                    const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                    const id = (
+                                      e.currentTarget as HTMLButtonElement
+                                    ).dataset.runId;
                                     if (id) {
-                                      const r = productionRuns.find((p: ProductionRun) => p.id.toString() === id);
+                                      const r = productionRuns.find(
+                                        (p: ProductionRun) =>
+                                          p.id.toString() === id,
+                                      );
                                       if (r) handleCompleteRun(r);
                                     }
                                   }}
@@ -912,7 +963,9 @@ export default function ProductionExecution() {
                                 size="sm"
                                 data-run-id={run.id}
                                 onClick={(e) => {
-                                  const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                  const id = (
+                                    e.currentTarget as HTMLButtonElement
+                                  ).dataset.runId;
                                   if (id) handleStartRunById(id);
                                 }}
                                 disabled={startMutation.isPending}
@@ -929,7 +982,9 @@ export default function ProductionExecution() {
                                     size="sm"
                                     data-run-id={run.id}
                                     onClick={(e) => {
-                                      const id = (e.currentTarget as HTMLButtonElement).dataset.runId;
+                                      const id = (
+                                        e.currentTarget as HTMLButtonElement
+                                      ).dataset.runId;
                                       if (id) resumeMutation.mutate(id);
                                     }}
                                     disabled={resumeMutation.isPending}
@@ -938,7 +993,7 @@ export default function ProductionExecution() {
                                     <RotateCw className="h-4 w-4 mr-1" />
                                     Resume
                                   </Button>
-                                  <Button
+                                  {/* <Button
                                     type="button"
                                     variant="quickAdd"
                                     size="sm"
@@ -948,7 +1003,7 @@ export default function ProductionExecution() {
                                   >
                                     <Plus className="h-4 w-4 mr-1" />
                                     New run
-                                  </Button>
+                                  </Button> */}
                                 </>
                               )}
                             <Button
@@ -1018,8 +1073,8 @@ export default function ProductionExecution() {
               </Select>
               {workOrders.length === 0 && !workOrdersLoading && (
                 <p className="text-xs text-orange-600">
-                  No released work orders available. Only work orders in "released"
-                  status can be used for production runs.
+                  No released work orders available. Only work orders in
+                  "released" status can be used for production runs.
                 </p>
               )}
             </div>
@@ -1085,15 +1140,29 @@ export default function ProductionExecution() {
                 </div>
                 <div className="text-amber-800 dark:text-amber-200 space-y-0.5">
                   <div>
-                    Good units needed: {formatNumber(continuationRerunStats.remainingGood)} (target − {formatNumber(continuationRerunStats.totalGoodProduced)} already good)
+                    Good units needed:{" "}
+                    {formatNumber(continuationRerunStats.remainingGood)} (target
+                    − {formatNumber(continuationRerunStats.totalGoodProduced)}{" "}
+                    already good)
                   </div>
                   {continuationRerunStats.totalRejected > 0 && (
                     <div>
-                      Past rejection rate: {(continuationRerunStats.rejectionRate * 100).toFixed(1)}% ({formatNumber(continuationRerunStats.totalRejected)} rejected of {formatNumber(continuationRerunStats.totalGoodProduced + continuationRerunStats.totalRejected)} produced)
+                      Past rejection rate:{" "}
+                      {(continuationRerunStats.rejectionRate * 100).toFixed(1)}%
+                      ({formatNumber(continuationRerunStats.totalRejected)}{" "}
+                      rejected of{" "}
+                      {formatNumber(
+                        continuationRerunStats.totalGoodProduced +
+                          continuationRerunStats.totalRejected,
+                      )}{" "}
+                      produced)
                     </div>
                   )}
                   <div className="font-medium">
-                    Suggested target: {formatNumber(continuationRerunStats.estimatedToProduce)} units to produce (to yield ~{formatNumber(continuationRerunStats.remainingGood)} good)
+                    Suggested target:{" "}
+                    {formatNumber(continuationRerunStats.estimatedToProduce)}{" "}
+                    units to produce (to yield ~
+                    {formatNumber(continuationRerunStats.remainingGood)} good)
                   </div>
                 </div>
               </div>
@@ -1110,7 +1179,7 @@ export default function ProductionExecution() {
                   onChange={(e) =>
                     handleCreateRunFieldChange(
                       "target_quantity",
-                      e.target.value
+                      e.target.value,
                     )
                   }
                   placeholder="Enter target output"
@@ -1128,7 +1197,7 @@ export default function ProductionExecution() {
                   onChange={(e) =>
                     handleCreateRunFieldChange(
                       "planned_cycle_time_seconds",
-                      e.target.value
+                      e.target.value,
                     )
                   }
                   placeholder="e.g. 45"
@@ -1148,7 +1217,7 @@ export default function ProductionExecution() {
                   onChange={(e) =>
                     handleCreateRunFieldChange(
                       "scheduled_start_time",
-                      e.target.value
+                      e.target.value,
                     )
                   }
                 />
@@ -1252,10 +1321,12 @@ export default function ProductionExecution() {
                       <CardContent>
                         <div className="text-lg font-semibold">
                           {formatNumber(runDetails.good_quantity || 0)} good /
-                          {formatNumber(runDetails.rejected_quantity || 0)} scrap
+                          {formatNumber(runDetails.rejected_quantity || 0)}{" "}
+                          scrap
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Target: {formatNumber(runDetails.target_quantity || 0)}
+                          Target:{" "}
+                          {formatNumber(runDetails.target_quantity || 0)}
                         </div>
                       </CardContent>
                     </Card>
@@ -1267,7 +1338,9 @@ export default function ProductionExecution() {
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Started:</span>{" "}
+                          <span className="text-muted-foreground">
+                            Started:
+                          </span>{" "}
                           {runDetails.actual_start_time
                             ? formatDate(runDetails.actual_start_time)
                             : "—"}
@@ -1426,7 +1499,8 @@ export default function ProductionExecution() {
               <p className="text-sm text-muted-foreground">
                 Previously produced: {selectedRun.produced_quantity} (good:{" "}
                 {selectedRun.good_quantity ?? 0}, rejected:{" "}
-                {selectedRun.rejected_quantity ?? 0}). Enter additional produced.
+                {selectedRun.rejected_quantity ?? 0}). Enter additional
+                produced.
               </p>
             )}
             <div>
