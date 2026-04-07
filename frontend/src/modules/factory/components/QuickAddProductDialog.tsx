@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,7 +181,7 @@ export function QuickAddProductDialog({
       if (!hasSelectedCategoryId(next) && categories.length > 0) {
         if (defaultCategoryName) {
           const match = categories.find(
-            (c) => c.name.toLowerCase() === defaultCategoryName.toLowerCase()
+            (c) => c.name.toLowerCase() === defaultCategoryName.toLowerCase(),
           );
           if (match) {
             const rowId = getCategoryRowId(match);
@@ -216,14 +222,14 @@ export function QuickAddProductDialog({
       return;
     }
     if (Number.isNaN(priceNum) || priceNum <= 0) {
-      toast.error("Enter a valid selling price greater than zero");
+      toast.error("Enter a valid price greater than zero");
       return;
     }
     if (!hasSelectedCategoryId(categoryId)) {
       toast.error(
         showCategorySelect
           ? "Select a category"
-          : "No categories available. Add a category first."
+          : "No categories available. Add a category first.",
       );
       return;
     }
@@ -231,7 +237,7 @@ export function QuickAddProductDialog({
       toast.error(
         showSupplierSelect
           ? "Select a supplier"
-          : "No suppliers available. Add a supplier first."
+          : "No suppliers available. Add a supplier first.",
       );
       return;
     }
@@ -274,7 +280,10 @@ export function QuickAddProductDialog({
     }
   };
 
-  const handleSupplierCreated = async (supplier?: { id: number; name: string }) => {
+  const handleSupplierCreated = async (supplier?: {
+    id: number;
+    name: string;
+  }) => {
     await loadCategoriesAndSuppliers();
     if (supplier?.id != null) {
       setSupplierId(String(supplier.id));
@@ -306,7 +315,7 @@ export function QuickAddProductDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="quick-product-price">Selling price *</Label>
+              <Label htmlFor="quick-product-price">Price *</Label>
               <Input
                 id="quick-product-price"
                 type="number"
