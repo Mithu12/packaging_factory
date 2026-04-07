@@ -82,7 +82,7 @@ type CreateRunFormState = {
 };
 
 export default function ProductionExecution() {
-  const { formatDate, formatNumber } = useFormatting();
+  const { formatDate, formatDateTime, formatNumber } = useFormatting();
   const queryClient = useQueryClient();
 
   const [selectedRun, setSelectedRun] = useState<ProductionRun | null>(null);
@@ -861,7 +861,7 @@ export default function ProductionExecution() {
                           <div className="space-y-1">
                             <div className="text-sm">
                               {producedQuantity} / {targetQuantity}
-                              {run.status === "completed" &&
+                              {/* {run.status === "completed" &&
                                 goodQuantity < targetQuantity &&
                                 remainingGood > 0 && (
                                   <span
@@ -870,7 +870,7 @@ export default function ProductionExecution() {
                                   >
                                     (rerun: ~{estimatedToRerun})
                                   </span>
-                                )}
+                                )} */}
                             </div>
                             <Progress
                               value={normalizedProgress}
@@ -1342,13 +1342,13 @@ export default function ProductionExecution() {
                             Started:
                           </span>{" "}
                           {runDetails.actual_start_time
-                            ? formatDate(runDetails.actual_start_time)
+                            ? formatDateTime(runDetails.actual_start_time)
                             : "—"}
                         </div>
                         <div>
                           <span className="text-muted-foreground">Ended:</span>{" "}
                           {runDetails.actual_end_time
-                            ? formatDate(runDetails.actual_end_time)
+                            ? formatDateTime(runDetails.actual_end_time)
                             : "—"}
                         </div>
                         <div>
@@ -1395,7 +1395,7 @@ export default function ProductionExecution() {
                             {events.map((event) => (
                               <TableRow key={event.id}>
                                 <TableCell>
-                                  {formatDate(event.event_timestamp)}
+                                  {formatDateTime(event.event_timestamp)}
                                 </TableCell>
                                 <TableCell className="capitalize">
                                   {event.event_type.replace("_", " ")}
@@ -1449,11 +1449,11 @@ export default function ProductionExecution() {
                                   {entry.downtime_category.replace("_", " ")}
                                 </TableCell>
                                 <TableCell>
-                                  {formatDate(entry.start_time)}
+                                  {formatDateTime(entry.start_time)}
                                 </TableCell>
                                 <TableCell>
                                   {entry.end_time
-                                    ? formatDate(entry.end_time)
+                                    ? formatDateTime(entry.end_time)
                                     : "Ongoing"}
                                 </TableCell>
                                 <TableCell>

@@ -172,7 +172,7 @@ class FormattingUtils {
 
     const formattedDate = this.formatDate(dateObj, format);
     const time = dateObj.toLocaleTimeString('en-US', { 
-      hour12: false, 
+      hour12: true, 
       hour: '2-digit', 
       minute: '2-digit' 
     });
