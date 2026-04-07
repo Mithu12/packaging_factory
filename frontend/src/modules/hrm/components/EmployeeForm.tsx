@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { CalendarIcon, Save, X } from 'lucide-react';
 import { EmployeeFormProps, CreateEmployeeForm, Department, Designation, Employee } from '../types';
@@ -229,8 +228,8 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
     if (!formData.cnic?.trim()) {
       newErrors.cnic = 'NID is required';
-    } else if (formData.cnic.length !== 15) {
-      newErrors.cnic = 'NID must be 15 digits';
+    } else if (formData.cnic.length < 8) {
+      newErrors.cnic = 'NID must be at least 8 characters';
     }
 
     if (!formData.employment_type) {
@@ -314,15 +313,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Tabs defaultValue="personal" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="personal" data-testid="personal-tab">Personal Information</TabsTrigger>
-          <TabsTrigger value="employment" data-testid="employment-tab">Employment Details</TabsTrigger>
-          <TabsTrigger value="banking" data-testid="banking-tab">Banking & Additional</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="personal" className="space-y-4" data-testid="personal-tab-content">
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="space-y-10 w-full">
+        <div className="space-y-4" data-testid="personal-section">
+          <h3 className="text-xl font-semibold tracking-tight border-b pb-2">Personal Information</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employee_id">Employee ID *</Label>
@@ -416,7 +410,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 data-testid="cnic-input"
                 value={formData.cnic}
                 onChange={(e) => handleInputChange('cnic', e.target.value)}
-                placeholder="12345-1234567-1"
+                placeholder="Enter NID"
                 className={errors.cnic ? 'border-destructive' : ''}
               />
               {errors.cnic && (
@@ -521,9 +515,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="employment" className="space-y-4" data-testid="employment-tab-content">
+        <div className="space-y-4" data-testid="employment-section">
+          <h3 className="text-xl font-semibold tracking-tight border-b pb-2 mt-8">Employment Details</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employment_type">Employment Type *</Label>
@@ -708,29 +703,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     onChange={(e) => handleInputChange('termination_date', e.target.value)}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department (Legacy)</Label>
-                  <Input
-                    id="department"
-                    data-testid="legacy-department-input"
-                    value={formData.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    placeholder="Legacy department field"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="current_work_order_id">Current Work Order ID</Label>
-                  <Input
-                    id="current_work_order_id"
-                    data-testid="current-work-order-input"
-                    type="number"
-                    value={formData.current_work_order_id || ''}
-                    onChange={(e) => handleInputChange('current_work_order_id', e.target.value ? parseInt(e.target.value) : undefined)}
-                    placeholder="Work order ID"
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -882,9 +854,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="banking" className="space-y-4" data-testid="banking-tab-content">
+        <div className="space-y-4" data-testid="banking-section">
+          <h3 className="text-xl font-semibold tracking-tight border-b pb-2 mt-8">Banking & Additional</h3>
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Banking Information</CardTitle>
@@ -946,10 +919,10 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
+      <div className="flex justify-end space-x-2 pt-6 border-t mt-8 sticky bottom-0 bg-background/95 backdrop-blur py-4">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading} data-testid="cancel-button">
           <X className="h-4 w-4 mr-2" />
           Cancel

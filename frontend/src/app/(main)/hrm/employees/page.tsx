@@ -61,8 +61,10 @@ import { HRMApiService } from '@/modules/hrm/services/hrm-api';
 import { Employee, EmployeeListResponse, CreateEmployeeForm, Department } from '@/modules/hrm/types';
 import { monthlyFromHourly } from '@/modules/hrm/utils/employeeSalaryRates';
 import EmployeeForm from '@/modules/hrm/components/EmployeeForm';
+import { useRouter } from 'next/navigation';
 
 const EmployeeManagement: React.FC = () => {
+  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -308,10 +310,7 @@ const EmployeeManagement: React.FC = () => {
           <Button
             type="button"
             variant="add"
-            onClick={() => {
-              setSelectedEmployee(null);
-              setIsFormOpen(true);
-            }}
+            onClick={() => router.push('/hrm/employees/new')}
             data-testid="add-employee-button"
           >
             <Plus className="h-4 w-4 mr-2" />
