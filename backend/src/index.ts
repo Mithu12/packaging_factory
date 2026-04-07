@@ -231,6 +231,17 @@ app.listen(Number(PORT), '0.0.0.0', async () => {
       console.error("❌ Master data seeding failed:", seedError);
     }
 
+    // Load Master Data into memory cache
+    try {
+      const { MasterDataLoader } = await import("./utils/MasterDataLoader");
+      console.log("📦 Loading master data into memory...");
+      await MasterDataLoader.load();
+      const status = MasterDataLoader.getStatus();
+      console.log("✅ Master data loaded:", JSON.stringify(status.counts));
+    } catch (loadError) {
+      console.error("❌ Master data loading failed:", loadError);
+    }
+
     const serverInfo = {
       port: PORT,
       healthCheckUrl: `http://localhost:${PORT}/health`,

@@ -9,11 +9,18 @@ const router = express.Router();
 // Apply authentication to all routes
 router.use(authenticate);
 
-// GET /api/factory/products - Get all products
+// GET /api/factory/products - Get all products (unfiltered)
 router.get(
   "/",
   requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
   expressAsyncHandler(ProductsController.getAllProducts)
+);
+
+// GET /api/factory/products/orderable - Get orderable products (excludes Raw Materials)
+router.get(
+  "/orderable",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(ProductsController.getOrderableProducts)
 );
 
 // GET /api/factory/products/search - Search products

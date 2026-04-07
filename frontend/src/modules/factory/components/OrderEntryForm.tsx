@@ -236,8 +236,8 @@ export default function OrderEntryForm({
     const loadProducts = useCallback(async (): Promise<FactoryProduct[]> => {
         try {
             setLoadingProducts(true);
-            const data = await CustomerOrdersApiService.getAllProducts();
-            console.log('Loaded products:', data);
+            const data = await CustomerOrdersApiService.getAllOrderableProducts();
+            console.log('Loaded orderable products:', data);
             setProducts(data);
             return data;
         } catch (error) {

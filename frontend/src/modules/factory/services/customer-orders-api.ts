@@ -578,6 +578,11 @@ export class CustomerOrdersApiService {
         return makeRequest<FactoryProduct[]>(`/factory/products`);
     }
 
+    // Get orderable products only — excludes Raw Materials (for order/quotation creation)
+    static async getAllOrderableProducts(): Promise<FactoryProduct[]> {
+        return makeRequest<FactoryProduct[]>(`/factory/products/orderable`);
+    }
+
     // Customer CRUD operations
     static async getCustomerById(id: string): Promise<FactoryCustomer> {
         return makeRequest<FactoryCustomer>(`/factory/customers/${id}`);
