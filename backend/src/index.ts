@@ -222,6 +222,15 @@ app.listen(Number(PORT), '0.0.0.0', async () => {
     // Initialize modules after server starts
     await initializeModules();
 
+    // Seed Master Data
+    try {
+      const { MasterDataSeeder } = await import("./utils/MasterDataSeeder");
+      console.log("🌱 Seeding master data...");
+      await MasterDataSeeder.seed();
+    } catch (seedError) {
+      console.error("❌ Master data seeding failed:", seedError);
+    }
+
     const serverInfo = {
       port: PORT,
       healthCheckUrl: `http://localhost:${PORT}/health`,

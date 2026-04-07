@@ -10,7 +10,7 @@ const costCenterBaseSchema = {
   budget: Joi.number().min(0).precision(2),
   status: Joi.string().valid('Active', 'Inactive'),
   description: Joi.string().max(1000).trim().allow('', null),
-  defaultAccountId: Joi.number().integer().positive().optional(),
+  defaultAccountId: Joi.number().integer().positive().optional().allow(null),
 };
 
 // Schema for creating a new cost center
