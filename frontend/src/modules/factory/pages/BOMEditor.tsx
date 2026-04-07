@@ -585,6 +585,7 @@ export default function BOMEditor() {
 
       <QuickAddProductDialog
         showSupplierSelect
+        defaultCategoryName="Raw Materials"
         open={quickAddProductOpen}
         onOpenChange={setQuickAddProductOpen}
         onProductCreated={async (created) => {

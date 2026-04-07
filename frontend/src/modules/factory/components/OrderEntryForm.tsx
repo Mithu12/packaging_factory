@@ -520,6 +520,7 @@ export default function OrderEntryForm({
         <QuickAddProductDialog
             open={quickAddProductOpen}
             onOpenChange={setQuickAddProductOpen}
+            defaultCategoryName="Ready Goods"
             onProductCreated={async (created: Product) => {
                 const idx = quickAddLineIndexRef.current;
                 const idStr = String(created.id);

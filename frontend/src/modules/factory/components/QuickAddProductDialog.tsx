@@ -101,6 +101,7 @@ export interface QuickAddProductDialogProps {
   showCategorySelect?: boolean;
   /** When false (default), supplier is auto-filled from the first loaded supplier. */
   showSupplierSelect?: boolean;
+  defaultCategoryName?: string;
 }
 
 export function QuickAddProductDialog({
@@ -109,6 +110,7 @@ export function QuickAddProductDialog({
   onProductCreated,
   showCategorySelect = false,
   showSupplierSelect = false,
+  defaultCategoryName,
 }: QuickAddProductDialogProps) {
   const [name, setName] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
@@ -171,6 +173,15 @@ export function QuickAddProductDialog({
     setCategoryId((prev) => {
       let next = justOpened ? "" : prev;
       if (!hasSelectedCategoryId(next) && categories.length > 0) {
+        if (defaultCategoryName) {
+          const match = categories.find(
+            (c) => c.name.toLowerCase() === defaultCategoryName.toLowerCase()
+          );
+          if (match) {
+            const rowId = getCategoryRowId(match);
+            if (rowId !== null) return rowId;
+          }
+        }
         const rowId = getCategoryRowId(categories[0]);
         if (rowId !== null) {
           next = rowId;
