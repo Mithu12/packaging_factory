@@ -7,8 +7,21 @@ import SettingsMediator from '@/mediators/settings/SettingsMediator';
 import fs from 'fs';
 import path from 'path';
 
+const QUOTATION_PDF_BACKGROUND_FILE = 'quotation-pdf-background.png';
+const QUOTATION_LOGO_FILE = 'quotation-logo.png';
+
 export class PDFGenerator {
   private static browser: Browser | null = null;
+
+  /** Resolved from `src/services` or `dist/services` → `../utils/<file>`. */
+  private static getQuotationPdfBackgroundPath(): string {
+    return path.join(__dirname, '..', 'utils', QUOTATION_PDF_BACKGROUND_FILE);
+  }
+
+  /** Resolved from `src/services` or `dist/services` → `../utils/<file>`. */
+  private static getQuotationLogoPath(): string {
+    return path.join(__dirname, '..', 'utils', QUOTATION_LOGO_FILE);
+  }
 
   // Initialize browser instance
   private static async getBrowser(): Promise<Browser> {
@@ -955,9 +968,11 @@ export class PDFGenerator {
       `;
     }).join('') || '<tr><td colspan="5" style="text-align: center;">No items found</td></tr>';
 
+    const hasQuotationBg = Boolean(settings?.quotation_background_base64);
+
     return `
 <!DOCTYPE html>
-<html>
+<html${hasQuotationBg ? ' class="quotation-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
     <title>Quotation ${order.order_number}</title>
@@ -971,15 +986,50 @@ export class PDFGenerator {
             margin: 0;
             padding: 0;
         }
+        ${hasQuotationBg
+          ? `/* Chromium PDF often clips html/body backgrounds; use a fixed A4 layer behind content. */
+        html.quotation-with-bg {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+        .quotation-bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            margin: 0;
+            padding: 0;
+            pointer-events: none;
+            background-color: #ffffff;
+            background-image: url("${settings.quotation_background_base64}");
+            background-repeat: no-repeat;
+            background-position: center top;
+            background-size: cover;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        html.quotation-with-bg body > *:not(.quotation-bg-layer):not(.footer) {
+            position: relative;
+            z-index: 1;
+        }`
+          : ''}
         body {
             font-family: 'Times New Roman', Times, serif;
             font-size: 11pt;
             color: #000;
-            background: white;
             line-height: 1.3;
             padding: 40px;
-            /* To simulate the light blue gradient background, we can add a very faint linear gradient */
-            background: linear-gradient(to bottom right, #f0f8ff, #ffffff 30%, #ffffff 70%, #e0f0ff);
+            ${hasQuotationBg
+              ? `background: transparent none;
+            margin: 0;
+            min-height: 297mm;`
+              : `background: white;
+            background: linear-gradient(to bottom right, #f0f8ff, #ffffff 30%, #ffffff 70%, #e0f0ff);`}
         }
         .header {
             display: flex;
@@ -1147,6 +1197,7 @@ export class PDFGenerator {
             align-items: center;
             background-color: rgba(200, 230, 255, 0.4);
             border-top: 1px solid #888;
+            z-index: 2;
         }
         .footer-col {
             line-height: 1.4;
@@ -1154,9 +1205,12 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
+    ${hasQuotationBg ? '<div class="quotation-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="header">
         <div class="logo-section">
-            ${settings?.invoice_logo_base64 ? `
+            ${settings?.quotation_logo_base64 ? `
+                <img src="${settings.quotation_logo_base64}" alt="Logo" style="max-height: 80px; max-width: 250px;">
+            ` : settings?.invoice_logo_base64 ? `
                 <img src="${settings.invoice_logo_base64}" alt="Logo" style="max-height: 80px; max-width: 250px;">
             ` : `
                 <h1><span class="logo-icon">//</span> ${settings?.company_name || 'MICROMEDIA'}</h1>
@@ -1322,6 +1376,28 @@ export class PDFGenerator {
         }
       }
 
+      const quotationLogoPath = this.getQuotationLogoPath();
+      if (fs.existsSync(quotationLogoPath)) {
+        try {
+          const logoBuffer = fs.readFileSync(quotationLogoPath);
+          settingsData.quotation_logo_base64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+        } catch (logoError) {
+          MyLogger.warn(`${action}.quotationLogoReadError`, { error: logoError, path: quotationLogoPath });
+        }
+      }
+
+      const quotationBgPath = this.getQuotationPdfBackgroundPath();
+      if (fs.existsSync(quotationBgPath)) {
+        try {
+          const bgBuffer = fs.readFileSync(quotationBgPath);
+          settingsData.quotation_background_base64 = `data:image/png;base64,${bgBuffer.toString('base64')}`;
+        } catch (bgError) {
+          MyLogger.warn(`${action}.quotationBackgroundReadError`, { error: bgError, path: quotationBgPath });
+        }
+      } else {
+        MyLogger.warn(`${action}.quotationBackgroundMissing`, { path: quotationBgPath });
+      }
+
       const browser = await this.getBrowser();
       const page = await browser.newPage();
 
@@ -1331,16 +1407,20 @@ export class PDFGenerator {
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
-      // Generate PDF
+      const fullBleedQuotationBg = Boolean(settingsData.quotation_background_base64);
+
+      // Generate PDF (zero margin when letterhead fills the page — otherwise Chromium leaves white bands)
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px'
-        }
+        margin: fullBleedQuotationBg
+          ? { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+          : {
+              top: '20px',
+              right: '20px',
+              bottom: '20px',
+              left: '20px'
+            }
       });
 
       await page.close();

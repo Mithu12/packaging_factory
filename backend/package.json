@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build:packages": "npm --prefix packages/inventory run build",
-    "build": "rm -rf dist && tsc && tsc-alias",
+    "build": "rm -rf dist && tsc && tsc-alias && mkdir -p dist/utils && cp src/utils/quotation-pdf-background.png dist/utils/quotation-pdf-background.png && cp src/utils/quotation-logo.png dist/utils/quotation-logo.png || true",
     "build:prod": "npm run build && tsx scripts/obfuscate.ts",
     "obfuscate": "tsx scripts/obfuscate.ts",
     "generate:license": "tsx scripts/generateLicense.ts",
