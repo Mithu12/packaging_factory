@@ -96,11 +96,12 @@ export class MasterDataSeeder {
         [defaultFactory.code]
       );
 
+      let factoryId;
       if (factoryCheck.rowCount === 0) {
-        await client.query(
+        const fInsert = await client.query(
           `INSERT INTO factories 
             (name, code, description, address, cost_center_id, is_active) 
-           VALUES ($1, $2, $3, $4, $5, true)`,
+           VALUES ($1, $2, $3, $4, $5, true) RETURNING id`,
           [
             defaultFactory.name,
             defaultFactory.code,
@@ -109,8 +110,10 @@ export class MasterDataSeeder {
             costCenterId
           ]
         );
+        factoryId = fInsert.rows[0].id;
         MyLogger.info(action, { message: 'Seeded default factory: DF001' });
       } else {
+        factoryId = factoryCheck.rows[0].id;
         if (factoryCheck.rows[0].cost_center_id !== costCenterId) {
           await client.query(
             'UPDATE factories SET cost_center_id = $1 WHERE code = $2',
@@ -118,6 +121,40 @@ export class MasterDataSeeder {
           );
           MyLogger.info(action, { message: 'Tagged default factory with cost center' });
         }
+      }
+
+      // 5. Seed Default Production Line
+      const defaultProdLine = {
+        name: 'Default Production Line',
+        code: 'PL-DF001',
+        description: 'System default production line',
+        capacity: 10,
+        location: 'Main Floor',
+        status: 'available'
+      };
+
+      const plCheck = await client.query(
+        'SELECT 1 FROM production_lines WHERE code = $1',
+        [defaultProdLine.code]
+      );
+
+      if (plCheck.rowCount === 0) {
+        await client.query(
+          `INSERT INTO production_lines 
+            (factory_id, name, code, description, capacity, location, status, cost_center_id, is_active) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+          [
+            factoryId,
+            defaultProdLine.name,
+            defaultProdLine.code,
+            defaultProdLine.description,
+            defaultProdLine.capacity,
+            defaultProdLine.location,
+            defaultProdLine.status,
+            costCenterId
+          ]
+        );
+        MyLogger.info(action, { message: 'Seeded default production line: PL-DF001' });
       }
 
       await client.query('COMMIT');
