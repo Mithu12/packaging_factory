@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
+import {
   BillOfMaterials, 
   BOMComponent, 
   CreateBOMRequest, 
@@ -59,6 +59,7 @@ import {
   bomQueryKeys 
 } from "@/services/bom-api";
 import { ProductApi, Product } from "@/services/api";
+import { CustomerOrdersApiService, FactoryProduct } from "@/modules/factory/services/customer-orders-api";
 import { QuickAddProductDialog } from "@/modules/factory/components/QuickAddProductDialog";
 
 type ProductsQueryData = {
@@ -104,6 +105,11 @@ export default function BOMEditor() {
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => ProductApi.getProducts({ limit: 100 }),
+  });
+
+  const { data: parentProducts = [], isLoading: parentProductsLoading } = useQuery<FactoryProduct[]>({
+    queryKey: ["orderable-products"],
+    queryFn: () => CustomerOrdersApiService.getAllOrderableProducts(),
   });
 
   // Fetch existing BOM data if editing
@@ -269,7 +275,7 @@ export default function BOMEditor() {
     return components.filter((comp) => !comp.is_optional).length;
   };
 
-  const isLoading = bomLoading || productsLoading;
+  const isLoading = bomLoading || productsLoading || parentProductsLoading;
   const isSaving = createBOMMutation.isPending || updateBOMMutation.isPending;
 
   if (isLoading) {
@@ -393,7 +399,7 @@ export default function BOMEditor() {
                 <Select
                   value={formData.parent_product_id}
                   onValueChange={(value) => {
-                    const product = products.find((p) => p.id.toString() === value);
+                    const product = parentProducts.find((p) => p.id.toString() === value);
                     setFormData((prev) => ({
                       ...prev,
                       parent_product_id: value,
@@ -407,7 +413,7 @@ export default function BOMEditor() {
                     <SelectValue placeholder="Select parent product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((product) => (
+                    {parentProducts.map((product) => (
                       <SelectItem key={product.id} value={product.id.toString()}>
                         <div className="flex items-center justify-between w-full">
                           <span>{product.name}</span>
