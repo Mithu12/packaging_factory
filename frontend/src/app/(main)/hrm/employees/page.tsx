@@ -168,6 +168,12 @@ const EmployeeManagement: React.FC = () => {
         const num = typeof v === 'string' ? parseInt(v, 10) : v;
         return (typeof num === 'number' && !isNaN(num)) ? num : null;
       }
+      if (k === 'tax_rate') {
+        if (v === '' || v === undefined || v === null) return null;
+        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        if (!Number.isFinite(n)) return null;
+        return Math.min(100, Math.max(0, n));
+      }
       if (v === '') return null;
       return v;
     };
@@ -181,10 +187,11 @@ const EmployeeManagement: React.FC = () => {
       'employment_type', 'join_date', 'confirmation_date', 'termination_date',
       'probation_period_months', 'notice_period_days', 'work_location', 'shift_type',
       'bank_account_number', 'bank_name', 'skill_level', 'availability_status', 'hourly_rate', 'monthly_rate',
+      'tax_rate',
     ] as const;
     const filtered = Object.fromEntries(
       updateFields
-        .filter((k) => data[k] !== undefined)
+        .filter((k) => (k === 'tax_rate' ? 'tax_rate' in data : data[k] !== undefined))
         .map((k) => [k, sanitize(k, data[k])])
         .filter(([, v]) => v !== undefined)
     );
@@ -654,6 +661,14 @@ const EmployeeManagement: React.FC = () => {
                       {selectedEmployee.hourly_rate != null
                         ? HRMApiService.formatCurrency(selectedEmployee.hourly_rate)
                         : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Payroll tax rate</label>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedEmployee.tax_rate != null && selectedEmployee.tax_rate !== undefined
+                        ? `${Number(selectedEmployee.tax_rate)}% of gross`
+                        : 'Uses company default (Settings → Payroll)'}
                     </p>
                   </div>
                 </div>

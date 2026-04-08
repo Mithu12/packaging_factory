@@ -57,6 +57,8 @@ export interface Employee {
     hourly_rate?: number;
     /** Derived from hourly using 8h × 22 working days; kept in sync on save */
     monthly_rate?: number;
+    /** Payroll income tax % of gross; null = use Settings → Payroll default */
+    tax_rate?: number | null;
     is_active: boolean;
 
     created_at: string;
@@ -581,6 +583,8 @@ export interface CreateEmployeeRequest {
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
     monthly_rate?: number;
+    /** Percent of gross pay (0–100); omit or null for company default */
+    tax_rate?: number | null;
     department?: string; // Legacy field for backward compatibility
     current_work_order_id?: number;
     create_user_account?: boolean;
@@ -625,6 +629,7 @@ export interface UpdateEmployeeRequest {
     availability_status?: 'available' | 'busy' | 'off_duty' | 'on_leave';
     hourly_rate?: number;
     monthly_rate?: number;
+    tax_rate?: number | null;
     cnic?: string;
     is_active?: boolean;
 }

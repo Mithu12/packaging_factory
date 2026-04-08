@@ -51,6 +51,27 @@ const PayslipDetailView: React.FC<PayslipDetailViewProps> = ({
   footerActions,
   className = "",
 }) => {
+  /** Backend payroll_details uses tax_deduction / loan_deductions / overtime_amount */
+  const incomeTaxDisplay =
+    Number(
+      payrollRecord.income_tax ??
+        payrollRecord.tax_deduction ??
+        0
+    ) || 0;
+  const loanDeductionDisplay =
+    Number(
+      payrollRecord.loan_deduction ??
+        payrollRecord.loan_deductions ??
+        0
+    ) || 0;
+  const overtimeDisplay =
+    Number(
+      payrollRecord.overtime_pay ??
+        payrollRecord.overtime_amount ??
+        0
+    ) || 0;
+  const leaveDeductionDisplay = Number(payrollRecord.leave_deductions) || 0;
+
   const getStatusBadge = () => {
     if (paymentRecord?.status === "completed") {
       return (
@@ -199,7 +220,7 @@ const PayslipDetailView: React.FC<PayslipDetailViewProps> = ({
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Overtime:</span>
                     <span className="font-medium tabular-nums">
-                      {formatCurrency(Number(payrollRecord.overtime_pay) || 0, currency)}
+                      {formatCurrency(overtimeDisplay, currency)}
                     </span>
                   </div>
                 </div>
@@ -220,7 +241,7 @@ const PayslipDetailView: React.FC<PayslipDetailViewProps> = ({
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Income Tax:</span>
                     <span className="font-medium tabular-nums">
-                      {formatCurrency(Number(payrollRecord.income_tax) || 0, currency)}
+                      {formatCurrency(incomeTaxDisplay, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
@@ -238,9 +259,17 @@ const PayslipDetailView: React.FC<PayslipDetailViewProps> = ({
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Advance Salary / Loan:</span>
                     <span className="font-medium tabular-nums">
-                      {formatCurrency(Number(payrollRecord.loan_deduction) || 0, currency)}
+                      {formatCurrency(loanDeductionDisplay, currency)}
                     </span>
                   </div>
+                  {leaveDeductionDisplay > 0 ? (
+                    <div className="flex justify-between gap-2 col-span-2">
+                      <span className="text-muted-foreground">Leave deduction:</span>
+                      <span className="font-medium tabular-nums">
+                        {formatCurrency(leaveDeductionDisplay, currency)}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex justify-between pt-2 border-t">
                   <span className="font-medium">Total Deductions:</span>

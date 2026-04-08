@@ -430,6 +430,7 @@ class SettingsMediator {
         // Payroll settings
         { category: 'payroll', key: 'payroll_salary_mode', value: 'hourly', data_type: 'string' as const, description: 'Salary calculation: hourly (by hours worked) or monthly (by days present, deducting absent)' },
         { category: 'payroll', key: 'payroll_overtime_enabled', value: 'true', data_type: 'boolean' as const, description: 'Include overtime in payroll (1.5x rate)' },
+        { category: 'payroll', key: 'payroll_default_tax_rate', value: '10', data_type: 'number' as const, description: 'Default payroll income tax % of gross (0–100) when employee.tax_rate is null' },
       ]
 
       for (const setting of defaultSettings) {

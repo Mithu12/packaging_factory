@@ -93,11 +93,11 @@ export class AddEmployeeMediator {
           employment_type, join_date, confirmation_date, termination_date,
           probation_period_months, notice_period_days, work_location, shift_type,
           bank_account_number, bank_name, skill_level, availability_status,
-          hourly_rate, monthly_rate, department, current_work_order_id, is_active
+          hourly_rate, monthly_rate, tax_rate, department, current_work_order_id, is_active
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
           $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29,
-          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42
+          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43
         ) RETURNING *
       `;
 
@@ -117,6 +117,7 @@ export class AddEmployeeMediator {
         employeeDataWithRates.bank_name, employeeDataWithRates.skill_level, employeeDataWithRates.availability_status,
         employeeDataWithRates.hourly_rate ?? null,
         employeeDataWithRates.monthly_rate ?? null,
+        employeeDataWithRates.tax_rate ?? null,
         employeeDataWithRates.department, employeeDataWithRates.current_work_order_id, true
       ];
 

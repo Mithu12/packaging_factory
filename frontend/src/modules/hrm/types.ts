@@ -47,6 +47,8 @@ export interface Employee {
   availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
   monthly_rate?: number;
+  /** Payroll tax % of gross; null/undefined = company default from Settings */
+  tax_rate?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -446,6 +448,8 @@ export interface CreateEmployeeForm {
   availability_status: "available" | "busy" | "off_duty" | "on_leave";
   hourly_rate?: number;
   monthly_rate?: number;
+  /** 0–100; omit or empty for company default */
+  tax_rate?: number | null;
   // User account creation fields
   create_user_account?: boolean;
   username?: string;
@@ -853,12 +857,21 @@ export interface EmployeePayrollRecord {
   overtime_pay: number;
   other_earnings: number;
 
-  // Deductions
+  // Deductions (legacy mock names)
   income_tax: number;
   provident_fund: number;
   insurance: number;
   loan_deduction: number;
   other_deductions: number;
+
+  /** API payroll_details: income tax withheld this period */
+  tax_deduction?: number;
+  /** API payroll_details: advance/loan installments */
+  loan_deductions?: number;
+  leave_deductions?: number;
+  /** API payroll_details: overtime amount (alias for overtime_pay) */
+  overtime_amount?: number;
+  payroll_run_id?: number;
 
   // Calculated totals
   total_earnings: number;

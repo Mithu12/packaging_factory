@@ -86,7 +86,8 @@ export default function Settings() {
 
   const [payrollSettings, setPayrollSettings] = useState<PayrollSettings>({
     payroll_salary_mode: 'hourly',
-    payroll_overtime_enabled: true
+    payroll_overtime_enabled: true,
+    payroll_default_tax_rate: 10,
   })
   
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -152,6 +153,7 @@ export default function Settings() {
           SettingsApi.getPayrollSettings().catch((): PayrollSettings => ({
             payroll_salary_mode: 'hourly',
             payroll_overtime_enabled: true,
+            payroll_default_tax_rate: 10,
           })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
@@ -163,7 +165,11 @@ export default function Settings() {
         setSystemSettings(system)
         setPayrollSettings({
           payroll_salary_mode: ((payroll?.payroll_salary_mode as string) || 'hourly') as 'hourly' | 'monthly',
-          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false
+          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false,
+          payroll_default_tax_rate:
+            typeof payroll?.payroll_default_tax_rate === 'number' && !Number.isNaN(payroll.payroll_default_tax_rate)
+              ? Math.min(100, Math.max(0, payroll.payroll_default_tax_rate))
+              : parseFloat(String(payroll?.payroll_default_tax_rate ?? '10')) || 10,
         })
         setNotificationSettings(notifications)
         setSecuritySettings(security)
@@ -181,6 +187,7 @@ export default function Settings() {
           SettingsApi.getPayrollSettings().catch((): PayrollSettings => ({
             payroll_salary_mode: 'hourly',
             payroll_overtime_enabled: true,
+            payroll_default_tax_rate: 10,
           })),
           SettingsApi.getNotificationSettings(),
           SettingsApi.getSecuritySettings(),
@@ -192,7 +199,11 @@ export default function Settings() {
         setSystemSettings(system)
         setPayrollSettings({
           payroll_salary_mode: ((payroll?.payroll_salary_mode as string) || 'hourly') as 'hourly' | 'monthly',
-          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false
+          payroll_overtime_enabled: payroll?.payroll_overtime_enabled !== false,
+          payroll_default_tax_rate:
+            typeof payroll?.payroll_default_tax_rate === 'number' && !Number.isNaN(payroll.payroll_default_tax_rate)
+              ? Math.min(100, Math.max(0, payroll.payroll_default_tax_rate))
+              : parseFloat(String(payroll?.payroll_default_tax_rate ?? '10')) || 10,
         })
         setNotificationSettings(notifications)
         setSecuritySettings(security)
@@ -990,6 +1001,32 @@ export default function Settings() {
                       onCheckedChange={(checked) => setPayrollSettings(prev => ({ ...prev, payroll_overtime_enabled: checked }))}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2 pt-6 border-t">
+                  <Label htmlFor="payroll_default_tax_rate" className="text-base font-medium">
+                    Default income tax rate (%)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Applied to gross pay when an employee has no individual tax rate (HR → Employees). Use 0 for no
+                    default tax.
+                  </p>
+                  <Input
+                    id="payroll_default_tax_rate"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    className="max-w-xs"
+                    value={payrollSettings.payroll_default_tax_rate}
+                    onChange={(e) => {
+                      const n = parseFloat(e.target.value);
+                      setPayrollSettings((prev) => ({
+                        ...prev,
+                        payroll_default_tax_rate: Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0,
+                      }));
+                    }}
+                  />
                 </div>
               </CardContent>
             </Card>

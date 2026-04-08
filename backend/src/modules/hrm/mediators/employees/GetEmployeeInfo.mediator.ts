@@ -191,6 +191,13 @@ export class GetEmployeeInfoMediator {
 
     const employee: Employee = { ...row };
 
+    if (row.tax_rate != null && String(row.tax_rate).trim() !== '') {
+      const t = parseFloat(String(row.tax_rate));
+      employee.tax_rate = Number.isFinite(t) ? t : null;
+    } else {
+      employee.tax_rate = null;
+    }
+
     // Set department object
     if (row.department_id) {
       employee.department = {

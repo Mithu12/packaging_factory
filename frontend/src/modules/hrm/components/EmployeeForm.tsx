@@ -58,6 +58,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     availability_status: 'available',
     hourly_rate: undefined,
     monthly_rate: undefined,
+    tax_rate: undefined,
     create_user_account: true,
     username: '',
     email: '',
@@ -108,6 +109,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
     availability_status: 'available',
     hourly_rate: undefined,
     monthly_rate: undefined,
+    tax_rate: undefined,
     termination_date: '',
     create_user_account: true,
     username: '',
@@ -162,6 +164,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
         monthly_rate:
           employee.monthly_rate ??
           (employee.hourly_rate != null ? monthlyFromHourly(Number(employee.hourly_rate)) : undefined),
+        tax_rate: employee.tax_rate != null && employee.tax_rate !== undefined ? Number(employee.tax_rate) : undefined,
         create_user_account: !hasUserAccount,
         username: '',
         email: '',
@@ -660,6 +663,32 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="tax_rate">Tax rate (%)</Label>
+              <p className="text-xs text-muted-foreground">
+                Payroll income tax as a percent of gross pay. Leave empty to use the default in Settings → Payroll.
+              </p>
+              <Input
+                id="tax_rate"
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                className="max-w-xs"
+                value={formData.tax_rate === undefined || formData.tax_rate === null ? '' : formData.tax_rate}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  if (raw === '') {
+                    setFormData((prev) => ({ ...prev, tax_rate: undefined }));
+                    return;
+                  }
+                  const n = parseFloat(raw);
+                  if (!Number.isFinite(n) || n < 0) return;
+                  setFormData((prev) => ({ ...prev, tax_rate: Math.min(100, n) }));
+                }}
+              />
             </div>
 
             <div className="space-y-2">

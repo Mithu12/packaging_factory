@@ -83,6 +83,8 @@ export interface EcommerceSettings {
 export interface PayrollSettings {
   payroll_salary_mode: 'hourly' | 'monthly';
   payroll_overtime_enabled: boolean;
+  /** Default payroll income tax as % of gross (0–100) when employee has no override */
+  payroll_default_tax_rate: number;
 }
 
 export interface IntegrationSettings {

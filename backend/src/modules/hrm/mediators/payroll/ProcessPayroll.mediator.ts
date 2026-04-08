@@ -7,6 +7,16 @@ import SettingsMediator from '@/mediators/settings/SettingsMediator';
 
 export class ProcessPayrollMediator {
 
+  /** Payroll income tax % of gross (settings key payroll_default_tax_rate); fallback 10. */
+  private static parseDefaultTaxPercent(payrollSettings: { [key: string]: { value?: unknown } }): number {
+    const raw = payrollSettings.payroll_default_tax_rate?.value;
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+    if (!Number.isFinite(n) || n < 0) {
+      return 10;
+    }
+    return Math.min(100, n);
+  }
+
   /**
    * Calculate payroll for employees
    */
@@ -36,7 +46,8 @@ export class ProcessPayrollMediator {
       const isMonthlyMode = salaryMode === 'monthly';
       const overtimeVal = payrollSettings.payroll_overtime_enabled?.value;
       const overtimeEnabled = String(overtimeVal ?? true).toLowerCase() !== 'false';
-      MyLogger.info(action, { salaryMode, isMonthlyMode, overtimeEnabled });
+      const defaultTaxPercent = this.parseDefaultTaxPercent(payrollSettings);
+      MyLogger.info(action, { salaryMode, isMonthlyMode, overtimeEnabled, defaultTaxPercent });
 
       // Get employees to process
       let employeeIds: number[] = [];
@@ -62,7 +73,14 @@ export class ProcessPayrollMediator {
       const payrollDetails: any[] = [];
       for (const employeeId of employeeIds) {
         try {
-          const payrollData = await this.calculateEmployeePayroll(employeeId, period, calcRequest, isMonthlyMode, overtimeEnabled);
+          const payrollData = await this.calculateEmployeePayroll(
+            employeeId,
+            period,
+            calcRequest,
+            isMonthlyMode,
+            overtimeEnabled,
+            defaultTaxPercent
+          );
           const detail = await this.insertPayrollDetail(client, payrollRun.id, employeeId, payrollData);
           payrollDetails.push(detail);
 
@@ -143,7 +161,8 @@ export class ProcessPayrollMediator {
     period: any,
     calcRequest: PayrollCalculationRequest,
     isMonthlyMode: boolean = false,
-    overtimeEnabled: boolean = true
+    overtimeEnabled: boolean = true,
+    defaultTaxPercent: number = 10
   ): Promise<any> {
     const client = await pool.connect();
 
@@ -267,9 +286,12 @@ export class ProcessPayrollMediator {
         totalDeductions = await this.calculateDeductions(employeeId, period.start_date, period.end_date);
       }
 
-      // Calculate tax (simplified)
       const grossPay = totalEarnings;
-      const tax = grossPay * 0.1; // 10% tax rate
+      const empTaxRaw = employee.tax_rate;
+      const useEmployeeRate = empTaxRaw !== null && empTaxRaw !== undefined && String(empTaxRaw).trim() !== '';
+      const rawPct = useEmployeeRate ? Number(empTaxRaw) : defaultTaxPercent;
+      const effectiveTaxPercent = Math.min(100, Math.max(0, Number.isFinite(rawPct) ? rawPct : defaultTaxPercent));
+      const tax = Math.round(grossPay * (effectiveTaxPercent / 100) * 100) / 100;
 
       const netPay = grossPay - totalDeductions - tax;
 
