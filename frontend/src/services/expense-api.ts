@@ -6,7 +6,8 @@ import {
   UpdateExpenseRequest,
   ExpenseQueryParams,
   ExpenseStats,
-  ExpenseListResponse
+  ExpenseListResponse,
+  ExpenseAccountPreviewResponse
 } from './types';
 
 export class ExpenseApi {
@@ -195,18 +196,16 @@ export class ExpenseApi {
   static async getExpenseAccountPreview(
     categoryId: number,
     costCenterId?: number
-  ): Promise<{ account: { id: number; name: string; code: string } | null }> {
-    try {
-      const params = new URLSearchParams();
-      params.append('category_id', categoryId.toString());
-      if (costCenterId !== undefined && costCenterId !== null) {
-        params.append('cost_center_id', costCenterId.toString());
-      }
-      return await makeRequest(`${this.baseUrl}/preview-account?${params.toString()}`, { method: 'GET' });
-    } catch (error) {
-      console.error('Error fetching expense account preview:', error);
-      return { account: null };
+  ): Promise<ExpenseAccountPreviewResponse> {
+    const params = new URLSearchParams();
+    params.append('category_id', categoryId.toString());
+    if (costCenterId !== undefined && costCenterId !== null) {
+      params.append('cost_center_id', costCenterId.toString());
     }
+    return await makeRequest<ExpenseAccountPreviewResponse>(
+      `${this.baseUrl}/preview-account?${params.toString()}`,
+      { method: 'GET' }
+    );
   }
 
   // Get expense statistics

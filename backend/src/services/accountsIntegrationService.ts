@@ -316,6 +316,15 @@ class AccountsIntegrationService {
   }
 
   /**
+   * Payment (credit) account preview for expense vouchers — same resolution as createExpenseVoucher.
+   */
+  async getPaymentAccountPreview(costCenterId?: number): Promise<{ id: number; name: string; code: string } | null> {
+    const account = await this.getDefaultCashAccount(costCenterId);
+    if (!account) return null;
+    return { id: account.id, name: account.name, code: account.code };
+  }
+
+  /**
    * Check if expense can be integrated with accounts
    */
   canIntegrateExpense(expenseData: ExpenseAccountingData): boolean {

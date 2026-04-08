@@ -462,7 +462,7 @@ export function VoucherPage({
               {primaryActionLabel}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{primaryActionLabel}</DialogTitle>
               <DialogDescription>

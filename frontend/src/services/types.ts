@@ -1043,6 +1043,20 @@ export interface Expense {
   paid_by_name?: string;
 }
 
+/** Chart of accounts row returned by expense preview-account API */
+export interface ExpenseChartAccountRef {
+  id: number;
+  name: string;
+  code: string;
+}
+
+/** GET /expenses/preview-account — debit/credit accounts used when an expense voucher is created */
+export interface ExpenseAccountPreviewResponse {
+  account: ExpenseChartAccountRef | null;
+  payment_account: ExpenseChartAccountRef | null;
+  accounts_module_available: boolean;
+}
+
 export interface CreateExpenseRequest {
   title: string;
   description?: string;

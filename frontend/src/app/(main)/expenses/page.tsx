@@ -16,7 +16,8 @@ import { useFormatting } from '@/hooks/useFormatting';
 import { ApiService, Expense, ExpenseCategory, ApiError } from '@/services/api';
 import { AccountsIntegrationBadge } from '@/components/AccountsIntegrationBadge';
 import { CostCentersApiService, CostCenter } from '@/services/accounts-api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ExpenseAccountsPreviewBlock } from '@/components/ExpenseAccountsPreviewBlock';
+import type { ExpenseAccountPreviewResponse } from '@/services/types';
 import {
   Plus,
   Search,
@@ -39,8 +40,7 @@ import {
   Download,
   Upload,
   Image,
-  X as XIcon,
-  AlertCircle
+  X as XIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -92,7 +92,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [accountPreview, setAccountPreview] = useState<{ id: number; name: string; code: string } | null>(null);
+  const [accountPreview, setAccountPreview] = useState<ExpenseAccountPreviewResponse | null>(null);
   const [accountPreviewLoading, setAccountPreviewLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -215,7 +215,7 @@ export default function ExpensesPage() {
     const costCenterId = formData.cost_center_id ? parseInt(formData.cost_center_id) : undefined;
     setAccountPreviewLoading(true);
     ApiService.getExpenseAccountPreview(categoryId, costCenterId)
-      .then((res) => setAccountPreview(res.account))
+      .then((res) => setAccountPreview(res))
       .catch(() => setAccountPreview(null))
       .finally(() => setAccountPreviewLoading(false));
   }, [formData.category_id, formData.cost_center_id]);
@@ -517,20 +517,10 @@ export default function ExpensesPage() {
 
                   {formData.category_id && (
                     <div className="md:col-span-2 space-y-2">
-                      {accountPreviewLoading ? (
-                        <p className="text-sm text-muted-foreground">Loading expense account...</p>
-                      ) : accountPreview ? (
-                        <p className="text-sm text-muted-foreground">
-                          Expense account: <span className="font-medium">{accountPreview.code} - {accountPreview.name}</span>
-                        </p>
-                      ) : (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            No expense account configured for this category and cost center. Accounting integration may fail when the expense is approved.
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                      <ExpenseAccountsPreviewBlock
+                        loading={accountPreviewLoading}
+                        preview={accountPreview}
+                      />
                     </div>
                   )}
 
@@ -1074,20 +1064,10 @@ export default function ExpensesPage() {
 
               {formData.category_id && (
                 <div className="md:col-span-2 space-y-2">
-                  {accountPreviewLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading expense account...</p>
-                  ) : accountPreview ? (
-                    <p className="text-sm text-muted-foreground">
-                      Expense account: <span className="font-medium">{accountPreview.code} - {accountPreview.name}</span>
-                    </p>
-                  ) : (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No expense account configured for this category and cost center. Accounting integration may fail when the expense is approved.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <ExpenseAccountsPreviewBlock
+                    loading={accountPreviewLoading}
+                    preview={accountPreview}
+                  />
                 </div>
               )}
 

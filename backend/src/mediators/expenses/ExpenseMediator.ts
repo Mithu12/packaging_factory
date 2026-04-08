@@ -802,17 +802,32 @@ class ExpenseMediator {
   }
 
   /**
-   * Get expense account preview for a category and optional cost center.
-   * Returns the account that would be used when creating a voucher.
+   * Get expense and payment account preview for a category and optional cost center.
+   * Matches accounts used when an approved expense creates a payment voucher.
    */
-  async getExpenseAccountPreview(categoryId: number, costCenterId?: number): Promise<{ account: { id: number; name: string; code: string } | null }> {
+  async getExpenseAccountPreview(
+    categoryId: number,
+    costCenterId?: number
+  ): Promise<{
+    account: { id: number; name: string; code: string } | null;
+    payment_account: { id: number; name: string; code: string } | null;
+    accounts_module_available: boolean;
+  }> {
+    const accountsModuleAvailable = accountsIntegrationService.getAccountsModuleStatus().available;
     try {
       const category = await ExpenseCategoryMediator.getExpenseCategoryById(categoryId);
-      const account = await accountsIntegrationService.getExpenseAccountPreview(category.name, costCenterId);
-      return { account };
+      const [account, payment_account] = await Promise.all([
+        accountsIntegrationService.getExpenseAccountPreview(category.name, costCenterId),
+        accountsIntegrationService.getPaymentAccountPreview(costCenterId)
+      ]);
+      return { account, payment_account, accounts_module_available: accountsModuleAvailable };
     } catch (error) {
       MyLogger.error('Get Expense Account Preview', error, { categoryId, costCenterId });
-      return { account: null };
+      return {
+        account: null,
+        payment_account: null,
+        accounts_module_available: accountsModuleAvailable
+      };
     }
   }
 
@@ -846,7 +861,11 @@ class ExpenseMediator {
       }
 
       // Fall back to preview (category + cost center resolution)
-      return await this.getExpenseAccountPreview(expense.category_id, expense.cost_center_id ?? undefined);
+      const preview = await this.getExpenseAccountPreview(
+        expense.category_id,
+        expense.cost_center_id ?? undefined
+      );
+      return { account: preview.account };
     } catch (error) {
       MyLogger.error('Get Expense Account Debited', error, { expenseId });
       return { account: null };

@@ -160,7 +160,12 @@ class ExpensesController {
             const costCenterId = req.query.cost_center_id ? parseInt(req.query.cost_center_id as string) : undefined;
             MyLogger.info(action, { categoryId, costCenterId });
             const result = await ExpenseMediator.getExpenseAccountPreview(categoryId, costCenterId);
-            MyLogger.success(action, { categoryId, hasAccount: !!result.account });
+            MyLogger.success(action, {
+                categoryId,
+                hasAccount: !!result.account,
+                hasPaymentAccount: !!result.payment_account,
+                accountsModuleAvailable: result.accounts_module_available
+            });
             serializeSuccessResponse(res, result, 'SUCCESS');
         } catch (error) {
             MyLogger.error(action, error);

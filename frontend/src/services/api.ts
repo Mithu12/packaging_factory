@@ -28,6 +28,7 @@ import { PurchaseOrderApi } from '../modules/inventory/services/purchase-order-a
 import { DistributionApi } from '../modules/inventory/services/distribution-api';
 import { ExpenseApi } from './expense-api';
 import { ExpenseCategoryApi } from './expense-category-api';
+import type { ExpenseAccountPreviewResponse } from './types';
 
 export class ApiService {
   // Supplier methods
@@ -347,7 +348,10 @@ export class ApiService {
     return ExpenseApi.getExpenseStats(params);
   }
 
-  static async getExpenseAccountPreview(categoryId: number, costCenterId?: number) {
+  static async getExpenseAccountPreview(
+    categoryId: number,
+    costCenterId?: number
+  ): Promise<ExpenseAccountPreviewResponse> {
     return ExpenseApi.getExpenseAccountPreview(categoryId, costCenterId);
   }
 

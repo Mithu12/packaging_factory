@@ -12,6 +12,8 @@ import { toast } from '@/components/ui/sonner';
 import { useFormatting } from '@/hooks/useFormatting';
 import { ApiService, Expense, ExpenseCategory, ApiError } from '@/services/api';
 import { CostCentersApiService, CostCenter } from '@/services/accounts-api';
+import { ExpenseAccountsPreviewBlock } from '@/components/ExpenseAccountsPreviewBlock';
+import type { ExpenseAccountPreviewResponse } from '@/services/types';
 import {
   ArrowLeft,
   Save,
@@ -69,7 +71,7 @@ export default function EditExpensePage() {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [accountPreview, setAccountPreview] = useState<{ id: number; name: string; code: string } | null>(null);
+  const [accountPreview, setAccountPreview] = useState<ExpenseAccountPreviewResponse | null>(null);
   const [accountPreviewLoading, setAccountPreviewLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -179,7 +181,7 @@ export default function EditExpensePage() {
     const costCenterId = formData.cost_center_id ? parseInt(formData.cost_center_id) : undefined;
     setAccountPreviewLoading(true);
     ApiService.getExpenseAccountPreview(categoryId, costCenterId)
-      .then((res) => setAccountPreview(res.account))
+      .then((res) => setAccountPreview(res))
       .catch(() => setAccountPreview(null))
       .finally(() => setAccountPreviewLoading(false));
   }, [formData.category_id, formData.cost_center_id]);
@@ -398,20 +400,10 @@ export default function EditExpensePage() {
 
               {formData.category_id && (
                 <div className="md:col-span-2 space-y-2">
-                  {accountPreviewLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading expense account...</p>
-                  ) : accountPreview ? (
-                    <p className="text-sm text-muted-foreground">
-                      Expense account: <span className="font-medium">{accountPreview.code} - {accountPreview.name}</span>
-                    </p>
-                  ) : (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No expense account configured for this category and cost center. Accounting integration may fail when the expense is approved.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <ExpenseAccountsPreviewBlock
+                    loading={accountPreviewLoading}
+                    preview={accountPreview}
+                  />
                 </div>
               )}
 
