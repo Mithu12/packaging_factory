@@ -1,4 +1,5 @@
 import pool from "@/database/connection";
+import { isInventoryPrimaryCategoryName } from "@/constants/inventoryProductCategories";
 import { createError } from "@/middleware/errorHandler";
 import GetCategoryInfoMediator from "./GetCategoryInfo.mediator";
 import { MyLogger } from "@/utils/new-logger";
@@ -11,8 +12,14 @@ class DeleteCategoryMediator {
     try {
       MyLogger.info(action, { categoryId: id });
 
-      // Check if category exists
       const category = await GetCategoryInfoMediator.getCategoryById(id);
+
+      if (isInventoryPrimaryCategoryName(category.name)) {
+        throw createError(
+          "Cannot delete Raw Materials or Ready Goods",
+          400
+        );
+      }
 
       // Delete all subcategories first (due to foreign key constraint)
       await client.query("DELETE FROM subcategories WHERE category_id = $1", [

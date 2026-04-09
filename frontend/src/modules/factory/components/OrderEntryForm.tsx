@@ -604,7 +604,9 @@ export default function OrderEntryForm({
                                                         <SelectItem key={customer.id} value={String(customer.id)}>
                                                             <div className="flex flex-col">
                                                                 <span className="font-medium">{customer.name}</span>
-                                                                <span className="text-sm text-muted-foreground">{customer.email}</span>
+                                                                <span className="text-sm text-muted-foreground">
+                                                                    {[customer.email, customer.phone].filter(Boolean).join(" · ") || "—"}
+                                                                </span>
                                                             </div>
                                                         </SelectItem>
                                                     ))}
@@ -623,7 +625,7 @@ export default function OrderEntryForm({
                                             return selectedCustomer ? (
                                                 <div className="space-y-1 text-sm">
                                                     <div><strong>Name:</strong> {selectedCustomer.name}</div>
-                                                    <div><strong>Email:</strong> {selectedCustomer.email}</div>
+                                                    <div><strong>Email:</strong> {selectedCustomer.email ?? "—"}</div>
                                                     {selectedCustomer.phone && <div><strong>Phone:</strong> {selectedCustomer.phone}</div>}
                                                 </div>
                                             ) : null;

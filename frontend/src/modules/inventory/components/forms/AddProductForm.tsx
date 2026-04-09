@@ -36,10 +36,14 @@ import {
 } from "@/services/api";
 import { Brand } from "@/modules/inventory/services/brand-api";
 import { ProductApi } from "@/modules/inventory/services/product-api";
+import {
+  displayPrimaryCategoryLabel,
+  isRawMaterialsCategory,
+} from "@/modules/inventory/constants/inventoryProductCategories";
 import { Upload, X, Image, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { generateSKU, generateSimpleSKU } from "@/utils/sku-generator";
+import { generateSKU } from "@/utils/sku-generator";
 import {
   generateBarcode,
   generateBarcodeFromSKU,
@@ -124,18 +128,6 @@ interface ProductFormData {
   notes: string;
   pv: string;
 }
-
-/** Validated on submit; compact layout shows only these fields. */
-const ADD_PRODUCT_REQUIRED_FIELD_KEYS: Array<keyof ProductFormData> = [
-  "name",
-  "sku",
-  "cost_price",
-  "selling_price",
-  "category_id",
-  "supplier_id",
-  "current_stock",
-  "min_stock_level",
-];
 
 export function AddProductForm({
   open,
@@ -278,7 +270,9 @@ export function AddProductForm({
         formCategoryIdString(category_id) === "" &&
         categories.length > 0
       ) {
-        const rowId = getCategoryRowId(categories[0]);
+        const ready = categories.find((c) => c.name === "Ready Goods");
+        const pick = ready ?? categories[0];
+        const rowId = getCategoryRowId(pick);
         if (rowId !== null) {
           category_id = rowId;
         }
@@ -302,7 +296,10 @@ export function AddProductForm({
       setLoading(true);
       try {
         const settled = await Promise.allSettled([
-          ApiService.getCategories({ limit: 100 }),
+          ApiService.getCategories({
+            limit: 100,
+            primary_product_types_only: true,
+          }),
           ApiService.getBrands({ limit: 100 }),
           ApiService.getOrigins({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 }),
@@ -364,29 +361,23 @@ export function AddProductForm({
   }, [open, formData.category_id, loadSubcategoriesForCategory]);
 
   const handleCategoryChange = async (categoryId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      category_id: categoryId,
-      subcategory_id: "",
-    }));
+    setFormData((prev) => {
+      const next = { ...prev, category_id: categoryId, subcategory_id: "" };
+      if (prev.name.trim()) {
+        const categoryName = categories.find(
+          (cat) => String(cat.id) === categoryId
+        )?.name;
+        const brandName = brands.find(
+          (brand) => String(brand.id) === String(prev.brand_id)
+        )?.name;
+        next.sku = generateSKU(prev.name, categoryName, brandName);
+      }
+      return next;
+    });
 
     if (formCategoryIdString(categoryId) !== "") {
       clearFieldError("category_id");
     }
-
-    // Regenerate SKU if product name exists
-    if (formData.name.trim()) {
-      const categoryName = categories.find(
-        (cat) => String(cat.id) === categoryId
-      )?.name;
-      const brandName = brands.find(
-        (brand) => String(brand.id) === String(formData.brand_id)
-      )?.name;
-
-      const generatedSKU = generateSKU(formData.name, categoryName, brandName);
-      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
-    }
-
   };
 
   const removeImage = () => {
@@ -398,9 +389,30 @@ export function AddProductForm({
     setIsSubmitting(true);
 
     try {
-      console.log(formData);
-      // Validation
-      const newValidationErrors = ADD_PRODUCT_REQUIRED_FIELD_KEYS.reduce(
+      const selectedCat = categories.find(
+        (c) => String(c.id) === String(formData.category_id)
+      );
+      const raw = selectedCat ? isRawMaterialsCategory(selectedCat.name) : false;
+
+      let requiredKeys: (keyof ProductFormData)[] = [
+        "name",
+        "sku",
+        "category_id",
+      ];
+      if (showAllFields) {
+        requiredKeys.push("current_stock", "min_stock_level");
+        if (raw) {
+          requiredKeys.push("cost_price", "unit_of_measure");
+        } else {
+          requiredKeys.push("cost_price", "selling_price");
+        }
+      } else if (raw) {
+        requiredKeys.push("cost_price", "unit_of_measure");
+      } else {
+        requiredKeys.push("cost_price", "selling_price");
+      }
+
+      const newValidationErrors = requiredKeys.reduce(
         (acc, field) => {
           const value = formData[field];
           const isMissing =
@@ -423,31 +435,38 @@ export function AddProductForm({
         return;
       }
 
+      const costPrice = parseFloat(formData.cost_price);
+      const sellingPrice = raw
+        ? costPrice
+        : parseFloat(formData.selling_price);
+
       const productData: CreateProductRequest = {
         name: formData.name,
         sku: formData.sku,
         description: formData.description || undefined,
-        category_id: parseInt(formData.category_id),
+        category_id: parseInt(formData.category_id, 10),
         subcategory_id: formData.subcategory_id
-          ? parseInt(formData.subcategory_id)
+          ? parseInt(formData.subcategory_id, 10)
           : undefined,
-        brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
+        brand_id: formData.brand_id ? parseInt(formData.brand_id, 10) : undefined,
         origin_id: formData.origin_id
-          ? parseInt(formData.origin_id)
+          ? parseInt(formData.origin_id, 10)
           : undefined,
         unit_of_measure: formData.unit_of_measure,
-        cost_price: parseFloat(formData.cost_price),
-        selling_price: parseFloat(formData.selling_price),
+        cost_price: costPrice,
+        selling_price: sellingPrice,
         wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
-        current_stock: parseFloat(formData.current_stock),
-        min_stock_level: parseFloat(formData.min_stock_level),
+        current_stock: parseFloat(formData.current_stock) || 0,
+        min_stock_level: parseFloat(formData.min_stock_level) || 0,
         max_stock_level: formData.max_stock_level
           ? parseFloat(formData.max_stock_level)
           : undefined,
         reorder_point: formData.reorder_point
           ? parseFloat(formData.reorder_point)
           : undefined,
-        supplier_id: parseInt(formData.supplier_id),
+        supplier_id: formData.supplier_id.trim()
+          ? parseInt(formData.supplier_id, 10)
+          : null,
         status: formData.status as
           | "active"
           | "inactive"
@@ -529,42 +548,56 @@ export function AddProductForm({
   };
 
   const handleInputChange = (field: keyof ProductFormData, value: string) => {
+    if (field === "name") {
+      setFormData((prev) => {
+        const next: ProductFormData = { ...prev, name: value };
+        if (value.trim()) {
+          const categoryName = categories.find(
+            (cat) => String(cat.id) === String(prev.category_id)
+          )?.name;
+          const brandName = brands.find(
+            (brand) => String(brand.id) === String(prev.brand_id)
+          )?.name;
+          next.sku = generateSKU(value, categoryName, brandName);
+        }
+        return next;
+      });
+      if (value.trim()) {
+        clearFieldError(field);
+      }
+      return;
+    }
+
+    if (field === "brand_id") {
+      setFormData((prev) => {
+        const next: ProductFormData = { ...prev, brand_id: value };
+        if (prev.name.trim()) {
+          const categoryName = categories.find(
+            (cat) => String(cat.id) === String(prev.category_id)
+          )?.name;
+          const brandName = brands.find(
+            (brand) => String(brand.id) === String(value)
+          )?.name;
+          next.sku = generateSKU(prev.name, categoryName, brandName);
+        }
+        return next;
+      });
+      if (value.trim()) {
+        clearFieldError(field);
+      }
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [field]: value }));
 
     if (value.trim()) {
       clearFieldError(field);
     }
-
-    // Auto-generate SKU when product name changes
-    if (field === "name" && value.trim()) {
-      const categoryName = categories.find(
-        (cat) => String(cat.id) === String(formData.category_id)
-      )?.name;
-      const brandName = brands.find(
-        (brand) => String(brand.id) === String(formData.brand_id)
-      )?.name;
-
-      const generatedSKU = generateSKU(value, categoryName, brandName);
-      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
-    }
-
-    // Regenerate SKU when brand changes (if product name exists)
-    if (field === "brand_id" && formData.name.trim()) {
-      const categoryName = categories.find(
-        (cat) => String(cat.id) === String(formData.category_id)
-      )?.name;
-      const brandName = brands.find(
-        (brand) => String(brand.id) === String(value)
-      )?.name;
-
-      const generatedSKU = generateSKU(formData.name, categoryName, brandName);
-      setFormData((prev) => ({ ...prev, sku: generatedSKU }));
-    }
   };
 
   const generateSKUFromName = () => {
     if (!formData.name.trim()) {
-      toast.error("Please enter a product name first");
+      toast.error("Please enter a name first");
       return;
     }
 
@@ -596,6 +629,11 @@ export function AddProductForm({
     setFormData((prev) => ({ ...prev, barcode: generatedBarcode }));
     toast.success("Random barcode generated successfully!");
   };
+
+  const selectedCategoryName =
+    categories.find((c) => String(c.id) === String(formData.category_id))
+      ?.name ?? "";
+  const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -703,49 +741,15 @@ export function AddProductForm({
             <div
               className={showAllFields ? "lg:col-span-3 space-y-4" : "space-y-4"}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className={
+                  showAllFields
+                    ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                    : "space-y-4"
+                }
+              >
                 <div className="space-y-2">
-                  <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    data-testid="add-product-name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="Enter product name"
-                    required
-                    className={getFieldErrorClass("name")}
-                    aria-invalid={hasFieldError("name")}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="sku">SKU *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="sku"
-                      value={formData.sku}
-                      onChange={(e) => handleInputChange("sku", e.target.value)}
-                      placeholder="e.g., PRD-001"
-                      required
-                      className={`flex-1 ${getFieldErrorClass("sku")}`}
-                      aria-invalid={hasFieldError("sku")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={generateSKUFromName}
-                      title="Generate SKU from product name"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="product-type">Product Type *</Label>
                   <Select
                     key={categorySelectKey}
                     value={
@@ -756,11 +760,12 @@ export function AddProductForm({
                     onValueChange={handleCategoryChange}
                   >
                     <SelectTrigger
+                      id="product-type"
                       data-testid="add-product-category"
                       className={getFieldErrorClass("category_id")}
                       aria-invalid={hasFieldError("category_id")}
                     >
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Select product type" />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
@@ -768,7 +773,7 @@ export function AddProductForm({
                           key={String(category.id)}
                           value={String(category.id)}
                         >
-                          {category.name}
+                          {displayPrimaryCategoryLabel(category.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -779,10 +784,15 @@ export function AddProductForm({
                 <div className="space-y-2">
                   <Label htmlFor="subCategory">Sub Category</Label>
                   <Select
-                    value={formData.subcategory_id}
+                    value={
+                      formData.subcategory_id
+                        ? formData.subcategory_id
+                        : undefined
+                    }
                     onValueChange={(value) =>
                       handleInputChange("subcategory_id", value)
                     }
+                    disabled={!formCategoryIdString(formData.category_id)}
                   >
                     <SelectTrigger data-testid="add-product-subcategory">
                       <SelectValue placeholder="Select sub category" />
@@ -801,6 +811,155 @@ export function AddProductForm({
                 </div>
                 ) : null}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="name">
+                  {isRawMaterialType && !showAllFields
+                    ? "Material Name *"
+                    : "Product Name *"}
+                </Label>
+                <Input
+                  id="name"
+                  data-testid="add-product-name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder={
+                    isRawMaterialType && !showAllFields
+                      ? "e.g. Raw Cotton, Wood, Steel"
+                      : "e.g. Wireless Ergonomic Mouse"
+                  }
+                  required
+                  className={getFieldErrorClass("name")}
+                  aria-invalid={hasFieldError("name")}
+                />
+              </div>
+
+              {(showAllFields || (isRawMaterialType && !showAllFields)) ? (
+              <div className="space-y-2">
+                <Label htmlFor="unit">
+                  {showAllFields ? "Unit" : "Unit of Measure *"}
+                </Label>
+                <Select
+                  value={formData.unit_of_measure}
+                  onValueChange={(value) =>
+                    handleInputChange("unit_of_measure", value)
+                  }
+                >
+                  <SelectTrigger
+                    id="unit"
+                    className={getFieldErrorClass("unit_of_measure")}
+                    aria-invalid={hasFieldError("unit_of_measure")}
+                  >
+                    <SelectValue placeholder="Select unit..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pcs">Pieces</SelectItem>
+                    <SelectItem value="kg">Kilograms</SelectItem>
+                    <SelectItem value="lbs">Pounds</SelectItem>
+                    <SelectItem value="m">Meters</SelectItem>
+                    <SelectItem value="ft">Feet</SelectItem>
+                    <SelectItem value="box">Box</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <Label htmlFor="sku">SKU (Stock Keeping Unit) *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="sku"
+                    value={formData.sku}
+                    onChange={(e) => handleInputChange("sku", e.target.value)}
+                    placeholder="e.g., PRD-001"
+                    required
+                    className={`flex-1 ${getFieldErrorClass("sku")}`}
+                    aria-invalid={hasFieldError("sku")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generateSKUFromName}
+                    title="Generate SKU from name"
+                  >
+                    Auto-Gen
+                  </Button>
+                </div>
+              </div>
+
+              {!showAllFields && isRawMaterialType ? (
+              <div className="space-y-2">
+                <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    ৳
+                  </span>
+                  <Input
+                    id="costPrice"
+                    data-testid="add-product-cost-price"
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_price}
+                    onChange={(e) =>
+                      handleInputChange("cost_price", e.target.value)
+                    }
+                    placeholder="0"
+                    required
+                    className={`pl-7 ${getFieldErrorClass("cost_price")}`}
+                    aria-invalid={hasFieldError("cost_price")}
+                  />
+                </div>
+              </div>
+              ) : null}
+
+              {!showAllFields && !isRawMaterialType ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sellingPrice">Selling Price *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      ৳
+                    </span>
+                    <Input
+                      id="sellingPrice"
+                      data-testid="add-product-selling-price"
+                      type="number"
+                      step="0.01"
+                      value={formData.selling_price}
+                      onChange={(e) =>
+                        handleInputChange("selling_price", e.target.value)
+                      }
+                      placeholder="0"
+                      required
+                      className={`pl-7 ${getFieldErrorClass("selling_price")}`}
+                      aria-invalid={hasFieldError("selling_price")}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="costPriceRg">Cost Price *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      ৳
+                    </span>
+                    <Input
+                      id="costPriceRg"
+                      data-testid="add-product-cost-price"
+                      type="number"
+                      step="0.01"
+                      value={formData.cost_price}
+                      onChange={(e) =>
+                        handleInputChange("cost_price", e.target.value)
+                      }
+                      placeholder="0"
+                      required
+                      className={`pl-7 ${getFieldErrorClass("cost_price")}`}
+                      aria-invalid={hasFieldError("cost_price")}
+                    />
+                  </div>
+                </div>
+              </div>
+              ) : null}
 
               {showAllFields ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -850,41 +1009,12 @@ export function AddProductForm({
               </div>
               ) : null}
 
-              <div
-                className={
-                  showAllFields
-                    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
-                    : "grid grid-cols-1 md:grid-cols-2 gap-4"
-                }
-              >
-                {showAllFields ? (
+              {showAllFields ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Select
-                    value={formData.unit_of_measure}
-                    onValueChange={(value) =>
-                      handleInputChange("unit_of_measure", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pcs">Pieces</SelectItem>
-                      <SelectItem value="kg">Kilograms</SelectItem>
-                      <SelectItem value="lbs">Pounds</SelectItem>
-                      <SelectItem value="m">Meters</SelectItem>
-                      <SelectItem value="ft">Feet</SelectItem>
-                      <SelectItem value="box">Box</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                ) : null}
-
-                <div className="space-y-2">
-                  <Label htmlFor="costPrice">Cost Price *</Label>
+                  <Label htmlFor="costPriceAll">Cost Price *</Label>
                   <Input
-                    id="costPrice"
+                    id="costPriceAll"
                     data-testid="add-product-cost-price"
                     type="number"
                     step="0.01"
@@ -900,9 +1030,9 @@ export function AddProductForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="sellingPrice">Selling Price *</Label>
+                  <Label htmlFor="sellingPriceAll">Selling Price *</Label>
                   <Input
-                    id="sellingPrice"
+                    id="sellingPriceAll"
                     data-testid="add-product-selling-price"
                     type="number"
                     step="0.01"
@@ -917,7 +1047,6 @@ export function AddProductForm({
                   />
                 </div>
 
-                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="wholesalePrice">Wholesale Price</Label>
                   <Input
@@ -937,9 +1066,7 @@ export function AddProductForm({
                     Leave empty to use selling price for wholesale customers
                   </p>
                 </div>
-                ) : null}
 
-                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="pv">PV Points</Label>
                   <Input
@@ -959,16 +1086,45 @@ export function AddProductForm({
                     Loyalty points earned for this product
                   </p>
                 </div>
-                ) : null}
               </div>
+              ) : null}
 
-              <div
-                className={
-                  showAllFields
-                    ? "grid grid-cols-1 md:grid-cols-3 gap-4"
-                    : "grid grid-cols-1 md:grid-cols-2 gap-4"
-                }
-              >
+              {!showAllFields ? (
+              <div className="space-y-2">
+                <Label htmlFor="subCategoryCompact">Category</Label>
+                <Select
+                  value={
+                    formData.subcategory_id
+                      ? formData.subcategory_id
+                      : undefined
+                  }
+                  onValueChange={(value) =>
+                    handleInputChange("subcategory_id", value)
+                  }
+                  disabled={!formCategoryIdString(formData.category_id)}
+                >
+                  <SelectTrigger
+                    id="subCategoryCompact"
+                    data-testid="add-product-subcategory"
+                  >
+                    <SelectValue placeholder="Select a category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcategories.map((subcategory) => (
+                      <SelectItem
+                        key={subcategory.id}
+                        value={subcategory.id.toString()}
+                      >
+                        {subcategory.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              ) : null}
+
+              {showAllFields ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="currentStock">Current Stock *</Label>
                   <Input
@@ -1003,7 +1159,6 @@ export function AddProductForm({
                   />
                 </div>
 
-                {showAllFields ? (
                 <div className="space-y-2">
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
@@ -1017,27 +1172,18 @@ export function AddProductForm({
                     placeholder="0"
                   />
                 </div>
-                ) : null}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/*<div className="space-y-2">*/}
-                {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
-                {/*  <Input*/}
-                {/*    id="maxStock"*/}
-                {/*    type="number"*/}
-                {/*    value={formData.max_stock_level}*/}
-                {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
-                {/*    placeholder="0"*/}
-                {/*  />*/}
-                {/*</div>*/}
-              </div>
+              ) : null}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="supplier">Supplier *</Label>
+                  <Label htmlFor="supplier">Supplier (Optional)</Label>
                   <Select
-                    value={formData.supplier_id}
+                    value={
+                      formData.supplier_id
+                        ? formData.supplier_id
+                        : undefined
+                    }
                     onValueChange={(value) =>
                       handleInputChange("supplier_id", value)
                     }
@@ -1047,7 +1193,7 @@ export function AddProductForm({
                       className={getFieldErrorClass("supplier_id")}
                       aria-invalid={hasFieldError("supplier_id")}
                     >
-                      <SelectValue placeholder="Select supplier" />
+                      <SelectValue placeholder="Select a supplier..." />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.map((supplier) => (
@@ -1245,7 +1391,7 @@ export function AddProductForm({
               disabled={isSubmitting}
               data-testid="submit-add-product"
             >
-              {isSubmitting ? "Adding..." : "Add Product"}
+              {isSubmitting ? "Creating..." : "Create Product"}
             </Button>
           </DialogFooter>
         </form>

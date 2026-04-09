@@ -333,6 +333,11 @@ class SharedCustomerService {
       await client.query("BEGIN");
       MyLogger.info(action, { customerData: data });
 
+      const emailNormalized =
+        data.email != null && String(data.email).trim() !== ""
+          ? String(data.email).trim()
+          : null;
+
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Create in factory_customers (primary) and optionally in sales_rep_customers
         const factoryQuery = `
@@ -343,7 +348,7 @@ class SharedCustomerService {
 
         const factoryResult = await client.query(factoryQuery, [
           data.name,
-          data.email || null,
+          emailNormalized,
           data.phone || null,
           data.company || null,
           typeof data.address === "string"
@@ -365,7 +370,7 @@ class SharedCustomerService {
 
           await client.query(salesRepQuery, [
             data.name,
-            data.email || null,
+            emailNormalized,
             data.phone || null,
             typeof data.address === "string"
               ? data.address
@@ -398,7 +403,7 @@ class SharedCustomerService {
 
         const result = await client.query(query, [
           data.name,
-          data.email || null,
+          emailNormalized,
           data.phone || null,
           data.company || null,
           typeof data.address === "string"
@@ -419,7 +424,7 @@ class SharedCustomerService {
 
         const result = await client.query(query, [
           data.name,
-          data.email || null,
+          emailNormalized,
           data.phone || null,
           typeof data.address === "string"
             ? data.address

@@ -22,6 +22,10 @@ export const getCategoriesQuerySchema = Joi.object({
     .valid("id", "name", "created_at", "updated_at")
     .default("id"),
   sortOrder: Joi.string().valid("asc", "desc").default("asc"),
+  primary_product_types_only: Joi.boolean()
+    .optional()
+    .truthy("true", "1", "yes")
+    .falsy("false", "0", "no"),
 });
 
 // Subcategory validation schemas

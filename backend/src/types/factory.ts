@@ -216,12 +216,16 @@ export interface Address {
     country: string;
     contact_name?: string;
     contact_phone?: string;
+    /** Optional single-line shipping (factory customer create UX). */
+    shipping_line?: string;
+    /** Optional single-line billing (factory customer create UX). */
+    billing_line?: string;
 }
 
 export interface FactoryCustomer {
     id: number;
     name: string;
-    email: string;
+    email: string | null;
     phone: string;
     company?: string;
     address: Address;

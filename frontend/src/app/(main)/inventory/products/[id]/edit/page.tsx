@@ -13,6 +13,10 @@ import { useToast } from "@/hooks/use-toast"
 import { useFormatting } from "@/hooks/useFormatting"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError, Origin } from "@/services/api"
+import {
+  displayPrimaryCategoryLabel,
+  isRawMaterialsCategory,
+} from "@/modules/inventory/constants/inventoryProductCategories"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { getImagePath } from "@/utils/image.utils"
 import { Brand } from "@/modules/inventory/services/brand-api"
@@ -54,18 +58,6 @@ interface EditProductFormData {
   currentImage: string
   pv: string
 }
-
-/** Validated on submit; compact layout shows only these fields. */
-const EDIT_PRODUCT_REQUIRED_FIELD_KEYS: Array<keyof EditProductFormData> = [
-  "name",
-  "sku",
-  "cost_price",
-  "selling_price",
-  "category_id",
-  "supplier_id",
-  "current_stock",
-  "min_stock_level",
-]
 
 export default function EditProduct() {
   const params = useParams()
@@ -160,14 +152,24 @@ export default function EditProduct() {
 
         const [productData, categoriesData, brandsData, originsData, suppliersData] = await Promise.all([
           ApiService.getProduct(parseInt(id)),
-          ApiService.getCategories({ limit: 100 }),
+          ApiService.getCategories({
+            limit: 100,
+            primary_product_types_only: true,
+          }),
           ApiService.getBrands({ limit: 100 }),
           ApiService.getOrigins({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 })
         ])
 
         setProduct(productData)
-        setCategories(categoriesData.categories)
+        let cats = categoriesData.categories
+        if (
+          productData.category &&
+          !cats.some((c) => c.id === productData.category_id)
+        ) {
+          cats = [...cats, productData.category]
+        }
+        setCategories(cats)
         setBrands(brandsData)
         setOrigins(originsData)
         setSuppliers(suppliersData.suppliers)
@@ -189,7 +191,10 @@ export default function EditProduct() {
           min_stock_level: productData.min_stock_level.toString(),
           max_stock_level: productData.max_stock_level?.toString() || "",
           reorder_point: productData.reorder_point?.toString() || "",
-          supplier_id: productData.supplier_id.toString(),
+          supplier_id:
+            productData.supplier_id != null
+              ? productData.supplier_id.toString()
+              : "",
           status: productData.status,
           barcode: productData.barcode || "",
           weight: productData.weight?.toString() || "",
@@ -276,7 +281,30 @@ export default function EditProduct() {
 
     if (!id) return
 
-    const missingRequired = EDIT_PRODUCT_REQUIRED_FIELD_KEYS.filter((field) => {
+    const selectedCat = categories.find(
+      (c) => String(c.id) === String(formData.category_id)
+    )
+    const raw = selectedCat ? isRawMaterialsCategory(selectedCat.name) : false
+
+    let requiredKeys: (keyof EditProductFormData)[] = [
+      "name",
+      "sku",
+      "category_id",
+    ]
+    if (showAllFields) {
+      requiredKeys.push("current_stock", "min_stock_level")
+      if (raw) {
+        requiredKeys.push("cost_price", "unit_of_measure")
+      } else {
+        requiredKeys.push("cost_price", "selling_price")
+      }
+    } else if (raw) {
+      requiredKeys.push("cost_price", "unit_of_measure")
+    } else {
+      requiredKeys.push("cost_price", "selling_price")
+    }
+
+    const missingRequired = requiredKeys.filter((field) => {
       const value = formData[field]
       return typeof value === "string" ? value.trim() === "" : !value
     })
@@ -292,23 +320,28 @@ export default function EditProduct() {
     try {
       setSaving(true)
 
+      const costNum = parseFloat(formData.cost_price)
+      const sellingNum = raw ? costNum : parseFloat(formData.selling_price)
+
       const updateData = {
         name: formData.name,
         sku: formData.sku,
         description: formData.description || undefined,
-        category_id: parseInt(formData.category_id),
-        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
-        brand_id: formData.brand_id ? parseInt(formData.brand_id) : undefined,
-        origin_id: formData.origin_id ? parseInt(formData.origin_id) : undefined,
+        category_id: parseInt(formData.category_id, 10),
+        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id, 10) : undefined,
+        brand_id: formData.brand_id ? parseInt(formData.brand_id, 10) : undefined,
+        origin_id: formData.origin_id ? parseInt(formData.origin_id, 10) : undefined,
         unit_of_measure: formData.unit_of_measure,
-        cost_price: parseFloat(formData.cost_price),
-        selling_price: parseFloat(formData.selling_price),
+        cost_price: costNum,
+        selling_price: sellingNum,
         wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
         max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
         reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
-        supplier_id: parseInt(formData.supplier_id),
+        supplier_id: formData.supplier_id.trim()
+          ? parseInt(formData.supplier_id, 10)
+          : null,
         status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
         // barcode: formData.barcode || undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
@@ -370,6 +403,11 @@ export default function EditProduct() {
     { value: "g", label: "Grams" },
     { value: "ml", label: "Milliliters" }
   ]
+
+  const selectedCategoryName =
+    categories.find((c) => String(c.id) === String(formData.category_id))
+      ?.name ?? ""
+  const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName)
 
   return (
     <div className="space-y-6" data-testid="edit-product-page">
@@ -506,19 +544,27 @@ export default function EditProduct() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Product Name *</Label>
+                    <Label htmlFor="name">
+                      {isRawMaterialType && !showAllFields
+                        ? "Material Name *"
+                        : "Product Name *"}
+                    </Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) =>
                         handleInputChange("name", e.target.value)
                       }
-                      placeholder="Enter product name"
+                      placeholder={
+                        isRawMaterialType && !showAllFields
+                          ? "e.g. Raw Cotton, Wood, Steel"
+                          : "Enter product name"
+                      }
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="sku">SKU *</Label>
+                    <Label htmlFor="sku">SKU (Stock Keeping Unit) *</Label>
                     <Input
                       id="sku"
                       value={formData.sku}
@@ -527,6 +573,25 @@ export default function EditProduct() {
                       required
                     />
                   </div>
+                  {(showAllFields || (isRawMaterialType && !showAllFields)) ? (
+                  <div>
+                    <Label htmlFor="unit">
+                      {showAllFields ? "Unit of Measure" : "Unit of Measure *"}
+                    </Label>
+                    <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>
+                      <SelectTrigger id="unit">
+                        <SelectValue placeholder="Select unit..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {units.map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  ) : null}
                   {showAllFields ? (
                   <div>
                     <Label htmlFor="barcode">Barcode</Label>
@@ -574,15 +639,15 @@ export default function EditProduct() {
                   }
                 >
                   <div>
-                    <Label htmlFor="category">Category *</Label>
-                    <Select value={formData.category_id} onValueChange={handleCategoryChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                    <Label htmlFor="category">Product Type *</Label>
+                    <Select value={formData.category_id || undefined} onValueChange={handleCategoryChange}>
+                      <SelectTrigger id="category">
+                        <SelectValue placeholder="Select product type" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
-                            {category.name}
+                            {displayPrimaryCategoryLabel(category.name)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -591,7 +656,10 @@ export default function EditProduct() {
                   {showAllFields ? (
                   <div>
                     <Label htmlFor="subCategory">Sub Category</Label>
-                    <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange("subcategory_id", value)}>
+                    <Select
+                      value={formData.subcategory_id || undefined}
+                      onValueChange={(value) => handleInputChange("subcategory_id", value)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select sub category" />
                       </SelectTrigger>
@@ -604,7 +672,27 @@ export default function EditProduct() {
                       </SelectContent>
                     </Select>
                   </div>
-                  ) : null}
+                  ) : (
+                  <div>
+                    <Label htmlFor="subCategoryCompact">Category</Label>
+                    <Select
+                      value={formData.subcategory_id || undefined}
+                      onValueChange={(value) => handleInputChange("subcategory_id", value)}
+                      disabled={!formData.category_id}
+                    >
+                      <SelectTrigger id="subCategoryCompact">
+                        <SelectValue placeholder="Select a category..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subcategories.map((subcategory) => (
+                          <SelectItem key={subcategory.id} value={subcategory.id.toString()}>
+                            {subcategory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  )}
                   {showAllFields ? (
                   <div>
                     <Label htmlFor="brand">Brand</Label>
@@ -641,25 +729,6 @@ export default function EditProduct() {
                   ) : null}
                 </div>
 
-                {showAllFields ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="unit">Unit of Measure</Label>
-                    <Select value={formData.unit_of_measure} onValueChange={(value) => handleInputChange("unit_of_measure", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units.map((unit) => (
-                          <SelectItem key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                ) : null}
               </CardContent>
             </Card>
 
@@ -669,11 +738,74 @@ export default function EditProduct() {
                 <CardTitle>Pricing Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="costPrice">Cost Price *</Label>
+                {!showAllFields && isRawMaterialType ? (
+                <div>
+                  <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
+                  <div className="relative mt-2">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      ৳
+                    </span>
                     <Input
                       id="costPrice"
+                      className="pl-7"
+                      type="number"
+                      step="0.01"
+                      value={formData.cost_price}
+                      onChange={(e) => handleInputChange("cost_price", e.target.value)}
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+                </div>
+                ) : null}
+
+                {!showAllFields && !isRawMaterialType ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="sellingPrice">Selling Price *</Label>
+                    <div className="relative mt-2">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                        ৳
+                      </span>
+                      <Input
+                        id="sellingPrice"
+                        className="pl-7"
+                        type="number"
+                        step="0.01"
+                        value={formData.selling_price}
+                        onChange={(e) => handleInputChange("selling_price", e.target.value)}
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="costPriceRg">Cost Price *</Label>
+                    <div className="relative mt-2">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                        ৳
+                      </span>
+                      <Input
+                        id="costPriceRg"
+                        className="pl-7"
+                        type="number"
+                        step="0.01"
+                        value={formData.cost_price}
+                        onChange={(e) => handleInputChange("cost_price", e.target.value)}
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                ) : null}
+
+                {showAllFields ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="costPriceAll">Cost Price *</Label>
+                    <Input
+                      id="costPriceAll"
                       type="number"
                       step="0.01"
                       value={formData.cost_price}
@@ -683,9 +815,9 @@ export default function EditProduct() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="sellingPrice">Selling Price *</Label>
+                    <Label htmlFor="sellingPriceAll">Selling Price *</Label>
                     <Input
-                      id="sellingPrice"
+                      id="sellingPriceAll"
                       type="number"
                       step="0.01"
                       value={formData.selling_price}
@@ -695,6 +827,7 @@ export default function EditProduct() {
                     />
                   </div>
                 </div>
+                ) : null}
 
                 {showAllFields ? (
                 <div>
@@ -822,7 +955,7 @@ export default function EditProduct() {
 
           {/* Sidebar */}
           <div className="space-y-6" data-testid="edit-product-sidebar">
-            {/* Stock Settings */}
+            {showAllFields ? (
             <Card>
               <CardHeader>
                 <CardTitle>Stock Settings</CardTitle>
@@ -851,17 +984,6 @@ export default function EditProduct() {
                     required
                   />
                 </div>
-                {/*<div>*/}
-                {/*  <Label htmlFor="maxStock">Maximum Stock</Label>*/}
-                {/*  <Input*/}
-                {/*    id="maxStock"*/}
-                {/*    type="number"*/}
-                {/*    value={formData.max_stock_level}*/}
-                {/*    onChange={(e) => handleInputChange("max_stock_level", e.target.value)}*/}
-                {/*    placeholder="0"*/}
-                {/*  />*/}
-                {/*</div>*/}
-                {showAllFields ? (
                 <div>
                   <Label htmlFor="reorderPoint">Reorder Point</Label>
                   <Input
@@ -872,9 +994,9 @@ export default function EditProduct() {
                     placeholder="0"
                   />
                 </div>
-                ) : null}
               </CardContent>
             </Card>
+            ) : null}
 
             {/* Supplier & Status */}
             <Card>
@@ -883,10 +1005,10 @@ export default function EditProduct() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="supplier">Primary Supplier *</Label>
-                  <Select value={formData.supplier_id} onValueChange={(value) => handleInputChange("supplier_id", value)}>
+                  <Label htmlFor="supplier">Supplier (Optional)</Label>
+                  <Select value={formData.supplier_id || undefined} onValueChange={(value) => handleInputChange("supplier_id", value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select supplier" />
+                      <SelectValue placeholder="Select a supplier..." />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.map((supplier) => (

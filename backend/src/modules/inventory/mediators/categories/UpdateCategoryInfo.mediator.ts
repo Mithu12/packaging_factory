@@ -5,6 +5,7 @@ import {
   UpdateSubcategoryRequest,
 } from "@/types/category";
 import pool from "@/database/connection";
+import { isInventoryPrimaryCategoryName } from "@/constants/inventoryProductCategories";
 import { createError } from "@/middleware/errorHandler";
 import GetCategoryInfoMediator from "./GetCategoryInfo.mediator";
 import { MyLogger } from "@/utils/new-logger";
@@ -22,6 +23,18 @@ class UpdateCategoryInfoMediator {
         categoryId: id,
         updateFields: Object.keys(data),
       });
+
+      const existing = await GetCategoryInfoMediator.getCategoryById(id);
+      if (
+        isInventoryPrimaryCategoryName(existing.name) &&
+        data.name !== undefined &&
+        data.name !== existing.name
+      ) {
+        throw createError(
+          "Cannot rename Raw Materials or Ready Goods",
+          400
+        );
+      }
 
       const { name, description } = data;
 
@@ -78,10 +91,9 @@ class UpdateCategoryInfoMediator {
 
       const { name, description, category_id } = data;
 
-      // If category_id is being updated, verify the new category exists
       if (category_id) {
         const categoryCheck = await client.query(
-          "SELECT id FROM categories WHERE id = $1",
+          "SELECT id, name FROM categories WHERE id = $1",
           [category_id]
         );
         if (categoryCheck.rows.length === 0) {
@@ -90,6 +102,13 @@ class UpdateCategoryInfoMediator {
             message: "Parent category not found",
           });
           throw createError("Parent category not found", 404);
+        }
+        const parentName = categoryCheck.rows[0].name as string;
+        if (!isInventoryPrimaryCategoryName(parentName)) {
+          throw createError(
+            "Subcategories can only be placed under Raw Materials or Ready Goods",
+            400
+          );
         }
       }
 

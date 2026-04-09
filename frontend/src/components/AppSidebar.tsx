@@ -151,33 +151,9 @@ const menuSections: MenuSection[] = [
   //     },
   //   ],
   // },
-  // {
-  //   title: "Catalog",
-  //   icon: FolderTree,
-  //   items: [
-  //     {
-  //       title: "Categories",
-  //       url: "/inventory/categories",
-  //       icon: FolderTree,
-  //       permission: PERMISSIONS.CATEGORIES_READ,
-  //     },
-  //     {
-  //       title: "Brands",
-  //       url: "/inventory/brands",
-  //       icon: Tag,
-  //       permission: PERMISSIONS.BRANDS_READ,
-  //     },
-  //     {
-  //       title: "Origins",
-  //       url: "/inventory/origins",
-  //       icon: MapPin,
-  //       permission: PERMISSIONS.ORIGINS_READ,
-  //     },
-  //   ],
-  // },
   {
-    title: "Procurement & Inventory",
-    icon: Truck,
+    title: "Catalog",
+    icon: FolderTree,
     items: [
       {
         title: "Products",
@@ -185,6 +161,30 @@ const menuSections: MenuSection[] = [
         icon: Package,
         permission: PERMISSIONS.PRODUCTS_READ,
       },
+      {
+        title: "Categories",
+        url: "/inventory/categories",
+        icon: FolderTree,
+        permission: PERMISSIONS.CATEGORIES_READ,
+      },
+      // {
+      //   title: "Brands",
+      //   url: "/inventory/brands",
+      //   icon: Tag,
+      //   permission: PERMISSIONS.BRANDS_READ,
+      // },
+      // {
+      //   title: "Origins",
+      //   url: "/inventory/origins",
+      //   icon: MapPin,
+      //   permission: PERMISSIONS.ORIGINS_READ,
+      // },
+    ],
+  },
+  {
+    title: "Procurement & Inventory",
+    icon: Truck,
+    items: [
       {
         title: "Suppliers",
         url: "/inventory/suppliers",

@@ -15,7 +15,7 @@ export interface Product {
   current_stock: number;
   min_stock_level: number;
   max_stock_level?: number;
-  supplier_id: number;
+  supplier_id: number | null;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
   weight?: number;
@@ -53,7 +53,7 @@ export interface CreateProductRequest {
   current_stock: number;
   min_stock_level: number;
   max_stock_level?: number;
-  supplier_id: number;
+  supplier_id?: number | null;
   status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
   weight?: number;

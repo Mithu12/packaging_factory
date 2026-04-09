@@ -169,6 +169,8 @@ export interface CategoryQueryParams {
   search?: string;
   sortBy?: 'id' | 'name' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
+  /** When true, only Raw Materials and Ready Goods. */
+  primary_product_types_only?: boolean;
 }
 
 export interface SubcategoryQueryParams {
@@ -207,7 +209,7 @@ export interface Product {
   max_stock_level?: number;
   reorder_point?: number;
   reserved_stock?: number;
-  supplier_id: number;
+  supplier_id: number | null;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
   weight?: number;
@@ -241,7 +243,7 @@ export interface ProductWithDetails extends Product {
   subcategory?: Subcategory;
   brand?: Brand;
   origin?: Origin;
-  supplier: Supplier;
+  supplier?: Supplier | null;
   locations?: {
     distribution_center_id: number;
     distribution_center_name: string;
@@ -265,7 +267,7 @@ export interface CreateProductRequest {
   min_stock_level: number;
   max_stock_level?: number;
   reorder_point?: number;
-  supplier_id: number;
+  supplier_id?: number | null;
   status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
   weight?: number;
@@ -294,7 +296,7 @@ export interface UpdateProductRequest {
   min_stock_level?: number;
   max_stock_level?: number;
   reorder_point?: number;
-  supplier_id?: number;
+  supplier_id?: number | null;
   status?: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
   barcode?: string;
   weight?: number;

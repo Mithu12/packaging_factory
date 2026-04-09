@@ -14,8 +14,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { Plus, Edit, Trash2, FolderPlus, Tag, Loader2, Search } from "lucide-react"
-import { ApiService, Category, Subcategory, CreateCategoryRequest, CreateSubcategoryRequest, UpdateCategoryRequest, UpdateSubcategoryRequest, ApiError } from "@/services/api"
+import { Edit, Trash2, FolderPlus, Tag, Loader2, Search } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  displayPrimaryCategoryLabel,
+  isInventoryPrimaryCategory,
+} from "@/modules/inventory/constants/inventoryProductCategories"
+import { ApiService, Category, Subcategory, CreateSubcategoryRequest, UpdateCategoryRequest, UpdateSubcategoryRequest, ApiError } from "@/services/api"
 import { useRBAC } from "@/contexts/RBACContext"
 import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 import { PermissionButton } from "@/components/rbac/PermissionButton"
@@ -45,7 +50,6 @@ const Categories = () => {
   const [error, setError] = useState<string | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editingSubcategory, setEditingSubcategory] = useState<{ subcategory: Subcategory; categoryId: number } | null>(null)
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
   const [isAddSubcategoryOpen, setIsAddSubcategoryOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -102,7 +106,10 @@ const Categories = () => {
         setError(null)
         
         // Fetch categories
-        const categoriesResult = await ApiService.getCategories({ limit: 100 })
+        const categoriesResult = await ApiService.getCategories({
+          limit: 100,
+          primary_product_types_only: true,
+        })
         const categories = categoriesResult.categories
         
         // Fetch all subcategories
@@ -148,40 +155,6 @@ const Categories = () => {
 
     fetchCategoriesAndSubcategories()
   }, [])
-
-  // Category handlers
-  const onAddCategory = async (data: CategoryForm) => {
-    try {
-      setSaving(true)
-      const newCategory = await ApiService.createCategory({
-        name: data.name,
-        description: data.description
-      })
-      setCategories([...categories, newCategory])
-      categoryForm.reset()
-      setIsAddCategoryOpen(false)
-      toast({ 
-        title: "Category added successfully!",
-        description: `${newCategory.name} has been created.`
-      })
-    } catch (err) {
-      if (err instanceof ApiError) {
-        toast({
-          title: "Error",
-          description: err.message,
-          variant: "destructive"
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to add category",
-          variant: "destructive"
-        })
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const onEditCategory = async (data: CategoryForm) => {
     if (!editingCategory) return
@@ -402,66 +375,6 @@ const Categories = () => {
             <p className="text-muted-foreground">Manage your product categories and subcategories</p>
           </div>
           <div className="flex gap-2">
-            <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-              <DialogTrigger asChild>
-                <PermissionButton permission={PERMISSIONS.CATEGORIES_CREATE}>
-                  <FolderPlus className="h-4 w-4 mr-2" />
-                  Add Category
-                </PermissionButton>
-              </DialogTrigger>
-              <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Category</DialogTitle>
-                <DialogDescription>Create a new product category</DialogDescription>
-              </DialogHeader>
-              <Form {...categoryForm}>
-                <form onSubmit={categoryForm.handleSubmit(onAddCategory)} className="space-y-4">
-                  <FormField
-                    control={categoryForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter category name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={categoryForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter category description" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsAddCategoryOpen(false)} disabled={saving}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Adding...
-                        </>
-                      ) : (
-                        'Add Category'
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={isAddSubcategoryOpen} onOpenChange={setIsAddSubcategoryOpen}>
             <DialogTrigger asChild>
               <PermissionButton permission={PERMISSIONS.CATEGORIES_CREATE} variant="outline">
@@ -472,7 +385,7 @@ const Categories = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Subcategory</DialogTitle>
-                <DialogDescription>Create a new subcategory under an existing category</DialogDescription>
+                <DialogDescription>Add a subcategory under Raw Material or Ready Goods</DialogDescription>
               </DialogHeader>
               <Form {...subcategoryForm}>
                 <form onSubmit={subcategoryForm.handleSubmit(onAddSubcategory)} className="space-y-4">
@@ -481,17 +394,17 @@ const Categories = () => {
                     name="category_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Parent Category</FormLabel>
+                        <FormLabel>Product type</FormLabel>
                         <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value?.toString()}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
+                              <SelectValue placeholder="Select product type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {categories?.map(category => (
                               <SelectItem key={category.id} value={category.id.toString()}>
-                                {category.name}
+                                {displayPrimaryCategoryLabel(category.name)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -548,6 +461,15 @@ const Categories = () => {
         </div>
       </div>
 
+      {categories.length < 2 ? (
+        <Alert variant="destructive">
+          <AlertTitle>Primary product types missing</AlertTitle>
+          <AlertDescription>
+            Expected &quot;Raw Materials&quot; and &quot;Ready Goods&quot; in the database. Apply migrations or run the master data seeder, then refresh this page.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {/* Search Input */}
       <div className="mb-6">
         <div className="flex items-center gap-4">
@@ -574,7 +496,7 @@ const Categories = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <FolderPlus className="h-5 w-5" />
-                    {category.name}
+                    {displayPrimaryCategoryLabel(category.name)}
                     <Badge variant="secondary">{(category as any).subcategories?.length || 0} subcategories</Badge>
                   </CardTitle>
                   {category.description && (
@@ -591,7 +513,8 @@ const Categories = () => {
                       <Edit className="h-4 w-4" />
                     </Button>
                   )}
-                  {hasPermission(PERMISSIONS.CATEGORIES_DELETE) && (
+                  {hasPermission(PERMISSIONS.CATEGORIES_DELETE) &&
+                    !isInventoryPrimaryCategory(category.name) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -672,7 +595,11 @@ const Categories = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
-            <DialogDescription>Update category information</DialogDescription>
+            <DialogDescription>
+              {editingCategory && isInventoryPrimaryCategory(editingCategory.name)
+                ? "Update description only; product type names are fixed."
+                : "Update category information"}
+            </DialogDescription>
           </DialogHeader>
           <Form {...categoryForm}>
             <form onSubmit={categoryForm.handleSubmit(onEditCategory)} className="space-y-4">
@@ -683,7 +610,14 @@ const Categories = () => {
                   <FormItem>
                     <FormLabel>Category Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter category name" {...field} />
+                      <Input
+                        placeholder="Enter category name"
+                        {...field}
+                        disabled={
+                          !!editingCategory &&
+                          isInventoryPrimaryCategory(editingCategory.name)
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -693,20 +693,24 @@ export default function ProductDetails() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="w-5 h-5" />
-                Primary Supplier
+                Supplier
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {product.supplier ? (
               <div className="space-y-2">
                 <p className="font-medium">{product.supplier.name}</p>
                 <p className="text-sm text-muted-foreground">Supplier Code: {product.supplier.supplier_code}</p>
                 <p className="text-sm text-muted-foreground">
                   Average Lead Time: Not specified
                 </p>
-                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => router.push(`/inventory/suppliers/${product.supplier.id}`)} data-testid="view-supplier-details-button">
+                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => router.push(`/inventory/suppliers/${product.supplier!.id}`)} data-testid="view-supplier-details-button">
                   View Supplier Details
                 </Button>
               </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No supplier assigned</p>
+              )}
             </CardContent>
           </Card>
 

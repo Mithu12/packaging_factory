@@ -205,6 +205,11 @@ class CustomersController {
           payment_terms,
         } = req.body;
 
+        const normalizedEmail =
+          email != null && String(email).trim() !== ""
+            ? String(email).trim()
+            : null;
+
         const query = `
           INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -213,7 +218,7 @@ class CustomersController {
 
         const result = await pool.query(query, [
           name,
-          email,
+          normalizedEmail,
           phone || null,
           company || null,
           address || {},
@@ -273,6 +278,11 @@ class CustomersController {
           is_active,
         } = req.body;
 
+        const normalizedEmail =
+          email != null && String(email).trim() !== ""
+            ? String(email).trim()
+            : null;
+
         const query = `
           UPDATE factory_customers 
           SET name = $1, email = $2, phone = $3, company = $4, address = $5, 
@@ -283,7 +293,7 @@ class CustomersController {
 
         const result = await pool.query(query, [
           name,
-          email,
+          normalizedEmail,
           phone || null,
           company || null,
           address || {},

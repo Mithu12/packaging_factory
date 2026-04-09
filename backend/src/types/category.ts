@@ -39,6 +39,8 @@ export interface CategoryQueryParams {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  /** When true, only return Raw Materials and Ready Goods. */
+  primary_product_types_only?: boolean;
 }
 
 export interface SubcategoryQueryParams {

@@ -135,7 +135,10 @@ export function QuickAddProductDialog({
     try {
       setLoadingMeta(true);
       const settled = await Promise.allSettled([
-        ApiService.getCategories({ limit: 100 }),
+        ApiService.getCategories({
+          limit: 100,
+          primary_product_types_only: true,
+        }),
         SupplierApi.getSuppliers({ limit: 100 }),
       ]);
       if (settled[0].status === "fulfilled") {

@@ -7,6 +7,7 @@ import {
 } from "@/types/category";
 import { MediatorInterface } from "@/types";
 import pool from "@/database/connection";
+import { INVENTORY_PRIMARY_CATEGORY_NAMES } from "@/constants/inventoryProductCategories";
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
 
@@ -33,6 +34,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
         search,
         sortBy = "id",
         sortOrder = "asc",
+        primary_product_types_only,
       } = params;
 
       const offset = (page - 1) * limit;
@@ -46,6 +48,12 @@ class GetCategoryInfoMediator implements MediatorInterface {
           `(name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`
         );
         queryParams.push(`%${search}%`);
+        paramIndex++;
+      }
+
+      if (primary_product_types_only) {
+        whereConditions.push(`name = ANY($${paramIndex}::text[])`);
+        queryParams.push(INVENTORY_PRIMARY_CATEGORY_NAMES);
         paramIndex++;
       }
 

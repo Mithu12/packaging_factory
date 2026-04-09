@@ -101,12 +101,14 @@ export interface Address {
     state?: string;
     postal_code?: string;
     country?: string;
+    shipping_line?: string;
+    billing_line?: string;
 }
 
 export interface FactoryCustomer {
     id: number;
     name: string;
-    email: string;
+    email: string | null;
     phone?: string;
     company?: string;
     address?: Address;
@@ -123,7 +125,7 @@ export interface FactoryCustomer {
 
 export interface CreateCustomerRequest {
     name: string;
-    email: string;
+    email?: string;
     phone?: string;
     company?: string;
     address?: Address;
@@ -135,6 +137,7 @@ export interface UpdateCustomerRequest {
     name?: string;
     email?: string;
     phone?: string;
+    company?: string;
     address?: Address;
     credit_limit?: number;
     payment_terms?: string;

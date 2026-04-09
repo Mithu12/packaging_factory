@@ -90,7 +90,7 @@ export default function CustomerManagement() {
   // Filter customers based on search term
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.email ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (customer.company && customer.company.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -296,7 +296,7 @@ export default function CustomerManagement() {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      {customer.email}
+                      {customer.email ?? "—"}
                     </div>
                   </TableCell>
                   <TableCell>{customer.company || "-"}</TableCell>
@@ -421,7 +421,7 @@ export default function CustomerManagement() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Email</label>
-                  <p>{selectedCustomer.email}</p>
+                  <p>{selectedCustomer.email ?? "—"}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

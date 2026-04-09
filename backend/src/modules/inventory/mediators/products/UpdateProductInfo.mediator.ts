@@ -1,7 +1,16 @@
 import pool from "@/database/connection";
 import { UpdateProductRequest, Product } from "@/types/product";
 import { AddProductMediator } from "./AddProduct.mediator";
+import { isInventoryPrimaryCategoryName } from "@/constants/inventoryProductCategories";
 import { MyLogger } from "@/utils/new-logger";
+
+const PRODUCT_REF_KEYS: (keyof UpdateProductRequest)[] = [
+  "category_id",
+  "subcategory_id",
+  "brand_id",
+  "origin_id",
+  "supplier_id",
+];
 
 export class UpdateProductInfoMediator {
   static async updateProduct(
@@ -46,13 +55,11 @@ export class UpdateProductInfoMediator {
         }
       }
 
-      // Validate foreign key references if being updated
+      // Validate foreign key references when any FK field is present (including explicit null)
       if (
-        productData.category_id ||
-        productData.subcategory_id ||
-        productData.brand_id ||
-        productData.origin_id ||
-        productData.supplier_id
+        PRODUCT_REF_KEYS.some((k) =>
+          Object.prototype.hasOwnProperty.call(productData, k)
+        )
       ) {
         await this.validateReferences(id, productData);
       }
@@ -233,7 +240,10 @@ export class UpdateProductInfoMediator {
         throw new Error("Product not found");
       }
 
-      const categoryId = productData.category_id || currentProduct.category_id;
+      const categoryId =
+        productData.category_id !== undefined
+          ? productData.category_id
+          : currentProduct.category_id;
       const subcategoryId =
         productData.subcategory_id !== undefined
           ? productData.subcategory_id
@@ -246,14 +256,24 @@ export class UpdateProductInfoMediator {
         productData.origin_id !== undefined
           ? productData.origin_id
           : currentProduct.origin_id;
-      const supplierId = productData.supplier_id || currentProduct.supplier_id;
+      const supplierId =
+        productData.supplier_id !== undefined
+          ? productData.supplier_id
+          : currentProduct.supplier_id;
 
-      // Validate category exists
-      const categoryQuery = "SELECT id FROM categories WHERE id = $1";
+      // Validate category exists and is a fixed inventory product type
+      const categoryQuery = "SELECT id, name FROM categories WHERE id = $1";
       const categoryResult = await pool.query(categoryQuery, [categoryId]);
 
       if (categoryResult.rows.length === 0) {
         throw new Error("Category not found");
+      }
+
+      const mergedCategoryName = categoryResult.rows[0].name as string;
+      if (!isInventoryPrimaryCategoryName(mergedCategoryName)) {
+        throw new Error(
+          "Product type must be Raw Materials or Ready Goods"
+        );
       }
 
       // Validate subcategory exists if provided
@@ -297,12 +317,14 @@ export class UpdateProductInfoMediator {
         }
       }
 
-      // Validate supplier exists
-      const supplierQuery = "SELECT id FROM suppliers WHERE id = $1";
-      const supplierResult = await pool.query(supplierQuery, [supplierId]);
+      // Validate supplier exists when set
+      if (supplierId !== undefined && supplierId !== null) {
+        const supplierQuery = "SELECT id FROM suppliers WHERE id = $1";
+        const supplierResult = await pool.query(supplierQuery, [supplierId]);
 
-      if (supplierResult.rows.length === 0) {
-        throw new Error("Supplier not found");
+        if (supplierResult.rows.length === 0) {
+          throw new Error("Supplier not found");
+        }
       }
 
       MyLogger.success(action, {

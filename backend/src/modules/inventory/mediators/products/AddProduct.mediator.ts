@@ -1,5 +1,6 @@
 import pool from "@/database/connection";
 import { CreateProductRequest, Product } from "@/types/product";
+import { isInventoryPrimaryCategoryName } from "@/constants/inventoryProductCategories";
 import { MyLogger } from "@/utils/new-logger";
 
 export class AddProductMediator {
@@ -74,7 +75,7 @@ export class AddProductMediator {
         productData.current_stock,
         productData.min_stock_level,
         productData.max_stock_level || null,
-        productData.supplier_id,
+        productData.supplier_id ?? null,
         productData.status || "active",
         productData.barcode || null,
         productData.weight || null,
@@ -165,14 +166,21 @@ export class AddProductMediator {
         supplierId: productData.supplier_id,
       });
 
-      // Validate category exists
-      const categoryQuery = "SELECT id FROM categories WHERE id = $1";
+      // Validate category exists and is a fixed inventory product type
+      const categoryQuery = "SELECT id, name FROM categories WHERE id = $1";
       const categoryResult = await pool.query(categoryQuery, [
         productData.category_id,
       ]);
 
       if (categoryResult.rows.length === 0) {
         throw new Error("Category not found");
+      }
+
+      const categoryName = categoryResult.rows[0].name as string;
+      if (!isInventoryPrimaryCategoryName(categoryName)) {
+        throw new Error(
+          "Product type must be Raw Materials or Ready Goods"
+        );
       }
 
       // Validate subcategory exists if provided
@@ -219,14 +227,19 @@ export class AddProductMediator {
         }
       }
 
-      // Validate supplier exists
-      const supplierQuery = "SELECT id FROM suppliers WHERE id = $1";
-      const supplierResult = await pool.query(supplierQuery, [
-        productData.supplier_id,
-      ]);
+      // Validate supplier exists when provided
+      if (
+        productData.supplier_id !== undefined &&
+        productData.supplier_id !== null
+      ) {
+        const supplierQuery = "SELECT id FROM suppliers WHERE id = $1";
+        const supplierResult = await pool.query(supplierQuery, [
+          productData.supplier_id,
+        ]);
 
-      if (supplierResult.rows.length === 0) {
-        throw new Error("Supplier not found");
+        if (supplierResult.rows.length === 0) {
+          throw new Error("Supplier not found");
+        }
       }
 
       MyLogger.success(action, {
