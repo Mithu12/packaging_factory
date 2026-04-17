@@ -400,7 +400,7 @@ export class CustomerOrdersApiService {
             credentials: 'include'
         });
         if (!response.ok) throw new Error('Failed to download PDF');
-        
+
         // Extract filename from Content-Disposition if available
         let filename = `quotation-${id}.pdf`;
         const disposition = response.headers.get('content-disposition');
@@ -420,6 +420,57 @@ export class CustomerOrdersApiService {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(downloadUrl);
+    }
+
+    /**
+     * Fetches the quotation PDF from the backend and triggers the browser's
+     * native print dialog on it via a hidden iframe. Uses the same endpoint
+     * as downloadQuotationPdf — the backend renders the PDF with Puppeteer,
+     * so the output is identical to what the user would see when downloading.
+     */
+    static async printQuotationPdf(id: number | string): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const response = await fetch(`${baseUrl}/factory/customer-orders/${id}/pdf`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+        if (!response.ok) throw new Error('Failed to load quotation PDF');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        iframe.src = url;
+
+        iframe.onload = () => {
+            // Small delay lets Chrome/Firefox finish painting the PDF viewer.
+            setTimeout(() => {
+                try {
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                } catch (err) {
+                    console.error('Failed to invoke print on quotation PDF:', err);
+                }
+            }, 100);
+        };
+
+        document.body.appendChild(iframe);
+
+        // Clean up after the print dialog has had plenty of time to appear.
+        window.setTimeout(() => {
+            try {
+                document.body.removeChild(iframe);
+            } catch {
+                /* already removed */
+            }
+            window.URL.revokeObjectURL(url);
+        }, 60_000);
     }
 
     // Download invoice (Bill) PDF

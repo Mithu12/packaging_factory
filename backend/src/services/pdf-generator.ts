@@ -915,8 +915,17 @@ export class PDFGenerator {
     }
   }
 
-  // Generate HTML template for quotation
+  // Generate HTML template for quotation (formal letterhead + rate / VAT table)
   private static generateQuotationHTML(order: FactoryCustomerOrder, settings?: any): string {
+    const esc = (raw: string | undefined | null): string => {
+      if (raw == null) return '';
+      return String(raw)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    };
+
     const formatCurrency = (amount: number) => {
       return new Intl.NumberFormat('en-IN', {
         minimumFractionDigits: 2,
@@ -932,420 +941,236 @@ export class PDFGenerator {
       return `${day}.${month}.${year}`;
     };
 
-    // A simple number to words function for the "In Words" section
-    const numberToWords = (num: number) => {
-      const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-      const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
-      
-      let numStr = Math.floor(num).toString();
-      if (numStr.length > 9) return 'overflow';
-      const n = ('000000000' + numStr).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n) return '';
-      let str = '';
-      str += (n[1] !== '00') ? (a[Number(n[1])] || b[Number(n[1][0])] + ' ' + a[Number(n[1][1])]) + 'Crore ' : '';
-      str += (n[2] !== '00') ? (a[Number(n[2])] || b[Number(n[2][0])] + ' ' + a[Number(n[2][1])]) + 'Lakh ' : '';
-      str += (n[3] !== '00') ? (a[Number(n[3])] || b[Number(n[3][0])] + ' ' + a[Number(n[3][1])]) + 'Thousand ' : '';
-      str += (n[4] !== '0') ? (a[Number(n[4])] || b[Number(n[4][0])] + ' ' + a[Number(n[4][1])]) + 'Hundred ' : '';
-      str += (n[5] !== '00') ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[Number(n[5][0])] + ' ' + a[Number(n[5][1])]) : '';
-      return str.trim() ? str.trim() + ' Taka Only.' : 'Zero Taka Only.';
-    };
+    const companyName = settings?.company_name || 'Company';
+    const companyNameBn = settings?.company_name_bengali ? String(settings.company_name_bengali) : '';
+    const address = settings?.company_address ? String(settings.company_address) : '';
+    const phone1 = settings?.phone ? String(settings.phone) : '';
+    const phone2 = settings?.company_secondary_phone ? String(settings.company_secondary_phone) : '';
+    const mobileLine = [phone1, phone2].filter(Boolean).join(', ');
+    const email1 = settings?.company_email ? String(settings.company_email) : '';
+    const email2 = settings?.company_secondary_email ? String(settings.company_secondary_email) : '';
+    const emailLine = [email1, email2].filter(Boolean).join(', ');
 
-    const itemsHtml = order.line_items?.map((item, index) => {
-      const amount = item.quantity * item.unit_price;
-      const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
-      
-      return `
+    const refText = settings?.quotation_ref_prefix
+      ? String(settings.quotation_ref_prefix)
+      : order.order_number || String(order.id);
+
+    const attention = settings?.quotation_attention_line ? String(settings.quotation_attention_line) : '';
+    const notesTrim = order.notes?.trim() || '';
+    const subjectText = settings?.quotation_subject
+      ? String(settings.quotation_subject)
+      : notesTrim.startsWith('Sub:')
+        ? notesTrim
+        : 'Sub: Price quotation for the item(s) listed below.';
+
+    const recipientExtra = settings?.quotation_recipient_lines
+      ? String(settings.quotation_recipient_lines)
+      : '';
+
+    const opening = settings?.quotation_opening_paragraph
+      ? String(settings.quotation_opening_paragraph)
+      : 'We are pleased to submit our quotation for your kind consideration.';
+
+    const assurance = settings?.quotation_closing_assurance
+      ? String(settings.quotation_closing_assurance)
+      : 'We assure that, our quality product and timely supply for all-time best & regards,';
+
+    const signatureName = settings?.quotation_signature_name
+      ? String(settings.quotation_signature_name)
+      : companyName;
+    const signatureTitle = settings?.quotation_signature_title
+      ? String(settings.quotation_signature_title)
+      : 'Authorized Signatory';
+    const signatureOrg = settings?.quotation_signature_org
+      ? String(settings.quotation_signature_org)
+      : `M/S. ${companyName}`;
+
+    const billing = order.billing_address;
+    const billingLines: string[] = [];
+    if (billing?.billing_line?.trim()) {
+      billing.billing_line.split(/\n+/).forEach((l) => {
+        const t = l.trim();
+        if (t) billingLines.push(t);
+      });
+    }
+    if (billing?.street?.trim()) billingLines.push(billing.street.trim());
+    const cityPart = [billing?.city, billing?.state].filter(Boolean).join(', ');
+    const cityLine = [cityPart, billing?.postal_code].filter(Boolean).join(' ').trim();
+    if (cityLine) billingLines.push(cityLine);
+    if (billing?.country?.trim()) billingLines.push(billing.country.trim());
+
+    const vatPct = order.tax_rate != null && order.tax_rate > 0 ? order.tax_rate : 15;
+
+    const itemsHtml =
+      (order.line_items ?? []).length > 0
+        ? (order.line_items ?? [])
+            .map((item, index) => {
+              const spec = item.specifications?.trim();
+              const desc = item.description?.trim();
+              let descText = '—';
+              if (spec && desc) descText = `${spec}\n${desc}`;
+              else if (spec) descText = spec;
+              else if (desc) descText = desc;
+              const plySource = `${item.product_name} ${spec || ''} ${desc || ''}`;
+              const plyMatch = plySource.match(/(\d+)\s*[Pp]ly\b/);
+              const ply = plyMatch ? `${plyMatch[1]} Ply` : '—';
+              const withVat = item.unit_price * (1 + vatPct / 100);
+              return `
         <tr>
-          <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
-          <td style="vertical-align: top;">
-            <b>${item.product_name}</b>
-            ${descHtml}
-          </td>
-          <td style="text-align: center; vertical-align: bottom;">${item.quantity}</td>
-          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(item.unit_price)}</td>
-          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(amount)}</td>
-        </tr>
-      `;
-    }).join('') || '<tr><td colspan="5" style="text-align: center;">No items found</td></tr>';
+          <td style="text-align: center; vertical-align: top;">${index + 1}</td>
+          <td style="vertical-align: top;">${esc(item.product_name)}</td>
+          <td style="vertical-align: top; font-size: 10pt;">${esc(descText).replace(/\n/g, '<br>')}</td>
+          <td style="text-align: center; vertical-align: top;">${ply}</td>
+          <td style="text-align: right; vertical-align: top;">${formatCurrency(item.unit_price)}</td>
+          <td style="text-align: right; vertical-align: top;">${formatCurrency(withVat)}</td>
+        </tr>`;
+            })
+            .join('')
+        : '<tr><td colspan="6" style="text-align: center;">No items found</td></tr>';
+
+    const termsRaw = order.terms?.trim();
+    const termsLines = termsRaw ? termsRaw.split('\n').filter((l) => l.trim()) : [];
+    const termsHtml =
+      termsLines.length > 0
+        ? `
+    <div class="terms-block">
+        <div class="terms-title">Terms &amp; conditions</div>
+        ${termsLines
+          .map(
+            (line, i) => `
+        <div class="term-line">${i + 1}. ${esc(line.trim())}</div>`
+          )
+          .join('')}
+    </div>`
+        : '';
 
     const hasQuotationBg = Boolean(settings?.quotation_background_base64);
 
-    return `
-<!DOCTYPE html>
+    const logoHtml = settings?.quotation_logo_base64
+      ? `<img src="${settings.quotation_logo_base64}" alt="Logo" style="max-height: 48px; max-width: 180px; margin-bottom: 8px;">`
+      : settings?.invoice_logo_base64
+        ? `<img src="${settings.invoice_logo_base64}" alt="Logo" style="max-height: 48px; max-width: 180px; margin-bottom: 8px;">`
+        : '';
+
+    const recipientExtraHtml = recipientExtra
+      ? recipientExtra
+          .split(/\n+/)
+          .map((line) => `<div class="rec-line">${esc(line.trim())}</div>`)
+          .join('')
+      : '';
+
+    const billingHtml = billingLines.map((l) => `<div class="rec-line">${esc(l)}</div>`).join('');
+
+    const attentionHtml = attention
+      ? `<div class="rec-line" style="margin-top: 6px;">Atten. ${esc(attention)}</div>`
+      : '';
+
+    return `<!DOCTYPE html>
 <html${hasQuotationBg ? ' class="quotation-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
-    <title>Quotation ${order.order_number}</title>
+    <title>Quotation ${esc(order.order_number)}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 0; 
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        ${hasQuotationBg
-          ? `/* Chromium PDF often clips html/body backgrounds; use a fixed A4 layer behind content. */
-        html.quotation-with-bg {
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-        }
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ${
+          hasQuotationBg
+            ? `html.quotation-with-bg { margin: 0; padding: 0; background: #ffffff; }
         .quotation-bg-layer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            margin: 0;
-            padding: 0;
-            pointer-events: none;
-            background-color: #ffffff;
-            background-image: url("${settings.quotation_background_base64}");
-            background-repeat: no-repeat;
-            background-position: center top;
-            background-size: cover;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none; background-color: #ffffff;
+            /* background-image: url("${settings.quotation_background_base64}"); */
+            background-repeat: no-repeat; background-position: center top; background-size: cover;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
-        html.quotation-with-bg body > *:not(.quotation-bg-layer):not(.footer) {
-            position: relative;
-            z-index: 1;
-        }`
-          : ''}
+        html.quotation-with-bg body > *:not(.quotation-bg-layer) { position: relative; z-index: 1; }`
+            : ''
+        }
         body {
             font-family: 'Times New Roman', Times, serif;
-            font-size: 11pt;
-            color: #000;
-            line-height: 1.3;
-            padding: 40px;
-            ${hasQuotationBg
-              ? `background: transparent none;
-            margin: 0;
-            min-height: 297mm;`
-              : `background: white;
-            background: linear-gradient(to bottom right, #f0f8ff, #ffffff 30%, #ffffff 70%, #e0f0ff);`}
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-        }
-        .logo-section h1 {
-            color: #555;
-            font-size: 24pt;
-            font-weight: bold;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-        }
-        .logo-section h1 span.logo-icon {
-            color: #d12c2c;
-            font-style: italic;
-            margin-right: 8px;
-            font-size: 28pt;
-        }
-        .logo-section p {
-            color: #d12c2c;
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            margin-top: 2px;
-            letter-spacing: 0.5px;
-            margin-left: 50px;
-        }
-        .header-web {
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            color: #333;
-            margin-top: 10px;
-        }
-        .date-text {
-            margin-bottom: 15px;
-            font-family: 'Times New Roman', serif;
-        }
-        .title-box {
-            text-align: center;
-            margin-bottom: 20px;
-            margin-top: -20px;
-        }
-        .title {
-            font-size: 14pt;
-            font-weight: bold;
-            text-decoration: underline;
-            font-family: 'Times New Roman', serif;
-        }
-        table.border-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 5px;
-        }
-        table.border-table th, table.border-table td {
-            border: 1px solid #000;
-            padding: 5px 8px;
-        }
-        table.border-table th {
-            font-weight: bold;
-            text-align: center;
-        }
-        .buyer-supplier-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .buyer-supplier-table th, .buyer-supplier-table td {
-            border: 1px solid #000;
-            padding: 5px 8px;
-            vertical-align: top;
-            width: 50%;
-        }
-        .buyer-supplier-table th {
-            text-align: center;
-            font-weight: bold;
-        }
-        .salutation {
-            margin-bottom: 10px;
-        }
-        .salutation p {
-            margin-bottom: 5px;
-        }
-        .total-row td {
-            font-weight: bold;
-        }
-        .in-words {
-            font-weight: bold;
-            font-style: italic;
-            margin-bottom: 40px;
-            margin-top: 5px;
-        }
-        .terms-conditions {
-            margin-bottom: 20px;
-        }
-        .terms-conditions h4 {
-            font-weight: bold;
-            font-size: 11pt;
-            margin-bottom: 10px;
-        }
-        .terms-list {
-            display: table;
-        }
-        .terms-list-item {
-            display: table-row;
-        }
-        .terms-list-num {
-            display: table-cell;
-            padding-right: 15px;
-            padding-left: 20px;
-            text-align: right;
-            width: 30px;
-        }
-        .terms-list-text {
-            display: table-cell;
-            padding-bottom: 5px;
-        }
-        .account-info {
-            margin-bottom: 30px;
-            margin-top: 20px;
-            margin-left: 20px;
-        }
-        .account-info h4 {
-            font-weight: bold;
-            font-size: 11pt;
-            margin-bottom: 10px;
-            margin-left: -20px;
-        }
-        .account-table {
-            border-collapse: collapse;
-        }
-        .account-table td {
-            padding: 2px 10px 2px 0;
-            vertical-align: top;
-        }
-        .account-table td:first-child {
-            font-weight: bold;
-            width: 130px;
-        }
-        .account-table td:nth-child(2) {
-            font-weight: bold;
-            width: 10px;
-        }
-        .account-table td.val {
-            font-weight: bold;
-        }
-        .closing {
-            margin-bottom: 30px;
-        }
-        
-        .footer {
-            position: fixed;
-            bottom: 0px;
-            left: 0px;
-            right: 0px;
-            padding: 15px 40px;
             font-size: 10pt;
-            font-family: Arial, sans-serif;
-            color: #555;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(200, 230, 255, 0.4);
-            border-top: 1px solid #888;
-            z-index: 2;
+            color: #000;
+            line-height: 1.35;
+            padding: 36px 40px 48px;
+            background: ${hasQuotationBg ? 'transparent' : '#fff'};
+            min-height: 297mm;
+            box-sizing: border-box;
         }
-        .footer-col {
-            line-height: 1.4;
+        .header-center { text-align: center; margin-bottom: 20px; }
+        .co-en { font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+        .co-bn { font-size: 11pt; font-weight: bold; margin-bottom: 6px; }
+        .co-line { margin-bottom: 2px; }
+        .meta { margin-bottom: 16px; }
+        .meta div { margin-bottom: 3px; }
+        .rec-block { margin-bottom: 14px; }
+        .rec-line { margin-bottom: 2px; }
+        .subject { font-weight: bold; text-decoration: underline; margin-bottom: 8px; }
+        .body-p { margin-bottom: 6px; }
+        .q-title { text-align: center; font-weight: bold; text-decoration: underline; font-size: 11pt; margin: 6px 0 10px; }
+        table.q-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        table.q-table th, table.q-table td {
+            border: 1px solid #000; padding: 5px; font-size: 9pt; vertical-align: top;
         }
+        table.q-table th { font-weight: bold; text-align: center; }
+        .terms-block { margin: 6px 0 10px; }
+        .terms-title { font-weight: bold; margin-bottom: 4px; }
+        .term-line { font-size: 9pt; margin-bottom: 2px; }
+        .closing { margin-bottom: 4px; }
+        .sign-block { margin-top: 4px; }
+        .sig-name { font-weight: bold; }
     </style>
 </head>
 <body>
     ${hasQuotationBg ? '<div class="quotation-bg-layer" aria-hidden="true"></div>' : ''}
-    <div class="header">
-        <div class="logo-section">
-            ${settings?.quotation_logo_base64 ? `
-                <img src="${settings.quotation_logo_base64}" alt="Logo" style="max-height: 80px; max-width: 250px;">
-            ` : settings?.invoice_logo_base64 ? `
-                <img src="${settings.invoice_logo_base64}" alt="Logo" style="max-height: 80px; max-width: 250px;">
-            ` : `
-                <h1><span class="logo-icon">//</span> ${settings?.company_name || 'MICROMEDIA'}</h1>
-                <p>YOUR ONE-STOP PRINTSHOP</p>
-            `}
-        </div>
-        <div class="header-web">
-            ${settings?.website || 'www.micromediabd.com'}
-        </div>
+    <div class="header-center">
+        <!-- ${logoHtml} -->
+        <div class="co-en">${esc(companyName)}</div>
+        ${companyNameBn ? `<div class="co-bn">${esc(companyNameBn)}</div>` : ''}
+        ${address ? `<div class="co-line">${esc(address)}</div>` : ''}
+        ${mobileLine ? `<div class="co-line">Mobile : ${esc(mobileLine)}</div>` : ''}
+        ${emailLine ? `<div class="co-line">E-mail : ${esc(emailLine)}</div>` : ''}
     </div>
-    
-    <div class="date-text">
-        Date: ${formatDate(order.order_date)}
+    <div class="meta">
+        <div>Ref: ${esc(refText)}</div>
+        <div>Date: - ${formatDate(order.order_date)}</div>
     </div>
-
-    <div class="title-box">
-        <div class="title">Quotation for ${order.notes || "Gift Items"}</div>
+    <div class="rec-block">
+        <div class="rec-line">To,</div>
+        ${recipientExtraHtml}
+        <div class="rec-line">${esc(order.factory_customer_name)}</div>
+        ${billingHtml}
+        ${attentionHtml}
     </div>
-
-    <table class="buyer-supplier-table">
+    <div class="subject">${esc(subjectText)}</div>
+    <div class="body-p">Dear Sir,</div>
+    <div class="body-p">${esc(opening)}</div>
+    <div class="q-title">Quotation</div>
+    <table class="q-table">
         <thead>
             <tr>
-                <th>BUYER</th>
-                <th>SUPPLIER</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>
-                    To,<br>
-                    <b>${order.factory_customer_name}</b><br>
-                    ${order.billing_address?.street || ""}<br>
-                    ${order.billing_address?.city || ""}<br>
-                    <br>
-                    Phone: ${order.factory_customer_phone || ""}.<br>
-                    Email: ${order.factory_customer_email || ""}.
-                </td>
-                <td>
-                    <b>${settings?.company_name ? `M/S ${settings.company_name.toUpperCase()}` : 'M/S MICROMEDIA'}</b><br>
-                    Address: ${settings?.company_address || '48, South Begunbari, Tejgaon I/A, Dhaka-1208.'}<br>
-                    ${settings?.phone ? `Phone: ${settings.phone}<br>` : ''}
-                    ${settings?.company_email ? `Email: ${settings.company_email}<br>` : ''}
-                    ${settings?.tax_id ? `Tax ID: ${settings.tax_id}` : 'VAT REGISTRATION NO-004548035-0203'}
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div class="salutation">
-        <p>Dear Sir,</p>
-        <p>As per discussion, we are pleased to submit the quotation of the following items:</p>
-    </div>
-
-    <table class="border-table">
-        <thead>
-            <tr>
-                <th width="8%">S.no</th>
-                <th width="52%">Name of the Product</th>
-                <th width="10%">Qty</th>
-                <th width="15%">U.Price</th>
-                <th width="15%">Amount (Tk.)</th>
+                <th style="width:6%;">SI. No</th>
+                <th style="width:18%;">Item Name</th>
+                <th style="width:40%;">Description</th>
+                <th style="width:10%;">Ply</th>
+                <th style="width:13%;">Rate</th>
+                <th style="width:13%;">+ ${vatPct}% VAT</th>
             </tr>
         </thead>
         <tbody>
             ${itemsHtml}
-            <tr class="total-row">
-                <td colspan="4" style="text-align: right;">Total</td>
-                <td style="text-align: right;">${formatCurrency(order.total_value)}</td>
-            </tr>
         </tbody>
     </table>
-
-    <div class="in-words">
-        In Word: ${numberToWords(Math.round(order.total_value))}
-    </div>
-
-    <div class="terms-conditions">
-        <h4>Terms & Condition</h4>
-        <div class="terms-list">
-            ${(order.terms || "").trim() ? (order.terms || "").split('\n').filter(line => line.trim()).map((line, index) => `
-                <div class="terms-list-item">
-                    <div class="terms-list-num">${index + 1}</div>
-                    <div class="terms-list-text">${line.trim()}</div>
-                </div>
-            `).join('') : `
-                <div class="terms-list-item">
-                    <div class="terms-list-num">1</div>
-                    <div class="terms-list-text">Price Excluding TAX & Vat .</div>
-                </div>
-                <div class="terms-list-item">
-                    <div class="terms-list-num">2</div>
-                    <div class="terms-list-text">50% in advance and rest of <b>payment will be Bank Transfer.</b></div>
-                </div>
-                <div class="terms-list-item">
-                    <div class="terms-list-num">3</div>
-                    <div class="terms-list-text">Payment should be made by Cash/Cash Cheque on be heaved <b>Micromedia</b> or Bank Transfer.</div>
-                </div>
-                <div class="terms-list-item">
-                    <div class="terms-list-num">4</div>
-                    <div class="terms-list-text">Delivery will be confirm within 10 working days after getting the approval.</div>
-                </div>
-            `}
-        </div>
-    </div>
-
-    <div class="account-info">
-        <h4>Account Information:</h4>
-        <table class="account-table">
-            <tr><td>Account Name</td><td>:</td><td class="val">${settings?.account_name || 'MICROMEDIA'}</td></tr>
-            <tr><td>Account Number</td><td>:</td><td class="val">${settings?.account_number || '2075898530001'}</td></tr>
-            <tr><td>Bank Name</td><td>:</td><td class="val">${settings?.bank_name || 'Brac-Bank PLC'}</td></tr>
-            <tr><td>Branch</td><td>:</td><td class="val">${settings?.bank_branch || 'Kawran Bazar Branch'}</td></tr>
-            <tr><td>Routing Number</td><td>:</td><td class="val">${settings?.routing_number || '060261397'}</td></tr>
-        </table>
-    </div>
-
-    <div class="closing">
-        Your kind Co-operation in this regard will be highly Appreciate.
-    </div>
-
-    <div class="footer">
-        <div class="footer-col">
-            ${settings?.company_address || '48, South Begunbari, Tejgaon I/A, Dhaka-1208.'}
-        </div>
-        <div class="footer-col" style="text-align: center;">
-            ${settings?.phone || '+8802223314188'}
-        </div>
-        <div class="footer-col" style="text-align: left;">
-            ${settings?.company_email || 'micromediaprinting@gmail.com'}<br>
-            ${settings?.facebook_url || 'fb.com/micromediabd'}
-        </div>
+    ${termsHtml}
+    <div class="closing">${esc(assurance)}</div>
+    <div class="body-p">Thanking you,</div>
+    <div class="body-p" style="margin-bottom: 28px;">Yours truly</div>
+    <div class="sign-block">
+        <div class="sig-name">(${esc(signatureName)})</div>
+        <div>${esc(signatureTitle)}</div>
+        <div>${esc(signatureOrg)}</div>
     </div>
 </body>
-</html>
-    `;
+</html>`;
   }
 
   // Generate PDF for quotation
@@ -1407,20 +1232,11 @@ export class PDFGenerator {
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
-      const fullBleedQuotationBg = Boolean(settingsData.quotation_background_base64);
-
-      // Generate PDF (zero margin when letterhead fills the page — otherwise Chromium leaves white bands)
+      // HTML `body` already sets padding; avoid double top/side gap from Chromium margins.
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: fullBleedQuotationBg
-          ? { top: '0px', right: '0px', bottom: '0px', left: '0px' }
-          : {
-              top: '20px',
-              right: '20px',
-              bottom: '20px',
-              left: '20px'
-            }
+        margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
       });
 
       await page.close();

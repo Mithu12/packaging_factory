@@ -56,7 +56,8 @@ const updateMachineSchema = Joi.object({
 
 const createMaintenanceLogSchema = Joi.object({
   maintenance_type: Joi.string().valid(...maintenanceTypes).required(),
-  performed_at: Joi.date().iso().optional(),
+  start_at: Joi.date().iso().optional(),
+  end_at: Joi.date().iso().min(Joi.ref("start_at")).optional(),
   technician: Joi.string().max(255).allow("", null).optional(),
   cost: Joi.number().min(0).precision(2).optional(),
   next_service_date: Joi.date().iso().allow(null).optional(),

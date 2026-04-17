@@ -62,7 +62,8 @@ function serializeLog(row: any): MachineMaintenanceLog {
     id: row.id.toString(),
     machine_id: row.machine_id.toString(),
     maintenance_type: row.maintenance_type,
-    performed_at: row.performed_at.toISOString(),
+    start_at: row.start_at.toISOString(),
+    end_at: row.end_at ? row.end_at.toISOString() : undefined,
     technician: row.technician ?? undefined,
     cost: Number(row.cost ?? 0),
     next_service_date: row.next_service_date
@@ -411,7 +412,7 @@ export class MachineMediator {
         `SELECT *
          FROM machine_maintenance_logs
          WHERE machine_id = $1
-         ORDER BY performed_at DESC
+         ORDER BY start_at DESC
          LIMIT $2 OFFSET $3`,
         [machine_id, limit, offset]
       );
@@ -441,14 +442,15 @@ export class MachineMediator {
 
       const logResult = await client.query(
         `INSERT INTO machine_maintenance_logs (
-           machine_id, maintenance_type, performed_at, technician, cost,
+           machine_id, maintenance_type, start_at, end_at, technician, cost,
            next_service_date, notes, created_by
-         ) VALUES ($1,$2, COALESCE($3, CURRENT_TIMESTAMP), $4, COALESCE($5, 0), $6, $7, $8)
+         ) VALUES ($1,$2, COALESCE($3, CURRENT_TIMESTAMP), $4, $5, COALESCE($6, 0), $7, $8, $9)
          RETURNING *`,
         [
           machine_id,
           data.maintenance_type,
-          data.performed_at ?? null,
+          data.start_at ?? null,
+          data.end_at ?? null,
           data.technician ?? null,
           data.cost ?? 0,
           data.next_service_date ?? null,

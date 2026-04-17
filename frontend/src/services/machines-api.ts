@@ -28,7 +28,8 @@ export interface MachineMaintenanceLog {
   id: string;
   machine_id: string;
   maintenance_type: MaintenanceType;
-  performed_at: string;
+  start_at: string;
+  end_at?: string;
   technician?: string;
   cost: number;
   next_service_date?: string;
@@ -57,7 +58,8 @@ export interface UpdateMachineRequest extends Partial<CreateMachineRequest> {
 
 export interface CreateMachineMaintenanceLogRequest {
   maintenance_type: MaintenanceType;
-  performed_at?: string;
+  start_at?: string;
+  end_at?: string;
   technician?: string;
   cost?: number;
   next_service_date?: string;

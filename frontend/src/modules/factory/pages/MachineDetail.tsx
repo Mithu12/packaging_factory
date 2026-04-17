@@ -61,12 +61,38 @@ function isOverdue(dateStr?: string): boolean {
   return due < today;
 }
 
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDuration(startIso: string, endIso?: string): string {
+  if (!endIso) return "—";
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 type LogForm = Required<Pick<CreateMachineMaintenanceLogRequest, "maintenance_type">> &
   Omit<CreateMachineMaintenanceLogRequest, "maintenance_type">;
 
+function nowLocal(): string {
+  // Returns current local datetime in the format <input type="datetime-local"> expects (YYYY-MM-DDTHH:MM)
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 const emptyLogForm: LogForm = {
   maintenance_type: "preventive",
-  performed_at: new Date().toISOString().slice(0, 10),
+  start_at: nowLocal(),
+  end_at: "",
   technician: "",
   cost: 0,
   next_service_date: "",
@@ -137,9 +163,23 @@ export default function MachineDetailPage() {
 
   const handleLogSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // datetime-local inputs produce "YYYY-MM-DDTHH:MM" with no timezone; let Date interpret as local
+    const toIso = (local?: string) =>
+      local ? new Date(local).toISOString() : undefined;
+
+    if (logForm.start_at && logForm.end_at) {
+      const start = new Date(logForm.start_at).getTime();
+      const end = new Date(logForm.end_at).getTime();
+      if (end < start) {
+        toast.error("End time must be on or after start time");
+        return;
+      }
+    }
+
     const payload: CreateMachineMaintenanceLogRequest = {
       maintenance_type: logForm.maintenance_type,
-      performed_at: logForm.performed_at || undefined,
+      start_at: toIso(logForm.start_at),
+      end_at: toIso(logForm.end_at),
       technician: logForm.technician || undefined,
       cost: Number(logForm.cost) || 0,
       next_service_date: logForm.next_service_date || undefined,
@@ -241,7 +281,9 @@ export default function MachineDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Start</TableHead>
+                  <TableHead>End</TableHead>
+                  <TableHead>Duration</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Technician</TableHead>
                   <TableHead className="text-right">Cost</TableHead>
@@ -253,8 +295,14 @@ export default function MachineDetailPage() {
               <TableBody>
                 {logs.map((log) => (
                   <TableRow key={log.id}>
-                    <TableCell>
-                      {new Date(log.performed_at).toISOString().slice(0, 10)}
+                    <TableCell className="whitespace-nowrap">
+                      {formatDateTime(log.start_at)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {log.end_at ? formatDateTime(log.end_at) : "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDuration(log.start_at, log.end_at)}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={TYPE_BADGE[log.maintenance_type]}>
@@ -313,13 +361,27 @@ export default function MachineDetailPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="performed_at">Performed On</Label>
+                <Label htmlFor="start_at">Start *</Label>
                 <Input
-                  id="performed_at"
-                  type="date"
-                  value={logForm.performed_at ?? ""}
-                  onChange={(e) => setLogForm({ ...logForm, performed_at: e.target.value })}
+                  id="start_at"
+                  type="datetime-local"
+                  value={logForm.start_at ?? ""}
+                  onChange={(e) => setLogForm({ ...logForm, start_at: e.target.value })}
+                  required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_at">End</Label>
+                <Input
+                  id="end_at"
+                  type="datetime-local"
+                  value={logForm.end_at ?? ""}
+                  onChange={(e) => setLogForm({ ...logForm, end_at: e.target.value })}
+                  min={logForm.start_at ?? undefined}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank if work is still ongoing.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="technician">Technician</Label>

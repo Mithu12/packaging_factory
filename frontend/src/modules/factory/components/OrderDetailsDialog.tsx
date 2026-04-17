@@ -37,7 +37,6 @@ import {
     Loader2,
     History,
 } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
 import {
     FactoryCustomerOrder,
     CustomerOrdersApiService,
@@ -47,9 +46,6 @@ import {
 import { QuotedSnapshotDialog } from "./QuotedSnapshotDialog";
 import { useFormatting } from "@/hooks/useFormatting";
 import { Progress } from "@/components/ui/progress";
-import { QuotationPDF } from "./QuotationPDF";
-import { SettingsApi } from "@/services/settings-api";
-import type { CompanySettings } from "@/services/settings-types";
 
 interface OrderDetailsDialogProps {
     open: boolean;
@@ -57,29 +53,6 @@ interface OrderDetailsDialogProps {
     order: FactoryCustomerOrder | null;
     onEdit?: (order: FactoryCustomerOrder) => void;
 }
-
-const loadLogoAsBase64 = (logoUrl: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-        const img = new window.Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-            try {
-                const canvas = document.createElement("canvas");
-                canvas.width = img.naturalWidth || img.width;
-                canvas.height = img.naturalHeight || img.height;
-                const ctx = canvas.getContext("2d");
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0);
-                    resolve(canvas.toDataURL("image/png"));
-                } else resolve(null);
-            } catch {
-                resolve(null);
-            }
-        };
-        img.onerror = () => resolve(null);
-        img.src = logoUrl + (logoUrl.includes("?") ? "&" : "?") + "t=" + Date.now();
-    });
-};
 
 export default function OrderDetailsDialog({
                                                open,
@@ -90,9 +63,8 @@ export default function OrderDetailsDialog({
     const { formatCurrency, formatDate } = useFormatting();
     const [paymentHistory, setPaymentHistory] = useState<FactoryCustomerPayment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(false);
-    const [quotationCompanySettings, setQuotationCompanySettings] = useState<CompanySettings | null>(null);
-    const [quotationLogoBase64, setQuotationLogoBase64] = useState<string | null>(null);
     const [quotationPrintLoading, setQuotationPrintLoading] = useState(false);
+    const [quotationDownloadLoading, setQuotationDownloadLoading] = useState(false);
     const [quotedSnapshotOpen, setQuotedSnapshotOpen] = useState(false);
 
     // Load payment history when order changes
@@ -101,33 +73,6 @@ export default function OrderDetailsDialog({
             loadPaymentHistory();
         }
     }, [order?.id, open]);
-
-    // Load company settings and logo when order is a quotation and dialog opens
-    useEffect(() => {
-        if (!order || !open || order.status !== "quoted") return;
-        let cancelled = false;
-        const load = async () => {
-            try {
-                const settings = await SettingsApi.getCompanySettings();
-                if (cancelled) return;
-                setQuotationCompanySettings(settings);
-                if (settings.invoice_logo) {
-                    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:9000";
-                    const logoUrl = settings.invoice_logo.startsWith("http")
-                        ? settings.invoice_logo
-                        : `${baseUrl}${settings.invoice_logo}`;
-                    const base64 = await loadLogoAsBase64(logoUrl);
-                    if (!cancelled && base64) setQuotationLogoBase64(base64);
-                }
-            } catch (error) {
-                console.error("Failed to load company settings for quotation:", error);
-            }
-        };
-        load();
-        return () => {
-            cancelled = true;
-        };
-    }, [order?.id, order?.status, open]);
 
     const loadPaymentHistory = async () => {
         if (!order) return;
@@ -194,32 +139,11 @@ export default function OrderDetailsDialog({
         return quantity * unitPrice;
     };
 
-    const formatCurrencyForPDF = (val: number) => {
-        return val.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
-    };
-
     const handlePrintQuotation = async () => {
         if (!order || order.status !== "quoted") return;
         setQuotationPrintLoading(true);
         try {
-            const blob = await pdf(
-                <QuotationPDF
-                    order={order}
-                    companySettings={quotationCompanySettings}
-                    logoBase64={quotationLogoBase64}
-                    formatCurrency={formatCurrencyForPDF}
-                />
-            ).toBlob();
-            const url = window.URL.createObjectURL(blob);
-            const printWindow = window.open(url);
-            if (printWindow) {
-                printWindow.onload = () => {
-                    printWindow.print();
-                };
-            }
+            await CustomerOrdersApiService.printQuotationPdf(order.id);
         } catch (error) {
             console.error("Failed to print quotation:", error);
         } finally {
@@ -229,28 +153,13 @@ export default function OrderDetailsDialog({
 
     const handleDownloadQuotation = async () => {
         if (!order || order.status !== "quoted") return;
-        setQuotationPrintLoading(true);
+        setQuotationDownloadLoading(true);
         try {
-            const blob = await pdf(
-                <QuotationPDF
-                    order={order}
-                    companySettings={quotationCompanySettings}
-                    logoBase64={quotationLogoBase64}
-                    formatCurrency={formatCurrencyForPDF}
-                />
-            ).toBlob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `quotation-${order.order_number}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            await CustomerOrdersApiService.downloadQuotationPdf(order.id);
         } catch (error) {
             console.error("Failed to download quotation:", error);
         } finally {
-            setQuotationPrintLoading(false);
+            setQuotationDownloadLoading(false);
         }
     };
 
@@ -313,8 +222,11 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
             snapshot={parsedQuotedSnapshot}
         />
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="order-details-dialog">
-                <DialogHeader>
+            <DialogContent
+                className="max-w-4xl max-h-[90vh] overflow-y-auto print:max-h-none print:max-w-none print:w-full print:overflow-visible print:border-0 print:shadow-none sm:max-w-4xl"
+                data-testid="order-details-dialog"
+            >
+                <DialogHeader className="print:hidden">
                     <div className="flex items-center justify-between">
                         <div>
                             <DialogTitle className="text-2xl" data-testid="order-details-title">Order Details</DialogTitle>
@@ -342,9 +254,9 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                         variant="outline"
                                         size="sm"
                                         onClick={handleDownloadQuotation}
-                                        disabled={quotationPrintLoading}
+                                        disabled={quotationDownloadLoading}
                                     >
-                                        {quotationPrintLoading ? (
+                                        {quotationDownloadLoading ? (
                                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                         ) : (
                                             <Download className="h-4 w-4 mr-2" />
@@ -385,7 +297,7 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                     </div>
                 </DialogHeader>
 
-                <div className="space-y-6">
+                <div className="space-y-6 print:hidden">
                     {/* Order Status and Priority */}
                     <div className="flex items-center space-x-4">
                         <Badge className={getStatusColor(order.status)}>
@@ -699,7 +611,7 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                 </div>
 
                 {/* Dialog Actions */}
-                <div className="flex justify-end space-x-4 pt-6">
+                <div className="flex justify-end space-x-4 pt-6 print:hidden">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Close
                     </Button>
