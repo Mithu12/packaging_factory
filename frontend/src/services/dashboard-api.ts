@@ -11,6 +11,15 @@ export interface ServiceDueItem {
   days_until_due: number;
 }
 
+export interface MachineMaintenanceDueItem {
+  machine_id: number;
+  machine_name: string;
+  machine_code: string;
+  production_line_name: string | null;
+  next_service_date: string;
+  days_until_due: number;
+}
+
 export interface DashboardStats {
   // Financial Metrics
   total_sales: number;
@@ -30,6 +39,8 @@ export interface DashboardStats {
   warranty_due_items: ServiceDueItem[];
   service_due_count: number;
   service_due_items: ServiceDueItem[];
+  machine_maintenance_due_count: number;
+  machine_maintenance_due_items: MachineMaintenanceDueItem[];
   
   // Customer Metrics
   total_outstanding_dues: number;

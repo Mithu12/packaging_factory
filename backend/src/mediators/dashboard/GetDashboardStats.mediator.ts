@@ -12,6 +12,15 @@ export interface ServiceDueItem {
   days_until_due: number;
 }
 
+export interface MachineMaintenanceDueItem {
+  machine_id: number;
+  machine_name: string;
+  machine_code: string;
+  production_line_name: string | null;
+  next_service_date: string;
+  days_until_due: number;
+}
+
 export interface DashboardStats {
   // Financial Metrics
   total_sales: number;
@@ -31,6 +40,8 @@ export interface DashboardStats {
   warranty_due_items: ServiceDueItem[];
   service_due_count: number;
   service_due_items: ServiceDueItem[];
+  machine_maintenance_due_count: number;
+  machine_maintenance_due_items: MachineMaintenanceDueItem[];
   
   // Customer Metrics
   total_outstanding_dues: number;
@@ -222,6 +233,32 @@ export class GetDashboardStatsMediator {
         AND (so.order_date + (p.service_time || ' months')::interval)::date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
       `;
 
+      // Machine maintenance due: machines with next_service_date already passed or within 30 days
+      const machineMaintenanceDueQuery = `
+        SELECT
+          m.id as machine_id,
+          m.name as machine_name,
+          m.code as machine_code,
+          pl.name as production_line_name,
+          m.next_service_date::text,
+          (m.next_service_date - CURRENT_DATE)::integer as days_until_due
+        FROM machines m
+        LEFT JOIN production_lines pl ON m.production_line_id = pl.id
+        WHERE m.is_active = true
+        AND m.next_service_date IS NOT NULL
+        AND m.next_service_date <= CURRENT_DATE + INTERVAL '30 days'
+        ORDER BY m.next_service_date ASC
+        LIMIT 10
+      `;
+
+      const machineMaintenanceDueCountQuery = `
+        SELECT COUNT(*) as count
+        FROM machines m
+        WHERE m.is_active = true
+        AND m.next_service_date IS NOT NULL
+        AND m.next_service_date <= CURRENT_DATE + INTERVAL '30 days'
+      `;
+
       // Customer dues
       const customerDuesQuery = `
         SELECT 
@@ -250,6 +287,8 @@ export class GetDashboardStatsMediator {
         warrantyDueCountResult,
         serviceDueResult,
         serviceDueCountResult,
+        machineMaintenanceDueResult,
+        machineMaintenanceDueCountResult,
         customerDuesResult,
         pendingOrdersResult
       ] = await Promise.all([
@@ -263,6 +302,8 @@ export class GetDashboardStatsMediator {
         pool.query(warrantyDueCountQuery),
         pool.query(serviceDueQuery),
         pool.query(serviceDueCountQuery),
+        pool.query(machineMaintenanceDueQuery),
+        pool.query(machineMaintenanceDueCountQuery),
         pool.query(customerDuesQuery),
         pool.query(pendingOrdersQuery)
       ]);
@@ -308,7 +349,16 @@ export class GetDashboardStatsMediator {
           due_date: row.due_date,
           days_until_due: row.days_until_due
         })),
-        
+        machine_maintenance_due_count: parseInt(machineMaintenanceDueCountResult.rows[0].count),
+        machine_maintenance_due_items: machineMaintenanceDueResult.rows.map(row => ({
+          machine_id: row.machine_id,
+          machine_name: row.machine_name,
+          machine_code: row.machine_code,
+          production_line_name: row.production_line_name,
+          next_service_date: row.next_service_date,
+          days_until_due: row.days_until_due
+        })),
+
         // Customer
         total_outstanding_dues: parseFloat(customerDuesResult.rows[0].total_outstanding_dues),
         customers_with_dues: parseInt(customerDuesResult.rows[0].customers_with_dues),

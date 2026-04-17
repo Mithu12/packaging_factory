@@ -373,7 +373,7 @@ export default function Dashboard() {
       </div>
 
       {/* Service Overview Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Warranty Due */}
         <Card className="bg-sky-50/50 border-sky-100 dark:bg-sky-950/20 dark:border-sky-900 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
@@ -467,6 +467,56 @@ export default function Dashboard() {
               <div className="text-center py-8 text-muted-foreground">
                 <Wrench className="w-12 h-12 mx-auto mb-2 opacity-30" />
                 <p>No services due in the next 30 days</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Machine Maintenance Due */}
+        <Card className="bg-red-50/50 border-red-100 dark:bg-red-950/20 dark:border-red-900 shadow-md hover:shadow-lg transition-all duration-300">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                Machine Maintenance
+              </span>
+              <Badge variant="secondary" className="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-200 dark:hover:bg-red-900/70">
+                {stats?.machine_maintenance_due_count || 0} items
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(stats?.machine_maintenance_due_items?.length || 0) > 0 ? (
+              <div className="space-y-3">
+                {stats?.machine_maintenance_due_items.map((item) => (
+                  <div key={item.machine_id} className="p-3 rounded-lg border border-red-200 bg-red-50/50 hover:bg-red-50 dark:border-red-800 dark:bg-red-950/25 dark:hover:bg-red-950/40 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{item.machine_name}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {item.machine_code}
+                          {item.production_line_name && ` • ${item.production_line_name}`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge
+                          variant={item.days_until_due <= 0 ? "destructive" : "secondary"}
+                          className="text-xs"
+                        >
+                          {item.days_until_due <= 0 ? "Overdue" : `${item.days_until_due} days`}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">{item.next_service_date}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                <p>No machine maintenance due in the next 30 days</p>
               </div>
             )}
           </CardContent>

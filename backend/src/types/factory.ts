@@ -504,6 +504,44 @@ export interface Operator {
     user_email?: string;
 }
 
+export type MachineStatus = 'active' | 'inactive' | 'under_maintenance';
+export type MaintenanceType = 'preventive' | 'corrective';
+
+export interface Machine {
+    id: string;
+    factory_id?: number | null;
+    production_line_id?: number | null;
+    name: string;
+    code: string;
+    model?: string;
+    serial_number?: string;
+    manufacturer?: string;
+    purchase_date?: string;
+    location?: string;
+    status: MachineStatus;
+    next_service_date?: string;
+    notes?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string;
+    // Populated from joins
+    production_line_name?: string;
+    factory_name?: string;
+}
+
+export interface MachineMaintenanceLog {
+    id: string;
+    machine_id: string;
+    maintenance_type: MaintenanceType;
+    performed_at: string;
+    technician?: string;
+    cost: number;
+    next_service_date?: string;
+    notes?: string;
+    created_at: string;
+    updated_at?: string;
+}
+
 export interface WorkOrderAssignment {
     id: string;
     work_order_id: string;
@@ -595,6 +633,45 @@ export interface UpdateProductionLineRequest {
     location?: string;
     status?: 'available' | 'busy' | 'maintenance' | 'offline';
     is_active?: boolean;
+}
+
+// Machine Management
+export interface CreateMachineRequest {
+    name: string;
+    code: string;
+    model?: string;
+    serial_number?: string;
+    manufacturer?: string;
+    purchase_date?: string;
+    location?: string;
+    production_line_id?: number | null;
+    status?: MachineStatus;
+    next_service_date?: string;
+    notes?: string;
+}
+
+export interface UpdateMachineRequest {
+    name?: string;
+    code?: string;
+    model?: string;
+    serial_number?: string;
+    manufacturer?: string;
+    purchase_date?: string;
+    location?: string;
+    production_line_id?: number | null;
+    status?: MachineStatus;
+    next_service_date?: string;
+    notes?: string;
+    is_active?: boolean;
+}
+
+export interface CreateMachineMaintenanceLogRequest {
+    maintenance_type: MaintenanceType;
+    performed_at?: string;
+    technician?: string;
+    cost?: number;
+    next_service_date?: string;
+    notes?: string;
 }
 
 // Operator Management

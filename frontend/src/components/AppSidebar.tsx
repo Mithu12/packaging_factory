@@ -330,6 +330,12 @@ const menuSections: MenuSection[] = [
         icon: Settings,
         permission: PERMISSIONS.FACTORY_PRODUCTION_LINES_READ,
       },
+      {
+        title: "Machines",
+        url: "/factory/machines",
+        icon: Wrench,
+        permission: PERMISSIONS.FACTORY_MACHINES_READ,
+      },
       // {
       //   title: "Operators",
       //   url: "/factory/operators",
