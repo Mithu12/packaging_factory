@@ -40,6 +40,7 @@ import {
   TrendingUp,
   Package2,
   Calculator as CalculatorIcon,
+  FileSpreadsheet,
   UserCheck,
   User,
   CreditCard,
@@ -315,6 +316,12 @@ const menuSections: MenuSection[] = [
         title: "Material Cost Analysis",
         url: "/factory/material-costs",
         icon: CalculatorIcon,
+        permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
+      },
+      {
+        title: "Packaging costing",
+        url: "/factory/costing",
+        icon: FileSpreadsheet,
         permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
       },
       {
