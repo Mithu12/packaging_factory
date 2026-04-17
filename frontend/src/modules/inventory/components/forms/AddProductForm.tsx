@@ -32,22 +32,16 @@ import {
   Supplier,
   CreateProductRequest,
   ApiError,
-  Origin,
 } from "@/services/api";
-import { Brand } from "@/modules/inventory/services/brand-api";
 import { ProductApi } from "@/modules/inventory/services/product-api";
 import {
   displayPrimaryCategoryLabel,
   isRawMaterialsCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories";
-import { Upload, X, Image, RefreshCw } from "lucide-react";
+import { Upload, X, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { generateSKU } from "@/utils/sku-generator";
-import {
-  generateBarcode,
-  generateBarcodeFromSKU,
-} from "@/utils/barcode-generator";
 
 interface AddProductFormProps {
   open: boolean;
@@ -106,27 +100,18 @@ interface ProductFormData {
   sku: string;
   category_id: string;
   subcategory_id: string;
-  brand_id: string;
-  origin_id: string;
   unit_of_measure: string;
   cost_price: string;
   selling_price: string;
-  wholesale_price: string;
   current_stock: string;
   min_stock_level: string;
   max_stock_level: string;
-  reorder_point: string;
   supplier_id: string;
   status: string;
   description: string;
-  barcode: string;
-  weight: string;
   dimensions: string;
-  tax_rate: string;
-  warranty_period: string;
-  service_time: string;
+  vat_rate: string;
   notes: string;
-  pv: string;
 }
 
 export function AddProductForm({
@@ -139,41 +124,30 @@ export function AddProductForm({
     sku: "",
     category_id: "",
     subcategory_id: "",
-    brand_id: "",
-    origin_id: "",
     unit_of_measure: "pcs",
     cost_price: "",
     selling_price: "",
-    wholesale_price: "",
     current_stock: "0",
     min_stock_level: "",
     max_stock_level: "",
-    reorder_point: "",
     supplier_id: "",
     status: "active",
     description: "",
-    barcode: "",
-    weight: "",
     dimensions: "",
-    tax_rate: "",
-    warranty_period: "",
-    service_time: "",
+    vat_rate: "",
     notes: "",
-    pv: "0",
   });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [origins, setOrigins] = useState<Origin[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<
     Partial<Record<keyof ProductFormData, boolean>>
   >({});
-  const [showAllFields, setShowAllFields] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(true);
 
   /** Bumps when the add dialog opens so Radix Select remounts with fresh options/value. */
   const [categorySelectKey, setCategorySelectKey] = useState(0);
@@ -256,7 +230,7 @@ export function AddProductForm({
 
     if (justOpened) {
       setCategorySelectKey((k) => k + 1);
-      setShowAllFields(false);
+      setShowAllFields(true);
     }
 
     setFormData((prev) => {
@@ -300,8 +274,6 @@ export function AddProductForm({
             limit: 100,
             primary_product_types_only: true,
           }),
-          ApiService.getBrands({ limit: 100 }),
-          ApiService.getOrigins({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 }),
         ]);
 
@@ -313,27 +285,11 @@ export function AddProductForm({
         }
 
         if (settled[1].status === "fulfilled") {
-          const v = settled[1].value;
-          setBrands(Array.isArray(v) ? v : []);
-        } else {
-          console.error("Failed to load brands:", settled[1].reason);
-          setBrands([]);
-        }
-
-        if (settled[2].status === "fulfilled") {
-          const v = settled[2].value;
-          setOrigins(Array.isArray(v) ? v : []);
-        } else {
-          console.error("Failed to load origins:", settled[2].reason);
-          setOrigins([]);
-        }
-
-        if (settled[3].status === "fulfilled") {
-          const v = settled[3].value as { suppliers?: Supplier[] };
+          const v = settled[1].value as { suppliers?: Supplier[] };
           const sups = v?.suppliers;
           setSuppliers(Array.isArray(sups) ? sups : []);
         } else {
-          console.error("Failed to load suppliers:", settled[3].reason);
+          console.error("Failed to load suppliers:", settled[1].reason);
           setSuppliers([]);
         }
 
@@ -367,10 +323,7 @@ export function AddProductForm({
         const categoryName = categories.find(
           (cat) => String(cat.id) === categoryId
         )?.name;
-        const brandName = brands.find(
-          (brand) => String(brand.id) === String(prev.brand_id)
-        )?.name;
-        next.sku = generateSKU(prev.name, categoryName, brandName);
+        next.sku = generateSKU(prev.name, categoryName);
       }
       return next;
     });
@@ -448,21 +401,13 @@ export function AddProductForm({
         subcategory_id: formData.subcategory_id
           ? parseInt(formData.subcategory_id, 10)
           : undefined,
-        brand_id: formData.brand_id ? parseInt(formData.brand_id, 10) : undefined,
-        origin_id: formData.origin_id
-          ? parseInt(formData.origin_id, 10)
-          : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: costPrice,
         selling_price: sellingPrice,
-        wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
         current_stock: parseFloat(formData.current_stock) || 0,
         min_stock_level: parseFloat(formData.min_stock_level) || 0,
         max_stock_level: formData.max_stock_level
           ? parseFloat(formData.max_stock_level)
-          : undefined,
-        reorder_point: formData.reorder_point
-          ? parseFloat(formData.reorder_point)
           : undefined,
         supplier_id: formData.supplier_id.trim()
           ? parseInt(formData.supplier_id, 10)
@@ -472,18 +417,9 @@ export function AddProductForm({
           | "inactive"
           | "discontinued"
           | "out_of_stock",
-        barcode: formData.barcode || undefined,
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
-        tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
-        warranty_period: formData.warranty_period
-          ? parseInt(formData.warranty_period)
-          : undefined,
-        service_time: formData.service_time
-          ? parseInt(formData.service_time)
-          : undefined,
+        tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
-        pv: formData.pv ? parseFloat(formData.pv) : undefined,
       };
 
       // Use the new API method that supports image upload
@@ -503,32 +439,23 @@ export function AddProductForm({
         sku: "",
         category_id: "",
         subcategory_id: "",
-        brand_id: "",
-        origin_id: "",
         unit_of_measure: "pcs",
         cost_price: "",
         selling_price: "",
-        wholesale_price: "",
         current_stock: "0",
         min_stock_level: "",
         max_stock_level: "",
-        reorder_point: "",
         supplier_id: "",
         status: "active",
         description: "",
-        barcode: "",
-        weight: "",
         dimensions: "",
-        tax_rate: "",
-        warranty_period: "",
-        service_time: "",
+        vat_rate: "",
         notes: "",
-        pv: "0",
       });
       setSelectedImage(null);
       setImagePreview("");
       setValidationErrors({});
-      setShowAllFields(false);
+      setShowAllFields(true);
 
       onProductAdded?.();
       onOpenChange(false);
@@ -555,30 +482,7 @@ export function AddProductForm({
           const categoryName = categories.find(
             (cat) => String(cat.id) === String(prev.category_id)
           )?.name;
-          const brandName = brands.find(
-            (brand) => String(brand.id) === String(prev.brand_id)
-          )?.name;
-          next.sku = generateSKU(value, categoryName, brandName);
-        }
-        return next;
-      });
-      if (value.trim()) {
-        clearFieldError(field);
-      }
-      return;
-    }
-
-    if (field === "brand_id") {
-      setFormData((prev) => {
-        const next: ProductFormData = { ...prev, brand_id: value };
-        if (prev.name.trim()) {
-          const categoryName = categories.find(
-            (cat) => String(cat.id) === String(prev.category_id)
-          )?.name;
-          const brandName = brands.find(
-            (brand) => String(brand.id) === String(value)
-          )?.name;
-          next.sku = generateSKU(prev.name, categoryName, brandName);
+          next.sku = generateSKU(value, categoryName);
         }
         return next;
       });
@@ -604,30 +508,10 @@ export function AddProductForm({
     const categoryName = categories.find(
       (cat) => String(cat.id) === String(formData.category_id)
     )?.name;
-    const brandName = brands.find(
-      (brand) => String(brand.id) === String(formData.brand_id)
-    )?.name;
 
-    const generatedSKU = generateSKU(formData.name, categoryName, brandName);
+    const generatedSKU = generateSKU(formData.name, categoryName);
     setFormData((prev) => ({ ...prev, sku: generatedSKU }));
     toast.success("SKU generated successfully!");
-  };
-
-  const generateBarcodeFromSKUHandler = () => {
-    if (!formData.sku.trim()) {
-      toast.error("Please enter or generate a SKU first");
-      return;
-    }
-
-    const generatedBarcode = generateBarcodeFromSKU(formData.sku);
-    setFormData((prev) => ({ ...prev, barcode: generatedBarcode }));
-    toast.success("Barcode generated successfully!");
-  };
-
-  const generateRandomBarcode = () => {
-    const generatedBarcode = generateBarcode();
-    setFormData((prev) => ({ ...prev, barcode: generatedBarcode }));
-    toast.success("Random barcode generated successfully!");
   };
 
   const selectedCategoryName =
@@ -964,54 +848,6 @@ export function AddProductForm({
               {showAllFields ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Select
-                    value={formData.brand_id}
-                    onValueChange={(value) =>
-                      handleInputChange("brand_id", value)
-                    }
-                  >
-                    <SelectTrigger data-testid="add-product-brand">
-                      <SelectValue placeholder="Select brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {brands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.id.toString()}>
-                          {brand.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="origin">Origin</Label>
-                  <Select
-                    value={formData.origin_id}
-                    onValueChange={(value) =>
-                      handleInputChange("origin_id", value)
-                    }
-                  >
-                    <SelectTrigger data-testid="add-product-origin">
-                      <SelectValue placeholder="Select origin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {origins.map((origin) => (
-                        <SelectItem
-                          key={origin.id}
-                          value={origin.id.toString()}
-                        >
-                          {origin.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              ) : null}
-
-              {showAllFields ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
                   <Label htmlFor="costPriceAll">Cost Price *</Label>
                   <Input
                     id="costPriceAll"
@@ -1047,45 +883,6 @@ export function AddProductForm({
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="wholesalePrice">Wholesale Price</Label>
-                  <Input
-                    id="wholesalePrice"
-                    data-testid="add-product-wholesale-price"
-                    type="number"
-                    step="0.01"
-                    value={formData.wholesale_price}
-                    onChange={(e) =>
-                      handleInputChange("wholesale_price", e.target.value)
-                    }
-                    placeholder="0.00 (optional)"
-                    className={getFieldErrorClass("wholesale_price")}
-                    aria-invalid={hasFieldError("wholesale_price")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use selling price for wholesale customers
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pv">PV Points</Label>
-                  <Input
-                    id="pv"
-                    data-testid="add-product-pv"
-                    type="number"
-                    step="0.01"
-                    value={formData.pv}
-                    onChange={(e) =>
-                      handleInputChange("pv", e.target.value)
-                    }
-                    placeholder="0.00"
-                    className={getFieldErrorClass("pv")}
-                    aria-invalid={hasFieldError("pv")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Loyalty points earned for this product
-                  </p>
-                </div>
               </div>
               ) : null}
 
@@ -1124,9 +921,9 @@ export function AddProductForm({
               ) : null}
 
               {showAllFields ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="currentStock">Current Stock *</Label>
+                  <Label htmlFor="currentStock">Opening Stock *</Label>
                   <Input
                     id="currentStock"
                     data-testid="add-product-current-stock"
@@ -1156,20 +953,6 @@ export function AddProductForm({
                     required
                     className={getFieldErrorClass("min_stock_level")}
                     aria-invalid={hasFieldError("min_stock_level")}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="reorderPoint">Reorder Point</Label>
-                  <Input
-                    id="reorderPoint"
-                    data-testid="add-product-reorder-point"
-                    type="number"
-                    value={formData.reorder_point}
-                    onChange={(e) =>
-                      handleInputChange("reorder_point", e.target.value)
-                    }
-                    placeholder="0"
                   />
                 </div>
               </div>
@@ -1210,42 +993,6 @@ export function AddProductForm({
 
                 {showAllFields ? (
                 <div className="space-y-2">
-                  <Label htmlFor="barcode">Barcode</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="barcode"
-                      value={formData.barcode}
-                      onChange={(e) =>
-                        handleInputChange("barcode", e.target.value)
-                      }
-                      placeholder="Enter barcode"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generateBarcodeFromSKUHandler}
-                      disabled={!formData.sku.trim()}
-                      title="Generate barcode from SKU"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generateRandomBarcode}
-                      title="Generate random barcode"
-                    >
-                      {"\uD83C\uDFB2"}
-                    </Button>
-                  </div>
-                </div>
-                ) : null}
-
-                {showAllFields ? (
-                <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={formData.status || "active"}
@@ -1268,21 +1015,7 @@ export function AddProductForm({
               </div>
 
               {showAllFields ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="weight">Weight (kg)</Label>
-                  <Input
-                    id="weight"
-                    type="number"
-                    step="0.01"
-                    value={formData.weight}
-                    onChange={(e) =>
-                      handleInputChange("weight", e.target.value)
-                    }
-                    placeholder="0.00"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dimensions">Dimensions</Label>
                   <Input
@@ -1296,52 +1029,17 @@ export function AddProductForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Label htmlFor="vatRate">VAT (%)</Label>
                   <Input
-                    id="taxRate"
+                    id="vatRate"
+                    data-testid="add-product-vat-rate"
                     type="number"
                     step="0.01"
-                    value={formData.tax_rate}
+                    value={formData.vat_rate}
                     onChange={(e) =>
-                      handleInputChange("tax_rate", e.target.value)
+                      handleInputChange("vat_rate", e.target.value)
                     }
                     placeholder="0.00"
-                  />
-                </div>
-              </div>
-              ) : null}
-
-              {showAllFields ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="warrantyPeriod">
-                    Warranty Period (months)
-                  </Label>
-                  <Input
-                    id="warrantyPeriod"
-                    type="number"
-                    min="0"
-                    value={formData.warranty_period}
-                    onChange={(e) =>
-                      handleInputChange("warranty_period", e.target.value)
-                    }
-                    placeholder="e.g., 12"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="serviceTime">
-                    Service Reminder Interval (months)
-                  </Label>
-                  <Input
-                    id="serviceTime"
-                    type="number"
-                    min="0"
-                    value={formData.service_time}
-                    onChange={(e) =>
-                      handleInputChange("service_time", e.target.value)
-                    }
-                    placeholder="e.g., 6"
                   />
                 </div>
               </div>

@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
 import { useFormatting } from "@/hooks/useFormatting";
-import { BarcodeDisplay } from "@/components/BarcodeDisplay";
 
 export default function ProductDetails() {
   const params = useParams()
@@ -250,7 +249,6 @@ export default function ProductDetails() {
           <p className="text-muted-foreground" data-testid="product-sku">
             SKU: {product.sku} • {product.category.name}
             {product.subcategory?.name && ` • ${product.subcategory.name}`}
-            {product.brand && ` • ${product.brand.name}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -398,14 +396,6 @@ export default function ProductDetails() {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Brand</label>
-                  <p className="font-medium">{product.brand?.name || 'No brand'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Origin</label>
-                  <p className="font-medium">{product.origin_name || 'No origin'}</p>
-                </div>
-                <div>
                   <label className="text-sm font-medium text-muted-foreground">Product Code</label>
                   <p className="font-medium">{product.sku}</p>
                 </div>
@@ -414,24 +404,8 @@ export default function ProductDetails() {
                   <p className="font-medium">{product.unit_of_measure}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Barcode</label>
-                  <p className="font-medium">{product.barcode || 'Not set'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Weight</label>
-                  <p className="font-medium">{product.weight ? `${product.weight} kg` : 'Not set'}</p>
-                </div>
-                <div>
                   <label className="text-sm font-medium text-muted-foreground">Dimensions</label>
                   <p className="font-medium">{product.dimensions || 'Not set'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Warranty Period</label>
-                  <p className="font-medium">{product.warranty_period ? `${product.warranty_period} months` : 'Not set'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Service Reminder Interval</label>
-                  <p className="font-medium">{product.service_time ? `${product.service_time} months` : 'Not set'}</p>
                 </div>
               </div>
               <Separator />
@@ -441,13 +415,6 @@ export default function ProductDetails() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Barcode Display */}
-          <BarcodeDisplay
-            barcode={product.barcode || ''}
-            productName={product.name}
-            sku={product.sku}
-          />
 
           {/* Stock Movements */}
           <Card>
@@ -595,15 +562,11 @@ export default function ProductDetails() {
                   <span className="font-medium">{product.max_stock_level ? `${product.max_stock_level} ${product.unit_of_measure}` : 'Not set'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Reorder Point</span>
-                  <span className="font-medium">{product.reorder_point ? `${product.reorder_point} ${product.unit_of_measure}` : 'Not set'}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Reserved Stock</span>
                   <span className="font-medium">{product.reserved_stock ? `${product.reserved_stock} ${product.unit_of_measure}` : 'Not set'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Tax Rate</span>
+                  <span className="text-sm text-muted-foreground">VAT</span>
                   <span className="font-medium text-sm">{product.tax_rate ? `${product.tax_rate}%` : 'Not set'}</span>
                 </div>
               </div>
@@ -662,16 +625,6 @@ export default function ProductDetails() {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Selling Price</span>
                 <span className="font-medium">{formatCurrency(product.selling_price)}</span>
-              </div>
-              {product.wholesale_price !== undefined && product.wholesale_price !== null && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Wholesale Price</span>
-                  <span className="font-medium">{formatCurrency(product.wholesale_price)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">PV Points</span>
-                <span className="font-medium">{product.pv || 0}</span>
               </div>
               <Separator />
               <div className="flex justify-between">

@@ -12,14 +12,13 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { useFormatting } from "@/hooks/useFormatting"
 import { Loader2 } from "lucide-react"
-import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError, Origin } from "@/services/api"
+import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 import {
   displayPrimaryCategoryLabel,
   isRawMaterialsCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { getImagePath } from "@/utils/image.utils"
-import { Brand } from "@/modules/inventory/services/brand-api"
 import {
     ArrowLeft,
     Save,
@@ -36,27 +35,18 @@ interface EditProductFormData {
   description: string
   category_id: string
   subcategory_id: string
-  brand_id: string
-  origin_id: string
   unit_of_measure: string
   cost_price: string
   selling_price: string
-  wholesale_price: string
   current_stock: string
   min_stock_level: string
   max_stock_level: string
-  reorder_point: string
   supplier_id: string
   status: string
-  barcode: string
-  weight: string
   dimensions: string
-  tax_rate: string
-  warranty_period: string
-  service_time: string
+  vat_rate: string
   notes: string
   currentImage: string
-  pv: string
 }
 
 export default function EditProduct() {
@@ -69,13 +59,11 @@ export default function EditProduct() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [origins, setOrigins] = useState<Origin[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showAllFields, setShowAllFields] = useState(false)
+  const [showAllFields, setShowAllFields] = useState(true)
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>("");
   const [formData, setFormData] = useState<EditProductFormData>({
@@ -84,27 +72,18 @@ export default function EditProduct() {
     description: "",
     category_id: "",
     subcategory_id: "",
-    brand_id: "",
-    origin_id: "",
     unit_of_measure: "",
     cost_price: "",
     selling_price: "",
-    wholesale_price: "",
     current_stock: "",
     min_stock_level: "",
     max_stock_level: "",
-    reorder_point: "",
     supplier_id: "",
     status: "active",
-    barcode: "",
-    weight: "",
     dimensions: "",
-    tax_rate: "",
-    warranty_period: "",
-    service_time: "",
+    vat_rate: "",
     notes: "",
       currentImage: PLACEHOLDER_IMAGE,
-    pv: "0",
   })
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -150,14 +129,12 @@ export default function EditProduct() {
         setLoading(true)
         setError(null)
 
-        const [productData, categoriesData, brandsData, originsData, suppliersData] = await Promise.all([
+        const [productData, categoriesData, suppliersData] = await Promise.all([
           ApiService.getProduct(parseInt(id)),
           ApiService.getCategories({
             limit: 100,
             primary_product_types_only: true,
           }),
-          ApiService.getBrands({ limit: 100 }),
-          ApiService.getOrigins({ limit: 100 }),
           ApiService.getSuppliers({ limit: 100 })
         ])
 
@@ -170,8 +147,6 @@ export default function EditProduct() {
           cats = [...cats, productData.category]
         }
         setCategories(cats)
-        setBrands(brandsData)
-        setOrigins(originsData)
         setSuppliers(suppliersData.suppliers)
 
         // Populate form with product data
@@ -181,30 +156,21 @@ export default function EditProduct() {
           description: productData.description || "",
           category_id: productData.category_id.toString(),
           subcategory_id: productData.subcategory_id?.toString() || "",
-          brand_id: productData.brand?.id?.toString() || "",
-          origin_id: productData.origin_id?.toString() || "",
           unit_of_measure: productData.unit_of_measure,
           cost_price: productData.cost_price.toString(),
           selling_price: productData.selling_price.toString(),
-          wholesale_price: productData.wholesale_price?.toString() || "",
           current_stock: productData.current_stock.toString(),
           min_stock_level: productData.min_stock_level.toString(),
           max_stock_level: productData.max_stock_level?.toString() || "",
-          reorder_point: productData.reorder_point?.toString() || "",
           supplier_id:
             productData.supplier_id != null
               ? productData.supplier_id.toString()
               : "",
           status: productData.status,
-          barcode: productData.barcode || "",
-          weight: productData.weight?.toString() || "",
           dimensions: productData.dimensions || "",
-          tax_rate: productData.tax_rate?.toString() || "",
-          warranty_period: productData.warranty_period?.toString() || "",
-          service_time: productData.service_time?.toString() || "",
+          vat_rate: productData.tax_rate?.toString() || "",
           notes: productData.notes || "",
           currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE,
-          pv: productData.pv?.toString() || "0"
         })
 
         // Fetch subcategories for the selected category
@@ -329,28 +295,19 @@ export default function EditProduct() {
         description: formData.description || undefined,
         category_id: parseInt(formData.category_id, 10),
         subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id, 10) : undefined,
-        brand_id: formData.brand_id ? parseInt(formData.brand_id, 10) : undefined,
-        origin_id: formData.origin_id ? parseInt(formData.origin_id, 10) : undefined,
         unit_of_measure: formData.unit_of_measure,
         cost_price: costNum,
         selling_price: sellingNum,
-        wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : undefined,
         current_stock: parseFloat(formData.current_stock),
         min_stock_level: parseFloat(formData.min_stock_level),
         max_stock_level: formData.max_stock_level ? parseFloat(formData.max_stock_level) : undefined,
-        reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : undefined,
         supplier_id: formData.supplier_id.trim()
           ? parseInt(formData.supplier_id, 10)
           : null,
         status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
-        // barcode: formData.barcode || undefined,
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
         dimensions: formData.dimensions || undefined,
-        tax_rate: formData.tax_rate ? parseFloat(formData.tax_rate) : undefined,
-        warranty_period: formData.warranty_period ? parseInt(formData.warranty_period) : undefined,
-        service_time: formData.service_time ? parseInt(formData.service_time) : undefined,
+        tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
-        pv: formData.pv ? parseFloat(formData.pv) : undefined
       }
 
       // Use the new API method that supports image upload
@@ -592,20 +549,6 @@ export default function EditProduct() {
                     </Select>
                   </div>
                   ) : null}
-                  {showAllFields ? (
-                  <div>
-                    <Label htmlFor="barcode">Barcode</Label>
-                    <Input
-                      disabled
-                      id="barcode"
-                      value={formData.barcode}
-                      onChange={(e) =>
-                        handleInputChange("barcode", e.target.value)
-                      }
-                      placeholder="Enter barcode"
-                    />
-                  </div>
-                  ) : null}
                 </div>
 
                 {showAllFields ? (
@@ -634,7 +577,7 @@ export default function EditProduct() {
                 <div
                   className={
                     showAllFields
-                      ? "grid grid-cols-1 md:grid-cols-3 gap-4"
+                      ? "grid grid-cols-1 md:grid-cols-2 gap-4"
                       : "grid grid-cols-1 gap-4"
                   }
                 >
@@ -693,40 +636,6 @@ export default function EditProduct() {
                     </Select>
                   </div>
                   )}
-                  {showAllFields ? (
-                  <div>
-                    <Label htmlFor="brand">Brand</Label>
-                    <Select value={formData.brand_id} onValueChange={(value) => handleInputChange("brand_id", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.id.toString()}>
-                            {brand.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  ) : null}
-                  {showAllFields ? (
-                  <div>
-                    <Label htmlFor="origin">Origin</Label>
-                    <Select value={formData.origin_id} onValueChange={(value) => handleInputChange("origin_id", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select origin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {origins.map((origin) => (
-                          <SelectItem key={origin.id} value={origin.id.toString()}>
-                            {origin.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  ) : null}
                 </div>
 
               </CardContent>
@@ -829,40 +738,6 @@ export default function EditProduct() {
                 </div>
                 ) : null}
 
-                {showAllFields ? (
-                <div>
-                  <Label htmlFor="wholesalePrice">Wholesale Price</Label>
-                  <Input
-                    id="wholesalePrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.wholesale_price}
-                    onChange={(e) => handleInputChange("wholesale_price", e.target.value)}
-                    placeholder="0.00 (optional)"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to use selling price for wholesale customers
-                  </p>
-                </div>
-                ) : null}
-
-                {showAllFields ? (
-                <div className="space-y-2">
-                  <Label htmlFor="pv">PV Points</Label>
-                  <Input
-                    id="pv"
-                    type="number"
-                    step="0.01"
-                    value={formData.pv}
-                    onChange={(e) => handleInputChange("pv", e.target.value)}
-                    placeholder="0.00"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Loyalty points earned for this product
-                  </p>
-                </div>
-                ) : null}
-
                 {hasPricingValues && (
                   <div className="p-3 bg-accent/20 rounded-lg">
                     <div className="text-sm text-muted-foreground">
@@ -883,70 +758,16 @@ export default function EditProduct() {
                 <CardTitle>Physical Properties</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="weight">Weight (kg)</Label>
-                    <Input
-                      id="weight"
-                      type="number"
-                      step="0.01"
-                      value={formData.weight}
-                      onChange={(e) =>
-                        handleInputChange("weight", e.target.value)
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dimensions">Dimensions</Label>
-                    <Input
-                      id="dimensions"
-                      value={formData.dimensions}
-                      onChange={(e) =>
-                        handleInputChange("dimensions", e.target.value)
-                      }
-                      placeholder="e.g., 10x20x30 cm"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            ) : null}
-
-            {/* Warranty & Service Information */}
-            {showAllFields ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Warranty & Service Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="warrantyPeriod">Warranty Period (months)</Label>
-                    <Input
-                      id="warrantyPeriod"
-                      type="number"
-                      min="0"
-                      value={formData.warranty_period}
-                      onChange={(e) =>
-                        handleInputChange("warranty_period", e.target.value)
-                      }
-                      placeholder="e.g., 12"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="serviceTime">Service Reminder Interval (months)</Label>
-                    <Input
-                      id="serviceTime"
-                      type="number"
-                      min="0"
-                      value={formData.service_time}
-                      onChange={(e) =>
-                        handleInputChange("service_time", e.target.value)
-                      }
-                      placeholder="e.g., 6"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="dimensions">Dimensions</Label>
+                  <Input
+                    id="dimensions"
+                    value={formData.dimensions}
+                    onChange={(e) =>
+                      handleInputChange("dimensions", e.target.value)
+                    }
+                    placeholder="e.g., 10x20x30 cm"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -982,16 +803,6 @@ export default function EditProduct() {
                     onChange={(e) => handleInputChange("min_stock_level", e.target.value)}
                     placeholder="0"
                     required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="reorderPoint">Reorder Point</Label>
-                  <Input
-                    id="reorderPoint"
-                    type="number"
-                    value={formData.reorder_point}
-                    onChange={(e) => handleInputChange("reorder_point", e.target.value)}
-                    placeholder="0"
                   />
                 </div>
               </CardContent>
