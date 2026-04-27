@@ -15,7 +15,7 @@ class AddCategoryMediator {
     const action = "Create Category";
     MyLogger.info(action, { attemptedName: _data.name });
     throw createError(
-      "Top-level categories are fixed to Raw Materials and Ready Goods. Create subcategories instead.",
+      "Top-level categories are fixed to Raw Materials, Ready Raw Materials, and Ready Goods. Create subcategories instead.",
       400
     );
   }
@@ -49,7 +49,7 @@ class AddCategoryMediator {
       const parentName = categoryCheck.rows[0].name as string;
       if (!isInventoryPrimaryCategoryName(parentName)) {
         throw createError(
-          "Subcategories can only be created under Raw Materials or Ready Goods",
+          "Subcategories can only be created under Raw Materials, Ready Raw Materials, or Ready Goods",
           400
         );
       }

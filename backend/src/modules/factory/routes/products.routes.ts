@@ -16,11 +16,18 @@ router.get(
   expressAsyncHandler(ProductsController.getAllProducts)
 );
 
-// GET /api/factory/products/orderable - Get orderable products (excludes Raw Materials)
+// GET /api/factory/products/orderable - Get orderable products (excludes Raw Materials and Ready Raw Materials)
 router.get(
   "/orderable",
   requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
   expressAsyncHandler(ProductsController.getOrderableProducts)
+);
+
+// GET /api/factory/products/bom-parent-eligible - Products eligible to be a BOM parent (FG + RRM, excludes Raw Materials)
+router.get(
+  "/bom-parent-eligible",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(ProductsController.getBomParentProducts)
 );
 
 // GET /api/factory/products/search - Search products

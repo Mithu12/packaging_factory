@@ -632,9 +632,14 @@ export class CustomerOrdersApiService {
         return makeRequest<FactoryProduct[]>(`/factory/products`);
     }
 
-    // Get orderable products only — excludes Raw Materials (for order/quotation creation)
+    // Get orderable products only — excludes Raw Materials and Ready Raw Materials (for order/quotation creation)
     static async getAllOrderableProducts(): Promise<FactoryProduct[]> {
         return makeRequest<FactoryProduct[]>(`/factory/products/orderable`);
+    }
+
+    // Get BOM-eligible parent products — Ready Goods and Ready Raw Materials (excludes Raw Materials)
+    static async getAllBomParentProducts(): Promise<FactoryProduct[]> {
+        return makeRequest<FactoryProduct[]>(`/factory/products/bom-parent-eligible`);
     }
 
     // Customer CRUD operations

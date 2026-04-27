@@ -16,7 +16,7 @@ class DeleteCategoryMediator {
 
       if (isInventoryPrimaryCategoryName(category.name)) {
         throw createError(
-          "Cannot delete Raw Materials or Ready Goods",
+          "Cannot delete Raw Materials, Ready Raw Materials, or Ready Goods",
           400
         );
       }

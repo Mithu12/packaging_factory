@@ -5,6 +5,7 @@ import {
   UpdateBOMRequest,
   UpdateBOMComponentRequest,
 } from "@/types/bom";
+import { validateBomProductTypes } from "./validateBomTypes";
 
 const action = "UpdateBOMMediator";
 
@@ -309,6 +310,18 @@ export class UpdateBOMMediator {
       `;
 
       await client.query(totalCostQuery, [bomId]);
+
+      // Enforce product-type rules against the post-update state. Reads the actual
+      // bom_components rows so updates that change parent or components are caught.
+      const finalComponentsResult = await client.query<{ component_product_id: number }>(
+        `SELECT component_product_id FROM bom_components WHERE bom_id = $1`,
+        [bomId]
+      );
+      await validateBomProductTypes(
+        client,
+        existingBOM.parent_product_id,
+        finalComponentsResult.rows.map((r) => r.component_product_id)
+      );
 
       await client.query('COMMIT');
 

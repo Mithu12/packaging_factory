@@ -13,6 +13,7 @@ import {
 } from "@/types/bom";
 import { MyLogger } from "@/utils/new-logger";
 import { QueryResult } from "pg";
+import { buildRrmRmBreakdownMap } from "./expandRrmShortages";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -809,7 +810,7 @@ export class GetBOMInfoMediator {
 
       // Get material shortages
       const result = await client.query(query, values);
-      const shortages = result.rows.map(row => ({
+      const shortages: MaterialShortage[] = result.rows.map(row => ({
         id: row.id,
         material_id: row.material_id,
         material_name: row.material_name,
@@ -835,8 +836,19 @@ export class GetBOMInfoMediator {
         total_cost: parseFloat(row.total_cost || 0)
       }));
 
+      // Recursive expansion: for any shortage whose material is RRM, attach the
+      // underlying RM requirements derived from the RRM's latest active BOM.
+      const breakdownMap = await buildRrmRmBreakdownMap(client, shortages);
+      for (const shortage of shortages) {
+        const breakdown = breakdownMap.get(String(shortage.material_id));
+        if (breakdown && breakdown.length > 0) {
+          shortage.rm_breakdown = breakdown;
+        }
+      }
+
       MyLogger.success(action, {
         shortagesCount: shortages.length,
+        expandedCount: shortages.filter((s) => s.rm_breakdown?.length).length,
         filters: params
       });
 

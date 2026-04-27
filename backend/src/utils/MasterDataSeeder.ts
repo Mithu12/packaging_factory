@@ -12,7 +12,8 @@ export class MasterDataSeeder {
       // 1. Seed Categories
       const categoriesToSeed = [
         { name: 'Ready Goods', description: 'Finished products ready for sale' },
-        { name: 'Raw Materials', description: 'Materials used for production' }
+        { name: 'Raw Materials', description: 'Materials used for production' },
+        { name: 'Ready Raw Materials', description: 'Intermediate goods produced from raw materials, used as components in finished goods' }
       ];
 
       for (const cat of categoriesToSeed) {

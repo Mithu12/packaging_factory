@@ -84,24 +84,25 @@ class ProductsController {
     }
   }
 
-  // Get orderable products — excludes Raw Materials category (for customer order creation)
-  async getOrderableProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // Get BOM-eligible parent products — Ready Goods (FG) and Ready Raw Materials (RRM),
+  // excluding Raw Materials (RM cannot have a BOM).
+  async getBomParentProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const action = "GET /api/factory/products/orderable";
+      const action = "GET /api/factory/products/bom-parent-eligible";
       MyLogger.info(action);
 
-      // Try to get the "Raw Materials" category ID from the in-memory master data
-      const rawMaterialCategory = MasterDataLoader.categories.find(
-        (c) => c.name === "Raw Materials"
-      );
+      const NON_PARENT_NAMES = ["Raw Materials"];
+
+      const cachedNonParentIds = MasterDataLoader.categories
+        .filter((c) => NON_PARENT_NAMES.includes(c.name))
+        .map((c) => c.id);
 
       let query: string;
       let params: any[] = [];
 
-      if (rawMaterialCategory) {
-        // Fast path: use the cached category ID directly
+      if (cachedNonParentIds.length > 0) {
         query = `
-          SELECT 
+          SELECT
             id, sku, name, description,
             selling_price as unit_price,
             'BDT' as currency,
@@ -109,14 +110,13 @@ class ProductsController {
             created_at, updated_at
           FROM products
           WHERE status = 'active'
-            AND (category_id IS NULL OR category_id != $1)
+            AND (category_id IS NULL OR category_id <> ALL($1::int[]))
           ORDER BY name
         `;
-        params = [rawMaterialCategory.id];
+        params = [cachedNonParentIds];
       } else {
-        // Fallback: MasterDataLoader not ready yet — use SQL subquery
         query = `
-          SELECT 
+          SELECT
             id, sku, name, description,
             selling_price as unit_price,
             'BDT' as currency,
@@ -125,10 +125,76 @@ class ProductsController {
           FROM products
           WHERE status = 'active'
             AND (category_id IS NULL OR category_id NOT IN (
-              SELECT id FROM categories WHERE name = 'Raw Materials'
+              SELECT id FROM categories WHERE name = ANY($1::text[])
             ))
           ORDER BY name
         `;
+        params = [NON_PARENT_NAMES];
+      }
+
+      const result = await pool.query(query, params);
+
+      const products = result.rows.map((row) => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0,
+      }));
+
+      MyLogger.success(action, { count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get orderable products — excludes internal-only categories (Raw Materials, Ready Raw Materials).
+  // Customers can only order Ready Goods (FG); RM and RRM are internal manufacturing inputs.
+  async getOrderableProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/products/orderable";
+      MyLogger.info(action);
+
+      const NON_ORDERABLE_NAMES = ["Raw Materials", "Ready Raw Materials"];
+
+      const cachedNonOrderableIds = MasterDataLoader.categories
+        .filter((c) => NON_ORDERABLE_NAMES.includes(c.name))
+        .map((c) => c.id);
+
+      let query: string;
+      let params: any[] = [];
+
+      if (cachedNonOrderableIds.length > 0) {
+        // Fast path: use the cached category IDs directly
+        query = `
+          SELECT
+            id, sku, name, description,
+            selling_price as unit_price,
+            'BDT' as currency,
+            current_stock, status,
+            created_at, updated_at
+          FROM products
+          WHERE status = 'active'
+            AND (category_id IS NULL OR category_id <> ALL($1::int[]))
+          ORDER BY name
+        `;
+        params = [cachedNonOrderableIds];
+      } else {
+        // Fallback: MasterDataLoader not ready yet — use SQL subquery
+        query = `
+          SELECT
+            id, sku, name, description,
+            selling_price as unit_price,
+            'BDT' as currency,
+            current_stock, status,
+            created_at, updated_at
+          FROM products
+          WHERE status = 'active'
+            AND (category_id IS NULL OR category_id NOT IN (
+              SELECT id FROM categories WHERE name = ANY($1::text[])
+            ))
+          ORDER BY name
+        `;
+        params = [NON_ORDERABLE_NAMES];
       }
 
       const result = await pool.query(query, params);
@@ -141,7 +207,7 @@ class ProductsController {
 
       MyLogger.success(action, {
         count: products.length,
-        excludedCategoryId: rawMaterialCategory?.id ?? "subquery-fallback",
+        excludedCategoryIds: cachedNonOrderableIds.length > 0 ? cachedNonOrderableIds : "subquery-fallback",
       });
       serializeSuccessResponse(res, products, "SUCCESS");
     } catch (error) {

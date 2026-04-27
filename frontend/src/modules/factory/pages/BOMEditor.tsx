@@ -108,8 +108,8 @@ export default function BOMEditor() {
   });
 
   const { data: parentProducts = [], isLoading: parentProductsLoading } = useQuery<FactoryProduct[]>({
-    queryKey: ["orderable-products"],
-    queryFn: () => CustomerOrdersApiService.getAllOrderableProducts(),
+    queryKey: ["bom-parent-products"],
+    queryFn: () => CustomerOrdersApiService.getAllBomParentProducts(),
   });
 
   // Fetch existing BOM data if editing

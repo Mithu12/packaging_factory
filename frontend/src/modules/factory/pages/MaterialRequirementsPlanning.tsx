@@ -743,6 +743,43 @@ export default function MaterialRequirementsPlanning() {
                         </div>
                       )}
 
+                      {shortage.rm_breakdown && shortage.rm_breakdown.length > 0 && (
+                        <div className="mb-4 border rounded-md p-3 bg-muted/30">
+                          <div className="text-sm font-medium mb-2">
+                            Raw Material breakdown (to produce {shortage.shortfall_quantity} {shortage.material_name})
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Raw Material</TableHead>
+                                <TableHead className="text-right">Required</TableHead>
+                                <TableHead className="text-right">Available</TableHead>
+                                <TableHead className="text-right">Shortfall</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {shortage.rm_breakdown.map((rm) => (
+                                <TableRow key={rm.material_id}>
+                                  <TableCell>
+                                    <div className="font-medium">{rm.material_name}</div>
+                                    <div className="text-xs text-muted-foreground">{rm.material_sku}</div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {rm.required_quantity.toFixed(2)} {rm.unit_of_measure}
+                                  </TableCell>
+                                  <TableCell className="text-right text-green-600">
+                                    {rm.available_stock.toFixed(2)} {rm.unit_of_measure}
+                                  </TableCell>
+                                  <TableCell className={`text-right ${rm.is_short ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+                                    {rm.is_short ? `${rm.shortfall_quantity.toFixed(2)} ${rm.unit_of_measure}` : "—"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
                         <Button
                           variant="outline"

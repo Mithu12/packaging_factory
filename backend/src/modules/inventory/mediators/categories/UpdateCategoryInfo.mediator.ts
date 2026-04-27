@@ -31,7 +31,7 @@ class UpdateCategoryInfoMediator {
         data.name !== existing.name
       ) {
         throw createError(
-          "Cannot rename Raw Materials or Ready Goods",
+          "Cannot rename Raw Materials, Ready Raw Materials, or Ready Goods",
           400
         );
       }
@@ -106,7 +106,7 @@ class UpdateCategoryInfoMediator {
         const parentName = categoryCheck.rows[0].name as string;
         if (!isInventoryPrimaryCategoryName(parentName)) {
           throw createError(
-            "Subcategories can only be placed under Raw Materials or Ready Goods",
+            "Subcategories can only be placed under Raw Materials, Ready Raw Materials, or Ready Goods",
             400
           );
         }

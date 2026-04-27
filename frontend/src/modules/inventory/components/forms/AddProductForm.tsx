@@ -36,7 +36,7 @@ import {
 import { ProductApi } from "@/modules/inventory/services/product-api";
 import {
   displayPrimaryCategoryLabel,
-  isRawMaterialsCategory,
+  isInternalPrimaryCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories";
 import { Upload, X, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -345,7 +345,8 @@ export function AddProductForm({
       const selectedCat = categories.find(
         (c) => String(c.id) === String(formData.category_id)
       );
-      const raw = selectedCat ? isRawMaterialsCategory(selectedCat.name) : false;
+      // RM and RRM are both internal-only (no selling price); FG is sold to customers.
+      const raw = selectedCat ? isInternalPrimaryCategory(selectedCat.name) : false;
 
       let requiredKeys: (keyof ProductFormData)[] = [
         "name",
@@ -517,7 +518,7 @@ export function AddProductForm({
   const selectedCategoryName =
     categories.find((c) => String(c.id) === String(formData.category_id))
       ?.name ?? "";
-  const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName);
+  const isInternalProductType = isInternalPrimaryCategory(selectedCategoryName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -698,7 +699,7 @@ export function AddProductForm({
 
               <div className="space-y-2">
                 <Label htmlFor="name">
-                  {isRawMaterialType && !showAllFields
+                  {isInternalProductType && !showAllFields
                     ? "Material Name *"
                     : "Product Name *"}
                 </Label>
@@ -708,7 +709,7 @@ export function AddProductForm({
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   placeholder={
-                    isRawMaterialType && !showAllFields
+                    isInternalProductType && !showAllFields
                       ? "e.g. Raw Cotton, Wood, Steel"
                       : "e.g. Wireless Ergonomic Mouse"
                   }
@@ -718,7 +719,7 @@ export function AddProductForm({
                 />
               </div>
 
-              {(showAllFields || (isRawMaterialType && !showAllFields)) ? (
+              {(showAllFields || (isInternalProductType && !showAllFields)) ? (
               <div className="space-y-2">
                 <Label htmlFor="unit">
                   {showAllFields ? "Unit" : "Unit of Measure *"}
@@ -771,7 +772,7 @@ export function AddProductForm({
                 </div>
               </div>
 
-              {!showAllFields && isRawMaterialType ? (
+              {!showAllFields && isInternalProductType ? (
               <div className="space-y-2">
                 <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
                 <div className="relative">
@@ -796,7 +797,7 @@ export function AddProductForm({
               </div>
               ) : null}
 
-              {!showAllFields && !isRawMaterialType ? (
+              {!showAllFields && !isInternalProductType ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="sellingPrice">Selling Price *</Label>

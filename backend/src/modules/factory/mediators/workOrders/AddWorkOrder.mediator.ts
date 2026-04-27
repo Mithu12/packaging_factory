@@ -6,6 +6,8 @@ import {
   Operator
 } from "@/types/factory";
 import { MyLogger } from "@/utils/new-logger";
+import { isRawMaterialsCategory } from "@/constants/inventoryProductCategories";
+import { createError } from "@/middleware/errorHandler";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -78,10 +80,11 @@ export class AddWorkOrderMediator {
       const numberResult = await client.query(workOrderNumberQuery);
       const workOrderNumber = `WO-${String(numberResult.rows[0].nextval).padStart(6, '0')}`;
 
-      // Get product details
+      // Get product details + primary category for type validation
       const productQuery = `
-        SELECT p.name, p.sku, p.unit_of_measure, p.id as product_id
+        SELECT p.name, p.sku, p.unit_of_measure, p.id as product_id, c.name AS primary_category
         FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
         WHERE p.id = $1
       `;
       const productResult = await client.query(productQuery, [workOrderData.product_id]);
@@ -91,6 +94,15 @@ export class AddWorkOrderMediator {
       }
 
       const product = productResult.rows[0];
+
+      // Only Ready Goods (FG) and Ready Raw Materials (RRM) can be produced.
+      // Raw Materials are purchased and never produced via a work order.
+      if (!product.primary_category || isRawMaterialsCategory(product.primary_category)) {
+        throw createError(
+          'Raw Materials cannot be produced via a work order. Choose a Ready Goods or Ready Raw Materials product.',
+          400
+        );
+      }
 
       // Validate production line if provided
       if (workOrderData.production_line_id) {

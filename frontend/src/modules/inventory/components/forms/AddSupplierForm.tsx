@@ -66,8 +66,9 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
           // Fallback to default categories if API fails
           setSupplierCategories([
             "Electronics",
-            "Furniture", 
+            "Furniture",
             "Raw Materials",
+            "Ready Raw Materials",
             "Components",
             "Services"
           ])

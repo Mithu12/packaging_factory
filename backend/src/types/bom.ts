@@ -144,6 +144,20 @@ export interface WorkOrderMaterialConsumption {
   updated_at?: string;
 }
 
+export interface RmBreakdownEntry {
+  material_id: string;
+  material_name: string;
+  material_sku: string;
+  unit_of_measure: string;
+  required_quantity: number;
+  current_stock: number;
+  available_stock: number;
+  shortfall_quantity: number;
+  is_short: boolean;
+  unit_cost: number;
+  total_cost: number;
+}
+
 export interface MaterialShortage {
   id: string;
   material_id: string;
@@ -168,6 +182,9 @@ export interface MaterialShortage {
   notes?: string;
   created_at: string;
   updated_at?: string;
+  // Populated for shortages whose material is a Ready Raw Material with an active BOM:
+  // surfaces the underlying Raw Material requirements needed to produce the shortfall.
+  rm_breakdown?: RmBreakdownEntry[];
 }
 
 // Material Cost Analysis Types

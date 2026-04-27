@@ -173,7 +173,8 @@ export default function WorkOrderPlanning() {
     queryFn: () => WorkOrdersApiService.getOperators(),
   });
 
-  // Fetch products for work order creation
+  // Fetch products for work order creation. Filter out Raw Materials below —
+  // only Ready Goods (FG) and Ready Raw Materials (RRM) can be produced via a work order.
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ['products', 'active'],
     queryFn: () => ProductsApiService.getProducts({
@@ -181,6 +182,10 @@ export default function WorkOrderPlanning() {
       limit: 100,
     }),
   });
+
+  const manufacturableProducts = (productsData?.products ?? []).filter(
+    (p) => p.category_name !== 'Raw Materials'
+  );
 
   // Fetch customer orders for work order linking
   const { data: customerOrdersData, isLoading: customerOrdersLoading } = useQuery({
@@ -1471,8 +1476,8 @@ export default function WorkOrderPlanning() {
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {productsData?.products?.length > 0 ? (
-                      productsData.products.map((product) => (
+                    {manufacturableProducts.length > 0 ? (
+                      manufacturableProducts.map((product) => (
                         <SelectItem key={product.id} value={product.id.toString()}>
                           <div className="flex flex-col">
                             <span>{product.name} ({product.sku})</span>
@@ -1483,7 +1488,7 @@ export default function WorkOrderPlanning() {
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No products available</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No manufacturable products available</div>
                     )}
                   </SelectContent>
                 </Select>

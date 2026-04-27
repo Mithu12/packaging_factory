@@ -6,6 +6,7 @@ import {
   CreateBOMComponentRequest
 } from "@/types/bom";
 import { MyLogger } from "@/utils/new-logger";
+import { validateBomProductTypes } from "./validateBomTypes";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -63,6 +64,13 @@ export class AddBOMMediator {
       if (existingBOMResult.rows.length > 0) {
         throw new Error(`BOM version ${bomData.version} already exists for this product`);
       }
+
+      // Enforce product-type rules: parent must be FG or RRM; components must match.
+      await validateBomProductTypes(
+        client,
+        bomData.parent_product_id,
+        bomData.components.map((c) => c.component_product_id)
+      );
 
       // Calculate total cost from components
       let totalCost = 0;

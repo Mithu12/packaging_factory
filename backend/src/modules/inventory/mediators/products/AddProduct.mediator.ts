@@ -179,7 +179,7 @@ export class AddProductMediator {
       const categoryName = categoryResult.rows[0].name as string;
       if (!isInventoryPrimaryCategoryName(categoryName)) {
         throw new Error(
-          "Product type must be Raw Materials or Ready Goods"
+          "Product type must be Raw Materials, Ready Raw Materials, or Ready Goods"
         );
       }
 

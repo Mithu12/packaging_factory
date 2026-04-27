@@ -199,7 +199,8 @@ export default function EditSupplier() {
         // Fallback to default categories if API fails
         setSupplierCategories([
           "Electronics",
-          "Raw Materials", 
+          "Raw Materials",
+          "Ready Raw Materials",
           "Furniture",
           "Components",
           "Textiles",
