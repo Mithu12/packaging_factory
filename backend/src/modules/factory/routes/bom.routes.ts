@@ -14,6 +14,7 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import { bomController } from "../controllers/bom.controller";
 import { auditMiddleware } from "@/middleware/audit";
+import { createError } from "@/middleware/errorHandler";
 
 const router = express.Router();
 router.use(authenticate);
@@ -30,15 +31,15 @@ const validateRequest = (schema: any) => {
     const action = "Validate Request Body";
     try {
       MyLogger.info(action, { endpoint: req.path, method: req.method });
-      const { error, value } = schema.validate(req.body);
+      const { error, value } = schema.validate(req.body, { abortEarly: false });
       if (error) {
+        const detail = error.details.map((d: any) => d.message).join("; ");
         MyLogger.warn(action, {
           endpoint: req.path,
           method: req.method,
           validationErrors: error.details,
         });
-        res.status(400)
-        throw new Error("Validation error");
+        throw createError(`Validation error: ${detail}`, 400);
       }
       req.body = value;
       next();

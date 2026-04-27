@@ -36,8 +36,8 @@ export const createBOMSchema = Joi.object({
           "number.max": "Scrap factor must not exceed 100",
           "number.precision": "Scrap factor must have at most 2 decimal places",
         }),
-        specifications: Joi.string().max(1000).allow("").optional().default(""),
-        notes: Joi.string().max(1000).allow("").optional(),
+        specifications: Joi.string().max(1000).allow("", null).optional().default(""),
+        notes: Joi.string().max(1000).allow("", null).optional(),
       })
     )
     .min(1)
@@ -46,7 +46,7 @@ export const createBOMSchema = Joi.object({
       "array.min": "At least one component is required",
       "any.required": "Components are required",
     }),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("", null).optional(),
 });
 
 export const updateBOMSchema = Joi.object({
@@ -79,12 +79,12 @@ export const updateBOMSchema = Joi.object({
           "number.max": "Scrap factor must not exceed 100",
           "number.precision": "Scrap factor must have at most 2 decimal places",
         }),
-        specifications: Joi.string().max(1000).allow("").optional().default(""),
-        notes: Joi.string().max(1000).allow("").optional(),
+        specifications: Joi.string().max(1000).allow("", null).optional().default(""),
+        notes: Joi.string().max(1000).allow("", null).optional(),
       })
     )
     .optional(),
-  notes: Joi.string().max(1000).allow("").optional(),
+  notes: Joi.string().max(1000).allow("", null).optional(),
 });
 
 export const bomQuerySchema = Joi.object({
