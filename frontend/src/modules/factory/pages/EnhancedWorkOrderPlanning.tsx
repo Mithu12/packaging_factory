@@ -32,7 +32,15 @@ import {
   History,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
-import { WorkOrdersApiService, WorkOrder as ApiWorkOrder, ProductionLine as ApiProductionLine, Operator as ApiOperator } from "@/services/work-orders-api";
+import {
+  WorkOrdersApiService,
+  WorkOrder as ApiWorkOrder,
+  ProductionLine as ApiProductionLine,
+  Operator as ApiOperator,
+  CreateWorkOrderRequest,
+  WorkOrderPriority,
+} from "@/services/work-orders-api";
+import { CustomerOrdersApiService, FactoryProduct } from "../services/customer-orders-api";
 import { CreatePurchaseOrderForm } from "@/modules/inventory/components/forms/CreatePurchaseOrderForm";
 import { toast } from "sonner";
 import {
@@ -149,6 +157,72 @@ export default function EnhancedWorkOrderPlanning() {
     items?: { product_id: number; product_name: string; quantity: number }[];
   } | undefined>(undefined);
   const [associatedPurchases, setAssociatedPurchases] = useState<any[]>([]);
+
+  // Manual create-work-order dialog state. Manufacturable = FG + RRM (excludes RM).
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [manufacturableProducts, setManufacturableProducts] = useState<FactoryProduct[]>([]);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [newWorkOrder, setNewWorkOrder] = useState<Partial<CreateWorkOrderRequest>>({
+    product_id: "",
+    quantity: 1,
+    deadline: "",
+    priority: "medium",
+    estimated_hours: 1,
+    notes: "",
+  });
+
+  const openCreateDialog = async () => {
+    setNewWorkOrder({
+      product_id: "",
+      quantity: 1,
+      deadline: "",
+      priority: "medium",
+      estimated_hours: 1,
+      notes: "",
+    });
+    setShowCreateDialog(true);
+    try {
+      const products = await CustomerOrdersApiService.getAllBomParentProducts();
+      setManufacturableProducts(products);
+    } catch (err) {
+      console.error("Failed to load manufacturable products", err);
+      toast.error("Failed to load products for work order");
+    }
+  };
+
+  const handleCreateWorkOrder = async () => {
+    if (!newWorkOrder.product_id) {
+      toast.error("Please select a product");
+      return;
+    }
+    if (!newWorkOrder.deadline) {
+      toast.error("Please set a deadline");
+      return;
+    }
+    if (!newWorkOrder.quantity || newWorkOrder.quantity <= 0) {
+      toast.error("Quantity must be greater than 0");
+      return;
+    }
+    setCreateSubmitting(true);
+    try {
+      await WorkOrdersApiService.createWorkOrder({
+        product_id: String(newWorkOrder.product_id),
+        quantity: Number(newWorkOrder.quantity),
+        deadline: new Date(newWorkOrder.deadline as string).toISOString(),
+        priority: (newWorkOrder.priority || "medium") as WorkOrderPriority,
+        estimated_hours: Number(newWorkOrder.estimated_hours) || 1,
+        notes: newWorkOrder.notes || undefined,
+      });
+      toast.success("Work order created");
+      setShowCreateDialog(false);
+      await fetchPlanningData();
+    } catch (err: any) {
+      const message = err?.message || "Failed to create work order";
+      toast.error(message);
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
 
   const fetchPlanningData = async () => {
     setIsLoading(true);
@@ -457,7 +531,7 @@ export default function EnhancedWorkOrderPlanning() {
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </Button>
-          <Button type="button" variant="add" onClick={() => router.push("/factory/customer-orders")}>
+          <Button type="button" variant="add" onClick={openCreateDialog} data-testid="create-work-order-button">
             <Plus className="h-4 w-4 mr-2" />
             Create Work Order
           </Button>
@@ -1564,6 +1638,149 @@ export default function EnhancedWorkOrderPlanning() {
           fetchPlanningData();
         }}
       />
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Work Order</DialogTitle>
+            <DialogDescription>
+              Manually create a work order to manufacture a Ready Good or Ready Raw Material.
+              Raw Materials cannot be produced via a work order.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cwo-product">Product *</Label>
+                <Select
+                  value={newWorkOrder.product_id ? String(newWorkOrder.product_id) : ""}
+                  onValueChange={(value) => setNewWorkOrder((prev) => ({ ...prev, product_id: value }))}
+                >
+                  <SelectTrigger id="cwo-product" data-testid="cwo-product">
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manufacturableProducts.length > 0 ? (
+                      manufacturableProducts.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name} ({p.sku})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        No manufacturable products available
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cwo-quantity">Quantity *</Label>
+                <Input
+                  id="cwo-quantity"
+                  type="number"
+                  min={1}
+                  step="any"
+                  value={newWorkOrder.quantity ?? ""}
+                  onChange={(e) =>
+                    setNewWorkOrder((prev) => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cwo-deadline">Deadline *</Label>
+                <Input
+                  id="cwo-deadline"
+                  type="datetime-local"
+                  value={newWorkOrder.deadline || ""}
+                  onChange={(e) => setNewWorkOrder((prev) => ({ ...prev, deadline: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cwo-priority">Priority</Label>
+                <Select
+                  value={newWorkOrder.priority || "medium"}
+                  onValueChange={(value: WorkOrderPriority) =>
+                    setNewWorkOrder((prev) => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger id="cwo-priority">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cwo-hours">Estimated Hours *</Label>
+              <Input
+                id="cwo-hours"
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={newWorkOrder.estimated_hours ?? ""}
+                onChange={(e) =>
+                  setNewWorkOrder((prev) => ({
+                    ...prev,
+                    estimated_hours: parseFloat(e.target.value) || 0,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cwo-notes">Notes</Label>
+              <Textarea
+                id="cwo-notes"
+                placeholder="Optional notes for this work order"
+                value={newWorkOrder.notes || ""}
+                onChange={(e) => setNewWorkOrder((prev) => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+                disabled={createSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="add"
+                onClick={handleCreateWorkOrder}
+                disabled={createSubmitting}
+                data-testid="cwo-submit"
+              >
+                {createSubmitting ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Work Order
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -59,7 +59,8 @@
       "Bash(NODE_ENV=test PORT=3002 DB_NAME=erp_test CORS_ORIGIN=\"http://localhost:3003,http://127.0.0.1:3003\" nohup npx tsx src/index.ts)",
       "Bash(echo \"BACKEND: $?\")",
       "Bash(awk '{print $2}')",
-      "Bash(xargs -r kill)"
+      "Bash(xargs -r kill)",
+      "Bash(echo \"FRONTEND: $?\")"
     ]
   }
 }
