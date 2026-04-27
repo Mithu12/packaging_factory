@@ -9,6 +9,7 @@ import {
 import { MyLogger } from "@/utils/new-logger";
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { creditWorkOrderProductStock } from "./creditWorkOrderStock";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -857,6 +858,12 @@ export class UpdateWorkOrderMediator {
       const productId = updatedWorkOrder.product_id;
       const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
 
+      // When the WO becomes completed, credit the produced FG/RRM into stock.
+      // Uses good_quantity from completed production runs if any exist; falls back to planned quantity.
+      if (newStatus === 'completed' && currentWorkOrder.status !== 'completed') {
+        await creditWorkOrderProductStock(client, workOrderId);
+      }
+
       if (supportsReservedStock && productId && quantity > 0) {
         // Handle hard reservations (actual stock reservation)
         if (enteringHardReservation) {
@@ -1671,6 +1678,9 @@ export class UpdateWorkOrderMediator {
       }
 
       const updatedWorkOrder = updateResult.rows[0];
+
+      // Credit produced FG/RRM into stock now that the WO is marked completed.
+      await creditWorkOrderProductStock(client, workOrderId);
 
       // Release reserved stock
       if (workOrder.product_id && workOrder.quantity) {

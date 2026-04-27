@@ -60,7 +60,8 @@
       "Bash(echo \"BACKEND: $?\")",
       "Bash(awk '{print $2}')",
       "Bash(xargs -r kill)",
-      "Bash(echo \"FRONTEND: $?\")"
+      "Bash(echo \"FRONTEND: $?\")",
+      "Bash(grep -rn \"current_stock\\\\|good_quantity\\\\|produced_quantity\\\\|stock += \\\\|+ \\\\\\\\\\\\$1\" /home/m22/projects/slf/er/packaging_factory_management/backend/src/modules/factory/mediators/productionExecution/)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { UpdateWorkOrderMediator } from '../workOrders/UpdateWorkOrder.mediator';
+import { creditWorkOrderProductStock } from '../workOrders/creditWorkOrderStock';
 
 export interface UpdateProductionRunStatusRequest {
   status: 'in_progress' | 'paused' | 'completed' | 'cancelled';
@@ -349,6 +350,9 @@ export class UpdateProductionRunStatusMediator {
              WHERE id = $2`,
             [userId, run.work_order_id]
           );
+
+          // Credit the produced FG/RRM into stock (uses good_quantity from runs).
+          await creditWorkOrderProductStock(client, run.work_order_id);
 
           // Free up production line load specifically for this work order completion
           if (run.production_line_id) {
