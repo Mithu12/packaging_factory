@@ -41,6 +41,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+
+const ALL = "__all__"
+type StockFilter = "all" | "good" | "low" | "critical"
 
 export default function Products() {
   const router = useRouter()
@@ -53,19 +69,72 @@ export default function Products() {
   const [stats, setStats] = useState<ProductStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>(ALL)
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all")
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
+  const [supplierFilter, setSupplierFilter] = useState<string>(ALL)
 
-  // Filter products based on search term
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.supplier_name?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const getStockBucket = (current: number, min: number): Exclude<StockFilter, "all"> => {
+    if (current <= min * 0.5) return "critical"
+    if (current <= min) return "low"
+    return "good"
+  }
+
+  // Filter products based on search term and active filters
+  const filteredProducts = products.filter(product => {
+    const term = searchTerm.toLowerCase()
+    const matchesSearch =
+      !term ||
+      product.name.toLowerCase().includes(term) ||
+      product.sku?.toLowerCase().includes(term) ||
+      product.category_name?.toLowerCase().includes(term) ||
+      product.supplier_name?.toString().toLowerCase().includes(term)
+
+    const matchesStatus = statusFilter === ALL || product.status === statusFilter
+    const matchesStock =
+      stockFilter === "all" ||
+      getStockBucket(product.current_stock, product.min_stock_level) === stockFilter
+    const matchesCategory =
+      categoryFilter === ALL || product.category_name === categoryFilter
+    const matchesSupplier =
+      supplierFilter === ALL || product.supplier_name?.toString() === supplierFilter
+
+    return matchesSearch && matchesStatus && matchesStock && matchesCategory && matchesSupplier
+  })
+
+  const activeFilterCount =
+    (statusFilter !== ALL ? 1 : 0) +
+    (stockFilter !== "all" ? 1 : 0) +
+    (categoryFilter !== ALL ? 1 : 0) +
+    (supplierFilter !== ALL ? 1 : 0)
+
+  const clearFilters = () => {
+    setStatusFilter(ALL)
+    setStockFilter("all")
+    setCategoryFilter(ALL)
+    setSupplierFilter(ALL)
+  }
+
+  const categoryOptions = Array.from(
+    new Set(products.map(p => p.category_name).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b))
+
+  const supplierOptions = Array.from(
+    new Set(
+      products
+        .map(p => p.supplier_name?.toString())
+        .filter((s): s is string => Boolean(s))
+    )
+  ).sort((a, b) => a.localeCompare(b))
 
   // Use client-side pagination for filtered products
   const pagination = useClientPagination(filteredProducts, {
     initialPageSize: 10
   })
+
+  useEffect(() => {
+    pagination.setPage(1)
+  }, [searchTerm, statusFilter, stockFilter, categoryFilter, supplierFilter])
 
   // Fetch products and stats on component mount
   useEffect(() => {
@@ -296,9 +365,108 @@ export default function Products() {
                     className="pl-10 w-full sm:w-80"
                   />
                 </div>
-                <Button variant="outline" size="icon">
-                  <Filter className="h-4 w-4" />
-                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="relative"
+                      data-testid="product-filter-button"
+                      aria-label="Filter products"
+                    >
+                      <Filter className="h-4 w-4" />
+                      {activeFilterCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">Filters</h4>
+                      {activeFilterCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={clearFilters}
+                          data-testid="product-filter-clear"
+                        >
+                          Clear all
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Status</Label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger data-testid="product-filter-status">
+                          <SelectValue placeholder="All statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL}>All statuses</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="discontinued">Discontinued</SelectItem>
+                          <SelectItem value="out_of_stock">Out of stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Stock level</Label>
+                      <Select
+                        value={stockFilter}
+                        onValueChange={(value) => setStockFilter(value as StockFilter)}
+                      >
+                        <SelectTrigger data-testid="product-filter-stock">
+                          <SelectValue placeholder="All stock levels" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All stock levels</SelectItem>
+                          <SelectItem value="good">Good (above min)</SelectItem>
+                          <SelectItem value="low">Low (at or below min)</SelectItem>
+                          <SelectItem value="critical">Critical (≤ 50% of min)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Category</Label>
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger data-testid="product-filter-category">
+                          <SelectValue placeholder="All categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL}>All categories</SelectItem>
+                          {categoryOptions.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Supplier</Label>
+                      <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                        <SelectTrigger data-testid="product-filter-supplier">
+                          <SelectValue placeholder="All suppliers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL}>All suppliers</SelectItem>
+                          {supplierOptions.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </CardHeader>
