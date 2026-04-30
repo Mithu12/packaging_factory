@@ -7,8 +7,6 @@ import FactoryCustomerPaymentsMediator from "../mediators/customerOrders/Factory
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { MyLogger } from "@/utils/new-logger";
 import { CreateCustomerOrderRequest, UpdateCustomerOrderRequest, ApproveOrderRequest, UpdateOrderStatusRequest, FactoryCustomerOrderStatus, RecordFactoryOrderPaymentRequest } from "@/types/factory";
-import pool from "@/database/connection";
-import { interModuleConnector } from "@/utils/InterModuleConnector";
 
 class CustomerOrdersController {
   // Get all customer orders with pagination and filtering
@@ -367,184 +365,58 @@ class CustomerOrdersController {
     }
   }
 
-  // Ship customer order
+  // Ship customer order (legacy entry point — delegates to delivery flow)
   async shipCustomerOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const action = "POST /api/factory/customer-orders/:id/ship";
       const { id } = req.params;
-      const { notes, tracking_number, carrier, estimated_delivery_date } = req.body;
-      MyLogger.info(action, { orderId: id, shippingData: { notes, tracking_number, carrier, estimated_delivery_date } });
+      const { notes, tracking_number, carrier, estimated_delivery_date, items } = req.body || {};
+      MyLogger.info(action, { orderId: id, shippingData: { notes, tracking_number, carrier, estimated_delivery_date, hasItems: Array.isArray(items) } });
 
       const userId = req.user?.user_id;
       if (!userId) {
         throw new Error('User not authenticated');
       }
 
-      // First, check if the order can be shipped (must be completed and not already shipped)
-      const orderCheckQuery = `
-        SELECT id, status, order_number
-        FROM factory_customer_orders
-        WHERE id = $1
-      `;
-      const orderResult = await pool.query(orderCheckQuery, [id]);
+      const { CreateDeliveryMediator } = await import('../mediators/deliveries/CreateDelivery.mediator');
 
-      if (orderResult.rows.length === 0) {
-        throw new Error('Customer order not found');
-      }
-
-      const order = orderResult.rows[0];
-
-      if (order.status !== 'completed') {
-        throw new Error(`Cannot ship order in ${order.status} status. Order must be completed first.`);
-      }
-
-      if (order.status === 'shipped') {
-        throw new Error('Order is already shipped');
-      }
-
-      // Update order status to shipped and add shipping details
-      const updateFields = ['status = $1', 'shipped_at = CURRENT_TIMESTAMP', 'shipped_by = $2', 'updated_at = CURRENT_TIMESTAMP'];
-      const updateValues = ['shipped', userId, id];
-      let paramIndex = 4;
-
-      if (tracking_number) {
-        updateFields.push(`tracking_number = $${paramIndex}`);
-        updateValues.push(tracking_number);
-        paramIndex++;
-      }
-
-      if (carrier) {
-        updateFields.push(`carrier = $${paramIndex}`);
-        updateValues.push(carrier);
-        paramIndex++;
-      }
-
-      if (estimated_delivery_date) {
-        updateFields.push(`estimated_delivery_date = $${paramIndex}`);
-        updateValues.push(estimated_delivery_date);
-        paramIndex++;
-      }
-
-      if (notes && notes.trim() !== '') {
-        updateFields.push(`notes = CASE
-          WHEN notes IS NOT NULL THEN notes || E'\n' || $${paramIndex}
-          ELSE $${paramIndex}
-        END`);
-        updateValues.push(notes);
-        paramIndex++;
-      }
-
-      const updateQuery = `
-        UPDATE factory_customer_orders
-        SET ${updateFields.join(', ')}
-        WHERE id = $3
-        RETURNING *
-      `;
-
-      const updateResult = await pool.query(updateQuery, updateValues);
-
-      if (updateResult.rows.length === 0) {
-        throw new Error('Failed to update order status');
-      }
-
-      const updatedOrder = updateResult.rows[0];
-
-      // Auto-generate invoice for shipped order
-      try {
-        const { SalesInvoiceMediator } = await import('../mediators/salesInvoices/SalesInvoiceMediator');
-        
-        // Check if invoice already exists
-        const existingInvoiceCheck = await pool.query(
-          'SELECT id, invoice_number FROM factory_sales_invoices WHERE customer_order_id = $1',
-          [id]
-        );
-
-        if (existingInvoiceCheck.rows.length === 0) {
-          // Generate invoice
-          const invoice = await SalesInvoiceMediator.createInvoiceFromOrder(
-            {
-              customer_order_id: id,
-              notes: `Invoice for ${updatedOrder.order_number} - Shipped on ${new Date().toISOString().split('T')[0]}`
-            },
+      // If caller supplied a partial-items array, treat this as a partial
+      // delivery; otherwise ship all remaining qty (preserves the legacy
+      // "Ship Order" UX as a one-click ship-everything-left).
+      const result = Array.isArray(items) && items.length > 0
+        ? await CreateDeliveryMediator.createPartialDelivery(
+            id,
+            { items, notes, tracking_number, carrier, estimated_delivery_date },
+            userId
+          )
+        : await CreateDeliveryMediator.shipAllRemaining(
+            id,
+            { notes, tracking_number, carrier, estimated_delivery_date },
             userId
           );
 
-          MyLogger.success(`${action}.invoiceGenerated`, {
-            orderId: id,
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoice_number
-          });
-
-          updatedOrder.invoice_number = invoice.invoice_number;
-          updatedOrder.invoice_id = invoice.id;
-        } else {
-          MyLogger.info(`${action}.invoiceExists`, {
-            orderId: id,
-            invoiceNumber: existingInvoiceCheck.rows[0].invoice_number
-          });
-          updatedOrder.invoice_number = existingInvoiceCheck.rows[0].invoice_number;
-          updatedOrder.invoice_id = existingInvoiceCheck.rows[0].id;
-        }
-      } catch (invoiceError: any) {
-        MyLogger.error(`${action}.invoiceGenerationFailed`, invoiceError, {
-          orderId: id,
-          message: 'Failed to generate invoice, but order shipping succeeded'
-        });
-        // Don't fail the shipping operation if invoice generation fails
-      }
-
-      // Accounts integration: revenue (if on_shipment) and COGS vouchers
-      try {
-        const orderDetailResult = await pool.query(
-          `SELECT co.id, co.order_number, co.total_value, co.currency, co.order_date,
-                  co.factory_id, co.factory_customer_id, co.factory_customer_name, co.factory_customer_email,
-                  f.name as factory_name, f.cost_center_id as factory_cost_center_id
-           FROM factory_customer_orders co
-           LEFT JOIN factories f ON co.factory_id = f.id
-           WHERE co.id = $1`,
-          [id]
-        );
-        const orderDetail = orderDetailResult.rows[0];
-        if (orderDetail) {
-          const cogsResult = await pool.query(
-            `SELECT COALESCE(SUM(total_wip_cost), 0) as cost_of_goods_sold
-             FROM work_orders WHERE customer_order_id = $1 AND status = 'completed'`,
-            [id]
-          );
-          const costOfGoodsSold = parseFloat(cogsResult.rows[0]?.cost_of_goods_sold || '0') || 0;
-          const orderData = {
-            orderId: id,
-            orderNumber: orderDetail.order_number,
-            customerId: String(orderDetail.factory_customer_id),
-            customerName: orderDetail.factory_customer_name,
-            customerEmail: orderDetail.factory_customer_email,
-            totalValue: parseFloat(orderDetail.total_value || '0'),
-            currency: orderDetail.currency || 'BDT',
-            orderDate: orderDetail.order_date,
-            factoryId: orderDetail.factory_id,
-            factoryName: orderDetail.factory_name,
-            factoryCostCenterId: orderDetail.factory_cost_center_id,
-            costOfGoodsSold,
-          };
-          await interModuleConnector.accModule.addFactoryOrderShipmentVoucher(orderData, typeof userId === 'string' ? parseInt(userId) : userId);
-        }
-      } catch (accError: any) {
-        MyLogger.error(`${action}.accountsIntegrationFailed`, accError, {
-          orderId: id,
-          message: 'Failed to create shipment vouchers, but order shipping succeeded'
-        });
-      }
+      const updatedOrder = await GetCustomerOrderInfoMediator.getCustomerOrderById(id, userId);
 
       MyLogger.success(action, {
         orderId: id,
-        orderNumber: updatedOrder.order_number,
-        shipped: true,
-        trackingNumber: tracking_number,
-        carrier: carrier
+        deliveryId: result.delivery.id,
+        deliveryNumber: result.delivery.delivery_number,
+        invoiceId: result.invoice.id,
+        invoiceNumber: result.invoice.invoice_number,
+        finalStatus: updatedOrder?.status,
       });
 
-      // Return the updated order
-      serializeSuccessResponse(res, updatedOrder, "Order shipped successfully");
+      serializeSuccessResponse(
+        res,
+        {
+          ...(updatedOrder ?? {}),
+          invoice_id: result.invoice.id,
+          invoice_number: result.invoice.invoice_number,
+          delivery_id: result.delivery.id,
+          delivery_number: result.delivery.delivery_number,
+        },
+        "Order shipped successfully"
+      );
     } catch (error) {
       next(error);
     }

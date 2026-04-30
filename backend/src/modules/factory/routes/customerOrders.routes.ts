@@ -11,6 +11,11 @@ import {
     exportOrdersSchema,
     recordPaymentSchema
 } from "../validation/customerOrderValidation";
+import {
+    createDeliverySchema,
+    deliveryIdSchema,
+    cancelDeliverySchema,
+} from "../validation/deliveryValidation";
 import { authenticate } from "@/middleware/auth";
 import {
     requirePermission,
@@ -19,6 +24,7 @@ import {
 import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
+import { deliveriesController } from "../controllers/deliveries.controller";
 import { auditMiddleware } from "@/middleware/audit";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { createError } from "@/middleware/errorHandler";
@@ -119,6 +125,57 @@ const validateParams = (schema: any) => {
         }
     };
 };
+
+// ---------------------------------------------------------------------------
+// Delivery (challan) routes — declared BEFORE /:id so the literal `deliveries`
+// segment doesn't get caught by the order-id route matcher.
+// ---------------------------------------------------------------------------
+
+// GET /api/factory/customer-orders/deliveries/:deliveryId
+router.get(
+    "/deliveries/:deliveryId",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(deliveryIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.getDeliveryById.bind(deliveriesController))
+);
+
+// GET /api/factory/customer-orders/deliveries/:deliveryId/challan - per-delivery challan PDF
+router.get(
+    "/deliveries/:deliveryId/challan",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(deliveryIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.exportDeliveryChallan.bind(deliveriesController))
+);
+
+// GET /api/factory/customer-orders/deliveries/:deliveryId/invoice - per-delivery invoice PDF
+router.get(
+    "/deliveries/:deliveryId/invoice",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(deliveryIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.exportDeliveryInvoice.bind(deliveriesController))
+);
+
+// POST /api/factory/customer-orders/deliveries/:deliveryId/cancel
+router.post(
+    "/deliveries/:deliveryId/cancel",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(deliveryIdSchema),
+    validateRequest(cancelDeliverySchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.cancelDelivery.bind(deliveriesController))
+);
+
+// POST /api/factory/customer-orders/deliveries/:deliveryId/generate-invoice
+router.post(
+    "/deliveries/:deliveryId/generate-invoice",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(deliveryIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.generateInvoiceForDelivery.bind(deliveriesController))
+);
 
 // GET /api/factory/customer-orders - Get all customer orders with filtering and pagination
 router.get(
@@ -251,6 +308,25 @@ router.post(
     validateParams(orderIdSchema),
     auditMiddleware,
     expressAsyncHandler(CustomerOrdersController.shipCustomerOrder)
+);
+
+// POST /api/factory/customer-orders/:id/deliveries - Create partial delivery
+router.post(
+    "/:id/deliveries",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(orderIdSchema),
+    validateRequest(createDeliverySchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.createDelivery.bind(deliveriesController))
+);
+
+// GET /api/factory/customer-orders/:id/deliveries - List deliveries for an order
+router.get(
+    "/:id/deliveries",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(orderIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.listDeliveriesForOrder.bind(deliveriesController))
 );
 
 // POST /api/factory/customer-orders/:id/generate-invoice - Manually generate invoice for order

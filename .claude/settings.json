@@ -61,7 +61,10 @@
       "Bash(awk '{print $2}')",
       "Bash(xargs -r kill)",
       "Bash(echo \"FRONTEND: $?\")",
-      "Bash(grep -rn \"current_stock\\\\|good_quantity\\\\|produced_quantity\\\\|stock += \\\\|+ \\\\\\\\\\\\$1\" /home/m22/projects/slf/er/packaging_factory_management/backend/src/modules/factory/mediators/productionExecution/)"
+      "Bash(grep -rn \"current_stock\\\\|good_quantity\\\\|produced_quantity\\\\|stock += \\\\|+ \\\\\\\\\\\\$1\" /home/m22/projects/slf/er/packaging_factory_management/backend/src/modules/factory/mediators/productionExecution/)",
+      "Bash(npx next *)",
+      "Bash(timeout 90 npm run build)",
+      "Bash(timeout 45 npm run db:validate)"
     ]
   }
 }

@@ -552,6 +552,12 @@ const menuSections: MenuSection[] = [
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
       },
+      {
+        title: "Stock vs Order Demand",
+        url: "/reports/stock-vs-order-demand",
+        icon: Package,
+        permission: PERMISSIONS.FACTORY_ORDERS_READ,
+      },
     ],
   },
 ];

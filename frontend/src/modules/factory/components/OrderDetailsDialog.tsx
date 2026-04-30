@@ -36,12 +36,14 @@ import {
     CreditCard,
     Loader2,
     History,
+    Truck,
 } from "lucide-react";
 import {
     FactoryCustomerOrder,
     CustomerOrdersApiService,
     FactoryCustomerPayment,
     type QuotedOrderSnapshot,
+    type Delivery,
 } from "../services/customer-orders-api";
 import { QuotedSnapshotDialog } from "./QuotedSnapshotDialog";
 import { useFormatting } from "@/hooks/useFormatting";
@@ -66,11 +68,14 @@ export default function OrderDetailsDialog({
     const [quotationPrintLoading, setQuotationPrintLoading] = useState(false);
     const [quotationDownloadLoading, setQuotationDownloadLoading] = useState(false);
     const [quotedSnapshotOpen, setQuotedSnapshotOpen] = useState(false);
+    const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+    const [loadingDeliveries, setLoadingDeliveries] = useState(false);
 
-    // Load payment history when order changes
+    // Load payment history + deliveries when order changes
     useEffect(() => {
         if (order && open) {
             loadPaymentHistory();
+            loadDeliveries();
         }
     }, [order?.id, open]);
 
@@ -86,6 +91,36 @@ export default function OrderDetailsDialog({
             setPaymentHistory([]);
         } finally {
             setLoadingPayments(false);
+        }
+    };
+
+    const loadDeliveries = async () => {
+        if (!order) return;
+        try {
+            setLoadingDeliveries(true);
+            const list = await CustomerOrdersApiService.listDeliveries(order.id.toString());
+            setDeliveries(Array.isArray(list) ? list : []);
+        } catch (error) {
+            console.error('Failed to load deliveries:', error);
+            setDeliveries([]);
+        } finally {
+            setLoadingDeliveries(false);
+        }
+    };
+
+    const handleDownloadDeliveryChallan = async (deliveryId: number) => {
+        try {
+            await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId);
+        } catch (error) {
+            console.error('Failed to download challan:', error);
+        }
+    };
+
+    const handleDownloadDeliveryInvoice = async (deliveryId: number) => {
+        try {
+            await CustomerOrdersApiService.downloadDeliveryInvoice(deliveryId);
+        } catch (error) {
+            console.error('Failed to download invoice:', error);
         }
     };
 
@@ -119,6 +154,7 @@ export default function OrderDetailsDialog({
             rejected: "bg-red-100 text-red-800",
             in_production: "bg-purple-100 text-purple-800",
             completed: "bg-emerald-100 text-emerald-800",
+            partially_shipped: "bg-amber-100 text-amber-800",
             shipped: "bg-indigo-100 text-indigo-800",
             cancelled: "bg-gray-100 text-gray-800",
         };
@@ -466,6 +502,73 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Deliveries (challans) */}
+                    {(deliveries.length > 0 || loadingDeliveries) && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <Truck className="h-5 w-5 mr-2" />
+                                    Deliveries ({deliveries.length})
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingDeliveries ? (
+                                    <div className="text-sm text-muted-foreground text-center py-4">
+                                        Loading deliveries...
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Delivery</TableHead>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>Items</TableHead>
+                                                <TableHead className="text-right">Subtotal</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Invoice</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {deliveries.map(d => (
+                                                <TableRow key={d.id}>
+                                                    <TableCell className="font-medium">{d.delivery_number}</TableCell>
+                                                    <TableCell>{formatDate(d.delivery_date)}</TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {d.items.map(it => `${it.product_name ?? '#' + it.order_line_item_id} × ${it.quantity}`).join(', ')}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(d.subtotal)}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className="capitalize">{d.delivery_status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">{d.invoice_number ?? '—'}</TableCell>
+                                                    <TableCell className="text-right space-x-1">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => handleDownloadDeliveryChallan(d.id)}
+                                                        >
+                                                            <Download className="h-4 w-4 mr-1" /> Challan
+                                                        </Button>
+                                                        {d.invoice_id && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handleDownloadDeliveryInvoice(d.id)}
+                                                            >
+                                                                <Download className="h-4 w-4 mr-1" /> Invoice
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Payment Information */}
                     <Card>

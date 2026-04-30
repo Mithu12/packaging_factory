@@ -86,6 +86,7 @@ import {
 } from "../services/customer-orders-api";
 import OrderEntryForm from "../components/OrderEntryForm";
 import OrderDetailsDialog from "../components/OrderDetailsDialog";
+import PartialDeliveryDialog from "../components/PartialDeliveryDialog";
 import { ApproveOrderLinesDialog } from "../components/ApproveOrderLinesDialog";
 import { QuotedSnapshotDialog } from "../components/QuotedSnapshotDialog";
 import type { QuotedOrderSnapshot } from "../services/customer-orders-api";
@@ -125,7 +126,7 @@ export default function CustomerOrderManagement() {
     );
     const [showOrderEntry, setShowOrderEntry] = useState(false);
     const [showOrderDetails, setShowOrderDetails] = useState(false);
-    const [showShippingDialog, setShowShippingDialog] = useState(false);
+    const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -134,12 +135,6 @@ export default function CustomerOrderManagement() {
     const [initialStatus, setInitialStatus] = useState<FactoryCustomerOrderStatus>('draft');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [shippingData, setShippingData] = useState({
-        notes: "",
-        tracking_number: "",
-        carrier: "",
-        estimated_delivery_date: ""
-    });
     const [paymentData, setPaymentData] = useState({
         payment_amount: 0,
         payment_method: "cash",
@@ -270,32 +265,23 @@ export default function CustomerOrderManagement() {
         }
     };
 
-    // Handle order shipping
-    const handleShipOrder = (order: FactoryCustomerOrder) => {
-        setSelectedOrder(order);
-        setShippingData({
-            notes: "",
-            tracking_number: "",
-            carrier: "",
-            estimated_delivery_date: ""
-        });
-        setShowShippingDialog(true);
+    // Handle order shipping (now uses partial-delivery dialog)
+    const handleShipOrder = async (order: FactoryCustomerOrder) => {
+        // Reload the order with line_items + delivered_qty so the dialog can
+        // show accurate "remaining" quantities even if the row in the table is
+        // stale.
+        try {
+            const fresh = await CustomerOrdersApiService.getCustomerOrderById(order.id.toString());
+            setSelectedOrder(fresh);
+        } catch {
+            setSelectedOrder(order);
+        }
+        setShowDeliveryDialog(true);
     };
 
-    // Handle order shipping submission
-    const handleShipOrderSubmit = async () => {
-        if (!selectedOrder) return;
-
-        try {
-            await CustomerOrdersApiService.shipCustomerOrder(selectedOrder.id.toString(), shippingData);
-            setShowShippingDialog(false);
-            setSelectedOrder(null);
-            await loadOrders(); // Reload orders
-            await loadStats(); // Reload stats
-        } catch (error) {
-            console.error("Failed to ship order:", error);
-            setError(error instanceof Error ? error.message : 'Failed to ship order');
-        }
+    const handleDeliveryCreated = async () => {
+        await loadOrders();
+        await loadStats();
     };
 
     // Handle record payment
@@ -400,6 +386,8 @@ export default function CustomerOrderManagement() {
                 return "bg-purple-100 text-purple-800";
             case "completed":
                 return "bg-green-100 text-green-800";
+            case "partially_shipped":
+                return "bg-amber-100 text-amber-800";
             case "shipped":
                 return "bg-blue-100 text-blue-800";
             default:
@@ -764,7 +752,7 @@ export default function CustomerOrderManagement() {
                                                             
                                                             <DropdownMenuItem
                                                                 onClick={() => void handleEditOrder(order)}
-                                                                disabled={['approved', 'completed', 'shipped'].includes(order.status)}
+                                                                disabled={['approved', 'completed', 'partially_shipped', 'shipped'].includes(order.status)}
                                                             >
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 <span>Edit Order</span>
@@ -784,7 +772,7 @@ export default function CustomerOrderManagement() {
                                                                 </DropdownMenuItem>
                                                             )}
 
-                                                            {(order.status === 'completed' || order.status === 'shipped') && (
+                                                            {(order.status === 'completed' || order.status === 'partially_shipped' || order.status === 'shipped') && (
                                                                 <>
                                                                     <DropdownMenuItem onClick={() => handleDownloadInvoice(order)} className="text-indigo-600">
                                                                         <FileText className="mr-2 h-4 w-4" />
@@ -819,10 +807,10 @@ export default function CustomerOrderManagement() {
                                                                 </DropdownMenuItem>
                                                             )}
 
-                                                            {order.status === 'completed' && (
+                                                            {(order.status === 'completed' || order.status === 'partially_shipped') && (
                                                                 <DropdownMenuItem onClick={() => handleShipOrder(order)} className="text-blue-600">
                                                                     <Package className="mr-2 h-4 w-4" />
-                                                                    <span>Ship Order</span>
+                                                                    <span>{order.status === 'partially_shipped' ? 'New Delivery' : 'Ship Order'}</span>
                                                                 </DropdownMenuItem>
                                                             )}
 
@@ -833,7 +821,7 @@ export default function CustomerOrderManagement() {
                                                                     setOrderToDelete(order);
                                                                     setShowDeleteDialog(true);
                                                                 }}
-                                                                disabled={['approved', 'in_production', 'completed', 'shipped'].includes(order.status)}
+                                                                disabled={['approved', 'in_production', 'completed', 'partially_shipped', 'shipped'].includes(order.status)}
                                                                 className="text-red-600 focus:text-red-600"
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -969,79 +957,13 @@ export default function CustomerOrderManagement() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Shipping Dialog */}
-            <Dialog open={showShippingDialog} onOpenChange={setShowShippingDialog}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Ship Order</DialogTitle>
-                        <DialogDescription>
-                            Record shipping information for order #{selectedOrder?.order_number}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="tracking-number">Tracking Number</Label>
-                                <Input
-                                    id="tracking-number"
-                                    placeholder="Enter tracking number"
-                                    onChange={(e) => setShippingData(prev => ({
-                                        ...prev,
-                                        tracking_number: e.target.value
-                                    }))}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="carrier">Carrier</Label>
-                                <Select onValueChange={(value) => setShippingData(prev => ({...prev, carrier: value}))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select carrier"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ups">UPS</SelectItem>
-                                        <SelectItem value="fedex">FedEx</SelectItem>
-                                        <SelectItem value="dhl">DHL</SelectItem>
-                                        <SelectItem value="usps">USPS</SelectItem>
-                                        <SelectItem value="other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="delivery-date">Estimated Delivery Date</Label>
-                            <Input
-                                id="delivery-date"
-                                type="date"
-                                onChange={(e) => setShippingData(prev => ({
-                                    ...prev,
-                                    estimated_delivery_date: e.target.value
-                                }))}
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="shipping-notes">Shipping Notes</Label>
-                            <Textarea
-                                id="shipping-notes"
-                                placeholder="Additional shipping notes..."
-                                rows={3}
-                                onChange={(e) => setShippingData(prev => ({...prev, notes: e.target.value}))}
-                            />
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowShippingDialog(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleShipOrderSubmit}>
-                            Ship Order
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Partial-delivery dialog */}
+            <PartialDeliveryDialog
+                open={showDeliveryDialog}
+                onOpenChange={setShowDeliveryDialog}
+                order={selectedOrder}
+                onCreated={handleDeliveryCreated}
+            />
 
             {/* Payment Recording Dialog */}
             <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

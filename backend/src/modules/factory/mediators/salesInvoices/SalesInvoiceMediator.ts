@@ -1,6 +1,8 @@
+import { PoolClient } from 'pg';
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 import {
   SalesInvoice,
   CreateSalesInvoiceRequest,
@@ -13,11 +15,12 @@ import {
 
 export class SalesInvoiceMediator {
   /**
-   * Generate unique sales invoice number
+   * Generate unique sales invoice number. Pass a shared client to share a transaction.
    */
-  static async generateInvoiceNumber(): Promise<string> {
+  static async generateInvoiceNumber(sharedClient?: PoolClient): Promise<string> {
     const action = 'Generate Sales Invoice Number';
-    const client = await pool.connect();
+    const client = sharedClient ?? await pool.connect();
+    const ownsConn = !sharedClient;
 
     try {
       const result = await client.query(
@@ -28,153 +31,234 @@ export class SalesInvoiceMediator {
       MyLogger.error(action, error);
       throw error;
     } finally {
-      client.release();
+      if (ownsConn) client.release();
     }
   }
 
   /**
-   * Create sales invoice from customer order
+   * Legacy entrypoint preserved for backward compatibility with the old
+   * "one invoice per order" callers. New code should drive deliveries directly
+   * via the deliveries mediator and let createInvoiceFromDelivery run inside
+   * that transaction.
+   *
+   * Behaviour: ships every remaining quantity on the order in a single delivery
+   * and returns that delivery's invoice. Errors if no remaining qty.
    */
   static async createInvoiceFromOrder(
     data: CreateSalesInvoiceRequest,
     userId: number
   ): Promise<SalesInvoice> {
-    const action = 'Create Sales Invoice';
-    const client = await pool.connect();
+    // Dynamic import keeps the dependency one-way: CreateDelivery imports this
+    // module statically; this fallback resolves the inverse only when invoked.
+    const { CreateDeliveryMediator } = await import('../deliveries/CreateDelivery.mediator');
+    const result = await CreateDeliveryMediator.shipAllRemaining(
+      data.customer_order_id,
+      {
+        notes: data.notes,
+        delivery_date: data.invoice_date,
+      },
+      userId
+    );
+    return result.invoice;
+  }
+
+  /**
+   * Create sales invoice for a single delivery (challan).
+   *
+   * The delivery row is the unit of partial fulfillment — one invoice per delivery.
+   * Subtotal is derived from delivery_items, NOT from the order's total_value, so
+   * each partial delivery's invoice covers only that shipment's quantity.
+   *
+   * Pass a shared `client` to participate in the caller's transaction (the typical
+   * case: CreateDelivery.mediator runs delivery + invoice + voucher posting in one
+   * atomic block). If `client` is omitted, a fresh transaction is opened here.
+   */
+  static async createInvoiceFromDelivery(
+    deliveryId: number | string,
+    userId: number,
+    sharedClient?: PoolClient
+  ): Promise<SalesInvoice> {
+    const action = 'Create Sales Invoice From Delivery';
+    const client = sharedClient ?? await pool.connect();
+    const ownsTxn = !sharedClient;
 
     try {
-      await client.query('BEGIN');
-      MyLogger.info(action, { customerOrderId: data.customer_order_id, userId });
+      if (ownsTxn) await client.query('BEGIN');
+      MyLogger.info(action, { deliveryId, userId });
 
-      // Get customer order details
-      const orderQuery = `
-        SELECT 
-          co.*,
-          fc.id as customer_id,
-          fc.name as customer_name,
-          fc.payment_terms as customer_payment_terms,
-          f.id as factory_id,
-          f.name as factory_name
-        FROM factory_customer_orders co
-        JOIN factory_customers fc ON co.factory_customer_id = fc.id
-        LEFT JOIN factories f ON co.factory_id = f.id
-        WHERE co.id = $1
-      `;
-      const orderResult = await client.query(orderQuery, [data.customer_order_id]);
-
-      if (orderResult.rows.length === 0) {
-        throw createError('Customer order not found', 404);
-      }
-
-      const order = orderResult.rows[0];
-
-      // Check if order is shipped or completed
-      if (!['completed', 'shipped'].includes(order.status)) {
-        throw createError(`Cannot create invoice for order in ${order.status} status. Order must be completed or shipped.`, 400);
-      }
-
-      // Check if invoice already exists for this order
-      const existingInvoiceCheck = await client.query(
-        'SELECT id, invoice_number FROM factory_sales_invoices WHERE customer_order_id = $1',
-        [data.customer_order_id]
+      // 1. Load delivery + order + items in a single transaction
+      const deliveryRes = await client.query(
+        `SELECT d.*, co.order_number, co.factory_id, co.factory_customer_id,
+                co.payment_terms AS order_payment_terms,
+                co.billing_address, co.shipping_address,
+                co.shipping_cost AS order_shipping_cost,
+                fc.payment_terms AS customer_payment_terms,
+                f.cost_center_id AS factory_cost_center_id,
+                f.name AS factory_name,
+                fc.name AS customer_name,
+                fc.email AS customer_email
+           FROM factory_customer_order_deliveries d
+           JOIN factory_customer_orders co ON co.id = d.customer_order_id
+           JOIN factory_customers fc ON fc.id = co.factory_customer_id
+           LEFT JOIN factories f ON f.id = co.factory_id
+          WHERE d.id = $1`,
+        [deliveryId]
       );
 
-      if (existingInvoiceCheck.rows.length > 0) {
+      if (deliveryRes.rows.length === 0) {
+        throw createError('Delivery not found', 404);
+      }
+      const delivery = deliveryRes.rows[0];
+
+      if (delivery.invoice_id) {
         throw createError(
-          `Invoice ${existingInvoiceCheck.rows[0].invoice_number} already exists for this order`,
+          `Delivery ${delivery.delivery_number} already has invoice id ${delivery.invoice_id}`,
           400
         );
       }
 
-      // Generate invoice number
-      const invoiceNumber = await this.generateInvoiceNumber();
-
-      // Calculate due date if not provided
-      let dueDate = data.due_date;
-      if (!dueDate) {
-        dueDate = this.calculateDueDate(data.payment_terms || order.payment_terms || order.customer_payment_terms);
+      const itemsRes = await client.query(
+        `SELECT di.id, di.order_line_item_id, di.quantity, di.unit_price_snapshot, di.line_total
+           FROM factory_customer_order_delivery_items di
+          WHERE di.delivery_id = $1`,
+        [deliveryId]
+      );
+      const items = itemsRes.rows;
+      if (items.length === 0) {
+        throw createError('Delivery has no items; cannot create invoice', 400);
       }
 
-      // Calculate amounts from order
-      const subtotal = parseFloat(order.total_value || 0);
-      const taxAmount = 0; // TODO: Calculate from order if tax system is implemented
-      const shippingCost = parseFloat(order.shipping_cost || 0);
+      // 2. Compute amounts from delivery_items (NOT from order total)
+      const subtotal = items.reduce((sum, it) => sum + parseFloat(it.line_total), 0);
+      const taxAmount = 0; // tax not yet modelled at delivery level
+      const shippingCost = 0; // shipping cost stays on order; not allocated per delivery in v1
       const totalAmount = subtotal + taxAmount + shippingCost;
 
-      // Insert sales invoice
-      const insertQuery = `
-        INSERT INTO factory_sales_invoices (
-          invoice_number,
-          customer_order_id,
-          factory_customer_id,
-          factory_id,
-          invoice_date,
-          due_date,
+      const paymentTerms = delivery.order_payment_terms || delivery.customer_payment_terms;
+      const invoiceDate = (delivery.delivery_date instanceof Date
+        ? delivery.delivery_date.toISOString().split('T')[0]
+        : String(delivery.delivery_date)) || new Date().toISOString().split('T')[0];
+      const dueDate = this.calculateDueDate(paymentTerms);
+
+      const invoiceNumber = await this.generateInvoiceNumber(client);
+
+      // 3. Insert invoice
+      const insertRes = await client.query(
+        `INSERT INTO factory_sales_invoices (
+           invoice_number, customer_order_id, factory_customer_id, factory_id,
+           invoice_date, due_date,
+           subtotal, tax_amount, shipping_cost, total_amount, outstanding_amount,
+           payment_terms, notes, billing_address, shipping_address,
+           status, created_by
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+         ) RETURNING *`,
+        [
+          invoiceNumber,
+          delivery.customer_order_id,
+          delivery.factory_customer_id,
+          delivery.factory_id,
+          invoiceDate,
+          dueDate,
           subtotal,
-          tax_amount,
-          shipping_cost,
-          total_amount,
-          outstanding_amount,
-          payment_terms,
-          notes,
-          billing_address,
-          shipping_address,
-          status,
-          created_by
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-        )
-        RETURNING *
-      `;
+          taxAmount,
+          shippingCost,
+          totalAmount,
+          totalAmount,
+          paymentTerms,
+          `Invoice for delivery ${delivery.delivery_number} (order ${delivery.order_number})`,
+          delivery.billing_address,
+          delivery.shipping_address,
+          SalesInvoiceStatus.UNPAID,
+          userId,
+        ]
+      );
+      const invoice = insertRes.rows[0];
 
-      const invoiceDate = data.invoice_date || new Date().toISOString().split('T')[0];
-      const paymentTerms = data.payment_terms || order.payment_terms || order.customer_payment_terms;
-
-      const insertValues = [
-        invoiceNumber,
-        data.customer_order_id,
-        order.customer_id,
-        order.factory_id,
-        invoiceDate,
-        dueDate,
-        subtotal,
-        taxAmount,
-        shippingCost,
-        totalAmount,
-        totalAmount, // outstanding_amount starts same as total
-        paymentTerms,
-        data.notes || `Invoice for Order ${order.order_number}`,
-        order.billing_address,
-        order.shipping_address,
-        SalesInvoiceStatus.UNPAID,
-        userId
-      ];
-
-      const invoiceResult = await client.query(insertQuery, insertValues);
-      const invoice = invoiceResult.rows[0];
-
-      // Update customer order with invoice reference
+      // 4. Link invoice on delivery + bump invoiced_qty rollup on each line
       await client.query(
-        'UPDATE factory_customer_orders SET invoice_id = $1 WHERE id = $2',
-        [invoice.id, data.customer_order_id]
+        'UPDATE factory_customer_order_deliveries SET invoice_id = $1 WHERE id = $2',
+        [invoice.id, deliveryId]
       );
 
-      await client.query('COMMIT');
+      for (const it of items) {
+        await client.query(
+          `UPDATE factory_customer_order_line_items
+              SET invoiced_qty = invoiced_qty + $1
+            WHERE id = $2`,
+          [it.quantity, it.order_line_item_id]
+        );
+      }
+
+      // Mirror legacy behaviour: keep factory_customer_orders.invoice_id pointing at
+      // the FIRST invoice created for the order so existing reads still resolve.
+      await client.query(
+        `UPDATE factory_customer_orders
+            SET invoice_id = COALESCE(invoice_id, $1)
+          WHERE id = $2`,
+        [invoice.id, delivery.customer_order_id]
+      );
+
+      if (ownsTxn) await client.query('COMMIT');
+
+      // 5. Post sales / shipment vouchers (best-effort — outside the txn so a
+      // voucher failure does not roll back the invoice). Mirrors the legacy
+      // shipping flow at customerOrders.controller.ts:497.
+      try {
+        // Proportional COGS = (deliverySubtotal / orderTotal) * fullOrderCogs
+        const orderTotalRes = await pool.query(
+          'SELECT total_value FROM factory_customer_orders WHERE id = $1',
+          [delivery.customer_order_id]
+        );
+        const orderTotal = parseFloat(orderTotalRes.rows[0]?.total_value || '0') || 0;
+
+        const cogsRes = await pool.query(
+          `SELECT COALESCE(SUM(total_wip_cost), 0) AS cogs
+             FROM work_orders WHERE customer_order_id = $1 AND status = 'completed'`,
+          [delivery.customer_order_id]
+        );
+        const fullCogs = parseFloat(cogsRes.rows[0]?.cogs || '0') || 0;
+        const proportionalCogs = orderTotal > 0 ? (subtotal / orderTotal) * fullCogs : 0;
+
+        const orderData = {
+          orderId: String(delivery.customer_order_id),
+          orderNumber: delivery.order_number,
+          customerId: String(delivery.factory_customer_id),
+          customerName: delivery.customer_name,
+          customerEmail: delivery.customer_email,
+          totalValue: subtotal,
+          currency: 'BDT',
+          orderDate: invoiceDate,
+          factoryId: delivery.factory_id,
+          factoryName: delivery.factory_name,
+          factoryCostCenterId: delivery.factory_cost_center_id,
+          costOfGoodsSold: proportionalCogs,
+          deliveryNumber: delivery.delivery_number,
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoice_number,
+        };
+        await interModuleConnector.accModule.addFactoryOrderShipmentVoucher(orderData, userId);
+      } catch (voucherErr: any) {
+        MyLogger.error(`${action}.voucherFailed`, voucherErr, {
+          invoiceId: invoice.id,
+          message: 'Voucher posting failed but invoice creation succeeded',
+        });
+      }
 
       MyLogger.success(action, {
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoice_number,
-        customerOrderId: data.customer_order_id,
-        totalAmount
+        deliveryId,
+        subtotal,
       });
 
       return this.formatInvoice(invoice);
     } catch (error: any) {
-      await client.query('ROLLBACK');
+      if (ownsTxn) await client.query('ROLLBACK');
       MyLogger.error(action, error);
       throw error;
     } finally {
-      client.release();
+      if (ownsTxn) client.release();
     }
   }
 

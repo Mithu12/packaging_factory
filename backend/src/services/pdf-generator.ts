@@ -1255,7 +1255,11 @@ export class PDFGenerator {
   }
 
   // Generate HTML template for invoice (Bill)
-  private static generateInvoiceHTML(order: FactoryCustomerOrder, settings?: any): string {
+  private static generateInvoiceHTML(
+    order: FactoryCustomerOrder,
+    settings?: any,
+    delivery?: import('@/types/factory').Delivery
+  ): string {
     const formatCurrency = (amount: number) => {
       return new Intl.NumberFormat('en-IN', {
         minimumFractionDigits: 2,
@@ -1289,10 +1293,27 @@ export class PDFGenerator {
       return 'In Word: ' + (str.trim() ? str.trim() + ' Taka Only.' : 'Zero Taka Only.');
     };
 
-    const itemsHtml = order.line_items?.map((item, index) => {
-      const amount = item.quantity * item.unit_price;
+    // When a delivery is provided, render only that shipment's lines and totals.
+    // Otherwise fall back to whole-order rendering for legacy callers.
+    const renderRows = delivery?.items?.length
+      ? delivery.items.map(it => ({
+          product_name: it.product_name ?? '',
+          description: it.description ?? '',
+          quantity: it.quantity,
+          unit_price: it.unit_price_snapshot,
+          line_total: it.line_total,
+        }))
+      : (order.line_items ?? []).map(li => ({
+          product_name: li.product_name,
+          description: li.description ?? '',
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          line_total: li.quantity * li.unit_price,
+        }));
+
+    const itemsHtml = renderRows.map((item, index) => {
       const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
-      
+
       return `
         <tr>
           <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
@@ -1302,15 +1323,17 @@ export class PDFGenerator {
           </td>
           <td style="text-align: center; vertical-align: bottom;">${item.quantity}</td>
           <td style="text-align: center; vertical-align: bottom;">${formatCurrency(item.unit_price)}</td>
-          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(amount)}</td>
+          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(item.line_total)}</td>
         </tr>
       `;
     }).join('') || '<tr><td colspan="5" style="text-align: center;">No items found</td></tr>';
 
-    // Calculate totals
-    const grandTotal = parseFloat(order.total_value?.toString() || '0');
-    const advance = parseFloat(order.paid_amount?.toString() || '0');
-    const due = parseFloat(order.outstanding_amount?.toString() || '0'); 
+    // Calculate totals (per-delivery if delivery is provided)
+    const grandTotal = delivery
+      ? renderRows.reduce((sum, r) => sum + r.line_total, 0)
+      : parseFloat(order.total_value?.toString() || '0');
+    const advance = delivery ? 0 : parseFloat(order.paid_amount?.toString() || '0');
+    const due = delivery ? grandTotal : parseFloat(order.outstanding_amount?.toString() || '0');
 
     return `
 <!DOCTYPE html>
@@ -1603,7 +1626,10 @@ export class PDFGenerator {
   }
 
   // Generate PDF for invoice (Bill)
-  public static async generateInvoicePDF(order: FactoryCustomerOrder): Promise<Buffer> {
+  public static async generateInvoicePDF(
+    order: FactoryCustomerOrder,
+    delivery?: import('@/types/factory').Delivery
+  ): Promise<Buffer> {
     const action = "PDFGenerator.generateInvoicePDF";
     try {
       // Fetch company settings
@@ -1634,7 +1660,7 @@ export class PDFGenerator {
       const page = await browser.newPage();
 
       // Generate HTML content
-      const html = this.generateInvoiceHTML(order, settingsData);
+      const html = this.generateInvoiceHTML(order, settingsData, delivery);
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -1653,10 +1679,10 @@ export class PDFGenerator {
 
       await page.close();
 
-      MyLogger.success(action, { 
-        orderNumber: order.order_number, 
+      MyLogger.success(action, {
+        orderNumber: order.order_number,
         orderId: order.id,
-        pdfSize: pdfBuffer.length 
+        pdfSize: pdfBuffer.length
       });
 
       return Buffer.from(pdfBuffer);
@@ -1667,7 +1693,11 @@ export class PDFGenerator {
   }
 
   // Generate HTML template for Challan
-  private static generateChallanHTML(order: FactoryCustomerOrder, settings?: any): string {
+  private static generateChallanHTML(
+    order: FactoryCustomerOrder,
+    settings?: any,
+    delivery?: import('@/types/factory').Delivery
+  ): string {
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
       const day = date.getDate().toString().padStart(2, '0');
@@ -1676,9 +1706,22 @@ export class PDFGenerator {
       return `${day}-${month}-${year}`; 
     };
 
-    const itemsHtml = order.line_items?.map((item, index) => {
+    // When a delivery is provided, render only the items in that shipment.
+    const challanRows = delivery?.items?.length
+      ? delivery.items.map(it => ({
+          product_name: it.product_name ?? '',
+          description: it.description ?? '',
+          quantity: it.quantity,
+        }))
+      : (order.line_items ?? []).map(li => ({
+          product_name: li.product_name,
+          description: li.description ?? '',
+          quantity: li.quantity,
+        }));
+
+    const itemsHtml = challanRows.map((item, index) => {
       const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
-      
+
       return `
         <tr>
           <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
@@ -1927,7 +1970,10 @@ export class PDFGenerator {
   }
 
   // Generate PDF for Challan
-  public static async generateChallanPDF(order: FactoryCustomerOrder): Promise<Buffer> {
+  public static async generateChallanPDF(
+    order: FactoryCustomerOrder,
+    delivery?: import('@/types/factory').Delivery
+  ): Promise<Buffer> {
     const action = "PDFGenerator.generateChallanPDF";
     try {
       // Fetch company settings
@@ -1958,7 +2004,7 @@ export class PDFGenerator {
       const page = await browser.newPage();
 
       // Generate HTML content
-      const html = this.generateChallanHTML(order, settingsData);
+      const html = this.generateChallanHTML(order, settingsData, delivery);
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });

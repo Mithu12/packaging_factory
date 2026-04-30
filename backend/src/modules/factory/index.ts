@@ -14,6 +14,7 @@ import operatorsRoutes from "./routes/operators.routes";
 import machinesRoutes from "./routes/machines.routes";
 import costAnalysisRoutes from "./routes/costAnalysis.routes";
 import salesInvoicesRoutes from "./routes/salesInvoices.routes";
+import reportsRoutes from "./routes/reports.routes";
 import express from "express";
 
 const router = express.Router();
@@ -35,5 +36,6 @@ router.use("/machines", machinesRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/cost-analysis", costAnalysisRoutes);
 router.use("/sales-invoices", salesInvoicesRoutes);
+router.use("/reports", reportsRoutes);
 
 export default router;

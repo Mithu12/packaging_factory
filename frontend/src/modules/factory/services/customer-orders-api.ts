@@ -16,6 +16,7 @@ export type FactoryCustomerOrderStatus =
     | 'rejected'
     | 'in_production'
     | 'completed'
+    | 'partially_shipped'
     | 'shipped'
     | 'cancelled';
 
@@ -89,10 +90,69 @@ export interface FactoryCustomerOrderLineItem {
     total_price: number;
     /** Present on some API responses (maps to DB `line_total`). */
     line_total?: number;
+    /** Cumulative qty already shipped via deliveries (V131+). */
+    delivered_qty?: number;
+    /** Cumulative qty already invoiced via delivery invoices (V131+). */
+    invoiced_qty?: number;
     notes?: string;
     specifications?: string;
     created_at: string;
     updated_at: string;
+}
+
+// =====================================================
+// Deliveries (challans) — partial-delivery feature (V131)
+// =====================================================
+
+export type DeliveryStatus = 'shipped' | 'delivered' | 'returned' | 'cancelled';
+
+export interface DeliveryItem {
+    id: number;
+    delivery_id: number;
+    order_line_item_id: number;
+    product_id?: number;
+    product_name?: string;
+    product_sku?: string;
+    description?: string;
+    unit_of_measure?: string;
+    quantity: number;
+    unit_price_snapshot: number;
+    line_total: number;
+    created_at: string;
+}
+
+export interface Delivery {
+    id: number;
+    delivery_number: string;
+    customer_order_id: number;
+    customer_order_number?: string;
+    invoice_id?: number;
+    invoice_number?: string;
+    delivery_date: string;
+    tracking_number?: string;
+    carrier?: string;
+    estimated_delivery_date?: string;
+    delivery_status: DeliveryStatus;
+    notes?: string;
+    shipped_by?: number;
+    items: DeliveryItem[];
+    subtotal: number;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface CreateDeliveryItemRequest {
+    order_line_item_id: number | string;
+    quantity: number;
+}
+
+export interface CreateDeliveryRequest {
+    items: CreateDeliveryItemRequest[];
+    delivery_date?: string;
+    tracking_number?: string;
+    carrier?: string;
+    estimated_delivery_date?: string;
+    notes?: string;
 }
 
 export interface Address {
@@ -661,7 +721,8 @@ export class CustomerOrdersApiService {
         });
     }
 
-    // Ship customer order
+    // Ship customer order. When `items` is provided, ships only those quantities
+    // (partial delivery); otherwise ships all remaining quantity in one delivery.
     static async shipCustomerOrder(
         orderId: string,
         shippingData: {
@@ -669,9 +730,10 @@ export class CustomerOrdersApiService {
             tracking_number?: string;
             carrier?: string;
             estimated_delivery_date?: string;
+            items?: CreateDeliveryItemRequest[];
         }
-    ): Promise<FactoryCustomerOrder> {
-        return makeRequest<FactoryCustomerOrder>(`/factory/customer-orders/${orderId}/ship`, {
+    ): Promise<FactoryCustomerOrder & { delivery_id?: number; delivery_number?: string; invoice_id?: number; invoice_number?: string }> {
+        return makeRequest(`/factory/customer-orders/${orderId}/ship`, {
             method: 'POST',
             body: JSON.stringify(shippingData),
         });
@@ -681,6 +743,76 @@ export class CustomerOrdersApiService {
         return makeRequest<{ deleted: boolean }>(`/factory/customers/${id}`, {
             method: 'DELETE',
         });
+    }
+
+    // ---- Partial deliveries (V131) ----
+
+    /** Create a partial (or full) delivery — auto-generates the per-delivery invoice. */
+    static async createDelivery(
+        orderId: string,
+        data: CreateDeliveryRequest
+    ): Promise<{ delivery: Delivery; invoice: { id: number; invoice_number: string } }> {
+        return makeRequest(`${this.BASE_URL}/${orderId}/deliveries`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /** List all deliveries for an order (oldest first). */
+    static async listDeliveries(orderId: string): Promise<Delivery[]> {
+        return makeRequest<Delivery[]>(`${this.BASE_URL}/${orderId}/deliveries`);
+    }
+
+    /** Get a single delivery by id (with line items + linked invoice info). */
+    static async getDelivery(deliveryId: string | number): Promise<Delivery> {
+        return makeRequest<Delivery>(`${this.BASE_URL}/deliveries/${deliveryId}`);
+    }
+
+    /** Cancel a delivery (reverses qty rollups, returns stock, cancels invoice). */
+    static async cancelDelivery(deliveryId: string | number, reason?: string): Promise<Delivery> {
+        return makeRequest<Delivery>(`${this.BASE_URL}/deliveries/${deliveryId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ reason }),
+        });
+    }
+
+    /** Download per-delivery challan PDF (only this shipment's items). */
+    static async downloadDeliveryChallan(deliveryId: string | number): Promise<void> {
+        await this._downloadDeliveryPdf(deliveryId, 'challan');
+    }
+
+    /** Download per-delivery invoice PDF (only this shipment's items). */
+    static async downloadDeliveryInvoice(deliveryId: string | number): Promise<void> {
+        await this._downloadDeliveryPdf(deliveryId, 'invoice');
+    }
+
+    private static async _downloadDeliveryPdf(
+        deliveryId: string | number,
+        kind: 'challan' | 'invoice'
+    ): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const response = await fetch(
+            `${baseUrl}/factory/customer-orders/deliveries/${deliveryId}/${kind}`,
+            { method: 'GET', credentials: 'include' }
+        );
+        if (!response.ok) throw new Error(`Failed to download ${kind} PDF`);
+
+        let filename = `${kind}-${deliveryId}.pdf`;
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            if (match && match[1]) filename = match[1];
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
     }
 
     // Payment recording

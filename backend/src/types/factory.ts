@@ -103,6 +103,7 @@ export enum FactoryCustomerOrderStatus {
     REJECTED = 'rejected',
     IN_PRODUCTION = 'in_production',
     COMPLETED = 'completed',
+    PARTIALLY_SHIPPED = 'partially_shipped',
     SHIPPED = 'shipped',
     CANCELLED = 'cancelled',
 }
@@ -204,8 +205,63 @@ export interface OrderLineItem {
     specifications?: string;
     delivery_date?: string;
     is_optional: boolean;
+    /** Cumulative quantity already shipped via deliveries; defaults to 0. */
+    delivered_qty?: number;
+    /** Cumulative quantity already invoiced via delivery invoices; defaults to 0. */
+    invoiced_qty?: number;
     created_at: string;
     updated_at?: string;
+}
+
+export type DeliveryStatus = 'shipped' | 'delivered' | 'returned' | 'cancelled';
+
+export interface DeliveryItem {
+    id: number;
+    delivery_id: number;
+    order_line_item_id: number;
+    product_id?: number;
+    product_name?: string;
+    product_sku?: string;
+    description?: string;
+    unit_of_measure?: string;
+    quantity: number;
+    unit_price_snapshot: number;
+    line_total: number;
+    created_at: string;
+}
+
+export interface Delivery {
+    id: number;
+    delivery_number: string;
+    customer_order_id: number;
+    customer_order_number?: string;
+    invoice_id?: number;
+    invoice_number?: string;
+    delivery_date: string;
+    tracking_number?: string;
+    carrier?: string;
+    estimated_delivery_date?: string;
+    delivery_status: DeliveryStatus;
+    notes?: string;
+    shipped_by?: number;
+    items: DeliveryItem[];
+    subtotal: number;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface CreateDeliveryItemRequest {
+    order_line_item_id: number;
+    quantity: number;
+}
+
+export interface CreateDeliveryRequest {
+    items: CreateDeliveryItemRequest[];
+    delivery_date?: string;
+    tracking_number?: string;
+    carrier?: string;
+    estimated_delivery_date?: string;
+    notes?: string;
 }
 
 export interface Address {
