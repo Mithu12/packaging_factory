@@ -64,6 +64,8 @@ export default function Products() {
   const { user } = useAuth()
   const { hasPermission } = useRBAC()
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [searching, setSearching] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [stats, setStats] = useState<ProductStats | null>(null)
@@ -74,22 +76,23 @@ export default function Products() {
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
   const [supplierFilter, setSupplierFilter] = useState<string>(ALL)
 
+  // Debounce the search term so we don't hit the API on every keystroke
+  useEffect(() => {
+    const trimmed = searchTerm.trim()
+    if (trimmed === debouncedSearch) return
+    setSearching(true)
+    const handle = setTimeout(() => setDebouncedSearch(trimmed), 400)
+    return () => clearTimeout(handle)
+  }, [searchTerm, debouncedSearch])
+
   const getStockBucket = (current: number, min: number): Exclude<StockFilter, "all"> => {
     if (current <= min * 0.5) return "critical"
     if (current <= min) return "low"
     return "good"
   }
 
-  // Filter products based on search term and active filters
+  // Search is handled server-side; only the toolbar filters apply on the client
   const filteredProducts = products.filter(product => {
-    const term = searchTerm.toLowerCase()
-    const matchesSearch =
-      !term ||
-      product.name.toLowerCase().includes(term) ||
-      product.sku?.toLowerCase().includes(term) ||
-      product.category_name?.toLowerCase().includes(term) ||
-      product.supplier_name?.toString().toLowerCase().includes(term)
-
     const matchesStatus = statusFilter === ALL || product.status === statusFilter
     const matchesStock =
       stockFilter === "all" ||
@@ -99,7 +102,7 @@ export default function Products() {
     const matchesSupplier =
       supplierFilter === ALL || product.supplier_name?.toString() === supplierFilter
 
-    return matchesSearch && matchesStatus && matchesStock && matchesCategory && matchesSupplier
+    return matchesStatus && matchesStock && matchesCategory && matchesSupplier
   })
 
   const activeFilterCount =
@@ -134,34 +137,46 @@ export default function Products() {
 
   useEffect(() => {
     pagination.setPage(1)
-  }, [searchTerm, statusFilter, stockFilter, categoryFilter, supplierFilter])
+  }, [debouncedSearch, statusFilter, stockFilter, categoryFilter, supplierFilter])
 
-  // Fetch products and stats on component mount
+  // Fetch products whenever the debounced search changes; stats only on mount
   useEffect(() => {
-    const fetchData = async () => {
+    let cancelled = false
+
+    const fetchProducts = async () => {
       try {
-        setLoading(true)
         setError(null)
-        
-        const [productsResult, statsResult] = await Promise.all([
-          ApiService.getProducts({ limit: 100 }), // Get all products
-          ApiService.getProductStats()
-        ])
-        
+        const productsResult = await ApiService.getProducts({
+          limit: 100,
+          ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        })
+        if (cancelled) return
         setProducts(productsResult.products)
-        setStats(statsResult)
       } catch (err) {
+        if (cancelled) return
         if (err instanceof ApiError) {
           setError(err.message)
         } else {
           setError("Failed to load products")
         }
       } finally {
+        if (cancelled) return
         setLoading(false)
+        setSearching(false)
       }
     }
 
-    fetchData()
+    fetchProducts()
+
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedSearch])
+
+  useEffect(() => {
+    ApiService.getProductStats()
+      .then(setStats)
+      .catch((err) => console.error("Failed to load product stats:", err))
   }, [])
 
   const getStockStatus = (current: number, min: number) => {
@@ -362,8 +377,11 @@ export default function Products() {
                     placeholder="Search products..." data-testid="product-search-input"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full sm:w-80"
+                    className="pl-10 pr-10 w-full sm:w-80"
                   />
+                  {searching && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -609,13 +627,16 @@ export default function Products() {
         open={showAddForm} 
         onOpenChange={setShowAddForm}
         onProductAdded={async () => {
-          // Refresh the products list
+          // Refresh the products list, preserving the active search term
           try {
             const [productsResult, statsResult] = await Promise.all([
-              ApiService.getProducts({ limit: 100 }),
+              ApiService.getProducts({
+                limit: 100,
+                ...(debouncedSearch ? { search: debouncedSearch } : {}),
+              }),
               ApiService.getProductStats()
             ])
-            
+
             setProducts(productsResult.products)
             setStats(statsResult)
           } catch (err) {
