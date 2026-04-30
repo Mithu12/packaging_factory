@@ -192,12 +192,12 @@ const menuSections: MenuSection[] = [
         icon: Users,
         permission: PERMISSIONS.SUPPLIERS_READ,
       },
-      // {
-      //   title: "Inventory",
-      //   url: "/inventory",
-      //   icon: Truck,
-      //   permission: PERMISSIONS.INVENTORY_TRACK,
-      // },
+      {
+        title: "Inventory",
+        url: "/inventory",
+        icon: Truck,
+        permission: PERMISSIONS.INVENTORY_TRACK,
+      },
       {
         title: "Purchase Orders",
         url: "/inventory/purchase-orders",
