@@ -160,6 +160,13 @@ export default function EnhancedWorkOrderPlanning() {
     items?: { product_id: number; product_name: string; quantity: number }[];
   } | undefined>(undefined);
   const [associatedPurchases, setAssociatedPurchases] = useState<any[]>([]);
+  const [expensesSummary, setExpensesSummary] = useState<{
+    work_order_id: number;
+    count: number;
+    total_amount: number;
+    currency: string;
+    mixed_currency: boolean;
+  } | null>(null);
 
   // Manual create-work-order dialog state. Manufacturable = FG + RRM (excludes RM).
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -434,6 +441,16 @@ export default function EnhancedWorkOrderPlanning() {
     }
   };
 
+  const fetchExpensesSummary = async (workOrderId: string) => {
+    try {
+      const summary = await WorkOrdersApiService.getWorkOrderExpensesSummary(workOrderId);
+      setExpensesSummary(summary);
+    } catch (error) {
+      console.error("Failed to fetch expenses summary", error);
+      setExpensesSummary(null);
+    }
+  };
+
   const handleViewWorkOrder = async (workOrder: EnhancedWorkOrder) => {
     try {
       const fullWo = await WorkOrdersApiService.getWorkOrderById(workOrder.id);
@@ -444,6 +461,7 @@ export default function EnhancedWorkOrderPlanning() {
         materialAvailability: fullWo.has_material_shortages ? 'short' : 'available',
       });
       fetchAssociatedPurchases(workOrder.id);
+      fetchExpensesSummary(workOrder.id);
       setShowDetailsDialog(true);
     } catch (error) {
       toast.error("Failed to load work order details");
@@ -1178,9 +1196,9 @@ export default function EnhancedWorkOrderPlanning() {
                           <span className="text-sm font-bold text-primary">
                             {selectedWorkOrder.customerOrderNumber}
                           </span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-6 px-2 text-xs"
                             onClick={() => router.push(`/factory/customer-orders?search=${selectedWorkOrder.customerOrderNumber}`)}
                           >
@@ -1190,6 +1208,25 @@ export default function EnhancedWorkOrderPlanning() {
                         </div>
                       </div>
                     )}
+                    <div className="col-span-2">
+                      <div className="text-sm font-medium">Linked Expenses</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm">
+                          {expensesSummary
+                            ? `${expensesSummary.count} expense${expensesSummary.count === 1 ? '' : 's'} · ${formatCurrency(expensesSummary.total_amount)}${expensesSummary.mixed_currency ? ' (mixed currencies)' : ''}`
+                            : '—'}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => router.push(`/expenses?work_order_id=${selectedWorkOrder.id}`)}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          View / Add Expense
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

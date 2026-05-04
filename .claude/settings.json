@@ -68,7 +68,13 @@
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(npm run *)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(git -C /home/m22/projects/slf/er/packaging_factory_management show 1315ca7 --stat)"
+      "Bash(git -C /home/m22/projects/slf/er/packaging_factory_management show 1315ca7 --stat)",
+      "Bash(echo \"tsc exit code: $?\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"exit=$?\")",
+      "Bash(PGPASSWORD=sa psql -h localhost -p 5432 -U postgres -d packaging_factory -c \"\\\\d expenses\")",
+      "Bash(pkill -f \"tsx watch src/index.ts\")",
+      "Bash(pkill -f \"node.*dist/index.js\")"
     ]
   }
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import WorkOrdersApiService from "@/services/work-orders-api";
 import {
     Dialog,
     DialogContent,
@@ -62,6 +64,7 @@ export default function OrderDetailsDialog({
                                                order,
                                                onEdit,
                                            }: OrderDetailsDialogProps) {
+    const router = useRouter();
     const { formatCurrency, formatDate } = useFormatting();
     const [paymentHistory, setPaymentHistory] = useState<FactoryCustomerPayment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(false);
@@ -70,14 +73,33 @@ export default function OrderDetailsDialog({
     const [quotedSnapshotOpen, setQuotedSnapshotOpen] = useState(false);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+    const [expensesSummary, setExpensesSummary] = useState<{
+        customer_order_id: number;
+        count: number;
+        total_amount: number;
+        currency: string;
+        mixed_currency: boolean;
+    } | null>(null);
 
-    // Load payment history + deliveries when order changes
+    // Load payment history + deliveries + expense rollup when order changes
     useEffect(() => {
         if (order && open) {
             loadPaymentHistory();
             loadDeliveries();
+            loadExpensesSummary();
         }
     }, [order?.id, open]);
+
+    const loadExpensesSummary = async () => {
+        if (!order) return;
+        try {
+            const summary = await WorkOrdersApiService.getCustomerOrderExpensesSummary(order.id);
+            setExpensesSummary(summary);
+        } catch (error) {
+            console.error('Failed to load expenses summary:', error);
+            setExpensesSummary(null);
+        }
+    };
 
     const loadPaymentHistory = async () => {
         if (!order) return;
@@ -594,6 +616,25 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                         <span className={`font-bold ${order.outstanding_amount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                       {formatCurrency(order.outstanding_amount)}
                     </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm border-t pt-2">
+                                        <span className="text-muted-foreground">Linked Expenses (across WOs):</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold">
+                                                {expensesSummary
+                                                    ? `${expensesSummary.count} · ${formatCurrency(expensesSummary.total_amount)}${expensesSummary.mixed_currency ? ' (mixed)' : ''}`
+                                                    : '—'}
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-2 text-xs"
+                                                onClick={() => router.push(`/expenses?customer_order_id=${order.id}`)}
+                                                disabled={!expensesSummary || expensesSummary.count === 0}
+                                            >
+                                                View
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
 

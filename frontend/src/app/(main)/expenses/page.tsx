@@ -91,6 +91,7 @@ export default function ExpensesPage() {
   const searchParams = useSearchParams();
   const { formatCurrency, formatDate } = useFormatting();
   const urlWorkOrderId = searchParams?.get('work_order_id') ?? '';
+  const urlCustomerOrderId = searchParams?.get('customer_order_id') ?? '';
   
   // State
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -165,6 +166,7 @@ export default function ExpensesPage() {
       if (selectedStatus !== 'all-status') params.status = selectedStatus;
       if (selectedPaymentMethod !== 'all-payment-methods') params.payment_method = selectedPaymentMethod;
       if (urlWorkOrderId) params.work_order_id = urlWorkOrderId;
+      if (urlCustomerOrderId) params.customer_order_id = urlCustomerOrderId;
 
       const response = await ApiService.getExpenses(params);
       setExpenses(response.expenses);
@@ -193,7 +195,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadData();
-  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedCostCenter, selectedStatus, selectedPaymentMethod, urlWorkOrderId]);
+  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedCostCenter, selectedStatus, selectedPaymentMethod, urlWorkOrderId, urlCustomerOrderId]);
 
   // Debounce the work-order picker search
   useEffect(() => {

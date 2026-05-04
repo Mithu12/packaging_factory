@@ -158,6 +158,12 @@ class ExpenseMediator {
         paramIndex++;
       }
 
+      if (params.customer_order_id) {
+        query += ` AND wo.customer_order_id = $${paramIndex}`;
+        queryParams.push(params.customer_order_id);
+        paramIndex++;
+      }
+
       if (params.start_date) {
         query += ` AND e.expense_date >= $${paramIndex}`;
         queryParams.push(params.start_date);
@@ -262,6 +268,12 @@ class ExpenseMediator {
       if (params.work_order_id) {
         countQuery += ` AND e.work_order_id = $${countParamIndex}`;
         countParams.push(params.work_order_id);
+        countParamIndex++;
+      }
+
+      if (params.customer_order_id) {
+        countQuery += ` AND e.work_order_id IN (SELECT id FROM work_orders WHERE customer_order_id = $${countParamIndex})`;
+        countParams.push(params.customer_order_id);
         countParamIndex++;
       }
 

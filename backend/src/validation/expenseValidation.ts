@@ -56,6 +56,7 @@ export const expenseQuerySchema = Joi.object({
   project: Joi.string().optional().allow(null, ''),
   cost_center_id: Joi.number().integer().positive().optional().allow(null),
   work_order_id: Joi.number().integer().positive().optional().allow(null),
+  customer_order_id: Joi.number().integer().positive().optional().allow(null),
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
   min_amount: Joi.number().min(0).optional(),

@@ -1114,6 +1114,7 @@ export interface ExpenseQueryParams {
   project?: string;
   cost_center_id?: number;
   work_order_id?: number;
+  customer_order_id?: number;
   start_date?: string;
   end_date?: string;
   min_amount?: number;
