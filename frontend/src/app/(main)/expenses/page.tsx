@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { useFormatting } from '@/hooks/useFormatting';
 import { ApiService, Expense, ExpenseCategory, ApiError } from '@/services/api';
 import { AccountsIntegrationBadge } from '@/components/AccountsIntegrationBadge';
 import { CostCentersApiService, CostCenter } from '@/services/accounts-api';
+import { WorkOrdersApiService, WorkOrder } from '@/services/work-orders-api';
 import { ExpenseAccountsPreviewBlock } from '@/components/ExpenseAccountsPreviewBlock';
 import type { ExpenseAccountPreviewResponse } from '@/services/types';
 import {
@@ -66,6 +67,7 @@ interface ExpenseFormData {
   project: string;
   notes: string;
   cost_center_id: string;
+  work_order_id: string;
   receipt_file?: File;
 }
 
@@ -86,7 +88,9 @@ const currencies = [
 
 export default function ExpensesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { formatCurrency, formatDate } = useFormatting();
+  const urlWorkOrderId = searchParams?.get('work_order_id') ?? '';
   
   // State
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -115,6 +119,12 @@ export default function ExpensesPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all-payment-methods');
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<string>('desc');
+
+  // Work order picker (linked WO on the form + URL filter)
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [woSearch, setWoSearch] = useState('');
+  const [debouncedWoSearch, setDebouncedWoSearch] = useState('');
+  const [urlWorkOrder, setUrlWorkOrder] = useState<WorkOrder | null>(null);
   
   // Form data
   const [formData, setFormData] = useState<ExpenseFormData>({
@@ -132,6 +142,7 @@ export default function ExpensesPage() {
     project: '',
     notes: '',
     cost_center_id: '',
+    work_order_id: urlWorkOrderId,
     receipt_file: undefined
   });
 
@@ -153,6 +164,7 @@ export default function ExpensesPage() {
       if (selectedCostCenter !== 'all-cost-centers') params.cost_center_id = selectedCostCenter;
       if (selectedStatus !== 'all-status') params.status = selectedStatus;
       if (selectedPaymentMethod !== 'all-payment-methods') params.payment_method = selectedPaymentMethod;
+      if (urlWorkOrderId) params.work_order_id = urlWorkOrderId;
 
       const response = await ApiService.getExpenses(params);
       setExpenses(response.expenses);
@@ -181,7 +193,55 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadData();
-  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedCostCenter, selectedStatus, selectedPaymentMethod]);
+  }, [currentPage, pageSize, sortBy, sortOrder, searchTerm, selectedCategory, selectedCostCenter, selectedStatus, selectedPaymentMethod, urlWorkOrderId]);
+
+  // Debounce the work-order picker search
+  useEffect(() => {
+    const trimmed = woSearch.trim();
+    if (trimmed === debouncedWoSearch) return;
+    const handle = setTimeout(() => setDebouncedWoSearch(trimmed), 400);
+    return () => clearTimeout(handle);
+  }, [woSearch, debouncedWoSearch]);
+
+  // Fetch work orders for the picker (initial load + on debounced search change)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const params: Record<string, string | number> = { limit: 50 };
+        if (debouncedWoSearch) params.search = debouncedWoSearch;
+        const res = await WorkOrdersApiService.getWorkOrders(params as any);
+        if (cancelled) return;
+        setWorkOrders(res.work_orders || []);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to load work orders:', err);
+        setWorkOrders([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedWoSearch]);
+
+  // If the page is opened with ?work_order_id=N, hydrate that WO so it can be shown in the picker
+  useEffect(() => {
+    if (!urlWorkOrderId) {
+      setUrlWorkOrder(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const wo = await WorkOrdersApiService.getWorkOrderById(urlWorkOrderId);
+        if (!cancelled) setUrlWorkOrder(wo);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load linked work order:', err);
+          setUrlWorkOrder(null);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [urlWorkOrderId]);
 
   useEffect(() => {
     loadExpenseCategories();
@@ -241,6 +301,7 @@ export default function ExpensesPage() {
       project: '',
       notes: '',
       cost_center_id: '',
+      work_order_id: urlWorkOrderId,
       receipt_file: undefined
     });
   };
@@ -269,6 +330,7 @@ export default function ExpensesPage() {
       };
 
       expenseData.cost_center_id = formData.cost_center_id ? parseInt(formData.cost_center_id) : null;
+      expenseData.work_order_id = formData.work_order_id ? parseInt(formData.work_order_id) : null;
 
       // Remove receipt_file from the data object as it's handled separately
       delete (expenseData as any).receipt_file;
@@ -318,7 +380,8 @@ export default function ExpensesPage() {
       department: expense.department || '',
       project: expense.project || '',
       notes: expense.notes || '',
-      cost_center_id: expense.cost_center_id?.toString() || ''
+      cost_center_id: expense.cost_center_id?.toString() || '',
+      work_order_id: expense.work_order_id?.toString() || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -513,6 +576,40 @@ export default function ExpensesPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="work_order">Linked Work Order</Label>
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        id="wo-search"
+                        placeholder="Search work orders by number, product, or customer order…"
+                        value={woSearch}
+                        onChange={(e) => setWoSearch(e.target.value)}
+                      />
+                      <Select
+                        value={formData.work_order_id || 'none'}
+                        onValueChange={(value) => handleInputChange('work_order_id', value === 'none' ? '' : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select work order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {urlWorkOrder &&
+                            !workOrders.some((w) => String(w.id) === String(urlWorkOrder.id)) && (
+                              <SelectItem value={String(urlWorkOrder.id)}>
+                                {`WO-${urlWorkOrder.work_order_number}${urlWorkOrder.product_name ? ` — ${urlWorkOrder.product_name}` : ''}${urlWorkOrder.customer_order_number ? ` (Order ${urlWorkOrder.customer_order_number})` : ''}`}
+                              </SelectItem>
+                            )}
+                          {workOrders.map((wo) => (
+                            <SelectItem key={wo.id} value={String(wo.id)}>
+                              {`WO-${wo.work_order_number}${wo.product_name ? ` — ${wo.product_name}` : ''}${wo.customer_order_number ? ` (Order ${wo.customer_order_number})` : ''}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {formData.category_id && (
@@ -844,6 +941,7 @@ export default function ExpensesPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Cost Center</TableHead>
+                    <TableHead>Work Order</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -861,6 +959,14 @@ export default function ExpensesPage() {
                         <Badge variant="outline">{expense.category_name}</Badge>
                       </TableCell>
                       <TableCell>{expense.cost_center_name ? `${expense.cost_center_name} (${expense.cost_center_code})` : '-'}</TableCell>
+                      <TableCell>
+                        {expense.work_order_number ? (
+                          <span className="text-xs">
+                            WO-{expense.work_order_number}
+                            {expense.customer_order_number ? <span className="text-muted-foreground"> · Order {expense.customer_order_number}</span> : null}
+                          </span>
+                        ) : '-'}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(expense.amount)} {expense.currency}
                       </TableCell>
@@ -1060,6 +1166,40 @@ export default function ExpensesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="edit-work_order">Linked Work Order</Label>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    id="edit-wo-search"
+                    placeholder="Search work orders by number, product, or customer order…"
+                    value={woSearch}
+                    onChange={(e) => setWoSearch(e.target.value)}
+                  />
+                  <Select
+                    value={formData.work_order_id || 'none'}
+                    onValueChange={(value) => handleInputChange('work_order_id', value === 'none' ? '' : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select work order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {editingExpense?.work_order_id &&
+                        !workOrders.some((w) => String(w.id) === editingExpense.work_order_id?.toString()) && (
+                          <SelectItem value={editingExpense.work_order_id.toString()}>
+                            {`WO-${editingExpense.work_order_number ?? editingExpense.work_order_id} (currently linked)`}
+                          </SelectItem>
+                        )}
+                      {workOrders.map((wo) => (
+                        <SelectItem key={wo.id} value={String(wo.id)}>
+                          {`WO-${wo.work_order_number}${wo.product_name ? ` — ${wo.product_name}` : ''}${wo.customer_order_number ? ` (Order ${wo.customer_order_number})` : ''}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {formData.category_id && (

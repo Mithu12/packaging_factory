@@ -67,7 +67,8 @@
       "Bash(timeout 45 npm run db:validate)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(npm run *)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(git -C /home/m22/projects/slf/er/packaging_factory_management show 1315ca7 --stat)"
     ]
   }
 }

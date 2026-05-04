@@ -31,8 +31,8 @@ class ExpenseMediator {
         INSERT INTO expenses (
           expense_number, title, description, category_id, amount, currency,
           expense_date, payment_method, vendor_name, vendor_contact,
-          receipt_number, receipt_url, department, project, tags, notes, created_by, cost_center_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          receipt_number, receipt_url, department, project, tags, notes, created_by, cost_center_id, work_order_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *
       `;
 
@@ -54,7 +54,8 @@ class ExpenseMediator {
         data.tags || null,
         data.notes || null,
         createdBy,
-        data.cost_center_id ?? null
+        data.cost_center_id ?? null,
+        data.work_order_id ?? null
       ];
 
       const result = await client.query(insertQuery, values);
@@ -83,20 +84,25 @@ class ExpenseMediator {
       MyLogger.info(action, { params });
 
       let query = `
-        SELECT 
+        SELECT
           e.*,
           ec.name as category_name,
           cc.name as cost_center_name,
           cc.code as cost_center_code,
           u1.username as created_by_name,
           u2.username as approved_by_name,
-          u3.username as paid_by_name
+          u3.username as paid_by_name,
+          wo.work_order_number as work_order_number,
+          wo.customer_order_id as customer_order_id,
+          fco.order_number as customer_order_number
         FROM expenses e
         LEFT JOIN expense_categories ec ON e.category_id = ec.id
         LEFT JOIN cost_centers cc ON e.cost_center_id = cc.id
         LEFT JOIN users u1 ON e.created_by = u1.id
         LEFT JOIN users u2 ON e.approved_by = u2.id
         LEFT JOIN users u3 ON e.paid_by = u3.id
+        LEFT JOIN work_orders wo ON e.work_order_id = wo.id
+        LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
         WHERE 1=1
       `;
 
@@ -143,6 +149,12 @@ class ExpenseMediator {
       if (params.cost_center_id) {
         query += ` AND e.cost_center_id = $${paramIndex}`;
         queryParams.push(params.cost_center_id);
+        paramIndex++;
+      }
+
+      if (params.work_order_id) {
+        query += ` AND e.work_order_id = $${paramIndex}`;
+        queryParams.push(params.work_order_id);
         paramIndex++;
       }
 
@@ -247,6 +259,12 @@ class ExpenseMediator {
         countParamIndex++;
       }
 
+      if (params.work_order_id) {
+        countQuery += ` AND e.work_order_id = $${countParamIndex}`;
+        countParams.push(params.work_order_id);
+        countParamIndex++;
+      }
+
       if (params.start_date) {
         countQuery += ` AND e.expense_date >= $${countParamIndex}`;
         countParams.push(params.start_date);
@@ -308,20 +326,25 @@ class ExpenseMediator {
       MyLogger.info(action, { expenseId: id });
 
       const query = `
-        SELECT 
+        SELECT
           e.*,
           ec.name as category_name,
           cc.name as cost_center_name,
           cc.code as cost_center_code,
           u1.username as created_by_name,
           u2.username as approved_by_name,
-          u3.username as paid_by_name
+          u3.username as paid_by_name,
+          wo.work_order_number as work_order_number,
+          wo.customer_order_id as customer_order_id,
+          fco.order_number as customer_order_number
         FROM expenses e
         LEFT JOIN expense_categories ec ON e.category_id = ec.id
         LEFT JOIN cost_centers cc ON e.cost_center_id = cc.id
         LEFT JOIN users u1 ON e.created_by = u1.id
         LEFT JOIN users u2 ON e.approved_by = u2.id
         LEFT JOIN users u3 ON e.paid_by = u3.id
+        LEFT JOIN work_orders wo ON e.work_order_id = wo.id
+        LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
         WHERE e.id = $1
       `;
 

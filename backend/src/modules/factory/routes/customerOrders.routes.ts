@@ -216,6 +216,16 @@ router.get(
     expressAsyncHandler(CustomerOrdersController.getCustomerOrderById)
 );
 
+// GET /api/factory/customer-orders/:id/expenses-summary - rolled-up expense total across linked WOs
+router.get(
+    "/:id/expenses-summary",
+    authenticate,
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(orderIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(CustomerOrdersController.getCustomerOrderExpensesSummary)
+);
+
 // GET /api/factory/customer-orders/:id/pdf - Export quotation/order PDF
 router.get(
     "/:id/pdf",

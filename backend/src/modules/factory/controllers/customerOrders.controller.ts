@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { GetCustomerOrderInfoMediator } from "../mediators/customerOrders/GetCustomerOrderInfo.mediator";
+import { GetWorkOrderInfoMediator } from "../mediators/workOrders/GetWorkOrderInfo.mediator";
 import { AddCustomerOrderMediator } from "../mediators/customerOrders/AddCustomerOrder.mediator";
 import { UpdateCustomerOrderInfoMediator } from "../mediators/customerOrders/UpdateCustomerOrderInfo.mediator";
 import { DeleteCustomerOrderMediator } from "../mediators/customerOrders/DeleteCustomerOrder.mediator";
@@ -49,6 +50,22 @@ class CustomerOrdersController {
 
       MyLogger.success(action, { orderId: id, found: true });
       serializeSuccessResponse(res, order, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Rolled-up expense total across all work orders linked to a customer order
+  async getCustomerOrderExpensesSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/customer-orders/:id/expenses-summary";
+      const { id } = req.params;
+      MyLogger.info(action, { customerOrderId: id });
+
+      const summary = await GetWorkOrderInfoMediator.getCustomerOrderExpensesSummary(id);
+
+      MyLogger.success(action, summary);
+      serializeSuccessResponse(res, summary, "SUCCESS");
     } catch (error) {
       next(error);
     }

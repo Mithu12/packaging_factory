@@ -17,6 +17,7 @@ export const createExpenseSchema = Joi.object({
   tags: Joi.array().items(Joi.string().max(50)).optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
   cost_center_id: Joi.number().integer().positive().optional().allow(null),
+  work_order_id: Joi.number().integer().positive().optional().allow(null),
 });
 
 export const updateExpenseSchema = Joi.object({
@@ -36,6 +37,7 @@ export const updateExpenseSchema = Joi.object({
   tags: Joi.array().items(Joi.string().max(50)).optional().allow(null),
   notes: Joi.string().max(1000).optional().allow(null, ''),
   cost_center_id: Joi.number().integer().positive().optional().allow(null),
+  work_order_id: Joi.number().integer().positive().optional().allow(null),
 });
 
 export const previewAccountQuerySchema = Joi.object({
@@ -53,6 +55,7 @@ export const expenseQuerySchema = Joi.object({
   department: Joi.string().optional().allow(null, ''),
   project: Joi.string().optional().allow(null, ''),
   cost_center_id: Joi.number().integer().positive().optional().allow(null),
+  work_order_id: Joi.number().integer().positive().optional().allow(null),
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
   min_amount: Joi.number().min(0).optional(),

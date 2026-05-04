@@ -40,6 +40,7 @@ export interface Expense {
   created_by: number;
   created_at: string;
   updated_at: string;
+  work_order_id?: number;
   // Joined fields
   category_name?: string;
   cost_center_id?: number;
@@ -48,6 +49,9 @@ export interface Expense {
   created_by_name?: string;
   approved_by_name?: string;
   paid_by_name?: string;
+  work_order_number?: string;
+  customer_order_id?: number;
+  customer_order_number?: string;
 }
 
 export interface CreateExpenseRequest {
@@ -67,6 +71,7 @@ export interface CreateExpenseRequest {
   tags?: string[];
   notes?: string;
   cost_center_id?: number;
+  work_order_id?: number | null;
 }
 
 export interface UpdateExpenseRequest {
@@ -86,6 +91,7 @@ export interface UpdateExpenseRequest {
   tags?: string[];
   notes?: string;
   cost_center_id?: number;
+  work_order_id?: number | null;
 }
 
 export interface ExpenseQueryParams {
@@ -98,6 +104,7 @@ export interface ExpenseQueryParams {
   department?: string;
   project?: string;
   cost_center_id?: number;
+  work_order_id?: number;
   start_date?: string;
   end_date?: string;
   min_amount?: number;

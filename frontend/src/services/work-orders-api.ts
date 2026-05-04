@@ -280,6 +280,28 @@ export class WorkOrdersApiService {
     return makeRequest<any[]>(`${this.BASE_URL}/${id}/purchases`);
   }
 
+  // Rolled-up expense total for a work order
+  static async getWorkOrderExpensesSummary(id: string | number): Promise<{
+    work_order_id: number;
+    count: number;
+    total_amount: number;
+    currency: string;
+    mixed_currency: boolean;
+  }> {
+    return makeRequest(`${this.BASE_URL}/${id}/expenses-summary`);
+  }
+
+  // Rolled-up expense total across all WOs of a customer order
+  static async getCustomerOrderExpensesSummary(customerOrderId: string | number): Promise<{
+    customer_order_id: number;
+    count: number;
+    total_amount: number;
+    currency: string;
+    mixed_currency: boolean;
+  }> {
+    return makeRequest(`/factory/customer-orders/${customerOrderId}/expenses-summary`);
+  }
+
   // Get work order statistics
   static async getWorkOrderStats(): Promise<WorkOrderStats> {
     return makeRequest<WorkOrderStats>(`${this.BASE_URL}/stats`);

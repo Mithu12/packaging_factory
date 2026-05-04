@@ -73,6 +73,22 @@ class WorkOrdersController {
     }
   }
 
+  // Rolled-up expense total for a work order
+  async getWorkOrderExpensesSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/work-orders/:id/expenses-summary";
+      const { id } = req.params;
+      MyLogger.info(action, { workOrderId: id });
+
+      const summary = await GetWorkOrderInfoMediator.getWorkOrderExpensesSummary(id);
+
+      MyLogger.success(action, summary);
+      serializeSuccessResponse(res, summary, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Get work order statistics
   async getWorkOrderStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

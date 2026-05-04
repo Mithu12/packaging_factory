@@ -717,4 +717,87 @@ export class GetWorkOrderInfoMediator {
       client.release();
     }
   }
+
+  static async getWorkOrderExpensesSummary(workOrderId: string): Promise<{
+    work_order_id: number;
+    count: number;
+    total_amount: number;
+    currency: string;
+    mixed_currency: boolean;
+  }> {
+    const action = "GetWorkOrderInfoMediator.getWorkOrderExpensesSummary";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { workOrderId });
+
+      const result = await client.query(
+        `SELECT
+           COUNT(*)::int AS count,
+           COALESCE(SUM(amount), 0)::numeric AS total_amount,
+           COUNT(DISTINCT COALESCE(currency, 'USD'))::int AS currency_count,
+           MIN(COALESCE(currency, 'USD')) AS currency
+         FROM expenses
+         WHERE work_order_id = $1`,
+        [workOrderId]
+      );
+
+      const row = result.rows[0];
+      const summary = {
+        work_order_id: Number(workOrderId),
+        count: row.count ?? 0,
+        total_amount: parseFloat(row.total_amount) || 0,
+        currency: row.currency || 'USD',
+        mixed_currency: (row.currency_count ?? 0) > 1,
+      };
+      MyLogger.success(action, summary);
+      return summary;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getCustomerOrderExpensesSummary(customerOrderId: string): Promise<{
+    customer_order_id: number;
+    count: number;
+    total_amount: number;
+    currency: string;
+    mixed_currency: boolean;
+  }> {
+    const action = "GetWorkOrderInfoMediator.getCustomerOrderExpensesSummary";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { customerOrderId });
+
+      const result = await client.query(
+        `SELECT
+           COUNT(*)::int AS count,
+           COALESCE(SUM(e.amount), 0)::numeric AS total_amount,
+           COUNT(DISTINCT COALESCE(e.currency, 'USD'))::int AS currency_count,
+           MIN(COALESCE(e.currency, 'USD')) AS currency
+         FROM expenses e
+         JOIN work_orders wo ON e.work_order_id = wo.id
+         WHERE wo.customer_order_id = $1`,
+        [customerOrderId]
+      );
+
+      const row = result.rows[0];
+      const summary = {
+        customer_order_id: Number(customerOrderId),
+        count: row.count ?? 0,
+        total_amount: parseFloat(row.total_amount) || 0,
+        currency: row.currency || 'USD',
+        mixed_currency: (row.currency_count ?? 0) > 1,
+      };
+      MyLogger.success(action, summary);
+      return summary;
+    } catch (error) {
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }

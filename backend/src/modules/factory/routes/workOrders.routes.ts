@@ -167,5 +167,12 @@ router.get(
   expressAsyncHandler(workOrdersController.getWorkOrderPurchases)
 );
 
+// Rolled-up expense total for a work order
+router.get(
+  "/:id/expenses-summary",
+  requirePermission(PERMISSIONS.FACTORY_WORK_ORDERS_READ),
+  expressAsyncHandler(workOrdersController.getWorkOrderExpensesSummary)
+);
+
 
 export default router;
