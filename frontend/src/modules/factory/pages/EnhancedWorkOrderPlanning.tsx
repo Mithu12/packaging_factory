@@ -41,6 +41,7 @@ import {
   WorkOrderPriority,
 } from "@/services/work-orders-api";
 import { CustomerOrdersApiService, FactoryProduct } from "../services/customer-orders-api";
+import { isReadyRawMaterialsCategory } from "@/modules/inventory/constants/inventoryProductCategories";
 import { CreatePurchaseOrderForm } from "@/modules/inventory/components/forms/CreatePurchaseOrderForm";
 import { toast } from "sonner";
 import {
@@ -82,6 +83,7 @@ interface EnhancedWorkOrder {
   customerOrderId?: number;
   product: string;
   productId: string;
+  productPrimaryCategory?: string | null;
   quantity: number;
   deadline: string;
   status:
@@ -143,6 +145,7 @@ export default function EnhancedWorkOrderPlanning() {
     useState<EnhancedWorkOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [preProductionOnly, setPreProductionOnly] = useState(false);
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
@@ -240,6 +243,7 @@ export default function EnhancedWorkOrderPlanning() {
         customerOrderId: wo.customer_order_id,
         product: wo.product_name,
         productId: wo.product_id,
+        productPrimaryCategory: wo.product_primary_category ?? null,
         quantity: wo.quantity,
         deadline: wo.deadline,
         status: wo.status as any,
@@ -298,7 +302,10 @@ export default function EnhancedWorkOrderPlanning() {
       wo.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       wo.product.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPreProd =
+      !preProductionOnly ||
+      isReadyRawMaterialsCategory(wo.productPrimaryCategory ?? "");
+    return matchesSearch && matchesStatus && matchesPreProd;
   });
 
   const getStatusColor = (status: string) => {
@@ -641,6 +648,13 @@ export default function EnhancedWorkOrderPlanning() {
                     <TabsTrigger value="completed">Completed</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                  <Checkbox
+                    checked={preProductionOnly}
+                    onCheckedChange={(checked) => setPreProductionOnly(checked === true)}
+                  />
+                  Pre-Production only
+                </label>
               </div>
             </CardContent>
           </Card>
@@ -671,7 +685,17 @@ export default function EnhancedWorkOrderPlanning() {
                       <TableCell className="font-medium">{wo.id}</TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{wo.product}</div>
+                          <div className="font-medium flex items-center gap-2">
+                            <span>{wo.product}</span>
+                            {isReadyRawMaterialsCategory(wo.productPrimaryCategory ?? "") && (
+                              <Badge
+                                variant="outline"
+                                className="border-indigo-300 text-indigo-700 bg-indigo-50"
+                              >
+                                Pre-Production
+                              </Badge>
+                            )}
+                          </div>
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <ShoppingCart className="h-3 w-3" />
                             {wo.customerOrderNumber || wo.orderNumber}

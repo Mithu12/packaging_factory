@@ -14,6 +14,10 @@ export const createBOMSchema = Joi.object({
     "date.base": "Effective date must be a valid date",
     "any.required": "Effective date is required",
   }),
+  category: Joi.string().valid("media", "liner", "both").required().messages({
+    "any.only": "Category must be one of: media, liner, both",
+    "any.required": "Category is required",
+  }),
   components: Joi.array()
     .items(
       Joi.object({
@@ -57,6 +61,9 @@ export const updateBOMSchema = Joi.object({
     "date.base": "Effective date must be a valid date",
   }),
   is_active: Joi.boolean().optional(),
+  category: Joi.string().valid("media", "liner", "both").optional().messages({
+    "any.only": "Category must be one of: media, liner, both",
+  }),
   components: Joi.array()
     .items(
       Joi.object({
@@ -93,6 +100,7 @@ export const bomQuerySchema = Joi.object({
   search: Joi.string().max(100).optional(),
   parent_product_id: Joi.number().optional(),
   is_active: Joi.boolean().optional(),
+  category: Joi.string().valid("media", "liner", "both").optional(),
   sort_by: Joi.string().valid("created_at", "version", "total_cost").optional(),
   sort_order: Joi.string().valid("asc", "desc").optional(),
 });

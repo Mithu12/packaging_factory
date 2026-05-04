@@ -17,6 +17,8 @@ export type MaterialRequirementStatus =
 
 export type MaterialRequirementPriority = 'low' | 'medium' | 'high' | 'critical';
 
+export type BOMCategory = 'media' | 'liner' | 'both';
+
 export interface BillOfMaterials {
   id: string;
   parent_product_id: string;
@@ -25,6 +27,7 @@ export interface BillOfMaterials {
   version: string;
   effective_date: string;
   is_active: boolean;
+  category: BOMCategory;
   total_cost: number;
   created_by: number;
   created_at: string;
@@ -152,6 +155,7 @@ export interface CreateBOMRequest {
   parent_product_id: string;
   version: string;
   effective_date: string;
+  category: BOMCategory;
   components: CreateBOMComponentRequest[];
   notes?: string;
 }
@@ -170,6 +174,7 @@ export interface UpdateBOMRequest {
   version?: string;
   effective_date?: string;
   is_active?: boolean;
+  category?: BOMCategory;
   components?: UpdateBOMComponentRequest[];
   notes?: string;
 }
@@ -192,6 +197,7 @@ export interface BOMQueryParams {
   search?: string;
   parent_product_id?: string;
   is_active?: boolean;
+  category?: BOMCategory;
   sort_by?: 'created_at' | 'version' | 'total_cost';
   sort_order?: 'asc' | 'desc';
 }

@@ -49,7 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMStats } from "@/services/bom-api";
+import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMCategory, BOMStats } from "@/services/bom-api";
 import { useQuery } from "@tanstack/react-query";
 
 export default function BOMList() {
@@ -57,6 +57,7 @@ export default function BOMList() {
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | BOMCategory>("all");
   const [showBOMDialog, setShowBOMDialog] = useState(false);
   const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
 
@@ -64,6 +65,7 @@ export default function BOMList() {
   const queryParams: BOMQueryParams = {
     search: searchTerm || undefined,
     is_active: statusFilter === "all" ? undefined : statusFilter === "active",
+    category: categoryFilter === "all" ? undefined : categoryFilter,
     page: 1,
     limit: 50,
   };
@@ -287,6 +289,18 @@ export default function BOMList() {
                     <TabsTrigger value="inactive" data-testid="filter-inactive-tab">Inactive</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                <Tabs
+                  value={categoryFilter}
+                  onValueChange={(v) => setCategoryFilter(v as "all" | BOMCategory)}
+                  data-testid="category-filter-tabs"
+                >
+                  <TabsList data-testid="category-filter-tabs-list">
+                    <TabsTrigger value="all" data-testid="filter-category-all-tab">All</TabsTrigger>
+                    <TabsTrigger value="media" data-testid="filter-category-media-tab">Media</TabsTrigger>
+                    <TabsTrigger value="liner" data-testid="filter-category-liner-tab">Liner</TabsTrigger>
+                    <TabsTrigger value="both" data-testid="filter-category-both-tab">Both</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
             </CardContent>
           </Card>
@@ -303,6 +317,7 @@ export default function BOMList() {
                     <TableHead data-testid="bom-id-header">BOM ID</TableHead>
                     <TableHead data-testid="product-header">Product</TableHead>
                     <TableHead data-testid="version-header">Version</TableHead>
+                    <TableHead data-testid="category-header">Category</TableHead>
                     <TableHead data-testid="components-header">Components</TableHead>
                     <TableHead data-testid="total-cost-header">Total Cost</TableHead>
                     <TableHead data-testid="status-header">Status</TableHead>
@@ -326,6 +341,11 @@ export default function BOMList() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{bom.version}</Badge>
+                      </TableCell>
+                      <TableCell data-testid={`bom-category-${bom.id}`}>
+                        <Badge variant="secondary" className="capitalize">
+                          {bom.category}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

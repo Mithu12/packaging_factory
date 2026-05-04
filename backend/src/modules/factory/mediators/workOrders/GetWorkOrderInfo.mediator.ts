@@ -191,6 +191,7 @@ export class GetWorkOrderInfoMediator {
           wo.notes,
           wo.specifications,
           fco.order_number as customer_order_number,
+          c.name as product_primary_category,
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
@@ -198,6 +199,8 @@ export class GetWorkOrderInfoMediator {
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
         LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
+        LEFT JOIN products p ON wo.product_id = p.id
+        LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN (
           SELECT
             wmr.work_order_id,
@@ -243,6 +246,7 @@ export class GetWorkOrderInfoMediator {
         production_line_name: row.production_line_name,
         assigned_operator_ids: row.assigned_operator_ids || [],
         customer_order_number: row.customer_order_number,
+        product_primary_category: row.product_primary_category ?? null,
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,
@@ -342,6 +346,7 @@ export class GetWorkOrderInfoMediator {
           wo.notes,
           wo.specifications,
           fco.order_number as customer_order_number,
+          c.name as product_primary_category,
           -- Material requirements aggregation
           COALESCE(mr_stats.material_requirements_count, 0) as material_requirements_count,
           COALESCE(mr_stats.total_material_cost, 0) as total_material_cost,
@@ -349,6 +354,8 @@ export class GetWorkOrderInfoMediator {
         FROM work_orders wo
         LEFT JOIN production_lines pl ON wo.production_line_id = pl.id
         LEFT JOIN factory_customer_orders fco ON wo.customer_order_id = fco.id
+        LEFT JOIN products p ON wo.product_id = p.id
+        LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN (
           SELECT
             wmr.work_order_id,
@@ -453,6 +460,7 @@ export class GetWorkOrderInfoMediator {
         production_line_name: row.production_line_name,
         assigned_operator_ids: row.assigned_operator_ids || [],
         customer_order_number: row.customer_order_number,
+        product_primary_category: row.product_primary_category ?? null,
         created_by: row.created_by,
         created_at: row.created_at,
         updated_by: row.updated_by,

@@ -72,6 +72,7 @@ export class GetBOMInfoMediator {
           bom.version,
           bom.effective_date,
           bom.is_active,
+          bom.category,
           bom.total_cost,
           bom.created_by,
           bom.created_at,
@@ -113,6 +114,12 @@ export class GetBOMInfoMediator {
       if (params.is_active !== undefined) {
         conditions.push(`bom.is_active = $${paramIndex}`);
         values.push(params.is_active);
+        paramIndex++;
+      }
+
+      if (params.category) {
+        conditions.push(`bom.category = $${paramIndex}`);
+        values.push(params.category);
         paramIndex++;
       }
 
@@ -165,6 +172,7 @@ export class GetBOMInfoMediator {
         version: row.version,
         effective_date: row.effective_date,
         is_active: row.is_active,
+        category: row.category,
         total_cost: parseFloat(row.total_cost),
         created_by: row.created_by,
         created_at: row.created_at,
@@ -220,6 +228,7 @@ export class GetBOMInfoMediator {
           bom.version,
           bom.effective_date,
           bom.is_active,
+          bom.category,
           bom.total_cost,
           bom.created_by,
           bom.created_at,
@@ -309,6 +318,7 @@ export class GetBOMInfoMediator {
         version: bomRow.version,
         effective_date: bomRow.effective_date,
         is_active: bomRow.is_active,
+        category: bomRow.category,
         total_cost: parseFloat(bomRow.total_cost),
         created_by: bomRow.created_by,
         created_at: bomRow.created_at,

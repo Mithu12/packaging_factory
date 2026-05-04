@@ -65,7 +65,9 @@
       "Bash(npx next *)",
       "Bash(timeout 90 npm run build)",
       "Bash(timeout 45 npm run db:validate)",
-      "Bash(./node_modules/.bin/tsc --noEmit)"
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(npm run *)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

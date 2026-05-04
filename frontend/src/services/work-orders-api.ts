@@ -27,6 +27,7 @@ export interface WorkOrder {
   product_id: string;
   product_name: string;
   product_sku: string;
+  product_primary_category?: string | null;
   quantity: number;
   unit_of_measure: string;
   deadline: string;

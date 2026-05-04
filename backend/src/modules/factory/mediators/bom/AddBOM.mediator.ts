@@ -119,10 +119,11 @@ export class AddBOMMediator {
           version,
           effective_date,
           is_active,
+          category,
           total_cost,
           created_by,
           notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
       `;
 
@@ -131,6 +132,7 @@ export class AddBOMMediator {
         bomData.version,
         bomData.effective_date,
         true, // is_active
+        bomData.category,
         totalCost,
         userId,
         bomData.notes || null
@@ -191,6 +193,7 @@ export class AddBOMMediator {
           bom.version,
           bom.effective_date,
           bom.is_active,
+          bom.category,
           bom.total_cost,
           bom.created_by,
           bom.created_at,
@@ -267,6 +270,7 @@ export class AddBOMMediator {
         version: bomRow.version,
         effective_date: bomRow.effective_date,
         is_active: bomRow.is_active,
+        category: bomRow.category,
         total_cost: parseFloat(bomRow.total_cost),
         created_by: bomRow.created_by,
         created_at: bomRow.created_at,

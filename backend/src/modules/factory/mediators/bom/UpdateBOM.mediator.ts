@@ -104,6 +104,11 @@ export class UpdateBOMMediator {
         updateValues.push(updateData.notes);
       }
 
+      if (updateData.category !== undefined) {
+        updateFields.push(`category = $${paramIndex++}`);
+        updateValues.push(updateData.category);
+      }
+
       // Always update the updated_by and updated_at fields
       updateFields.push(`updated_by = $${paramIndex++}`);
       updateValues.push(parseInt(userId));
@@ -335,6 +340,7 @@ export class UpdateBOMMediator {
           bom.version,
           bom.effective_date,
           bom.is_active,
+          bom.category,
           bom.total_cost,
           bom.created_by,
           bom.created_at,

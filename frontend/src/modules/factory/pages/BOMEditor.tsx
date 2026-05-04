@@ -49,14 +49,15 @@ import {
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  BillOfMaterials, 
-  BOMComponent, 
-  CreateBOMRequest, 
+  BillOfMaterials,
+  BOMCategory,
+  BOMComponent,
+  CreateBOMRequest,
   UpdateBOMRequest,
   CreateBOMComponentRequest,
   UpdateBOMComponentRequest,
-  BOMApiService, 
-  bomQueryKeys 
+  BOMApiService,
+  bomQueryKeys
 } from "@/services/bom-api";
 import { ProductApi, Product } from "@/services/api";
 import { CustomerOrdersApiService, FactoryProduct } from "@/modules/factory/services/customer-orders-api";
@@ -91,13 +92,23 @@ export default function BOMEditor() {
     notes: "",
   });
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    parent_product_id: string;
+    parent_product_name: string;
+    parent_product_sku: string;
+    version: string;
+    effective_date: string;
+    is_active: boolean;
+    category: BOMCategory;
+    notes: string;
+  }>({
     parent_product_id: "",
     parent_product_name: "",
     parent_product_sku: "",
     version: "1.0",
     effective_date: new Date().toISOString().split("T")[0],
     is_active: true,
+    category: "both",
     notes: "",
   });
 
@@ -157,6 +168,7 @@ export default function BOMEditor() {
         version: existingBOM.version,
         effective_date: existingBOM.effective_date.split('T')[0],
         is_active: existingBOM.is_active,
+        category: existingBOM.category,
         notes: existingBOM.notes || "",
       });
       setComponents(existingBOM.components || []);
@@ -227,6 +239,7 @@ export default function BOMEditor() {
         version: formData.version,
         effective_date: formData.effective_date,
         is_active: formData.is_active,
+        category: formData.category,
         notes: formData.notes,
         components: components.map((comp): UpdateBOMComponentRequest => ({
           id: comp.id.startsWith('COMP-') ? undefined : comp.id, // Only include ID for existing components
@@ -247,6 +260,7 @@ export default function BOMEditor() {
         parent_product_id: formData.parent_product_id,
         version: formData.version,
         effective_date: formData.effective_date,
+        category: formData.category,
         components: components.map((comp): CreateBOMComponentRequest => ({
           component_product_id: comp.component_product_id,
           quantity_required: comp.quantity_required,
@@ -440,6 +454,26 @@ export default function BOMEditor() {
                   }
                   placeholder="1.0"
                 />
+              </div>
+
+              <div className="space-y-2" data-testid="bom-category-field">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value: BOMCategory) =>
+                    setFormData((prev) => ({ ...prev, category: value }))
+                  }
+                  data-testid="bom-category-select"
+                >
+                  <SelectTrigger id="category" data-testid="bom-category-select-trigger">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="media">Media</SelectItem>
+                    <SelectItem value="liner">Liner</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
