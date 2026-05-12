@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/sonner"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, AlertTriangle } from "lucide-react"
 import { QuickAddSupplierDialog } from "@/modules/factory/components/QuickAddSupplierDialog"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
 import { SupplierApi } from "@/modules/inventory/services/supplier-api"
@@ -314,6 +314,19 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
 
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0)
 
+  // Returns variance info if the entered unit_price diverges from the catalog cost_price by >10%
+  const PRICE_VARIANCE_THRESHOLD = 0.1
+  const getPriceVariance = (item: PurchaseOrderItem) => {
+    if (!item.product_id || !item.unit_price) return null
+    const product = products.find(p => p.id === item.product_id)
+    const catalogPrice = Number(product?.cost_price ?? 0)
+    if (catalogPrice <= 0) return null
+    const diff = item.unit_price - catalogPrice
+    const pct = diff / catalogPrice
+    if (Math.abs(pct) < PRICE_VARIANCE_THRESHOLD) return null
+    return { catalogPrice, diff, pct }
+  }
+
   const handleSupplierCreated = async (supplier?: { id: number; name: string }) => {
     await fetchData()
     if (supplier?.id != null) {
@@ -456,6 +469,19 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                           onChange={(e) => updateItem(item.id, "unit_price", parseFloat(e.target.value) || 0)}
                           className="w-24"
                         />
+                        {(() => {
+                          const v = getPriceVariance(item)
+                          if (!v) return null
+                          const direction = v.diff > 0 ? "above" : "below"
+                          return (
+                            <div className="mt-1 flex items-start gap-1 text-xs text-warning">
+                              <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                              <span>
+                                {Math.abs(v.pct * 100).toFixed(1)}% {direction} catalog ({formatCurrency(v.catalogPrice)})
+                              </span>
+                            </div>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{formatCurrency(item.total)}</span>

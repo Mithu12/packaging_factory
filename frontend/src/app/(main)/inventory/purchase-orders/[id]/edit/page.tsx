@@ -10,16 +10,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/components/ui/sonner"
-import { 
-  ArrowLeft, 
-  Save, 
-  FileText, 
-  Package, 
+import {
+  ArrowLeft,
+  Save,
+  FileText,
+  Package,
   Plus,
   Trash2,
   User,
   Calculator,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react"
 import {
   Table,
@@ -159,18 +160,21 @@ export default function EditPurchaseOrder() {
     setLineItems(prev => prev.filter((_, i) => i !== index))
   }
 
-  const calculateSubtotal = () => {
+  const calculateTotal = () => {
     return lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }
 
-  const calculateTax = (subtotal: number) => {
-    return subtotal * 0.1 // 10% tax
-  }
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal()
-    const tax = calculateTax(subtotal)
-    return subtotal + tax
+  // Returns variance info if the entered unit_price diverges from the catalog cost_price by >10%
+  const PRICE_VARIANCE_THRESHOLD = 0.1
+  const getPriceVariance = (item: LineItem) => {
+    if (!item.product_id || !item.unit_price) return null
+    const product = products.find(p => p.id === item.product_id)
+    const catalogPrice = Number(product?.cost_price ?? 0)
+    if (catalogPrice <= 0) return null
+    const diff = item.unit_price - catalogPrice
+    const pct = diff / catalogPrice
+    if (Math.abs(pct) < PRICE_VARIANCE_THRESHOLD) return null
+    return { catalogPrice, diff, pct }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -520,6 +524,19 @@ export default function EditPurchaseOrder() {
                             onChange={(e) => handleLineItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
                             placeholder="0.00"
                           />
+                          {(() => {
+                            const v = getPriceVariance(item)
+                            if (!v) return null
+                            const direction = v.diff > 0 ? "above" : "below"
+                            return (
+                              <div className="mt-1 flex items-start gap-1 text-xs text-warning">
+                                <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                <span>
+                                  {Math.abs(v.pct * 100).toFixed(1)}% {direction} catalog (${v.catalogPrice.toFixed(2)})
+                                </span>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                       
@@ -545,15 +562,6 @@ export default function EditPurchaseOrder() {
                 {/* Totals */}
                 <div className="flex justify-end">
                   <div className="space-y-2 text-right min-w-64">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span className="font-medium">${calculateSubtotal().toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tax (10%):</span>
-                      <span className="font-medium">${calculateTax(calculateSubtotal()).toLocaleString()}</span>
-                    </div>
-                    <Separator />
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total:</span>
                       <span>${calculateTotal().toLocaleString()}</span>
@@ -584,14 +592,6 @@ export default function EditPurchaseOrder() {
                   <span className="font-medium">
                     {lineItems.reduce((sum, item) => sum + item.quantity, 0)}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="font-medium">${calculateSubtotal().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax:</span>
-                  <span className="font-medium">${calculateTax(calculateSubtotal()).toLocaleString()}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">

@@ -421,7 +421,7 @@ class UpdatePurchaseOrderInfoMediator {
       // Update line items
       for (const receivedItem of data.line_items) {
         const lineItemQuery = `
-                    SELECT id, product_id, quantity, received_quantity, pending_quantity
+                    SELECT id, product_id, quantity, received_quantity, pending_quantity, unit_price
                     FROM purchase_order_line_items
                     WHERE id = $1 AND purchase_order_id = $2
                 `;
@@ -443,6 +443,7 @@ class UpdatePurchaseOrderInfoMediator {
           Number(receivedItem.received_quantity);
         const newPendingQuantity =
           lineItem.pending_quantity - receivedItem.received_quantity;
+        const lineUnitPrice = Number(lineItem.unit_price);
 
         // Debug logging
         MyLogger.info("Receive Goods Calculation", {
@@ -541,23 +542,46 @@ class UpdatePurchaseOrderInfoMediator {
           receivedQuantity: receivedItem.received_quantity,
         });
 
-        // Get current stock before updating
-        const currentStockQuery = `
-                    SELECT current_stock FROM products WHERE id = $1
+        // Get current stock and cost before updating
+        const currentProductQuery = `
+                    SELECT current_stock, cost_price FROM products WHERE id = $1
                 `;
-        const currentStockResult = await client.query(currentStockQuery, [
+        const currentProductResult = await client.query(currentProductQuery, [
           lineItem.product_id,
         ]);
-        const currentStock = Number(currentStockResult.rows[0].current_stock);
-        const newStock = currentStock + Number(receivedItem.received_quantity);
+        const currentStock = Number(currentProductResult.rows[0].current_stock);
+        const currentCostPrice = Number(currentProductResult.rows[0].cost_price);
+        const receivedQty = Number(receivedItem.received_quantity);
+        const newStock = currentStock + receivedQty;
+
+        // Moving-average cost: weight the existing stock value with the newly received value.
+        // If current_stock or current_cost is 0 (or unknown), the received price becomes the new cost.
+        const hasExistingValue = currentStock > 0 && currentCostPrice > 0;
+        const newCostPrice = hasExistingValue
+          ? (currentStock * currentCostPrice + receivedQty * lineUnitPrice) / newStock
+          : lineUnitPrice;
 
         const updateStockQuery = `
-                    UPDATE products 
+                    UPDATE products
                     SET current_stock = $1,
+                        cost_price = $2,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE id = $2
+                    WHERE id = $3
                 `;
-        await client.query(updateStockQuery, [newStock, lineItem.product_id]);
+        await client.query(updateStockQuery, [
+          newStock,
+          newCostPrice.toFixed(2),
+          lineItem.product_id,
+        ]);
+
+        MyLogger.info("Moving-average cost recomputed", {
+          productId: lineItem.product_id,
+          previousCostPrice: currentCostPrice,
+          receivedUnitPrice: lineUnitPrice,
+          newCostPrice: Number(newCostPrice.toFixed(2)),
+          previousStock: currentStock,
+          receivedQty,
+        });
 
         // Update Product Location (Default Warehouse)
         if (distributionCenterId) {
