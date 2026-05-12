@@ -129,6 +129,45 @@ export class PurchaseOrderApi {
     }
   }
 
+  // Submit a purchase order for approval
+  static async submitForApproval(id: number, notes?: string): Promise<PurchaseOrder> {
+    try {
+      return await makeRequest(`${this.baseUrl}/${id}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ notes })
+      });
+    } catch (error) {
+      console.error(`Error submitting purchase order ${id} for approval:`, error);
+      throw error;
+    }
+  }
+
+  // Approve a purchase order
+  static async approvePurchaseOrder(id: number, notes?: string): Promise<PurchaseOrder> {
+    try {
+      return await makeRequest(`${this.baseUrl}/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ notes })
+      });
+    } catch (error) {
+      console.error(`Error approving purchase order ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Reject a purchase order
+  static async rejectPurchaseOrder(id: number, notes?: string): Promise<PurchaseOrder> {
+    try {
+      return await makeRequest(`${this.baseUrl}/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ notes })
+      });
+    } catch (error) {
+      console.error(`Error rejecting purchase order ${id}:`, error);
+      throw error;
+    }
+  }
+
   // Get purchase order statistics
   static async getPurchaseOrderStats(): Promise<PurchaseOrderStats> {
     try {

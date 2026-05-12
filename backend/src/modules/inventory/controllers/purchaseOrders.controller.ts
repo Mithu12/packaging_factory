@@ -60,8 +60,10 @@ class PurchaseOrdersController {
     res: Response,
     next: NextFunction
   ): Promise<void> {
+    const createdBy = req.user?.username || 'System User';
     const purchaseOrder = await AddPurchaseOrderMediator.createPurchaseOrder(
-      req.body
+      req.body,
+      createdBy
     );
     serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
   }
@@ -72,8 +74,9 @@ class PurchaseOrdersController {
     next: NextFunction
   ): Promise<void> {
     const id = parseInt(req.params.id);
+    const username = req.user?.username || 'System User';
     const purchaseOrder =
-      await UpdatePurchaseOrderInfoMediator.updatePurchaseOrder(id, req.body);
+      await UpdatePurchaseOrderInfoMediator.updatePurchaseOrder(id, req.body, username);
     serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
   }
 
@@ -83,11 +86,12 @@ class PurchaseOrdersController {
     next: NextFunction
   ): Promise<void> {
     const id = parseInt(req.params.id);
-    const { status } = req.body;
+    const username = req.user?.username || 'System User';
     const purchaseOrder =
       await UpdatePurchaseOrderInfoMediator.updatePurchaseOrderStatus(
         id,
-        status
+        req.body,
+        username
       );
     serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
   }
@@ -98,9 +102,11 @@ class PurchaseOrdersController {
     next: NextFunction
   ): Promise<void> {
     const id = parseInt(req.params.id);
+    const username = req.user?.username || 'System User';
     const purchaseOrder = await UpdatePurchaseOrderInfoMediator.receiveGoods(
       id,
-      req.body
+      req.body,
+      username
     );
     serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
   }

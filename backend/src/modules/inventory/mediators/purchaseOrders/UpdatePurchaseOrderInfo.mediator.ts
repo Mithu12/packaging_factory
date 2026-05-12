@@ -40,7 +40,8 @@ class UpdatePurchaseOrderInfoMediator {
   // Update purchase order
   async updatePurchaseOrder(
     id: number,
-    data: UpdatePurchaseOrderRequest
+    data: UpdatePurchaseOrderRequest,
+    username: string = 'System User'
   ): Promise<PurchaseOrder> {
     let action = "Update Purchase Order";
     const client = await pool.connect();
@@ -228,7 +229,7 @@ class UpdatePurchaseOrderInfoMediator {
       await client.query(timelineQuery, [
         id,
         "Purchase Order Updated",
-        "System User",
+        username,
         "completed",
       ]);
 
@@ -252,7 +253,8 @@ class UpdatePurchaseOrderInfoMediator {
   // Update purchase order status
   async updatePurchaseOrderStatus(
     id: number,
-    data: UpdatePurchaseOrderStatusRequest
+    data: UpdatePurchaseOrderStatusRequest,
+    username: string = 'System User'
   ): Promise<PurchaseOrder> {
     let action = "Update Purchase Order Status";
     const client = await pool.connect();
@@ -286,7 +288,7 @@ class UpdatePurchaseOrderInfoMediator {
       if (data.status === "approved") {
         await client.query(
           "UPDATE purchase_orders SET approved_by = $1, approved_date = CURRENT_DATE WHERE id = $2",
-          ["System User", id]
+          [username, id]
         );
       }
       const updatedPO = result.rows[0];
@@ -313,7 +315,7 @@ class UpdatePurchaseOrderInfoMediator {
         id,
         eventMap[data.status] || `Status Changed to ${data.status}`,
         data.notes,
-        "System User",
+        username,
         "completed",
       ]);
 
@@ -337,7 +339,7 @@ class UpdatePurchaseOrderInfoMediator {
             id,
             "Invoice Created",
             `Invoice ${invoice.invoice_number} created automatically`,
-            "System User",
+            username,
             "completed",
           ]);
 
@@ -375,7 +377,8 @@ class UpdatePurchaseOrderInfoMediator {
   // Receive goods for purchase order
   async receiveGoods(
     id: number,
-    data: ReceiveGoodsRequest
+    data: ReceiveGoodsRequest,
+    username: string = 'System User'
   ): Promise<PurchaseOrder> {
     let action = "Receive Goods";
     const client = await pool.connect();
@@ -597,7 +600,7 @@ class UpdatePurchaseOrderInfoMediator {
           "Purchase Order Receipt",
           `PO-${id}`,
           `Goods received for Purchase Order ${id}`,
-          "System User",
+          username,
           distributionCenterId || null // Log the DC ID
         ]);
 
@@ -644,7 +647,7 @@ class UpdatePurchaseOrderInfoMediator {
         id,
         allItemsReceived ? "Goods Received" : "Partial Goods Received",
         data.notes || eventDescription,
-        "System User",
+        username,
         "completed",
       ]);
 
@@ -668,7 +671,7 @@ class UpdatePurchaseOrderInfoMediator {
             id,
             "Invoice Created",
             `Invoice ${invoice.invoice_number} created automatically`,
-            "System User",
+            username,
             "completed",
           ]);
 
@@ -728,12 +731,12 @@ class UpdatePurchaseOrderInfoMediator {
         // Emit event for accounting integration
         eventBus.emit(EVENT_NAMES.PURCHASE_ORDER_RECEIVED, {
           purchaseOrderData,
-          userId: "System User" // Should be the actual user ID
+          userId: username
         });
 
         // Central Bridge: Call accounts module directly via InterModuleConnector
         MyLogger.info("Purchase Order Bridge: Calling accModule.addPurchaseVoucher", { purchaseOrderId: id });
-        await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, "System User");
+        await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, username);
 
         MyLogger.success("Purchase Order Accounting Event Emitted", {
           purchaseOrderId: id,
@@ -756,6 +759,199 @@ class UpdatePurchaseOrderInfoMediator {
         allItemsReceived,
       });
 
+      return updatedPO;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, { purchaseOrderId: id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  // Submit a purchase order for approval (draft -> pending)
+  async submitForApproval(
+    id: number,
+    userId: number,
+    username: string,
+    notes?: string
+  ): Promise<PurchaseOrder> {
+    const action = "Submit Purchase Order for Approval";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { purchaseOrderId: id, userId });
+      await client.query("BEGIN");
+
+      const checkResult = await client.query(
+        `SELECT id, status, approval_status FROM purchase_orders WHERE id = $1`,
+        [id]
+      );
+      if (checkResult.rows.length === 0) {
+        throw createError("Purchase order not found", 404);
+      }
+      const currentPO = checkResult.rows[0];
+
+      if (
+        currentPO.approval_status &&
+        !["draft", "rejected"].includes(currentPO.approval_status)
+      ) {
+        throw createError(
+          `Cannot submit purchase order with approval status '${currentPO.approval_status}'`,
+          400
+        );
+      }
+      if (!["draft", "cancelled"].includes(currentPO.status) && currentPO.status !== "pending") {
+        // Allow submit from draft; cancelled/received/etc. cannot be resubmitted
+        if (currentPO.status !== "draft") {
+          throw createError(
+            `Cannot submit purchase order in status '${currentPO.status}'`,
+            400
+          );
+        }
+      }
+
+      const result = await client.query(
+        `UPDATE purchase_orders
+         SET status = 'pending',
+             approval_status = 'submitted',
+             submitted_by = $1,
+             submitted_at = CURRENT_TIMESTAMP,
+             approval_notes = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING *`,
+        [userId, notes || null, id]
+      );
+      const updatedPO = result.rows[0];
+
+      await client.query(
+        `INSERT INTO purchase_order_timeline (purchase_order_id, event, description, "user", status)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, "Submitted for Approval", notes || null, username, "completed"]
+      );
+
+      await client.query("COMMIT");
+      MyLogger.success(action, { purchaseOrderId: id });
+      return updatedPO;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, { purchaseOrderId: id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Approve a purchase order (pending -> approved)
+  async approvePurchaseOrder(
+    id: number,
+    userId: number,
+    username: string,
+    notes?: string
+  ): Promise<PurchaseOrder> {
+    const action = "Approve Purchase Order";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { purchaseOrderId: id, userId });
+      await client.query("BEGIN");
+
+      const checkResult = await client.query(
+        `SELECT id, status, approval_status FROM purchase_orders WHERE id = $1`,
+        [id]
+      );
+      if (checkResult.rows.length === 0) {
+        throw createError("Purchase order not found", 404);
+      }
+      const currentPO = checkResult.rows[0];
+
+      if (currentPO.approval_status !== "submitted") {
+        throw createError(
+          `Only submitted purchase orders can be approved (current: '${currentPO.approval_status}')`,
+          400
+        );
+      }
+
+      const result = await client.query(
+        `UPDATE purchase_orders
+         SET status = 'approved',
+             approval_status = 'approved',
+             approved_by = $1,
+             approved_date = CURRENT_DATE,
+             approved_at = CURRENT_TIMESTAMP,
+             approval_notes = COALESCE($2, approval_notes),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING *`,
+        [username, notes || null, id]
+      );
+      const updatedPO = result.rows[0];
+
+      await client.query(
+        `INSERT INTO purchase_order_timeline (purchase_order_id, event, description, "user", status)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, "Approved", notes || null, username, "completed"]
+      );
+
+      await client.query("COMMIT");
+      MyLogger.success(action, { purchaseOrderId: id });
+      return updatedPO;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, { purchaseOrderId: id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Reject a purchase order (pending -> rejected, status stays draft for resubmit)
+  async rejectPurchaseOrder(
+    id: number,
+    userId: number,
+    username: string,
+    notes?: string
+  ): Promise<PurchaseOrder> {
+    const action = "Reject Purchase Order";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { purchaseOrderId: id, userId });
+      await client.query("BEGIN");
+
+      const checkResult = await client.query(
+        `SELECT id, status, approval_status FROM purchase_orders WHERE id = $1`,
+        [id]
+      );
+      if (checkResult.rows.length === 0) {
+        throw createError("Purchase order not found", 404);
+      }
+      const currentPO = checkResult.rows[0];
+
+      if (currentPO.approval_status !== "submitted") {
+        throw createError(
+          `Only submitted purchase orders can be rejected (current: '${currentPO.approval_status}')`,
+          400
+        );
+      }
+
+      const result = await client.query(
+        `UPDATE purchase_orders
+         SET status = 'draft',
+             approval_status = 'rejected',
+             approval_notes = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING *`,
+        [notes || null, id]
+      );
+      const updatedPO = result.rows[0];
+
+      await client.query(
+        `INSERT INTO purchase_order_timeline (purchase_order_id, event, description, "user", status)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, "Rejected", notes || null, username, "completed"]
+      );
+
+      await client.query("COMMIT");
+      MyLogger.success(action, { purchaseOrderId: id });
       return updatedPO;
     } catch (error) {
       await client.query("ROLLBACK");

@@ -5,6 +5,7 @@ import {
   updatePurchaseOrderStatusSchema,
   receiveGoodsSchema,
   purchaseOrderQuerySchema,
+  approvalActionSchema,
 } from "../validation/purchaseOrderValidation";
 import { authenticate } from "@/middleware/auth";
 import {
@@ -147,15 +148,7 @@ router.put(
   auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(updatePurchaseOrderSchema),
-  expressAsyncHandler(async (req, res, next) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      throw new Error("Invalid purchase order ID");
-    }
-    const purchaseOrder =
-      await UpdatePurchaseOrderInfoMediator.updatePurchaseOrder(id, req.body);
-    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
-  })
+  expressAsyncHandler(purchaseOrdersController.updatePurchaseOrder)
 );
 
 router.patch(
@@ -164,18 +157,7 @@ router.patch(
   auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(updatePurchaseOrderStatusSchema),
-  expressAsyncHandler(async (req, res, next) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      throw new Error("Invalid purchase order ID");
-    }
-    const purchaseOrder =
-      await UpdatePurchaseOrderInfoMediator.updatePurchaseOrderStatus(
-        id,
-        req.body
-      );
-    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
-  })
+  expressAsyncHandler(purchaseOrdersController.updatePurchaseOrderStatus)
 );
 
 router.post(
@@ -184,14 +166,76 @@ router.post(
   auditMiddleware,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
   validateRequest(receiveGoodsSchema),
-  expressAsyncHandler(async (req, res, next) => {
+  expressAsyncHandler(purchaseOrdersController.receiveGoods)
+);
+
+router.post(
+  "/:id/submit",
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_UPDATE),
+  validateRequest(approvalActionSchema),
+  expressAsyncHandler(async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       throw new Error("Invalid purchase order ID");
     }
-    const purchaseOrder = await UpdatePurchaseOrderInfoMediator.receiveGoods(
+    if (!req.user) {
+      throw new Error("Authentication required");
+    }
+    const purchaseOrder = await UpdatePurchaseOrderInfoMediator.submitForApproval(
       id,
-      req.body
+      req.user.user_id,
+      req.user.username,
+      req.body.notes
+    );
+    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
+  })
+);
+
+router.post(
+  "/:id/approve",
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_APPROVE),
+  validateRequest(approvalActionSchema),
+  expressAsyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      throw new Error("Invalid purchase order ID");
+    }
+    if (!req.user) {
+      throw new Error("Authentication required");
+    }
+    const purchaseOrder = await UpdatePurchaseOrderInfoMediator.approvePurchaseOrder(
+      id,
+      req.user.user_id,
+      req.user.username,
+      req.body.notes
+    );
+    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
+  })
+);
+
+router.post(
+  "/:id/reject",
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_APPROVE),
+  validateRequest(approvalActionSchema),
+  expressAsyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      throw new Error("Invalid purchase order ID");
+    }
+    if (!req.user) {
+      throw new Error("Authentication required");
+    }
+    const purchaseOrder = await UpdatePurchaseOrderInfoMediator.rejectPurchaseOrder(
+      id,
+      req.user.user_id,
+      req.user.username,
+      req.body.notes
     );
     serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
   })
@@ -223,7 +267,8 @@ router.patch(
       throw new Error("Invalid purchase order ID");
     }
     const { reason } = req.body;
-    await DeletePurchaseOrderMediator.cancelPurchaseOrder(id, reason);
+    const username = req.user?.username || 'System User';
+    await DeletePurchaseOrderMediator.cancelPurchaseOrder(id, reason, username);
     serializeSuccessResponse(res, {}, "Purchase Order Cancelled Successfully");
   })
 );

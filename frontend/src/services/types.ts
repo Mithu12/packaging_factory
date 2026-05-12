@@ -413,6 +413,7 @@ export interface PurchaseOrder {
   created_at: string;
   updated_at: string;
   supplier_name?: string;
+  line_items_count?: number;
 }
 
 export interface PurchaseOrderLineItem {

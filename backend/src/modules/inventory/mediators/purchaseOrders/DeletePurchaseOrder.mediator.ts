@@ -54,7 +54,7 @@ class DeletePurchaseOrderMediator {
     }
 
     // Cancel purchase order (soft delete by changing status)
-    async cancelPurchaseOrder(id: number, reason?: string): Promise<void> {
+    async cancelPurchaseOrder(id: number, reason?: string, username: string = 'System User'): Promise<void> {
         let action = 'Cancel Purchase Order'
         const client = await pool.connect();
         try {
@@ -101,7 +101,7 @@ class DeletePurchaseOrderMediator {
                 id,
                 'Purchase Order Cancelled',
                 reason || 'Purchase order cancelled by user',
-                'System User',
+                username,
                 'completed'
             ]);
 

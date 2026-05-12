@@ -94,14 +94,15 @@ class GetPurchaseOrderInfoMediator {
 
             // Get purchase orders
             const query = `
-                SELECT 
+                SELECT
                     po.*,
                     s.name as supplier_name,
                     s.supplier_code as supplier_code,
                     s.contact_person as supplier_contact,
                     s.email as supplier_email,
                     s.phone as supplier_phone,
-                    s.address as supplier_address
+                    s.address as supplier_address,
+                    (SELECT COUNT(*)::int FROM purchase_order_line_items WHERE purchase_order_id = po.id) as line_items_count
                 FROM purchase_orders po
                 LEFT JOIN suppliers s ON po.supplier_id = s.id
                 ${whereClause}

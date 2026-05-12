@@ -26,12 +26,12 @@ class AddPurchaseOrderMediator {
     }
 
     // Create a new purchase order
-    async createPurchaseOrder(data: CreatePurchaseOrderRequest): Promise<PurchaseOrder> {
+    async createPurchaseOrder(data: CreatePurchaseOrderRequest, createdBy: string): Promise<PurchaseOrder> {
         let action = 'Create Purchase Order'
         const client = await pool.connect();
         try {
-            MyLogger.info(action, { supplierId: data.supplier_id })
-            
+            MyLogger.info(action, { supplierId: data.supplier_id, createdBy })
+
             await client.query('BEGIN');
 
             // Generate PO number
@@ -64,7 +64,7 @@ class AddPurchaseOrderMediator {
                 data.project,
                 data.notes,
                 totalAmount,
-                'System User', // TODO: Get from authentication
+                createdBy,
                 data.work_order_id,
                 data.customer_order_id
             ];
@@ -127,7 +127,7 @@ class AddPurchaseOrderMediator {
             await client.query(timelineQuery, [
                 purchaseOrder.id,
                 'Purchase Order Created',
-                'System User',
+                createdBy,
                 'completed'
             ]);
 

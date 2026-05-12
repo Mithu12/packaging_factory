@@ -136,24 +136,15 @@ export default function PurchaseOrders() {
     }
   }
 
-  // Approval functions
   const submitForApproval = async (poId: number) => {
     setActionLoading(poId)
     try {
-      // Mock API call - replace with actual implementation
-      console.log(`Submitting PO ${poId} for approval`)
-      
-      // Update local state
-      setPurchaseOrders(prev => prev.map(po => 
-        po.id === poId 
-          ? { ...po, approval_status: 'submitted' as any }
-          : po
-      ))
-      
-      toast.success("Purchase order submitted for approval successfully")
-    } catch (error) {
+      await PurchaseOrderApi.submitForApproval(poId)
+      toast.success("Purchase order submitted for approval")
+      await fetchData()
+    } catch (error: any) {
       console.error('Error submitting for approval:', error)
-      toast.error("Failed to submit for approval")
+      toast.error("Failed to submit for approval", { description: error?.message })
     } finally {
       setActionLoading(null)
     }
@@ -162,28 +153,46 @@ export default function PurchaseOrders() {
   const approvePurchaseOrder = async (poId: number) => {
     setActionLoading(poId)
     try {
-      // Mock API call - replace with actual implementation
-      console.log(`Approving PO ${poId}`)
-      
-      // Update local state
-      setPurchaseOrders(prev => prev.map(po => 
-        po.id === poId 
-          ? { ...po, approval_status: 'approved' as any }
-          : po
-      ))
-      
-      toast.success("Purchase order approved successfully")
-    } catch (error) {
+      await PurchaseOrderApi.approvePurchaseOrder(poId)
+      toast.success("Purchase order approved")
+      await fetchData()
+    } catch (error: any) {
       console.error('Error approving:', error)
-      toast.error("Failed to approve purchase order")
+      toast.error("Failed to approve purchase order", { description: error?.message })
     } finally {
       setActionLoading(null)
     }
   }
 
+  const rejectPurchaseOrder = async (poId: number) => {
+    setActionLoading(poId)
+    try {
+      await PurchaseOrderApi.rejectPurchaseOrder(poId)
+      toast.success("Purchase order rejected")
+      await fetchData()
+    } catch (error: any) {
+      console.error('Error rejecting:', error)
+      toast.error("Failed to reject purchase order", { description: error?.message })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDownloadPDF = async (po: PurchaseOrder) => {
+    try {
+      await PurchaseOrderApi.downloadPurchaseOrderPDF(po.id, po.po_number)
+      toast.success("PDF downloaded", { description: po.po_number })
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error)
+      toast.error("Failed to download PDF", { description: error?.message })
+    }
+  }
+
   // Helper functions for approval
   const canSubmit = (po: PurchaseOrder) => {
-    return (po.approval_status === 'draft' || !po.approval_status) && 
+    const eligible = !po.approval_status || ['draft', 'rejected'].includes(po.approval_status)
+    return eligible &&
+           po.status === 'draft' &&
            ['admin', 'manager', 'employee'].includes(user?.role || '')
   }
 
@@ -378,14 +387,18 @@ export default function PurchaseOrders() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status.replace('_', ' ')}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status.replace('_', ' ')}
+                        </Badge>
+                        {order.approval_status && order.approval_status !== 'draft' && (
+                          getApprovalStatusBadge(order.approval_status)
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium">
-                        {/* We'll need to get this from line items count */}
-                        N/A items
+                        {order.line_items_count ?? 0} items
                       </div>
                     </TableCell>
                     <TableCell>
@@ -412,47 +425,52 @@ export default function PurchaseOrders() {
                         <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}`)}>
                           View Details
                         </DropdownMenuItem>
-                       
-                          <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}/edit`)}>
+                        <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}/edit`)}>
                           Edit Order
                         </DropdownMenuItem>
-                     
-                       
                         {(order.status === "approved" || order.status === "partially_received") && (
                           <DropdownMenuItem onClick={() => router.push(`/inventory/purchase-orders/${order.id}/receive`)}>
                             Receive Goods
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem>Print/Export</DropdownMenuItem>
-                        {order.status === "draft" && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "pending")}>
+                        <DropdownMenuItem onClick={() => handleDownloadPDF(order)}>
+                          Download PDF
+                        </DropdownMenuItem>
+                        {canSubmit(order) && (
+                          <DropdownMenuItem
+                            disabled={actionLoading === order.id}
+                            onClick={() => submitForApproval(order.id)}
+                          >
                             Submit for Approval
                           </DropdownMenuItem>
                         )}
                         <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_APPROVE}>
-                          {order.status === "pending"  && (
+                          {canApprove(order) && (
                           <>
-                            <DropdownMenuItem className="text-success" onClick={() => handleStatusChange(order.id, "approved")}>
+                            <DropdownMenuItem
+                              className="text-success"
+                              disabled={actionLoading === order.id}
+                              onClick={() => approvePurchaseOrder(order.id)}
+                            >
                               Approve
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              disabled={actionLoading === order.id}
+                              onClick={() => rejectPurchaseOrder(order.id)}
+                            >
                               Reject
                             </DropdownMenuItem>
                           </>
                         )}
                         </PermissionGuard>
-                       
-                        {/* {order.status === "approved" && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(order.id, "received")}>
-                            Mark as Received
-                          </DropdownMenuItem>
-                        )} */}
                          <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_CANCEL}>
-                           <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
-                              Cancel Order
-                            </DropdownMenuItem>
+                           {order.status !== "cancelled" && order.status !== "received" && (
+                             <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
+                                Cancel Order
+                              </DropdownMenuItem>
+                           )}
                          </PermissionGuard>
-                        
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

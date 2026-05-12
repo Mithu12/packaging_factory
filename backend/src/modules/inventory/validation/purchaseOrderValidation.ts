@@ -240,6 +240,13 @@ export const receiveGoodsSchema = Joi.object({
   }),
 });
 
+// Validation schema for approval transitions (submit/approve/reject)
+export const approvalActionSchema = Joi.object({
+  notes: Joi.string().max(1000).optional().messages({
+    "string.max": "Notes cannot exceed 1000 characters",
+  }),
+});
+
 // Validation schema for query parameters
 export const purchaseOrderQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1).messages({
