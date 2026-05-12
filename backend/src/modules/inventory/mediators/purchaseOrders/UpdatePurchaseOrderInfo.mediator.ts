@@ -829,6 +829,12 @@ class UpdatePurchaseOrderInfoMediator {
         [id, "Submitted for Approval", notes || null, username, "completed"]
       );
 
+      await client.query(
+        `INSERT INTO approval_history (entity_type, entity_id, action, performed_by, notes, previous_status, new_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ["purchase_order", id, "submitted", userId, notes || null, currentPO.approval_status || "draft", "submitted"]
+      );
+
       await client.query("COMMIT");
       MyLogger.success(action, { purchaseOrderId: id });
       return updatedPO;
@@ -891,6 +897,12 @@ class UpdatePurchaseOrderInfoMediator {
         [id, "Approved", notes || null, username, "completed"]
       );
 
+      await client.query(
+        `INSERT INTO approval_history (entity_type, entity_id, action, performed_by, notes, previous_status, new_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ["purchase_order", id, "approved", userId, notes || null, "submitted", "approved"]
+      );
+
       await client.query("COMMIT");
       MyLogger.success(action, { purchaseOrderId: id });
       return updatedPO;
@@ -948,6 +960,12 @@ class UpdatePurchaseOrderInfoMediator {
         `INSERT INTO purchase_order_timeline (purchase_order_id, event, description, "user", status)
          VALUES ($1, $2, $3, $4, $5)`,
         [id, "Rejected", notes || null, username, "completed"]
+      );
+
+      await client.query(
+        `INSERT INTO approval_history (entity_type, entity_id, action, performed_by, notes, previous_status, new_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ["purchase_order", id, "rejected", userId, notes || null, "submitted", "rejected"]
       );
 
       await client.query("COMMIT");

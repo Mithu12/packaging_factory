@@ -45,6 +45,7 @@ export default function PurchaseOrderDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [showCreateInvoiceForm, setShowCreateInvoiceForm] = useState(false)
 
@@ -91,6 +92,32 @@ export default function PurchaseOrderDetails() {
     toast.success("Invoice created successfully!", {
       description: `Invoice ${invoice.invoice_number} has been created.`
     })
+  }
+
+  const handleCancelOrder = async () => {
+    if (!purchaseOrder) return
+    if (!window.confirm(`Cancel purchase order ${purchaseOrder.po_number}?`)) return
+
+    try {
+      setCancelling(true)
+      await PurchaseOrderApi.cancelPurchaseOrder(purchaseOrder.id)
+      toast.success('Purchase order cancelled')
+      await fetchPurchaseOrder()
+    } catch (err: any) {
+      console.error('Error cancelling purchase order:', err)
+      toast.error('Failed to cancel purchase order', { description: err?.message })
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const handleEmailSupplier = () => {
+    if (!purchaseOrder?.supplier_email) {
+      toast.error('Supplier has no email address on file')
+      return
+    }
+    const subject = encodeURIComponent(`Purchase Order ${purchaseOrder.po_number}`)
+    window.open(`mailto:${purchaseOrder.supplier_email}?subject=${subject}`)
   }
 
   const handleDownloadPDF = async () => {
@@ -214,7 +241,7 @@ export default function PurchaseOrderDetails() {
             <Download className="w-4 h-4 mr-2" />
             {downloadingPDF ? 'Generating...' : 'Download PDF'}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleEmailSupplier}>
             <Mail className="w-4 h-4 mr-2" />
             Email to Supplier
           </Button>
@@ -349,28 +376,9 @@ export default function PurchaseOrderDetails() {
               </Table>
               
               <Separator className="my-4" />
-              
+
               <div className="flex justify-end">
                 <div className="space-y-2 text-right">
-                  <div className="flex justify-between gap-8">
-                    <span>Subtotal:</span>
-                    <span className="font-medium">
-                      {(purchaseOrder.total_amount * 0.9).toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: purchaseOrder.currency || 'USD'
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-8">
-                    <span>Tax (10%):</span>
-                    <span className="font-medium">
-                      {(purchaseOrder.total_amount * 0.1).toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: purchaseOrder.currency || 'USD'
-                      })}
-                    </span>
-                  </div>
-                  <Separator />
                   <div className="flex justify-between gap-8 text-lg font-bold">
                     <span>Total:</span>
                     <span>
@@ -673,22 +681,49 @@ export default function PurchaseOrderDetails() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full">
-                <Package className="w-4 h-4 mr-2" />
-                Record Receipt
-              </Button>
-              <Button variant="outline" size="sm" className="w-full">
-                <FileText className="w-4 h-4 mr-2" />
-                Create Invoice
-              </Button>
-              <Button variant="outline" size="sm" className="w-full">
-                <Mail className="w-4 h-4 mr-2" />
-                Contact Supplier
-              </Button>
-              {purchaseOrder.status === "draft" && (
-                <Button variant="destructive" size="sm" className="w-full">
+              {(purchaseOrder.status === "approved" || purchaseOrder.status === "partially_received") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => router.push(`/inventory/purchase-orders/${purchaseOrder.id}/receive`)}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Record Receipt
+                </Button>
+              )}
+              {purchaseOrder.status === "received" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowCreateInvoiceForm(true)}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Create Invoice
+                </Button>
+              )}
+              {purchaseOrder.supplier_email && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => window.open(`mailto:${purchaseOrder.supplier_email}?subject=${encodeURIComponent(`Re: Purchase Order ${purchaseOrder.po_number}`)}`)}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Contact Supplier
+                </Button>
+              )}
+              {purchaseOrder.status !== "received" && purchaseOrder.status !== "cancelled" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleCancelOrder}
+                  disabled={cancelling}
+                >
                   <AlertTriangle className="w-4 h-4 mr-2" />
-                  Cancel Order
+                  {cancelling ? 'Cancelling...' : 'Cancel Order'}
                 </Button>
               )}
             </CardContent>

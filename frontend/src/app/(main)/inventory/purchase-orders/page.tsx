@@ -188,6 +188,17 @@ export default function PurchaseOrders() {
     }
   }
 
+  const handleCancelOrder = async (poId: number) => {
+    try {
+      await PurchaseOrderApi.cancelPurchaseOrder(poId)
+      toast.success("Purchase order cancelled")
+      await fetchData()
+    } catch (error: any) {
+      console.error('Error cancelling purchase order:', error)
+      toast.error("Failed to cancel purchase order", { description: error?.message })
+    }
+  }
+
   // Helper functions for approval
   const canSubmit = (po: PurchaseOrder) => {
     const eligible = !po.approval_status || ['draft', 'rejected'].includes(po.approval_status)
@@ -466,7 +477,7 @@ export default function PurchaseOrders() {
                         </PermissionGuard>
                          <PermissionGuard permission={PERMISSIONS.PURCHASE_ORDERS_CANCEL}>
                            {order.status !== "cancelled" && order.status !== "received" && (
-                             <DropdownMenuItem className="text-destructive" onClick={() => handleStatusChange(order.id, "cancelled")}>
+                             <DropdownMenuItem className="text-destructive" onClick={() => handleCancelOrder(order.id)}>
                                 Cancel Order
                               </DropdownMenuItem>
                            )}
