@@ -32,3 +32,11 @@ export function isReadyGoodsCategory(name: string): boolean {
 export function isInternalPrimaryCategory(name: string): boolean {
   return isRawMaterialsCategory(name) || isReadyRawMaterialsCategory(name);
 }
+
+/** True when the product is reusable: a single physical unit yields multiple consumptions. */
+export function isReusableProduct(product: {
+  uses_per_unit?: number | string | null;
+}): boolean {
+  const n = Number(product?.uses_per_unit ?? 1);
+  return Number.isFinite(n) && n > 1;
+}

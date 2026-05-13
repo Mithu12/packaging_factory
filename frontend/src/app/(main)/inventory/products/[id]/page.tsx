@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
 import { useFormatting } from "@/hooks/useFormatting";
+import { isReusableProduct } from "@/modules/inventory/constants/inventoryProductCategories";
 
 export default function ProductDetails() {
   const params = useParams()
@@ -549,6 +550,11 @@ export default function ProductDetails() {
                   <span className={`font-medium ${stockInfo.color}`}>{stockInfo.status}</span>
                 </div>
                 <div className="text-2xl font-bold">{product.current_stock} {product.unit_of_measure}</div>
+                {isReusableProduct(product) && product.uses_per_unit ? (
+                  <div className="text-sm text-muted-foreground mt-1" data-testid="reusable-uses-summary">
+                    {product.uses_per_unit} uses per unit · {(product.current_stock * Number(product.uses_per_unit)).toLocaleString()} total uses
+                  </div>
+                ) : null}
                 <Progress value={stockPercentage} className="mt-2" />
               </div>
 
@@ -588,6 +594,9 @@ export default function ProductDetails() {
                     <TableRow>
                       <TableHead>Warehouse</TableHead>
                       <TableHead className="text-right">Stock</TableHead>
+                      {isReusableProduct(product) ? (
+                        <TableHead className="text-right">Uses available</TableHead>
+                      ) : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -597,6 +606,21 @@ export default function ProductDetails() {
                         <TableCell className="text-right">
                           {loc.current_stock} {product.unit_of_measure}
                         </TableCell>
+                        {isReusableProduct(product) ? (
+                          <TableCell className="text-right">
+                            <div>{loc.available_uses ?? 0} uses</div>
+                            {loc.active_unit_remaining_uses != null ? (
+                              <div className="text-xs text-muted-foreground">
+                                Active unit: {loc.active_unit_remaining_uses} / {product.uses_per_unit} remaining
+                              </div>
+                            ) : null}
+                            {loc.reserved_uses ? (
+                              <div className="text-xs text-muted-foreground">
+                                {loc.reserved_uses} reserved
+                              </div>
+                            ) : null}
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>

@@ -162,9 +162,9 @@ export class AddCustomerOrderMediator {
           total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
           attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount,
-          valid_until, subtotal, tax_rate, tax_amount
+          valid_until, subtotal, tax_rate, tax_amount, pr_no
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
         ) RETURNING *
       `;
 
@@ -195,7 +195,8 @@ export class AddCustomerOrderMediator {
                 orderData.valid_until ? new Date(orderData.valid_until) : null,
                 orderData.subtotal || totalValue,
                 orderData.tax_rate || 0,
-                orderData.tax_amount || 0
+                orderData.tax_amount || 0,
+                orderData.pr_no && orderData.pr_no.trim() !== '' ? orderData.pr_no.trim() : null
             ];
 
             const orderResult = await client.query(orderQuery, orderValues);
@@ -288,6 +289,7 @@ export class AddCustomerOrderMediator {
                 attachments: orderResult.rows[0].attachments,
                 created_by: orderResult.rows[0].created_by,
                 created_at: orderResult.rows[0].created_at.toISOString(),
+                pr_no: orderResult.rows[0].pr_no ?? undefined,
             };
 
             MyLogger.success(action, {

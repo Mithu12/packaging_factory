@@ -22,6 +22,7 @@ import {
   Loader2
 } from "lucide-react"
 import { ApiService, ProductWithDetails, StockAdjustmentRequest, StockAdjustment, ApiError } from "@/services/api"
+import { isReusableProduct } from "@/modules/inventory/constants/inventoryProductCategories"
 
 interface StockAdjustmentFormData {
   adjustment_type: string
@@ -30,6 +31,7 @@ interface StockAdjustmentFormData {
   reference: string
   notes: string
   distribution_center_id?: string
+  adjustment_mode: 'units' | 'uses'
 }
 
 interface DistributionCenter {
@@ -66,7 +68,8 @@ export default function AdjustStock() {
     reason: "",
     reference: "",
     notes: "",
-    distribution_center_id: ""
+    distribution_center_id: "",
+    adjustment_mode: 'units'
   })
   const fetchProduct = async () => {
     if (!id) return
@@ -224,10 +227,28 @@ export default function AdjustStock() {
       return
     }
 
-    if (adjustmentData.adjustment_type === "decrease" && product && qty > product.current_stock) {
+    const isReusable = product ? isReusableProduct(product) : false
+    if (
+      adjustmentData.adjustment_type === "decrease" &&
+      adjustmentData.adjustment_mode === 'units' &&
+      product &&
+      qty > product.current_stock
+    ) {
       toast({
         title: "Insufficient Stock",
         description: "Cannot decrease stock below zero.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (
+      adjustmentData.adjustment_mode === 'uses' &&
+      adjustmentData.adjustment_type !== 'decrease'
+    ) {
+      toast({
+        title: "Invalid combination",
+        description: "Use consumption only supports the 'decrease' adjustment type.",
         variant: "destructive"
       })
       return
@@ -243,7 +264,8 @@ export default function AdjustStock() {
         reason: adjustmentData.reason,
         reference: adjustmentData.reference || undefined,
         notes: adjustmentData.notes || undefined,
-        distribution_center_id: adjustmentData.distribution_center_id ? parseInt(adjustmentData.distribution_center_id) : undefined
+        distribution_center_id: adjustmentData.distribution_center_id ? parseInt(adjustmentData.distribution_center_id) : undefined,
+        adjustment_mode: isReusable ? adjustmentData.adjustment_mode : undefined,
       }
 
       await ApiService.updateProductStock(parseInt(id), stockAdjustmentData)
@@ -266,7 +288,9 @@ export default function AdjustStock() {
         quantity: "",
         reason: "",
         reference: "",
-        notes: ""
+        notes: "",
+        distribution_center_id: "",
+        adjustment_mode: 'units',
       })
       fetchProduct()
     } catch (err) {
@@ -406,10 +430,43 @@ export default function AdjustStock() {
                     </Select>
                   </div>
 
+                  {product && isReusableProduct(product) && (
+                    <div>
+                      <Label>Adjustment Mode</Label>
+                      <div className="mt-2 flex gap-2" data-testid="adjustment-mode-toggle">
+                        <Button
+                          type="button"
+                          variant={adjustmentData.adjustment_mode === 'uses' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setAdjustmentData((prev) => ({ ...prev, adjustment_mode: 'uses', adjustment_type: 'decrease' }))}
+                        >
+                          Consume uses
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={adjustmentData.adjustment_mode === 'units' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setAdjustmentData((prev) => ({ ...prev, adjustment_mode: 'units' }))}
+                        >
+                          Adjust physical units
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {adjustmentData.adjustment_mode === 'uses'
+                          ? 'Consumes uses from the active unit. Stock decreases only when a unit is fully depleted.'
+                          : 'Changes physical unit count. Use for damaged/discarded units or replenishment.'}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="adjustmentType">Adjustment Type *</Label>
-                      <Select value={adjustmentData.adjustment_type} onValueChange={(value) => handleInputChange("adjustment_type", value)}>
+                      <Select
+                        value={adjustmentData.adjustment_type}
+                        onValueChange={(value) => handleInputChange("adjustment_type", value)}
+                        disabled={adjustmentData.adjustment_mode === 'uses'}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select adjustment type" />
                         </SelectTrigger>

@@ -339,6 +339,32 @@ export class UpdateProductionRunStatusMediator {
         const targetQuantity = parseFloat(woStats.target_quantity);
 
         if (totalProduced >= targetQuantity) {
+          // Auto-consume BOM materials before flipping the WO to completed, but
+          // only if nothing has been consumed yet (mirrors the manual-completion
+          // path in UpdateWorkOrderMediator). This is the only place the
+          // production-run pathway hits the WO completion side-effects, so we
+          // must release reservations and decrement stock here too.
+          const consumptionCheck = await client.query(
+            'SELECT SUM(consumed_quantity) as total_consumed FROM work_order_material_consumptions WHERE work_order_id = $1',
+            [run.work_order_id]
+          );
+          const totalConsumed = parseFloat(consumptionCheck.rows[0]?.total_consumed || '0');
+
+          if (totalConsumed === 0) {
+            const woRowResult = await client.query(
+              'SELECT id, product_id, quantity FROM work_orders WHERE id = $1',
+              [run.work_order_id]
+            );
+            if (woRowResult.rows.length > 0) {
+              await UpdateWorkOrderMediator.autoConsumeMaterialsFromBOM(
+                client,
+                run.work_order_id,
+                woRowResult.rows[0],
+                String(userId)
+              );
+            }
+          }
+
           // All production runs for this work order are done and target met
           await client.query(
             `UPDATE work_orders

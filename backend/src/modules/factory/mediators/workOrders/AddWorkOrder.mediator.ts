@@ -289,7 +289,7 @@ export class AddWorkOrderMediator {
 
           // Get current inventory for this material
           const inventoryQuery = `
-            SELECT p.current_stock, p.cost_price, p.unit_of_measure, p.name, p.sku
+            SELECT p.current_stock, p.cost_price, p.unit_of_measure, p.name, p.sku, p.uses_per_unit
             FROM products p
             WHERE p.id = $1
           `;
@@ -303,7 +303,13 @@ export class AddWorkOrderMediator {
             // Determine if this is a critical requirement (based on priority or lead time)
             const isCritical = component.lead_time_days > 7 || component.is_optional === false;
 
-            const availableStock = parseFloat(material.current_stock || '0');
+            // For reusable components, the required quantity is measured in
+            // uses; compare against (current_stock * uses_per_unit) — partial
+            // active-unit fractions are negligible at planning time.
+            const usesPerUnit = parseFloat(material.uses_per_unit || '1');
+            const isReusable = usesPerUnit > 1;
+            const physicalStock = parseFloat(material.current_stock || '0');
+            const availableStock = isReusable ? physicalStock * usesPerUnit : physicalStock;
             const requirementStatus =
               totalRequiredQuantity > availableStock ? 'short' : 'pending';
 

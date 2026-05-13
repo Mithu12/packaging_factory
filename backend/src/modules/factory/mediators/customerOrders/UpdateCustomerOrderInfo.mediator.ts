@@ -173,6 +173,14 @@ export class UpdateCustomerOrderInfoMediator {
                 paramIndex++;
             }
 
+            if (updateData.pr_no !== undefined) {
+                updateFields.push(`pr_no = $${paramIndex}`);
+                updateValues.push(
+                    updateData.pr_no && updateData.pr_no.trim() !== '' ? updateData.pr_no.trim() : null
+                );
+                paramIndex++;
+            }
+
             // Always update the updated_by and updated_at fields
             updateFields.push(`updated_by = $${paramIndex}`, `updated_at = $${paramIndex + 1}`);
             updateValues.push(userId, new Date());

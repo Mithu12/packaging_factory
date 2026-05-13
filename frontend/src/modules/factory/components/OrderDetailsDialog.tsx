@@ -146,6 +146,22 @@ export default function OrderDetailsDialog({
         }
     };
 
+    const handlePrintDeliveryChallan = async (deliveryId: number) => {
+        try {
+            await CustomerOrdersApiService.printDeliveryChallan(deliveryId);
+        } catch (error) {
+            console.error('Failed to print challan:', error);
+        }
+    };
+
+    const handlePrintDeliveryInvoice = async (deliveryId: number) => {
+        try {
+            await CustomerOrdersApiService.printDeliveryInvoice(deliveryId);
+        } catch (error) {
+            console.error('Failed to print invoice:', error);
+        }
+    };
+
     if (!order) return null;
 
     const parsedQuotedSnapshot: QuotedOrderSnapshot | null = (() => {
@@ -570,17 +586,37 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                                             size="sm"
                                                             variant="ghost"
                                                             onClick={() => handleDownloadDeliveryChallan(d.id)}
+                                                            title="Download challan"
                                                         >
                                                             <Download className="h-4 w-4 mr-1" /> Challan
                                                         </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => handlePrintDeliveryChallan(d.id)}
+                                                            title="Print challan"
+                                                        >
+                                                            <Printer className="h-4 w-4 mr-1" /> Print
+                                                        </Button>
                                                         {d.invoice_id && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => handleDownloadDeliveryInvoice(d.id)}
-                                                            >
-                                                                <Download className="h-4 w-4 mr-1" /> Invoice
-                                                            </Button>
+                                                            <>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleDownloadDeliveryInvoice(d.id)}
+                                                                    title="Download invoice"
+                                                                >
+                                                                    <Download className="h-4 w-4 mr-1" /> Invoice
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handlePrintDeliveryInvoice(d.id)}
+                                                                    title="Print invoice"
+                                                                >
+                                                                    <Printer className="h-4 w-4 mr-1" /> Print
+                                                                </Button>
+                                                            </>
                                                         )}
                                                     </TableCell>
                                                 </TableRow>

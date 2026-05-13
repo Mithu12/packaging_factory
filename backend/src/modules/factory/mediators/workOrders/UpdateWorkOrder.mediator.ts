@@ -10,6 +10,91 @@ import { MyLogger } from "@/utils/new-logger";
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { creditWorkOrderProductStock } from "./creditWorkOrderStock";
+import { ReusableStockService } from "@/modules/inventory/services/ReusableStockService";
+
+/**
+ * Apply a work-order consumption for one material. For reusable items the
+ * consumed quantity is interpreted as USES: only physically depleted units
+ * decrement current_stock, and reserved_uses is released by the consumed
+ * amount. For normal items it falls back to a flat current_stock decrement
+ * (matching the legacy auto-consume behavior).
+ */
+async function applyConsumptionForMaterial(
+  client: any,
+  params: {
+    materialId: string | number;
+    consumedQuantity: number;
+    workOrderConsumptionId?: number | null;
+    userId: string;
+    source: 'work_order_consumption';
+    reason?: string | null;
+  }
+): Promise<{ unitsDepleted: number }> {
+  const materialRes = await client.query(
+    'SELECT id, uses_per_unit FROM products WHERE id = $1',
+    [params.materialId]
+  );
+  if (materialRes.rows.length === 0) {
+    return { unitsDepleted: params.consumedQuantity };
+  }
+  const material = materialRes.rows[0];
+  if (!ReusableStockService.isReusable(material)) {
+    await client.query(
+      `UPDATE products
+       SET current_stock = GREATEST(current_stock - $1, 0),
+           reserved_stock = GREATEST(COALESCE(reserved_stock, 0) - $1, 0),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [params.consumedQuantity, params.materialId]
+    );
+    return { unitsDepleted: params.consumedQuantity };
+  }
+
+  const dcRes = await client.query(
+    "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+  );
+  if (dcRes.rows.length === 0) {
+    throw new Error('No primary distribution center configured');
+  }
+  const dcId = dcRes.rows[0].id;
+
+  const { unitsDepleted } = await ReusableStockService.consumeUses(
+    Number(params.materialId),
+    dcId,
+    params.consumedQuantity,
+    client
+  );
+  await ReusableStockService.releaseReservedUses(
+    Number(params.materialId),
+    dcId,
+    params.consumedQuantity,
+    client
+  );
+  if (unitsDepleted > 0) {
+    await client.query(
+      `UPDATE products
+       SET current_stock = GREATEST(current_stock - $1, 0),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [unitsDepleted, params.materialId]
+    );
+  }
+  const userIdNumeric = parseInt(String(params.userId), 10);
+  await ReusableStockService.logConsumption(
+    {
+      productId: Number(params.materialId),
+      distributionCenterId: dcId,
+      usesConsumed: params.consumedQuantity,
+      unitsDepleted,
+      source: params.source,
+      sourceReferenceId: params.workOrderConsumptionId ?? null,
+      reason: params.reason ?? null,
+      createdBy: Number.isFinite(userIdNumeric) ? userIdNumeric : null,
+    },
+    client
+  );
+  return { unitsDepleted };
+}
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -90,12 +175,26 @@ async function allocateMaterialsForWorkOrder(
 ) {
   // Get material requirements for this work order
   const requirementsQuery = `
-    SELECT wmr.*, p.current_stock, p.reserved_stock
+    SELECT wmr.*, p.current_stock, p.reserved_stock, p.uses_per_unit
     FROM work_order_material_requirements wmr
     JOIN products p ON wmr.material_id = p.id
     WHERE wmr.work_order_id = $1 AND wmr.status IN ('pending', 'short')
   `;
   const requirementsResult = await client.query(requirementsQuery, [workOrderId]);
+
+  // Resolve primary DC once for any reusable allocations encountered.
+  let primaryDcId: number | null = null;
+  const resolvePrimaryDc = async () => {
+    if (primaryDcId !== null) return primaryDcId;
+    const res = await client.query(
+      "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+    );
+    if (res.rows.length === 0) {
+      throw new Error('No primary distribution center configured');
+    }
+    primaryDcId = res.rows[0].id as number;
+    return primaryDcId;
+  };
 
   for (const requirement of requirementsResult.rows) {
     const totalRequired = parseFloat(requirement.required_quantity);
@@ -104,13 +203,25 @@ async function allocateMaterialsForWorkOrder(
 
     if (remainingToAllocate <= 0) continue;
 
-    const currentStock = parseFloat(requirement.current_stock) || 0;
-    const reservedStock = parseFloat(requirement.reserved_stock) || 0;
-    const availableStock = Math.max(0, currentStock - reservedStock);
+    const isReusable = ReusableStockService.isReusable(requirement);
+    let availableQty: number;
+    if (isReusable) {
+      const dcId = await resolvePrimaryDc();
+      const snapshot = await ReusableStockService.getSnapshot(
+        Number(requirement.material_id),
+        dcId,
+        client
+      );
+      availableQty = snapshot.availableUses;
+    } else {
+      const currentStock = parseFloat(requirement.current_stock) || 0;
+      const reservedStock = parseFloat(requirement.reserved_stock) || 0;
+      availableQty = Math.max(0, currentStock - reservedStock);
+    }
 
-    if (availableStock <= 0) continue;
+    if (availableQty <= 0) continue;
 
-    const quantityToAllocate = Math.min(availableStock, remainingToAllocate);
+    const quantityToAllocate = Math.min(availableQty, remainingToAllocate);
 
     if (quantityToAllocate <= 0) continue;
 
@@ -147,18 +258,30 @@ async function allocateMaterialsForWorkOrder(
       WHERE id = $2
     `, [quantityToAllocate, requirement.id]);
 
-    // Reserve the stock
-    await client.query(`
-      UPDATE products
-      SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-    `, [quantityToAllocate, requirement.material_id]);
+    // Reserve the stock — reusable items reserve uses on the location;
+    // normal items bump products.reserved_stock.
+    if (isReusable) {
+      const dcId = await resolvePrimaryDc();
+      await ReusableStockService.reserveUses(
+        Number(requirement.material_id),
+        dcId,
+        quantityToAllocate,
+        client
+      );
+    } else {
+      await client.query(`
+        UPDATE products
+        SET reserved_stock = reserved_stock + $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [quantityToAllocate, requirement.material_id]);
+    }
 
     MyLogger.info("Material allocated for work order", {
       workOrderId,
       materialId: requirement.material_id,
       allocated: quantityToAllocate,
-      totalRequired
+      totalRequired,
+      isReusable,
     });
   }
 }
@@ -717,14 +840,16 @@ export class UpdateWorkOrderMediator {
         'cancelled': [] // Final status
       };
 
-      // Additional validation: Check if work order has production run before completion
+      // On completion, ensure materials are consumed and reservations released
+      // regardless of whether a production run exists. Production-run pipelines
+      // do not currently record consumption themselves, so gating on "no
+      // production run" caused reservations to leak when a WO with a
+      // production run was completed via the status endpoint.
       if (newStatus === 'completed') {
-        // Check if work order has any production runs
         const productionRunCheck = await client.query(
           'SELECT id FROM production_runs WHERE work_order_id = $1 LIMIT 1',
           [workOrderId]
         );
-
         if (productionRunCheck.rows.length === 0) {
           MyLogger.warn("Work order completed without production run", {
             workOrderId,
@@ -732,25 +857,22 @@ export class UpdateWorkOrderMediator {
             quantity: currentWorkOrder.quantity,
             message: "Work order completed without formal production tracking"
           });
+        }
 
-          // Check if materials were consumed
-          const consumptionCheck = await client.query(
-            'SELECT SUM(consumed_quantity) as total_consumed FROM work_order_material_consumptions WHERE work_order_id = $1',
-            [workOrderId]
-          );
+        const consumptionCheck = await client.query(
+          'SELECT SUM(consumed_quantity) as total_consumed FROM work_order_material_consumptions WHERE work_order_id = $1',
+          [workOrderId]
+        );
+        const totalConsumed = parseFloat(consumptionCheck.rows[0]?.total_consumed || '0');
 
-          const totalConsumed = parseFloat(consumptionCheck.rows[0]?.total_consumed || '0');
-
-          if (totalConsumed === 0) {
-            // No production run and no consumption recorded - auto-consume based on BOM
-            MyLogger.info("Auto-consuming materials based on BOM for completed work order", {
-              workOrderId,
-              productId: currentWorkOrder.product_id,
-              quantity: currentWorkOrder.quantity
-            });
-
-            await UpdateWorkOrderMediator.autoConsumeMaterialsFromBOM(client, workOrderId, currentWorkOrder, userId);
-          }
+        if (totalConsumed === 0) {
+          MyLogger.info("Auto-consuming materials based on BOM for completed work order", {
+            workOrderId,
+            productId: currentWorkOrder.product_id,
+            quantity: currentWorkOrder.quantity,
+            hasProductionRun: productionRunCheck.rows.length > 0,
+          });
+          await UpdateWorkOrderMediator.autoConsumeMaterialsFromBOM(client, workOrderId, currentWorkOrder, userId);
         }
       }
 
@@ -1573,7 +1695,7 @@ export class UpdateWorkOrderMediator {
       if (materialConsumptions && materialConsumptions.length > 0) {
         for (const consumption of materialConsumptions) {
           // Record consumption
-          await client.query(
+          const consumptionInsert = await client.query(
             `INSERT INTO work_order_material_consumptions (
               work_order_id,
               material_id,
@@ -1585,7 +1707,8 @@ export class UpdateWorkOrderMediator {
               consumption_date,
               consumed_by,
               notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9)
+            RETURNING id`,
             [
               workOrderId,
               consumption.material_id,
@@ -1599,23 +1722,26 @@ export class UpdateWorkOrderMediator {
             ]
           );
 
-          // Update inventory
+          // Update inventory — reusable-aware. For reusable materials the
+          // quantity is interpreted as uses; physical stock drops only when an
+          // active unit's remaining uses hit zero, and reserved_uses is
+          // released.
           const totalConsumed = consumption.consumed_quantity + (consumption.wastage_quantity || 0);
-          await client.query(
-            `UPDATE products 
-             SET 
-               current_stock = GREATEST(current_stock - $1, 0),
-               updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2`,
-            [totalConsumed, consumption.material_id]
-          );
+          await applyConsumptionForMaterial(client, {
+            materialId: consumption.material_id,
+            consumedQuantity: totalConsumed,
+            workOrderConsumptionId: consumptionInsert.rows[0]?.id ?? null,
+            userId,
+            source: 'work_order_consumption',
+            reason: 'Manual consumption during work order completion',
+          });
 
           // Update requirement
           await client.query(
             `UPDATE work_order_material_requirements
-             SET 
+             SET
                consumed_quantity = consumed_quantity + $1,
-               status = CASE 
+               status = CASE
                  WHEN consumed_quantity + $1 >= required_quantity THEN 'fulfilled'
                  ELSE 'short'
                END,
@@ -1869,7 +1995,7 @@ export class UpdateWorkOrderMediator {
    * Auto-consume materials from BOM when work order is completed without production run
    * This ensures inventory is properly adjusted based on planned requirements
    */
-  private static async autoConsumeMaterialsFromBOM(
+  static async autoConsumeMaterialsFromBOM(
     client: any,
     workOrderId: string,
     workOrder: any,
@@ -1911,7 +2037,7 @@ export class UpdateWorkOrderMediator {
         const consumedQuantity = requiredQuantity;
 
         // Record consumption
-        await client.query(
+        const consumptionInsert = await client.query(
           `INSERT INTO work_order_material_consumptions (
             work_order_id,
             material_id,
@@ -1920,7 +2046,8 @@ export class UpdateWorkOrderMediator {
             consumption_date,
             consumed_by,
             notes
-          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6)`,
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6)
+          RETURNING id`,
           [
             workOrderId,
             materialId,
@@ -1931,20 +2058,22 @@ export class UpdateWorkOrderMediator {
           ]
         );
 
-        // Update inventory - reduce available quantity
-        await client.query(
-          `UPDATE products 
-           SET 
-             current_stock = GREATEST(current_stock - $1, 0),
-             updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2`,
-          [consumedQuantity, materialId]
-        );
+        // Update inventory — reusable-aware. For reusable materials,
+        // consumedQuantity is uses; physical stock drops only on unit depletion
+        // and reserved_uses is released.
+        await applyConsumptionForMaterial(client, {
+          materialId,
+          consumedQuantity,
+          workOrderConsumptionId: consumptionInsert.rows[0]?.id ?? null,
+          userId,
+          source: 'work_order_consumption',
+          reason: 'Auto-consumed based on BOM when work order completed without production run',
+        });
 
         // Update requirement status
         await client.query(
           `UPDATE work_order_material_requirements
-           SET 
+           SET
              consumed_quantity = $1,
              status = 'consumed',
              updated_at = CURRENT_TIMESTAMP

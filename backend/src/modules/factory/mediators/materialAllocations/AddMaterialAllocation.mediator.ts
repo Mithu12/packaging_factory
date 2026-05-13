@@ -1,6 +1,7 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { ReusableStockService } from '@/modules/inventory/services/ReusableStockService';
 
 export interface CreateMaterialAllocationRequest {
   work_order_requirement_id: string;
@@ -78,9 +79,12 @@ export class AddMaterialAllocationMediator {
         );
       }
 
-      // 2. Check inventory availability
+      // 2. Check inventory availability. For reusable items, allocation is
+      // tracked in product_locations.reserved_uses (per location) and the
+      // requested allocated_quantity is interpreted as USES; the availability
+      // check accounts for partially-used active units.
       const inventoryResult = await client.query(
-        'SELECT id, current_stock, reserved_stock FROM products WHERE id = $1',
+        'SELECT id, current_stock, reserved_stock, uses_per_unit FROM products WHERE id = $1',
         [data.inventory_item_id]
       );
 
@@ -89,13 +93,38 @@ export class AddMaterialAllocationMediator {
       }
 
       const inventory = inventoryResult.rows[0];
-      const availableStock = parseFloat(inventory.current_stock) - parseFloat(inventory.reserved_stock || 0);
+      const isReusable = ReusableStockService.isReusable(inventory);
 
-      if (availableStock < data.allocated_quantity) {
-        throw createError(
-          `Insufficient inventory. Available: ${availableStock}, Requested: ${data.allocated_quantity}`,
-          400
+      let reusableDcId: number | null = null;
+      if (isReusable) {
+        const dcRes = await client.query(
+          "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
         );
+        if (dcRes.rows.length === 0) {
+          throw createError('No primary distribution center configured', 500);
+        }
+        reusableDcId = dcRes.rows[0].id;
+        const snapshot = await ReusableStockService.getSnapshot(
+          data.inventory_item_id,
+          reusableDcId!,
+          client
+        );
+        if (snapshot.availableUses < data.allocated_quantity) {
+          throw createError(
+            `Insufficient uses for ${data.inventory_item_id}. Available uses: ${snapshot.availableUses}, Requested: ${data.allocated_quantity}`,
+            400
+          );
+        }
+      } else {
+        const availableStock =
+          parseFloat(inventory.current_stock) - parseFloat(inventory.reserved_stock || 0);
+
+        if (availableStock < data.allocated_quantity) {
+          throw createError(
+            `Insufficient inventory. Available: ${availableStock}, Requested: ${data.allocated_quantity}`,
+            400
+          );
+        }
       }
 
       // 3. Create allocation record
@@ -140,13 +169,23 @@ export class AddMaterialAllocationMediator {
         [data.allocated_quantity, data.work_order_requirement_id]
       );
 
-      // 5. Update product reserved stock
-      await client.query(
-        `UPDATE products
-         SET reserved_stock = COALESCE(reserved_stock, 0) + $1
-         WHERE id = $2`,
-        [data.allocated_quantity, data.inventory_item_id]
-      );
+      // 5. Update reservation. Reusable items reserve uses on the location
+      // (parallel to reserved_stock); normal items bump products.reserved_stock.
+      if (isReusable) {
+        await ReusableStockService.reserveUses(
+          data.inventory_item_id,
+          reusableDcId!,
+          data.allocated_quantity,
+          client
+        );
+      } else {
+        await client.query(
+          `UPDATE products
+           SET reserved_stock = COALESCE(reserved_stock, 0) + $1
+           WHERE id = $2`,
+          [data.allocated_quantity, data.inventory_item_id]
+        );
+      }
 
       await client.query('COMMIT');
 

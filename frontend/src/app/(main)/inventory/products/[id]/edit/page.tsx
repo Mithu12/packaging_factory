@@ -16,6 +16,7 @@ import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiErr
 import {
   displayPrimaryCategoryLabel,
   isRawMaterialsCategory,
+  isInternalPrimaryCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { getImagePath } from "@/utils/image.utils"
@@ -46,6 +47,7 @@ interface EditProductFormData {
   dimensions: string
   vat_rate: string
   notes: string
+  uses_per_unit: string
   currentImage: string
 }
 
@@ -83,6 +85,7 @@ export default function EditProduct() {
     dimensions: "",
     vat_rate: "",
     notes: "",
+    uses_per_unit: "1",
       currentImage: PLACEHOLDER_IMAGE,
   })
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,6 +173,7 @@ export default function EditProduct() {
           dimensions: productData.dimensions || "",
           vat_rate: productData.tax_rate?.toString() || "",
           notes: productData.notes || "",
+          uses_per_unit: (productData.uses_per_unit ?? 1).toString(),
           currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE,
         })
 
@@ -308,6 +312,10 @@ export default function EditProduct() {
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
+        uses_per_unit: (() => {
+          const u = parseFloat(formData.uses_per_unit || "1")
+          return Number.isFinite(u) && u >= 1 ? u : 1
+        })(),
       }
 
       // Use the new API method that supports image upload
@@ -365,6 +373,7 @@ export default function EditProduct() {
     categories.find((c) => String(c.id) === String(formData.category_id))
       ?.name ?? ""
   const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName)
+  const isInternalType = isInternalPrimaryCategory(selectedCategoryName)
 
   return (
     <div className="space-y-6" data-testid="edit-product-page">
@@ -805,6 +814,24 @@ export default function EditProduct() {
                     required
                   />
                 </div>
+                {isInternalType ? (
+                  <div>
+                    <Label htmlFor="usesPerUnit">Uses per physical unit</Label>
+                    <Input
+                      id="usesPerUnit"
+                      data-testid="edit-product-uses-per-unit"
+                      type="number"
+                      min={1}
+                      step="0.01"
+                      value={formData.uses_per_unit}
+                      onChange={(e) => handleInputChange("uses_per_unit", e.target.value)}
+                      placeholder="1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Set greater than 1 when a single physical unit can be reused multiple times before it&apos;s consumed.
+                    </p>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
             ) : null}

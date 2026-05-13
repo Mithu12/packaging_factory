@@ -12,6 +12,8 @@ export interface StockAdjustment {
   created_at: string
 }
 
+export type StockAdjustmentMode = 'units' | 'uses'
+
 export interface CreateStockAdjustmentRequest {
   product_id: number
   adjustment_type: 'increase' | 'decrease' | 'set'
@@ -20,6 +22,8 @@ export interface CreateStockAdjustmentRequest {
   reference?: string
   notes?: string
   adjusted_by?: string
+  /** For reusable products: 'uses' consumes the active unit's remaining uses; 'units' (default) changes physical stock. */
+  adjustment_mode?: StockAdjustmentMode
 }
 
 export interface StockAdjustmentQueryParams {

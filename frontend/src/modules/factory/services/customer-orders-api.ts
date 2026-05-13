@@ -77,6 +77,12 @@ export interface FactoryCustomerOrder {
     shipping_cost?: number;
     delivery_status?: string;
     quoted_snapshot?: QuotedOrderSnapshot | null;
+    /** Customer Purchase Request / Reference number printed on invoice. */
+    pr_no?: string;
+    /** Latest linked work order number (read-only, populated by backend join). */
+    latest_work_order_number?: string;
+    /** Creation timestamp of the latest linked work order (read-only). */
+    latest_work_order_date?: string;
 }
 
 export interface FactoryCustomerOrderLineItem {
@@ -238,6 +244,7 @@ export interface CreateCustomerOrderRequest {
     subtotal?: number;
     tax_rate?: number;
     tax_amount?: number;
+    pr_no?: string;
     billing_address?: Address;
     shipping_address?: Address;
     line_items: CreateOrderLineItemRequest[];
@@ -265,6 +272,7 @@ export interface UpdateCustomerOrderRequest {
     sales_person?: string;
     notes?: string;
     terms?: string;
+    pr_no?: string;
     billing_address?: Address;
     shipping_address?: Address;
     line_items?: UpdateOrderLineItemRequest[];
@@ -489,12 +497,20 @@ export class CustomerOrdersApiService {
      * so the output is identical to what the user would see when downloading.
      */
     static async printQuotationPdf(id: number | string): Promise<void> {
+        await this._fetchAndPrint(`/factory/customer-orders/${id}/pdf`, 'quotation');
+    }
+
+    /**
+     * Shared helper: fetches a PDF from the given API path (relative to NEXT_PUBLIC_API_URL)
+     * and opens the browser's native print dialog via a hidden iframe.
+     */
+    private static async _fetchAndPrint(apiPath: string, label: string): Promise<void> {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
-        const response = await fetch(`${baseUrl}/factory/customer-orders/${id}/pdf`, {
+        const response = await fetch(`${baseUrl}${apiPath}`, {
             method: 'GET',
             credentials: 'include',
         });
-        if (!response.ok) throw new Error('Failed to load quotation PDF');
+        if (!response.ok) throw new Error(`Failed to load ${label} PDF`);
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -515,7 +531,7 @@ export class CustomerOrdersApiService {
                     iframe.contentWindow?.focus();
                     iframe.contentWindow?.print();
                 } catch (err) {
-                    console.error('Failed to invoke print on quotation PDF:', err);
+                    console.error(`Failed to invoke print on ${label} PDF:`, err);
                 }
             }, 100);
         };
@@ -784,6 +800,22 @@ export class CustomerOrdersApiService {
     /** Download per-delivery invoice PDF (only this shipment's items). */
     static async downloadDeliveryInvoice(deliveryId: string | number): Promise<void> {
         await this._downloadDeliveryPdf(deliveryId, 'invoice');
+    }
+
+    /** Print per-delivery challan PDF via the browser's native print dialog. */
+    static async printDeliveryChallan(deliveryId: string | number): Promise<void> {
+        await this._fetchAndPrint(
+            `/factory/customer-orders/deliveries/${deliveryId}/challan`,
+            'challan'
+        );
+    }
+
+    /** Print per-delivery invoice PDF via the browser's native print dialog. */
+    static async printDeliveryInvoice(deliveryId: string | number): Promise<void> {
+        await this._fetchAndPrint(
+            `/factory/customer-orders/deliveries/${deliveryId}/invoice`,
+            'invoice'
+        );
     }
 
     private static async _downloadDeliveryPdf(

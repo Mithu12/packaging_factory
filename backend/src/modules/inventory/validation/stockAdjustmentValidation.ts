@@ -8,6 +8,7 @@ export const createStockAdjustmentSchema = Joi.object({
   reference: Joi.string().max(100).optional(),
   notes: Joi.string().optional(),
   adjusted_by: Joi.string().max(100).optional(),
+  adjustment_mode: Joi.string().valid("units", "uses").optional(),
 });
 
 export const stockAdjustmentQuerySchema = Joi.object({

@@ -123,6 +123,7 @@ const createOrderFormSchema = (isAdmin: boolean) => z.object({
     sales_person: z.string().min(1, "Sales person is required"),
     valid_until: z.string().optional(),
     tax_rate: z.coerce.number().min(0).max(100).default(0),
+    pr_no: z.string().max(50).optional(),
     notes: z.string().optional(),
     terms: z.string().optional(),
     line_items: z.array(z.object({
@@ -144,6 +145,7 @@ type OrderFormData = {
     sales_person: string;
     valid_until?: string;
     tax_rate: number;
+    pr_no?: string;
     notes?: string;
     terms?: string;
     line_items: Array<{
@@ -200,6 +202,7 @@ export default function OrderEntryForm({
             sales_person: user?.full_name || user?.username || "",
             valid_until: order?.valid_until ? new Date(order.valid_until).toISOString().split('T')[0] : "",
             tax_rate: order?.tax_rate || 0,
+            pr_no: order?.pr_no || "",
             notes: order?.notes || "",
             terms: order?.terms || "",
             line_items: [
@@ -316,6 +319,7 @@ export default function OrderEntryForm({
                     ? new Date(order.valid_until).toISOString().split("T")[0]
                     : "",
                 tax_rate: order.tax_rate ?? 0,
+                pr_no: order.pr_no || "",
                 notes: order.notes || "",
                 terms: order.terms || "",
                 line_items: order.line_items.map(item => ({
@@ -338,6 +342,7 @@ export default function OrderEntryForm({
                 priority: "medium",
                 currency: "BDT",
                 sales_person: defaultSalesPerson,
+                pr_no: "",
                 notes: "",
                 terms: defaultTerms,
                 line_items: [
@@ -434,6 +439,7 @@ export default function OrderEntryForm({
                 tax_rate: data.tax_rate,
                 subtotal: calculateOrderTotal(),
                 tax_amount: (calculateOrderTotal() * data.tax_rate) / 100,
+                pr_no: data.pr_no?.trim() ? data.pr_no.trim() : undefined,
                 terms: data.terms,
             };
             console.log('Order data:', orderData);
@@ -800,6 +806,26 @@ export default function OrderEntryForm({
                                                         <SelectItem value="BDT">BDT</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="pr_no"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>PR No</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="Customer PR / Reference number"
+                                                        maxLength={50}
+                                                        {...field}
+                                                        value={field.value ?? ""}
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

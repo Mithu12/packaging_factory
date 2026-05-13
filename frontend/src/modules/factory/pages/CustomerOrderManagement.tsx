@@ -333,24 +333,6 @@ export default function CustomerOrderManagement() {
         }
     };
 
-    const handleDownloadInvoice = async (order: FactoryCustomerOrder) => {
-        try {
-            toast.info(`Generating Invoice PDF...`);
-            await CustomerOrdersApiService.downloadInvoicePdf(order.id);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to download Invoice");
-        }
-    };
-
-    const handleDownloadChallan = async (order: FactoryCustomerOrder) => {
-        try {
-            toast.info(`Generating Challan PDF...`);
-            await CustomerOrdersApiService.downloadChallanPdf(order.id);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to download Challan");
-        }
-    };
-
     const handleDeleteOrder = async () => {
         if (!orderToDelete) return;
 
@@ -770,19 +752,6 @@ export default function CustomerOrderManagement() {
                                                                     <History className="mr-2 h-4 w-4" />
                                                                     <span>Show quotation</span>
                                                                 </DropdownMenuItem>
-                                                            )}
-
-                                                            {(order.status === 'completed' || order.status === 'partially_shipped' || order.status === 'shipped') && (
-                                                                <>
-                                                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(order)} className="text-indigo-600">
-                                                                        <FileText className="mr-2 h-4 w-4" />
-                                                                        <span>Download Invoice</span>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => handleDownloadChallan(order)} className="text-teal-600">
-                                                                        <FileText className="mr-2 h-4 w-4" />
-                                                                        <span>Download Challan</span>
-                                                                    </DropdownMenuItem>
-                                                                </>
                                                             )}
 
                                                             <DropdownMenuSeparator />

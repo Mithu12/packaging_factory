@@ -1254,370 +1254,310 @@ export class PDFGenerator {
     }
   }
 
-  // Generate HTML template for invoice (Bill)
+  // Generate HTML template for invoice (Bill) — BD-style tax invoice.
+  // Renders a Customer box (left) + Invoice Details box (right), a Particulars table,
+  // Sub Total / VAT / Total rows, an Amount-in-Words line, and three signature lines.
   private static generateInvoiceHTML(
     order: FactoryCustomerOrder,
     settings?: any,
     delivery?: import('@/types/factory').Delivery
   ): string {
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('en-IN', {
+    const formatCurrency = (amount: number) =>
+      new Intl.NumberFormat('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(amount);
-    };
 
-    const formatDate = (dateString: string) => {
+    const formatQty = (q: number) =>
+      new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(q);
+
+    // Mock uses dot-separated dates: 31.03.2026
+    const formatDate = (dateString?: string | null) => {
+      if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
-      return `${day}-${month}-${year}`; // Changed to match "03-03-2026" format in the image
+      return `${day}.${month}.${year}`;
     };
 
-    // A simple number to words function for the "In Words" section
-    const numberToWords = (num: number) => {
-      const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-      const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
-      
-      let numStr = Math.floor(num).toString();
-      if (numStr.length > 9) return 'overflow';
-      const n = ('000000000' + numStr).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-      if (!n) return '';
-      let str = '';
-      str += (n[1] !== '00') ? (a[Number(n[1])] || b[Number(n[1][0])] + ' ' + a[Number(n[1][1])]) + 'Crore ' : '';
-      str += (n[2] !== '00') ? (a[Number(n[2])] || b[Number(n[2][0])] + ' ' + a[Number(n[2][1])]) + 'Lakh ' : '';
-      str += (n[3] !== '00') ? (a[Number(n[3])] || b[Number(n[3][0])] + ' ' + a[Number(n[3][1])]) + 'Thousand ' : '';
-      str += (n[4] !== '0') ? (a[Number(n[4])] || b[Number(n[4][0])] + ' ' + a[Number(n[4][1])]) + 'Hundred ' : '';
-      str += (n[5] !== '00') ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[Number(n[5][0])] + ' ' + a[Number(n[5][1])]) : '';
-      return 'In Word: ' + (str.trim() ? str.trim() + ' Taka Only.' : 'Zero Taka Only.');
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // Number to words (Indian numbering: Lac/Thousand/Hundred). Returns "One Lac Thirty Six Thousand..." style.
+    const numberToWords = (num: number): string => {
+      const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+        'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+      const two = (n: number): string => {
+        if (n < 20) return a[n];
+        return (b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '')).trim();
+      };
+      const three = (n: number): string => {
+        const h = Math.floor(n / 100);
+        const r = n % 100;
+        return (h ? a[h] + ' Hundred' + (r ? ' ' + two(r) : '') : two(r)).trim();
+      };
+
+      const n = Math.floor(Math.abs(num));
+      if (n === 0) return 'Zero';
+      const crore = Math.floor(n / 10000000);
+      const lac = Math.floor((n % 10000000) / 100000);
+      const thousand = Math.floor((n % 100000) / 1000);
+      const rest = n % 1000;
+
+      const parts: string[] = [];
+      if (crore) parts.push(three(crore) + ' Crore');
+      if (lac) parts.push(two(lac) + ' Lac');
+      if (thousand) parts.push(two(thousand) + ' Thousand');
+      if (rest) parts.push(three(rest));
+      return parts.join(' ').replace(/\s+/g, ' ').trim();
     };
 
-    // When a delivery is provided, render only that shipment's lines and totals.
+    // When a delivery is provided, render only that shipment's lines.
     // Otherwise fall back to whole-order rendering for legacy callers.
     const renderRows = delivery?.items?.length
       ? delivery.items.map(it => ({
           product_name: it.product_name ?? '',
           description: it.description ?? '',
-          quantity: it.quantity,
-          unit_price: it.unit_price_snapshot,
-          line_total: it.line_total,
+          quantity: Number(it.quantity),
+          unit_price: Number(it.unit_price_snapshot),
+          line_total: Number(it.line_total),
         }))
       : (order.line_items ?? []).map(li => ({
           product_name: li.product_name,
           description: li.description ?? '',
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          line_total: li.quantity * li.unit_price,
+          quantity: Number(li.quantity),
+          unit_price: Number(li.unit_price),
+          line_total: Number(li.quantity) * Number(li.unit_price),
         }));
 
     const itemsHtml = renderRows.map((item, index) => {
-      const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
-
+      const descLines = item.description
+        ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
+        : '';
       return `
-        <tr>
-          <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
-          <td style="vertical-align: top;">
-            ${item.product_name}
-            ${descHtml}
+        <tr class="item-row">
+          <td class="col-sn">${index + 1}</td>
+          <td class="col-particulars">
+            <div class="item-heading">Master Carton For:</div>
+            <div class="item-name">${escapeHtml(item.product_name || '')}</div>
+            ${descLines}
           </td>
-          <td style="text-align: center; vertical-align: bottom;">${item.quantity}</td>
-          <td style="text-align: center; vertical-align: bottom;">${formatCurrency(item.unit_price)}</td>
-          <td style="text-align: right; vertical-align: bottom;">${formatCurrency(item.line_total)}</td>
+          <td class="col-qty">${formatQty(item.quantity)}</td>
+          <td class="col-price">${formatCurrency(item.unit_price)}</td>
+          <td class="col-amount">${formatCurrency(item.line_total)}</td>
         </tr>
       `;
-    }).join('') || '<tr><td colspan="5" style="text-align: center;">No items found</td></tr>';
+    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
 
-    // Calculate totals (per-delivery if delivery is provided)
-    const grandTotal = delivery
-      ? renderRows.reduce((sum, r) => sum + r.line_total, 0)
-      : parseFloat(order.total_value?.toString() || '0');
-    const advance = delivery ? 0 : parseFloat(order.paid_amount?.toString() || '0');
-    const due = delivery ? grandTotal : parseFloat(order.outstanding_amount?.toString() || '0');
+    // Totals — VAT applied on the rendered (per-delivery or whole-order) subtotal.
+    const subTotal = renderRows.reduce((sum, r) => sum + r.line_total, 0);
+    const subTotalQty = renderRows.reduce((sum, r) => sum + r.quantity, 0);
+    const vatPct = order.tax_rate != null && order.tax_rate > 0 ? Number(order.tax_rate) : 15;
+    const vatAmount = (subTotal * vatPct) / 100;
+    const grandTotal = subTotal + vatAmount;
+    const amountInWords = numberToWords(Math.round(grandTotal));
+
+    // Invoice header values — sourced primarily from the linked delivery (per-delivery invoice).
+    const invoiceNo = delivery?.invoice_number || delivery?.delivery_number || order.order_number || '';
+    const invoiceDate = formatDate(delivery?.created_at || order.created_at);
+    const challanNo = delivery?.delivery_number || '';
+    const vatNo = settings?.tax_id || '';
+    const deliveryDate = formatDate(delivery?.delivery_date);
+    const workOrderNo = order.latest_work_order_number || '';
+    const workOrderDate = formatDate(order.latest_work_order_date);
+    const prNo = order.pr_no || '';
+
+    // Customer block
+    const customerName = order.factory_customer_name || '';
+    const addrParts = [
+      order.billing_address?.street,
+      order.billing_address?.city,
+      order.billing_address?.postal_code,
+    ].filter(Boolean);
+    const customerAddress = addrParts.join(', ') ||
+      [order.shipping_address?.street, order.shipping_address?.city, order.shipping_address?.postal_code].filter(Boolean).join(', ');
 
     return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Bill ${order.order_number}</title>
+    <title>Bill ${escapeHtml(order.order_number || '')}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 0; 
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        html {
-            height: 100%;
-        }
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Times New Roman', Times, serif;
+            font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
             background: white;
-            line-height: 1.3;
-            /* Using a relative container for full page backgrounds/watermarks */
-            position: relative;
-            min-height: 295mm; /* Approximate A4 height */
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
+            line-height: 1.35;
         }
-        
-        /* Simulating the header gradient background */
-        .page-background-top {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 150px;
-            background: linear-gradient(to right, #d0e8f2, #ffffff, #f9ebed);
-            z-index: -2;
-            opacity: 0.6;
-        }
-        
-        .content-wrapper {
-             padding: 40px 50px;
-             position: relative;
-             z-index: 10;
-             flex: 1;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 40px;
-        }
-        .logo-section h1 {
-            color: #555;
-            font-size: 24pt;
-            font-weight: bold;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-        }
-        .logo-section h1 span.logo-icon {
-            color: #d12c2c;
-            font-style: italic;
-            margin-right: 8px;
-            font-size: 28pt;
-        }
-        .logo-section p {
-            color: #d12c2c;
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            margin-top: 2px;
-            letter-spacing: 0.5px;
-            margin-left: 50px;
-        }
-        .header-web {
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            color: #333;
-            margin-top: 15px;
-        }
-        
-        .seal-date-container {
-             margin-bottom: 20px;
-             position: relative;
-        }
-        .date-text {
-            margin-bottom: 30px;
-            margin-top: 40px;
-            font-family: 'Times New Roman', serif;
-        }
-        
-        .client-info-container {
-             display: flex;
-             justify-content: space-between;
-             align-items: flex-start;
-             margin-bottom: 20px;
-        }
-        
-        .client-info {
-             width: 60%;
-        }
-        .client-info h4 {
-             font-size: 12pt;
-             margin-bottom: 2px;
-        }
-        .client-info p {
-             margin-bottom: 2px;
-        }
-        .client-details {
-             margin-top: 15px;
-        }
-        
-        .bill-tag {
-             background: linear-gradient(to right, #000000, #333333);
-             color: white;
-             padding: 4px 20px;
-             font-weight: bold;
-             font-size: 14pt;
-             display: inline-block;
-             margin-top: 20px;
-             margin-right: 50px;
-             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-             /* Slashed edges simulation */
-             clip-path: polygon(10% 0, 100% 0%, 90% 100%, 0% 100%);
-        }
-
-        table.border-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 0px; /* Removed margin to stick to totals */
-        }
-        table.border-table th, table.border-table td {
-            border: 2px solid #000;
-            padding: 6px 8px;
-        }
-        table.border-table th {
-            font-weight: bold;
+        .page { padding: 30mm 18mm 20mm 18mm; }
+        .title {
             text-align: center;
-        }
-        
-        .in-words {
             font-weight: bold;
-            font-style: italic;
-            margin-bottom: 30px;
-            margin-top: 15px;
+            font-size: 14pt;
+            letter-spacing: 0.5px;
+            margin-bottom: 14px;
         }
-        
-        .account-table {
-            width: auto;
+        .header-row {
+            display: flex;
+            gap: 0;
+            margin-bottom: 14px;
+        }
+        .box {
+            border: 1px solid #000;
+            padding: 10px 12px;
+            min-height: 140px;
+        }
+        .box.customer {
+            flex: 1.2;
+            border-right: 0;
+        }
+        .box.invoice-details {
+            flex: 1;
+        }
+        .box .label { font-weight: bold; }
+        .box .customer-heading { font-weight: bold; margin-bottom: 8px; }
+        .kv-line { margin-bottom: 4px; white-space: nowrap; }
+        .kv-line .k { display: inline-block; min-width: 110px; }
+
+        table.items {
+            width: 100%;
             border-collapse: collapse;
-            margin-bottom: 60px;
+            margin-top: 0;
         }
-        .account-table td {
-            padding: 2px 5px;
+        table.items th, table.items td {
+            border: 1px solid #000;
+            padding: 6px 8px;
             vertical-align: top;
         }
-        .account-table td:first-child {
-            width: 120px;
+        table.items th {
+            text-align: center;
+            font-weight: bold;
+            background: #fff;
         }
-        .account-table td.val {
-            color: #333;
+        .col-sn { width: 8%; text-align: center; }
+        .col-particulars { width: 47%; }
+        .col-qty { width: 13%; text-align: center; }
+        .col-price { width: 14%; text-align: center; }
+        .col-amount { width: 18%; text-align: right; }
+
+        .item-row .col-particulars { padding-top: 14px; padding-bottom: 14px; }
+        .item-heading { font-weight: normal; }
+        .item-name { margin-top: 4px; }
+        .item-desc { margin-top: 4px; font-size: 10.5pt; }
+
+        /* Reserved blank space below items so the rows-region looks tall like the mock */
+        .filler-row td { height: 180px; border-left: 1px solid #000; border-right: 1px solid #000; border-top: 0; border-bottom: 0; }
+
+        .totals-row td {
+            text-align: right;
+            font-weight: bold;
         }
-        
-        .footer {
-            margin-top: auto;
-            width: 100%;
-            background-color: transparent;
-            color: #333;
-            padding: 15px 40px;
+        .totals-row td.label {
+            text-align: right;
+        }
+
+        .in-words {
+            margin-top: 24px;
+            font-weight: bold;
+        }
+
+        .signatures {
+            margin-top: 70px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 9.5pt;
-            font-family: monospace; /* Trying to match the typewriter/monospace font in footer */
-            border-top: none;
         }
-        .footer-col {
+        .sign-col {
             flex: 1;
+            text-align: center;
+            font-size: 10.5pt;
+        }
+        .sign-line {
+            border-top: 1px solid #000;
+            width: 70%;
+            margin: 0 auto 4px auto;
+            height: 0;
         }
     </style>
 </head>
 <body>
-    <div class="page-background-top"></div>
-    
-    <div class="content-wrapper">
-        <div class="header">
-            ${settings?.invoice_logo_base64 ? `
-                <img src="${settings.invoice_logo_base64}" alt="Company Logo" style="max-height: 50px;">
-            ` : `
-                <div class="logo-section">
-                    <h1><span class="logo-icon">//</span> MICROMEDIA</h1>
-                    <p>YOUR ONE-STOP PRINTSHOP</p>
-                </div>
-            `}
-            <div class="header-web">
-                ${settings?.website || 'www.micromediabd.com'}
+    <div class="page">
+        <div class="title">BILL/ INVOICE</div>
+
+        <div class="header-row">
+            <div class="box customer">
+                <div class="customer-heading">Customer</div>
+                <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(customerName)}</div>
+                <div class="kv-line" style="white-space: normal;"><span class="label">Address</span> :- ${escapeHtml(customerAddress)}</div>
+            </div>
+            <div class="box invoice-details">
+                <div class="kv-line"><span class="k label">Invoice No</span> :- ${escapeHtml(String(invoiceNo))}</div>
+                <div class="kv-line"><span class="k label">Invoice Date</span> :- ${escapeHtml(invoiceDate)}</div>
+                <div class="kv-line"><span class="k label">Challan No</span> :- ${escapeHtml(String(challanNo))}</div>
+                <div class="kv-line"><span class="k label">VAT No</span> :- ${escapeHtml(String(vatNo))}</div>
+                <div class="kv-line"><span class="k label">Delivery Date</span> :- ${escapeHtml(deliveryDate)}</div>
+                <div class="kv-line"><span class="k label">Work Order No</span> :- ${escapeHtml(String(workOrderNo))}</div>
+                <div class="kv-line"><span class="k label">Work Order Date</span> :- ${escapeHtml(workOrderDate)}</div>
+                <div class="kv-line"><span class="k label">PR No</span> :- ${escapeHtml(String(prNo))}</div>
             </div>
         </div>
 
-        <div class="seal-date-container">
-             <div class="date-text">
-                 Date: ${formatDate(order.created_at)}
-             </div>
-        </div>
-        
-        <div class="client-info-container">
-             <div class="client-info">
-                 <h4 style="font-weight: bold;">TO</h4>
-                 <h4 style="font-weight: bold;">${order.factory_customer_name?.toUpperCase() || 'CUSTOMER'}</h4>
-                 <p>${order.billing_address?.contact_name || order.shipping_address?.contact_name || 'Contact Person'}</p>
-                 
-                 <div class="client-details">
-                     <p>Phone: ${order.factory_customer_phone || ''}</p>
-                     <p>Address: ${order.shipping_address?.street || ''}, ${order.shipping_address?.city || ''}</p>
-                 </div>
-             </div>
-             <div>
-                  <div class="bill-tag">BILL</div>
-             </div>
-        </div>
-
-        <table class="border-table">
+        <table class="items">
             <thead>
                 <tr>
-                    <th style="width: 5%;">SN</th>
-                    <th style="width: 45%;">Description</th>
-                    <th style="width: 15%;">Quantity<br>(pcs)</th>
-                    <th style="width: 15%;">Unit Price</th>
-                    <th style="width: 20%;">Total Amount</th>
+                    <th class="col-sn">Sl. No</th>
+                    <th class="col-particulars">Particulars</th>
+                    <th class="col-qty">Quantity</th>
+                    <th class="col-price">Unit Price</th>
+                    <th class="col-amount">Amount</th>
                 </tr>
             </thead>
             <tbody>
                 ${itemsHtml}
-                <tr>
-                     <td colspan="3" style="border: none;"></td>
-                     <td style="font-weight: bold; text-align: right; background-color: #fff;">Total</td>
-                     <td style="font-weight: bold; text-align: right;">${formatCurrency(grandTotal)}</td>
+                <tr class="filler-row"><td colspan="5"></td></tr>
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Sub Total</td>
+                    <td class="col-qty">${formatQty(subTotalQty)}</td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(subTotal)}</td>
                 </tr>
-                <tr>
-                     <td colspan="3" style="border: none;"></td>
-                     <td style="font-weight: bold; text-align: right; background-color: #fff;">Advance</td>
-                     <td style="font-weight: bold; text-align: right;">${formatCurrency(advance)}</td>
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Add VAT ${vatPct}%</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(vatAmount)}</td>
                 </tr>
-                <tr>
-                     <td colspan="3" style="border: none;"></td>
-                     <td style="font-weight: bold; text-align: right; background-color: #fff;">Due</td>
-                     <td style="font-weight: bold; text-align: right;">${formatCurrency(due)}</td>
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Total Amount</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(grandTotal)}</td>
                 </tr>
             </tbody>
         </table>
 
-        <div class="in-words">
-            ${numberToWords(due > 0 ? due : grandTotal)}
-        </div>
+        <div class="in-words">Amount In Words: ${escapeHtml(amountInWords)} Only</div>
 
-        <table class="account-table">
-            <tr><td>Account Name</td><td>:</td><td class="val">${settings?.account_name || 'MICROMEDIA'}</td></tr>
-            <tr><td>Account Number</td><td>:</td><td class="val">${settings?.account_number || '2075898530001'}</td></tr>
-            <tr><td>Bank Name</td><td>:</td><td class="val">${settings?.bank_name || 'Brac-Bank PLC'}</td></tr>
-            <tr><td>Branch</td><td>:</td><td class="val">${settings?.bank_branch || 'Kawran Bazar Branch'}</td></tr>
-            <tr><td>Routing Number</td><td>:</td><td class="val">${settings?.routing_number || '060261397'}</td></tr>
-        </table>
-
-        <!-- Signature section removed -->
-    </div>
-
-    <div class="footer">
-        <div class="footer-col" style="white-space: pre-line;">
-            ${settings?.company_address || '48,South Begunbari,Depika Masjid Market\nTejgaon I/A, Dhaka-1208.'}
-        </div>
-        <div class="footer-col" style="text-align: center; white-space: pre-line;">
-            ${settings?.phone || '+8802223314188\n+8801894812920'}
-        </div>
-        <div class="footer-col" style="text-align: left; white-space: pre-line;">
-            ${settings?.company_email || 'micromediaprinting@gmail.com'}\n${settings?.facebook_url || 'fb.com/micromediabd'}
+        <div class="signatures">
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Received by
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Manager
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Authorized Signature
+            </div>
         </div>
     </div>
 </body>
@@ -1693,275 +1633,313 @@ export class PDFGenerator {
   }
 
   // Generate HTML template for Challan
+  // Generate HTML template for Challan — BD-style delivery challan with letterhead,
+  // boxed details (Challan No / Delivery Date / Company / Address / Transport, WO / VAT)
+  // and a particulars table with Item Code + Bundle columns.
   private static generateChallanHTML(
     order: FactoryCustomerOrder,
     settings?: any,
     delivery?: import('@/types/factory').Delivery
   ): string {
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string | null) => {
+      if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
-      return `${day}-${month}-${year}`; 
+      return `${day}.${month}.${year}`;
+    };
+
+    const formatQty = (q: number) =>
+      new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(q);
+
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const numberToWords = (num: number): string => {
+      const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+        'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      const two = (n: number): string => n < 20 ? a[n] : (b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '')).trim();
+      const three = (n: number): string => {
+        const h = Math.floor(n / 100), r = n % 100;
+        return (h ? a[h] + ' Hundred' + (r ? ' ' + two(r) : '') : two(r)).trim();
+      };
+      const n = Math.floor(Math.abs(num));
+      if (n === 0) return 'Zero';
+      const crore = Math.floor(n / 10000000);
+      const lac = Math.floor((n % 10000000) / 100000);
+      const thousand = Math.floor((n % 100000) / 1000);
+      const rest = n % 1000;
+      const parts: string[] = [];
+      if (crore) parts.push(three(crore) + ' Crore');
+      if (lac) parts.push(two(lac) + ' Lac');
+      if (thousand) parts.push(two(thousand) + ' Thousand');
+      if (rest) parts.push(three(rest));
+      return parts.join(' ').replace(/\s+/g, ' ').trim();
     };
 
     // When a delivery is provided, render only the items in that shipment.
     const challanRows = delivery?.items?.length
       ? delivery.items.map(it => ({
           product_name: it.product_name ?? '',
+          product_sku: it.product_sku ?? '',
           description: it.description ?? '',
-          quantity: it.quantity,
+          quantity: Number(it.quantity),
         }))
       : (order.line_items ?? []).map(li => ({
           product_name: li.product_name,
+          product_sku: li.product_sku ?? '',
           description: li.description ?? '',
-          quantity: li.quantity,
+          quantity: Number(li.quantity),
         }));
 
     const itemsHtml = challanRows.map((item, index) => {
-      const descHtml = item.description ? `<br><span style="font-size: 10pt;">${item.description.replace(/\n/g, '<br>')}</span>` : '';
-
+      const descLines = item.description
+        ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
+        : '';
       return `
-        <tr>
-          <td style="text-align: center; vertical-align: top;">${String(index + 1).padStart(2, '0')}.</td>
-          <td style="vertical-align: top;">
-            ${item.product_name}
-            ${descHtml}
+        <tr class="item-row">
+          <td class="col-sn">${String(index + 1).padStart(2, '0')}</td>
+          <td class="col-particulars">
+            <div class="item-heading">Master Carton For:</div>
+            <div class="item-name">${escapeHtml(item.product_name || '')}</div>
+            ${descLines}
           </td>
-          <td style="text-align: center; vertical-align: bottom;">${item.quantity}</td>
+          <td class="col-code">${escapeHtml(item.product_sku || '')}</td>
+          <td class="col-qty">${formatQty(item.quantity)} Pcs.</td>
+          <td class="col-bundle"></td>
         </tr>
       `;
-    }).join('') || '<tr><td colspan="3" style="text-align: center;">No items found</td></tr>';
+    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
+
+    const totalQty = challanRows.reduce((sum, r) => sum + r.quantity, 0);
+    const totalInWords = numberToWords(Math.round(totalQty));
+
+    // Header letterhead — settings-driven, with fallbacks.
+    const companyName = settings?.company_name || 'Company Name';
+    const companyNameBn = settings?.company_name_bn || '';
+    const companyAddress = settings?.company_address || '';
+    const phone = settings?.phone || '';
+    const email = settings?.company_email || '';
+    const tagline = settings?.company_tagline || '';
+
+    // Detail fields
+    const challanNo = delivery?.delivery_number || order.order_number || '';
+    const deliveryDate = formatDate(delivery?.delivery_date);
+    const customerName = order.factory_customer_name || '';
+    const addrParts = [
+      order.shipping_address?.street,
+      order.shipping_address?.city,
+      order.shipping_address?.postal_code,
+    ].filter(Boolean);
+    const customerAddress = addrParts.join(', ') ||
+      [order.billing_address?.street, order.billing_address?.city, order.billing_address?.postal_code].filter(Boolean).join(', ');
+    const transportNo = delivery?.carrier || delivery?.tracking_number || '';
+    const workOrderNo = order.latest_work_order_number || '';
+    const workOrderDate = formatDate(order.latest_work_order_date);
+    const vatNo = settings?.tax_id || '';
 
     return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Challan ${order.order_number}</title>
+    <title>Challan ${escapeHtml(delivery?.delivery_number || order.order_number || '')}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        @page {
-            size: A4;
-            margin: 0; 
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        html {
-            height: 100%;
-        }
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Times New Roman', Times, serif;
+            font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
             background: white;
-            line-height: 1.3;
-            position: relative;
-            min-height: 295mm; /* Approximate A4 height */
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
+            line-height: 1.35;
         }
-        
-        .page-background-top {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 150px;
-            background: linear-gradient(to right, #d0e8f2, #ffffff, #f9ebed);
-            z-index: -2;
-            opacity: 0.6;
-        }
-        
-        .content-wrapper {
-             padding: 40px 50px;
-             position: relative;
-             z-index: 10;
-             flex: 1;
-        }
+        .bn { font-family: 'Noto Sans Bengali', 'SolaimanLipi', 'Kalpurush', sans-serif; }
+        .page { padding: 18mm 18mm 20mm 18mm; }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 40px;
-        }
-        .logo-section h1 {
-            color: #555;
-            font-size: 24pt;
+        .letterhead { text-align: center; margin-bottom: 8px; }
+        .letterhead .company-name {
             font-weight: bold;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-        }
-        .logo-section h1 span.logo-icon {
-            color: #d12c2c;
-            font-style: italic;
-            margin-right: 8px;
-            font-size: 28pt;
-        }
-        .logo-section p {
-            color: #d12c2c;
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            margin-top: 2px;
+            font-size: 18pt;
             letter-spacing: 0.5px;
-            margin-left: 50px;
         }
-        .header-web {
-            font-size: 9pt;
-            font-family: Arial, sans-serif;
-            color: #333;
-            margin-top: 15px;
+        .letterhead .company-name-bn {
+            font-weight: bold;
+            font-size: 15pt;
+            margin-top: 2px;
         }
-        
-        .seal-date-container {
-             margin-bottom: 20px;
-             position: relative;
+        .letterhead .address,
+        .letterhead .phone,
+        .letterhead .email {
+            font-size: 10.5pt;
+            margin-top: 4px;
         }
-        .date-text {
-            margin-bottom: 30px;
-            margin-top: 40px;
-            font-family: 'Times New Roman', serif;
-        }
-        
-        .client-info-container {
-             display: flex;
-             justify-content: space-between;
-             align-items: flex-start;
-             margin-bottom: 20px;
-        }
-        
-        .client-info {
-             width: 60%;
-        }
-        .client-info h4 {
-             font-size: 12pt;
-             margin-bottom: 2px;
-        }
-        .client-info p {
-             margin-bottom: 2px;
-        }
-        .client-details {
-             margin-top: 15px;
-        }
-        
-        .bill-tag {
-             background: linear-gradient(to right, #000000, #333333);
-             color: white;
-             padding: 4px 20px;
-             font-weight: bold;
-             font-size: 14pt;
-             display: inline-block;
-             margin-top: 20px;
-             margin-right: 50px;
-             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-             clip-path: polygon(10% 0, 100% 0%, 90% 100%, 0% 100%);
+        .letterhead .tagline {
+            font-weight: bold;
+            font-size: 10.5pt;
+            margin-top: 4px;
         }
 
-        table.border-table {
+        .challan-tag-wrap { text-align: center; margin: 10px 0 12px 0; }
+        .challan-tag {
+            display: inline-block;
+            border: 1px solid #000;
+            padding: 4px 28px;
+            font-weight: bold;
+            font-size: 13pt;
+            letter-spacing: 1px;
+        }
+
+        .details {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .details .col { flex: 1; }
+        .kv-box {
+            display: flex;
+            border: 1px solid #000;
+            margin-bottom: 4px;
+            min-height: 24px;
+        }
+        .kv-box .k {
+            padding: 4px 8px;
+            min-width: 110px;
+            font-weight: normal;
+            border-right: 1px solid #000;
+        }
+        .kv-box .v {
+            padding: 4px 8px;
+            flex: 1;
+            font-weight: bold;
+        }
+
+        table.items {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 60px;
+            margin-top: 4px;
         }
-        table.border-table th, table.border-table td {
-            border: 2px solid #000;
+        table.items th, table.items td {
+            border: 1px solid #000;
             padding: 6px 8px;
+            vertical-align: top;
         }
-        table.border-table th {
-            font-weight: bold;
+        table.items th {
             text-align: center;
+            font-weight: bold;
         }
-        
-        .footer {
-            margin-top: auto;
-            width: 100%;
-            background-color: transparent;
-            color: #333;
-            padding: 15px 40px;
+        .col-sn { width: 7%; text-align: center; }
+        .col-particulars { width: 47%; }
+        .col-code { width: 13%; text-align: center; }
+        .col-qty { width: 15%; text-align: center; }
+        .col-bundle { width: 18%; text-align: center; }
+        .item-row .col-particulars { padding-top: 14px; padding-bottom: 14px; }
+        .item-heading { font-weight: normal; }
+        .item-name { margin-top: 4px; }
+        .item-desc { margin-top: 4px; font-size: 10.5pt; white-space: pre-line; }
+
+        .filler-row td { height: 240px; border-left: 1px solid #000; border-right: 1px solid #000; border-top: 0; border-bottom: 0; }
+
+        .totals-row td {
+            font-weight: bold;
+        }
+        .totals-row td.label { text-align: right; }
+
+        .in-words {
+            margin-top: 20px;
+            font-size: 10.5pt;
+        }
+
+        .signatures {
+            margin-top: 70px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 9.5pt;
-            font-family: monospace; 
-            border-top: none;
         }
-        .footer-col {
+        .sign-col {
             flex: 1;
+            text-align: center;
+            font-size: 10.5pt;
+        }
+        .sign-line {
+            border-top: 1px solid #000;
+            width: 70%;
+            margin: 0 auto 4px auto;
+            height: 0;
         }
     </style>
 </head>
 <body>
-    <div class="page-background-top"></div>
-    
-    <div class="content-wrapper">
-        <div class="header">
-            ${settings?.invoice_logo_base64 ? `
-                <img src="${settings.invoice_logo_base64}" alt="Company Logo" style="max-height: 50px;">
-            ` : `
-                <div class="logo-section">
-                    <h1><span class="logo-icon">//</span> MICROMEDIA</h1>
-                    <p>YOUR ONE-STOP PRINTSHOP</p>
-                </div>
-            `}
-            <div class="header-web">
-                ${settings?.website || 'www.micromediabd.com'}
+    <div class="page">
+        <div class="letterhead">
+            <div class="company-name">${escapeHtml(companyName)}</div>
+            ${companyNameBn ? `<div class="company-name-bn bn">${escapeHtml(companyNameBn)}</div>` : ''}
+            ${companyAddress ? `<div class="address">${escapeHtml(companyAddress)}</div>` : ''}
+            ${phone ? `<div class="phone">Mobile : ${escapeHtml(phone)}</div>` : ''}
+            ${email ? `<div class="email">E-mail : ${escapeHtml(email)}</div>` : ''}
+            ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
+        </div>
+
+        <div class="challan-tag-wrap">
+            <div class="challan-tag">CHALLAN</div>
+        </div>
+
+        <div class="details">
+            <div class="col">
+                <div class="kv-box"><div class="k">Challan No</div><div class="v">: ${escapeHtml(String(challanNo))}</div></div>
+                <div class="kv-box"><div class="k">Delivery Date</div><div class="v">: ${escapeHtml(deliveryDate)}</div></div>
+                <div class="kv-box"><div class="k">Company Name</div><div class="v">: ${escapeHtml(customerName)}</div></div>
+                <div class="kv-box"><div class="k">Address</div><div class="v">: ${escapeHtml(customerAddress)}</div></div>
+                <div class="kv-box"><div class="k">Transport No</div><div class="v">: ${escapeHtml(transportNo)}</div></div>
+            </div>
+            <div class="col">
+                <div class="kv-box"><div class="k">Work Order No</div><div class="v">: ${escapeHtml(String(workOrderNo))}</div></div>
+                <div class="kv-box"><div class="k">Work Order Date</div><div class="v">: ${escapeHtml(workOrderDate)}</div></div>
+                <div class="kv-box"><div class="k">VAT NO</div><div class="v">: ${escapeHtml(String(vatNo))}</div></div>
             </div>
         </div>
 
-        <div class="seal-date-container">
-             <div class="date-text">
-                 Date: ${formatDate(order.created_at)}
-             </div>
-        </div>
-        
-        <div class="client-info-container">
-             <div class="client-info">
-                 <h4 style="font-weight: bold;">TO</h4>
-                 <h4 style="font-weight: bold;">${order.factory_customer_name?.toUpperCase() || 'CUSTOMER'}</h4>
-                 <p>${order.billing_address?.contact_name || order.shipping_address?.contact_name || 'Contact Person'}</p>
-                 
-                 <div class="client-details">
-                     <p>Phone: ${order.factory_customer_phone || ''}</p>
-                     <p>Address: ${order.shipping_address?.street || ''}, ${order.shipping_address?.city || ''}</p>
-                 </div>
-             </div>
-             <div>
-                  <div class="bill-tag">CHALLAN</div>
-             </div>
-        </div>
-
-        <table class="border-table">
+        <table class="items">
             <thead>
                 <tr>
-                    <th style="width: 10%;">SN</th>
-                    <th style="width: 70%;">Description</th>
-                    <th style="width: 20%;">Quantity<br>(pcs)</th>
+                    <th class="col-sn">Sl. No</th>
+                    <th class="col-particulars">Particulars</th>
+                    <th class="col-code">Item Code</th>
+                    <th class="col-qty">Quantity</th>
+                    <th class="col-bundle">Bundle</th>
                 </tr>
             </thead>
             <tbody>
                 ${itemsHtml}
+                <tr class="filler-row"><td colspan="5"></td></tr>
+                <tr class="totals-row">
+                    <td colspan="3" class="label">Total:-</td>
+                    <td class="col-qty">${formatQty(totalQty)} Pcs.</td>
+                    <td></td>
+                </tr>
             </tbody>
         </table>
 
-        <!-- Signature section removed -->
-    </div>
+        <div class="in-words">(in Words): ${escapeHtml(totalInWords)} Only.</div>
 
-    <div class="footer">
-        <div class="footer-col" style="white-space: pre-line;">
-            ${settings?.company_address || '48,South Begunbari,Depika Masjid Market\nTejgaon I/A, Dhaka-1208.'}
-        </div>
-        <div class="footer-col" style="text-align: center; white-space: pre-line;">
-            ${settings?.phone || '+8802223314188\n+8801894812920'}
-        </div>
-        <div class="footer-col" style="text-align: left; white-space: pre-line;">
-            ${settings?.company_email || 'micromediaprinting@gmail.com'}\n${settings?.facebook_url || 'fb.com/micromediabd'}
+        <div class="signatures">
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Received by
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Manager
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Authorized Signature
+            </div>
         </div>
     </div>
 </body>

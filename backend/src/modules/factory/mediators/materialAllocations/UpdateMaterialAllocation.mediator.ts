@@ -1,6 +1,23 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import { ReusableStockService } from '@/modules/inventory/services/ReusableStockService';
+import type { PoolClient } from 'pg';
+
+async function fetchPrimaryDcId(client: PoolClient): Promise<number> {
+  const res = await client.query(
+    "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+  );
+  if (res.rows.length === 0) {
+    throw createError('No primary distribution center configured', 500);
+  }
+  return res.rows[0].id;
+}
+
+async function isProductReusable(client: PoolClient, productId: number): Promise<boolean> {
+  const res = await client.query('SELECT uses_per_unit FROM products WHERE id = $1', [productId]);
+  return res.rows.length > 0 && ReusableStockService.isReusable(res.rows[0]);
+}
 
 export interface UpdateMaterialAllocationRequest {
   allocated_quantity?: number;
@@ -48,13 +65,33 @@ export class UpdateMaterialAllocationMediator {
       if (data.allocated_quantity !== undefined && data.allocated_quantity !== current.allocated_quantity) {
         const quantityDiff = data.allocated_quantity - parseFloat(current.allocated_quantity);
 
-        // Update reserved stock
-        await client.query(
-          `UPDATE products
-           SET reserved_stock = COALESCE(reserved_stock, 0) + $1
-           WHERE id = $2`,
-          [quantityDiff, current.inventory_item_id]
-        );
+        // Update reservation. Reusable items adjust reserved_uses on the
+        // location; normal items bump products.reserved_stock.
+        if (await isProductReusable(client, current.inventory_item_id)) {
+          const dcId = await fetchPrimaryDcId(client);
+          if (quantityDiff > 0) {
+            await ReusableStockService.reserveUses(
+              current.inventory_item_id,
+              dcId,
+              quantityDiff,
+              client
+            );
+          } else if (quantityDiff < 0) {
+            await ReusableStockService.releaseReservedUses(
+              current.inventory_item_id,
+              dcId,
+              -quantityDiff,
+              client
+            );
+          }
+        } else {
+          await client.query(
+            `UPDATE products
+             SET reserved_stock = COALESCE(reserved_stock, 0) + $1
+             WHERE id = $2`,
+            [quantityDiff, current.inventory_item_id]
+          );
+        }
 
         // Update requirement allocated quantity
         await client.query(
@@ -190,13 +227,24 @@ export class UpdateMaterialAllocationMediator {
         [allocation.allocated_quantity, allocation.work_order_requirement_id]
       );
 
-      // Release reserved stock
-      await client.query(
-        `UPDATE products
-         SET reserved_stock = COALESCE(reserved_stock, 0) - $1
-         WHERE id = $2`,
-        [allocation.allocated_quantity, allocation.inventory_item_id]
-      );
+      // Release reservation. Reusable items release reserved_uses at the
+      // location; normal items decrement products.reserved_stock.
+      if (await isProductReusable(client, allocation.inventory_item_id)) {
+        const dcId = await fetchPrimaryDcId(client);
+        await ReusableStockService.releaseReservedUses(
+          allocation.inventory_item_id,
+          dcId,
+          parseFloat(allocation.allocated_quantity),
+          client
+        );
+      } else {
+        await client.query(
+          `UPDATE products
+           SET reserved_stock = COALESCE(reserved_stock, 0) - $1
+           WHERE id = $2`,
+          [allocation.allocated_quantity, allocation.inventory_item_id]
+        );
+      }
 
       await client.query('COMMIT');
 

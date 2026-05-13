@@ -8,11 +8,16 @@ import {
   StockAdjustmentQueryParams,
   StockAdjustmentStats,
 } from "@/types/stockAdjustment";
+import { ReusableStockService } from "@/modules/inventory/services/ReusableStockService";
 
 export class StockAdjustmentMediator {
   static async createStockAdjustment(
     data: CreateStockAdjustmentRequest & { distribution_center_id?: number }
   ): Promise<StockAdjustment> {
+    if (data.adjustment_mode === "uses") {
+      return StockAdjustmentMediator.consumeReusableUses(data);
+    }
+
     const action = "Create Stock Adjustment";
     const client = await pool.connect();
 
@@ -214,6 +219,198 @@ export class StockAdjustmentMediator {
       MyLogger.error(action, error, {
         productId: data.product_id,
         adjustmentType: data.adjustment_type,
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Handle a 'uses' mode adjustment for a reusable product: decrement the
+   * active unit's remaining uses, depleting physical units as their remaining
+   * uses reach zero. Only the 'decrease' adjustment_type is supported. When a
+   * unit is physically depleted, a parallel stock_adjustments row is written so
+   * the existing accounting integration runs.
+   */
+  private static async consumeReusableUses(
+    data: CreateStockAdjustmentRequest & { distribution_center_id?: number }
+  ): Promise<StockAdjustment> {
+    const action = "Create Stock Adjustment (uses)";
+    if (data.adjustment_type !== "decrease") {
+      throw new Error("Only 'decrease' is supported when adjustment_mode='uses'");
+    }
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      MyLogger.info(action, {
+        productId: data.product_id,
+        quantity: data.quantity,
+        distributionCenterId: data.distribution_center_id,
+      });
+
+      const productRes = await client.query(
+        `SELECT id, name, sku, uses_per_unit, current_stock FROM products WHERE id = $1`,
+        [data.product_id]
+      );
+      if (productRes.rows.length === 0) {
+        throw new Error("Product not found");
+      }
+      const product = productRes.rows[0];
+      if (!ReusableStockService.isReusable(product)) {
+        throw new Error(
+          "adjustment_mode='uses' is only valid for reusable products (uses_per_unit > 1)"
+        );
+      }
+
+      let distributionCenterId = data.distribution_center_id;
+      if (!distributionCenterId) {
+        const primaryDcResult = await client.query(
+          "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+        );
+        if (primaryDcResult.rows.length === 0) {
+          throw new Error(
+            "No distribution center specified and no primary distribution center found."
+          );
+        }
+        distributionCenterId = primaryDcResult.rows[0].id;
+      }
+
+      const previousGlobalStock = parseFloat(product.current_stock);
+      const { unitsDepleted, newActiveRemaining, newCurrentStock } =
+        await ReusableStockService.consumeUses(
+          data.product_id,
+          distributionCenterId!,
+          data.quantity,
+          client
+        );
+
+      let stockAdjustmentRow: StockAdjustment | null = null;
+
+      if (unitsDepleted > 0) {
+        // Sync the global products.current_stock for legacy compatibility.
+        const newGlobalStock = previousGlobalStock - unitsDepleted;
+        await client.query(
+          "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+          [newGlobalStock, data.product_id]
+        );
+
+        const adjustmentResult = await client.query(
+          `
+          INSERT INTO stock_adjustments (
+            product_id, adjustment_type, quantity, previous_stock, new_stock,
+            reason, reference, notes, adjusted_by, distribution_center_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING *
+          `,
+          [
+            data.product_id,
+            "decrease",
+            unitsDepleted,
+            previousGlobalStock,
+            newGlobalStock,
+            data.reason,
+            data.reference || null,
+            `[uses-mode] consumed ${data.quantity} uses; ${unitsDepleted} unit(s) depleted${data.notes ? `. ${data.notes}` : ""}`,
+            data.adjusted_by || null,
+            distributionCenterId,
+          ]
+        );
+        stockAdjustmentRow = adjustmentResult.rows[0];
+      }
+
+      await ReusableStockService.logConsumption(
+        {
+          productId: data.product_id,
+          distributionCenterId: distributionCenterId!,
+          usesConsumed: data.quantity,
+          unitsDepleted,
+          source: "manual_adjustment",
+          sourceReferenceId: stockAdjustmentRow ? stockAdjustmentRow.id : null,
+          reason: data.reason,
+          createdBy:
+            data.adjusted_by && !Number.isNaN(parseInt(String(data.adjusted_by), 10))
+              ? parseInt(String(data.adjusted_by), 10)
+              : null,
+        },
+        client
+      );
+
+      await client.query("COMMIT");
+
+      if (stockAdjustmentRow) {
+        // Mirror the units-flow accounting integration so vouchers/events fire
+        // only for actual physical movement.
+        try {
+          const adjustmentData = {
+            adjustmentId: stockAdjustmentRow.id,
+            productId: data.product_id,
+            productName: product.name || "Unknown Product",
+            productSku: product.sku || "UNKNOWN",
+            adjustmentType: "decrease" as const,
+            quantity: unitsDepleted,
+            previousStock: previousGlobalStock,
+            newStock: previousGlobalStock - unitsDepleted,
+            reason: data.reason,
+            reference: data.reference || `ADJ-${stockAdjustmentRow.id}`,
+            notes: stockAdjustmentRow.notes,
+            adjustmentDate: new Date().toISOString().split("T")[0],
+            distributionCenterId,
+          };
+          eventBus.emit(EVENT_NAMES.STOCK_ADJUSTMENT_CREATED, {
+            adjustmentData,
+            userId: data.adjusted_by || "System User",
+          });
+          await interModuleConnector.accModule.addStockAdjustmentVoucher(
+            adjustmentData,
+            data.adjusted_by || "System User"
+          );
+        } catch (eventError: any) {
+          MyLogger.error(
+            "Failed to emit stock adjustment accounting event (uses mode)",
+            eventError,
+            { adjustmentId: stockAdjustmentRow.id }
+          );
+        }
+
+        MyLogger.success(action, {
+          adjustmentId: stockAdjustmentRow.id,
+          productId: data.product_id,
+          usesConsumed: data.quantity,
+          unitsDepleted,
+          newActiveRemaining,
+          newCurrentStock,
+        });
+        return stockAdjustmentRow;
+      }
+
+      // No physical movement — return a synthetic adjustment record reflecting
+      // the use-only consumption, so callers can still display it.
+      MyLogger.success(action, {
+        productId: data.product_id,
+        usesConsumed: data.quantity,
+        unitsDepleted: 0,
+        newActiveRemaining,
+        newCurrentStock,
+      });
+      return {
+        id: 0,
+        product_id: data.product_id,
+        adjustment_type: "decrease",
+        quantity: data.quantity,
+        previous_stock: previousGlobalStock,
+        new_stock: previousGlobalStock,
+        reason: data.reason,
+        reference: data.reference,
+        notes: `[uses-mode] consumed ${data.quantity} uses; no physical unit depleted`,
+        adjusted_by: data.adjusted_by,
+        created_at: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, {
+        productId: data.product_id,
+        quantity: data.quantity,
       });
       throw error;
     } finally {

@@ -187,6 +187,12 @@ export interface FactoryCustomerOrder {
     shipping_cost?: number;
     delivery_status?: string;
     quoted_snapshot?: QuotedOrderSnapshot | null;
+    /** Customer Purchase Request / Reference number printed on invoice. */
+    pr_no?: string;
+    /** Latest linked work order number (read-only, joined for invoice rendering). */
+    latest_work_order_number?: string;
+    /** Creation timestamp of the latest linked work order (read-only). */
+    latest_work_order_date?: string;
 }
 
 export interface OrderLineItem {
@@ -324,6 +330,7 @@ export interface CreateCustomerOrderRequest {
     tax_rate?: number;
     tax_amount?: number;
     sales_person: string;
+    pr_no?: string;
 }
 
 export interface CreateOrderLineItemRequest {
@@ -352,6 +359,7 @@ export interface UpdateCustomerOrderRequest {
     tax_rate?: number;
     tax_amount?: number;
     sales_person?: string;
+    pr_no?: string;
     /** When true with line_items on a quoted order, persist current lines to quoted_snapshot before replace. */
     capture_quoted_snapshot?: boolean;
 }

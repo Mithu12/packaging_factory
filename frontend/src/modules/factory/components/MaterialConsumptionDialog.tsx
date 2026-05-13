@@ -51,6 +51,8 @@ interface MaterialConsumptionDialogProps {
     consumed_quantity?: number;
     unit_of_measure?: string;
     status?: 'pending' | 'fulfilled' | 'partial';
+    /** When > 1, quantities are interpreted as USES of the reusable material. */
+    uses_per_unit?: number;
   }>;
   onComplete: (consumptions: MaterialConsumption[], notes?: string) => void;
   onSkip: () => void;
@@ -94,7 +96,8 @@ export function MaterialConsumptionDialog({
           wastage_quantity: 0,
           wastage_reason: "",
           batch_number: "",
-          unit_of_measure: req.unit_of_measure,
+          unit_of_measure:
+            req.uses_per_unit && req.uses_per_unit > 1 ? 'uses' : req.unit_of_measure,
         }));
       setConsumptions(initialConsumptions);
     }

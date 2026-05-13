@@ -224,6 +224,7 @@ export interface Product {
   notes?: string;
   image_url?: string;
   pv?: number;
+  uses_per_unit?: number;
   category_name?: string;
   created_at: string;
   updated_at: string;
@@ -248,6 +249,9 @@ export interface ProductWithDetails extends Product {
     distribution_center_id: number;
     distribution_center_name: string;
     current_stock: number;
+    active_unit_remaining_uses?: number | null;
+    reserved_uses?: number;
+    available_uses?: number;
   }[];
 }
 
@@ -278,6 +282,8 @@ export interface CreateProductRequest {
   notes?: string;
   pv?: number;
   image_url?: string;
+  /** For reusable raw materials: consumptions per physical unit (default 1 = single-use). */
+  uses_per_unit?: number;
 }
 
 export interface UpdateProductRequest {
@@ -305,6 +311,7 @@ export interface UpdateProductRequest {
   notes?: string;
   pv?: number;
   image_url?: string;
+  uses_per_unit?: number;
 }
 
 export interface ProductQueryParams {
@@ -345,6 +352,8 @@ export interface StockAdjustmentRequest {
   reference?: string;
   notes?: string;
   distribution_center_id?: number;
+  /** For reusable products only: 'uses' consumes the active unit's remaining uses; 'units' (default) changes physical stock. */
+  adjustment_mode?: 'units' | 'uses';
 }
 
 // Stock Adjustment types

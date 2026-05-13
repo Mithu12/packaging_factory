@@ -3,6 +3,95 @@ import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { ReusableStockService } from '@/modules/inventory/services/ReusableStockService';
+import type { PoolClient } from 'pg';
+
+async function resolvePrimaryDistributionCenterId(client: PoolClient): Promise<number> {
+  const res = await client.query(
+    "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+  );
+  if (res.rows.length === 0) {
+    throw createError('No primary distribution center configured', 500);
+  }
+  return res.rows[0].id;
+}
+
+interface ReusableConsumptionOutcome {
+  unitsDepleted: number;
+  effectiveCostQuantity: number;
+}
+
+/**
+ * Apply a work-order-driven consumption for a reusable material:
+ *  - Validates reserved_uses covers the requested uses.
+ *  - Consumes uses via ReusableStockService (decrements active unit; depletes
+ *    physical units as they hit zero remaining).
+ *  - Decrements product_locations.reserved_uses.
+ *  - Decrements products.current_stock by the depleted physical units only.
+ *  - Writes a product_use_consumptions audit row.
+ * Returns the physical units depleted (for cost rollup) and the cost-bearing
+ * quantity to pass to the voucher (units, not uses).
+ */
+async function applyReusableConsumption(
+  client: PoolClient,
+  params: {
+    productId: number;
+    materialName: string;
+    usesRequested: number;
+    workOrderConsumptionId: number;
+    userId: number;
+    reason?: string | null;
+  }
+): Promise<ReusableConsumptionOutcome> {
+  const dcId = await resolvePrimaryDistributionCenterId(client);
+
+  const locRes = await client.query(
+    `SELECT reserved_uses FROM product_locations
+     WHERE product_id = $1 AND distribution_center_id = $2`,
+    [params.productId, dcId]
+  );
+  const reservedUses = locRes.rows.length === 0 ? 0 : parseFloat(locRes.rows[0].reserved_uses || 0);
+  if (reservedUses < params.usesRequested) {
+    throw createError(
+      `Insufficient reserved uses for ${params.materialName}. Reserved: ${reservedUses}, Requested: ${params.usesRequested}`,
+      400
+    );
+  }
+
+  const { unitsDepleted } = await ReusableStockService.consumeUses(
+    params.productId,
+    dcId,
+    params.usesRequested,
+    client
+  );
+
+  // Release the reservation tied to this consumption regardless of how many
+  // physical units were depleted — the uses are now consumed.
+  await ReusableStockService.releaseReservedUses(params.productId, dcId, params.usesRequested, client);
+
+  if (unitsDepleted > 0) {
+    await client.query(
+      `UPDATE products SET current_stock = current_stock - $1 WHERE id = $2`,
+      [unitsDepleted, params.productId]
+    );
+  }
+
+  await ReusableStockService.logConsumption(
+    {
+      productId: params.productId,
+      distributionCenterId: dcId,
+      usesConsumed: params.usesRequested,
+      unitsDepleted,
+      source: 'work_order_consumption',
+      sourceReferenceId: params.workOrderConsumptionId,
+      reason: params.reason ?? null,
+      createdBy: params.userId,
+    },
+    client
+  );
+
+  return { unitsDepleted, effectiveCostQuantity: unitsDepleted };
+}
 
 export interface CreateMaterialConsumptionRequest {
   work_order_id: string;
@@ -84,7 +173,7 @@ export class AddMaterialConsumptionMediator {
 
       // 2. Get material info
       const materialResult = await client.query(
-        'SELECT id, name, sku, current_stock, reserved_stock FROM products WHERE id = $1',
+        'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit FROM products WHERE id = $1',
         [data.material_id]
       );
 
@@ -93,9 +182,11 @@ export class AddMaterialConsumptionMediator {
       }
 
       const material = materialResult.rows[0];
+      const isReusable = ReusableStockService.isReusable(material);
 
-      // 3. Check if there's enough reserved stock
-      if (parseFloat(material.reserved_stock || 0) < data.consumed_quantity) {
+      // 3. Check if there's enough reserved stock (for non-reusable items; reusable
+      // items are checked against reserved_uses inside applyReusableConsumption).
+      if (!isReusable && parseFloat(material.reserved_stock || 0) < data.consumed_quantity) {
         throw createError(
           `Insufficient reserved stock. Reserved: ${material.reserved_stock}, Requested: ${data.consumed_quantity}`,
           400
@@ -159,14 +250,32 @@ export class AddMaterialConsumptionMediator {
         [data.consumed_quantity, data.work_order_id, data.material_id]
       );
 
-      // 7. Update product stock (reduce both current_stock and reserved_stock)
-      await client.query(
-        `UPDATE products
-         SET current_stock = current_stock - $1,
-             reserved_stock = COALESCE(reserved_stock, 0) - $1
-         WHERE id = $2`,
-        [data.consumed_quantity, data.material_id]
-      );
+      // 7. Update product stock. For reusable items, consume uses (only depletes
+      // physical units when the active unit's remaining uses hit zero) and
+      // release reserved_uses. For normal items, decrement both current_stock
+      // and reserved_stock as before.
+      let unitsDepleted = data.consumed_quantity;
+      let costBearingQuantity = data.consumed_quantity;
+      if (isReusable) {
+        const outcome = await applyReusableConsumption(client, {
+          productId: parseInt(data.material_id, 10),
+          materialName: material.name,
+          usesRequested: data.consumed_quantity,
+          workOrderConsumptionId: consumption.id,
+          userId,
+          reason: data.notes ?? null,
+        });
+        unitsDepleted = outcome.unitsDepleted;
+        costBearingQuantity = outcome.effectiveCostQuantity;
+      } else {
+        await client.query(
+          `UPDATE products
+           SET current_stock = current_stock - $1,
+               reserved_stock = COALESCE(reserved_stock, 0) - $1
+           WHERE id = $2`,
+          [data.consumed_quantity, data.material_id]
+        );
+      }
 
       // 8. Update allocation status to consumed
       await client.query(
@@ -235,35 +344,44 @@ export class AddMaterialConsumptionMediator {
         });
       }
 
-      // Emit event for accounts integration
-      try {
-        const consumptionData = {
-          consumptionId: consumption.id,
-          workOrderId: data.work_order_id,
-          materialId: data.material_id,
-          materialName: material.name,
-          quantity: data.consumed_quantity,
-          cost: parseFloat(material.current_stock) * data.consumed_quantity, // Basic cost calculation
-          productionLineId: data.production_line_id,
-          costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id, // Use production line cost center if available
-          factoryId: factoryInfo?.factory_id,
-          factoryName: factoryInfo?.factory_name,
-          factoryCostCenterId: factoryInfo?.factory_cost_center_id,
-          consumptionDate: new Date().toISOString()
-        };
+      // Emit event for accounts integration. For reusable items, the voucher
+      // reflects physically depleted units only — partial-use cost amortization
+      // is out of scope for v1.
+      if (costBearingQuantity > 0) {
+        try {
+          const consumptionData = {
+            consumptionId: consumption.id,
+            workOrderId: data.work_order_id,
+            materialId: data.material_id,
+            materialName: material.name,
+            quantity: costBearingQuantity,
+            cost: parseFloat(material.current_stock) * costBearingQuantity,
+            productionLineId: data.production_line_id,
+            costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id,
+            factoryId: factoryInfo?.factory_id,
+            factoryName: factoryInfo?.factory_name,
+            factoryCostCenterId: factoryInfo?.factory_cost_center_id,
+            consumptionDate: new Date().toISOString()
+          };
 
-        eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
-          consumptionData,
-          userId
-        });
+          eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, {
+            consumptionData,
+            userId
+          });
 
-        // Central Bridge: Call accounts module directly via InterModuleConnector
-        MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
-        await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
-      } catch (eventError: any) {
-        MyLogger.error(`${action}.eventEmit`, eventError, {
+          MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
+          await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
+        } catch (eventError: any) {
+          MyLogger.error(`${action}.eventEmit`, eventError, {
+            consumptionId: consumption.id,
+            message: 'Failed to emit MATERIAL_CONSUMED event, but consumption recording succeeded'
+          });
+        }
+      } else {
+        MyLogger.info(`${action}.bridge.skipped`, {
           consumptionId: consumption.id,
-          message: 'Failed to emit MATERIAL_CONSUMED event, but consumption recording succeeded'
+          reason: 'reusable material: no physical units depleted by this consumption',
+          unitsDepleted,
         });
       }
 
@@ -345,7 +463,7 @@ export class AddMaterialConsumptionMediator {
       for (const item of consumptions) {
         // Get material info
         const materialResult = await client.query(
-          'SELECT id, name, sku, current_stock, reserved_stock FROM products WHERE id = $1',
+          'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit FROM products WHERE id = $1',
           [item.material_id]
         );
 
@@ -354,9 +472,11 @@ export class AddMaterialConsumptionMediator {
         }
 
         const material = materialResult.rows[0];
+        const isReusable = ReusableStockService.isReusable(material);
 
-        // Check if there's enough reserved stock
-        if (parseFloat(material.reserved_stock || 0) < item.consumed_quantity) {
+        // Check if there's enough reserved stock (non-reusable only; reusable
+        // items are validated inside applyReusableConsumption against reserved_uses).
+        if (!isReusable && parseFloat(material.reserved_stock || 0) < item.consumed_quantity) {
           throw createError(
             `Insufficient reserved stock for ${material.name}. Reserved: ${material.reserved_stock}, Requested: ${item.consumed_quantity}`,
             400
@@ -414,14 +534,28 @@ export class AddMaterialConsumptionMediator {
           [item.consumed_quantity, context.work_order_id, item.material_id]
         );
 
-        // Update product stock (reduce both current_stock and reserved_stock)
-        await client.query(
-          `UPDATE products
-           SET current_stock = current_stock - $1,
-               reserved_stock = COALESCE(reserved_stock, 0) - $1
-           WHERE id = $2`,
-          [item.consumed_quantity, item.material_id]
-        );
+        // Update product stock — reusable items consume uses; normal items
+        // decrement both current_stock and reserved_stock.
+        let bulkCostBearingQuantity = item.consumed_quantity;
+        if (isReusable) {
+          const outcome = await applyReusableConsumption(client, {
+            productId: parseInt(item.material_id, 10),
+            materialName: material.name,
+            usesRequested: item.consumed_quantity,
+            workOrderConsumptionId: consumption.id,
+            userId,
+            reason: context.notes ?? null,
+          });
+          bulkCostBearingQuantity = outcome.effectiveCostQuantity;
+        } else {
+          await client.query(
+            `UPDATE products
+             SET current_stock = current_stock - $1,
+                 reserved_stock = COALESCE(reserved_stock, 0) - $1
+             WHERE id = $2`,
+            [item.consumed_quantity, item.material_id]
+          );
+        }
 
         // Update allocation status to consumed
         await client.query(
@@ -479,29 +613,36 @@ export class AddMaterialConsumptionMediator {
           updated_at: consumption.updated_at?.toISOString(),
         });
 
-        // Emit event for each consumption
-        try {
-          const consumptionData = {
-            consumptionId: consumption.id,
-            workOrderId: context.work_order_id,
-            materialId: item.material_id,
-            materialName: material.name,
-            quantity: item.consumed_quantity,
-            cost: parseFloat(material.current_stock) * item.consumed_quantity,
-            productionLineId: context.production_line_id,
-            consumptionDate: new Date().toISOString(),
-            userId
-          };
+        // Emit event for each consumption. Skip when no physical movement
+        // happened (reusable item with no unit depleted).
+        if (bulkCostBearingQuantity > 0) {
+          try {
+            const consumptionData = {
+              consumptionId: consumption.id,
+              workOrderId: context.work_order_id,
+              materialId: item.material_id,
+              materialName: material.name,
+              quantity: bulkCostBearingQuantity,
+              cost: parseFloat(material.current_stock) * bulkCostBearingQuantity,
+              productionLineId: context.production_line_id,
+              consumptionDate: new Date().toISOString(),
+              userId
+            };
 
-          eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, consumptionData);
+            eventBus.emit(EVENT_NAMES.MATERIAL_CONSUMED, consumptionData);
 
-          // Central Bridge: Call accounts module directly via InterModuleConnector
-          MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
-          await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
-        } catch (eventError: any) {
-          MyLogger.error(`${action}.eventEmit`, eventError, {
+            MyLogger.info(`${action}.bridge`, { consumptionId: consumption.id });
+            await interModuleConnector.accModule.addMaterialConsumptionVoucher(consumptionData, userId);
+          } catch (eventError: any) {
+            MyLogger.error(`${action}.eventEmit`, eventError, {
+              consumptionId: consumption.id,
+              message: 'Failed to emit MATERIAL_CONSUMED event, but consumption recording succeeded'
+            });
+          }
+        } else {
+          MyLogger.info(`${action}.bridge.skipped`, {
             consumptionId: consumption.id,
-            message: 'Failed to emit MATERIAL_CONSUMED event, but consumption recording succeeded'
+            reason: 'reusable material: no physical units depleted by this consumption',
           });
         }
       }

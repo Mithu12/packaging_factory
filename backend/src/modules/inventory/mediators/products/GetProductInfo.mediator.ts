@@ -214,10 +214,12 @@ export class GetProductInfoMediator {
 
       // Fetch product locations
       const locationsQuery = `
-        SELECT 
+        SELECT
           pl.distribution_center_id,
           dc.name as distribution_center_name,
-          pl.current_stock
+          pl.current_stock,
+          pl.active_unit_remaining_uses,
+          pl.reserved_uses
         FROM product_locations pl
         JOIN distribution_centers dc ON pl.distribution_center_id = dc.id
         WHERE pl.product_id = $1
@@ -225,11 +227,35 @@ export class GetProductInfoMediator {
       const locationsResult = await pool.query(locationsQuery, [id]);
 
       if (locationsResult.rows.length > 0) {
-        productWithDetails.locations = locationsResult.rows.map(row => ({
-          distribution_center_id: row.distribution_center_id,
-          distribution_center_name: row.distribution_center_name,
-          current_stock: parseFloat(row.current_stock)
-        }));
+        const usesPerUnit = parseFloat(product.uses_per_unit ?? 1);
+        const isReusable = usesPerUnit > 1;
+        productWithDetails.locations = locationsResult.rows.map(row => {
+          const currentStock = parseFloat(row.current_stock);
+          const activeRemaining =
+            row.active_unit_remaining_uses === null || row.active_unit_remaining_uses === undefined
+              ? null
+              : parseFloat(row.active_unit_remaining_uses);
+          const reservedUses = parseFloat(row.reserved_uses || 0);
+          let availableUses: number | undefined;
+          if (isReusable && currentStock > 0) {
+            const remainingOnActive = activeRemaining === null ? usesPerUnit : activeRemaining;
+            availableUses = Math.max((currentStock - 1) * usesPerUnit + remainingOnActive - reservedUses, 0);
+          } else if (isReusable) {
+            availableUses = 0;
+          }
+          return {
+            distribution_center_id: row.distribution_center_id,
+            distribution_center_name: row.distribution_center_name,
+            current_stock: currentStock,
+            ...(isReusable
+              ? {
+                  active_unit_remaining_uses: activeRemaining,
+                  reserved_uses: reservedUses,
+                  available_uses: availableUses,
+                }
+              : {}),
+          };
+        });
       }
 
 

@@ -170,6 +170,8 @@ export class GetCustomerOrderInfoMediator {
                                             'specifications', li.specifications,
                                             'delivery_date', li.delivery_date,
                                             'is_optional', li.is_optional,
+                                            'delivered_qty', li.delivered_qty,
+                                            'invoiced_qty', li.invoiced_qty,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items
@@ -216,6 +218,8 @@ export class GetCustomerOrderInfoMediator {
                     discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : undefined,
                     line_total: parseFloat(item.line_total),
                     delivery_date: item.delivery_date ? item.delivery_date : undefined,
+                    delivered_qty: item.delivered_qty != null ? parseFloat(item.delivered_qty) : 0,
+                    invoiced_qty: item.invoiced_qty != null ? parseFloat(item.invoiced_qty) : 0,
                     created_at: item.created_at
                 })),
                 attachments: row.attachments,
@@ -230,6 +234,7 @@ export class GetCustomerOrderInfoMediator {
                 tax_rate: row.tax_rate ? parseFloat(row.tax_rate) : undefined,
                 tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : undefined,
                 quoted_snapshot: row.quoted_snapshot ?? null,
+                pr_no: row.pr_no ?? undefined,
             }));
 
             const totalPages = Math.ceil(total / limit);
@@ -287,7 +292,9 @@ export class GetCustomerOrderInfoMediator {
                     f.name as factory_name,
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
-                    COALESCE(li_rows.line_items, '[]'::json) as line_items
+                    COALESCE(li_rows.line_items, '[]'::json) as line_items,
+                    wo_latest.work_order_number as latest_work_order_number,
+                    wo_latest.created_at as latest_work_order_date
                 FROM factory_customer_orders co
                          JOIN factories f ON co.factory_id = f.id
                          LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
@@ -309,12 +316,21 @@ export class GetCustomerOrderInfoMediator {
                                             'specifications', li.specifications,
                                             'delivery_date', li.delivery_date,
                                             'is_optional', li.is_optional,
+                                            'delivered_qty', li.delivered_qty,
+                                            'invoiced_qty', li.invoiced_qty,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items
                              FROM factory_customer_order_line_items li
                              WHERE li.order_id = co.id
                          ) li_rows ON true
+                         LEFT JOIN LATERAL (
+                             SELECT wo.work_order_number, wo.created_at
+                             FROM work_orders wo
+                             WHERE wo.customer_order_id = co.id
+                             ORDER BY wo.created_at DESC
+                             LIMIT 1
+                         ) wo_latest ON true
                 WHERE co.id = $1${factoryFilter}
       `;
 
@@ -353,6 +369,8 @@ export class GetCustomerOrderInfoMediator {
                     discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : undefined,
                     line_total: parseFloat(item.line_total),
                     delivery_date: item.delivery_date ? item.delivery_date : undefined,
+                    delivered_qty: item.delivered_qty != null ? parseFloat(item.delivered_qty) : 0,
+                    invoiced_qty: item.invoiced_qty != null ? parseFloat(item.invoiced_qty) : 0,
                     created_at: item.created_at
                 })),
                 attachments: (row.attachments),
@@ -371,6 +389,9 @@ export class GetCustomerOrderInfoMediator {
                 factory_cost_center_id: row.factory_cost_center_id,
                 factory_cost_center_name: row.factory_cost_center_name,
                 quoted_snapshot: row.quoted_snapshot ?? null,
+                pr_no: row.pr_no ?? undefined,
+                latest_work_order_number: row.latest_work_order_number ?? undefined,
+                latest_work_order_date: row.latest_work_order_date ?? undefined,
             };
 
             MyLogger.success(action, { orderId, found: true });

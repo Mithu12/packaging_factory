@@ -28,6 +28,8 @@ export interface Product {
   notes?: string;
   image_url?: string;
   pv?: number;
+  /** For reusable raw materials: how many consumptions a single physical unit yields. 1 = single-use. */
+  uses_per_unit?: number;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -66,6 +68,7 @@ export interface CreateProductRequest {
   notes?: string;
   image_url?: string;
   pv?: number;
+  uses_per_unit?: number;
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> { }
@@ -126,6 +129,12 @@ export interface ProductWithDetails extends Product {
     distribution_center_id: number;
     distribution_center_name: string;
     current_stock: number;
+    /** For reusable items: remaining uses on the active unit (null when no unit is mid-use). */
+    active_unit_remaining_uses?: number | null;
+    /** For reusable items: uses currently reserved by open allocations. */
+    reserved_uses?: number;
+    /** For reusable items: computed available uses at this location. */
+    available_uses?: number;
   }[];
 }
 

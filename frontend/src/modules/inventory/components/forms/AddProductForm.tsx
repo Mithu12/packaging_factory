@@ -112,6 +112,8 @@ interface ProductFormData {
   dimensions: string;
   vat_rate: string;
   notes: string;
+  /** Uses per physical unit for reusable raw materials (default "1"). */
+  uses_per_unit: string;
 }
 
 export function AddProductForm({
@@ -136,6 +138,7 @@ export function AddProductForm({
     dimensions: "",
     vat_rate: "",
     notes: "",
+    uses_per_unit: "1",
   });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -421,6 +424,10 @@ export function AddProductForm({
         dimensions: formData.dimensions || undefined,
         tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
+        uses_per_unit: (() => {
+          const u = parseFloat(formData.uses_per_unit || "1");
+          return Number.isFinite(u) && u > 1 ? u : undefined;
+        })(),
       };
 
       // Use the new API method that supports image upload
@@ -452,6 +459,7 @@ export function AddProductForm({
         dimensions: "",
         vat_rate: "",
         notes: "",
+        uses_per_unit: "1",
       });
       setSelectedImage(null);
       setImagePreview("");
@@ -957,6 +965,29 @@ export function AddProductForm({
                   />
                 </div>
               </div>
+              ) : null}
+
+              {isInternalProductType ? (
+                <div className="space-y-2">
+                  <Label htmlFor="usesPerUnit">Uses per physical unit</Label>
+                  <Input
+                    id="usesPerUnit"
+                    data-testid="add-product-uses-per-unit"
+                    type="number"
+                    min={1}
+                    step="0.01"
+                    value={formData.uses_per_unit}
+                    onChange={(e) =>
+                      handleInputChange("uses_per_unit", e.target.value)
+                    }
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set greater than 1 when a single physical unit (e.g. a slate
+                    or mold) can be reused multiple times before it&apos;s
+                    consumed.
+                  </p>
+                </div>
               ) : null}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

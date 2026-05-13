@@ -180,6 +180,11 @@ export default function BOMEditor() {
   const handleAddComponent = () => {
     if (!selectedProduct) return;
 
+    const reusableUnitLabel =
+      (selectedProduct as { uses_per_unit?: number }).uses_per_unit &&
+      Number((selectedProduct as { uses_per_unit?: number }).uses_per_unit) > 1
+        ? 'uses'
+        : selectedProduct.unit_of_measure;
     const component: BOMComponent = {
       id: `COMP-${Date.now()}`,
       bom_id: id || "",
@@ -187,7 +192,7 @@ export default function BOMEditor() {
       component_product_name: selectedProduct.name,
       component_product_sku: selectedProduct.sku,
       quantity_required: newComponent.quantity_required,
-      unit_of_measure: selectedProduct.unit_of_measure,
+      unit_of_measure: reusableUnitLabel,
       is_optional: newComponent.is_optional,
       scrap_factor: newComponent.scrap_factor,
       unit_cost: selectedProduct.cost_price,
