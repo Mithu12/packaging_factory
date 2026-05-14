@@ -64,12 +64,13 @@ export class CreateDeliveryMediator {
       }
       const order = orderRes.rows[0];
       const allowedStatuses = [
+        FactoryCustomerOrderStatus.IN_PRODUCTION,
         FactoryCustomerOrderStatus.COMPLETED,
         FactoryCustomerOrderStatus.PARTIALLY_SHIPPED,
       ];
       if (!allowedStatuses.includes(order.status)) {
         throw createError(
-          `Cannot create delivery for order in '${order.status}' status. Order must be 'completed' or 'partially_shipped'.`,
+          `Cannot create delivery for order in '${order.status}' status. Order must be 'in_production', 'completed', or 'partially_shipped'.`,
           400
         );
       }
