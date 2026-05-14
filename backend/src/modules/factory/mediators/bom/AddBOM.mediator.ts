@@ -183,6 +183,15 @@ export class AddBOMMediator {
         await client.query(createComponentQuery, componentValues);
       }
 
+      // Sync parent product's cost_price to the BOM total cost so downstream
+      // pricing/voucher logic reflects the latest material cost.
+      await client.query(
+        `UPDATE products
+         SET cost_price = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [totalCost, bomData.parent_product_id]
+      );
+
       // Get the complete BOM with components
       const finalQuery = `
         SELECT

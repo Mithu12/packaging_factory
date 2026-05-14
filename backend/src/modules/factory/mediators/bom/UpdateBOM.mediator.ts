@@ -312,9 +312,21 @@ export class UpdateBOMMediator {
           WHERE bom_id = $1
         )
         WHERE id = $1
+        RETURNING total_cost, parent_product_id
       `;
 
-      await client.query(totalCostQuery, [bomId]);
+      const totalCostResult = await client.query(totalCostQuery, [bomId]);
+
+      // Sync parent product's cost_price to the recalculated BOM total cost.
+      if (totalCostResult.rows.length > 0) {
+        const { total_cost, parent_product_id } = totalCostResult.rows[0];
+        await client.query(
+          `UPDATE products
+           SET cost_price = $1, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [total_cost, parent_product_id]
+        );
+      }
 
       // Enforce product-type rules against the post-update state. Reads the actual
       // bom_components rows so updates that change parent or components are caught.
