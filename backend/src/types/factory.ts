@@ -741,6 +741,96 @@ export interface CreateMachineMaintenanceLogRequest {
     notes?: string;
 }
 
+// Machine Parts
+export type MachinePartStatus = 'active' | 'replaced' | 'retired';
+export type ReplacementReason = 'preventive' | 'failure' | 'upgrade' | 'other';
+
+export interface MachinePart {
+    id: string;
+    machine_id: string;
+    name: string;
+    part_code?: string;
+    position?: string;
+    quantity: number;
+    manufacturer?: string;
+    model_number?: string;
+    installed_at?: string;
+    expected_lifespan_days?: number;
+    last_replaced_at?: string;
+    next_replacement_date?: string;
+    status: MachinePartStatus;
+    notes?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface MachinePartReplacement {
+    id: string;
+    machine_part_id: string;
+    maintenance_log_id?: string;
+    replaced_at: string;
+    reason: ReplacementReason;
+    technician?: string;
+    cost: number;
+    next_replacement_date?: string;
+    notes?: string;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface CreateMachinePartRequest {
+    name: string;
+    part_code?: string;
+    position?: string;
+    quantity?: number;
+    manufacturer?: string;
+    model_number?: string;
+    installed_at?: string;
+    expected_lifespan_days?: number;
+    last_replaced_at?: string;
+    next_replacement_date?: string;
+    status?: MachinePartStatus;
+    notes?: string;
+}
+
+export interface UpdateMachinePartRequest {
+    name?: string;
+    part_code?: string | null;
+    position?: string | null;
+    quantity?: number;
+    manufacturer?: string | null;
+    model_number?: string | null;
+    installed_at?: string | null;
+    expected_lifespan_days?: number | null;
+    last_replaced_at?: string | null;
+    next_replacement_date?: string | null;
+    status?: MachinePartStatus;
+    notes?: string | null;
+    is_active?: boolean;
+}
+
+export interface CreateMachinePartReplacementRequest {
+    reason: ReplacementReason;
+    replaced_at?: string;
+    technician?: string;
+    cost?: number;
+    next_replacement_date?: string;
+    notes?: string;
+    maintenance_log_id?: number | null;
+}
+
+export interface MachinePartQueryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: MachinePartStatus;
+    is_active?: boolean;
+    overdue_only?: boolean;
+    sort_by?: 'name' | 'part_code' | 'status' | 'next_replacement_date' | 'created_at';
+    sort_order?: 'asc' | 'desc';
+}
+
 // Operator Management
 export interface CreateOperatorRequest {
     user_id: number;

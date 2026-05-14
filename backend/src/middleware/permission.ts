@@ -518,6 +518,14 @@ export const PERMISSIONS = {
   FACTORY_MACHINES_UPDATE: createPermissionCheck('Factory', 'update', 'machines'),
   FACTORY_MACHINES_DELETE: createPermissionCheck('Factory', 'delete', 'machines'),
 
+  // Machine Parts
+  FACTORY_MACHINE_PARTS_CREATE: createPermissionCheck('Factory', 'create', 'machine_parts'),
+  FACTORY_MACHINE_PARTS_READ: createPermissionCheck('Factory', 'read', 'machine_parts'),
+  FACTORY_MACHINE_PARTS_UPDATE: createPermissionCheck('Factory', 'update', 'machine_parts'),
+  FACTORY_MACHINE_PARTS_DELETE: createPermissionCheck('Factory', 'delete', 'machine_parts'),
+  FACTORY_MACHINE_PART_REPLACEMENTS_CREATE: createPermissionCheck('Factory', 'create', 'machine_part_replacements'),
+  FACTORY_MACHINE_PART_REPLACEMENTS_DELETE: createPermissionCheck('Factory', 'delete', 'machine_part_replacements'),
+
   // Work Order Assignments
   FACTORY_WORK_ORDER_ASSIGNMENTS_CREATE: createPermissionCheck('Factory', 'create', 'work_order_assignments'),
   FACTORY_WORK_ORDER_ASSIGNMENTS_READ: createPermissionCheck('Factory', 'read', 'work_order_assignments'),
