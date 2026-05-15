@@ -13,7 +13,9 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY package*.json ./
-RUN npm install
+# Force devDependencies even when the build platform sets NODE_ENV=production —
+# the build needs tsc, tsx, tsc-alias, and the @types/* packages.
+RUN npm install --include=dev
 
 COPY . .
 
