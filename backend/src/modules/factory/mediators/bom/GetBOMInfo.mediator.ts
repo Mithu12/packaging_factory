@@ -139,24 +139,42 @@ export class GetBOMInfoMediator {
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       values.push(limit, offset);
 
-      // Get total count
+      // Get total count - rebuild filters independently from the main query so
+      // the placeholder indices and value array stay in sync (the main query also
+      // pushes LIMIT/OFFSET, which the count must not include).
       let countQuery = `
         SELECT COUNT(*) as total
         FROM bill_of_materials bom
         JOIN products p ON bom.parent_product_id = p.id
+        WHERE 1=1
       `;
+      const countValues: any[] = [];
+      let countParamIndex = 1;
 
       if (userFactoryIds.length > 0) {
-        countQuery += ` WHERE p.factory_id = ANY($${paramIndex}::bigint[])`;
+        countQuery += ` AND p.factory_id = ANY($${countParamIndex}::bigint[])`;
+        countValues.push(userFactoryIds);
+        countParamIndex++;
       }
-
-      if (conditions.length > 0) {
-        countQuery += ` AND ${conditions.slice(0, -2).join(' AND ')}`; // Remove pagination conditions
+      if (params.search) {
+        countQuery += ` AND (p.name ILIKE $${countParamIndex} OR p.sku ILIKE $${countParamIndex} OR bom.version ILIKE $${countParamIndex})`;
+        countValues.push(`%${params.search}%`);
+        countParamIndex++;
       }
-
-      const countValues = userFactoryIds.length > 0 ? [...userFactoryIds] : [];
-      for (let i = 0; i < conditions.length - 2; i++) {
-        countValues.push(values[userFactoryIds.length + i]);
+      if (params.parent_product_id) {
+        countQuery += ` AND bom.parent_product_id = $${countParamIndex}`;
+        countValues.push(params.parent_product_id);
+        countParamIndex++;
+      }
+      if (params.is_active !== undefined) {
+        countQuery += ` AND bom.is_active = $${countParamIndex}`;
+        countValues.push(params.is_active);
+        countParamIndex++;
+      }
+      if (params.category) {
+        countQuery += ` AND bom.category = $${countParamIndex}`;
+        countValues.push(params.category);
+        countParamIndex++;
       }
 
       const countResult = await client.query(countQuery, countValues);

@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:20-slim
 
 WORKDIR /app
 
@@ -6,19 +6,13 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+
 RUN npm run build
 
-FROM node:20-slim AS runner
-WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
 
-ENV NODE_ENV production
+EXPOSE 3001
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-EXPOSE 3000
-
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
