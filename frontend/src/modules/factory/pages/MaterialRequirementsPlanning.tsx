@@ -21,6 +21,9 @@ import {
   Download,
   RefreshCw,
   Target,
+  ChevronDown,
+  ChevronRight,
+  Wrench,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -81,6 +84,15 @@ export default function MaterialRequirementsPlanning() {
     useState<WorkOrderMaterialRequirement | null>(null);
   const [generatedPOs, setGeneratedPOs] = useState<string[]>([]);
   const [showPODialog, setShowPODialog] = useState(false);
+  const [expandedBreakdowns, setExpandedBreakdowns] = useState<Set<string>>(new Set());
+  const toggleBreakdown = (shortageId: string) => {
+    setExpandedBreakdowns((prev) => {
+      const next = new Set(prev);
+      if (next.has(shortageId)) next.delete(shortageId);
+      else next.add(shortageId);
+      return next;
+    });
+  };
   const queryClient = useQueryClient();
 
   // Debounce search term to avoid excessive API calls
@@ -666,8 +678,14 @@ export default function MaterialRequirementsPlanning() {
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="font-medium">
+                          <h3 className="font-medium flex items-center gap-2">
                             {shortage.material_name}
+                            {shortage.rm_breakdown && shortage.rm_breakdown.length > 0 && (
+                              <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 gap-1">
+                                <Wrench className="h-3 w-3" />
+                                Pre-Production
+                              </Badge>
+                            )}
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             {shortage.material_sku} -{" "}
@@ -743,42 +761,75 @@ export default function MaterialRequirementsPlanning() {
                         </div>
                       )}
 
-                      {shortage.rm_breakdown && shortage.rm_breakdown.length > 0 && (
-                        <div className="mb-4 border rounded-md p-3 bg-muted/30">
-                          <div className="text-sm font-medium mb-2">
-                            Raw Material breakdown (to produce {shortage.shortfall_quantity} {shortage.material_name})
+                      {shortage.rm_breakdown && shortage.rm_breakdown.length > 0 && (() => {
+                        const isOpen = expandedBreakdowns.has(shortage.id);
+                        const shortCount = shortage.rm_breakdown.filter((r) => r.is_short).length;
+                        return (
+                          <div className="mb-4 border rounded-md bg-muted/30">
+                            <button
+                              type="button"
+                              onClick={() => toggleBreakdown(shortage.id)}
+                              className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors rounded-md"
+                              aria-expanded={isOpen}
+                              data-testid={`rm-breakdown-toggle-${shortage.id}`}
+                            >
+                              <div className="flex items-center gap-2 text-sm font-medium">
+                                {isOpen ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                Raw Material breakdown
+                                <span className="text-muted-foreground font-normal">
+                                  ({shortage.rm_breakdown.length} item{shortage.rm_breakdown.length === 1 ? "" : "s"}
+                                  {shortCount > 0 ? `, ${shortCount} short` : ""})
+                                </span>
+                              </div>
+                              {shortCount > 0 && !isOpen && (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  {shortCount} short
+                                </Badge>
+                              )}
+                            </button>
+                            {isOpen && (
+                              <div className="px-3 pb-3">
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  To produce {shortage.shortfall_quantity} {shortage.material_name}
+                                </div>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Raw Material</TableHead>
+                                      <TableHead className="text-right">Required</TableHead>
+                                      <TableHead className="text-right">Available</TableHead>
+                                      <TableHead className="text-right">Shortfall</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {shortage.rm_breakdown.map((rm) => (
+                                      <TableRow key={rm.material_id}>
+                                        <TableCell>
+                                          <div className="font-medium">{rm.material_name}</div>
+                                          <div className="text-xs text-muted-foreground">{rm.material_sku}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {rm.required_quantity.toFixed(2)} {rm.unit_of_measure}
+                                        </TableCell>
+                                        <TableCell className="text-right text-green-600">
+                                          {rm.available_stock.toFixed(2)} {rm.unit_of_measure}
+                                        </TableCell>
+                                        <TableCell className={`text-right ${rm.is_short ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+                                          {rm.is_short ? `${rm.shortfall_quantity.toFixed(2)} ${rm.unit_of_measure}` : "—"}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
                           </div>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Raw Material</TableHead>
-                                <TableHead className="text-right">Required</TableHead>
-                                <TableHead className="text-right">Available</TableHead>
-                                <TableHead className="text-right">Shortfall</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {shortage.rm_breakdown.map((rm) => (
-                                <TableRow key={rm.material_id}>
-                                  <TableCell>
-                                    <div className="font-medium">{rm.material_name}</div>
-                                    <div className="text-xs text-muted-foreground">{rm.material_sku}</div>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {rm.required_quantity.toFixed(2)} {rm.unit_of_measure}
-                                  </TableCell>
-                                  <TableCell className="text-right text-green-600">
-                                    {rm.available_stock.toFixed(2)} {rm.unit_of_measure}
-                                  </TableCell>
-                                  <TableCell className={`text-right ${rm.is_short ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                                    {rm.is_short ? `${rm.shortfall_quantity.toFixed(2)} ${rm.unit_of_measure}` : "—"}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       <div className="flex gap-2">
                         <Button

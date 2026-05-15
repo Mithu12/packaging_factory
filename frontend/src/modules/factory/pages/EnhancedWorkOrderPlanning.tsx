@@ -41,7 +41,7 @@ import {
   WorkOrderPriority,
 } from "@/services/work-orders-api";
 import { CustomerOrdersApiService, FactoryProduct } from "../services/customer-orders-api";
-import { isReadyRawMaterialsCategory } from "@/modules/inventory/constants/inventoryProductCategories";
+import { isReadyRawMaterialsCategory, isReadyGoodsCategory } from "@/modules/inventory/constants/inventoryProductCategories";
 import { CreatePurchaseOrderForm } from "@/modules/inventory/components/forms/CreatePurchaseOrderForm";
 import { toast } from "sonner";
 import {
@@ -135,9 +135,18 @@ interface Operator {
   availability: "available" | "busy" | "off_duty";
 }
 
-export default function EnhancedWorkOrderPlanning() {
+export type WorkOrderMode = "all" | "finished_goods" | "pre_production";
+
+type EnhancedWorkOrderPlanningProps = {
+  mode?: WorkOrderMode;
+};
+
+export default function EnhancedWorkOrderPlanning({
+  mode = "all",
+}: EnhancedWorkOrderPlanningProps = {}) {
   const router = useRouter();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
+  const isModeLocked = mode !== "all";
   const [workOrders, setWorkOrders] = useState<EnhancedWorkOrder[]>([]);
   const [productionLines, setProductionLines] = useState<ProductionLine[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -145,7 +154,9 @@ export default function EnhancedWorkOrderPlanning() {
     useState<EnhancedWorkOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [preProductionOnly, setPreProductionOnly] = useState(false);
+  const [preProductionOnly, setPreProductionOnly] = useState(
+    mode === "pre_production"
+  );
   const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
@@ -309,10 +320,14 @@ export default function EnhancedWorkOrderPlanning() {
       wo.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       wo.product.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
-    const matchesPreProd =
-      !preProductionOnly ||
-      isReadyRawMaterialsCategory(wo.productPrimaryCategory ?? "");
-    return matchesSearch && matchesStatus && matchesPreProd;
+    const category = wo.productPrimaryCategory ?? "";
+    const matchesMode =
+      mode === "all"
+        ? !preProductionOnly || isReadyRawMaterialsCategory(category)
+        : mode === "pre_production"
+        ? isReadyRawMaterialsCategory(category)
+        : isReadyGoodsCategory(category);
+    return matchesSearch && matchesStatus && matchesMode;
   });
 
   const getStatusColor = (status: string) => {
@@ -546,9 +561,19 @@ export default function EnhancedWorkOrderPlanning() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Enhanced Work Order Planning</h1>
+          <h1 className="text-3xl font-bold">
+            {mode === "pre_production"
+              ? "Pre-Production Work Orders"
+              : mode === "finished_goods"
+              ? "Finished Goods Work Orders"
+              : "Enhanced Work Order Planning"}
+          </h1>
           <p className="text-muted-foreground">
-            Plan work orders with integrated material and cost management
+            {mode === "pre_production"
+              ? "Plan RRM production runs that feed finished-goods work orders"
+              : mode === "finished_goods"
+              ? "Plan finished-goods work orders for customer demand"
+              : "Plan work orders with integrated material and cost management"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -666,13 +691,15 @@ export default function EnhancedWorkOrderPlanning() {
                     <TabsTrigger value="completed">Completed</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
-                  <Checkbox
-                    checked={preProductionOnly}
-                    onCheckedChange={(checked) => setPreProductionOnly(checked === true)}
-                  />
-                  Pre-Production only
-                </label>
+                {!isModeLocked && (
+                  <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                    <Checkbox
+                      checked={preProductionOnly}
+                      onCheckedChange={(checked) => setPreProductionOnly(checked === true)}
+                    />
+                    Pre-Production only
+                  </label>
+                )}
               </div>
             </CardContent>
           </Card>

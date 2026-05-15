@@ -296,6 +296,18 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
       },
       {
+        title: "— Finished Goods",
+        url: "/factory/work-orders/finished-goods",
+        icon: Package,
+        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+      },
+      {
+        title: "— Pre-Production (RRM)",
+        url: "/factory/work-orders/pre-production",
+        icon: Wrench,
+        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+      },
+      {
         title: "Material Requirements",
         url: "/factory/mrp",
         icon: TrendingUp,
