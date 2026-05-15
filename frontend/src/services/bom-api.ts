@@ -17,7 +17,7 @@ export type MaterialRequirementStatus =
 
 export type MaterialRequirementPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type BOMCategory = 'media' | 'liner' | 'both';
+export type BOMCategory = 'corrugation' | 'printing' | 'ready_goods';
 
 export interface BillOfMaterials {
   id: string;

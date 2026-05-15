@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,9 +74,15 @@ export default function BOMEditor() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : params.id?.[0];
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { formatCurrency, formatDate } = useFormatting();
   const isEditing = Boolean(id);
+  const presetCategory = searchParams?.get("category");
+  const initialCategory: BOMCategory =
+    presetCategory === "corrugation" || presetCategory === "printing" || presetCategory === "ready_goods"
+      ? presetCategory
+      : "ready_goods";
 
   const [components, setComponents] = useState<BOMComponent[]>([]);
   const [showAddComponent, setShowAddComponent] = useState(false);
@@ -108,7 +114,7 @@ export default function BOMEditor() {
     version: "1.0",
     effective_date: new Date().toISOString().split("T")[0],
     is_active: true,
-    category: "both",
+    category: initialCategory,
     notes: "",
   });
 
@@ -468,17 +474,23 @@ export default function BOMEditor() {
                   onValueChange={(value: BOMCategory) =>
                     setFormData((prev) => ({ ...prev, category: value }))
                   }
+                  disabled={!isEditing && Boolean(presetCategory)}
                   data-testid="bom-category-select"
                 >
                   <SelectTrigger id="category" data-testid="bom-category-select-trigger">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="media">Media</SelectItem>
-                    <SelectItem value="liner">Liner</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
+                    <SelectItem value="corrugation">Corrugation</SelectItem>
+                    <SelectItem value="printing">Printing</SelectItem>
+                    <SelectItem value="ready_goods">Ready Goods</SelectItem>
                   </SelectContent>
                 </Select>
+                {!isEditing && presetCategory && (
+                  <p className="text-xs text-muted-foreground" data-testid="bom-category-preset-hint">
+                    Category set from the sub-view you came from.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

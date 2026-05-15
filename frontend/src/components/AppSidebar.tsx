@@ -20,6 +20,7 @@ import {
   MapPin,
   Receipt,
   Layers,
+  Printer,
   GitBranch,
   Building,
   Building2,
@@ -238,6 +239,24 @@ const menuSections: MenuSection[] = [
         title: "Bill of Materials",
         url: "/factory/bom",
         icon: ClipboardList,
+        permission: PERMISSIONS.FACTORY_BOMS_READ,
+      },
+      {
+        title: "— Corrugation BOMs",
+        url: "/factory/bom/corrugation",
+        icon: Layers,
+        permission: PERMISSIONS.FACTORY_BOMS_READ,
+      },
+      {
+        title: "— Printing BOMs",
+        url: "/factory/bom/printing",
+        icon: Printer,
+        permission: PERMISSIONS.FACTORY_BOMS_READ,
+      },
+      {
+        title: "— Ready Goods BOMs",
+        url: "/factory/bom/ready-goods",
+        icon: Package2,
         permission: PERMISSIONS.FACTORY_BOMS_READ,
       },
       {

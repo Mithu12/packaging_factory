@@ -1,6 +1,6 @@
 // Bill of Materials (BOM) Types
 
-export type BOMCategory = 'media' | 'liner' | 'both';
+export type BOMCategory = 'corrugation' | 'printing' | 'ready_goods';
 
 export interface BillOfMaterials {
   id: string;

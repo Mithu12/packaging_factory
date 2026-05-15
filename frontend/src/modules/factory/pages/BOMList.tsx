@@ -51,13 +51,21 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMCategory, BOMStats } from "@/services/bom-api";
 import { useQuery } from "@tanstack/react-query";
+import { CATEGORY_META } from "@/modules/factory/utils/bomCategory";
 
-export default function BOMList() {
+type BOMListProps = {
+  defaultCategory?: BOMCategory;
+};
+
+export default function BOMList({ defaultCategory }: BOMListProps = {}) {
   const router = useRouter();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
+  const isCategoryLocked = Boolean(defaultCategory);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | BOMCategory>("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | BOMCategory>(
+    defaultCategory ?? "all"
+  );
   const [showBOMDialog, setShowBOMDialog] = useState(false);
   const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
 
@@ -95,7 +103,10 @@ export default function BOMList() {
   };
 
   const handleCreateBOM = () => {
-    router.push("/factory/bom/new");
+    const url = defaultCategory
+      ? `/factory/bom/new?category=${defaultCategory}`
+      : "/factory/bom/new";
+    router.push(url);
   };
 
   const handleEditBOM = (bomId: string) => {
@@ -180,9 +191,20 @@ export default function BOMList() {
       {/* Header */}
       <div className="flex items-center justify-between" data-testid="bom-list-header">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="bom-list-title">Bill of Materials</h1>
+          {(() => {
+            const meta = defaultCategory ? CATEGORY_META[defaultCategory] : null;
+            const Icon = meta?.icon;
+            return (
+              <h1 className="text-3xl font-bold flex items-center gap-2" data-testid="bom-list-title">
+                {Icon && <Icon className="h-7 w-7" />}
+                {meta ? `${meta.label} BOMs` : "Bill of Materials"}
+              </h1>
+            );
+          })()}
           <p className="text-muted-foreground" data-testid="bom-list-subtitle">
-            Manage product component structures and material requirements
+            {defaultCategory
+              ? `Manage ${CATEGORY_META[defaultCategory].label.toLowerCase()} bills of materials`
+              : "Manage product component structures and material requirements"}
           </p>
         </div>
         <div className="flex gap-2" data-testid="bom-list-actions">
@@ -196,7 +218,7 @@ export default function BOMList() {
           </Button>
           <Button type="button" variant="add" onClick={handleCreateBOM} data-testid="create-bom-button">
             <Plus className="h-4 w-4 mr-2" />
-            Create BOM
+            {defaultCategory ? `Create ${CATEGORY_META[defaultCategory].label} BOM` : "Create BOM"}
           </Button>
         </div>
       </div>
@@ -289,18 +311,20 @@ export default function BOMList() {
                     <TabsTrigger value="inactive" data-testid="filter-inactive-tab">Inactive</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <Tabs
-                  value={categoryFilter}
-                  onValueChange={(v) => setCategoryFilter(v as "all" | BOMCategory)}
-                  data-testid="category-filter-tabs"
-                >
-                  <TabsList data-testid="category-filter-tabs-list">
-                    <TabsTrigger value="all" data-testid="filter-category-all-tab">All</TabsTrigger>
-                    <TabsTrigger value="media" data-testid="filter-category-media-tab">Media</TabsTrigger>
-                    <TabsTrigger value="liner" data-testid="filter-category-liner-tab">Liner</TabsTrigger>
-                    <TabsTrigger value="both" data-testid="filter-category-both-tab">Both</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {!isCategoryLocked && (
+                  <Tabs
+                    value={categoryFilter}
+                    onValueChange={(v) => setCategoryFilter(v as "all" | BOMCategory)}
+                    data-testid="category-filter-tabs"
+                  >
+                    <TabsList data-testid="category-filter-tabs-list">
+                      <TabsTrigger value="all" data-testid="filter-category-all-tab">All</TabsTrigger>
+                      <TabsTrigger value="corrugation" data-testid="filter-category-corrugation-tab">Corrugation</TabsTrigger>
+                      <TabsTrigger value="printing" data-testid="filter-category-printing-tab">Printing</TabsTrigger>
+                      <TabsTrigger value="ready_goods" data-testid="filter-category-ready_goods-tab">Ready Goods</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -317,7 +341,9 @@ export default function BOMList() {
                     <TableHead data-testid="bom-id-header">BOM ID</TableHead>
                     <TableHead data-testid="product-header">Product</TableHead>
                     <TableHead data-testid="version-header">Version</TableHead>
-                    <TableHead data-testid="category-header">Category</TableHead>
+                    {!isCategoryLocked && (
+                      <TableHead data-testid="category-header">Category</TableHead>
+                    )}
                     <TableHead data-testid="components-header">Components</TableHead>
                     <TableHead data-testid="total-cost-header">Total Cost</TableHead>
                     <TableHead data-testid="status-header">Status</TableHead>
@@ -342,11 +368,21 @@ export default function BOMList() {
                       <TableCell>
                         <Badge variant="outline">{bom.version}</Badge>
                       </TableCell>
-                      <TableCell data-testid={`bom-category-${bom.id}`}>
-                        <Badge variant="secondary" className="capitalize">
-                          {bom.category}
-                        </Badge>
-                      </TableCell>
+                      {!isCategoryLocked && (
+                        <TableCell data-testid={`bom-category-${bom.id}`}>
+                          {(() => {
+                            const meta = CATEGORY_META[bom.category];
+                            if (!meta) return <Badge variant="secondary">{bom.category}</Badge>;
+                            const Icon = meta.icon;
+                            return (
+                              <Badge className={`gap-1 ${meta.badgeClass}`}>
+                                <Icon className="h-3 w-3" />
+                                {meta.label}
+                              </Badge>
+                            );
+                          })()}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">

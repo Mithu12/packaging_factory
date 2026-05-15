@@ -16,12 +16,12 @@ export const createBOMSchema = Joi.object({
   }),
   category: Joi.string()
     .strict()
-    .valid("media", "liner", "both")
+    .valid("corrugation", "printing", "ready_goods")
     .required()
     .messages({
       "string.base": "Category must be a string",
       "string.empty": "Category cannot be empty",
-      "any.only": "Category must be one of: media, liner, both",
+      "any.only": "Category must be one of: corrugation, printing, ready_goods",
       "any.required": "Category is required",
     }),
   components: Joi.array()
@@ -69,12 +69,12 @@ export const updateBOMSchema = Joi.object({
   is_active: Joi.boolean().optional(),
   category: Joi.string()
     .strict()
-    .valid("media", "liner", "both")
+    .valid("corrugation", "printing", "ready_goods")
     .optional()
     .messages({
       "string.base": "Category must be a string",
       "string.empty": "Category cannot be empty",
-      "any.only": "Category must be one of: media, liner, both",
+      "any.only": "Category must be one of: corrugation, printing, ready_goods",
     }),
   components: Joi.array()
     .items(
@@ -114,12 +114,12 @@ export const bomQuerySchema = Joi.object({
   is_active: Joi.boolean().optional(),
   category: Joi.string()
     .strict()
-    .valid("media", "liner", "both")
+    .valid("corrugation", "printing", "ready_goods")
     .optional()
     .messages({
       "string.base": "Category must be a string",
       "string.empty": "Category cannot be empty",
-      "any.only": "Category must be one of: media, liner, both",
+      "any.only": "Category must be one of: corrugation, printing, ready_goods",
     }),
   sort_by: Joi.string().valid("created_at", "version", "total_cost").optional(),
   sort_order: Joi.string().valid("asc", "desc").optional(),
