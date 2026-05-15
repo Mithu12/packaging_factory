@@ -25,6 +25,11 @@ export function isInternalPrimaryCategory(name: string): boolean {
   return isRawMaterialsCategory(name) || isReadyRawMaterialsCategory(name);
 }
 
+/** True for categories whose cost price is auto-derived from a BOM (RRM, RG) — pricing inputs are hidden on the product form. */
+export function isBomDrivenCostCategory(name: string): boolean {
+  return isReadyRawMaterialsCategory(name) || isReadyGoodsCategory(name);
+}
+
 export function isInventoryPrimaryCategory(name: string): boolean {
   return (INVENTORY_PRIMARY_CATEGORY_NAMES as readonly string[]).includes(
     name

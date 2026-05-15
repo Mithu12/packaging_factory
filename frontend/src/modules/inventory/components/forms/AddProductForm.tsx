@@ -36,7 +36,9 @@ import {
 import { ProductApi } from "@/modules/inventory/services/product-api";
 import {
   displayPrimaryCategoryLabel,
+  isBomDrivenCostCategory,
   isInternalPrimaryCategory,
+  isRawMaterialsCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories";
 import { Upload, X, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -348,8 +350,11 @@ export function AddProductForm({
       const selectedCat = categories.find(
         (c) => String(c.id) === String(formData.category_id)
       );
-      // RM and RRM are both internal-only (no selling price); FG is sold to customers.
-      const raw = selectedCat ? isInternalPrimaryCategory(selectedCat.name) : false;
+      const selectedCatName = selectedCat?.name ?? "";
+      const isRm = isRawMaterialsCategory(selectedCatName);
+      const isInternal = isInternalPrimaryCategory(selectedCatName);
+      // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
+      const costFromBom = isBomDrivenCostCategory(selectedCatName);
 
       let requiredKeys: (keyof ProductFormData)[] = [
         "name",
@@ -358,15 +363,15 @@ export function AddProductForm({
       ];
       if (showAllFields) {
         requiredKeys.push("current_stock", "min_stock_level");
-        if (raw) {
-          requiredKeys.push("cost_price", "unit_of_measure");
-        } else {
-          requiredKeys.push("cost_price", "selling_price");
-        }
-      } else if (raw) {
-        requiredKeys.push("cost_price", "unit_of_measure");
-      } else {
-        requiredKeys.push("cost_price", "selling_price");
+      }
+      if (isInternal && !showAllFields) {
+        requiredKeys.push("unit_of_measure");
+      }
+      if (!costFromBom) {
+        requiredKeys.push("cost_price");
+      }
+      if (!isRm && !costFromBom) {
+        requiredKeys.push("selling_price");
       }
 
       const newValidationErrors = requiredKeys.reduce(
@@ -392,10 +397,10 @@ export function AddProductForm({
         return;
       }
 
-      const costPrice = parseFloat(formData.cost_price);
-      const sellingPrice = raw
-        ? costPrice
-        : parseFloat(formData.selling_price);
+      // RRM/RG: cost is set by BOM after creation, so submit 0 here.
+      // RM: selling price is not used, submit 0.
+      const costPrice = costFromBom ? 0 : parseFloat(formData.cost_price);
+      const sellingPrice = costFromBom || isRm ? 0 : parseFloat(formData.selling_price);
 
       const productData: CreateProductRequest = {
         name: formData.name,
@@ -527,6 +532,7 @@ export function AddProductForm({
     categories.find((c) => String(c.id) === String(formData.category_id))
       ?.name ?? "";
   const isInternalProductType = isInternalPrimaryCategory(selectedCategoryName);
+  const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -780,7 +786,7 @@ export function AddProductForm({
                 </div>
               </div>
 
-              {!showAllFields && isInternalProductType ? (
+              {!showAllFields && isRawMaterialType ? (
               <div className="space-y-2">
                 <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
                 <div className="relative">
@@ -805,56 +811,7 @@ export function AddProductForm({
               </div>
               ) : null}
 
-              {!showAllFields && !isInternalProductType ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sellingPrice">Selling Price *</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                      ৳
-                    </span>
-                    <Input
-                      id="sellingPrice"
-                      data-testid="add-product-selling-price"
-                      type="number"
-                      step="0.01"
-                      value={formData.selling_price}
-                      onChange={(e) =>
-                        handleInputChange("selling_price", e.target.value)
-                      }
-                      placeholder="0"
-                      required
-                      className={`pl-7 ${getFieldErrorClass("selling_price")}`}
-                      aria-invalid={hasFieldError("selling_price")}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="costPriceRg">Cost Price *</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                      ৳
-                    </span>
-                    <Input
-                      id="costPriceRg"
-                      data-testid="add-product-cost-price"
-                      type="number"
-                      step="0.01"
-                      value={formData.cost_price}
-                      onChange={(e) =>
-                        handleInputChange("cost_price", e.target.value)
-                      }
-                      placeholder="0"
-                      required
-                      className={`pl-7 ${getFieldErrorClass("cost_price")}`}
-                      aria-invalid={hasFieldError("cost_price")}
-                    />
-                  </div>
-                </div>
-              </div>
-              ) : null}
-
-              {showAllFields ? (
+              {showAllFields && isRawMaterialType ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="costPriceAll">Cost Price *</Label>
@@ -873,25 +830,6 @@ export function AddProductForm({
                     aria-invalid={hasFieldError("cost_price")}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="sellingPriceAll">Selling Price *</Label>
-                  <Input
-                    id="sellingPriceAll"
-                    data-testid="add-product-selling-price"
-                    type="number"
-                    step="0.01"
-                    value={formData.selling_price}
-                    onChange={(e) =>
-                      handleInputChange("selling_price", e.target.value)
-                    }
-                    placeholder="0.00"
-                    required
-                    className={getFieldErrorClass("selling_price")}
-                    aria-invalid={hasFieldError("selling_price")}
-                  />
-                </div>
-
               </div>
               ) : null}
 

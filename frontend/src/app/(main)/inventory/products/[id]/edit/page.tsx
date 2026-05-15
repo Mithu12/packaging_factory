@@ -10,11 +10,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { useFormatting } from "@/hooks/useFormatting"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 import {
   displayPrimaryCategoryLabel,
+  isBomDrivenCostCategory,
   isRawMaterialsCategory,
   isInternalPrimaryCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories"
@@ -56,7 +56,6 @@ export default function EditProduct() {
   const id = typeof params.id === 'string' ? params.id : params.id?.[0];
   const router = useRouter();
   const { toast } = useToast();
-  const { formatCurrency } = useFormatting();
 
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -254,7 +253,11 @@ export default function EditProduct() {
     const selectedCat = categories.find(
       (c) => String(c.id) === String(formData.category_id)
     )
-    const raw = selectedCat ? isRawMaterialsCategory(selectedCat.name) : false
+    const selectedCatName = selectedCat?.name ?? ""
+    const isRm = isRawMaterialsCategory(selectedCatName)
+    const isInternal = isInternalPrimaryCategory(selectedCatName)
+    // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
+    const costFromBom = isBomDrivenCostCategory(selectedCatName)
 
     let requiredKeys: (keyof EditProductFormData)[] = [
       "name",
@@ -263,15 +266,15 @@ export default function EditProduct() {
     ]
     if (showAllFields) {
       requiredKeys.push("current_stock", "min_stock_level")
-      if (raw) {
-        requiredKeys.push("cost_price", "unit_of_measure")
-      } else {
-        requiredKeys.push("cost_price", "selling_price")
-      }
-    } else if (raw) {
-      requiredKeys.push("cost_price", "unit_of_measure")
-    } else {
-      requiredKeys.push("cost_price", "selling_price")
+    }
+    if (isInternal && !showAllFields) {
+      requiredKeys.push("unit_of_measure")
+    }
+    if (!costFromBom) {
+      requiredKeys.push("cost_price")
+    }
+    if (!isRm && !costFromBom) {
+      requiredKeys.push("selling_price")
     }
 
     const missingRequired = requiredKeys.filter((field) => {
@@ -290,8 +293,9 @@ export default function EditProduct() {
     try {
       setSaving(true)
 
+      // Hidden fields keep their existing values from the DB (formData is seeded from the product).
       const costNum = parseFloat(formData.cost_price)
-      const sellingNum = raw ? costNum : parseFloat(formData.selling_price)
+      const sellingNum = parseFloat(formData.selling_price)
 
       const updateData = {
         name: formData.name,
@@ -349,12 +353,6 @@ export default function EditProduct() {
       setSaving(false)
     }
   }
-
-  const costPriceValue = parseFloat(formData.cost_price || "")
-  const sellingPriceValue = parseFloat(formData.selling_price || "")
-  const hasPricingValues = Number.isFinite(costPriceValue) && Number.isFinite(sellingPriceValue)
-  const profitValue = hasPricingValues ? sellingPriceValue - costPriceValue : 0
-  const profitPercentage = hasPricingValues && costPriceValue !== 0 ? (profitValue / costPriceValue) * 100 : 0
 
   const units = [
     { value: "pcs", label: "Pieces" },
@@ -650,13 +648,14 @@ export default function EditProduct() {
               </CardContent>
             </Card>
 
-            {/* Pricing */}
+            {/* Pricing — RRM and RG cost prices come from a BOM, so no pricing inputs are shown. */}
+            {isRawMaterialType ? (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!showAllFields && isRawMaterialType ? (
+                {!showAllFields ? (
                 <div>
                   <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
                   <div className="relative mt-2">
@@ -675,90 +674,23 @@ export default function EditProduct() {
                     />
                   </div>
                 </div>
-                ) : null}
-
-                {!showAllFields && !isRawMaterialType ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="sellingPrice">Selling Price *</Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                        ৳
-                      </span>
-                      <Input
-                        id="sellingPrice"
-                        className="pl-7"
-                        type="number"
-                        step="0.01"
-                        value={formData.selling_price}
-                        onChange={(e) => handleInputChange("selling_price", e.target.value)}
-                        placeholder="0"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="costPriceRg">Cost Price *</Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                        ৳
-                      </span>
-                      <Input
-                        id="costPriceRg"
-                        className="pl-7"
-                        type="number"
-                        step="0.01"
-                        value={formData.cost_price}
-                        onChange={(e) => handleInputChange("cost_price", e.target.value)}
-                        placeholder="0"
-                        required
-                      />
-                    </div>
-                  </div>
+                ) : (
+                <div>
+                  <Label htmlFor="costPriceAll">Cost Price *</Label>
+                  <Input
+                    id="costPriceAll"
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_price}
+                    onChange={(e) => handleInputChange("cost_price", e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
                 </div>
-                ) : null}
-
-                {showAllFields ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="costPriceAll">Cost Price *</Label>
-                    <Input
-                      id="costPriceAll"
-                      type="number"
-                      step="0.01"
-                      value={formData.cost_price}
-                      onChange={(e) => handleInputChange("cost_price", e.target.value)}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sellingPriceAll">Selling Price *</Label>
-                    <Input
-                      id="sellingPriceAll"
-                      type="number"
-                      step="0.01"
-                      value={formData.selling_price}
-                      onChange={(e) => handleInputChange("selling_price", e.target.value)}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-                </div>
-                ) : null}
-
-                {hasPricingValues && (
-                  <div className="p-3 bg-accent/20 rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      Profit Margin
-                    </div>
-                    <div className="text-lg font-medium text-success">
-                      {formatCurrency(profitValue)} ({profitPercentage.toFixed(1)}%)
-                    </div>
-                  </div>
                 )}
               </CardContent>
             </Card>
+            ) : null}
 
             {/* Physical Properties */}
             {showAllFields ? (

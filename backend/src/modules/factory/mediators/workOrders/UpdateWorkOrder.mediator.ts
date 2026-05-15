@@ -2070,12 +2070,13 @@ export class UpdateWorkOrderMediator {
           reason: 'Auto-consumed based on BOM when work order completed without production run',
         });
 
-        // Update requirement status
+        // Update requirement status. Only 'pending', 'allocated', 'short',
+        // 'fulfilled', and 'cancelled' are allowed by the check constraint.
         await client.query(
           `UPDATE work_order_material_requirements
            SET
              consumed_quantity = $1,
-             status = 'consumed',
+             status = 'fulfilled',
              updated_at = CURRENT_TIMESTAMP
            WHERE id = $2`,
           [consumedQuantity, requirement.id]
