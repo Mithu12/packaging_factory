@@ -140,7 +140,11 @@ export class UpdateBOMMediator {
         for (const componentUpdate of updateData.components) {
           if (componentUpdate.id) {
             // Update existing component
-            const existingComponent = existingComponents.find(c => c.id === componentUpdate.id);
+            // bom_components.id is BIGSERIAL — pg returns it as a string while
+            // componentUpdate.id comes through Joi as a number. Compare as strings.
+            const existingComponent = existingComponents.find(
+              (c) => String(c.id) === String(componentUpdate.id)
+            );
             if (!existingComponent) {
               throw new Error(`Component with ID ${componentUpdate.id} not found in BOM`);
             }
