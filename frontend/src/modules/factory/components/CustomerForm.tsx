@@ -281,19 +281,6 @@ function CustomerCreateForm({
               <>
                 <FormField
                   control={form.control}
-                  name="contact_person"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Person</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. John Smith" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="company_name"
                   render={({ field }) => (
                     <FormItem>
@@ -303,6 +290,19 @@ function CustomerCreateForm({
                           placeholder="e.g. Acme Corporation"
                           {...field}
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contact_person"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. John Smith" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -342,7 +342,7 @@ function CustomerCreateForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel data-testid="customer-email-label">
-                    Email Address
+                    {customerType === "business" ? "Company Email" : "Email Address"}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -749,7 +749,7 @@ function CustomerEditForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel data-testid="customer-email-label">
-                          Email
+                          {customerType === "business" ? "Company Email" : "Email"}
                         </FormLabel>
                         <FormControl>
                           <Input
