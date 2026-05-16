@@ -35,10 +35,6 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     email: "",
     whatsappNumber: "",
     address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "Bangladesh",
     category: "",
     taxId: "",
     paymentTerms: "",
@@ -94,10 +90,6 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         whatsapp_number: formData.whatsappNumber || undefined,
         website: undefined, // Not in current form
         address: formData.address || undefined,
-        city: formData.city || undefined,
-        state: formData.state || undefined,
-        zip_code: formData.zipCode || undefined,
-        country: formData.country || undefined,
         category: formData.category || undefined,
         tax_id: formData.taxId || undefined,
         payment_terms: formData.paymentTerms || undefined,
@@ -120,10 +112,6 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         email: "",
         whatsappNumber: "",
         address: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        country: "Bangladesh",
         category: "",
         taxId: "",
         paymentTerms: "",
@@ -231,7 +219,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">Contact Person Phone Number *</Label>
                 <Input
                     id="phone"
                     value={formData.phone}
@@ -242,7 +230,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Company Email</Label>
                 <Input
                     id="email"
                     type="email"
@@ -266,58 +254,14 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Street Address</Label>
+              <Label htmlFor="address">Supplier Address</Label>
               <Input
                   id="address"
                   value={formData.address}
                   onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Enter street address"
+                  placeholder="Enter supplier address"
                   required
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    placeholder="City"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange("state", e.target.value)}
-                    placeholder="State"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP Code</Label>
-                <Input
-                    id="zipCode"
-                    value={formData.zipCode}
-                    onChange={(e) => handleInputChange("zipCode", e.target.value)}
-                    placeholder="12345"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Select value={formData.country} onValueChange={(value) => handleInputChange("country", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bangladesh">Bangladesh</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -405,12 +349,12 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID</Label>
+              <Label htmlFor="taxId">VAT Number</Label>
               <Input
                   id="taxId"
                   value={formData.taxId}
                   onChange={(e) => handleInputChange("taxId", e.target.value)}
-                  placeholder="Enter tax identification number"
+                  placeholder="Enter VAT number"
               />
             </div>
 
