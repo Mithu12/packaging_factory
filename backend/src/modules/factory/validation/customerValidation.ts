@@ -23,6 +23,8 @@ export const createCustomerSchema = Joi.object({
   address: customerAddressSchema,
   credit_limit: Joi.number().min(0).optional(),
   payment_terms: Joi.string().valid('net_15', 'net_30', 'net_45', 'net_60', 'cash_on_delivery', 'advance_payment').default('net_30'),
+  opening_balance: Joi.number().min(0).optional(),
+  vat_number: Joi.string().max(50).optional().allow('', null),
   is_active: Joi.boolean().optional(),
 })
   .custom((value, helpers) => {
@@ -54,6 +56,8 @@ export const updateCustomerSchema = Joi.object({
   address: customerAddressSchema,
   credit_limit: Joi.number().min(0).optional(),
   payment_terms: Joi.string().valid('net_15', 'net_30', 'net_45', 'net_60', 'cash_on_delivery', 'advance_payment').optional(),
+  opening_balance: Joi.number().min(0).optional(),
+  vat_number: Joi.string().max(50).optional().allow('', null),
   is_active: Joi.boolean().optional(),
 });
 

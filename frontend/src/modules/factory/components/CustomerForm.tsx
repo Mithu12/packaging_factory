@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -52,6 +51,11 @@ const createCustomerFormSchema = z
     email: z.string().optional(),
     shipping_line: z.string().optional(),
     billing_line: z.string().optional(),
+    opening_balance: z
+      .number()
+      .min(0, "Opening balance must be greater than or equal to 0")
+      .optional(),
+    vat_number: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.customer_type === "individual") {
@@ -137,6 +141,8 @@ function CustomerCreateForm({
       email: "",
       shipping_line: "",
       billing_line: "",
+      opening_balance: 0,
+      vat_number: "",
     },
   });
 
@@ -153,6 +159,8 @@ function CustomerCreateForm({
         email: "",
         shipping_line: "",
         billing_line: "",
+        opening_balance: 0,
+        vat_number: "",
       });
     }
   }, [open, form]);
@@ -172,12 +180,17 @@ function CustomerCreateForm({
       const phoneTrim = data.phone?.trim() ?? "";
 
       const addrPayload = buildCreateAddressPayload(data);
+      const vatTrim = data.vat_number?.trim() ?? "";
       const customerData: CreateCustomerRequest = {
         name,
         ...(company ? { company } : {}),
         ...(emailTrim ? { email: emailTrim } : {}),
         ...(phoneTrim ? { phone: phoneTrim } : {}),
         ...(addrPayload ? { address: addrPayload } : {}),
+        ...(data.opening_balance && data.opening_balance > 0
+          ? { opening_balance: data.opening_balance }
+          : {}),
+        ...(vatTrim ? { vat_number: vatTrim } : {}),
       };
 
       await onSubmit(customerData);
@@ -375,6 +388,48 @@ function CustomerCreateForm({
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="opening_balance"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Opening Balance (BDT)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={field.value ?? 0}
+                      onChange={(e) =>
+                        field.onChange(parseFloat(e.target.value) || 0)
+                      }
+                      data-testid="customer-opening-balance-input"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="vat_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>VAT Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. VAT-123456789"
+                      {...field}
+                      data-testid="customer-vat-number-input"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="border-t pt-4 space-y-3">
               <Button
                 type="submit"
@@ -404,26 +459,67 @@ function CustomerCreateForm({
 
 // --- Edit customer schema & form (existing detailed layout) ---
 
-const customerEditFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().optional(),
-  company: z.string().optional(),
-  credit_limit: z.number().min(0, "Credit limit must be positive").optional(),
-  payment_terms: z.string().optional(),
-  is_active: z.boolean().optional(),
-  address: z
-    .object({
-      street: z.string().optional(),
-      city: z.string().optional(),
-      state: z.string().optional(),
-      postal_code: z.string().optional(),
-      country: z.string().optional(),
-      shipping_line: z.string().optional(),
-      billing_line: z.string().optional(),
-    })
-    .optional(),
-});
+const customerEditFormSchema = z
+  .object({
+    customer_type: z.enum(["individual", "business"]),
+    full_name: z.string().optional(),
+    contact_person: z.string().optional(),
+    company_name: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    shipping_line: z.string().optional(),
+    billing_line: z.string().optional(),
+    credit_limit: z.number().min(0, "Credit limit must be positive").optional(),
+    payment_terms: z.string().optional(),
+    is_active: z.boolean().optional(),
+    opening_balance: z
+      .number()
+      .min(0, "Opening balance must be greater than or equal to 0")
+      .optional(),
+    vat_number: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.customer_type === "individual") {
+      if (!data.full_name?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Full name is required",
+          path: ["full_name"],
+        });
+      }
+    } else {
+      if (!data.contact_person?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Contact person is required",
+          path: ["contact_person"],
+        });
+      }
+      if (!data.company_name?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Company name is required",
+          path: ["company_name"],
+        });
+      }
+    }
+    const phoneTrim = data.phone?.trim() ?? "";
+    const emailTrim = data.email?.trim() ?? "";
+    if (!phoneTrim && !emailTrim) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide email or phone",
+        path: ["email"],
+      });
+    }
+    if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid email address",
+        path: ["email"],
+      });
+    }
+  });
 
 type CustomerEditFormData = z.infer<typeof customerEditFormSchema>;
 
@@ -443,43 +539,42 @@ function CustomerEditForm({
   const form = useForm<CustomerEditFormData>({
     resolver: zodResolver(customerEditFormSchema),
     defaultValues: {
-      name: "",
-      email: "",
+      customer_type: "individual",
+      full_name: "",
+      contact_person: "",
+      company_name: "",
       phone: "",
-      company: "",
+      email: "",
+      shipping_line: "",
+      billing_line: "",
       credit_limit: 0,
       payment_terms: DEFAULT_PAYMENT_TERMS,
       is_active: true,
-      address: {
-        street: "",
-        city: "",
-        state: "",
-        postal_code: "",
-        country: "Bangladesh",
-        shipping_line: "",
-        billing_line: "",
-      },
+      opening_balance: 0,
+      vat_number: "",
     },
   });
 
+  const customerType = form.watch("customer_type");
+
   useEffect(() => {
+    const inferredType: "individual" | "business" = customer.company
+      ? "business"
+      : "individual";
     form.reset({
-      name: customer.name,
-      email: customer.email ?? "",
+      customer_type: inferredType,
+      full_name: inferredType === "individual" ? customer.name : "",
+      contact_person: inferredType === "business" ? customer.name : "",
+      company_name: customer.company || "",
       phone: customer.phone || "",
-      company: customer.company || "",
-      credit_limit: customer.credit_limit || 0,
+      email: customer.email ?? "",
+      shipping_line: customer.address?.shipping_line || "",
+      billing_line: customer.address?.billing_line || "",
+      credit_limit: Number(customer.credit_limit) || 0,
       payment_terms: customer.payment_terms || DEFAULT_PAYMENT_TERMS,
       is_active: customer.is_active !== false,
-      address: {
-        street: customer.address?.street || "",
-        city: customer.address?.city || "",
-        state: customer.address?.state || "",
-        postal_code: customer.address?.postal_code || "",
-        country: customer.address?.country || "Bangladesh",
-        shipping_line: customer.address?.shipping_line || "",
-        billing_line: customer.address?.billing_line || "",
-      },
+      opening_balance: Number(customer.opening_balance) || 0,
+      vat_number: customer.vat_number || "",
     });
   }, [customer, form]);
 
@@ -487,25 +582,40 @@ function CustomerEditForm({
     try {
       setIsSubmitting(true);
 
+      const name =
+        data.customer_type === "individual"
+          ? data.full_name!.trim()
+          : data.contact_person!.trim();
+      const company =
+        data.customer_type === "business"
+          ? data.company_name!.trim()
+          : undefined;
+      const emailTrim = data.email?.trim() ?? "";
+      const phoneTrim = data.phone?.trim() ?? "";
+      const shippingTrim = data.shipping_line?.trim() ?? "";
+      const billingTrim = data.billing_line?.trim() ?? "";
+      const vatTrim = data.vat_number?.trim() ?? "";
+
+      const addressPayload =
+        shippingTrim || billingTrim
+          ? {
+              ...(shippingTrim ? { shipping_line: shippingTrim } : {}),
+              ...(billingTrim ? { billing_line: billingTrim } : {}),
+            }
+          : undefined;
+
       const customerData: UpdateCustomerRequest = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || undefined,
-        company: data.company || undefined,
+        name,
+        company: company ?? undefined,
+        email: emailTrim || undefined,
+        phone: phoneTrim || undefined,
         credit_limit: data.credit_limit || undefined,
         payment_terms: data.payment_terms || DEFAULT_PAYMENT_TERMS,
         is_active: data.is_active !== undefined ? data.is_active : true,
-        address:
-          data.address &&
-          (data.address.street ||
-            data.address.city ||
-            data.address.state ||
-            data.address.postal_code ||
-            data.address.country ||
-            data.address.shipping_line ||
-            data.address.billing_line)
-            ? data.address
-            : undefined,
+        opening_balance:
+          data.opening_balance !== undefined ? data.opening_balance : undefined,
+        vat_number: vatTrim || undefined,
+        address: addressPayload,
       };
 
       await onSubmit(customerData);
@@ -544,21 +654,43 @@ function CustomerEditForm({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4" data-testid="basic-info-content">
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                  data-testid="name-email-row"
-                >
+                <FormField
+                  control={form.control}
+                  name="customer_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="customer-type-select">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="individual">Individual</SelectItem>
+                          <SelectItem value="business">Business</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {customerType === "individual" ? (
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="full_name"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel data-testid="customer-name-label">
-                          Name *
+                          Full Name
                         </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Enter customer name"
+                            placeholder="e.g. Sarah Jenkins"
                             {...field}
                             data-testid="customer-name-input"
                           />
@@ -567,13 +699,57 @@ function CustomerEditForm({
                       </FormItem>
                     )}
                   />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="company_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g. Acme Corporation"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="contact_person"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel data-testid="customer-name-label">
+                            Contact Person
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g. John Smith"
+                              {...field}
+                              data-testid="customer-name-input"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  data-testid="email-phone-row"
+                >
                   <FormField
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel data-testid="customer-email-label">
-                          Email *
+                          Email
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -587,8 +763,6 @@ function CustomerEditForm({
                       </FormItem>
                     )}
                   />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="phone"
@@ -597,22 +771,6 @@ function CustomerEditForm({
                         <FormLabel>Phone</FormLabel>
                         <FormControl>
                           <Input placeholder="Enter phone number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter company name"
-                            {...field}
-                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -691,6 +849,48 @@ function CustomerEditForm({
                     )}
                   />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="opening_balance"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Opening Balance (BDT)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={field.value ?? 0}
+                            onChange={(e) =>
+                              field.onChange(parseFloat(e.target.value) || 0)
+                            }
+                            data-testid="customer-opening-balance-input"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="vat_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>VAT Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. VAT-123456789"
+                            {...field}
+                            data-testid="customer-vat-number-input"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <FormField
                   control={form.control}
                   name="is_active"
@@ -721,41 +921,13 @@ function CustomerEditForm({
               <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="address.shipping_line"
+                  name="shipping_line"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Shipping line (optional)</FormLabel>
+                      <FormLabel>Shipping Address (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Single-line shipping" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address.billing_line"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Billing line (optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Single-line billing" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address.street"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Street Address</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter street address"
-                          className="resize-none"
-                          rows={2}
+                        <Input
+                          placeholder="e.g. 123 Commerce St"
                           {...field}
                         />
                       </FormControl>
@@ -763,82 +935,22 @@ function CustomerEditForm({
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="address.city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter city" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="address.state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State/Division</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter state or division"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="address.postal_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Postal Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter postal code" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="address.country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Bangladesh">
-                              Bangladesh
-                            </SelectItem>
-                            <SelectItem value="India">India</SelectItem>
-                            <SelectItem value="Pakistan">Pakistan</SelectItem>
-                            <SelectItem value="Nepal">Nepal</SelectItem>
-                            <SelectItem value="Sri Lanka">Sri Lanka</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="billing_line"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Billing Address (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Same as shipping..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
 

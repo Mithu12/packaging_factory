@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useFormatting } from "@/hooks/useFormatting";
+import { useToast } from "@/hooks/use-toast";
 import {
   CustomerOrdersApiService,
   FactoryCustomer,
@@ -58,6 +59,7 @@ import CustomerForm from "../components/CustomerForm";
 
 export default function CustomerManagement() {
   const { formatCurrency, formatDate } = useFormatting();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,18 +138,26 @@ export default function CustomerManagement() {
   const handleFormSubmit = async (data: CreateCustomerRequest | UpdateCustomerRequest) => {
     try {
       if (selectedCustomer) {
-        // Update existing customer
         await CustomerOrdersApiService.updateCustomer(selectedCustomer.id.toString(), data as UpdateCustomerRequest);
       } else {
-        // Create new customer
         await CustomerOrdersApiService.createCustomer(data as CreateCustomerRequest);
       }
 
-      await loadCustomers(); // Reload customers
+      await loadCustomers();
       setShowCustomerForm(false);
       setSelectedCustomer(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save customer');
+      const message =
+        err instanceof Error ? err.message : "Failed to save customer";
+      setError(message);
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+      // Rethrow so CustomerForm's catch keeps the dialog open and the user
+      // can correct the input.
+      throw err;
     }
   };
 

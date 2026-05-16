@@ -180,6 +180,8 @@ export interface FactoryCustomer {
     address?: Address;
     credit_limit?: number;
     payment_terms?: string;
+    opening_balance?: number;
+    vat_number?: string | null;
     is_active?: boolean;
     created_at: string;
     updated_at: string;
@@ -197,6 +199,8 @@ export interface CreateCustomerRequest {
     address?: Address;
     credit_limit?: number;
     payment_terms?: string;
+    opening_balance?: number;
+    vat_number?: string;
 }
 
 export interface UpdateCustomerRequest {
@@ -207,6 +211,8 @@ export interface UpdateCustomerRequest {
     address?: Address;
     credit_limit?: number;
     payment_terms?: string;
+    opening_balance?: number;
+    vat_number?: string;
     is_active?: boolean;
 }
 

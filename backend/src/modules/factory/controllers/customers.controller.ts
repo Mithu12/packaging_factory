@@ -38,6 +38,8 @@ class CustomersController {
             address,
             credit_limit,
             payment_terms,
+            opening_balance,
+            vat_number,
             is_active,
             created_at,
             updated_at,
@@ -98,6 +100,8 @@ class CustomersController {
             address,
             credit_limit,
             payment_terms,
+            opening_balance,
+            vat_number,
             is_active,
             created_at,
             updated_at,
@@ -137,7 +141,7 @@ class CustomersController {
       MyLogger.info(action, { customerId: id });
 
       const query = `
-        SELECT 
+        SELECT
           id,
           name,
           email,
@@ -146,6 +150,8 @@ class CustomersController {
           address,
           credit_limit,
           payment_terms,
+          opening_balance,
+          vat_number,
           is_active,
           created_at,
           updated_at,
@@ -153,7 +159,7 @@ class CustomersController {
           total_paid_amount,
           total_outstanding_amount,
           order_count
-        FROM factory_customers 
+        FROM factory_customers
         WHERE id = $1
       `;
 
@@ -203,6 +209,8 @@ class CustomersController {
           address,
           credit_limit,
           payment_terms,
+          opening_balance,
+          vat_number,
         } = req.body;
 
         const normalizedEmail =
@@ -211,9 +219,9 @@ class CustomersController {
             : null;
 
         const query = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const result = await pool.query(query, [
@@ -224,6 +232,8 @@ class CustomersController {
           address || {},
           credit_limit || null,
           payment_terms || "net_30",
+          opening_balance ?? 0,
+          vat_number || null,
         ]);
 
         MyLogger.success(action, { customerId: result.rows[0].id, name, shared: false });
@@ -276,6 +286,8 @@ class CustomersController {
           credit_limit,
           payment_terms,
           is_active,
+          opening_balance,
+          vat_number,
         } = req.body;
 
         const normalizedEmail =
@@ -284,11 +296,13 @@ class CustomersController {
             : null;
 
         const query = `
-          UPDATE factory_customers 
-          SET name = $1, email = $2, phone = $3, company = $4, address = $5, 
-              credit_limit = $6, payment_terms = $7, is_active = $8, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $9
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          UPDATE factory_customers
+          SET name = $1, email = $2, phone = $3, company = $4, address = $5,
+              credit_limit = $6, payment_terms = $7, is_active = $8,
+              opening_balance = $9, vat_number = $10,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $11
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const result = await pool.query(query, [
@@ -300,6 +314,8 @@ class CustomersController {
           credit_limit || null,
           payment_terms || "net_30",
           is_active !== undefined ? is_active : true,
+          opening_balance ?? 0,
+          vat_number || null,
           id,
         ]);
 

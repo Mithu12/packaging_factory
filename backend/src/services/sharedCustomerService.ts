@@ -15,6 +15,8 @@ export interface SharedCustomer {
   credit_limit: number;
   current_balance?: number;
   payment_terms?: string;
+  opening_balance?: number;
+  vat_number?: string | null;
   is_active?: boolean;
   sales_rep_id?: number | null;
   // Factory-specific financial summary
@@ -37,6 +39,8 @@ export interface CreateSharedCustomerRequest {
   postal_code?: string;
   credit_limit?: number;
   payment_terms?: string;
+  opening_balance?: number;
+  vat_number?: string;
   sales_rep_id?: number;
 }
 
@@ -51,6 +55,8 @@ export interface UpdateSharedCustomerRequest {
   postal_code?: string;
   credit_limit?: number;
   payment_terms?: string;
+  opening_balance?: number;
+  vat_number?: string;
   sales_rep_id?: number;
   is_active?: boolean;
 }
@@ -96,7 +102,7 @@ class SharedCustomerService {
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Both modules available - get customers from both tables
         const query = `
-           SELECT 
+           SELECT
              fc.id,
              fc.name,
              fc.email,
@@ -105,6 +111,8 @@ class SharedCustomerService {
              fc.address::text as address,
              fc.credit_limit,
              fc.payment_terms,
+             fc.opening_balance,
+             fc.vat_number,
              fc.is_active,
              fc.total_order_value,
              fc.total_paid_amount,
@@ -120,10 +128,10 @@ class SharedCustomerService {
            FROM factory_customers fc
            LEFT JOIN sales_rep_customers src ON fc.email = src.email AND fc.name = src.name
            WHERE fc.is_active = true
-           
+
            UNION ALL
-           
-           SELECT 
+
+           SELECT
              src.id,
              src.name,
              src.email,
@@ -132,6 +140,8 @@ class SharedCustomerService {
              src.address,
              src.credit_limit,
              COALESCE(src.payment_terms, 'net_30') as payment_terms,
+             0::DECIMAL(15,2) as opening_balance,
+             NULL::VARCHAR as vat_number,
              COALESCE(src.is_active, true) as is_active,
              COALESCE(src.total_order_value, 0) as total_order_value,
              COALESCE(src.total_paid_amount, 0) as total_paid_amount,
@@ -160,7 +170,7 @@ class SharedCustomerService {
       } else if (this.isFactoryAvailable()) {
         // Only factory module available
         const query = `
-          SELECT 
+          SELECT
             id,
             name,
             email,
@@ -169,6 +179,8 @@ class SharedCustomerService {
             address,
             credit_limit,
             payment_terms,
+            opening_balance,
+            vat_number,
             is_active,
             total_order_value,
             total_paid_amount,
@@ -176,7 +188,7 @@ class SharedCustomerService {
             order_count,
             created_at,
             updated_at
-          FROM factory_customers 
+          FROM factory_customers
           WHERE is_active = true
           ORDER BY id DESC
         `;
@@ -225,7 +237,7 @@ class SharedCustomerService {
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Check both tables - first try factory_customers
         const factoryQuery = `
-          SELECT 
+          SELECT
             fc.id,
             fc.name,
             fc.email,
@@ -234,6 +246,8 @@ class SharedCustomerService {
             fc.address,
             fc.credit_limit,
             fc.payment_terms,
+            fc.opening_balance,
+            fc.vat_number,
             fc.is_active,
             fc.total_order_value,
             fc.total_paid_amount,
@@ -289,11 +303,12 @@ class SharedCustomerService {
           : null;
       } else if (this.isFactoryAvailable()) {
         const query = `
-          SELECT 
-            id, name, email, phone, company, address, credit_limit, payment_terms, is_active,
+          SELECT
+            id, name, email, phone, company, address, credit_limit, payment_terms,
+            opening_balance, vat_number, is_active,
             total_order_value, total_paid_amount, total_outstanding_amount, order_count,
             created_at, updated_at
-          FROM factory_customers 
+          FROM factory_customers
           WHERE id = $1
         `;
 
@@ -341,9 +356,9 @@ class SharedCustomerService {
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Create in factory_customers (primary) and optionally in sales_rep_customers
         const factoryQuery = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const factoryResult = await client.query(factoryQuery, [
@@ -356,6 +371,8 @@ class SharedCustomerService {
             : data.address || {},
           data.credit_limit || 0,
           data.payment_terms || "net_30",
+          data.opening_balance ?? 0,
+          data.vat_number || null,
         ]);
 
         const customer = factoryResult.rows[0];
@@ -396,9 +413,9 @@ class SharedCustomerService {
         return this.mapToSharedCustomer(customer);
       } else if (this.isFactoryAvailable()) {
         const query = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const result = await client.query(query, [
@@ -411,6 +428,8 @@ class SharedCustomerService {
             : data.address || {},
           data.credit_limit || 0,
           data.payment_terms || "net_30",
+          data.opening_balance ?? 0,
+          data.vat_number || null,
         ]);
 
         await client.query("COMMIT");
@@ -474,7 +493,7 @@ class SharedCustomerService {
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Update factory_customers (primary)
         const factoryQuery = `
-          UPDATE factory_customers 
+          UPDATE factory_customers
           SET name = COALESCE($2, name),
               email = COALESCE($3, email),
               phone = COALESCE($4, phone),
@@ -483,9 +502,11 @@ class SharedCustomerService {
               credit_limit = COALESCE($7, credit_limit),
               payment_terms = COALESCE($8, payment_terms),
               is_active = COALESCE($9, is_active),
+              opening_balance = COALESCE($10, opening_balance),
+              vat_number = COALESCE($11, vat_number),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const factoryResult = await client.query(factoryQuery, [
@@ -500,6 +521,8 @@ class SharedCustomerService {
           data.credit_limit,
           data.payment_terms,
           data.is_active,
+          data.opening_balance,
+          data.vat_number,
         ]);
 
         if (factoryResult.rows.length === 0) {
@@ -546,7 +569,7 @@ class SharedCustomerService {
         return this.mapToSharedCustomer(factoryResult.rows[0]);
       } else if (this.isFactoryAvailable()) {
         const query = `
-          UPDATE factory_customers 
+          UPDATE factory_customers
           SET name = COALESCE($2, name),
               email = COALESCE($3, email),
               phone = COALESCE($4, phone),
@@ -555,9 +578,11 @@ class SharedCustomerService {
               credit_limit = COALESCE($7, credit_limit),
               payment_terms = COALESCE($8, payment_terms),
               is_active = COALESCE($9, is_active),
+              opening_balance = COALESCE($10, opening_balance),
+              vat_number = COALESCE($11, vat_number),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, is_active, created_at, updated_at
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
         `;
 
         const result = await client.query(query, [
@@ -574,6 +599,8 @@ class SharedCustomerService {
           data.credit_limit,
           data.payment_terms,
           data.is_active,
+          data.opening_balance,
+          data.vat_number,
         ]);
 
         await client.query("COMMIT");
@@ -715,7 +742,7 @@ class SharedCustomerService {
 
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         const query = `
-           SELECT 
+           SELECT
              fc.id,
              fc.name,
              fc.email,
@@ -724,6 +751,8 @@ class SharedCustomerService {
              fc.address::text as address,
              fc.credit_limit,
              fc.payment_terms,
+             fc.opening_balance,
+             fc.vat_number,
              fc.is_active,
              fc.total_order_value,
              fc.total_paid_amount,
@@ -738,12 +767,12 @@ class SharedCustomerService {
              src.sales_rep_id
            FROM factory_customers fc
            LEFT JOIN sales_rep_customers src ON fc.email = src.email AND fc.name = src.name
-           WHERE fc.is_active = true 
+           WHERE fc.is_active = true
              AND (fc.name ILIKE $1 OR fc.email ILIKE $1 OR fc.phone ILIKE $1 OR fc.company ILIKE $1)
-           
+
            UNION ALL
-           
-           SELECT 
+
+           SELECT
              src.id,
              src.name,
              src.email,
@@ -752,6 +781,8 @@ class SharedCustomerService {
              src.address,
              src.credit_limit,
              COALESCE(src.payment_terms, 'net_30') as payment_terms,
+             0::DECIMAL(15,2) as opening_balance,
+             NULL::VARCHAR as vat_number,
              COALESCE(src.is_active, true) as is_active,
              COALESCE(src.total_order_value, 0) as total_order_value,
              COALESCE(src.total_paid_amount, 0) as total_paid_amount,
@@ -775,12 +806,13 @@ class SharedCustomerService {
         return result.rows.map(this.mapToSharedCustomer);
       } else if (this.isFactoryAvailable()) {
         const query = `
-          SELECT 
-            id, name, email, phone, company, address, credit_limit, payment_terms, is_active,
+          SELECT
+            id, name, email, phone, company, address, credit_limit, payment_terms,
+            opening_balance, vat_number, is_active,
             total_order_value, total_paid_amount, total_outstanding_amount, order_count,
             created_at, updated_at
-          FROM factory_customers 
-          WHERE is_active = true 
+          FROM factory_customers
+          WHERE is_active = true
             AND (name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1 OR company ILIKE $1)
           ORDER BY name
         `;
@@ -833,6 +865,11 @@ class SharedCustomerService {
       credit_limit: row.credit_limit || 0,
       current_balance: row.current_balance,
       payment_terms: row.payment_terms,
+      opening_balance:
+        row.opening_balance !== undefined && row.opening_balance !== null
+          ? Number(row.opening_balance)
+          : undefined,
+      vat_number: row.vat_number ?? undefined,
       is_active: row.is_active,
       sales_rep_id: row.sales_rep_id,
       total_order_value: row.total_order_value,
