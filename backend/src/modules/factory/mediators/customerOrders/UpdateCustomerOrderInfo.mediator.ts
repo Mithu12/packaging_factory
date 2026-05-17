@@ -181,6 +181,20 @@ export class UpdateCustomerOrderInfoMediator {
                 paramIndex++;
             }
 
+            if (updateData.po_number !== undefined) {
+                updateFields.push(`po_number = $${paramIndex}`);
+                updateValues.push(
+                    updateData.po_number && updateData.po_number.trim() !== '' ? updateData.po_number.trim() : null
+                );
+                paramIndex++;
+            }
+
+            if (updateData.po_date !== undefined) {
+                updateFields.push(`po_date = $${paramIndex}`);
+                updateValues.push(updateData.po_date ? new Date(updateData.po_date) : null);
+                paramIndex++;
+            }
+
             // Always update the updated_by and updated_at fields
             updateFields.push(`updated_by = $${paramIndex}`, `updated_at = $${paramIndex + 1}`);
             updateValues.push(userId, new Date());

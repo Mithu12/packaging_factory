@@ -162,9 +162,9 @@ export class AddCustomerOrderMediator {
           total_value, currency,
           sales_person, notes, terms, payment_terms, shipping_address, billing_address,
           attachments, created_by, created_at, factory_id, paid_amount, outstanding_amount,
-          valid_until, subtotal, tax_rate, tax_amount, pr_no
+          valid_until, subtotal, tax_rate, tax_amount, pr_no, po_number, po_date
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
         ) RETURNING *
       `;
 
@@ -196,7 +196,9 @@ export class AddCustomerOrderMediator {
                 orderData.subtotal || totalValue,
                 orderData.tax_rate || 0,
                 orderData.tax_amount || 0,
-                orderData.pr_no && orderData.pr_no.trim() !== '' ? orderData.pr_no.trim() : null
+                orderData.pr_no && orderData.pr_no.trim() !== '' ? orderData.pr_no.trim() : null,
+                orderData.po_number && orderData.po_number.trim() !== '' ? orderData.po_number.trim() : null,
+                orderData.po_date ? new Date(orderData.po_date) : null
             ];
 
             const orderResult = await client.query(orderQuery, orderValues);
@@ -290,6 +292,8 @@ export class AddCustomerOrderMediator {
                 created_by: orderResult.rows[0].created_by,
                 created_at: orderResult.rows[0].created_at.toISOString(),
                 pr_no: orderResult.rows[0].pr_no ?? undefined,
+                po_number: orderResult.rows[0].po_number ?? undefined,
+                po_date: orderResult.rows[0].po_date ?? undefined,
             };
 
             MyLogger.success(action, {

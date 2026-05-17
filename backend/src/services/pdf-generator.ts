@@ -1338,8 +1338,10 @@ export class PDFGenerator {
       const descLines = item.description
         ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
         : '';
+      const isLast = index === renderRows.length - 1;
+      const rowClass = `item-row${isLast ? ' last-item-row' : ''}`;
       return `
-        <tr class="item-row">
+        <tr class="${rowClass}">
           <td class="col-sn">${index + 1}</td>
           <td class="col-particulars">
             <div class="item-heading">Master Carton For:</div>
@@ -1356,7 +1358,8 @@ export class PDFGenerator {
     // Totals — VAT applied on the rendered (per-delivery or whole-order) subtotal.
     const subTotal = renderRows.reduce((sum, r) => sum + r.line_total, 0);
     const subTotalQty = renderRows.reduce((sum, r) => sum + r.quantity, 0);
-    const vatPct = order.tax_rate != null && order.tax_rate > 0 ? Number(order.tax_rate) : 15;
+    // VAT defaults to 0 — only auto-added when the order itself carries a tax rate.
+    const vatPct = order.tax_rate != null && order.tax_rate > 0 ? Number(order.tax_rate) : 0;
     const vatAmount = (subTotal * vatPct) / 100;
     const grandTotal = subTotal + vatAmount;
     const amountInWords = numberToWords(Math.round(grandTotal));
@@ -1365,21 +1368,31 @@ export class PDFGenerator {
     const invoiceNo = delivery?.invoice_number || delivery?.delivery_number || order.order_number || '';
     const invoiceDate = formatDate(delivery?.created_at || order.created_at);
     const challanNo = delivery?.delivery_number || '';
-    const vatNo = settings?.tax_id || '';
+    const vatNo = order.customer_vat_number || '';
     const deliveryDate = formatDate(delivery?.delivery_date);
-    const workOrderNo = order.latest_work_order_number || '';
-    const workOrderDate = formatDate(order.latest_work_order_date);
-    const prNo = order.pr_no || '';
+    const poNumber = order.po_number || '';
+    const poDate = formatDate(order.po_date);
 
-    // Customer block
-    const customerName = order.factory_customer_name || '';
-    const addrParts = [
+    // Customer block — company name comes from the customer's `company` field;
+    // billing address prefers the single-line shape, falling back to legacy structured fields,
+    // then to shipping data as a last resort.
+    const customerCompany = order.customer_company || '';
+    const billingStructured = [
       order.billing_address?.street,
       order.billing_address?.city,
       order.billing_address?.postal_code,
-    ].filter(Boolean);
-    const customerAddress = addrParts.join(', ') ||
-      [order.shipping_address?.street, order.shipping_address?.city, order.shipping_address?.postal_code].filter(Boolean).join(', ');
+    ].filter(Boolean).join(', ');
+    const shippingStructured = [
+      order.shipping_address?.street,
+      order.shipping_address?.city,
+      order.shipping_address?.postal_code,
+    ].filter(Boolean).join(', ');
+    const customerAddress =
+      order.billing_address?.billing_line ||
+      billingStructured ||
+      order.shipping_address?.shipping_line ||
+      shippingStructured ||
+      '';
 
     return `
 <!DOCTYPE html>
@@ -1397,7 +1410,8 @@ export class PDFGenerator {
             background: white;
             line-height: 1.35;
         }
-        .page { padding: 30mm 18mm 20mm 18mm; }
+        /* Top padding leaves space for the pre-printed company letterhead. */
+        .page { padding: 60mm 18mm 20mm 18mm; }
         .title {
             text-align: center;
             font-weight: bold;
@@ -1454,7 +1468,8 @@ export class PDFGenerator {
         .item-desc { margin-top: 4px; font-size: 10.5pt; }
 
         /* Reserved blank space below items so the rows-region looks tall like the mock */
-        .filler-row td { height: 180px; border-left: 1px solid #000; border-right: 1px solid #000; border-top: 0; border-bottom: 0; }
+        .filler-row td { height: 180px; border-top: 0 !important; border-bottom: 0; }
+        .last-item-row td { border-bottom: 0 !important; }
 
         .totals-row td {
             text-align: right;
@@ -1494,8 +1509,8 @@ export class PDFGenerator {
         <div class="header-row">
             <div class="box customer">
                 <div class="customer-heading">Customer</div>
-                <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(customerName)}</div>
-                <div class="kv-line" style="white-space: normal;"><span class="label">Address</span> :- ${escapeHtml(customerAddress)}</div>
+                <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(customerCompany)}</div>
+                <div class="kv-line" style="white-space: normal;"><span class="label">Company Billing Address</span> :- ${escapeHtml(customerAddress)}</div>
             </div>
             <div class="box invoice-details">
                 <div class="kv-line"><span class="k label">Invoice No</span> :- ${escapeHtml(String(invoiceNo))}</div>
@@ -1503,9 +1518,9 @@ export class PDFGenerator {
                 <div class="kv-line"><span class="k label">Challan No</span> :- ${escapeHtml(String(challanNo))}</div>
                 <div class="kv-line"><span class="k label">VAT No</span> :- ${escapeHtml(String(vatNo))}</div>
                 <div class="kv-line"><span class="k label">Delivery Date</span> :- ${escapeHtml(deliveryDate)}</div>
-                <div class="kv-line"><span class="k label">Work Order No</span> :- ${escapeHtml(String(workOrderNo))}</div>
-                <div class="kv-line"><span class="k label">Work Order Date</span> :- ${escapeHtml(workOrderDate)}</div>
-                <div class="kv-line"><span class="k label">PR No</span> :- ${escapeHtml(String(prNo))}</div>
+                <div class="kv-line"><span class="k label">WO No</span> :- ${escapeHtml(String(poNumber))}</div>
+                <div class="kv-line"><span class="k label">WO Date</span> :- ${escapeHtml(poDate)}</div>
+                <div class="kv-line"><span class="k label">PR No</span> :- ${escapeHtml(String(order.pr_no || ''))}</div>
             </div>
         </div>
 
@@ -1521,19 +1536,26 @@ export class PDFGenerator {
             </thead>
             <tbody>
                 ${itemsHtml}
-                <tr class="filler-row"><td colspan="5"></td></tr>
+                <tr class="filler-row">
+                    <td class="col-sn"></td>
+                    <td class="col-particulars"></td>
+                    <td class="col-qty"></td>
+                    <td class="col-price"></td>
+                    <td class="col-amount"></td>
+                </tr>
                 <tr class="totals-row">
                     <td colspan="2" class="label">Sub Total</td>
                     <td class="col-qty">${formatQty(subTotalQty)}</td>
                     <td></td>
                     <td class="col-amount">${formatCurrency(subTotal)}</td>
                 </tr>
+                ${vatPct > 0 ? `
                 <tr class="totals-row">
                     <td colspan="2" class="label">Add VAT ${vatPct}%</td>
                     <td></td>
                     <td></td>
                     <td class="col-amount">${formatCurrency(vatAmount)}</td>
-                </tr>
+                </tr>` : ''}
                 <tr class="totals-row">
                     <td colspan="2" class="label">Total Amount</td>
                     <td></td>
@@ -1748,7 +1770,8 @@ export class PDFGenerator {
       billingStructured ||
       '';
     const transportNo = delivery?.carrier || delivery?.tracking_number || '';
-    const customerPoNo = order.pr_no || '';
+    const customerPoNo = order.po_number || '';
+    const customerPoDate = formatDate(order.po_date);
     const workOrderDate = formatDate(order.latest_work_order_date);
     const vatNo = '';
 
@@ -1911,6 +1934,7 @@ export class PDFGenerator {
             </div>
             <div class="col">
                 <div class="kv-box"><div class="k">Customer PO No</div><div class="v">: ${escapeHtml(String(customerPoNo))}</div></div>
+                <div class="kv-box"><div class="k">Customer PO Date</div><div class="v">: ${escapeHtml(customerPoDate)}</div></div>
                 <div class="kv-box"><div class="k">Work Order Date</div><div class="v">: ${escapeHtml(workOrderDate)}</div></div>
                 <div class="kv-box"><div class="k">VAT NO</div><div class="v">: ${escapeHtml(String(vatNo))}</div></div>
             </div>

@@ -124,6 +124,8 @@ const createOrderFormSchema = (isAdmin: boolean) => z.object({
     valid_until: z.string().optional(),
     tax_rate: z.coerce.number().min(0).max(100).default(0),
     pr_no: z.string().max(50).optional(),
+    po_number: z.string().max(50).optional(),
+    po_date: z.string().optional(),
     notes: z.string().optional(),
     terms: z.string().optional(),
     line_items: z.array(z.object({
@@ -146,6 +148,8 @@ type OrderFormData = {
     valid_until?: string;
     tax_rate: number;
     pr_no?: string;
+    po_number?: string;
+    po_date?: string;
     notes?: string;
     terms?: string;
     line_items: Array<{
@@ -203,6 +207,8 @@ export default function OrderEntryForm({
             valid_until: order?.valid_until ? new Date(order.valid_until).toISOString().split('T')[0] : "",
             tax_rate: order?.tax_rate || 0,
             pr_no: order?.pr_no || "",
+            po_number: order?.po_number || "",
+            po_date: order?.po_date ? new Date(order.po_date).toISOString().split('T')[0] : "",
             notes: order?.notes || "",
             terms: order?.terms || "",
             line_items: [
@@ -320,6 +326,8 @@ export default function OrderEntryForm({
                     : "",
                 tax_rate: order.tax_rate ?? 0,
                 pr_no: order.pr_no || "",
+                po_number: order.po_number || "",
+                po_date: order.po_date ? new Date(order.po_date).toISOString().split('T')[0] : "",
                 notes: order.notes || "",
                 terms: order.terms || "",
                 line_items: order.line_items.map(item => ({
@@ -343,6 +351,8 @@ export default function OrderEntryForm({
                 currency: "BDT",
                 sales_person: defaultSalesPerson,
                 pr_no: "",
+                po_number: "",
+                po_date: "",
                 notes: "",
                 terms: defaultTerms,
                 line_items: [
@@ -444,6 +454,8 @@ export default function OrderEntryForm({
                 subtotal: calculateOrderTotal(),
                 tax_amount: (calculateOrderTotal() * data.tax_rate) / 100,
                 pr_no: data.pr_no?.trim() ? data.pr_no.trim() : undefined,
+                po_number: data.po_number?.trim() ? data.po_number.trim() : undefined,
+                po_date: data.po_date?.trim() ? data.po_date.trim() : undefined,
                 terms: data.terms,
             };
             console.log('Order data:', orderData);
@@ -826,6 +838,43 @@ export default function OrderEntryForm({
                                                     <Input
                                                         placeholder="Customer PR / Reference number"
                                                         maxLength={50}
+                                                        {...field}
+                                                        value={field.value ?? ""}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="po_number"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>PO Number</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="Customer PO number"
+                                                        maxLength={50}
+                                                        {...field}
+                                                        value={field.value ?? ""}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="po_date"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>PO Date</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
                                                         {...field}
                                                         value={field.value ?? ""}
                                                     />

@@ -189,12 +189,18 @@ export interface FactoryCustomerOrder {
     quoted_snapshot?: QuotedOrderSnapshot | null;
     /** Customer Purchase Request / Reference number printed on invoice. */
     pr_no?: string;
+    /** Customer's purchase order number (used on challan + bill). */
+    po_number?: string;
+    /** Customer's purchase order date (ISO date string). */
+    po_date?: string;
     /** Latest linked work order number (read-only, joined for invoice rendering). */
     latest_work_order_number?: string;
     /** Creation timestamp of the latest linked work order (read-only). */
     latest_work_order_date?: string;
     /** Customer's company name (joined from factory_customers; blank for individuals). */
     customer_company?: string;
+    /** Customer's VAT number (joined from factory_customers). */
+    customer_vat_number?: string;
 }
 
 export interface OrderLineItem {
@@ -333,6 +339,8 @@ export interface CreateCustomerOrderRequest {
     tax_amount?: number;
     sales_person: string;
     pr_no?: string;
+    po_number?: string;
+    po_date?: string;
 }
 
 export interface CreateOrderLineItemRequest {
@@ -362,6 +370,8 @@ export interface UpdateCustomerOrderRequest {
     tax_amount?: number;
     sales_person?: string;
     pr_no?: string;
+    po_number?: string;
+    po_date?: string;
     /** When true with line_items on a quoted order, persist current lines to quoted_snapshot before replace. */
     capture_quoted_snapshot?: boolean;
 }

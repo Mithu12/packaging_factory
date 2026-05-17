@@ -293,6 +293,7 @@ export class GetCustomerOrderInfoMediator {
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
                     fc.company as customer_company,
+                    fc.vat_number as customer_vat_number,
                     COALESCE(li_rows.line_items, '[]'::json) as line_items,
                     wo_latest.work_order_number as latest_work_order_number,
                     wo_latest.created_at as latest_work_order_date
@@ -392,9 +393,12 @@ export class GetCustomerOrderInfoMediator {
                 factory_cost_center_name: row.factory_cost_center_name,
                 quoted_snapshot: row.quoted_snapshot ?? null,
                 pr_no: row.pr_no ?? undefined,
+                po_number: row.po_number ?? undefined,
+                po_date: row.po_date ?? undefined,
                 latest_work_order_number: row.latest_work_order_number ?? undefined,
                 latest_work_order_date: row.latest_work_order_date ?? undefined,
                 customer_company: row.customer_company ?? undefined,
+                customer_vat_number: row.customer_vat_number ?? undefined,
             };
 
             MyLogger.success(action, { orderId, found: true });

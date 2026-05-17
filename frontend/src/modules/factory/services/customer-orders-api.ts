@@ -79,6 +79,10 @@ export interface FactoryCustomerOrder {
     quoted_snapshot?: QuotedOrderSnapshot | null;
     /** Customer Purchase Request / Reference number printed on invoice. */
     pr_no?: string;
+    /** Customer's purchase order number (shown on challan + bill). */
+    po_number?: string;
+    /** Customer's purchase order date (ISO date string). */
+    po_date?: string;
     /** Latest linked work order number (read-only, populated by backend join). */
     latest_work_order_number?: string;
     /** Creation timestamp of the latest linked work order (read-only). */
@@ -251,6 +255,8 @@ export interface CreateCustomerOrderRequest {
     tax_rate?: number;
     tax_amount?: number;
     pr_no?: string;
+    po_number?: string;
+    po_date?: string;
     billing_address?: Address;
     shipping_address?: Address;
     line_items: CreateOrderLineItemRequest[];
@@ -279,6 +285,8 @@ export interface UpdateCustomerOrderRequest {
     notes?: string;
     terms?: string;
     pr_no?: string;
+    po_number?: string;
+    po_date?: string;
     billing_address?: Address;
     shipping_address?: Address;
     line_items?: UpdateOrderLineItemRequest[];
