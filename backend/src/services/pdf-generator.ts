@@ -1699,15 +1699,17 @@ export class PDFGenerator {
       const descLines = item.description
         ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
         : '';
+      const isLast = index === challanRows.length - 1;
+      const rowClass = `item-row${isLast ? ' last-item-row' : ''}`;
       return `
-        <tr class="item-row">
+        <tr class="${rowClass}">
           <td class="col-sn">${String(index + 1).padStart(2, '0')}</td>
           <td class="col-particulars">
             <div class="item-heading">Master Carton For:</div>
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
             ${descLines}
           </td>
-          <td class="col-code">${escapeHtml(item.product_sku || '')}</td>
+          <td class="col-code"></td>
           <td class="col-qty">${formatQty(item.quantity)} Pcs.</td>
           <td class="col-bundle"></td>
         </tr>
@@ -1728,18 +1730,27 @@ export class PDFGenerator {
     // Detail fields
     const challanNo = delivery?.delivery_number || order.order_number || '';
     const deliveryDate = formatDate(delivery?.delivery_date);
-    const customerName = order.factory_customer_name || '';
-    const addrParts = [
+    const customerCompany = order.customer_company || '';
+    const shippingStructured = [
       order.shipping_address?.street,
       order.shipping_address?.city,
       order.shipping_address?.postal_code,
-    ].filter(Boolean);
-    const customerAddress = addrParts.join(', ') ||
-      [order.billing_address?.street, order.billing_address?.city, order.billing_address?.postal_code].filter(Boolean).join(', ');
+    ].filter(Boolean).join(', ');
+    const billingStructured = [
+      order.billing_address?.street,
+      order.billing_address?.city,
+      order.billing_address?.postal_code,
+    ].filter(Boolean).join(', ');
+    const customerAddress =
+      order.shipping_address?.shipping_line ||
+      shippingStructured ||
+      order.billing_address?.billing_line ||
+      billingStructured ||
+      '';
     const transportNo = delivery?.carrier || delivery?.tracking_number || '';
-    const workOrderNo = order.latest_work_order_number || '';
+    const customerPoNo = order.pr_no || '';
     const workOrderDate = formatDate(order.latest_work_order_date);
-    const vatNo = settings?.tax_id || '';
+    const vatNo = '';
 
     return `
 <!DOCTYPE html>
@@ -1844,7 +1855,8 @@ export class PDFGenerator {
         .item-name { margin-top: 4px; }
         .item-desc { margin-top: 4px; font-size: 10.5pt; white-space: pre-line; }
 
-        .filler-row td { height: 240px; border-left: 1px solid #000; border-right: 1px solid #000; border-top: 0; border-bottom: 0; }
+        .filler-row td { height: 240px; border-top: 0 !important; border-bottom: 0; }
+        .last-item-row td { border-bottom: 0 !important; }
 
         .totals-row td {
             font-weight: bold;
@@ -1893,12 +1905,12 @@ export class PDFGenerator {
             <div class="col">
                 <div class="kv-box"><div class="k">Challan No</div><div class="v">: ${escapeHtml(String(challanNo))}</div></div>
                 <div class="kv-box"><div class="k">Delivery Date</div><div class="v">: ${escapeHtml(deliveryDate)}</div></div>
-                <div class="kv-box"><div class="k">Company Name</div><div class="v">: ${escapeHtml(customerName)}</div></div>
-                <div class="kv-box"><div class="k">Address</div><div class="v">: ${escapeHtml(customerAddress)}</div></div>
+                <div class="kv-box"><div class="k">Company Name</div><div class="v">: ${escapeHtml(customerCompany)}</div></div>
+                <div class="kv-box"><div class="k">Delivery Address</div><div class="v">: ${escapeHtml(customerAddress)}</div></div>
                 <div class="kv-box"><div class="k">Transport No</div><div class="v">: ${escapeHtml(transportNo)}</div></div>
             </div>
             <div class="col">
-                <div class="kv-box"><div class="k">Work Order No</div><div class="v">: ${escapeHtml(String(workOrderNo))}</div></div>
+                <div class="kv-box"><div class="k">Customer PO No</div><div class="v">: ${escapeHtml(String(customerPoNo))}</div></div>
                 <div class="kv-box"><div class="k">Work Order Date</div><div class="v">: ${escapeHtml(workOrderDate)}</div></div>
                 <div class="kv-box"><div class="k">VAT NO</div><div class="v">: ${escapeHtml(String(vatNo))}</div></div>
             </div>
@@ -1916,7 +1928,13 @@ export class PDFGenerator {
             </thead>
             <tbody>
                 ${itemsHtml}
-                <tr class="filler-row"><td colspan="5"></td></tr>
+                <tr class="filler-row">
+                    <td class="col-sn"></td>
+                    <td class="col-particulars"></td>
+                    <td class="col-code"></td>
+                    <td class="col-qty"></td>
+                    <td class="col-bundle"></td>
+                </tr>
                 <tr class="totals-row">
                     <td colspan="3" class="label">Total:-</td>
                     <td class="col-qty">${formatQty(totalQty)} Pcs.</td>

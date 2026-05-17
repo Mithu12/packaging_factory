@@ -292,12 +292,14 @@ export class GetCustomerOrderInfoMediator {
                     f.name as factory_name,
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
+                    fc.company as customer_company,
                     COALESCE(li_rows.line_items, '[]'::json) as line_items,
                     wo_latest.work_order_number as latest_work_order_number,
                     wo_latest.created_at as latest_work_order_date
                 FROM factory_customer_orders co
                          JOIN factories f ON co.factory_id = f.id
                          LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                         LEFT JOIN factory_customers fc ON co.factory_customer_id = fc.id
                          LEFT JOIN LATERAL (
                              SELECT json_agg(
                                     json_build_object(
@@ -392,6 +394,7 @@ export class GetCustomerOrderInfoMediator {
                 pr_no: row.pr_no ?? undefined,
                 latest_work_order_number: row.latest_work_order_number ?? undefined,
                 latest_work_order_date: row.latest_work_order_date ?? undefined,
+                customer_company: row.customer_company ?? undefined,
             };
 
             MyLogger.success(action, { orderId, found: true });

@@ -412,6 +412,8 @@ export default function OrderEntryForm({
                     country: selectedCustomer?.address?.country || "",
                     street: selectedCustomer?.address?.street || "",
                     postal_code: selectedCustomer?.address?.postal_code || "",
+                    shipping_line: selectedCustomer?.address?.shipping_line || "",
+                    billing_line: selectedCustomer?.address?.billing_line || "",
                 },
                 billing_address: {
                     city: selectedCustomer?.address?.city || "",
@@ -419,6 +421,8 @@ export default function OrderEntryForm({
                     country: selectedCustomer?.address?.country || "",
                     street: selectedCustomer?.address?.street || "",
                     postal_code: selectedCustomer?.address?.postal_code || "",
+                    shipping_line: selectedCustomer?.address?.shipping_line || "",
+                    billing_line: selectedCustomer?.address?.billing_line || "",
                 },
                 line_items: data.line_items.map(item => {
                     const selectedProduct = products.find(p => idEq(p.id, item.product_id));

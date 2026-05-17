@@ -1,14 +1,17 @@
 import Joi from 'joi';
 
-// Address validation schema
+// Address validation schema — structured fields are legacy and now optional;
+// single-line shipping_line / billing_line are the current factory-customer shape.
 const addressSchema = Joi.object({
-    street: Joi.string().max(255).required(),
-    city: Joi.string().max(100).required(),
-    state: Joi.string().max(100).required(),
-    postal_code: Joi.string().max(20).required(),
-    country: Joi.string().max(100).required(),
+    street: Joi.string().max(255).optional().allow(''),
+    city: Joi.string().max(100).optional().allow(''),
+    state: Joi.string().max(100).optional().allow(''),
+    postal_code: Joi.string().max(20).optional().allow(''),
+    country: Joi.string().max(100).optional().allow(''),
     contact_name: Joi.string().max(255).optional().allow(''),
     contact_phone: Joi.string().max(20).optional().allow(''),
+    shipping_line: Joi.string().max(500).optional().allow(''),
+    billing_line: Joi.string().max(500).optional().allow(''),
 });
 
 // Order line item validation schema

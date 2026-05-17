@@ -193,6 +193,8 @@ export interface FactoryCustomerOrder {
     latest_work_order_number?: string;
     /** Creation timestamp of the latest linked work order (read-only). */
     latest_work_order_date?: string;
+    /** Customer's company name (joined from factory_customers; blank for individuals). */
+    customer_company?: string;
 }
 
 export interface OrderLineItem {
