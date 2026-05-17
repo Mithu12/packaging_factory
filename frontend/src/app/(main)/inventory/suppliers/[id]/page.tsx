@@ -270,6 +270,21 @@ export default function SupplierDetails() {
                     <span className="text-sm">{supplier.email}</span>
                   </div>
                 )}
+                {supplier.website && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Website</label>
+                    <p className="text-sm">
+                      <a
+                        href={supplier.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {supplier.website}
+                      </a>
+                    </p>
+                  </div>
+                )}
               </div>
 
               {supplier.address && (
@@ -305,16 +320,27 @@ export default function SupplierDetails() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {supplier.tax_id && (
+                {supplier.vat_id ? (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">VAT Number</label>
+                    <p className="text-sm">{supplier.vat_id}</p>
+                  </div>
+                ) : supplier.tax_id ? (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Tax ID</label>
                     <p className="text-sm">{supplier.tax_id}</p>
                   </div>
-                )}
+                ) : null}
                 {supplier.payment_terms && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
                     <p className="text-sm">{supplier.payment_terms.replace('-', ' ').toUpperCase()}</p>
+                  </div>
+                )}
+                {supplier.opening_balance != null && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Opening Balance</label>
+                    <p className="text-sm">{formatCurrency(Number(supplier.opening_balance) || 0)}</p>
                   </div>
                 )}
               </div>

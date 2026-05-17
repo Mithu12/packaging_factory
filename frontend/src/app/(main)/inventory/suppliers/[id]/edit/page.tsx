@@ -32,10 +32,10 @@ import { ApiService, Supplier, ApiError } from "@/services/api"
 const supplierSchema = z.object({
   name: z.string().min(2, "Company name must be at least 2 characters").optional(),
   contact_person: z.string().min(2, "Contact person name must be at least 2 characters").optional(),
-  phone: z.string().min(10, "Valid phone number is required").optional(),
+  phone: z.string().max(50, "Phone number cannot exceed 50 characters").optional(),
   email: z.string().email("Valid email is required").optional().or(z.literal("")),
-  whatsapp_number: z.string().optional().or(z.literal("")),
-  address: z.string().min(10, "Complete address is required").optional(),
+  whatsapp_number: z.string().max(50, "WhatsApp number cannot exceed 50 characters").optional().or(z.literal("")),
+  address: z.string().max(500, "Address cannot exceed 500 characters").optional(),
   category: z.string().optional(),
   status: z.string().optional(),
   vat_id: z.string().optional(),
@@ -45,7 +45,8 @@ const supplierSchema = z.object({
   bank_routing: z.string().optional(),
   swift_code: z.string().optional(),
   iban: z.string().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  opening_balance: z.coerce.number().min(0, "Opening balance cannot be negative").optional(),
 })
 
 type SupplierFormData = z.infer<typeof supplierSchema>
@@ -81,7 +82,8 @@ export default function EditSupplier() {
       bank_routing: "",
       swift_code: "",
       iban: "",
-      notes: ""
+      notes: "",
+      opening_balance: 0,
     }
   })
 
@@ -113,7 +115,8 @@ export default function EditSupplier() {
           bank_routing: supplierData.bank_routing || "",
           swift_code: supplierData.swift_code || "",
           iban: supplierData.iban || "",
-          notes: supplierData.notes || ""
+          notes: supplierData.notes || "",
+          opening_balance: Number(supplierData.opening_balance) || 0,
         })
       } catch (err) {
         if (err instanceof ApiError) {
@@ -153,10 +156,13 @@ export default function EditSupplier() {
       router.push(`/inventory/suppliers/${id}`)
     } catch (err) {
       if (err instanceof ApiError) {
+        const firstDetail = Array.isArray(err.details)
+          ? (err.details[0]?.message ?? err.details[0])
+          : undefined;
         toast({
-          title: err.message,
-          description: err.details?.[0] ||JSON.stringify(err.details),
-          variant: "destructive"
+          title: "Failed to update supplier",
+          description: typeof firstDetail === "string" ? firstDetail : err.message,
+          variant: "destructive",
         })
       } else {
         toast({
@@ -321,7 +327,7 @@ export default function EditSupplier() {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Contact Person Phone Number</FormLabel>
                           <FormControl>
                             <Input placeholder="Enter phone number" {...field} />
                           </FormControl>
@@ -329,13 +335,13 @@ export default function EditSupplier() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email Address</FormLabel>
+                          <FormLabel>Company Email</FormLabel>
                           <FormControl>
                             <Input type="email" placeholder="Enter email address" {...field} />
                           </FormControl>
@@ -491,6 +497,29 @@ export default function EditSupplier() {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="opening_balance"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Opening Balance (Pending Payment)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={field.value ?? 0}
+                            onChange={(e) =>
+                              field.onChange(parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <Separator />
 

@@ -20,6 +20,7 @@ export interface Supplier {
   email: string;
   phone: string;
   whatsapp_number?: string;
+  website?: string;
   category: string;
   address: string;
   city: string;
