@@ -6,66 +6,35 @@ export const createSupplierSchema = Joi.object({
     "string.min": "Company name must be at least 2 characters long",
     "string.max": "Company name cannot exceed 255 characters",
   }),
-  contact_person: Joi.string().min(2).max(255).optional().messages({
+  contact_person: Joi.string().min(2).max(255).required().messages({
+    "string.empty": "Contact person is required",
     "string.min": "Contact person name must be at least 2 characters long",
     "string.max": "Contact person name cannot exceed 255 characters",
   }),
-  // phone: Joi.string()
-  //   .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-  //   .optional()
-  //   .messages({
-  //     "string.pattern.base": "Please provide a valid phone number",
-  //   }),
-  phone: Joi.alternatives().try(
-  Joi.string()
-    .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-    .messages({
-      "string.pattern.base": "Please provide a valid phone number",
-    }),
-  Joi.number()
-).optional(),
+  phone: Joi.string().max(50).required().messages({
+    "string.empty": "Contact person phone number is required",
+    "string.max": "Phone number cannot exceed 50 characters",
+  }),
   email: Joi.string().email().optional().allow("").messages({
     "string.email": "Please provide a valid email address",
   }),
-  // whatsapp_number: Joi.string()
-  //   .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-  // .optional()
-  //   .allow("")
-  //   .messages({
-  //     "string.pattern.base": "Please provide a valid WhatsApp number",
-  //   }),
-  whatsapp_number: Joi.alternatives().try(
-  Joi.string(),
-  Joi.number()
-  ).optional().allow("").messages({
-    "string.base": "WhatsApp number must be a string",
-    "number.base": "WhatsApp number must be a number",
+  whatsapp_number: Joi.string().max(50).optional().allow("").messages({
+    "string.max": "WhatsApp number cannot exceed 50 characters",
   }),
   website: Joi.string().uri().optional().messages({
     "string.uri": "Please provide a valid website URL",
   }),
-  address: Joi.string().max(500).optional().messages({
+  address: Joi.string().max(500).required().messages({
+    "string.empty": "Supplier address is required",
     "string.max": "Address cannot exceed 500 characters",
-  }),
-  city: Joi.string().max(100).optional().messages({
-    "string.max": "City name cannot exceed 100 characters",
-  }),
-  state: Joi.string().max(100).optional().messages({
-    "string.max": "State name cannot exceed 100 characters",
-  }),
-  zip_code: Joi.string().max(20).optional().messages({
-    "string.max": "ZIP code cannot exceed 20 characters",
-  }),
-  country: Joi.string().max(100).optional().messages({
-    "string.max": "Country name cannot exceed 100 characters",
   }),
   category: Joi.string().max(100).optional().messages({
     "string.max": "Category cannot exceed 100 characters",
   }),
-  tax_id: Joi.string().max(100).optional().messages({
+  tax_id: Joi.string().max(100).optional().allow("").messages({
     "string.max": "Tax ID cannot exceed 100 characters",
   }),
-  vat_id: Joi.string().max(100).optional().messages({
+  vat_id: Joi.string().max(100).optional().allow("").messages({
     "string.max": "VAT ID cannot exceed 100 characters",
   }),
   payment_terms: Joi.string()
@@ -110,39 +79,20 @@ export const updateSupplierSchema = Joi.object({
     "string.min": "Contact person name must be at least 2 characters long",
     "string.max": "Contact person name cannot exceed 255 characters",
   }),
-  phone: Joi.string()
-    .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "Please provide a valid phone number",
-    }),
+  phone: Joi.string().max(50).optional().allow("").messages({
+    "string.max": "Phone number cannot exceed 50 characters",
+  }),
   email: Joi.string().email().optional().allow("").messages({
     "string.email": "Please provide a valid email address",
   }),
-  whatsapp_number: Joi.string()
-    .pattern(/^[\+]?[1-9][\d]{0,15}$/)
-    .optional()
-    .allow("")
-    .messages({
-      "string.pattern.base": "Please provide a valid WhatsApp number",
-    }),
+  whatsapp_number: Joi.string().max(50).optional().allow("").messages({
+    "string.max": "WhatsApp number cannot exceed 50 characters",
+  }),
   website: Joi.string().uri().optional().messages({
     "string.uri": "Please provide a valid website URL",
   }),
   address: Joi.string().max(500).optional().messages({
     "string.max": "Address cannot exceed 500 characters",
-  }),
-  city: Joi.string().max(100).optional().allow("").messages({
-    "string.max": "City name cannot exceed 100 characters",
-  }),
-  state: Joi.string().max(100).optional().allow("").messages({
-    "string.max": "State name cannot exceed 100 characters",
-  }),
-  zip_code: Joi.string().max(20).optional().allow("").messages({
-    "string.max": "ZIP code cannot exceed 20 characters",
-  }),
-  country: Joi.string().max(100).optional().allow("").messages({
-    "string.max": "Country name cannot exceed 100 characters",
   }),
   category: Joi.string().max(100).optional().messages({
     "string.max": "Category cannot exceed 100 characters",

@@ -29,6 +29,7 @@ export interface Supplier {
   postal_code: string;
   country: string;
   tax_id: string;
+  vat_id?: string;
   payment_terms: string;
   status: 'active' | 'inactive';
   created_at: string;
@@ -46,18 +47,13 @@ export interface Supplier {
 
 export interface CreateSupplierRequest {
   name: string;
-  contact_person?: string;
+  contact_person: string;
   email?: string;
-  phone?: string;
+  phone: string;
   whatsapp_number?: string;
   website?: string;
   category?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  country?: string;
-  tax_id?: string;
+  address: string;
   vat_id?: string;
   payment_terms?: string;
   bank_name?: string;
@@ -79,11 +75,6 @@ export interface UpdateSupplierRequest {
   website?: string;
   category?: string;
   address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  country?: string;
-  tax_id?: string;
   vat_id?: string;
   payment_terms?: string;
   bank_name?: string;

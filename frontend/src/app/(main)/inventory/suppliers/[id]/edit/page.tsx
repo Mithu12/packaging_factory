@@ -36,13 +36,9 @@ const supplierSchema = z.object({
   email: z.string().email("Valid email is required").optional().or(z.literal("")),
   whatsapp_number: z.string().optional().or(z.literal("")),
   address: z.string().min(10, "Complete address is required").optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zip_code: z.string().optional(),
-  country: z.string().optional(),
   category: z.string().optional(),
   status: z.string().optional(),
-  tax_id: z.string().optional(),
+  vat_id: z.string().optional(),
   payment_terms: z.string().optional(),
   bank_name: z.string().optional(),
   bank_account: z.string().optional(),
@@ -76,13 +72,9 @@ export default function EditSupplier() {
       email: "",
       whatsapp_number: "",
       address: "",
-      city: "",
-      state: "",
-      zip_code: "",
-      country: "",
       category: "",
       status: "active",
-      tax_id: "",
+      vat_id: "",
       payment_terms: "",
       bank_name: "",
       bank_account: "",
@@ -112,13 +104,9 @@ export default function EditSupplier() {
           email: supplierData.email || "",
           whatsapp_number: supplierData.whatsapp_number || "",
           address: supplierData.address || "",
-          city: supplierData.city || "",
-          state: supplierData.state || "",
-          zip_code: supplierData.zip_code || "",
-          country: supplierData.country || "",
           category: supplierData.category || "",
           status: (supplierData.status as 'active' | 'inactive') || "active",
-          tax_id: supplierData.tax_id || "",
+          vat_id: supplierData.vat_id || "",
           payment_terms: supplierData.payment_terms || "",
           bank_name: supplierData.bank_name || "",
           bank_account: supplierData.bank_account || "",
@@ -378,67 +366,9 @@ export default function EditSupplier() {
                     name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Address</FormLabel>
+                        <FormLabel>Supplier Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter street address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter city" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter state" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="zip_code"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ZIP Code</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter ZIP code" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter country" {...field} />
+                          <Input placeholder="Enter supplier address" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -524,12 +454,12 @@ export default function EditSupplier() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="tax_id"
+                      name="vat_id"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Tax ID</FormLabel>
+                          <FormLabel>VAT Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter tax ID" {...field} />
+                            <Input placeholder="Enter VAT number" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

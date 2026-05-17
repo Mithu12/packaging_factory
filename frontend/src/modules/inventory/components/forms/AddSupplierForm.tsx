@@ -36,7 +36,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
     whatsappNumber: "",
     address: "",
     category: "",
-    taxId: "",
+    vatId: "",
     paymentTerms: "",
     notes: "",
     openingBalance: "0"
@@ -91,7 +91,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         website: undefined, // Not in current form
         address: formData.address || undefined,
         category: formData.category || undefined,
-        tax_id: formData.taxId || undefined,
+        vat_id: formData.vatId || undefined,
         payment_terms: formData.paymentTerms || undefined,
         notes: formData.notes || undefined,
         opening_balance: parseFloat(formData.openingBalance) || 0,
@@ -113,7 +113,7 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
         whatsappNumber: "",
         address: "",
         category: "",
-        taxId: "",
+        vatId: "",
         paymentTerms: "",
         notes: "",
         openingBalance: "0"
@@ -349,11 +349,11 @@ export function AddSupplierForm({ open, onOpenChange, onSupplierAdded }: AddSupp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="taxId">VAT Number</Label>
+              <Label htmlFor="vatId">VAT Number</Label>
               <Input
-                  id="taxId"
-                  value={formData.taxId}
-                  onChange={(e) => handleInputChange("taxId", e.target.value)}
+                  id="vatId"
+                  value={formData.vatId}
+                  onChange={(e) => handleInputChange("vatId", e.target.value)}
                   placeholder="Enter VAT number"
               />
             </div>
