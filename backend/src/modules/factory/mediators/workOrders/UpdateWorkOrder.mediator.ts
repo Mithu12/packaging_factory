@@ -980,9 +980,91 @@ export class UpdateWorkOrderMediator {
       const productId = updatedWorkOrder.product_id;
       const quantity = parseFloat(updatedWorkOrder.quantity) || 0;
 
-      // When the WO becomes completed, credit the produced FG/RRM into stock.
-      // Uses good_quantity from completed production runs if any exist; falls back to planned quantity.
+      // Cascade WO completion to any open production runs BEFORE crediting stock.
+      // Completing from the WO list asserts "this WO is done at planned quantity",
+      // so we force run metrics to target. Running this first lets the credit step
+      // pick up the resulting good_quantity sum instead of falling back to planned
+      // (which under-credits when some runs were already partially logged).
+      // The symmetric run→WO cascade lives in UpdateProductionRunStatusMediator.completeProductionRun.
       if (newStatus === 'completed' && currentWorkOrder.status !== 'completed') {
+        const openRunsResult = await client.query(
+          `SELECT id, production_line_id, target_quantity, rejected_quantity
+           FROM production_runs
+           WHERE work_order_id = $1 AND status IN ('scheduled', 'in_progress', 'paused')`,
+          [workOrderId]
+        );
+
+        if (openRunsResult.rows.length > 0) {
+          const closedRunIds = openRunsResult.rows.map((r: any) => r.id);
+
+          // Force produced=target and good=target-rejected so the run reflects
+          // the WO's "fully done at plan" claim. Quality/efficiency follow.
+          await client.query(
+            `UPDATE production_runs
+             SET status = 'completed',
+                 actual_end_time = CURRENT_TIMESTAMP,
+                 produced_quantity = target_quantity,
+                 good_quantity = GREATEST(target_quantity - COALESCE(rejected_quantity, 0), 0),
+                 quality_percentage = CASE
+                   WHEN target_quantity > 0
+                     THEN (GREATEST(target_quantity - COALESCE(rejected_quantity, 0), 0) / target_quantity) * 100
+                   ELSE 0
+                 END,
+                 efficiency_percentage = CASE WHEN target_quantity > 0 THEN 100 ELSE 0 END,
+                 completed_by = $1
+             WHERE id = ANY($2::bigint[])`,
+            [userId, closedRunIds]
+          );
+
+          await client.query(
+            `INSERT INTO production_run_events (
+               production_run_id, event_type, event_status, notes, performed_by
+             )
+             SELECT id, 'complete', 'success', 'Auto-completed via work order completion', $1
+             FROM production_runs WHERE id = ANY($2::bigint[])`,
+            [userId, closedRunIds]
+          );
+
+          // Free up each affected production line: decrement load and mark available
+          // when no other active runs remain. Mirrors the per-run logic in the reverse path.
+          const affectedLineIds = Array.from(
+            new Set(
+              openRunsResult.rows
+                .map((r: any) => r.production_line_id)
+                .filter((id: any) => id != null)
+            )
+          );
+
+          const estHours = parseFloat(currentWorkOrder.estimated_hours || '0');
+          const loadToRemove = Math.min((estHours / 8) * 10, 100);
+
+          for (const lineId of affectedLineIds) {
+            await client.query(
+              `UPDATE production_lines
+               SET current_load = GREATEST(current_load - $1, 0),
+                   status = CASE
+                     WHEN NOT EXISTS (
+                       SELECT 1 FROM production_runs
+                       WHERE production_line_id = $2
+                         AND status IN ('in_progress', 'scheduled', 'paused')
+                     ) AND status = 'busy' THEN 'available'
+                     ELSE status
+                   END,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE id = $2`,
+              [loadToRemove, lineId]
+            );
+          }
+
+          MyLogger.info(`${action}: Cascaded completion to open production runs`, {
+            workOrderId,
+            closedRunIds,
+            affectedLineIds,
+          });
+        }
+
+        // Credit produced FG/RRM into stock. Uses good_quantity from completed runs
+        // (now including the ones we just closed), falling back to planned quantity.
         await creditWorkOrderProductStock(client, workOrderId);
       }
 
