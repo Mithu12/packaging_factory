@@ -189,6 +189,17 @@ router.post(
     expressAsyncHandler(deliveriesController.createCustomerDelivery.bind(deliveriesController))
 );
 
+// GET /api/factory/customer-orders/customers/:customerId/deliveries
+// All deliveries (across orders) for a single customer — used by the
+// customer-level deliveries list.
+router.get(
+    "/customers/:customerId/deliveries",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(customerIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.listDeliveriesForCustomer.bind(deliveriesController))
+);
+
 // GET /api/factory/customer-orders - Get all customer orders with filtering and pagination
 router.get(
     "/",

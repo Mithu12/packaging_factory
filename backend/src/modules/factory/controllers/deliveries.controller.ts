@@ -64,6 +64,17 @@ class DeliveriesController {
     }
   }
 
+  /** GET /api/factory/customer-orders/customers/:customerId/deliveries */
+  async listDeliveriesForCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { customerId } = req.params;
+      const deliveries = await GetDeliveriesMediator.listDeliveriesByCustomer(customerId);
+      serializeSuccessResponse(res, deliveries, 'SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /api/factory/customer-orders/deliveries/:deliveryId */
   async getDeliveryById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -93,8 +104,16 @@ class DeliveriesController {
         return;
       }
 
+      // Customer-level (multi-order) deliveries have no primary order — fall back
+      // to the first touched order so the PDF has an order context to render against.
+      const orderIdForPdf =
+        delivery.customer_order_id ?? delivery.touched_orders?.[0]?.order_id;
+      if (!orderIdForPdf) {
+        res.status(404).json({ success: false, message: 'No order context for delivery', data: null });
+        return;
+      }
       const order = await GetCustomerOrderInfoMediator.getCustomerOrderById(
-        String(delivery.customer_order_id),
+        String(orderIdForPdf),
         req.user?.user_id
       );
       if (!order) {
@@ -130,8 +149,14 @@ class DeliveriesController {
         return;
       }
 
+      const orderIdForPdf =
+        delivery.customer_order_id ?? delivery.touched_orders?.[0]?.order_id;
+      if (!orderIdForPdf) {
+        res.status(404).json({ success: false, message: 'No order context for delivery', data: null });
+        return;
+      }
       const order = await GetCustomerOrderInfoMediator.getCustomerOrderById(
-        String(delivery.customer_order_id),
+        String(orderIdForPdf),
         req.user?.user_id
       );
       if (!order) {

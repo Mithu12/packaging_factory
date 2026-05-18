@@ -77,8 +77,19 @@ export class GetDeliveriesMediator {
     const action = 'List Deliveries By Order';
     try {
       MyLogger.info(action, { orderId });
+      // Include deliveries whose primary order is this one OR whose items reference
+      // a line belonging to this order (multi-order shipments touch several orders).
       const res = await pool.query<DeliveryRow>(
-        `${SELECT_DELIVERY} WHERE d.customer_order_id = $1 ORDER BY d.created_at ASC`,
+        `${SELECT_DELIVERY}
+          WHERE d.customer_order_id = $1
+             OR EXISTS (
+                  SELECT 1
+                    FROM factory_customer_order_delivery_items di
+                    JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+                   WHERE di.delivery_id = d.id
+                     AND li.order_id = $1
+                )
+          ORDER BY d.created_at ASC`,
         [orderId]
       );
 
@@ -90,6 +101,27 @@ export class GetDeliveriesMediator {
       return res.rows.map(row => this.formatDelivery(row, itemsByDelivery.get(Number(row.id)) ?? []));
     } catch (error) {
       MyLogger.error(action, error, { orderId });
+      throw error;
+    }
+  }
+
+  static async listDeliveriesByCustomer(customerId: number | string): Promise<Delivery[]> {
+    const action = 'List Deliveries By Customer';
+    try {
+      MyLogger.info(action, { customerId });
+      const res = await pool.query<DeliveryRow>(
+        `${SELECT_DELIVERY} WHERE d.factory_customer_id = $1 ORDER BY d.created_at DESC`,
+        [customerId]
+      );
+
+      if (res.rows.length === 0) return [];
+
+      const deliveryIds = res.rows.map(r => Number(r.id));
+      const itemsByDelivery = await this.loadItemsByDeliveryIds(deliveryIds);
+
+      return res.rows.map(row => this.formatDelivery(row, itemsByDelivery.get(Number(row.id)) ?? []));
+    } catch (error) {
+      MyLogger.error(action, error, { customerId });
       throw error;
     }
   }

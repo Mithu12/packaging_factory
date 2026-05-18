@@ -870,6 +870,11 @@ export class CustomerOrdersApiService {
         return makeRequest<Delivery[]>(`${this.BASE_URL}/${orderId}/deliveries`);
     }
 
+    /** List all deliveries (across orders) for a single customer (newest first). */
+    static async listDeliveriesByCustomer(customerId: string | number): Promise<Delivery[]> {
+        return makeRequest<Delivery[]>(`${this.BASE_URL}/customers/${customerId}/deliveries`);
+    }
+
     /** Get a single delivery by id (with line items + linked invoice info). */
     static async getDelivery(deliveryId: string | number): Promise<Delivery> {
         return makeRequest<Delivery>(`${this.BASE_URL}/deliveries/${deliveryId}`);

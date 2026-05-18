@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Wallet,
   Truck,
+  Package,
 } from "lucide-react";
 import {
   Table,
@@ -58,6 +59,7 @@ import {
 } from "../services/customer-orders-api";
 import CustomerForm from "../components/CustomerForm";
 import CustomerDeliveryDialog from "../components/CustomerDeliveryDialog";
+import CustomerDeliveriesListDialog from "../components/CustomerDeliveriesListDialog";
 
 export default function CustomerManagement() {
   const { formatCurrency, formatDate } = useFormatting();
@@ -74,10 +76,17 @@ export default function CustomerManagement() {
   // V145+: customer-level multi-order delivery dialog
   const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
   const [deliveryCustomer, setDeliveryCustomer] = useState<FactoryCustomer | null>(null);
+  const [showDeliveriesList, setShowDeliveriesList] = useState(false);
+  const [deliveriesListCustomer, setDeliveriesListCustomer] = useState<FactoryCustomer | null>(null);
 
   const handleNewDelivery = (customer: FactoryCustomer) => {
     setDeliveryCustomer(customer);
     setShowDeliveryDialog(true);
+  };
+
+  const handleViewDeliveries = (customer: FactoryCustomer) => {
+    setDeliveriesListCustomer(customer);
+    setShowDeliveriesList(true);
   };
 
   // Load customers
@@ -363,6 +372,15 @@ export default function CustomerManagement() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleViewDeliveries(customer)}
+                        data-testid="view-deliveries-button"
+                        title="View deliveries (challan & invoice)"
+                      >
+                        <Package className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditCustomer(customer)}
                         data-testid="edit-customer-button"
                       >
@@ -523,6 +541,13 @@ export default function CustomerManagement() {
         onOpenChange={setShowDeliveryDialog}
         customer={deliveryCustomer}
         onCreated={loadCustomers}
+      />
+
+      {/* Customer-level deliveries list (challan/invoice downloads) */}
+      <CustomerDeliveriesListDialog
+        open={showDeliveriesList}
+        onOpenChange={setShowDeliveriesList}
+        customer={deliveriesListCustomer}
       />
     </div>
   );
