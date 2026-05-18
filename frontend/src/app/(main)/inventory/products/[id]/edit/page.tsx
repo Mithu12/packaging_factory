@@ -13,10 +13,13 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { ApiService, ProductWithDetails, Category, Subcategory, Supplier, ApiError } from "@/services/api"
 import {
+  CARTON_PLY_OPTIONS,
   displayPrimaryCategoryLabel,
+  formatPlyLabel,
   isBomDrivenCostCategory,
   isRawMaterialsCategory,
   isInternalPrimaryCategory,
+  isReadyGoodsCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { getImagePath } from "@/utils/image.utils"
@@ -48,6 +51,11 @@ interface EditProductFormData {
   vat_rate: string
   notes: string
   uses_per_unit: string
+  ply: string
+  reel_size: string
+  cutting_size: string
+  carton_size: string
+  customer_item_code: string
   currentImage: string
 }
 
@@ -85,6 +93,11 @@ export default function EditProduct() {
     vat_rate: "",
     notes: "",
     uses_per_unit: "1",
+    ply: "",
+    reel_size: "",
+    cutting_size: "",
+    carton_size: "",
+    customer_item_code: "",
       currentImage: PLACEHOLDER_IMAGE,
   })
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,6 +186,11 @@ export default function EditProduct() {
           vat_rate: productData.tax_rate?.toString() || "",
           notes: productData.notes || "",
           uses_per_unit: (productData.uses_per_unit ?? 1).toString(),
+          ply: productData.ply != null ? String(productData.ply) : "",
+          reel_size: productData.reel_size ?? "",
+          cutting_size: productData.cutting_size ?? "",
+          carton_size: productData.carton_size ?? "",
+          customer_item_code: productData.customer_item_code ?? "",
           currentImage: productData.image_url ? getImagePath(productData.image_url) : PLACEHOLDER_IMAGE,
         })
 
@@ -256,6 +274,7 @@ export default function EditProduct() {
     const selectedCatName = selectedCat?.name ?? ""
     const isRm = isRawMaterialsCategory(selectedCatName)
     const isInternal = isInternalPrimaryCategory(selectedCatName)
+    const isRg = isReadyGoodsCategory(selectedCatName)
     // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
     const costFromBom = isBomDrivenCostCategory(selectedCatName)
 
@@ -313,13 +332,20 @@ export default function EditProduct() {
           ? parseInt(formData.supplier_id, 10)
           : null,
         status: formData.status as 'active' | 'inactive' | 'discontinued' | 'out_of_stock',
-        dimensions: formData.dimensions || undefined,
+        dimensions: isRg ? undefined : formData.dimensions || undefined,
         tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
         uses_per_unit: (() => {
           const u = parseFloat(formData.uses_per_unit || "1")
           return Number.isFinite(u) && u >= 1 ? u : 1
         })(),
+        ply: isRg && formData.ply ? parseInt(formData.ply, 10) : null,
+        reel_size: isRg ? (formData.reel_size.trim() || null) : undefined,
+        cutting_size: isRg ? (formData.cutting_size.trim() || null) : undefined,
+        carton_size: isRg ? (formData.carton_size.trim() || null) : undefined,
+        customer_item_code: isRg
+          ? (formData.customer_item_code.trim() || null)
+          : undefined,
       }
 
       // Use the new API method that supports image upload
@@ -372,6 +398,7 @@ export default function EditProduct() {
       ?.name ?? ""
   const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName)
   const isInternalType = isInternalPrimaryCategory(selectedCategoryName)
+  const isReadyGoodsType = isReadyGoodsCategory(selectedCategoryName)
 
   return (
     <div className="space-y-6" data-testid="edit-product-page">
@@ -509,9 +536,11 @@ export default function EditProduct() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">
-                      {isRawMaterialType && !showAllFields
-                        ? "Material Name *"
-                        : "Product Name *"}
+                      {isReadyGoodsType
+                        ? "Carton Name *"
+                        : isRawMaterialType && !showAllFields
+                          ? "Material Name *"
+                          : "Product Name *"}
                     </Label>
                     <Input
                       id="name"
@@ -520,13 +549,37 @@ export default function EditProduct() {
                         handleInputChange("name", e.target.value)
                       }
                       placeholder={
-                        isRawMaterialType && !showAllFields
-                          ? "e.g. Raw Cotton, Wood, Steel"
-                          : "Enter product name"
+                        isReadyGoodsType
+                          ? "Carton Name"
+                          : isRawMaterialType && !showAllFields
+                            ? "e.g. Raw Cotton, Wood, Steel"
+                            : "Enter product name"
                       }
                       required
                     />
                   </div>
+                  {isReadyGoodsType ? (
+                    <div>
+                      <Label htmlFor="ply">Ply</Label>
+                      <Select
+                        value={formData.ply || undefined}
+                        onValueChange={(value) =>
+                          handleInputChange("ply", value)
+                        }
+                      >
+                        <SelectTrigger id="ply">
+                          <SelectValue placeholder="Select ply..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CARTON_PLY_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {formatPlyLabel(n)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
                   <div>
                     <Label htmlFor="sku">SKU (Stock Keeping Unit) *</Label>
                     <Input
@@ -537,6 +590,19 @@ export default function EditProduct() {
                       required
                     />
                   </div>
+                  {isReadyGoodsType ? (
+                    <div>
+                      <Label htmlFor="customerItemCode">Customer Item Code</Label>
+                      <Input
+                        id="customerItemCode"
+                        value={formData.customer_item_code}
+                        onChange={(e) =>
+                          handleInputChange("customer_item_code", e.target.value)
+                        }
+                        placeholder="Buyer's item code"
+                      />
+                    </div>
+                  ) : null}
                   {(showAllFields || (isRawMaterialType && !showAllFields)) ? (
                   <div>
                     <Label htmlFor="unit">
@@ -558,16 +624,60 @@ export default function EditProduct() {
                   ) : null}
                 </div>
 
+                {isReadyGoodsType ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="reelSize">Reel Size</Label>
+                      <Input
+                        id="reelSize"
+                        value={formData.reel_size}
+                        onChange={(e) =>
+                          handleInputChange("reel_size", e.target.value)
+                        }
+                        placeholder="e.g. 40 in"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="cuttingSize">Cutting Size</Label>
+                      <Input
+                        id="cuttingSize"
+                        value={formData.cutting_size}
+                        onChange={(e) =>
+                          handleInputChange("cutting_size", e.target.value)
+                        }
+                        placeholder="e.g. 30 x 20 in"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="cartonSize">Carton Size</Label>
+                      <Input
+                        id="cartonSize"
+                        value={formData.carton_size}
+                        onChange={(e) =>
+                          handleInputChange("carton_size", e.target.value)
+                        }
+                        placeholder="e.g. 15 x 10 x 8 in"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
                 {showAllFields ? (
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">
+                    {isReadyGoodsType ? "Carton Description" : "Description"}
+                  </Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) =>
                       handleInputChange("description", e.target.value)
                     }
-                    placeholder="Enter product description"
+                    placeholder={
+                      isReadyGoodsType
+                        ? "Carton Description"
+                        : "Enter product description"
+                    }
                     rows={3}
                   />
                 </div>
@@ -692,8 +802,8 @@ export default function EditProduct() {
             </Card>
             ) : null}
 
-            {/* Physical Properties */}
-            {showAllFields ? (
+            {/* Physical Properties — hidden for Ready Goods (cartons use Reel/Cutting/Carton Size instead). */}
+            {showAllFields && !isReadyGoodsType ? (
             <Card>
               <CardHeader>
                 <CardTitle>Physical Properties</CardTitle>

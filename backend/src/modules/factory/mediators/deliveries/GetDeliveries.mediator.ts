@@ -32,6 +32,7 @@ interface DeliveryItemRow {
   quantity: string;
   unit_price_snapshot: string;
   line_total: string;
+  ply: number | null;
   created_at: string | Date;
 }
 
@@ -90,9 +91,12 @@ export class GetDeliveriesMediator {
       `SELECT di.id, di.delivery_id, di.order_line_item_id,
               li.product_id, li.product_name, li.product_sku,
               li.description, li.unit_of_measure,
-              di.quantity, di.unit_price_snapshot, di.line_total, di.created_at
+              di.quantity, di.unit_price_snapshot, di.line_total,
+              p.ply,
+              di.created_at
          FROM factory_customer_order_delivery_items di
          JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+         LEFT JOIN products p ON p.id = li.product_id
         WHERE di.delivery_id = ANY($1::bigint[])
         ORDER BY di.id ASC`,
       [deliveryIds]
@@ -114,6 +118,7 @@ export class GetDeliveriesMediator {
         quantity: parseFloat(row.quantity),
         unit_price_snapshot: parseFloat(row.unit_price_snapshot),
         line_total: parseFloat(row.line_total),
+        ply: row.ply != null ? Number(row.ply) : null,
         created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),
       });
       map.set(did, list);

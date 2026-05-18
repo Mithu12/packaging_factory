@@ -55,9 +55,10 @@ export class AddProductMediator {
                     unit_of_measure, cost_price, selling_price, current_stock, min_stock_level,
                     max_stock_level, supplier_id, status, barcode, weight, dimensions,
                     tax_rate, reorder_point, reorder_quantity, notes, image_url, warranty_period, service_time, pv,
-                    uses_per_unit
+                    uses_per_unit, ply, reel_size, cutting_size, carton_size, customer_item_code
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
+                    $29, $30, $31, $32, $33
                 ) RETURNING *
             `;
 
@@ -90,6 +91,11 @@ export class AddProductMediator {
         productData.service_time || null,
         productData.pv || 0,
         productData.uses_per_unit && productData.uses_per_unit >= 1 ? productData.uses_per_unit : 1,
+        productData.ply ?? null,
+        productData.reel_size || null,
+        productData.cutting_size || null,
+        productData.carton_size || null,
+        productData.customer_item_code || null,
       ];
 
       const result = await client.query(query, values);

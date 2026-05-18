@@ -48,7 +48,11 @@ import {
 } from "@/components/ui/table";
 import { getImagePath } from "@/utils/image.utils"
 import { useFormatting } from "@/hooks/useFormatting";
-import { isReusableProduct } from "@/modules/inventory/constants/inventoryProductCategories";
+import {
+  formatPlyLabel,
+  isReadyGoodsCategory,
+  isReusableProduct,
+} from "@/modules/inventory/constants/inventoryProductCategories";
 
 export default function ProductDetails() {
   const params = useParams()
@@ -377,6 +381,9 @@ export default function ProductDetails() {
             </CardContent>
           </Card>
           {/* Basic Details */}
+          {(() => {
+            const isReadyGoods = isReadyGoodsCategory(product.category.name);
+            return (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -387,7 +394,9 @@ export default function ProductDetails() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Product Name</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    {isReadyGoods ? "Carton Name" : "Product Name"}
+                  </label>
                   <p className="font-medium">{product.name}</p>
                 </div>
                 <div>
@@ -409,18 +418,57 @@ export default function ProductDetails() {
                   <label className="text-sm font-medium text-muted-foreground">Unit of Measure</label>
                   <p className="font-medium">{product.unit_of_measure}</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Dimensions</label>
-                  <p className="font-medium">{product.dimensions || 'Not set'}</p>
-                </div>
+                {isReadyGoods ? (
+                  <>
+                    {product.ply != null ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Ply</label>
+                        <p className="font-medium">{formatPlyLabel(Number(product.ply))}</p>
+                      </div>
+                    ) : null}
+                    {product.customer_item_code ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Customer Item Code</label>
+                        <p className="font-medium">{product.customer_item_code}</p>
+                      </div>
+                    ) : null}
+                    {product.reel_size ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Reel Size</label>
+                        <p className="font-medium">{product.reel_size}</p>
+                      </div>
+                    ) : null}
+                    {product.cutting_size ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Cutting Size</label>
+                        <p className="font-medium">{product.cutting_size}</p>
+                      </div>
+                    ) : null}
+                    {product.carton_size ? (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Carton Size</label>
+                        <p className="font-medium">{product.carton_size}</p>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Dimensions</label>
+                    <p className="font-medium">{product.dimensions || 'Not set'}</p>
+                  </div>
+                )}
               </div>
               <Separator />
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  {isReadyGoods ? "Carton Description" : "Description"}
+                </label>
                 <p className="mt-1 text-sm leading-relaxed">{product.description}</p>
               </div>
             </CardContent>
           </Card>
+            );
+          })()}
 
           {/* Stock Movements */}
           <Card>

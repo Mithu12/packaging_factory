@@ -53,3 +53,13 @@ export function isReusableProduct(product: {
   const n = Number(product?.uses_per_unit ?? 1);
   return Number.isFinite(n) && n > 1;
 }
+
+/** Allowed corrugation layer counts for cartons. */
+export const CARTON_PLY_OPTIONS = [3, 5, 7, 9, 11] as const;
+
+export type CartonPly = (typeof CARTON_PLY_OPTIONS)[number];
+
+/** Formats a ply count for display (e.g. 5 → "05 Ply"). */
+export function formatPlyLabel(n: number): string {
+  return `${String(n).padStart(2, "0")} Ply`;
+}

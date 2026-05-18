@@ -217,6 +217,11 @@ export interface Product {
   image_url?: string;
   pv?: number;
   uses_per_unit?: number;
+  ply?: number | null;
+  reel_size?: string | null;
+  cutting_size?: string | null;
+  carton_size?: string | null;
+  customer_item_code?: string | null;
   category_name?: string;
   created_at: string;
   updated_at: string;
@@ -276,6 +281,11 @@ export interface CreateProductRequest {
   image_url?: string;
   /** For reusable raw materials: consumptions per physical unit (default 1 = single-use). */
   uses_per_unit?: number;
+  ply?: number | null;
+  reel_size?: string | null;
+  cutting_size?: string | null;
+  carton_size?: string | null;
+  customer_item_code?: string | null;
 }
 
 export interface UpdateProductRequest {
@@ -304,6 +314,11 @@ export interface UpdateProductRequest {
   pv?: number;
   image_url?: string;
   uses_per_unit?: number;
+  ply?: number | null;
+  reel_size?: string | null;
+  cutting_size?: string | null;
+  carton_size?: string | null;
+  customer_item_code?: string | null;
 }
 
 export interface ProductQueryParams {

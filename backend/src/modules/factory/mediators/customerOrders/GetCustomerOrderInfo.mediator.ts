@@ -172,10 +172,12 @@ export class GetCustomerOrderInfoMediator {
                                             'is_optional', li.is_optional,
                                             'delivered_qty', li.delivered_qty,
                                             'invoiced_qty', li.invoiced_qty,
+                                            'ply', p.ply,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items
                              FROM factory_customer_order_line_items li
+                             LEFT JOIN products p ON p.id = li.product_id
                              WHERE li.order_id = co.id
                          ) li_rows ON true
                     ${whereClause}
@@ -321,10 +323,12 @@ export class GetCustomerOrderInfoMediator {
                                             'is_optional', li.is_optional,
                                             'delivered_qty', li.delivered_qty,
                                             'invoiced_qty', li.invoiced_qty,
+                                            'ply', p.ply,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items
                              FROM factory_customer_order_line_items li
+                             LEFT JOIN products p ON p.id = li.product_id
                              WHERE li.order_id = co.id
                          ) li_rows ON true
                          LEFT JOIN LATERAL (

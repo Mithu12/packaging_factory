@@ -223,6 +223,8 @@ export interface OrderLineItem {
     delivered_qty?: number;
     /** Cumulative quantity already invoiced via delivery invoices; defaults to 0. */
     invoiced_qty?: number;
+    /** Joined from products: carton corrugation layers, rendered on the challan. */
+    ply?: number | null;
     created_at: string;
     updated_at?: string;
 }
@@ -241,6 +243,8 @@ export interface DeliveryItem {
     quantity: number;
     unit_price_snapshot: number;
     line_total: number;
+    /** Joined from products: carton corrugation layers, rendered on the challan. */
+    ply?: number | null;
     created_at: string;
 }
 

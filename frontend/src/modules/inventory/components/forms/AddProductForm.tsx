@@ -35,10 +35,13 @@ import {
 } from "@/services/api";
 import { ProductApi } from "@/modules/inventory/services/product-api";
 import {
+  CARTON_PLY_OPTIONS,
   displayPrimaryCategoryLabel,
+  formatPlyLabel,
   isBomDrivenCostCategory,
   isInternalPrimaryCategory,
   isRawMaterialsCategory,
+  isReadyGoodsCategory,
 } from "@/modules/inventory/constants/inventoryProductCategories";
 import { Upload, X, Image } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,6 +119,12 @@ interface ProductFormData {
   notes: string;
   /** Uses per physical unit for reusable raw materials (default "1"). */
   uses_per_unit: string;
+  /** Ready Goods only: carton corrugation layers (stringified integer 3/5/7/9/11). */
+  ply: string;
+  reel_size: string;
+  cutting_size: string;
+  carton_size: string;
+  customer_item_code: string;
 }
 
 export function AddProductForm({
@@ -141,6 +150,11 @@ export function AddProductForm({
     vat_rate: "",
     notes: "",
     uses_per_unit: "1",
+    ply: "",
+    reel_size: "",
+    cutting_size: "",
+    carton_size: "",
+    customer_item_code: "",
   });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -353,6 +367,7 @@ export function AddProductForm({
       const selectedCatName = selectedCat?.name ?? "";
       const isRm = isRawMaterialsCategory(selectedCatName);
       const isInternal = isInternalPrimaryCategory(selectedCatName);
+      const isRg = isReadyGoodsCategory(selectedCatName);
       // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
       const costFromBom = isBomDrivenCostCategory(selectedCatName);
 
@@ -426,13 +441,19 @@ export function AddProductForm({
           | "inactive"
           | "discontinued"
           | "out_of_stock",
-        dimensions: formData.dimensions || undefined,
+        dimensions: isRg ? undefined : formData.dimensions || undefined,
         tax_rate: formData.vat_rate ? parseFloat(formData.vat_rate) : undefined,
         notes: formData.notes || undefined,
         uses_per_unit: (() => {
           const u = parseFloat(formData.uses_per_unit || "1");
           return Number.isFinite(u) && u > 1 ? u : undefined;
         })(),
+        ply: isRg && formData.ply ? parseInt(formData.ply, 10) : undefined,
+        reel_size: isRg && formData.reel_size.trim() ? formData.reel_size : undefined,
+        cutting_size: isRg && formData.cutting_size.trim() ? formData.cutting_size : undefined,
+        carton_size: isRg && formData.carton_size.trim() ? formData.carton_size : undefined,
+        customer_item_code:
+          isRg && formData.customer_item_code.trim() ? formData.customer_item_code : undefined,
       };
 
       // Use the new API method that supports image upload
@@ -465,6 +486,11 @@ export function AddProductForm({
         vat_rate: "",
         notes: "",
         uses_per_unit: "1",
+        ply: "",
+        reel_size: "",
+        cutting_size: "",
+        carton_size: "",
+        customer_item_code: "",
       });
       setSelectedImage(null);
       setImagePreview("");
@@ -533,6 +559,7 @@ export function AddProductForm({
       ?.name ?? "";
   const isInternalProductType = isInternalPrimaryCategory(selectedCategoryName);
   const isRawMaterialType = isRawMaterialsCategory(selectedCategoryName);
+  const isReadyGoodsType = isReadyGoodsCategory(selectedCategoryName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -713,9 +740,11 @@ export function AddProductForm({
 
               <div className="space-y-2">
                 <Label htmlFor="name">
-                  {isInternalProductType && !showAllFields
-                    ? "Material Name *"
-                    : "Product Name *"}
+                  {isReadyGoodsType
+                    ? "Carton Name *"
+                    : isInternalProductType && !showAllFields
+                      ? "Material Name *"
+                      : "Product Name *"}
                 </Label>
                 <Input
                   id="name"
@@ -723,15 +752,38 @@ export function AddProductForm({
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   placeholder={
-                    isInternalProductType && !showAllFields
-                      ? "e.g. Raw Cotton, Wood, Steel"
-                      : "e.g. Wireless Ergonomic Mouse"
+                    isReadyGoodsType
+                      ? "Carton Name"
+                      : isInternalProductType && !showAllFields
+                        ? "e.g. Raw Cotton, Wood, Steel"
+                        : "e.g. Wireless Ergonomic Mouse"
                   }
                   required
                   className={getFieldErrorClass("name")}
                   aria-invalid={hasFieldError("name")}
                 />
               </div>
+
+              {isReadyGoodsType ? (
+                <div className="space-y-2">
+                  <Label htmlFor="ply">Ply</Label>
+                  <Select
+                    value={formData.ply || undefined}
+                    onValueChange={(value) => handleInputChange("ply", value)}
+                  >
+                    <SelectTrigger id="ply" data-testid="add-product-ply">
+                      <SelectValue placeholder="Select ply..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CARTON_PLY_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {formatPlyLabel(n)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
 
               {(showAllFields || (isInternalProductType && !showAllFields)) ? (
               <div className="space-y-2">
@@ -785,6 +837,62 @@ export function AddProductForm({
                   </Button>
                 </div>
               </div>
+
+              {isReadyGoodsType ? (
+                <div className="space-y-2">
+                  <Label htmlFor="customerItemCode">Customer Item Code</Label>
+                  <Input
+                    id="customerItemCode"
+                    data-testid="add-product-customer-item-code"
+                    value={formData.customer_item_code}
+                    onChange={(e) =>
+                      handleInputChange("customer_item_code", e.target.value)
+                    }
+                    placeholder="Buyer's item code"
+                  />
+                </div>
+              ) : null}
+
+              {isReadyGoodsType ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reelSize">Reel Size</Label>
+                    <Input
+                      id="reelSize"
+                      data-testid="add-product-reel-size"
+                      value={formData.reel_size}
+                      onChange={(e) =>
+                        handleInputChange("reel_size", e.target.value)
+                      }
+                      placeholder="e.g. 40 in"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cuttingSize">Cutting Size</Label>
+                    <Input
+                      id="cuttingSize"
+                      data-testid="add-product-cutting-size"
+                      value={formData.cutting_size}
+                      onChange={(e) =>
+                        handleInputChange("cutting_size", e.target.value)
+                      }
+                      placeholder="e.g. 30 x 20 in"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cartonSize">Carton Size</Label>
+                    <Input
+                      id="cartonSize"
+                      data-testid="add-product-carton-size"
+                      value={formData.carton_size}
+                      onChange={(e) =>
+                        handleInputChange("carton_size", e.target.value)
+                      }
+                      placeholder="e.g. 15 x 10 x 8 in"
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               {!showAllFields && isRawMaterialType ? (
               <div className="space-y-2">
@@ -986,6 +1094,7 @@ export function AddProductForm({
 
               {showAllFields ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {!isReadyGoodsType ? (
                 <div className="space-y-2">
                   <Label htmlFor="dimensions">Dimensions</Label>
                   <Input
@@ -997,6 +1106,7 @@ export function AddProductForm({
                     placeholder="e.g., 10x20x30 cm"
                   />
                 </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="vatRate">VAT (%)</Label>
@@ -1017,7 +1127,9 @@ export function AddProductForm({
 
               {showAllFields ? (
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">
+                  {isReadyGoodsType ? "Carton Description" : "Description"}
+                </Label>
                 <Textarea
                   id="description"
                   data-testid="add-product-description"
@@ -1025,7 +1137,11 @@ export function AddProductForm({
                   onChange={(e) =>
                     handleInputChange("description", e.target.value)
                   }
-                  placeholder="Enter product description"
+                  placeholder={
+                    isReadyGoodsType
+                      ? "Carton Description"
+                      : "Enter product description"
+                  }
                   rows={3}
                 />
               </div>

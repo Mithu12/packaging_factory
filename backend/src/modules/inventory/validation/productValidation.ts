@@ -31,6 +31,11 @@ export const createProductSchema = Joi.object({
   image_url: Joi.string().max(500).optional().allow(null, ""),
   pv: Joi.number().min(0).precision(2).optional().default(0),
   uses_per_unit: Joi.number().min(1).precision(2).optional().default(1),
+  ply: Joi.number().integer().valid(3, 5, 7, 9, 11).optional().allow(null),
+  reel_size: Joi.string().max(100).optional().allow(null, ""),
+  cutting_size: Joi.string().max(100).optional().allow(null, ""),
+  carton_size: Joi.string().max(100).optional().allow(null, ""),
+  customer_item_code: Joi.string().max(100).optional().allow(null, ""),
 });
 
 export const updateProductSchema = Joi.object({
@@ -63,6 +68,11 @@ export const updateProductSchema = Joi.object({
   image_url: Joi.string().max(500).optional().allow(null, ""),
   pv: Joi.number().min(0).precision(2).optional(),
   uses_per_unit: Joi.number().min(1).precision(2).optional(),
+  ply: Joi.number().integer().valid(3, 5, 7, 9, 11).optional().allow(null),
+  reel_size: Joi.string().max(100).optional().allow(null, ""),
+  cutting_size: Joi.string().max(100).optional().allow(null, ""),
+  carton_size: Joi.string().max(100).optional().allow(null, ""),
+  customer_item_code: Joi.string().max(100).optional().allow(null, ""),
 });
 
 export const productQuerySchema = Joi.object({

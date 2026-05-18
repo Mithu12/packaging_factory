@@ -30,6 +30,13 @@ export interface Product {
   pv?: number;
   /** For reusable raw materials: how many consumptions a single physical unit yields. 1 = single-use. */
   uses_per_unit?: number;
+  /** Carton corrugation layers (3/5/7/9/11). NULL outside Ready Goods. */
+  ply?: number | null;
+  reel_size?: string | null;
+  cutting_size?: string | null;
+  carton_size?: string | null;
+  /** Buyer-supplied item code distinct from the system SKU. */
+  customer_item_code?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -69,6 +76,11 @@ export interface CreateProductRequest {
   image_url?: string;
   pv?: number;
   uses_per_unit?: number;
+  ply?: number | null;
+  reel_size?: string | null;
+  cutting_size?: string | null;
+  carton_size?: string | null;
+  customer_item_code?: string | null;
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> { }

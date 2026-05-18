@@ -1709,17 +1709,22 @@ export class PDFGenerator {
           product_sku: it.product_sku ?? '',
           description: it.description ?? '',
           quantity: Number(it.quantity),
+          ply: it.ply ?? null,
         }))
       : (order.line_items ?? []).map(li => ({
           product_name: li.product_name,
           product_sku: li.product_sku ?? '',
           description: li.description ?? '',
           quantity: Number(li.quantity),
+          ply: li.ply ?? null,
         }));
 
     const itemsHtml = challanRows.map((item, index) => {
       const descLines = item.description
         ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
+        : '';
+      const plyLine = item.ply != null
+        ? `<div class="item-ply">${String(item.ply).padStart(2, '0')} Ply</div>`
         : '';
       const isLast = index === challanRows.length - 1;
       const rowClass = `item-row${isLast ? ' last-item-row' : ''}`;
@@ -1729,6 +1734,7 @@ export class PDFGenerator {
           <td class="col-particulars">
             <div class="item-heading">Master Carton For:</div>
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
+            ${plyLine}
             ${descLines}
           </td>
           <td class="col-code"></td>
@@ -1876,6 +1882,7 @@ export class PDFGenerator {
         .item-row .col-particulars { padding-top: 14px; padding-bottom: 14px; }
         .item-heading { font-weight: normal; }
         .item-name { margin-top: 4px; }
+        .item-ply { margin-top: 2px; font-size: 10.5pt; font-weight: 600; }
         .item-desc { margin-top: 4px; font-size: 10.5pt; white-space: pre-line; }
 
         .filler-row td { height: 240px; border-top: 0 !important; border-bottom: 0; }
