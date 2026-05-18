@@ -16,4 +16,18 @@ router.get(
     expressAsyncHandler(FactoryReportsController.getStockVsOrderDemand)
 );
 
+router.get(
+    "/customer-payment-reminders",
+    authenticate,
+    requirePermission(PERMISSIONS.PAYMENTS_READ),
+    expressAsyncHandler(FactoryReportsController.getCustomerPaymentReminders)
+);
+
+router.get(
+    "/customer-payment-reminders/:id",
+    authenticate,
+    requirePermission(PERMISSIONS.PAYMENTS_READ),
+    expressAsyncHandler(FactoryReportsController.getCustomerPaymentReminderDetail)
+);
+
 export default router;

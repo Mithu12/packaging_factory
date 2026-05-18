@@ -589,6 +589,12 @@ const menuSections: MenuSection[] = [
         icon: Package,
         permission: PERMISSIONS.FACTORY_ORDERS_READ,
       },
+      {
+        title: "Customer Payment Reminders",
+        url: "/reports/customer-payment-reminders",
+        icon: DollarSign,
+        permission: PERMISSIONS.PAYMENTS_READ,
+      },
     ],
   },
 ];

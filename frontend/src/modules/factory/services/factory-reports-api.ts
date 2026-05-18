@@ -65,6 +65,80 @@ export interface StockVsOrderDemandParams {
     search?: string;
 }
 
+export interface CustomerPaymentReminderRow {
+    id: string;
+    name: string;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+    currency: string;
+    opening_balance: number;
+    total_outstanding_amount: number;
+    open_invoice_count: number;
+    not_yet_due: number;
+    bucket_0_30: number;
+    bucket_31_60: number;
+    bucket_61_90: number;
+    bucket_90_plus: number;
+    max_days_overdue: number;
+}
+
+export interface CustomerPaymentReminderSummary {
+    customers_count: number;
+    total_outstanding: number;
+    total_over_60: number;
+    total_over_90: number;
+}
+
+export interface CustomerPaymentReminderListResponse {
+    rows: CustomerPaymentReminderRow[];
+    summary: CustomerPaymentReminderSummary;
+}
+
+export interface CustomerPaymentReminderListParams {
+    search?: string;
+}
+
+export interface CustomerPaymentReminderInvoice {
+    invoice_id: string;
+    invoice_number: string;
+    invoice_date: string;
+    due_date: string;
+    total_amount: number;
+    paid_amount: number;
+    outstanding_amount: number;
+    status: string;
+    days_overdue: number;
+}
+
+export interface CustomerPaymentReminderDetail {
+    customer: {
+        id: string;
+        name: string;
+        company: string | null;
+        email: string | null;
+        phone: string | null;
+        address: Record<string, any> | null;
+        vat_number: string | null;
+        payment_terms: string | null;
+        credit_limit: number | null;
+        opening_balance: number;
+        total_outstanding_amount: number;
+        currency: string;
+    };
+    invoices: CustomerPaymentReminderInvoice[];
+    aging: {
+        not_yet_due: number;
+        bucket_0_30: number;
+        bucket_31_60: number;
+        bucket_61_90: number;
+        bucket_90_plus: number;
+        total_outstanding: number;
+        max_days_overdue: number;
+    };
+    latest_payment_date: string | null;
+}
+
 export const FactoryReportsApi = {
     getStockVsOrderDemand: async (
         params: StockVsOrderDemandParams
@@ -75,6 +149,26 @@ export const FactoryReportsApi = {
                 ...(params.search ? { search: params.search } : {}),
             },
         });
+        return response.data.data;
+    },
+
+    getCustomerPaymentReminders: async (
+        params: CustomerPaymentReminderListParams
+    ): Promise<CustomerPaymentReminderListResponse> => {
+        const response = await apiClient.get("/factory/reports/customer-payment-reminders", {
+            params: {
+                ...(params.search ? { search: params.search } : {}),
+            },
+        });
+        return response.data.data;
+    },
+
+    getCustomerPaymentReminderDetail: async (
+        customerId: string
+    ): Promise<CustomerPaymentReminderDetail> => {
+        const response = await apiClient.get(
+            `/factory/reports/customer-payment-reminders/${encodeURIComponent(customerId)}`
+        );
         return response.data.data;
     },
 };
