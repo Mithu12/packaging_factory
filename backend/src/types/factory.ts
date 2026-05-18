@@ -225,6 +225,8 @@ export interface OrderLineItem {
     invoiced_qty?: number;
     /** Joined from products: carton corrugation layers, rendered on the challan. */
     ply?: number | null;
+    /** Joined from products: buyer-supplied item code (V142). Shown in the New Delivery dialog. */
+    customer_item_code?: string | null;
     created_at: string;
     updated_at?: string;
 }
@@ -245,6 +247,10 @@ export interface DeliveryItem {
     line_total: number;
     /** Joined from products: carton corrugation layers, rendered on the challan. */
     ply?: number | null;
+    /** Number of bundles (packing units) shipped for this delivery line. */
+    bundles?: number | null;
+    /** Per-shipment item code override (V133). Defaults from products.customer_item_code on the UI side. */
+    item_code?: string | null;
     created_at: string;
 }
 
@@ -262,6 +268,8 @@ export interface Delivery {
     delivery_status: DeliveryStatus;
     notes?: string;
     shipped_by?: number;
+    /** Per-shipment VAT registration; defaults from factory_customers.vat_number. */
+    vat_number?: string;
     items: DeliveryItem[];
     subtotal: number;
     created_at: string;
@@ -271,6 +279,8 @@ export interface Delivery {
 export interface CreateDeliveryItemRequest {
     order_line_item_id: number;
     quantity: number;
+    bundles?: number | null;
+    item_code?: string | null;
 }
 
 export interface CreateDeliveryRequest {
@@ -280,6 +290,7 @@ export interface CreateDeliveryRequest {
     carrier?: string;
     estimated_delivery_date?: string;
     notes?: string;
+    vat_number?: string;
 }
 
 export interface Address {

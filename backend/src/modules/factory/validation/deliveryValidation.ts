@@ -5,6 +5,8 @@ const deliveryItemSchema = Joi.object({
     .try(Joi.number().integer().positive(), Joi.string().pattern(/^\d+$/))
     .required(),
   quantity: Joi.number().positive().precision(3).required(),
+  bundles: Joi.number().integer().min(0).optional().allow(null),
+  item_code: Joi.string().max(100).optional().allow('', null),
 });
 
 export const createDeliverySchema = Joi.object({
@@ -14,6 +16,7 @@ export const createDeliverySchema = Joi.object({
   carrier: Joi.string().max(100).optional().allow('', null),
   estimated_delivery_date: Joi.date().iso().optional().allow(null),
   notes: Joi.string().optional().allow('', null),
+  vat_number: Joi.string().max(50).optional().allow('', null),
 });
 
 export const deliveryIdSchema = Joi.object({

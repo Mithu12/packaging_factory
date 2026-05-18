@@ -1710,6 +1710,8 @@ export class PDFGenerator {
           description: it.description ?? '',
           quantity: Number(it.quantity),
           ply: it.ply ?? null,
+          item_code: it.item_code ?? '',
+          bundles: it.bundles ?? null,
         }))
       : (order.line_items ?? []).map(li => ({
           product_name: li.product_name,
@@ -1717,6 +1719,8 @@ export class PDFGenerator {
           description: li.description ?? '',
           quantity: Number(li.quantity),
           ply: li.ply ?? null,
+          item_code: li.customer_item_code ?? '',
+          bundles: null as number | null,
         }));
 
     const itemsHtml = challanRows.map((item, index) => {
@@ -1728,6 +1732,7 @@ export class PDFGenerator {
         : '';
       const isLast = index === challanRows.length - 1;
       const rowClass = `item-row${isLast ? ' last-item-row' : ''}`;
+      const bundleCell = item.bundles != null ? String(item.bundles) : '';
       return `
         <tr class="${rowClass}">
           <td class="col-sn">${String(index + 1).padStart(2, '0')}</td>
@@ -1737,9 +1742,9 @@ export class PDFGenerator {
             ${plyLine}
             ${descLines}
           </td>
-          <td class="col-code"></td>
+          <td class="col-code">${escapeHtml(item.item_code || '')}</td>
           <td class="col-qty">${formatQty(item.quantity)} Pcs.</td>
-          <td class="col-bundle"></td>
+          <td class="col-bundle">${escapeHtml(bundleCell)}</td>
         </tr>
       `;
     }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
@@ -1775,11 +1780,11 @@ export class PDFGenerator {
       order.billing_address?.billing_line ||
       billingStructured ||
       '';
-    const transportNo = delivery?.carrier || delivery?.tracking_number || '';
+    const transportNo = delivery?.tracking_number || '';
     const customerPoNo = order.po_number || '';
     const customerPoDate = formatDate(order.po_date);
     const workOrderDate = formatDate(order.latest_work_order_date);
-    const vatNo = '';
+    const vatNo = delivery?.vat_number || order.customer_vat_number || '';
 
     return `
 <!DOCTYPE html>

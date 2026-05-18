@@ -16,6 +16,7 @@ interface DeliveryRow {
   delivery_status: 'shipped' | 'delivered' | 'returned' | 'cancelled';
   notes: string | null;
   shipped_by: string | null;
+  vat_number: string | null;
   created_at: string | Date;
   updated_at: string | Date | null;
 }
@@ -33,6 +34,9 @@ interface DeliveryItemRow {
   unit_price_snapshot: string;
   line_total: string;
   ply: number | null;
+  bundles: number | null;
+  item_code: string | null;
+  product_customer_item_code: string | null;
   created_at: string | Date;
 }
 
@@ -40,7 +44,8 @@ const SELECT_DELIVERY = `
   SELECT d.id, d.delivery_number, d.customer_order_id, co.order_number,
          d.invoice_id, inv.invoice_number,
          d.delivery_date, d.tracking_number, d.carrier, d.estimated_delivery_date,
-         d.delivery_status, d.notes, d.shipped_by, d.created_at, d.updated_at
+         d.delivery_status, d.notes, d.shipped_by, d.vat_number,
+         d.created_at, d.updated_at
     FROM factory_customer_order_deliveries d
     JOIN factory_customer_orders co ON co.id = d.customer_order_id
     LEFT JOIN factory_sales_invoices inv ON inv.id = d.invoice_id
@@ -93,6 +98,9 @@ export class GetDeliveriesMediator {
               li.description, li.unit_of_measure,
               di.quantity, di.unit_price_snapshot, di.line_total,
               p.ply,
+              di.bundles,
+              di.item_code,
+              p.customer_item_code AS product_customer_item_code,
               di.created_at
          FROM factory_customer_order_delivery_items di
          JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
@@ -119,6 +127,9 @@ export class GetDeliveriesMediator {
         unit_price_snapshot: parseFloat(row.unit_price_snapshot),
         line_total: parseFloat(row.line_total),
         ply: row.ply != null ? Number(row.ply) : null,
+        bundles: row.bundles != null ? Number(row.bundles) : null,
+        // Fall back to the product's customer_item_code when the per-shipment override is empty
+        item_code: row.item_code ?? row.product_customer_item_code ?? null,
         created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),
       });
       map.set(did, list);
@@ -149,6 +160,7 @@ export class GetDeliveriesMediator {
       delivery_status: row.delivery_status,
       notes: row.notes ?? undefined,
       shipped_by: row.shipped_by ? Number(row.shipped_by) : undefined,
+      vat_number: row.vat_number ?? undefined,
       items,
       subtotal: +subtotal.toFixed(2),
       created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),

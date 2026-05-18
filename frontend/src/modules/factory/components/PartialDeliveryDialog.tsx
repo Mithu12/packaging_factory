@@ -41,11 +41,14 @@ interface RowState {
     orderLineItemId: string;
     productName: string;
     productSku: string;
+    /** Editable; pre-filled from products.customer_item_code, overridable per shipment line. */
+    itemCode: string;
     ordered: number;
     delivered: number;
     remaining: number;
     /** stored as string so the input can be cleared without resetting to 0 */
     inputValue: string;
+    bundlesValue: string;
 }
 
 function buildRows(order: FactoryCustomerOrder | null): RowState[] {
@@ -58,11 +61,13 @@ function buildRows(order: FactoryCustomerOrder | null): RowState[] {
             orderLineItemId: String(li.id),
             productName: li.product_name,
             productSku: li.product_sku,
+            itemCode: li.customer_item_code ?? "",
             ordered,
             delivered,
             remaining,
             // Default each row to its remaining qty (most common case = ship rest)
             inputValue: remaining > 0 ? String(remaining) : "0",
+            bundlesValue: "",
         };
     });
 }
@@ -78,6 +83,7 @@ export default function PartialDeliveryDialog({
     const [carrier, setCarrier] = useState<string>("");
     const [estimatedDate, setEstimatedDate] = useState("");
     const [notes, setNotes] = useState("");
+    const [vatNumber, setVatNumber] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     // Reset state whenever the dialog opens for a new order
@@ -88,6 +94,7 @@ export default function PartialDeliveryDialog({
             setCarrier("");
             setEstimatedDate("");
             setNotes("");
+            setVatNumber(order?.customer_vat_number ?? "");
         }
     }, [open, order]);
 
@@ -103,6 +110,18 @@ export default function PartialDeliveryDialog({
         );
     }
 
+    function setRowBundles(idx: number, value: string) {
+        setRows(prev =>
+            prev.map((r, i) => (i === idx ? { ...r, bundlesValue: value } : r))
+        );
+    }
+
+    function setRowItemCode(idx: number, value: string) {
+        setRows(prev =>
+            prev.map((r, i) => (i === idx ? { ...r, itemCode: value } : r))
+        );
+    }
+
     function shipAll() {
         setRows(prev => prev.map(r => ({ ...r, inputValue: String(r.remaining) })));
     }
@@ -115,10 +134,20 @@ export default function PartialDeliveryDialog({
         if (!order) return;
 
         const items: CreateDeliveryItemRequest[] = rows
-            .map(r => ({
-                order_line_item_id: r.orderLineItemId,
-                quantity: Number(r.inputValue) || 0,
-            }))
+            .map(r => {
+                const bundlesRaw = r.bundlesValue.trim();
+                const bundles =
+                    bundlesRaw === "" || Number.isNaN(Number(bundlesRaw))
+                        ? null
+                        : Math.max(0, Math.trunc(Number(bundlesRaw)));
+                const itemCodeTrimmed = r.itemCode.trim();
+                return {
+                    order_line_item_id: r.orderLineItemId,
+                    quantity: Number(r.inputValue) || 0,
+                    bundles,
+                    item_code: itemCodeTrimmed === "" ? null : itemCodeTrimmed,
+                };
+            })
             .filter(it => it.quantity > 0);
 
         if (items.length === 0) {
@@ -142,8 +171,11 @@ export default function PartialDeliveryDialog({
                 items,
                 tracking_number: trackingNumber || undefined,
                 carrier: carrier || undefined,
-                estimated_delivery_date: estimatedDate || undefined,
+                // The dialog input is labelled "Delivery Date" — send it as
+                // delivery_date so the challan header reflects what the user typed.
+                delivery_date: estimatedDate || undefined,
                 notes: notes || undefined,
+                vat_number: vatNumber || undefined,
             });
             toast.success(
                 `Delivery ${result.delivery.delivery_number} created (Invoice ${result.invoice.invoice_number})`
@@ -160,7 +192,7 @@ export default function PartialDeliveryDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>New Delivery</DialogTitle>
                     <DialogDescription>
@@ -181,10 +213,12 @@ export default function PartialDeliveryDialog({
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Product</TableHead>
+                                        <TableHead>Item Code</TableHead>
                                         <TableHead className="text-right">Ordered</TableHead>
                                         <TableHead className="text-right">Delivered</TableHead>
                                         <TableHead className="text-right">Remaining</TableHead>
                                         <TableHead className="text-right w-32">Ship now</TableHead>
+                                        <TableHead className="text-right w-24">Bundles</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -193,6 +227,15 @@ export default function PartialDeliveryDialog({
                                             <TableCell>
                                                 <div className="font-medium">{r.productName}</div>
                                                 <div className="text-xs text-muted-foreground">{r.productSku}</div>
+                                            </TableCell>
+                                            <TableCell className="w-32">
+                                                <Input
+                                                    value={r.itemCode}
+                                                    onChange={e => setRowItemCode(idx, e.target.value)}
+                                                    disabled={r.remaining === 0}
+                                                    className="h-8"
+                                                    placeholder="—"
+                                                />
                                             </TableCell>
                                             <TableCell className="text-right">{r.ordered}</TableCell>
                                             <TableCell className="text-right">{r.delivered}</TableCell>
@@ -207,6 +250,18 @@ export default function PartialDeliveryDialog({
                                                     disabled={r.remaining === 0}
                                                     onChange={e => setRowQty(idx, e.target.value)}
                                                     className="h-8 text-right"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    step="1"
+                                                    value={r.bundlesValue}
+                                                    disabled={r.remaining === 0}
+                                                    onChange={e => setRowBundles(idx, e.target.value)}
+                                                    className="h-8 text-right"
+                                                    placeholder="—"
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -231,7 +286,7 @@ export default function PartialDeliveryDialog({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="tracking-number">Tracking Number</Label>
+                                <Label htmlFor="tracking-number">Transport No</Label>
                                 <Input
                                     id="tracking-number"
                                     value={trackingNumber}
@@ -246,24 +301,33 @@ export default function PartialDeliveryDialog({
                                         <SelectValue placeholder="Select carrier" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ups">UPS</SelectItem>
-                                        <SelectItem value="fedex">FedEx</SelectItem>
-                                        <SelectItem value="dhl">DHL</SelectItem>
-                                        <SelectItem value="usps">USPS</SelectItem>
+                                        <SelectItem value="truck">Truck</SelectItem>
+                                        <SelectItem value="pickup">Pickup</SelectItem>
                                         <SelectItem value="other">Other</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
-                        <div>
-                            <Label htmlFor="estimated-date">Estimated Delivery Date</Label>
-                            <Input
-                                id="estimated-date"
-                                type="date"
-                                value={estimatedDate}
-                                onChange={e => setEstimatedDate(e.target.value)}
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="estimated-date">Delivery Date</Label>
+                                <Input
+                                    id="estimated-date"
+                                    type="date"
+                                    value={estimatedDate}
+                                    onChange={e => setEstimatedDate(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="vat-number">VAT No</Label>
+                                <Input
+                                    id="vat-number"
+                                    value={vatNumber}
+                                    onChange={e => setVatNumber(e.target.value)}
+                                    placeholder={order?.customer_vat_number ? "Defaults from customer" : "Optional"}
+                                />
+                            </div>
                         </div>
 
                         <div>

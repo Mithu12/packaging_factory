@@ -173,6 +173,7 @@ export class GetCustomerOrderInfoMediator {
                                             'delivered_qty', li.delivered_qty,
                                             'invoiced_qty', li.invoiced_qty,
                                             'ply', p.ply,
+                                            'customer_item_code', p.customer_item_code,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items
@@ -324,6 +325,7 @@ export class GetCustomerOrderInfoMediator {
                                             'delivered_qty', li.delivered_qty,
                                             'invoiced_qty', li.invoiced_qty,
                                             'ply', p.ply,
+                                            'customer_item_code', p.customer_item_code,
                                             'created_at', li.created_at
                                     ) ORDER BY li.created_at
                              ) FILTER (WHERE li.id IS NOT NULL) AS line_items

@@ -87,6 +87,10 @@ export interface FactoryCustomerOrder {
     latest_work_order_number?: string;
     /** Creation timestamp of the latest linked work order (read-only). */
     latest_work_order_date?: string;
+    /** Customer's company (joined from factory_customers). */
+    customer_company?: string;
+    /** Customer's VAT number (joined from factory_customers, V139). Used to pre-fill the delivery dialog. */
+    customer_vat_number?: string | null;
 }
 
 export interface FactoryCustomerOrderLineItem {
@@ -104,6 +108,8 @@ export interface FactoryCustomerOrderLineItem {
     delivered_qty?: number;
     /** Cumulative qty already invoiced via delivery invoices (V131+). */
     invoiced_qty?: number;
+    /** Joined from products: buyer's item code (V142). */
+    customer_item_code?: string | null;
     notes?: string;
     specifications?: string;
     created_at: string;
@@ -128,6 +134,12 @@ export interface DeliveryItem {
     quantity: number;
     unit_price_snapshot: number;
     line_total: number;
+    /** Joined from products: corrugation layers for cartons. */
+    ply?: number | null;
+    /** # of bundles shipped for this line (V132). */
+    bundles?: number | null;
+    /** Per-shipment item code override; falls back to products.customer_item_code (V133). */
+    item_code?: string | null;
     created_at: string;
 }
 
@@ -145,6 +157,8 @@ export interface Delivery {
     delivery_status: DeliveryStatus;
     notes?: string;
     shipped_by?: number;
+    /** Per-shipment VAT registration override (V132). */
+    vat_number?: string;
     items: DeliveryItem[];
     subtotal: number;
     created_at: string;
@@ -154,6 +168,10 @@ export interface Delivery {
 export interface CreateDeliveryItemRequest {
     order_line_item_id: number | string;
     quantity: number;
+    /** # of bundles in this shipment line (V132). */
+    bundles?: number | null;
+    /** Item code override for this shipment line (V133). */
+    item_code?: string | null;
 }
 
 export interface CreateDeliveryRequest {
@@ -163,6 +181,8 @@ export interface CreateDeliveryRequest {
     carrier?: string;
     estimated_delivery_date?: string;
     notes?: string;
+    /** Per-shipment VAT registration override (V132). */
+    vat_number?: string;
 }
 
 export interface Address {

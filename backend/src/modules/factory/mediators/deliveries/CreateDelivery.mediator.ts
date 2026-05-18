@@ -121,8 +121,8 @@ export class CreateDeliveryMediator {
         `INSERT INTO factory_customer_order_deliveries (
            delivery_number, customer_order_id, delivery_date,
            tracking_number, carrier, estimated_delivery_date,
-           delivery_status, notes, shipped_by
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'shipped', $7, $8)
+           delivery_status, notes, shipped_by, vat_number
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'shipped', $7, $8, $9)
          RETURNING *`,
         [
           deliveryNumber,
@@ -133,6 +133,7 @@ export class CreateDeliveryMediator {
           request.estimated_delivery_date || null,
           request.notes || null,
           userId,
+          request.vat_number || null,
         ]
       );
       const delivery = deliveryRes.rows[0];
@@ -142,12 +143,20 @@ export class CreateDeliveryMediator {
         const line = lineById.get(Number(it.order_line_item_id))!;
         const unitPrice = parseFloat(line.unit_price);
         const lineTotal = +(unitPrice * it.quantity).toFixed(2);
+        const bundles =
+          it.bundles == null || Number.isNaN(Number(it.bundles))
+            ? null
+            : Math.max(0, Math.trunc(Number(it.bundles)));
+        const itemCode =
+          it.item_code != null && String(it.item_code).trim() !== ''
+            ? String(it.item_code).trim()
+            : null;
 
         await client.query(
           `INSERT INTO factory_customer_order_delivery_items
-             (delivery_id, order_line_item_id, quantity, unit_price_snapshot, line_total)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [delivery.id, line.id, it.quantity, unitPrice, lineTotal]
+             (delivery_id, order_line_item_id, quantity, unit_price_snapshot, line_total, bundles, item_code)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [delivery.id, line.id, it.quantity, unitPrice, lineTotal, bundles, itemCode]
         );
 
         await client.query(
