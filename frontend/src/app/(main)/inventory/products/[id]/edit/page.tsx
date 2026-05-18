@@ -275,7 +275,8 @@ export default function EditProduct() {
     const isRm = isRawMaterialsCategory(selectedCatName)
     const isInternal = isInternalPrimaryCategory(selectedCatName)
     const isRg = isReadyGoodsCategory(selectedCatName)
-    // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
+    // RRM and RG cost prices are populated from a BOM, so the cost input is hidden.
+    // RG still sets a selling price manually; RRM stays internal (no selling price).
     const costFromBom = isBomDrivenCostCategory(selectedCatName)
 
     let requiredKeys: (keyof EditProductFormData)[] = [
@@ -292,7 +293,7 @@ export default function EditProduct() {
     if (!costFromBom) {
       requiredKeys.push("cost_price")
     }
-    if (!isRm && !costFromBom) {
+    if (!isInternal) {
       requiredKeys.push("selling_price")
     }
 
@@ -758,14 +759,14 @@ export default function EditProduct() {
               </CardContent>
             </Card>
 
-            {/* Pricing — RRM and RG cost prices come from a BOM, so no pricing inputs are shown. */}
-            {isRawMaterialType ? (
+            {/* Pricing — RM shows cost only; RG shows selling only (cost comes from BOM); RRM hides both. */}
+            {isRawMaterialType || isReadyGoodsType ? (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!showAllFields ? (
+                {isRawMaterialType && !showAllFields ? (
                 <div>
                   <Label htmlFor="costPrice">Purchase Price (per unit) *</Label>
                   <div className="relative mt-2">
@@ -784,7 +785,9 @@ export default function EditProduct() {
                     />
                   </div>
                 </div>
-                ) : (
+                ) : null}
+
+                {isRawMaterialType && showAllFields ? (
                 <div>
                   <Label htmlFor="costPriceAll">Cost Price *</Label>
                   <Input
@@ -797,7 +800,43 @@ export default function EditProduct() {
                     required
                   />
                 </div>
-                )}
+                ) : null}
+
+                {isReadyGoodsType && !showAllFields ? (
+                <div>
+                  <Label htmlFor="sellingPrice">Selling Price *</Label>
+                  <div className="relative mt-2">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      ৳
+                    </span>
+                    <Input
+                      id="sellingPrice"
+                      className="pl-7"
+                      type="number"
+                      step="0.01"
+                      value={formData.selling_price}
+                      onChange={(e) => handleInputChange("selling_price", e.target.value)}
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+                </div>
+                ) : null}
+
+                {isReadyGoodsType && showAllFields ? (
+                <div>
+                  <Label htmlFor="sellingPriceAll">Selling Price *</Label>
+                  <Input
+                    id="sellingPriceAll"
+                    type="number"
+                    step="0.01"
+                    value={formData.selling_price}
+                    onChange={(e) => handleInputChange("selling_price", e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                ) : null}
               </CardContent>
             </Card>
             ) : null}

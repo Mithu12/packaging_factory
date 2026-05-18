@@ -368,7 +368,8 @@ export function AddProductForm({
       const isRm = isRawMaterialsCategory(selectedCatName);
       const isInternal = isInternalPrimaryCategory(selectedCatName);
       const isRg = isReadyGoodsCategory(selectedCatName);
-      // RRM and RG cost prices are populated from a BOM, so the form hides both pricing inputs.
+      // RRM and RG cost prices are populated from a BOM, so the cost input is hidden.
+      // RG still sets a selling price manually; RRM stays internal (no selling price).
       const costFromBom = isBomDrivenCostCategory(selectedCatName);
 
       let requiredKeys: (keyof ProductFormData)[] = [
@@ -385,7 +386,7 @@ export function AddProductForm({
       if (!costFromBom) {
         requiredKeys.push("cost_price");
       }
-      if (!isRm && !costFromBom) {
+      if (!isInternal) {
         requiredKeys.push("selling_price");
       }
 
@@ -413,9 +414,9 @@ export function AddProductForm({
       }
 
       // RRM/RG: cost is set by BOM after creation, so submit 0 here.
-      // RM: selling price is not used, submit 0.
+      // RM/RRM are internal — no selling price; RG and others submit the user's value.
       const costPrice = costFromBom ? 0 : parseFloat(formData.cost_price);
-      const sellingPrice = costFromBom || isRm ? 0 : parseFloat(formData.selling_price);
+      const sellingPrice = isInternal ? 0 : parseFloat(formData.selling_price);
 
       const productData: CreateProductRequest = {
         name: formData.name,
@@ -936,6 +937,53 @@ export function AddProductForm({
                     required
                     className={getFieldErrorClass("cost_price")}
                     aria-invalid={hasFieldError("cost_price")}
+                  />
+                </div>
+              </div>
+              ) : null}
+
+              {!showAllFields && isReadyGoodsType ? (
+              <div className="space-y-2">
+                <Label htmlFor="sellingPrice">Selling Price *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    ৳
+                  </span>
+                  <Input
+                    id="sellingPrice"
+                    data-testid="add-product-selling-price"
+                    type="number"
+                    step="0.01"
+                    value={formData.selling_price}
+                    onChange={(e) =>
+                      handleInputChange("selling_price", e.target.value)
+                    }
+                    placeholder="0"
+                    required
+                    className={`pl-7 ${getFieldErrorClass("selling_price")}`}
+                    aria-invalid={hasFieldError("selling_price")}
+                  />
+                </div>
+              </div>
+              ) : null}
+
+              {showAllFields && isReadyGoodsType ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sellingPriceAll">Selling Price *</Label>
+                  <Input
+                    id="sellingPriceAll"
+                    data-testid="add-product-selling-price"
+                    type="number"
+                    step="0.01"
+                    value={formData.selling_price}
+                    onChange={(e) =>
+                      handleInputChange("selling_price", e.target.value)
+                    }
+                    placeholder="0.00"
+                    required
+                    className={getFieldErrorClass("selling_price")}
+                    aria-invalid={hasFieldError("selling_price")}
                   />
                 </div>
               </div>
