@@ -25,6 +25,12 @@ export const deliveryIdSchema = Joi.object({
     .required(),
 });
 
+export const customerIdSchema = Joi.object({
+  customerId: Joi.alternatives()
+    .try(Joi.number().integer().positive(), Joi.string().pattern(/^\d+$/))
+    .required(),
+});
+
 export const cancelDeliverySchema = Joi.object({
   reason: Joi.string().max(500).optional().allow('', null),
 });

@@ -1368,10 +1368,19 @@ export class PDFGenerator {
     const invoiceNo = delivery?.invoice_number || delivery?.delivery_number || order.order_number || '';
     const invoiceDate = formatDate(delivery?.created_at || order.created_at);
     const challanNo = delivery?.delivery_number || '';
-    const vatNo = order.customer_vat_number || '';
+    const vatNo = delivery?.vat_number || order.customer_vat_number || '';
     const deliveryDate = formatDate(delivery?.delivery_date);
-    const poNumber = order.po_number || '';
-    const poDate = formatDate(order.po_date);
+    // For multi-order deliveries, concatenate touched orders' PO numbers in the header.
+    const touched = delivery?.touched_orders ?? [];
+    const touchedPoNumbers = touched.map(t => t.po_number).filter((p): p is string => !!p);
+    const touchedPoDates = touched
+      .map(t => t.po_date)
+      .filter((d): d is string => !!d)
+      .sort();
+    const poNumber = touchedPoNumbers.length > 0
+      ? touchedPoNumbers.join(', ')
+      : (order.po_number || '');
+    const poDate = formatDate(touchedPoDates[0] ?? order.po_date);
 
     // Customer block — company name comes from the customer's `company` field;
     // billing address prefers the single-line shape, falling back to legacy structured fields,
@@ -1781,8 +1790,19 @@ export class PDFGenerator {
       billingStructured ||
       '';
     const transportNo = delivery?.tracking_number || '';
-    const customerPoNo = order.po_number || '';
-    const customerPoDate = formatDate(order.po_date);
+    // For multi-order deliveries, concatenate touched orders' PO numbers in the header.
+    const touchedChallan = delivery?.touched_orders ?? [];
+    const touchedChallanPoNumbers = touchedChallan
+      .map(t => t.po_number)
+      .filter((p): p is string => !!p);
+    const touchedChallanPoDates = touchedChallan
+      .map(t => t.po_date)
+      .filter((d): d is string => !!d)
+      .sort();
+    const customerPoNo = touchedChallanPoNumbers.length > 0
+      ? touchedChallanPoNumbers.join(', ')
+      : (order.po_number || '');
+    const customerPoDate = formatDate(touchedChallanPoDates[0] ?? order.po_date);
     const workOrderDate = formatDate(order.latest_work_order_date);
     const vatNo = delivery?.vat_number || order.customer_vat_number || '';
 

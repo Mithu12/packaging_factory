@@ -15,6 +15,7 @@ import {
     createDeliverySchema,
     deliveryIdSchema,
     cancelDeliverySchema,
+    customerIdSchema,
 } from "../validation/deliveryValidation";
 import { authenticate } from "@/middleware/auth";
 import {
@@ -175,6 +176,17 @@ router.post(
     validateParams(deliveryIdSchema),
     auditMiddleware,
     expressAsyncHandler(deliveriesController.generateInvoiceForDelivery.bind(deliveriesController))
+);
+
+// POST /api/factory/customer-orders/customers/:customerId/deliveries
+// Customer-level entry: items may span multiple orders for this customer.
+router.post(
+    "/customers/:customerId/deliveries",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(customerIdSchema),
+    validateRequest(createDeliverySchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.createCustomerDelivery.bind(deliveriesController))
 );
 
 // GET /api/factory/customer-orders - Get all customer orders with filtering and pagination

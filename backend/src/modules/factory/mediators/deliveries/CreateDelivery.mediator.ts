@@ -18,6 +18,9 @@ interface OrderLineForLock {
   unit_price: string;
   quantity: string;
   delivered_qty: string;
+  order_id: number;
+  factory_customer_id: number;
+  order_status: string;
 }
 
 /**
@@ -39,7 +42,7 @@ export class CreateDeliveryMediator {
    * Auto-generates the delivery's sales invoice in the same transaction.
    */
   static async createPartialDelivery(
-    orderId: number | string,
+    primaryOrderId: number | string | null,
     request: CreateDeliveryRequest,
     userId: number
   ): Promise<{ delivery: Delivery; invoice: SalesInvoice }> {
@@ -48,54 +51,85 @@ export class CreateDeliveryMediator {
 
     try {
       await client.query('BEGIN');
-      MyLogger.info(action, { orderId, items: request.items, userId });
+      MyLogger.info(action, {
+        primaryOrderId,
+        factoryCustomerId: request.factory_customer_id,
+        items: request.items,
+        userId,
+      });
 
       if (!request.items || request.items.length === 0) {
         throw createError('Delivery must include at least one line item', 400);
       }
 
-      // 1. Load + status-gate the order
-      const orderRes = await client.query(
-        'SELECT id, status, order_number FROM factory_customer_orders WHERE id = $1 FOR UPDATE',
-        [orderId]
-      );
-      if (orderRes.rows.length === 0) {
-        throw createError('Customer order not found', 404);
+      // 1. Resolve factory_customer_id (the authoritative scope).
+      let factoryCustomerId: number | null = request.factory_customer_id ?? null;
+
+      if (primaryOrderId != null) {
+        const orderRes = await client.query(
+          'SELECT id, status, order_number, factory_customer_id FROM factory_customer_orders WHERE id = $1 FOR UPDATE',
+          [primaryOrderId]
+        );
+        if (orderRes.rows.length === 0) {
+          throw createError('Customer order not found', 404);
+        }
+        const primaryOrder = orderRes.rows[0];
+        if (factoryCustomerId != null && Number(factoryCustomerId) !== Number(primaryOrder.factory_customer_id)) {
+          throw createError(
+            'factory_customer_id does not match the primary order\'s customer',
+            400
+          );
+        }
+        factoryCustomerId = Number(primaryOrder.factory_customer_id);
       }
-      const order = orderRes.rows[0];
-      const allowedStatuses = [
+
+      if (factoryCustomerId == null) {
+        throw createError('Either primaryOrderId or factory_customer_id is required', 400);
+      }
+
+      // 2. Lock & validate ALL line items in one customer-scoped query.
+      const lineIds = request.items.map(it => Number(it.order_line_item_id));
+      const linesRes = await client.query<OrderLineForLock>(
+        `SELECT li.id, li.product_id, li.product_name, li.unit_price, li.quantity,
+                li.delivered_qty, li.order_id,
+                co.factory_customer_id, co.status AS order_status
+           FROM factory_customer_order_line_items li
+           JOIN factory_customer_orders co ON co.id = li.order_id
+          WHERE li.id = ANY($1::bigint[])
+          FOR UPDATE OF li`,
+        [lineIds]
+      );
+      if (linesRes.rows.length !== lineIds.length) {
+        throw createError('One or more line items not found', 400);
+      }
+
+      const allowedStatuses = new Set<string>([
         FactoryCustomerOrderStatus.IN_PRODUCTION,
         FactoryCustomerOrderStatus.COMPLETED,
         FactoryCustomerOrderStatus.PARTIALLY_SHIPPED,
-      ];
-      if (!allowedStatuses.includes(order.status)) {
-        throw createError(
-          `Cannot create delivery for order in '${order.status}' status. Order must be 'in_production', 'completed', or 'partially_shipped'.`,
-          400
-        );
-      }
-
-      // 2. Lock the relevant line items and validate qty
-      const lineIds = request.items.map(it => it.order_line_item_id);
-      const linesRes = await client.query<OrderLineForLock>(
-        `SELECT id, product_id, product_name, unit_price, quantity, delivered_qty
-           FROM factory_customer_order_line_items
-          WHERE order_id = $1 AND id = ANY($2::bigint[])
-          FOR UPDATE`,
-        [orderId, lineIds]
-      );
-      if (linesRes.rows.length !== lineIds.length) {
-        throw createError('One or more line items do not belong to this order', 400);
+      ]);
+      for (const row of linesRes.rows) {
+        if (Number(row.factory_customer_id) !== factoryCustomerId) {
+          throw createError(
+            'All items in a delivery must belong to orders for the same customer',
+            400
+          );
+        }
+        if (!allowedStatuses.has(row.order_status)) {
+          throw createError(
+            `Cannot ship from order in '${row.order_status}' status; must be 'in_production', 'completed', or 'partially_shipped'.`,
+            400
+          );
+        }
       }
 
       const lineById = new Map<number, OrderLineForLock>();
       linesRes.rows.forEach(r => lineById.set(Number(r.id), r));
 
-      // Validate requested qty per line
       for (const it of request.items) {
         const line = lineById.get(Number(it.order_line_item_id));
         if (!line) {
-          throw createError(`Line item ${it.order_line_item_id} not found on order`, 400);
+          throw createError(`Line item ${it.order_line_item_id} not found`, 400);
         }
         if (it.quantity <= 0) {
           throw createError(`Quantity must be > 0 for ${line.product_name}`, 400);
@@ -115,18 +149,19 @@ export class CreateDeliveryMediator {
       );
       const deliveryNumber: string = deliveryNumberRes.rows[0].delivery_number;
 
-      // 4. Insert delivery header
+      // 4. Insert delivery header (factory_customer_id always; customer_order_id optional).
       const deliveryDate = request.delivery_date || new Date().toISOString().split('T')[0];
       const deliveryRes = await client.query(
         `INSERT INTO factory_customer_order_deliveries (
-           delivery_number, customer_order_id, delivery_date,
+           delivery_number, factory_customer_id, customer_order_id, delivery_date,
            tracking_number, carrier, estimated_delivery_date,
            delivery_status, notes, shipped_by, vat_number
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'shipped', $7, $8, $9)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'shipped', $8, $9, $10)
          RETURNING *`,
         [
           deliveryNumber,
-          orderId,
+          factoryCustomerId,
+          primaryOrderId ?? null,
           deliveryDate,
           request.tracking_number || null,
           request.carrier || null,
@@ -170,30 +205,39 @@ export class CreateDeliveryMediator {
         await this.debitProductStock(client, line.product_id, it.quantity, line.product_name);
       }
 
-      // 6. Recompute order status. Look at ALL lines on the order, not just the ones touched.
-      const remainingRes = await client.query<{ pending: string }>(
-        `SELECT COALESCE(SUM(quantity - delivered_qty), 0) AS pending
-           FROM factory_customer_order_line_items
-          WHERE order_id = $1`,
-        [orderId]
+      // 6. Recompute status for EVERY touched order in one CTE.
+      const touchedOrderIds = Array.from(
+        new Set(linesRes.rows.map(r => Number(r.order_id)))
       );
-      const stillPending = parseFloat(remainingRes.rows[0].pending);
-
-      const newStatus =
-        stillPending <= 1e-9
-          ? FactoryCustomerOrderStatus.SHIPPED
-          : FactoryCustomerOrderStatus.PARTIALLY_SHIPPED;
-
-      const statusUpdateFields: string[] = ['status = $1', 'updated_at = CURRENT_TIMESTAMP'];
-      const statusParams: unknown[] = [newStatus];
-      if (newStatus === FactoryCustomerOrderStatus.SHIPPED) {
-        statusUpdateFields.push('shipped_at = CURRENT_TIMESTAMP', `shipped_by = $${statusParams.length + 1}`);
-        statusParams.push(userId);
-      }
-      statusParams.push(orderId);
       await client.query(
-        `UPDATE factory_customer_orders SET ${statusUpdateFields.join(', ')} WHERE id = $${statusParams.length}`,
-        statusParams
+        `WITH totals AS (
+           SELECT li.order_id,
+                  COALESCE(SUM(li.quantity - li.delivered_qty), 0) AS pending,
+                  COALESCE(SUM(li.delivered_qty), 0) AS shipped
+             FROM factory_customer_order_line_items li
+            WHERE li.order_id = ANY($1::bigint[])
+            GROUP BY li.order_id
+         )
+         UPDATE factory_customer_orders co
+            SET status = CASE
+                           WHEN t.pending <= 0 THEN 'shipped'
+                           WHEN t.shipped > 0 THEN 'partially_shipped'
+                           ELSE co.status
+                         END,
+                shipped_at = CASE
+                               WHEN t.pending <= 0 AND co.shipped_at IS NULL
+                               THEN CURRENT_TIMESTAMP
+                               ELSE co.shipped_at
+                             END,
+                shipped_by = CASE
+                               WHEN t.pending <= 0 AND co.shipped_by IS NULL
+                               THEN $2
+                               ELSE co.shipped_by
+                             END,
+                updated_at = CURRENT_TIMESTAMP
+           FROM totals t
+          WHERE co.id = t.order_id`,
+        [touchedOrderIds, userId]
       );
 
       // 7. Create the per-delivery invoice in the same transaction.
@@ -206,22 +250,21 @@ export class CreateDeliveryMediator {
       await client.query('COMMIT');
 
       MyLogger.success(action, {
-        orderId,
         deliveryId: delivery.id,
         deliveryNumber: delivery.delivery_number,
+        factoryCustomerId,
+        touchedOrderIds,
         invoiceId: invoice.id,
-        newOrderStatus: newStatus,
       });
 
       const fullDelivery = await GetDeliveriesMediator.getDeliveryById(delivery.id);
       if (!fullDelivery) {
-        // Should never happen since we just created it
         throw createError('Failed to load created delivery', 500);
       }
       return { delivery: fullDelivery, invoice };
     } catch (error: any) {
       await client.query('ROLLBACK');
-      MyLogger.error(action, error, { orderId });
+      MyLogger.error(action, error, { primaryOrderId });
       throw error;
     } finally {
       client.release();

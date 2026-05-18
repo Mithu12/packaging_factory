@@ -1,12 +1,14 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
-import { Delivery, DeliveryItem } from '@/types/factory';
+import { Delivery, DeliveryItem, TouchedOrder } from '@/types/factory';
 
 interface DeliveryRow {
   id: string;
   delivery_number: string;
-  customer_order_id: string;
-  order_number: string;
+  factory_customer_id: string;
+  factory_customer_name: string | null;
+  customer_order_id: string | null;
+  order_number: string | null;
   invoice_id: string | null;
   invoice_number: string | null;
   delivery_date: string | Date;
@@ -17,6 +19,7 @@ interface DeliveryRow {
   notes: string | null;
   shipped_by: string | null;
   vat_number: string | null;
+  touched_orders: unknown;
   created_at: string | Date;
   updated_at: string | Date | null;
 }
@@ -41,14 +44,32 @@ interface DeliveryItemRow {
 }
 
 const SELECT_DELIVERY = `
-  SELECT d.id, d.delivery_number, d.customer_order_id, co.order_number,
+  SELECT d.id, d.delivery_number,
+         d.factory_customer_id, fc.name AS factory_customer_name,
+         d.customer_order_id, co.order_number,
          d.invoice_id, inv.invoice_number,
          d.delivery_date, d.tracking_number, d.carrier, d.estimated_delivery_date,
          d.delivery_status, d.notes, d.shipped_by, d.vat_number,
-         d.created_at, d.updated_at
+         d.created_at, d.updated_at,
+         COALESCE(tos.touched_orders, '[]'::json) AS touched_orders
     FROM factory_customer_order_deliveries d
-    JOIN factory_customer_orders co ON co.id = d.customer_order_id
+    JOIN factory_customers fc ON fc.id = d.factory_customer_id
+    LEFT JOIN factory_customer_orders co ON co.id = d.customer_order_id
     LEFT JOIN factory_sales_invoices inv ON inv.id = d.invoice_id
+    LEFT JOIN LATERAL (
+      SELECT json_agg(o ORDER BY o.order_id) AS touched_orders
+        FROM (
+          SELECT DISTINCT
+                 o2.id AS order_id,
+                 o2.order_number,
+                 o2.po_number,
+                 o2.po_date
+            FROM factory_customer_order_delivery_items di
+            JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+            JOIN factory_customer_orders o2 ON o2.id = li.order_id
+           WHERE di.delivery_id = d.id
+        ) o
+    ) tos ON true
 `;
 
 export class GetDeliveriesMediator {
@@ -139,11 +160,24 @@ export class GetDeliveriesMediator {
 
   private static formatDelivery(row: DeliveryRow, items: DeliveryItem[]): Delivery {
     const subtotal = items.reduce((s, it) => s + it.line_total, 0);
+    const touched = Array.isArray(row.touched_orders) ? row.touched_orders : [];
+    const touchedOrders: TouchedOrder[] = touched.map((o: any) => ({
+      order_id: Number(o.order_id),
+      order_number: String(o.order_number),
+      po_number: o.po_number ?? null,
+      po_date: o.po_date
+        ? (typeof o.po_date === 'string' ? o.po_date : new Date(o.po_date).toISOString().split('T')[0])
+        : null,
+    }));
+
     return {
       id: Number(row.id),
       delivery_number: row.delivery_number,
-      customer_order_id: Number(row.customer_order_id),
-      customer_order_number: row.order_number,
+      factory_customer_id: Number(row.factory_customer_id),
+      factory_customer_name: row.factory_customer_name ?? undefined,
+      customer_order_id: row.customer_order_id ? Number(row.customer_order_id) : undefined,
+      customer_order_number: row.order_number ?? undefined,
+      touched_orders: touchedOrders,
       invoice_id: row.invoice_id ? Number(row.invoice_id) : undefined,
       invoice_number: row.invoice_number ?? undefined,
       delivery_date:

@@ -122,6 +122,14 @@ export interface FactoryCustomerOrderLineItem {
 
 export type DeliveryStatus = 'shipped' | 'delivered' | 'returned' | 'cancelled';
 
+/** One order contributing items to a delivery (multi-order shipments, V145+). */
+export interface TouchedOrder {
+    order_id: number;
+    order_number: string;
+    po_number?: string | null;
+    po_date?: string | null;
+}
+
 export interface DeliveryItem {
     id: number;
     delivery_id: number;
@@ -146,8 +154,14 @@ export interface DeliveryItem {
 export interface Delivery {
     id: number;
     delivery_number: string;
-    customer_order_id: number;
+    /** Authoritative scope: customer this delivery is for (V145+). */
+    factory_customer_id: number;
+    factory_customer_name?: string;
+    /** Primary/opened-from order — optional for customer-level deliveries (V145+). */
+    customer_order_id?: number;
     customer_order_number?: string;
+    /** All orders whose lines are in this delivery (V145+). */
+    touched_orders: TouchedOrder[];
     invoice_id?: number;
     invoice_number?: string;
     delivery_date: string;
@@ -183,6 +197,8 @@ export interface CreateDeliveryRequest {
     notes?: string;
     /** Per-shipment VAT registration override (V132). */
     vat_number?: string;
+    /** Customer-level entry point only (V145+). Order-level routes derive it from the path. */
+    factory_customer_id?: number;
 }
 
 export interface Address {
@@ -806,6 +822,47 @@ export class CustomerOrdersApiService {
             method: 'POST',
             body: JSON.stringify(data),
         });
+    }
+
+    /**
+     * Customer-level delivery: items may span multiple of this customer's orders.
+     * No primary order is recorded. (V145+)
+     */
+    static async createCustomerDelivery(
+        customerId: string | number,
+        data: CreateDeliveryRequest
+    ): Promise<{ delivery: Delivery; invoice: { id: number; invoice_number: string } }> {
+        return makeRequest(`${this.BASE_URL}/customers/${customerId}/deliveries`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /**
+     * Open orders for a customer (status in_production/completed/partially_shipped),
+     * used by the "Add lines from another order" picker and the customer-level
+     * delivery page.
+     */
+    static async listOpenOrdersForCustomer(customerId: string | number): Promise<FactoryCustomerOrder[]> {
+        // The existing GET /customer-orders endpoint accepts factory_customer_id and
+        // status filters; we call it three times (one per status) and merge — the
+        // backend filters by exact match so a single comma-separated value isn't
+        // supported. Cost is fine for typical small N.
+        const statuses: FactoryCustomerOrderStatus[] = [
+            'in_production',
+            'completed',
+            'partially_shipped',
+        ];
+        const lists = await Promise.all(
+            statuses.map(s =>
+                CustomerOrdersApiService.getCustomerOrders({
+                    factory_customer_id: String(customerId),
+                    status: s,
+                    limit: 100,
+                })
+            )
+        );
+        return lists.flatMap(r => r.orders ?? []);
     }
 
     /** List all deliveries for an order (oldest first). */

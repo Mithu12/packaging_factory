@@ -3,7 +3,7 @@
 export interface SalesInvoice {
   id: string;
   invoice_number: string;
-  customer_order_id: string;
+  customer_order_id?: string;
   customer_order_number?: string;
   factory_customer_id: string;
   factory_customer_name?: string;

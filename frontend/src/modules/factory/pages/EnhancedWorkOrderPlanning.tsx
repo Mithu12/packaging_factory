@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { productionExecutionQueryKeys } from "@/services/production-execution-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -145,6 +147,7 @@ export default function EnhancedWorkOrderPlanning({
   mode = "all",
 }: EnhancedWorkOrderPlanningProps = {}) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const isModeLocked = mode !== "all";
   const [workOrders, setWorkOrders] = useState<EnhancedWorkOrder[]>([]);
@@ -551,6 +554,12 @@ export default function EnhancedWorkOrderPlanning({
       await WorkOrdersApiService.updateWorkOrderStatus(workOrderId, "completed");
       toast.success("Work order completed");
       fetchPlanningData();
+      // WO completion cascades down to production runs, lines, and operators on the
+      // backend — invalidate the production-execution caches so the runs page reflects
+      // the new state without a manual reload.
+      queryClient.invalidateQueries({ queryKey: productionExecutionQueryKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["production-execution", "production-lines"] });
+      queryClient.invalidateQueries({ queryKey: ["production-execution", "operators"] });
     } catch (error) {
       toast.error("Failed to complete work order");
     }

@@ -26,6 +26,33 @@ class DeliveriesController {
     }
   }
 
+  /**
+   * POST /api/factory/customer-orders/customers/:customerId/deliveries
+   * Customer-level entry point: no primary order, items may span multiple
+   * orders belonging to this customer.
+   */
+  async createCustomerDelivery(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'POST /api/factory/customer-orders/customers/:customerId/deliveries';
+      const { customerId } = req.params;
+      const userId = req.user?.user_id;
+      if (!userId) throw createError('User not authenticated', 401);
+
+      MyLogger.info(action, { customerId, userId, body: req.body });
+
+      const result = await CreateDeliveryMediator.createPartialDelivery(
+        null,
+        { ...req.body, factory_customer_id: Number(customerId) },
+        userId
+      );
+
+      res.status(201);
+      serializeSuccessResponse(res, result, 'Delivery created successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /api/factory/customer-orders/:id/deliveries */
   async listDeliveriesForOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

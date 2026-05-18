@@ -233,6 +233,17 @@ export interface OrderLineItem {
 
 export type DeliveryStatus = 'shipped' | 'delivered' | 'returned' | 'cancelled';
 
+/**
+ * One row per order that contributed items to a delivery (multi-order shipments).
+ * Derived from delivery_items -> order_line_items -> orders.
+ */
+export interface TouchedOrder {
+    order_id: number;
+    order_number: string;
+    po_number?: string | null;
+    po_date?: string | null;
+}
+
 export interface DeliveryItem {
     id: number;
     delivery_id: number;
@@ -257,8 +268,14 @@ export interface DeliveryItem {
 export interface Delivery {
     id: number;
     delivery_number: string;
-    customer_order_id: number;
+    /** Authoritative scope: customer this delivery is for (V145+). */
+    factory_customer_id: number;
+    factory_customer_name?: string;
+    /** Primary/opened-from order. Optional for customer-level deliveries. */
+    customer_order_id?: number;
     customer_order_number?: string;
+    /** All orders whose lines are in this delivery (multi-order shipments). */
+    touched_orders: TouchedOrder[];
     invoice_id?: number;
     invoice_number?: string;
     delivery_date: string;
@@ -291,6 +308,8 @@ export interface CreateDeliveryRequest {
     estimated_delivery_date?: string;
     notes?: string;
     vat_number?: string;
+    /** Customer-level entry point only. Order-level routes set this from the path param. */
+    factory_customer_id?: number;
 }
 
 export interface Address {

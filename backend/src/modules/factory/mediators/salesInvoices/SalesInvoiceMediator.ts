@@ -86,21 +86,24 @@ export class SalesInvoiceMediator {
       if (ownsTxn) await client.query('BEGIN');
       MyLogger.info(action, { deliveryId, userId });
 
-      // 1. Load delivery + order + items in a single transaction
+      // 1. Load delivery + customer (always) + primary order (optional).
       const deliveryRes = await client.query(
-        `SELECT d.*, co.order_number, co.factory_id, co.factory_customer_id,
-                co.payment_terms AS order_payment_terms,
-                co.billing_address, co.shipping_address,
-                co.shipping_cost AS order_shipping_cost,
+        `SELECT d.*,
                 fc.payment_terms AS customer_payment_terms,
-                f.cost_center_id AS factory_cost_center_id,
-                f.name AS factory_name,
                 fc.name AS customer_name,
-                fc.email AS customer_email
+                fc.email AS customer_email,
+                fc.address AS customer_address,
+                co.order_number AS primary_order_number,
+                co.factory_id AS primary_factory_id,
+                co.payment_terms AS primary_payment_terms,
+                co.billing_address AS primary_billing_address,
+                co.shipping_address AS primary_shipping_address,
+                pf.cost_center_id AS primary_factory_cost_center_id,
+                pf.name AS primary_factory_name
            FROM factory_customer_order_deliveries d
-           JOIN factory_customer_orders co ON co.id = d.customer_order_id
-           JOIN factory_customers fc ON fc.id = co.factory_customer_id
-           LEFT JOIN factories f ON f.id = co.factory_id
+           JOIN factory_customers fc ON fc.id = d.factory_customer_id
+           LEFT JOIN factory_customer_orders co ON co.id = d.customer_order_id
+           LEFT JOIN factories pf ON pf.id = co.factory_id
           WHERE d.id = $1`,
         [deliveryId]
       );
@@ -118,8 +121,10 @@ export class SalesInvoiceMediator {
       }
 
       const itemsRes = await client.query(
-        `SELECT di.id, di.order_line_item_id, di.quantity, di.unit_price_snapshot, di.line_total
+        `SELECT di.id, di.order_line_item_id, di.quantity, di.unit_price_snapshot, di.line_total,
+                li.order_id
            FROM factory_customer_order_delivery_items di
+           JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
           WHERE di.delivery_id = $1`,
         [deliveryId]
       );
@@ -128,21 +133,50 @@ export class SalesInvoiceMediator {
         throw createError('Delivery has no items; cannot create invoice', 400);
       }
 
-      // 2. Compute amounts from delivery_items (NOT from order total)
+      // 2. Determine factory_id for the invoice. Prefer the primary order's
+      // factory; otherwise use whichever factory is most common across touched orders.
+      let factoryId = delivery.primary_factory_id ?? null;
+      let factoryCostCenterId = delivery.primary_factory_cost_center_id ?? null;
+      let factoryName = delivery.primary_factory_name ?? null;
+      if (!factoryId) {
+        const factoryRes = await client.query<{ factory_id: string; cost_center_id: string | null; name: string | null }>(
+          `SELECT co.factory_id, f.cost_center_id, f.name, COUNT(*) AS n
+             FROM factory_customer_orders co
+             LEFT JOIN factories f ON f.id = co.factory_id
+            WHERE co.id = ANY($1::bigint[])
+            GROUP BY co.factory_id, f.cost_center_id, f.name
+            ORDER BY n DESC NULLS LAST
+            LIMIT 1`,
+          [Array.from(new Set(items.map(it => Number(it.order_id))))]
+        );
+        if (factoryRes.rows.length > 0) {
+          factoryId = factoryRes.rows[0].factory_id ? Number(factoryRes.rows[0].factory_id) : null;
+          factoryCostCenterId = factoryRes.rows[0].cost_center_id ? Number(factoryRes.rows[0].cost_center_id) : null;
+          factoryName = factoryRes.rows[0].name;
+        }
+      }
+
+      // 3. Compute amounts from delivery_items (NOT from any single order total).
       const subtotal = items.reduce((sum, it) => sum + parseFloat(it.line_total), 0);
-      const taxAmount = 0; // tax not yet modelled at delivery level
-      const shippingCost = 0; // shipping cost stays on order; not allocated per delivery in v1
+      const taxAmount = 0;
+      const shippingCost = 0;
       const totalAmount = subtotal + taxAmount + shippingCost;
 
-      const paymentTerms = delivery.order_payment_terms || delivery.customer_payment_terms;
+      const paymentTerms = delivery.primary_payment_terms || delivery.customer_payment_terms;
       const invoiceDate = (delivery.delivery_date instanceof Date
         ? delivery.delivery_date.toISOString().split('T')[0]
         : String(delivery.delivery_date)) || new Date().toISOString().split('T')[0];
       const dueDate = this.calculateDueDate(paymentTerms);
 
+      // Addresses: primary order's address if present, else customer's default address.
+      const billingAddress =
+        delivery.primary_billing_address ?? delivery.customer_address ?? null;
+      const shippingAddress =
+        delivery.primary_shipping_address ?? delivery.customer_address ?? null;
+
       const invoiceNumber = await this.generateInvoiceNumber(client);
 
-      // 3. Insert invoice
+      // 4. Insert invoice — customer_order_id is now nullable, factory_customer_id authoritative.
       const insertRes = await client.query(
         `INSERT INTO factory_sales_invoices (
            invoice_number, customer_order_id, factory_customer_id, factory_id,
@@ -155,9 +189,9 @@ export class SalesInvoiceMediator {
          ) RETURNING *`,
         [
           invoiceNumber,
-          delivery.customer_order_id,
+          delivery.customer_order_id ?? null,
           delivery.factory_customer_id,
-          delivery.factory_id,
+          factoryId,
           invoiceDate,
           dueDate,
           subtotal,
@@ -166,16 +200,16 @@ export class SalesInvoiceMediator {
           totalAmount,
           totalAmount,
           paymentTerms,
-          `Invoice for delivery ${delivery.delivery_number} (order ${delivery.order_number})`,
-          delivery.billing_address,
-          delivery.shipping_address,
+          `Invoice for delivery ${delivery.delivery_number}${delivery.primary_order_number ? ` (primary order ${delivery.primary_order_number})` : ''}`,
+          billingAddress,
+          shippingAddress,
           SalesInvoiceStatus.UNPAID,
           userId,
         ]
       );
       const invoice = insertRes.rows[0];
 
-      // 4. Link invoice on delivery + bump invoiced_qty rollup on each line
+      // 5. Link invoice on delivery + bump invoiced_qty rollup on each line
       await client.query(
         'UPDATE factory_customer_order_deliveries SET invoice_id = $1 WHERE id = $2',
         [invoice.id, deliveryId]
@@ -190,52 +224,80 @@ export class SalesInvoiceMediator {
         );
       }
 
-      // Mirror legacy behaviour: keep factory_customer_orders.invoice_id pointing at
-      // the FIRST invoice created for the order so existing reads still resolve.
+      // Mirror legacy behaviour: each touched order's invoice_id points at the
+      // FIRST invoice created for that order so legacy reads still resolve.
+      const touchedOrderIds = Array.from(new Set(items.map(it => Number(it.order_id))));
       await client.query(
         `UPDATE factory_customer_orders
             SET invoice_id = COALESCE(invoice_id, $1)
-          WHERE id = $2`,
-        [invoice.id, delivery.customer_order_id]
+          WHERE id = ANY($2::bigint[])`,
+        [invoice.id, touchedOrderIds]
       );
 
       if (ownsTxn) await client.query('COMMIT');
 
-      // 5. Post sales / shipment vouchers (best-effort — outside the txn so a
-      // voucher failure does not roll back the invoice). Mirrors the legacy
-      // shipping flow at customerOrders.controller.ts:497.
+      // 6. Post one shipment voucher with aggregated COGS across touched orders
+      // (best-effort — outside the txn).
       try {
-        // Proportional COGS = (deliverySubtotal / orderTotal) * fullOrderCogs
-        const orderTotalRes = await pool.query(
-          'SELECT total_value FROM factory_customer_orders WHERE id = $1',
-          [delivery.customer_order_id]
-        );
-        const orderTotal = parseFloat(orderTotalRes.rows[0]?.total_value || '0') || 0;
+        // For each touched order: subtotal contributed by that order in this delivery
+        const perOrderSubtotal = new Map<number, number>();
+        for (const it of items) {
+          const oid = Number(it.order_id);
+          perOrderSubtotal.set(oid, (perOrderSubtotal.get(oid) ?? 0) + parseFloat(it.line_total));
+        }
 
-        const cogsRes = await pool.query(
-          `SELECT COALESCE(SUM(total_wip_cost), 0) AS cogs
-             FROM work_orders WHERE customer_order_id = $1 AND status = 'completed'`,
-          [delivery.customer_order_id]
+        // Look up each touched order's total_value and full COGS, then sum
+        // proportional contributions.
+        const aggRes = await pool.query<{
+          order_id: string;
+          total_value: string;
+          cogs: string;
+        }>(
+          `SELECT co.id AS order_id,
+                  co.total_value,
+                  COALESCE((SELECT SUM(wo.total_wip_cost)
+                              FROM work_orders wo
+                             WHERE wo.customer_order_id = co.id
+                               AND wo.status = 'completed'), 0) AS cogs
+             FROM factory_customer_orders co
+            WHERE co.id = ANY($1::bigint[])`,
+          [touchedOrderIds]
         );
-        const fullCogs = parseFloat(cogsRes.rows[0]?.cogs || '0') || 0;
-        const proportionalCogs = orderTotal > 0 ? (subtotal / orderTotal) * fullCogs : 0;
+
+        let proportionalCogs = 0;
+        for (const row of aggRes.rows) {
+          const oid = Number(row.order_id);
+          const orderTotal = parseFloat(row.total_value || '0') || 0;
+          const fullCogs = parseFloat(row.cogs || '0') || 0;
+          const portion = perOrderSubtotal.get(oid) ?? 0;
+          if (orderTotal > 0) {
+            proportionalCogs += (portion / orderTotal) * fullCogs;
+          }
+        }
+
+        const voucherOrderId = delivery.customer_order_id ?? touchedOrderIds[0];
+        const voucherOrderNumber =
+          delivery.primary_order_number ??
+          aggRes.rows.find(r => Number(r.order_id) === voucherOrderId)?.order_id ??
+          String(voucherOrderId);
 
         const orderData = {
-          orderId: String(delivery.customer_order_id),
-          orderNumber: delivery.order_number,
+          orderId: String(voucherOrderId),
+          orderNumber: String(voucherOrderNumber),
           customerId: String(delivery.factory_customer_id),
           customerName: delivery.customer_name,
           customerEmail: delivery.customer_email,
           totalValue: subtotal,
           currency: 'BDT',
           orderDate: invoiceDate,
-          factoryId: delivery.factory_id,
-          factoryName: delivery.factory_name,
-          factoryCostCenterId: delivery.factory_cost_center_id,
+          factoryId,
+          factoryName,
+          factoryCostCenterId,
           costOfGoodsSold: proportionalCogs,
           deliveryNumber: delivery.delivery_number,
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoice_number,
+          touchedOrderIds,
         };
         await interModuleConnector.accModule.addFactoryOrderShipmentVoucher(orderData, userId);
       } catch (voucherErr: any) {
@@ -753,7 +815,7 @@ export class SalesInvoiceMediator {
     return {
       id: row.id.toString(),
       invoice_number: row.invoice_number,
-      customer_order_id: row.customer_order_id.toString(),
+      customer_order_id: row.customer_order_id != null ? row.customer_order_id.toString() : undefined,
       customer_order_number: row.customer_order_number,
       factory_customer_id: row.factory_customer_id.toString(),
       factory_customer_name: row.factory_customer_name,

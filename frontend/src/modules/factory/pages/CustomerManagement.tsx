@@ -21,6 +21,7 @@ import {
   DollarSign,
   TrendingUp,
   Wallet,
+  Truck,
 } from "lucide-react";
 import {
   Table,
@@ -56,6 +57,7 @@ import {
   UpdateCustomerRequest,
 } from "../services/customer-orders-api";
 import CustomerForm from "../components/CustomerForm";
+import CustomerDeliveryDialog from "../components/CustomerDeliveryDialog";
 
 export default function CustomerManagement() {
   const { formatCurrency, formatDate } = useFormatting();
@@ -69,6 +71,14 @@ export default function CustomerManagement() {
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<FactoryCustomer | null>(null);
+  // V145+: customer-level multi-order delivery dialog
+  const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
+  const [deliveryCustomer, setDeliveryCustomer] = useState<FactoryCustomer | null>(null);
+
+  const handleNewDelivery = (customer: FactoryCustomer) => {
+    setDeliveryCustomer(customer);
+    setShowDeliveryDialog(true);
+  };
 
   // Load customers
   const loadCustomers = async () => {
@@ -344,6 +354,15 @@ export default function CustomerManagement() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleNewDelivery(customer)}
+                        data-testid="new-delivery-button"
+                        title="New Delivery (multi-order)"
+                      >
+                        <Truck className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditCustomer(customer)}
                         data-testid="edit-customer-button"
                       >
@@ -497,6 +516,14 @@ export default function CustomerManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* V145+: customer-level multi-order delivery dialog */}
+      <CustomerDeliveryDialog
+        open={showDeliveryDialog}
+        onOpenChange={setShowDeliveryDialog}
+        customer={deliveryCustomer}
+        onCreated={loadCustomers}
+      />
     </div>
   );
 }
