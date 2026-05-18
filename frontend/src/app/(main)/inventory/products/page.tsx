@@ -351,17 +351,51 @@ export default function Products() {
             <CardTitle className="text-lg">Categories</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {categories.map((category) => (
-              <div key={category.name} className="flex items-center justify-between p-3 rounded-lg bg-accent/20 hover:bg-accent/30 transition-colors">
-                <div>
-                  <div className="font-medium text-sm">{category.name}</div>
-                  <div className="text-xs text-muted-foreground">{category.count} products</div>
-                </div>
-                <Badge className={category.color}>
-                  {category.count}
-                </Badge>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(ALL)}
+              aria-pressed={categoryFilter === ALL}
+              className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                categoryFilter === ALL
+                  ? "bg-primary/10 ring-1 ring-primary"
+                  : "bg-accent/20 hover:bg-accent/30"
+              }`}
+              data-testid="product-category-filter-all"
+            >
+              <div>
+                <div className="font-medium text-sm">All</div>
+                <div className="text-xs text-muted-foreground">{products.length} products</div>
               </div>
-            ))}
+              <Badge variant="outline">{products.length}</Badge>
+            </button>
+            {categories.map((category) => {
+              const isActive = categoryFilter === category.name
+              return (
+                <button
+                  key={category.name}
+                  type="button"
+                  onClick={() =>
+                    setCategoryFilter(isActive ? ALL : category.name)
+                  }
+                  aria-pressed={isActive}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                    isActive
+                      ? "bg-primary/10 ring-1 ring-primary"
+                      : "bg-accent/20 hover:bg-accent/30"
+                  }`}
+                  data-testid="product-category-filter"
+                  data-category={category.name}
+                >
+                  <div>
+                    <div className="font-medium text-sm">{category.name}</div>
+                    <div className="text-xs text-muted-foreground">{category.count} products</div>
+                  </div>
+                  <Badge className={category.color}>
+                    {category.count}
+                  </Badge>
+                </button>
+              )
+            })}
           </CardContent>
         </Card>
 

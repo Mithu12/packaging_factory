@@ -34,6 +34,7 @@ import {
   X,
   Image,
   Camera,
+  Printer,
 } from "lucide-react"
 import { ApiService, ProductWithDetails, ApiError, StockAdjustment, PurchaseOrderWithDetails } from "@/services/api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
@@ -242,7 +243,7 @@ export default function ProductDetails() {
     <div className="space-y-6" data-testid="product-details-page">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/products")} data-testid="back-to-products-button">
+        <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/products")} data-testid="back-to-products-button" className="print:hidden">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -252,7 +253,11 @@ export default function ProductDetails() {
             {product.subcategory?.name && ` • ${product.subcategory.name}`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" onClick={() => window.print()} data-testid="product-print-button">
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
           <Button onClick={() => router.push(`/inventory/products/${id}/edit`)} data-testid="product-edit-button">
             <Edit className="w-4 h-4 mr-2" />
             Edit Product
@@ -280,7 +285,7 @@ export default function ProductDetails() {
                   onOpenChange={setIsImageDialogOpen}
                 >
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="print:hidden">
                       <Camera className="w-4 h-4 mr-2" />
                       Update Image
                     </Button>
@@ -681,7 +686,7 @@ export default function ProductDetails() {
                 <p className="text-sm text-muted-foreground">
                   Average Lead Time: Not specified
                 </p>
-                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => router.push(`/inventory/suppliers/${product.supplier!.id}`)} data-testid="view-supplier-details-button">
+                <Button variant="outline" size="sm" className="w-full mt-3 print:hidden" onClick={() => router.push(`/inventory/suppliers/${product.supplier!.id}`)} data-testid="view-supplier-details-button">
                   View Supplier Details
                 </Button>
               </div>
@@ -717,6 +722,27 @@ export default function ProductDetails() {
           </Card>
         </div>
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Hide the app sidebar rendered by the (main) layout. */
+          div[data-side][data-variant] {
+            display: none !important;
+          }
+          /* Hide the layout top bar (single <header> element at the layout level). */
+          body header {
+            display: none !important;
+          }
+          /* Remove main padding so the page uses the full sheet. */
+          main {
+            padding: 0 !important;
+          }
+        }
+      `}</style>
     </div >
   )
 }
