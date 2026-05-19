@@ -1355,14 +1355,21 @@ export class PDFGenerator {
       `;
     }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
 
-    // Totals — VAT applied on the rendered (per-delivery or whole-order) subtotal.
-    const subTotal = renderRows.reduce((sum, r) => sum + r.line_total, 0);
+    // Totals — goods subtotal is rounded to whole taka; VAT keeps its paisa.
+    // The printed total therefore carries paisa only when VAT contributes them.
+    const subTotalRaw = renderRows.reduce((sum, r) => sum + r.line_total, 0);
+    const subTotal = Math.round(subTotalRaw);
     const subTotalQty = renderRows.reduce((sum, r) => sum + r.quantity, 0);
     // VAT defaults to 0 — only auto-added when the order itself carries a tax rate.
     const vatPct = order.tax_rate != null && order.tax_rate > 0 ? Number(order.tax_rate) : 0;
     const vatAmount = (subTotal * vatPct) / 100;
     const grandTotal = subTotal + vatAmount;
-    const amountInWords = numberToWords(Math.round(grandTotal));
+    // Words mirror the printed total: include "and X Paisa" only when paisa remain.
+    const grandTotalTaka = Math.trunc(grandTotal);
+    const grandTotalPaisa = Math.round((grandTotal - grandTotalTaka) * 100);
+    const amountInWords = grandTotalPaisa > 0
+      ? `${numberToWords(grandTotalTaka)} and ${numberToWords(grandTotalPaisa)} Paisa`
+      : numberToWords(grandTotalTaka);
 
     // Invoice header values — sourced primarily from the linked delivery (per-delivery invoice).
     const invoiceNo = delivery?.invoice_number || delivery?.delivery_number || order.order_number || '';
@@ -1527,8 +1534,8 @@ export class PDFGenerator {
                 <div class="kv-line"><span class="k label">Challan No</span> :- ${escapeHtml(String(challanNo))}</div>
                 <div class="kv-line"><span class="k label">VAT No</span> :- ${escapeHtml(String(vatNo))}</div>
                 <div class="kv-line"><span class="k label">Delivery Date</span> :- ${escapeHtml(deliveryDate)}</div>
-                <div class="kv-line"><span class="k label">WO No</span> :- ${escapeHtml(String(poNumber))}</div>
-                <div class="kv-line"><span class="k label">WO Date</span> :- ${escapeHtml(poDate)}</div>
+                <div class="kv-line"><span class="k label">PO No</span> :- ${escapeHtml(String(poNumber))}</div>
+                <div class="kv-line"><span class="k label">PO Date</span> :- ${escapeHtml(poDate)}</div>
                 <div class="kv-line"><span class="k label">PR No</span> :- ${escapeHtml(String(order.pr_no || ''))}</div>
             </div>
         </div>

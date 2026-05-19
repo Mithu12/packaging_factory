@@ -307,9 +307,9 @@ export default function CustomerManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Company Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Company</TableHead>
+                <TableHead>Contact Person</TableHead>
                 <TableHead>Orders</TableHead>
                 <TableHead>Total Value</TableHead>
                 <TableHead>Paid</TableHead>
@@ -321,14 +321,14 @@ export default function CustomerManagement() {
             <TableBody>
               {filteredCustomers.map((customer) => (
                 <TableRow key={customer.id} data-testid="customer-row">
-                  <TableCell className="font-medium">{customer.name}</TableCell>
+                  <TableCell className="font-medium">{customer.company || customer.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       {customer.email ?? "—"}
                     </div>
                   </TableCell>
-                  <TableCell>{customer.company || "-"}</TableCell>
+                  <TableCell>{customer.name || "-"}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
                       {customer.order_count || 0} orders
