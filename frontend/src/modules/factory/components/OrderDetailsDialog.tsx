@@ -525,7 +525,7 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                     <span>{formatCurrency(order.total_value)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span>Tax:</span>
+                                    <span>VAT:</span>
                                     <span>-</span>
                                 </div>
                                 <div className="flex justify-between text-sm">

@@ -799,7 +799,7 @@ export class PDFGenerator {
             </tr>
             ${invoice.tax_amount && invoice.tax_amount > 0 ? `
             <tr>
-                <td>Tax ${invoice.tax_rate ? `(${invoice.tax_rate}%)` : ''}</td>
+                <td>VAT ${invoice.tax_rate ? `(${invoice.tax_rate}%)` : ''}</td>
                 <td class="text-right">${formatCurrency(invoice.tax_amount)}</td>
             </tr>
             ` : ''}
@@ -820,7 +820,7 @@ export class PDFGenerator {
             </tr>
             ${invoice.tax_amount && invoice.tax_amount > 0 ? `
             <tr>
-                <td><strong>Tax:</strong></td>
+                <td><strong>VAT:</strong></td>
                 <td class="text-right">${formatCurrency(invoice.tax_amount)}</td>
             </tr>
             ` : ''}

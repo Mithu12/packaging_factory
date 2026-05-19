@@ -234,7 +234,7 @@ export default function ViewInvoice() {
     doc.text(`$${Number(invoice.total_amount).toLocaleString()}`, totalsX + 30, yPosition)
     
     yPosition += 7
-    doc.text('Tax:', totalsX, yPosition)
+    doc.text('VAT:', totalsX, yPosition)
     doc.text('$0.00', totalsX + 30, yPosition)
     
     yPosition += 7

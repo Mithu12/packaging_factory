@@ -52,7 +52,7 @@ import { QuickAddProductDialog } from "./QuickAddProductDialog";
 import { QuickAddCustomerDialog } from "./QuickAddCustomerDialog";
 import type { Product } from "@/services/types";
 
-const DEFAULT_QUOTATION_TERMS = `Price Excluding TAX & Vat .
+const DEFAULT_QUOTATION_TERMS = `Price Excluding VAT.
 50% in advance and rest of payment will be Bank Transfer.
 Payment should be made by Cash/Cash Cheque on be heaved Micromedia or Bank Transfer.
 Delivery will be confirm within 10 working days after getting the approval.`;
@@ -1111,7 +1111,7 @@ export default function OrderEntryForm({
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <div className="flex items-center gap-2">
-                                        <span>Tax Rate (%):</span>
+                                        <span>VAT Rate (%):</span>
                                         <FormField
                                             control={form.control}
                                             name="tax_rate"
