@@ -898,7 +898,7 @@ export interface VatRegisterQueryParams {
 export interface VatRegisterEntry {
   date: string;
   invoice_number: string;
-  party_name: string;
+  customer_name: string;
   vat_number: string | null;
   subtotal: number;
   vat_rate: number;
@@ -907,9 +907,8 @@ export interface VatRegisterEntry {
 
 export interface VatRegisterResponse {
   period: { dateFrom: string | null; dateTo: string | null };
-  outputVat: { total: number; entries: VatRegisterEntry[] };
-  inputVat: { total: number; entries: VatRegisterEntry[] };
-  netPayable: number;
+  total: number;
+  entries: VatRegisterEntry[];
 }
 
 // Query keys for React Query

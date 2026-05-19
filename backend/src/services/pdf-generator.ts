@@ -4,6 +4,7 @@ import { SalesInvoice } from '@/types/salesInvoice';
 import { FactoryCustomerOrder } from '@/types/factory';
 import { MyLogger } from '@/utils/new-logger';
 import SettingsMediator from '@/mediators/settings/SettingsMediator';
+import pool from '@/database/connection';
 import fs from 'fs';
 import path from 'path';
 
@@ -1260,7 +1261,9 @@ export class PDFGenerator {
   private static generateInvoiceHTML(
     order: FactoryCustomerOrder,
     settings?: any,
-    delivery?: import('@/types/factory').Delivery
+    delivery?: import('@/types/factory').Delivery,
+    /** Authoritative totals from the persisted invoice row, if any. */
+    invoiceTotals?: { subtotal: number | null; tax_amount: number | null }
   ): string {
     const formatCurrency = (amount: number) =>
       new Intl.NumberFormat('en-IN', {
@@ -1355,15 +1358,19 @@ export class PDFGenerator {
       `;
     }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
 
-    // Totals — goods subtotal is rounded to whole taka; VAT keeps its paisa.
-    // The printed total therefore carries paisa only when VAT contributes them.
-    const subTotalRaw = renderRows.reduce((sum, r) => sum + r.line_total, 0);
-    const subTotal = Math.round(subTotalRaw);
+    // Totals — keep paisa precision throughout. When the caller supplies the
+    // persisted invoice totals (which already account for multi-rate VAT and
+    // are the authoritative numbers on factory_sales_invoices), use those.
+    // Otherwise derive from line totals.
+    const subTotal = invoiceTotals?.subtotal != null
+      ? invoiceTotals.subtotal
+      : +renderRows.reduce((sum, r) => sum + r.line_total, 0).toFixed(2);
     const subTotalQty = renderRows.reduce((sum, r) => sum + r.quantity, 0);
-    // VAT defaults to 0 — only auto-added when the order itself carries a tax rate.
     const vatPct = order.tax_rate != null && order.tax_rate > 0 ? Number(order.tax_rate) : 0;
-    const vatAmount = (subTotal * vatPct) / 100;
-    const grandTotal = subTotal + vatAmount;
+    const vatAmount = invoiceTotals?.tax_amount != null
+      ? invoiceTotals.tax_amount
+      : +((subTotal * vatPct) / 100).toFixed(2);
+    const grandTotal = +(subTotal + vatAmount).toFixed(2);
     // Words mirror the printed total: include "and X Paisa" only when paisa remain.
     const grandTotalTaka = Math.trunc(grandTotal);
     const grandTotalPaisa = Math.round((grandTotal - grandTotalTaka) * 100);
@@ -1634,11 +1641,27 @@ export class PDFGenerator {
         }
       }
 
+      // Load persisted invoice totals so the printed numbers match the
+      // ledger exactly (multi-rate VAT, paisa precision).
+      let invoiceTotals: { subtotal: number | null; tax_amount: number | null } | undefined;
+      if (delivery?.invoice_id) {
+        const invRes = await pool.query<{ subtotal: string | null; tax_amount: string | null }>(
+          'SELECT subtotal, tax_amount FROM factory_sales_invoices WHERE id = $1',
+          [delivery.invoice_id],
+        );
+        if (invRes.rows.length > 0) {
+          invoiceTotals = {
+            subtotal: invRes.rows[0].subtotal != null ? parseFloat(invRes.rows[0].subtotal) : null,
+            tax_amount: invRes.rows[0].tax_amount != null ? parseFloat(invRes.rows[0].tax_amount) : null,
+          };
+        }
+      }
+
       const browser = await this.getBrowser();
       const page = await browser.newPage();
 
       // Generate HTML content
-      const html = this.generateInvoiceHTML(order, settingsData, delivery);
+      const html = this.generateInvoiceHTML(order, settingsData, delivery, invoiceTotals);
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });

@@ -68,9 +68,8 @@ export class ReportsController {
       const result = await GetVatRegisterMediator.getVatRegister(query);
 
       MyLogger.success(action, {
-        outputTotal: result.outputVat.total,
-        inputTotal: result.inputVat.total,
-        netPayable: result.netPayable,
+        total: result.total,
+        entries: result.entries.length,
       });
       serializeSuccessResponse(res, result, 'SUCCESS');
     } catch (error: any) {

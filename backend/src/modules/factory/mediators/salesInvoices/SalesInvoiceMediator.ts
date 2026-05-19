@@ -3,6 +3,8 @@ import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
 import {
   SalesInvoice,
   CreateSalesInvoiceRequest,
@@ -12,6 +14,10 @@ import {
   SalesInvoiceStats,
   SalesInvoiceStatus
 } from '@/types/salesInvoice';
+
+// Epsilon for currency comparisons. Float arithmetic on decimal-cast columns
+// can leave residue like -1e-14; treat anything below 1 paisa as zero.
+const CURRENCY_EPSILON = 0.005;
 
 export class SalesInvoiceMediator {
   /**
@@ -87,6 +93,8 @@ export class SalesInvoiceMediator {
       MyLogger.info(action, { deliveryId, userId });
 
       // 1. Load delivery + customer (always) + primary order (optional).
+      //    FOR UPDATE OF d serialises concurrent backfill calls so two callers
+      //    can't both observe invoice_id IS NULL and create duplicate invoices.
       const deliveryRes = await client.query(
         `SELECT d.*,
                 fc.payment_terms AS customer_payment_terms,
@@ -105,7 +113,8 @@ export class SalesInvoiceMediator {
            JOIN factory_customers fc ON fc.id = d.factory_customer_id
            LEFT JOIN factory_customer_orders co ON co.id = d.customer_order_id
            LEFT JOIN factories pf ON pf.id = co.factory_id
-          WHERE d.id = $1`,
+          WHERE d.id = $1
+          FOR UPDATE OF d`,
         [deliveryId]
       );
 
@@ -157,34 +166,51 @@ export class SalesInvoiceMediator {
         }
       }
 
-      // 3. Compute amounts from delivery_items (NOT from any single order total).
-      //    Goods subtotal is rounded to whole taka so the persisted figures match
-      //    the BILL/INVOICE PDF (which never prints paisa on the goods total).
-      //    VAT is then computed on the rounded base, mirroring the PDF.
-      const subtotalRaw = items.reduce((sum, it) => sum + parseFloat(it.line_total), 0);
-      const subtotal = Math.round(subtotalRaw);
-      // Tax rate from the primary order; if the delivery has no primary order
-      // (multi-order with customer_order_id null), fall back to any touched
-      // order's rate. BD VAT is flat across the customer so this is consistent.
-      let taxRate = delivery.primary_tax_rate != null
-        ? parseFloat(String(delivery.primary_tax_rate)) || 0
-        : 0;
-      if (!taxRate) {
-        const rateRes = await client.query<{ tax_rate: string | null }>(
-          `SELECT tax_rate
-             FROM factory_customer_orders
-            WHERE id = ANY($1::bigint[]) AND tax_rate IS NOT NULL AND tax_rate > 0
-            ORDER BY id ASC
-            LIMIT 1`,
-          [Array.from(new Set(items.map(it => Number(it.order_id))))]
-        );
-        if (rateRes.rows.length > 0) {
-          taxRate = parseFloat(rateRes.rows[0].tax_rate ?? '0') || 0;
-        }
+      // 3. Compute amounts from delivery_items (NOT from any single order
+      //    total). Subtotal and VAT both keep paisa precision; rounding to
+      //    whole taka was a display convention that caused SUM(delivery_items)
+      //    to drift from the persisted subtotal by up to 50 paisa.
+      const subtotal = +items
+        .reduce((sum, it) => sum + parseFloat(it.line_total), 0)
+        .toFixed(2);
+
+      // VAT is computed per touched order using each order's own tax_rate
+      // so a delivery that spans orders with different rates totals correctly.
+      // If only one order is touched (or all touched orders share a rate),
+      // the result is equivalent to subtotal * rate / 100.
+      const orderShareRes = await client.query<{
+        order_id: string;
+        tax_rate: string | null;
+        share: string;
+      }>(
+        `SELECT li.order_id::text AS order_id,
+                co.tax_rate::text AS tax_rate,
+                SUM(di.line_total)::text AS share
+           FROM factory_customer_order_delivery_items di
+           JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+           JOIN factory_customer_orders co ON co.id = li.order_id
+          WHERE di.delivery_id = $1
+          GROUP BY li.order_id, co.tax_rate`,
+        [deliveryId],
+      );
+
+      let taxAmount = 0;
+      const orderTaxBreakdown: Array<{ orderId: number; rate: number; vat: number }> = [];
+      for (const row of orderShareRes.rows) {
+        const rate = row.tax_rate ? parseFloat(row.tax_rate) || 0 : 0;
+        const share = parseFloat(row.share);
+        const vat = +((share * rate) / 100).toFixed(2);
+        taxAmount = +(taxAmount + vat).toFixed(2);
+        orderTaxBreakdown.push({ orderId: Number(row.order_id), rate, vat });
       }
-      const taxAmount = (subtotal * taxRate) / 100;
+
+      // taxRate stored on the invoice is the weighted-average rate (or the
+      // single rate if all touched orders share one). Display only — the
+      // authoritative number is taxAmount.
+      const taxRate = subtotal > 0 ? +((taxAmount / subtotal) * 100).toFixed(2) : 0;
+
       const shippingCost = 0;
-      const totalAmount = subtotal + taxAmount + shippingCost;
+      const totalAmount = +(subtotal + taxAmount + shippingCost).toFixed(2);
 
       const paymentTerms = delivery.primary_payment_terms || delivery.customer_payment_terms;
       const invoiceDate = (delivery.delivery_date instanceof Date
@@ -201,15 +227,17 @@ export class SalesInvoiceMediator {
       const invoiceNumber = await this.generateInvoiceNumber(client);
 
       // 4. Insert invoice — customer_order_id is now nullable, factory_customer_id authoritative.
+      // tax_rate is the snapshot at delivery time; tax_amount is computed for THIS
+      // partial delivery (rate * partial subtotal), so both must be persisted.
       const insertRes = await client.query(
         `INSERT INTO factory_sales_invoices (
            invoice_number, customer_order_id, factory_customer_id, factory_id,
            invoice_date, due_date,
-           subtotal, tax_amount, shipping_cost, total_amount, outstanding_amount,
+           subtotal, tax_rate, tax_amount, shipping_cost, total_amount, outstanding_amount,
            payment_terms, notes, billing_address, shipping_address,
            status, created_by
          ) VALUES (
-           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
          ) RETURNING *`,
         [
           invoiceNumber,
@@ -219,6 +247,7 @@ export class SalesInvoiceMediator {
           invoiceDate,
           dueDate,
           subtotal,
+          taxRate,
           taxAmount,
           shippingCost,
           totalAmount,
@@ -461,11 +490,12 @@ export class SalesInvoiceMediator {
         whereClause += ` AND si.due_date < CURRENT_DATE AND si.outstanding_amount > 0`;
       }
 
-      // Count total
+      // Count total. customer_order_id is nullable for multi-order deliveries
+      // (V145+); use LEFT JOIN so those invoices are included.
       const countQuery = `
         SELECT COUNT(*) as total
         FROM factory_sales_invoices si
-        JOIN factory_customer_orders co ON si.customer_order_id = co.id
+        LEFT JOIN factory_customer_orders co ON si.customer_order_id = co.id
         JOIN factory_customers fc ON si.factory_customer_id = fc.id
         ${whereClause}
       `;
@@ -474,14 +504,14 @@ export class SalesInvoiceMediator {
 
       // Get invoices
       const dataQuery = `
-        SELECT 
+        SELECT
           si.*,
           co.order_number as customer_order_number,
           fc.name as factory_customer_name,
           f.name as factory_name,
           v.voucher_no
         FROM factory_sales_invoices si
-        JOIN factory_customer_orders co ON si.customer_order_id = co.id
+        LEFT JOIN factory_customer_orders co ON si.customer_order_id = co.id
         JOIN factory_customers fc ON si.factory_customer_id = fc.id
         LEFT JOIN factories f ON si.factory_id = f.id
         LEFT JOIN vouchers v ON si.voucher_id = v.id
@@ -521,15 +551,17 @@ export class SalesInvoiceMediator {
     const client = await pool.connect();
 
     try {
+      // LEFT JOIN customer_orders so multi-order delivery invoices (where
+      // customer_order_id IS NULL, V145+) are still returned.
       const query = `
-        SELECT 
+        SELECT
           si.*,
           co.order_number as customer_order_number,
           fc.name as factory_customer_name,
           f.name as factory_name,
           v.voucher_no
         FROM factory_sales_invoices si
-        JOIN factory_customer_orders co ON si.customer_order_id = co.id
+        LEFT JOIN factory_customer_orders co ON si.customer_order_id = co.id
         JOIN factory_customers fc ON si.factory_customer_id = fc.id
         LEFT JOIN factories f ON si.factory_id = f.id
         LEFT JOIN vouchers v ON si.voucher_id = v.id
@@ -641,7 +673,57 @@ export class SalesInvoiceMediator {
   }
 
   /**
-   * Record payment against invoice
+   * Apply a payment portion to a single order's paid_amount/outstanding_amount,
+   * with the same float-precision clamping used at invoice level. Mirrors the
+   * status flip from FactoryCustomerPaymentsMediator so both paths agree.
+   */
+  private static async applyPaymentToOrder(
+    client: PoolClient,
+    orderId: number,
+    portion: number,
+  ): Promise<void> {
+    const ordRes = await client.query<{
+      paid_amount: string;
+      outstanding_amount: string;
+      status: string;
+    }>(
+      `SELECT paid_amount, outstanding_amount, status
+         FROM factory_customer_orders
+        WHERE id = $1
+        FOR UPDATE`,
+      [orderId],
+    );
+    if (ordRes.rows.length === 0) {
+      throw createError(`Order ${orderId} not found for payment allocation`, 404);
+    }
+    const ord = ordRes.rows[0];
+    const newPaid = parseFloat(ord.paid_amount) + portion;
+    const rawOutstanding = parseFloat(ord.outstanding_amount) - portion;
+    const newOutstanding =
+      Math.abs(rawOutstanding) < CURRENCY_EPSILON ? 0 : Math.max(0, rawOutstanding);
+
+    let newStatus = ord.status;
+    if (newOutstanding === 0 && ord.status === 'shipped') {
+      newStatus = 'completed';
+    }
+
+    await client.query(
+      `UPDATE factory_customer_orders
+          SET paid_amount = $1,
+              outstanding_amount = $2,
+              status = $3,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4`,
+      [newPaid, newOutstanding, newStatus, orderId],
+    );
+  }
+
+  /**
+   * Record payment against a sales invoice. Inserts into
+   * factory_customer_payments (single source of truth for cash receipts),
+   * updates invoice totals, and — when the invoice has a single parent order —
+   * also bumps that order's totals so customer aggregates stay consistent.
+   * Posts a payment voucher via the accounts integration.
    */
   static async recordPayment(
     data: RecordPaymentRequest,
@@ -654,9 +736,21 @@ export class SalesInvoiceMediator {
       await client.query('BEGIN');
       MyLogger.info(action, { invoiceId: data.invoice_id, amount: data.payment_amount, userId });
 
-      // Get current invoice
+      // Lock the invoice row to prevent concurrent payments racing to the
+      // status flip.
       const invoiceResult = await client.query(
-        'SELECT * FROM factory_sales_invoices WHERE id = $1',
+        `SELECT si.*, f.name AS factory_name, f.cost_center_id AS factory_cost_center_id,
+                cc.name AS factory_cost_center_name,
+                co.order_number AS customer_order_number,
+                co.paid_amount AS order_paid_amount,
+                co.outstanding_amount AS order_outstanding_amount,
+                co.status AS order_status
+           FROM factory_sales_invoices si
+           LEFT JOIN factories f ON f.id = si.factory_id
+           LEFT JOIN cost_centers cc ON cc.id = f.cost_center_id
+           LEFT JOIN factory_customer_orders co ON co.id = si.customer_order_id
+          WHERE si.id = $1
+          FOR UPDATE OF si`,
         [data.invoice_id]
       );
 
@@ -666,48 +760,165 @@ export class SalesInvoiceMediator {
 
       const invoice = invoiceResult.rows[0];
 
-      // Validate payment amount
-      if (data.payment_amount <= 0) {
+      if (invoice.status === SalesInvoiceStatus.CANCELLED) {
+        throw createError('Cannot record payment against a cancelled invoice', 400);
+      }
+
+      const paymentAmount = Number(data.payment_amount);
+      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
         throw createError('Payment amount must be greater than 0', 400);
       }
 
-      if (data.payment_amount > parseFloat(invoice.outstanding_amount)) {
+      const outstanding = parseFloat(invoice.outstanding_amount);
+      if (paymentAmount - outstanding > CURRENCY_EPSILON) {
         throw createError('Payment amount exceeds outstanding amount', 400);
       }
 
-      // Calculate new amounts
-      const newPaidAmount = parseFloat(invoice.paid_amount) + data.payment_amount;
-      const newOutstandingAmount = parseFloat(invoice.total_amount) - newPaidAmount;
+      // Compute new invoice totals. Clamp residual float drift to 0 so the
+      // outstanding_amount >= 0 DB constraint never trips on rounding.
+      const newPaidAmount = parseFloat(invoice.paid_amount) + paymentAmount;
+      const rawOutstanding = parseFloat(invoice.total_amount) - newPaidAmount;
+      const newOutstandingAmount = Math.abs(rawOutstanding) < CURRENCY_EPSILON ? 0 : rawOutstanding;
 
-      // Determine new status
-      let newStatus = invoice.status;
-      if (newOutstandingAmount <= 0) {
-        newStatus = SalesInvoiceStatus.PAID;
-      } else if (newPaidAmount > 0) {
-        newStatus = SalesInvoiceStatus.PARTIAL;
-      }
+      const newInvoiceStatus =
+        newOutstandingAmount <= 0
+          ? SalesInvoiceStatus.PAID
+          : SalesInvoiceStatus.PARTIAL;
 
-      // Update invoice
+      // 1. Insert payment row. factory_customer_order_id is nullable so
+      //    multi-order invoices (V145+) record correctly.
+      const paymentInsert = await client.query(
+        `INSERT INTO factory_customer_payments (
+           factory_customer_order_id,
+           factory_customer_id,
+           factory_id,
+           factory_sales_invoice_id,
+           payment_amount,
+           payment_date,
+           payment_method,
+           payment_reference,
+           notes,
+           recorded_by
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id, payment_date`,
+        [
+          invoice.customer_order_id ?? null,
+          invoice.factory_customer_id,
+          invoice.factory_id,
+          data.invoice_id,
+          paymentAmount,
+          data.payment_date ?? new Date(),
+          data.payment_method ?? 'cash',
+          data.reference_number ?? null,
+          data.notes ?? null,
+          userId,
+        ],
+      );
+      const paymentRow = paymentInsert.rows[0];
+
+      // 2. Update the invoice.
       await client.query(
         `UPDATE factory_sales_invoices
-         SET paid_amount = $1,
-             outstanding_amount = $2,
-             status = $3,
-             updated_by = $4,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $5`,
-        [newPaidAmount, newOutstandingAmount, newStatus, userId, data.invoice_id]
+            SET paid_amount = $1,
+                outstanding_amount = $2,
+                status = $3,
+                updated_by = $4,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $5`,
+        [newPaidAmount, newOutstandingAmount, newInvoiceStatus, userId, data.invoice_id],
       );
 
-      // TODO: Record payment in a payments table (to be implemented)
-      // TODO: Create accounting voucher for payment (cash/bank account integration)
+      // 3. Bump the parent order(s). For single-order invoices this is direct;
+      //    for multi-order delivery invoices (V145+) the payment is allocated
+      //    proportionally across touched orders by each order's contribution
+      //    to the invoice subtotal. This keeps customer aggregates (which sum
+      //    factory_customer_orders.paid_amount) consistent with cash receipts.
+      if (invoice.customer_order_id) {
+        await this.applyPaymentToOrder(
+          client,
+          Number(invoice.customer_order_id),
+          paymentAmount,
+        );
+      } else {
+        // Discover the delivery linked to this invoice, then split the payment
+        // across orders by their share of the delivery's line totals.
+        const allocRes = await client.query<{ order_id: string; share: string }>(
+          `SELECT li.order_id::text AS order_id,
+                  SUM(di.line_total)::text AS share
+             FROM factory_customer_order_deliveries d
+             JOIN factory_customer_order_delivery_items di ON di.delivery_id = d.id
+             JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+            WHERE d.invoice_id = $1
+            GROUP BY li.order_id`,
+          [data.invoice_id],
+        );
+        if (allocRes.rows.length > 0) {
+          const allocations = allocRes.rows.map(r => ({
+            orderId: Number(r.order_id),
+            share: parseFloat(r.share),
+          }));
+          const shareTotal = allocations.reduce((s, a) => s + a.share, 0);
+          if (shareTotal > 0) {
+            // Round each share to paisa; the last allocation absorbs rounding
+            // residue so the sum exactly equals paymentAmount.
+            let remaining = paymentAmount;
+            for (let i = 0; i < allocations.length; i++) {
+              const isLast = i === allocations.length - 1;
+              const portion = isLast
+                ? remaining
+                : +((paymentAmount * allocations[i].share) / shareTotal).toFixed(2);
+              remaining = +(remaining - portion).toFixed(2);
+              if (portion > 0) {
+                await this.applyPaymentToOrder(client, allocations[i].orderId, portion);
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Refresh customer-level aggregates.
+      await recalcFactoryCustomerFinancials(client, invoice.factory_customer_id);
 
       await client.query('COMMIT');
 
+      // 5. Post the payment voucher and emit event. These run outside the txn
+      //    intentionally so a voucher hiccup never blocks cash receipt entry.
+      const paymentData = {
+        orderId: invoice.customer_order_id ? Number(invoice.customer_order_id) : null,
+        orderNumber: invoice.customer_order_number ?? `INV-${invoice.invoice_number}`,
+        paymentId: Number(paymentRow.id),
+        amount: paymentAmount,
+        paymentMethod: data.payment_method ?? 'cash',
+        paymentReference: data.reference_number ?? null,
+        paymentDate: paymentRow.payment_date,
+        factoryId: invoice.factory_id,
+        factoryName: invoice.factory_name,
+        factoryCostCenterId: invoice.factory_cost_center_id,
+        factoryCostCenterName: invoice.factory_cost_center_name,
+        customerId: Number(invoice.factory_customer_id),
+        invoiceId: Number(data.invoice_id),
+        invoiceNumber: invoice.invoice_number,
+        userId,
+        timestamp: new Date(),
+      };
+
+      eventBus.emit(EVENT_NAMES.FACTORY_PAYMENT_RECEIVED, paymentData);
+
+      try {
+        await interModuleConnector.accModule.addFactoryPaymentVoucher(paymentData, userId);
+      } catch (voucherErr: any) {
+        // Voucher failure is logged but does not roll back the receipt.
+        MyLogger.error('addFactoryPaymentVoucher failed (payment recorded)', voucherErr, {
+          paymentId: paymentRow.id,
+          invoiceId: data.invoice_id,
+        });
+      }
+
       MyLogger.success(action, {
         invoiceId: data.invoice_id,
-        paymentAmount: data.payment_amount,
-        newStatus
+        paymentId: paymentRow.id,
+        paymentAmount,
+        newInvoiceStatus,
       });
 
       return this.getSalesInvoiceById(data.invoice_id) as Promise<SalesInvoice>;

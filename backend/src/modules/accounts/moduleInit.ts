@@ -56,7 +56,8 @@ export const initializeAccountsModule = (): void => {
       addInternalTransferVoucher: inventoryAccountsIntegrationService.createStockTransferVoucher.bind(inventoryAccountsIntegrationService),
       addSupplierPaymentVoucher: inventoryAccountsIntegrationService.createSupplierPaymentVoucher.bind(inventoryAccountsIntegrationService),
       addPayrollPaymentVoucher: hrmAccountsIntegrationService.createPayrollPaymentVoucher.bind(hrmAccountsIntegrationService),
-      reverseVoucher: salesAccountsIntegrationService.createReversingVoucher.bind(salesAccountsIntegrationService)
+      reverseVoucher: salesAccountsIntegrationService.createReversingVoucher.bind(salesAccountsIntegrationService),
+      reverseVoucherById: factoryAccountsIntegrationService.reverseVoucherById.bind(factoryAccountsIntegrationService),
     });
 
     MyLogger.success('Accounts Module Initialization', {

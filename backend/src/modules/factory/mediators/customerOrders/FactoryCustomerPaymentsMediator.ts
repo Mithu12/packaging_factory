@@ -105,6 +105,50 @@ export class FactoryCustomerPaymentsMediator {
       const paymentResult = await client.query(paymentQuery, paymentValues);
       const payment = paymentResult.rows[0];
 
+      // If the payment is allocated to a specific invoice, sync that invoice's
+      // totals so the two payment paths converge on a single source of truth.
+      if (data.factory_sales_invoice_id) {
+        const invRes = await client.query<{
+          paid_amount: string;
+          total_amount: string;
+          outstanding_amount: string;
+          status: string;
+        }>(
+          `SELECT paid_amount, total_amount, outstanding_amount, status
+             FROM factory_sales_invoices
+            WHERE id = $1
+            FOR UPDATE`,
+          [data.factory_sales_invoice_id],
+        );
+        if (invRes.rows.length === 0) {
+          throw new Error('Linked sales invoice not found');
+        }
+        const inv = invRes.rows[0];
+        if (inv.status === 'cancelled') {
+          throw new Error('Cannot record payment against a cancelled invoice');
+        }
+        const invOutstanding = parseFloat(inv.outstanding_amount);
+        if (data.payment_amount - invOutstanding > 0.005) {
+          throw new Error(
+            `Payment amount (${data.payment_amount}) exceeds invoice outstanding (${invOutstanding})`,
+          );
+        }
+        const newInvPaid = parseFloat(inv.paid_amount) + Number(data.payment_amount);
+        const rawInvOut = parseFloat(inv.total_amount) - newInvPaid;
+        const newInvOut = Math.abs(rawInvOut) < 0.005 ? 0 : rawInvOut;
+        const newInvStatus = newInvOut <= 0 ? 'paid' : 'partial';
+        await client.query(
+          `UPDATE factory_sales_invoices
+              SET paid_amount = $1,
+                  outstanding_amount = $2,
+                  status = $3,
+                  updated_by = $4,
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5`,
+          [newInvPaid, newInvOut, newInvStatus, userId, data.factory_sales_invoice_id],
+        );
+      }
+
       // Update order paid_amount and outstanding_amount
       const newPaidAmount = parseFloat(order.paid_amount) + Number(data.payment_amount);
       const newOutstandingAmount = parseFloat(order.outstanding_amount) - data.payment_amount;

@@ -87,6 +87,117 @@ class FactoryAccountsIntegrationService {
   }
 
   /**
+   * Post a balanced reversing voucher for an existing posted voucher. Reads
+   * the source voucher's lines and creates a JOURNAL voucher with debits and
+   * credits swapped, keeping account, cost center, and description (prefixed
+   * with [REV]). Returns null when accounts module is unavailable or the
+   * source voucher cannot be loaded.
+   */
+  async reverseVoucherById(
+    sourceVoucherId: number,
+    reason: string,
+    userId: number,
+  ): Promise<{ voucherId: number; voucherNo: string } | null> {
+    const action = 'FactoryAccountsIntegration.reverseVoucherById';
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available' });
+      return null;
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const srcRes = await pool.query<{
+        id: string;
+        voucher_no: string;
+        currency: string;
+        cost_center_id: string | null;
+      }>(
+        `SELECT id, voucher_no, currency, cost_center_id
+           FROM vouchers
+          WHERE id = $1`,
+        [sourceVoucherId],
+      );
+      if (srcRes.rows.length === 0) {
+        MyLogger.warn(action, { sourceVoucherId, message: 'Source voucher not found' });
+        return null;
+      }
+      const src = srcRes.rows[0];
+
+      const linesRes = await pool.query<{
+        account_id: string;
+        debit: string;
+        credit: string;
+        cost_center_id: string | null;
+        description: string | null;
+      }>(
+        `SELECT account_id, debit, credit, cost_center_id, description
+           FROM voucher_lines
+          WHERE voucher_id = $1
+          ORDER BY id ASC`,
+        [sourceVoucherId],
+      );
+      if (linesRes.rows.length === 0) {
+        MyLogger.warn(action, { sourceVoucherId, message: 'No lines to reverse' });
+        return null;
+      }
+
+      // Swap debit/credit on each line. The original was balanced, so the
+      // swap is also balanced.
+      const reversedLines = linesRes.rows.map(l => ({
+        accountId: Number(l.account_id),
+        debit: parseFloat(l.credit),
+        credit: parseFloat(l.debit),
+        costCenterId: l.cost_center_id ? Number(l.cost_center_id) : undefined,
+        description: `[REV] ${l.description ?? ''}`.trim(),
+      }));
+
+      const amount = reversedLines.reduce((s, l) => s + l.debit, 0);
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(),
+        reference: `REV-${src.voucher_no}`,
+        payee: null,
+        amount,
+        currency: src.currency,
+        narration: `Reversal of ${src.voucher_no}: ${reason}`,
+        costCenterId: src.cost_center_id ? Number(src.cost_center_id) : undefined,
+        lines: reversedLines,
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+
+      if (accountsServices.updateVoucherMediator) {
+        try {
+          await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+        } catch (approveErr: any) {
+          MyLogger.warn(`${action}.approve`, { voucherId: voucher.id, err: approveErr?.message });
+        }
+      }
+
+      MyLogger.success(action, {
+        sourceVoucherId,
+        reversalVoucherId: voucher.id,
+        reversalVoucherNo: voucher.voucherNo,
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo };
+    } catch (error: any) {
+      MyLogger.error(action, error, { sourceVoucherId });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'reverseFactoryShipmentVoucher',
+        sourceEntityType: 'voucher',
+        sourceEntityId: sourceVoucherId,
+        errorMessage: error?.message ?? 'Reversal failed',
+      });
+      return null;
+    }
+  }
+
+  /**
    * Get revenue recognition policy from system settings
    * Returns: 'on_approval', 'on_shipment', or 'on_payment'
    */

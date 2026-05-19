@@ -145,7 +145,16 @@ class InterModuleConnector {
     reverseVoucher: async (...args: any[]): Promise<any> => {
       this.logNotImplemented("accModule", "reverseVoucher");
       return null;
-    }
+    },
+
+    /**
+     * Post a balanced reversing journal for an existing voucher by id.
+     * Used by CancelDelivery to undo posted shipment vouchers.
+     */
+    reverseVoucherById: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "reverseVoucherById");
+      return null;
+    },
   };
 
   /**
