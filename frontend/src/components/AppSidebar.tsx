@@ -278,6 +278,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
       },
       {
+        title: "Deliveries",
+        url: "/factory/deliveries",
+        icon: Truck,
+        permission: PERMISSIONS.FACTORY_ORDERS_READ,
+      },
+      {
         title: "Customer Payments",
         url: "/factory/payments",
         icon: Wallet,
@@ -462,6 +468,12 @@ const menuSections: MenuSection[] = [
         url: "/accounts/balance-sheet",
         icon: Scale,
         permission: PERMISSIONS.BALANCE_SHEET_READ,
+      },
+      {
+        title: "VAT Register",
+        url: "/accounts/vat-register",
+        icon: Receipt,
+        permission: PERMISSIONS.INCOME_STATEMENT_READ,
       },
     ],
   },

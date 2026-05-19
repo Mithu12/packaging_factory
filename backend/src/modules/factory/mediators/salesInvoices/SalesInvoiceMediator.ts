@@ -95,6 +95,7 @@ export class SalesInvoiceMediator {
                 fc.address AS customer_address,
                 co.order_number AS primary_order_number,
                 co.factory_id AS primary_factory_id,
+                co.tax_rate AS primary_tax_rate,
                 co.payment_terms AS primary_payment_terms,
                 co.billing_address AS primary_billing_address,
                 co.shipping_address AS primary_shipping_address,
@@ -157,8 +158,31 @@ export class SalesInvoiceMediator {
       }
 
       // 3. Compute amounts from delivery_items (NOT from any single order total).
-      const subtotal = items.reduce((sum, it) => sum + parseFloat(it.line_total), 0);
-      const taxAmount = 0;
+      //    Goods subtotal is rounded to whole taka so the persisted figures match
+      //    the BILL/INVOICE PDF (which never prints paisa on the goods total).
+      //    VAT is then computed on the rounded base, mirroring the PDF.
+      const subtotalRaw = items.reduce((sum, it) => sum + parseFloat(it.line_total), 0);
+      const subtotal = Math.round(subtotalRaw);
+      // Tax rate from the primary order; if the delivery has no primary order
+      // (multi-order with customer_order_id null), fall back to any touched
+      // order's rate. BD VAT is flat across the customer so this is consistent.
+      let taxRate = delivery.primary_tax_rate != null
+        ? parseFloat(String(delivery.primary_tax_rate)) || 0
+        : 0;
+      if (!taxRate) {
+        const rateRes = await client.query<{ tax_rate: string | null }>(
+          `SELECT tax_rate
+             FROM factory_customer_orders
+            WHERE id = ANY($1::bigint[]) AND tax_rate IS NOT NULL AND tax_rate > 0
+            ORDER BY id ASC
+            LIMIT 1`,
+          [Array.from(new Set(items.map(it => Number(it.order_id))))]
+        );
+        if (rateRes.rows.length > 0) {
+          taxRate = parseFloat(rateRes.rows[0].tax_rate ?? '0') || 0;
+        }
+      }
+      const taxAmount = (subtotal * taxRate) / 100;
       const shippingCost = 0;
       const totalAmount = subtotal + taxAmount + shippingCost;
 
@@ -287,7 +311,13 @@ export class SalesInvoiceMediator {
           customerId: String(delivery.factory_customer_id),
           customerName: delivery.customer_name,
           customerEmail: delivery.customer_email,
-          totalValue: subtotal,
+          // Gross amount the customer owes (subtotal + VAT). Matches what's
+          // stored on factory_sales_invoices.total_amount and the printed bill.
+          totalValue: totalAmount,
+          // Net + tax split so downstream voucher posting can credit Sales
+          // Revenue net of VAT and credit a VAT Payable line for the tax.
+          subtotal,
+          taxAmount,
           currency: 'BDT',
           orderDate: invoiceDate,
           factoryId,

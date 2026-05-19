@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { GetIncomeStatementMediator } from '@/modules/accounts/mediators/reports/GetIncomeStatement.mediator';
 import { GetBalanceSheetMediator } from '@/modules/accounts/mediators/reports/GetBalanceSheet.mediator';
 import GetCcAccountSummaryMediator from '@/modules/accounts/mediators/reports/GetCcAccountSummary.mediator';
+import { GetVatRegisterMediator, VatRegisterParams } from '@/modules/accounts/mediators/reports/GetVatRegister.mediator';
 import { IncomeStatementQueryParams, BalanceSheetQueryParams } from '@/types/accounts';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 import { MyLogger } from '@/utils/new-logger';
@@ -52,6 +53,26 @@ export class ReportsController {
       });
 
       serializeSuccessResponse(res, result, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error, { query: req.query });
+      throw error;
+    }
+  }
+
+  static async getVatRegister(req: Request, res: Response): Promise<void> {
+    const action = 'GET /api/accounts/reports/vat-register';
+    try {
+      const query = req.query as unknown as VatRegisterParams;
+      MyLogger.info(action, { query });
+
+      const result = await GetVatRegisterMediator.getVatRegister(query);
+
+      MyLogger.success(action, {
+        outputTotal: result.outputVat.total,
+        inputTotal: result.inputVat.total,
+        netPayable: result.netPayable,
+      });
+      serializeSuccessResponse(res, result, 'SUCCESS');
     } catch (error: any) {
       MyLogger.error(action, error, { query: req.query });
       throw error;

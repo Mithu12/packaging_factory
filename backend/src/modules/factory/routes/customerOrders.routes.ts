@@ -132,6 +132,14 @@ const validateParams = (schema: any) => {
 // segment doesn't get caught by the order-id route matcher.
 // ---------------------------------------------------------------------------
 
+// GET /api/factory/customer-orders/deliveries - paginated list across all customers/orders
+router.get(
+    "/deliveries",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.listAllDeliveries.bind(deliveriesController))
+);
+
 // GET /api/factory/customer-orders/deliveries/:deliveryId
 router.get(
     "/deliveries/:deliveryId",

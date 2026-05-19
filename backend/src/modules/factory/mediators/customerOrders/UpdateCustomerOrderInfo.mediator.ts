@@ -489,13 +489,21 @@ export class UpdateCustomerOrderInfoMediator {
                         factoryCostCenterName: updatedOrder.factory_cost_center_name
                     });
 
+                    // `total_value` is stored net (subtotal minus discounts, no VAT — see
+                    // AddCustomerOrder.mediator.ts). For the AR voucher we pass the gross
+                    // (subtotal + VAT) plus the split components so the integration service
+                    // can credit Deferred Revenue at net and VAT Payable at the tax portion.
+                    const orderSubtotal = Number(updatedOrder.total_value) || 0;
+                    const orderTaxAmount = Number(updatedOrder.tax_amount) || 0;
                     const orderData = {
                         orderId: updatedOrder.id,
                         orderNumber: updatedOrder.order_number,
                         customerId: updatedOrder.factory_customer_id,
                         customerName: updatedOrder.factory_customer_name,
                         customerEmail: updatedOrder.factory_customer_email,
-                        totalValue: updatedOrder.total_value,
+                        totalValue: orderSubtotal + orderTaxAmount,
+                        subtotal: orderSubtotal,
+                        taxAmount: orderTaxAmount,
                         currency: updatedOrder.currency || 'BDT',
                         orderDate: updatedOrder.order_date || new Date().toISOString(),
                         factoryId: updatedOrder.factory_id,
@@ -766,13 +774,18 @@ export class UpdateCustomerOrderInfoMediator {
 
             try {
                 const ord = finalOrder!;
+                // See peer call site above: total_value is net; AR debit needs gross.
+                const ordSubtotal = Number(ord.total_value) || 0;
+                const ordTaxAmount = Number(ord.tax_amount) || 0;
                 const orderData = {
                     orderId: ord.id,
                     orderNumber: ord.order_number,
                     customerId: ord.factory_customer_id,
                     customerName: ord.factory_customer_name,
                     customerEmail: ord.factory_customer_email,
-                    totalValue: ord.total_value,
+                    totalValue: ordSubtotal + ordTaxAmount,
+                    subtotal: ordSubtotal,
+                    taxAmount: ordTaxAmount,
                     currency: ord.currency || 'BDT',
                     orderDate: ord.order_date || new Date().toISOString(),
                     factoryId: ord.factory_id,

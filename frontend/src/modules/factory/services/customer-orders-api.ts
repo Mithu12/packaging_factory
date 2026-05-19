@@ -201,6 +201,26 @@ export interface CreateDeliveryRequest {
     factory_customer_id?: number;
 }
 
+export interface DeliveryQueryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: DeliveryStatus;
+    factory_customer_id?: string | number;
+    date_from?: string;
+    date_to?: string;
+    sort_by?: 'delivery_date' | 'created_at' | 'delivery_number';
+    sort_order?: 'asc' | 'desc';
+}
+
+export interface DeliveryListResponse {
+    deliveries: Delivery[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
 export interface Address {
     street?: string;
     city?: string;
@@ -868,6 +888,22 @@ export class CustomerOrdersApiService {
     /** List all deliveries for an order (oldest first). */
     static async listDeliveries(orderId: string): Promise<Delivery[]> {
         return makeRequest<Delivery[]>(`${this.BASE_URL}/${orderId}/deliveries`);
+    }
+
+    /** Paginated list of all deliveries across customers/orders. */
+    static async listAllDeliveries(params: DeliveryQueryParams = {}): Promise<DeliveryListResponse> {
+        const query = new URLSearchParams();
+        if (params.page) query.set('page', String(params.page));
+        if (params.limit) query.set('limit', String(params.limit));
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+        if (params.factory_customer_id) query.set('factory_customer_id', String(params.factory_customer_id));
+        if (params.date_from) query.set('date_from', params.date_from);
+        if (params.date_to) query.set('date_to', params.date_to);
+        if (params.sort_by) query.set('sort_by', params.sort_by);
+        if (params.sort_order) query.set('sort_order', params.sort_order);
+        const qs = query.toString();
+        return makeRequest<DeliveryListResponse>(`${this.BASE_URL}/deliveries${qs ? `?${qs}` : ''}`);
     }
 
     /** List all deliveries (across orders) for a single customer (newest first). */

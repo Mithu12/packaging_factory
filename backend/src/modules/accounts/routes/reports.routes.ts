@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ReportsController } from '@/modules/accounts/controllers/incomeStatement.controller';
 import { requirePermission } from '@/middleware/permission';
 import { validateQuery } from '@/middleware/validation';
-import { getIncomeStatementQuerySchema, getBalanceSheetQuerySchema } from '@/modules/accounts/validation/incomeStatementValidation';
+import { getIncomeStatementQuerySchema, getBalanceSheetQuerySchema, getVatRegisterQuerySchema } from '@/modules/accounts/validation/incomeStatementValidation';
 import { PERMISSIONS } from '@/middleware/permission';
 import { authenticate } from '@/middleware/auth';
 
@@ -30,6 +30,14 @@ router.get(
   "/cc-summary",
   requirePermission(PERMISSIONS.BALANCE_SHEET_READ),
   ReportsController.getCcAccountSummary
+);
+
+// GET /api/accounts/reports/vat-register - Input vs Output VAT register
+router.get(
+  "/vat-register",
+  requirePermission(PERMISSIONS.INCOME_STATEMENT_READ),
+  validateQuery(getVatRegisterQuerySchema),
+  ReportsController.getVatRegister
 );
 
 export default router;

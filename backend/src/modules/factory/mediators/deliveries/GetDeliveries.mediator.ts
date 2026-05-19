@@ -126,6 +126,115 @@ export class GetDeliveriesMediator {
     }
   }
 
+  /**
+   * Paginated list of every delivery across all customers/orders. Used by the
+   * top-level Deliveries page. Filters are optional and additive.
+   */
+  static async listAllDeliveries(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: 'shipped' | 'delivered' | 'returned' | 'cancelled';
+    factory_customer_id?: string | number;
+    factory_id?: string | number;
+    date_from?: string;
+    date_to?: string;
+    sort_by?: 'delivery_date' | 'created_at' | 'delivery_number';
+    sort_order?: 'asc' | 'desc';
+  }): Promise<{
+    deliveries: Delivery[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const action = 'List All Deliveries';
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      factory_customer_id,
+      date_from,
+      date_to,
+      sort_by = 'delivery_date',
+      sort_order = 'desc',
+    } = params;
+
+    const offset = (page - 1) * limit;
+    const where: string[] = [];
+    const args: unknown[] = [];
+    let idx = 1;
+
+    if (search) {
+      where.push(`(d.delivery_number ILIKE $${idx} OR co.order_number ILIKE $${idx} OR fc.name ILIKE $${idx} OR inv.invoice_number ILIKE $${idx})`);
+      args.push(`%${search}%`);
+      idx++;
+    }
+    if (status) {
+      where.push(`d.delivery_status = $${idx}`);
+      args.push(status);
+      idx++;
+    }
+    if (factory_customer_id) {
+      where.push(`d.factory_customer_id = $${idx}`);
+      args.push(factory_customer_id);
+      idx++;
+    }
+    if (date_from) {
+      where.push(`d.delivery_date >= $${idx}`);
+      args.push(date_from);
+      idx++;
+    }
+    if (date_to) {
+      where.push(`d.delivery_date <= $${idx}`);
+      args.push(date_to);
+      idx++;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const sortCol = ['delivery_date', 'created_at', 'delivery_number'].includes(sort_by) ? sort_by : 'delivery_date';
+    const sortDir = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    try {
+      MyLogger.info(action, { params });
+
+      const countSql = `
+        SELECT COUNT(*)::int AS total
+          FROM factory_customer_order_deliveries d
+          JOIN factory_customers fc ON fc.id = d.factory_customer_id
+          LEFT JOIN factory_customer_orders co ON co.id = d.customer_order_id
+          LEFT JOIN factory_sales_invoices inv ON inv.id = d.invoice_id
+          ${whereSql}
+      `;
+      const countRes = await pool.query<{ total: number }>(countSql, args);
+      const total = countRes.rows[0]?.total ?? 0;
+
+      const dataSql = `
+        ${SELECT_DELIVERY}
+        ${whereSql}
+        ORDER BY d.${sortCol} ${sortDir}, d.id ${sortDir}
+        LIMIT $${idx} OFFSET $${idx + 1}
+      `;
+      const dataRes = await pool.query<DeliveryRow>(dataSql, [...args, limit, offset]);
+
+      const deliveryIds = dataRes.rows.map(r => Number(r.id));
+      const itemsByDelivery = await this.loadItemsByDeliveryIds(deliveryIds);
+      const deliveries = dataRes.rows.map(r => this.formatDelivery(r, itemsByDelivery.get(Number(r.id)) ?? []));
+
+      return {
+        deliveries,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      };
+    } catch (error) {
+      MyLogger.error(action, error, { params });
+      throw error;
+    }
+  }
+
   static async getDeliveryById(deliveryId: number | string): Promise<Delivery | null> {
     const action = 'Get Delivery By Id';
     try {

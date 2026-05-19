@@ -20,7 +20,12 @@ export interface OrderAccountingData {
   customerId: string;
   customerName: string;
   customerEmail?: string;
+  /** Gross amount the customer owes (subtotal + tax). Posted as the AR debit. */
   totalValue: number;
+  /** Net subtotal (excluding VAT). When provided, Sales Revenue is credited at this amount. */
+  subtotal?: number;
+  /** VAT portion of totalValue. When > 0, posted to VAT Payable instead of Sales Revenue. */
+  taxAmount?: number;
   currency: string;
   orderDate: string;
   factoryId?: number;
@@ -222,6 +227,59 @@ class FactoryAccountsIntegrationService {
         orderNumber: orderData.orderNumber
       });
       
+      // Split the credit when VAT is present and a VAT Payable account exists:
+      // Deferred Revenue is set up at net, VAT Payable gets the tax. With no VAT
+      // account configured we fall back to a single gross Deferred Revenue credit
+      // (current behaviour) so the voucher stays balanced.
+      const receivableTaxAmount =
+        orderData.taxAmount && orderData.taxAmount > 0 ? orderData.taxAmount : 0;
+      const receivableNet =
+        receivableTaxAmount > 0 && orderData.subtotal != null
+          ? orderData.subtotal
+          : orderData.totalValue - receivableTaxAmount;
+      const vatPayableAccountAR =
+        receivableTaxAmount > 0 ? await this.getDefaultAccount('vat_payable') : null;
+      if (receivableTaxAmount > 0 && !vatPayableAccountAR) {
+        MyLogger.warn(action, {
+          message:
+            'VAT Payable account not configured; crediting Deferred Revenue at gross amount',
+          orderId: orderData.orderId,
+          taxAmount: receivableTaxAmount,
+        });
+      }
+
+      const receivableLines: Array<{
+        accountId: number;
+        debit: number;
+        credit: number;
+        description: string;
+        costCenterId?: number;
+      }> = [
+        {
+          accountId: receivableAccount.id,
+          debit: orderData.totalValue,
+          credit: 0,
+          description: `Accounts Receivable for Order ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        },
+        {
+          accountId: deferredRevenueAccount.id,
+          debit: 0,
+          credit: vatPayableAccountAR ? receivableNet : orderData.totalValue,
+          description: `Deferred Revenue for Order ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        }
+      ];
+      if (vatPayableAccountAR && receivableTaxAmount > 0) {
+        receivableLines.push({
+          accountId: vatPayableAccountAR.id,
+          debit: 0,
+          credit: receivableTaxAmount,
+          description: `VAT Payable for Order ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        });
+      }
+
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(orderData.orderDate),
@@ -231,22 +289,7 @@ class FactoryAccountsIntegrationService {
         currency: orderData.currency,
         narration: `Customer Order Approved - ${orderData.orderNumber} - ${orderData.customerName}${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}${orderData.notes ? ` - ${orderData.notes}` : ''}`,
         costCenterId: orderData.factoryCostCenterId, // Link voucher to factory's cost center
-        lines: [
-          {
-            accountId: receivableAccount.id,
-            debit: orderData.totalValue,
-            credit: 0,
-            description: `Accounts Receivable for Order ${orderData.orderNumber}`,
-            costCenterId: orderData.factoryCostCenterId
-          },
-          {
-            accountId: deferredRevenueAccount.id,
-            debit: 0,
-            credit: orderData.totalValue,
-            description: `Deferred Revenue for Order ${orderData.orderNumber}`,
-            costCenterId: orderData.factoryCostCenterId
-          }
-        ]
+        lines: receivableLines
       };
 
       // Create the voucher
@@ -393,6 +436,10 @@ class FactoryAccountsIntegrationService {
         case 'cogs':
           searchTerm = 'Cost of Goods Sold';
           category = 'Expenses';
+          break;
+        case 'vat_payable':
+          searchTerm = 'VAT Payable';
+          category = 'Liabilities';
           break;
         default:
           return null;
@@ -1157,6 +1204,55 @@ class FactoryAccountsIntegrationService {
         };
       }
 
+      // Split the revenue credit when VAT is present and a VAT Payable account
+      // exists: Sales Revenue is recognised net, VAT Payable gets the tax. If no
+      // VAT account is configured we fall back to a single gross Sales Revenue
+      // credit (current behaviour) so the voucher remains balanced.
+      const taxAmount = orderData.taxAmount && orderData.taxAmount > 0 ? orderData.taxAmount : 0;
+      const netRevenue = taxAmount > 0 && orderData.subtotal != null
+        ? orderData.subtotal
+        : orderData.totalValue - taxAmount;
+      const vatPayableAccount = taxAmount > 0 ? await this.getDefaultAccount('vat_payable') : null;
+      if (taxAmount > 0 && !vatPayableAccount) {
+        MyLogger.warn(action, {
+          message: 'VAT Payable account not configured; crediting Sales Revenue at gross amount',
+          orderId: orderData.orderId,
+          taxAmount,
+        });
+      }
+
+      const revenueLines: Array<{
+        accountId: number;
+        debit: number;
+        credit: number;
+        description: string;
+        costCenterId?: number;
+      }> = [
+        {
+          accountId: deferredRevenueAccount.id,
+          debit: orderData.totalValue,
+          credit: 0,
+          description: `Deferred Revenue - ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        },
+        {
+          accountId: salesRevenueAccount.id,
+          debit: 0,
+          credit: vatPayableAccount ? netRevenue : orderData.totalValue,
+          description: `Sales Revenue - ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        }
+      ];
+      if (vatPayableAccount && taxAmount > 0) {
+        revenueLines.push({
+          accountId: vatPayableAccount.id,
+          debit: 0,
+          credit: taxAmount,
+          description: `VAT Payable - ${orderData.orderNumber}`,
+          costCenterId: orderData.factoryCostCenterId
+        });
+      }
+
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(),
@@ -1165,22 +1261,7 @@ class FactoryAccountsIntegrationService {
         amount: orderData.totalValue,
         narration: `Revenue Recognition - Order ${orderData.orderNumber} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
         costCenterId: orderData.factoryCostCenterId,
-        lines: [
-          {
-            accountId: deferredRevenueAccount.id,
-            debit: orderData.totalValue,
-            credit: 0,
-            description: `Deferred Revenue - ${orderData.orderNumber}`,
-            costCenterId: orderData.factoryCostCenterId
-          },
-          {
-            accountId: salesRevenueAccount.id,
-            debit: 0,
-            credit: orderData.totalValue,
-            description: `Sales Revenue - ${orderData.orderNumber}`,
-            costCenterId: orderData.factoryCostCenterId
-          }
-        ]
+        lines: revenueLines
       };
 
       const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);

@@ -64,6 +64,28 @@ class DeliveriesController {
     }
   }
 
+  /** GET /api/factory/customer-orders/deliveries */
+  async listAllDeliveries(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const params = {
+        page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        search: (req.query.search as string) || undefined,
+        status: (req.query.status as any) || undefined,
+        factory_customer_id: (req.query.factory_customer_id as string) || undefined,
+        factory_id: (req.query.factory_id as string) || undefined,
+        date_from: (req.query.date_from as string) || undefined,
+        date_to: (req.query.date_to as string) || undefined,
+        sort_by: (req.query.sort_by as any) || undefined,
+        sort_order: (req.query.sort_order as any) || undefined,
+      };
+      const result = await GetDeliveriesMediator.listAllDeliveries(params);
+      serializeSuccessResponse(res, result, 'SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** GET /api/factory/customer-orders/customers/:customerId/deliveries */
   async listDeliveriesForCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

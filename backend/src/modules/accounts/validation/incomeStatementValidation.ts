@@ -14,3 +14,9 @@ export const getBalanceSheetQuerySchema = Joi.object({
   costCenterId: Joi.number().integer().positive().optional(),
   format: Joi.string().valid('consolidated', 'entity').default('consolidated'),
 });
+
+// VAT register query validation schema
+export const getVatRegisterQuerySchema = Joi.object({
+  dateFrom: Joi.date().iso().optional(),
+  dateTo: Joi.date().iso().optional(),
+});

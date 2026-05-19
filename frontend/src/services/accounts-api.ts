@@ -881,6 +881,35 @@ export class ReportsApiService {
   static async getCcSummary(): Promise<CcAccountSummary[]> {
     return makeRequest<CcAccountSummary[]>(`${this.BASE_URL}/cc-summary`, { method: 'GET' });
   }
+
+  // Get VAT register (Input vs Output VAT)
+  static async getVatRegister(params?: VatRegisterQueryParams): Promise<VatRegisterResponse> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = queryString ? `${this.BASE_URL}/vat-register?${queryString}` : `${this.BASE_URL}/vat-register`;
+    return makeRequest<VatRegisterResponse>(url, { method: 'GET' });
+  }
+}
+
+export interface VatRegisterQueryParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface VatRegisterEntry {
+  date: string;
+  invoice_number: string;
+  party_name: string;
+  vat_number: string | null;
+  subtotal: number;
+  vat_rate: number;
+  vat_amount: number;
+}
+
+export interface VatRegisterResponse {
+  period: { dateFrom: string | null; dateTo: string | null };
+  outputVat: { total: number; entries: VatRegisterEntry[] };
+  inputVat: { total: number; entries: VatRegisterEntry[] };
+  netPayable: number;
 }
 
 // Query keys for React Query
