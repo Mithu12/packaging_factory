@@ -519,25 +519,33 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
+                            {(() => {
+                                // total_value is net (see AddCustomerOrder.mediator.ts).
+                                // Prefer the stored tax_amount; recompute from tax_rate as a
+                                // fallback for legacy rows where the amount wasn't persisted.
+                                const subtotal = Number(order.total_value) || 0;
+                                const vatAmount =
+                                    Number(order.tax_amount ?? 0) ||
+                                    (subtotal * (Number(order.tax_rate ?? 0))) / 100;
+                                const totalWithVat = subtotal + vatAmount;
+                                return (
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span>Subtotal:</span>
-                                    <span>{formatCurrency(order.total_value)}</span>
+                                    <span>{formatCurrency(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span>VAT:</span>
-                                    <span>-</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span>Shipping:</span>
-                                    <span>-</span>
+                                    <span>{formatCurrency(vatAmount)}</span>
                                 </div>
                                 <Separator />
                                 <div className="flex justify-between text-lg font-semibold">
                                     <span>Total:</span>
-                                    <span>{formatCurrency(order.total_value)} {order.currency}</span>
+                                    <span>{formatCurrency(totalWithVat)} {order.currency}</span>
                                 </div>
                             </div>
+                                );
+                            })()}
                         </CardContent>
                     </Card>
 
