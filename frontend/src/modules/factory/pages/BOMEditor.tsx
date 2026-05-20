@@ -8,13 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Save,
@@ -413,7 +407,7 @@ export default function BOMEditor() {
             <CardContent className="space-y-4" data-testid="bom-details-content">
               <div className="space-y-2" data-testid="parent-product-field">
                 <Label htmlFor="parentProduct" data-testid="parent-product-label">Parent Product *</Label>
-                <Select
+                <SearchableSelect
                   value={formData.parent_product_id}
                   onValueChange={(value) => {
                     const product = parentProducts.find((p) => p.id.toString() === value);
@@ -424,31 +418,22 @@ export default function BOMEditor() {
                       parent_product_sku: product?.sku || "",
                     }));
                   }}
-                  data-testid="parent-product-select"
-                >
-                  <SelectTrigger data-testid="parent-product-select-trigger">
-                    <SelectValue placeholder="Select parent product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parentProducts.map((product) => (
-                      <SelectItem key={product.id} value={product.id.toString()}>
-                        <div className="flex items-center justify-between w-full gap-2">
-                          <span>{product.name}</span>
-                          <span className="flex items-center gap-2 ml-2">
-                            {product.category_name && (
-                              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                {product.category_name}
-                              </span>
-                            )}
-                            <span className="text-sm text-muted-foreground">
-                              {product.sku}
-                            </span>
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select parent product"
+                  searchPlaceholder="Search parent products..."
+                  emptyMessage="No products found."
+                  data-testid="parent-product-select-trigger"
+                  options={parentProducts.map<SearchableSelectOption>((product) => ({
+                    value: product.id.toString(),
+                    label: product.name,
+                    keywords: `${product.sku} ${product.category_name ?? ""}`,
+                    badge: product.category_name ? (
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {product.category_name}
+                      </span>
+                    ) : undefined,
+                    hint: product.sku,
+                  }))}
+                />
               </div>
 
               <div className="space-y-2">
@@ -468,23 +453,23 @@ export default function BOMEditor() {
 
               <div className="space-y-2" data-testid="bom-category-field">
                 <Label htmlFor="category">Category</Label>
-                <Select
+                <SearchableSelect
+                  id="category"
                   value={formData.category}
-                  onValueChange={(value: BOMCategory) =>
-                    setFormData((prev) => ({ ...prev, category: value }))
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, category: value as BOMCategory }))
                   }
                   disabled={!isEditing && Boolean(presetCategory)}
-                  data-testid="bom-category-select"
-                >
-                  <SelectTrigger id="category" data-testid="bom-category-select-trigger">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="corrugation">Corrugation</SelectItem>
-                    <SelectItem value="printing">Printing</SelectItem>
-                    <SelectItem value="ready_goods">Ready Goods</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Select category"
+                  searchPlaceholder="Search categories..."
+                  emptyMessage="No categories found."
+                  data-testid="bom-category-select-trigger"
+                  options={[
+                    { value: "corrugation", label: "Corrugation" },
+                    { value: "printing", label: "Printing" },
+                    { value: "ready_goods", label: "Ready Goods" },
+                  ]}
+                />
                 {!isEditing && presetCategory && (
                   <p className="text-xs text-muted-foreground" data-testid="bom-category-preset-hint">
                     Category set from the sub-view you came from.
@@ -694,43 +679,36 @@ export default function BOMEditor() {
             <div className="space-y-2">
               <Label htmlFor="component">Component</Label>
               <div className="flex gap-2">
-                <Select
-                  value={selectedProduct?.id.toString() || ""}
-                  onValueChange={(value) => {
-                    const product = products.find((p) => p.id.toString() === value);
-                    setSelectedProduct(product || null);
-                    if (product) {
-                      setNewComponent((prev) => ({
-                        ...prev,
-                        component_product_id: product.id.toString(),
-                        unit_of_measure: product.unit_of_measure,
-                      }));
-                    }
-                  }}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select a component" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id.toString()}>
-                        <div className="flex items-center justify-between w-full gap-2">
-                          <span>{product.name}</span>
-                          <span className="flex items-center gap-2 ml-2">
-                            {product.category_name && (
-                              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                {product.category_name}
-                              </span>
-                            )}
-                            <span className="text-sm text-muted-foreground">
-                              {product.sku}
-                            </span>
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={selectedProduct?.id.toString() || ""}
+                    onValueChange={(value) => {
+                      const product = products.find((p) => p.id.toString() === value);
+                      setSelectedProduct(product || null);
+                      if (product) {
+                        setNewComponent((prev) => ({
+                          ...prev,
+                          component_product_id: product.id.toString(),
+                          unit_of_measure: product.unit_of_measure,
+                        }));
+                      }
+                    }}
+                    placeholder="Select a component"
+                    searchPlaceholder="Search components..."
+                    emptyMessage="No components found."
+                    options={products.map<SearchableSelectOption>((product) => ({
+                      value: product.id.toString(),
+                      label: product.name,
+                      keywords: `${product.sku} ${product.category_name ?? ""}`,
+                      badge: product.category_name ? (
+                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                          {product.category_name}
+                        </span>
+                      ) : undefined,
+                      hint: product.sku,
+                    }))}
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="quickAdd"

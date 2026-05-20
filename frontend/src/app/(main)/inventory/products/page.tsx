@@ -530,8 +530,8 @@ export default function Products() {
                   <TableHead>Category</TableHead>
                   <TableHead>Stock Status</TableHead>
                   <TableHead>Price</TableHead>
-                  <TableHead>PV</TableHead>
-                  <TableHead>Supplier</TableHead>
+                  <TableHead>Reel</TableHead>
+                  <TableHead>Cutting</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -591,13 +591,11 @@ export default function Products() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-sm">
-                          {product.pv || 0}
-                        </div>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.reel_size || '—'}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {product.supplier_name}
+                        {product.cutting_size || '—'}
                       </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(product.status)}>

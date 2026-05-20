@@ -756,8 +756,8 @@ export function AddProductForm({
                     isReadyGoodsType
                       ? "Carton Name"
                       : isInternalProductType && !showAllFields
-                        ? "e.g. Raw Cotton, Wood, Steel"
-                        : "e.g. Wireless Ergonomic Mouse"
+                        ? "Product Name"
+                        : "Product Name"
                   }
                   required
                   className={getFieldErrorClass("name")}
