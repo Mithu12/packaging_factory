@@ -7,6 +7,7 @@ import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-ap
 import { PaymentApi } from "@/modules/sales/services/payment-api"
 import { PurchaseOrderWithDetails, Invoice } from "@/services/types"
 import { CreateInvoiceForm } from "@/modules/sales/components/forms/CreateInvoiceForm"
+import { RecordPaymentForm } from "@/modules/sales/components/forms/RecordPaymentForm"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +49,7 @@ export default function PurchaseOrderDetails() {
   const [cancelling, setCancelling] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [showCreateInvoiceForm, setShowCreateInvoiceForm] = useState(false)
+  const [recordPaymentInvoiceId, setRecordPaymentInvoiceId] = useState<number | null>(null)
 
   // Fetch purchase order data
   useEffect(() => {
@@ -464,18 +466,18 @@ export default function PurchaseOrderDetails() {
                         )}
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/view-invoice/${invoice.id}`)}
+                          onClick={() => router.push(`/inventory/invoices/${invoice.id}`)}
                         >
                           View Details
                         </Button>
                         {invoice.status !== 'paid' && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/payments?record_payment=${invoice.id}`)}
+                            onClick={() => setRecordPaymentInvoiceId(invoice.id)}
                           >
                             Record Payment
                           </Button>
@@ -740,6 +742,17 @@ export default function PurchaseOrderDetails() {
         supplierId={purchaseOrder?.supplier_id}
         totalAmount={purchaseOrder?.total_amount}
         paymentTerms={purchaseOrder?.payment_terms}
+      />
+
+      {/* Record Payment Form */}
+      <RecordPaymentForm
+        open={recordPaymentInvoiceId !== null}
+        onOpenChange={(open) => { if (!open) setRecordPaymentInvoiceId(null) }}
+        preselectedInvoiceId={recordPaymentInvoiceId}
+        onPaymentRecorded={() => {
+          setRecordPaymentInvoiceId(null)
+          fetchInvoices()
+        }}
       />
     </div>
   )

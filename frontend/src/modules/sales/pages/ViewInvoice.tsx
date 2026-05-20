@@ -33,6 +33,7 @@ import {
 } from "lucide-react"
 import { PaymentApi } from "@/modules/sales/services/payment-api"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
+import { RecordPaymentForm } from "@/modules/sales/components/forms/RecordPaymentForm"
 import { InvoiceWithDetails, PurchaseOrderWithDetails } from "@/services/types"
 import jsPDF from 'jspdf'
 
@@ -46,6 +47,7 @@ export default function ViewInvoice() {
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showRecordPayment, setShowRecordPayment] = useState(false)
 
   // Fetch invoice data
   useEffect(() => {
@@ -515,9 +517,9 @@ export default function ViewInvoice() {
               </div>
 
               {Number(invoice.outstanding_amount) > 0 && (
-                <Button 
+                <Button
                   className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => router.push(`/payments/record?invoice_id=${invoice.id}`)}
+                  onClick={() => setShowRecordPayment(true)}
                 >
                   Record Payment
                 </Button>
@@ -662,6 +664,18 @@ export default function ViewInvoice() {
           )}
         </div>
       </div>
+
+      <RecordPaymentForm
+        open={showRecordPayment}
+        onOpenChange={setShowRecordPayment}
+        preselectedInvoiceId={invoice?.id ?? null}
+        onPaymentRecorded={() => {
+          setShowRecordPayment(false)
+          if (invoiceId) {
+            PaymentApi.getInvoice(parseInt(invoiceId)).then(setInvoice).catch(() => {})
+          }
+        }}
+      />
     </div>
   )
 }

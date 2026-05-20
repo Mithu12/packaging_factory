@@ -30,9 +30,10 @@ interface RecordPaymentFormProps {
   onOpenChange: (open: boolean) => void
   onPaymentRecorded?: () => void
   paymentId?: number | null // Add paymentId for editing
+  preselectedInvoiceId?: number | null // Preselect invoice when opening from PO details
 }
 
-export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, paymentId }: RecordPaymentFormProps) {
+export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, paymentId, preselectedInvoiceId }: RecordPaymentFormProps) {
   const [formData, setFormData] = useState({
     invoice: "",
     supplier: "",
@@ -53,7 +54,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
     if (open) {
       fetchData()
     }
-  }, [open, paymentId])
+  }, [open, paymentId, preselectedInvoiceId])
 
   const fetchData = async () => {
     try {
@@ -90,6 +91,18 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
         }
       } else {
         resetFormData();
+        if (preselectedInvoiceId) {
+          const matched = invoicesResponse.find(inv => inv.id === preselectedInvoiceId);
+          if (matched) {
+            setFormData(prev => ({
+              ...prev,
+              invoice: matched.id.toString(),
+              supplier: matched.supplier_id.toString(),
+              outstanding_amount: matched.outstanding_amount.toString(),
+              amount: matched.outstanding_amount.toString(),
+            }));
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error)

@@ -197,6 +197,7 @@ export class PurchaseOrderApi {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${this.baseUrl}/${id}/pdf`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
           'Accept': 'application/pdf',
         },

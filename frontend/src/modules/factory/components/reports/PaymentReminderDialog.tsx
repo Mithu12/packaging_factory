@@ -15,7 +15,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Loader2, Printer } from "lucide-react";
+import { Download, Loader2, Printer } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
     CustomerPaymentReminderDetail,
@@ -49,9 +51,121 @@ export function PaymentReminderDialog({ customerId, onClose }: Props) {
     });
 
     const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+    const [isDownloading, setIsDownloading] = React.useState(false);
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const handleDownload = async () => {
+        const liveNode = document.getElementById(PRINT_ROOT_ID);
+        if (!liveNode) return;
+        setIsDownloading(true);
+        // Clone the print root into a side-mounted container that has no
+        // scrollable ancestors. html2canvas otherwise short-captures content
+        // below the dialog's max-h-[90vh] viewport.
+        const sandbox = document.createElement("div");
+        sandbox.style.cssText = [
+            "position:fixed",
+            "left:-99999px",
+            "top:0",
+            `width:${liveNode.offsetWidth}px`,
+            "background:#ffffff",
+            "z-index:-1",
+            "overflow:visible",
+        ].join(";");
+        const clone = liveNode.cloneNode(true) as HTMLElement;
+        clone.style.maxHeight = "none";
+        clone.style.height = "auto";
+        clone.style.overflow = "visible";
+        sandbox.appendChild(clone);
+        document.body.appendChild(sandbox);
+        try {
+            await new Promise((r) => requestAnimationFrame(r));
+            const captureHeight = clone.scrollHeight + 8;
+            const captureWidth = clone.scrollWidth;
+            const canvas = await html2canvas(clone, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                windowWidth: captureWidth,
+                windowHeight: captureHeight,
+                width: captureWidth,
+                height: captureHeight,
+            });
+
+            const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+            const pageWidthMm = pdf.internal.pageSize.getWidth();
+            const pageHeightMm = pdf.internal.pageSize.getHeight();
+            const sideMm = 10;
+            const topMm = 15;
+            const bottomMm = 15;
+            const imgWidthMm = pageWidthMm - sideMm * 2;
+            const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+            const contentHeightMm = pageHeightMm - topMm - bottomMm;
+
+            // Build a sorted list of DOM-row bottoms (mm in image coordinates)
+            // using the SAME cloned subtree that was just rasterized, so the
+            // coordinates line up exactly with the canvas content.
+            const cloneRect = clone.getBoundingClientRect();
+            const pxToMm = imgWidthMm / cloneRect.width;
+            const breaks: number[] = [];
+            clone
+                .querySelectorAll(
+                    "tr, section, header, footer, p, h1, h2, h3, h4, .border-t"
+                )
+                .forEach((el) => {
+                    const r = (el as HTMLElement).getBoundingClientRect();
+                    breaks.push((r.bottom - cloneRect.top) * pxToMm);
+                });
+            breaks.push(imgHeightMm);
+            breaks.sort((a, b) => a - b);
+
+            const imgData = canvas.toDataURL("image/png");
+            let cursor = 0;
+            while (cursor < imgHeightMm - 0.5) {
+                const limit = cursor + contentHeightMm;
+                let nextCut = limit;
+                for (const b of breaks) {
+                    if (b > cursor + 5 && b <= limit) nextCut = b;
+                    else if (b > limit) break;
+                }
+                if (nextCut <= cursor) nextCut = limit;
+                const isLastPage = nextCut >= imgHeightMm - 0.5;
+
+                pdf.addImage(
+                    imgData,
+                    "PNG",
+                    sideMm,
+                    topMm - cursor,
+                    imgWidthMm,
+                    imgHeightMm
+                );
+                pdf.setFillColor(255, 255, 255);
+                pdf.rect(0, 0, pageWidthMm, topMm, "F");
+                if (!isLastPage) {
+                    // Mask everything below the chosen breakpoint plus a generous
+                    // buffer so descenders / sub-pixel rendering don't get shaved.
+                    pdf.rect(
+                        0,
+                        topMm + (nextCut - cursor) + 4,
+                        pageWidthMm,
+                        pageHeightMm,
+                        "F"
+                    );
+                }
+                cursor = nextCut;
+                if (cursor < imgHeightMm - 0.5) pdf.addPage();
+            }
+
+            const safeName =
+                (data?.customer.name || "customer").replace(/[^A-Za-z0-9_-]+/g, "_") +
+                `_payment_reminder_${today}.pdf`;
+            pdf.save(safeName);
+        } finally {
+            if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
+            setIsDownloading(false);
+        }
     };
 
     const addressLines = useMemo(() => {
@@ -144,6 +258,19 @@ export function PaymentReminderDialog({ customerId, onClose }: Props) {
                         <div className="mb-3 flex items-center justify-end gap-2 print:hidden">
                             <Button variant="outline" size="sm" onClick={onClose}>
                                 Close
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void handleDownload()}
+                                disabled={isDownloading}
+                            >
+                                {isDownloading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                Download
                             </Button>
                             <Button size="sm" onClick={handlePrint}>
                                 <Printer className="mr-2 h-4 w-4" />
