@@ -238,6 +238,8 @@ export class GetCustomerOrderInfoMediator {
                 tax_amount: row.tax_amount ? parseFloat(row.tax_amount) : undefined,
                 quoted_snapshot: row.quoted_snapshot ?? null,
                 pr_no: row.pr_no ?? undefined,
+                po_number: row.po_number ?? undefined,
+                po_date: row.po_date ?? undefined,
             }));
 
             const totalPages = Math.ceil(total / limit);

@@ -647,24 +647,38 @@ export default function CustomerOrderManagement() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Order #</TableHead>
+                                        <TableHead>Company PO No</TableHead>
                                         <TableHead>Customer</TableHead>
                                         <TableHead>Factory</TableHead>
                                         <TableHead>Order Date</TableHead>
                                         <TableHead>Required Date</TableHead>
                                         <TableHead>Value</TableHead>
-                                        <TableHead>Outstanding</TableHead>
+                                        <TableHead>Total (incl. VAT)</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Priority</TableHead>
-                                        <TableHead>Sales Person</TableHead>
+                                        <TableHead>Order Qty</TableHead>
+                                        <TableHead>Delivery Qty</TableHead>
                                         <TableHead>Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredOrders.map((order) => (
+                                    {filteredOrders.map((order) => {
+                                        const subtotal = Number(order.total_value) || 0;
+                                        const vatAmount =
+                                            Number(order.tax_amount ?? 0) ||
+                                            (subtotal * (Number(order.tax_rate ?? 0))) / 100;
+                                        const totalWithVat = subtotal + vatAmount;
+                                        const orderQty = (order.line_items ?? []).reduce(
+                                            (sum, li) => sum + (Number(li.quantity) || 0),
+                                            0
+                                        );
+                                        const deliveryQty = (order.line_items ?? []).reduce(
+                                            (sum, li) => sum + (Number(li.delivered_qty) || 0),
+                                            0
+                                        );
+                                        return (
                                         <TableRow key={order.id}>
                                             <TableCell className="font-medium">
-                                                {order.order_number}
+                                                {order.po_number || '—'}
                                             </TableCell>
                                             <TableCell>
                                                 <div>
@@ -691,11 +705,10 @@ export default function CustomerOrderManagement() {
                                                     {formatDate(order.required_date)}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{formatCurrency(order.total_value)}</TableCell>
+                                            <TableCell>{formatCurrency(subtotal)}</TableCell>
                                             <TableCell>
-                                                <div
-                                                    className={`font-semibold ${order.outstanding_amount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                                                    {formatCurrency(order.outstanding_amount)}
+                                                <div className="font-semibold">
+                                                    {formatCurrency(totalWithVat)}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -703,12 +716,8 @@ export default function CustomerOrderManagement() {
                                                     {order.status.replace("_", " ").toUpperCase()}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
-                                                <Badge className={getPriorityColor(order.priority)}>
-                                                    {order.priority.toUpperCase()}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>{order.sales_person}</TableCell>
+                                            <TableCell>{orderQty}</TableCell>
+                                            <TableCell>{deliveryQty}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Button
@@ -807,7 +816,8 @@ export default function CustomerOrderManagement() {
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </CardContent>
