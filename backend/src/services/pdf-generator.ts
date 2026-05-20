@@ -1328,6 +1328,7 @@ export class PDFGenerator {
           quantity: Number(it.quantity),
           unit_price: Number(it.unit_price_snapshot),
           line_total: Number(it.line_total),
+          ply: it.ply ?? null,
         }))
       : (order.line_items ?? []).map(li => ({
           product_name: li.product_name,
@@ -1335,11 +1336,15 @@ export class PDFGenerator {
           quantity: Number(li.quantity),
           unit_price: Number(li.unit_price),
           line_total: Number(li.quantity) * Number(li.unit_price),
+          ply: li.ply ?? null,
         }));
 
     const itemsHtml = renderRows.map((item, index) => {
       const descLines = item.description
         ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
+        : '';
+      const plyLine = item.ply != null
+        ? `<div class="item-ply">${String(item.ply).padStart(2, '0')} Ply</div>`
         : '';
       const isLast = index === renderRows.length - 1;
       const rowClass = `item-row${isLast ? ' last-item-row' : ''}`;
@@ -1349,6 +1354,7 @@ export class PDFGenerator {
           <td class="col-particulars">
             <div class="item-heading">Master Carton For:</div>
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
+            ${plyLine}
             ${descLines}
           </td>
           <td class="col-qty">${formatQty(item.quantity)}</td>
@@ -1416,6 +1422,9 @@ export class PDFGenerator {
       order.shipping_address?.shipping_line ||
       shippingStructured ||
       '';
+    // Address must print on a single kv-line; collapse embedded newlines so the
+    // billing_line freeform input doesn't force a visual wrap.
+    const customerAddressOneLine = customerAddress.replace(/\s*\r?\n\s*/g, ', ').trim();
 
     return `
 <!DOCTYPE html>
@@ -1488,6 +1497,7 @@ export class PDFGenerator {
         .item-row .col-particulars { padding-top: 14px; padding-bottom: 14px; }
         .item-heading { font-weight: normal; }
         .item-name { margin-top: 4px; }
+        .item-ply { margin-top: 2px; font-size: 10.5pt; font-weight: 600; }
         .item-desc { margin-top: 4px; font-size: 10.5pt; }
 
         /* Reserved blank space below items so the rows-region looks tall like the mock */
@@ -1527,13 +1537,13 @@ export class PDFGenerator {
 </head>
 <body>
     <div class="page">
-        <div class="title">BILL/ INVOICE</div>
+        <div class="title">INVOICE</div>
 
         <div class="header-row">
             <div class="box customer">
                 <div class="customer-heading">Customer</div>
                 <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(customerCompany)}</div>
-                <div class="kv-line" style="white-space: normal;"><span class="label">Company Billing Address</span> :- ${escapeHtml(customerAddress)}</div>
+                <div class="kv-line"><span class="label">Billing Address</span> :- ${escapeHtml(customerAddressOneLine)}</div>
             </div>
             <div class="box invoice-details">
                 <div class="kv-line"><span class="k label">Invoice No</span> :- ${escapeHtml(String(invoiceNo))}</div>
