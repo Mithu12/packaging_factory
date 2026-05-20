@@ -89,6 +89,8 @@ export default function CustomerDeliveryDialog({
     const [loadingOrders, setLoadingOrders] = useState(false);
     const [trackingNumber, setTrackingNumber] = useState("");
     const [carrier, setCarrier] = useState<string>("");
+    const [masterCartonFor, setMasterCartonFor] = useState("");
+    const [masterCartonSubLabel, setMasterCartonSubLabel] = useState("");
     const [estimatedDate, setEstimatedDate] = useState("");
     const [notes, setNotes] = useState("");
     const [vatNumber, setVatNumber] = useState("");
@@ -99,6 +101,8 @@ export default function CustomerDeliveryDialog({
         setRows([]);
         setTrackingNumber("");
         setCarrier("");
+        setMasterCartonFor("");
+        setMasterCartonSubLabel("");
         setEstimatedDate("");
         setNotes("");
         setVatNumber(customer.vat_number ?? "");
@@ -151,16 +155,13 @@ export default function CustomerDeliveryDialog({
 
         const items: CreateDeliveryItemRequest[] = rows
             .map(r => {
-                const bundlesRaw = r.bundlesValue.trim();
-                const bundles =
-                    bundlesRaw === "" || Number.isNaN(Number(bundlesRaw))
-                        ? null
-                        : Math.max(0, Math.trunc(Number(bundlesRaw)));
+                // bundles is free text (e.g. "20 x 50") — pass the trimmed string.
+                const bundlesTrimmed = r.bundlesValue.trim();
                 const itemCodeTrimmed = r.itemCode.trim();
                 return {
                     order_line_item_id: r.orderLineItemId,
                     quantity: Number(r.inputValue) || 0,
-                    bundles,
+                    bundles: bundlesTrimmed === "" ? null : bundlesTrimmed,
                     item_code: itemCodeTrimmed === "" ? null : itemCodeTrimmed,
                 };
             })
@@ -188,6 +189,8 @@ export default function CustomerDeliveryDialog({
                 delivery_date: estimatedDate || undefined,
                 notes: notes || undefined,
                 vat_number: vatNumber || undefined,
+                master_carton_for: masterCartonFor.trim() || undefined,
+                master_carton_sub_label: masterCartonSubLabel.trim() || undefined,
             });
             toast.success(
                 `Delivery ${result.delivery.delivery_number} created (Invoice ${result.invoice.invoice_number})`
@@ -204,7 +207,7 @@ export default function CustomerDeliveryDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-6xl">
+            <DialogContent className="max-w-7xl">
                 <DialogHeader>
                     <DialogTitle>New Delivery — {customer?.name ?? ""}</DialogTitle>
                     <DialogDescription>
@@ -264,7 +267,7 @@ export default function CustomerDeliveryDialog({
                                                     type="number"
                                                     min={0}
                                                     max={r.remaining}
-                                                    step="0.001"
+                                                    step="1"
                                                     value={r.inputValue}
                                                     onChange={e => setRowQty(idx, e.target.value)}
                                                     className="h-8 text-right"
@@ -272,13 +275,10 @@ export default function CustomerDeliveryDialog({
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Input
-                                                    type="number"
-                                                    min={0}
-                                                    step="1"
                                                     value={r.bundlesValue}
                                                     onChange={e => setRowBundles(idx, e.target.value)}
                                                     className="h-8 text-right"
-                                                    placeholder="—"
+                                                    placeholder="e.g. 20 x 50"
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -312,17 +312,13 @@ export default function CustomerDeliveryDialog({
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="cust-carrier">Carrier</Label>
-                                <Select value={carrier} onValueChange={setCarrier}>
-                                    <SelectTrigger id="cust-carrier">
-                                        <SelectValue placeholder="Select carrier" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="truck">Truck</SelectItem>
-                                        <SelectItem value="pickup">Pickup</SelectItem>
-                                        <SelectItem value="other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label htmlFor="cust-transport-name">Transport Name</Label>
+                                <Input
+                                    id="cust-transport-name"
+                                    value={carrier}
+                                    onChange={e => setCarrier(e.target.value)}
+                                    placeholder="Optional"
+                                />
                             </div>
                         </div>
 
@@ -342,7 +338,28 @@ export default function CustomerDeliveryDialog({
                                     id="cust-vat-number"
                                     value={vatNumber}
                                     onChange={e => setVatNumber(e.target.value)}
-                                    placeholder={customer?.vat_number ? "Defaults from customer" : "Optional"}
+                                    placeholder="VAT"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="cust-master-carton-for">Master Carton For</Label>
+                                <Input
+                                    id="cust-master-carton-for"
+                                    value={masterCartonFor}
+                                    onChange={e => setMasterCartonFor(e.target.value)}
+                                    placeholder="e.g. Haque Food Industries"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="cust-master-carton-sub-label">Sub Label</Label>
+                                <Input
+                                    id="cust-master-carton-sub-label"
+                                    value={masterCartonSubLabel}
+                                    onChange={e => setMasterCartonSubLabel(e.target.value)}
+                                    placeholder="e.g. Hanicom"
                                 />
                             </div>
                         </div>

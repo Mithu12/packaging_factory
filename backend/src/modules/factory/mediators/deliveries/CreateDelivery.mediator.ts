@@ -155,8 +155,9 @@ export class CreateDeliveryMediator {
         `INSERT INTO factory_customer_order_deliveries (
            delivery_number, factory_customer_id, customer_order_id, delivery_date,
            tracking_number, carrier, estimated_delivery_date,
-           delivery_status, notes, shipped_by, vat_number
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'shipped', $8, $9, $10)
+           delivery_status, notes, shipped_by, vat_number,
+           master_carton_for, master_carton_sub_label
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'shipped', $8, $9, $10, $11, $12)
          RETURNING *`,
         [
           deliveryNumber,
@@ -169,6 +170,8 @@ export class CreateDeliveryMediator {
           request.notes || null,
           userId,
           request.vat_number || null,
+          request.master_carton_for?.trim() || null,
+          request.master_carton_sub_label?.trim() || null,
         ]
       );
       const delivery = deliveryRes.rows[0];
@@ -178,10 +181,11 @@ export class CreateDeliveryMediator {
         const line = lineById.get(Number(it.order_line_item_id))!;
         const unitPrice = parseFloat(line.unit_price);
         const lineTotal = +(unitPrice * it.quantity).toFixed(2);
+        // bundles is now free text (e.g. "20 x 50"); preserve user formatting.
         const bundles =
-          it.bundles == null || Number.isNaN(Number(it.bundles))
-            ? null
-            : Math.max(0, Math.trunc(Number(it.bundles)));
+          it.bundles != null && String(it.bundles).trim() !== ''
+            ? String(it.bundles).trim()
+            : null;
         const itemCode =
           it.item_code != null && String(it.item_code).trim() !== ''
             ? String(it.item_code).trim()

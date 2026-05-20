@@ -258,8 +258,8 @@ export interface DeliveryItem {
     line_total: number;
     /** Joined from products: carton corrugation layers, rendered on the challan. */
     ply?: number | null;
-    /** Number of bundles (packing units) shipped for this delivery line. */
-    bundles?: number | null;
+    /** Free-text bundle layout (e.g. "20 x 50") for this delivery line. Challan only. */
+    bundles?: string | null;
     /** Per-shipment item code override (V133). Defaults from products.customer_item_code on the UI side. */
     item_code?: string | null;
     created_at: string;
@@ -287,6 +287,10 @@ export interface Delivery {
     shipped_by?: number;
     /** Per-shipment VAT registration; defaults from factory_customers.vat_number. */
     vat_number?: string;
+    /** Challan-only: text printed after "Master Carton For:". */
+    master_carton_for?: string | null;
+    /** Challan-only: sub-label printed under the carton-for line (e.g. brand "Hanicom"). */
+    master_carton_sub_label?: string | null;
     items: DeliveryItem[];
     subtotal: number;
     created_at: string;
@@ -296,7 +300,7 @@ export interface Delivery {
 export interface CreateDeliveryItemRequest {
     order_line_item_id: number;
     quantity: number;
-    bundles?: number | null;
+    bundles?: string | null;
     item_code?: string | null;
 }
 
@@ -308,6 +312,8 @@ export interface CreateDeliveryRequest {
     estimated_delivery_date?: string;
     notes?: string;
     vat_number?: string;
+    master_carton_for?: string | null;
+    master_carton_sub_label?: string | null;
     /** Customer-level entry point only. Order-level routes set this from the path param. */
     factory_customer_id?: number;
 }

@@ -30,6 +30,13 @@ router.get(
   expressAsyncHandler(ProductsController.getBomParentProducts)
 );
 
+// GET /api/factory/products/bom-component-eligible - Products eligible to be a BOM component (RM + RRM, excludes Ready Goods)
+router.get(
+  "/bom-component-eligible",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(ProductsController.getBomComponentProducts)
+);
+
 // GET /api/factory/products/search - Search products
 router.get(
   "/search",

@@ -144,8 +144,8 @@ export interface DeliveryItem {
     line_total: number;
     /** Joined from products: corrugation layers for cartons. */
     ply?: number | null;
-    /** # of bundles shipped for this line (V132). */
-    bundles?: number | null;
+    /** Free-text bundle layout (e.g. "20 x 50") shipped for this line. */
+    bundles?: string | null;
     /** Per-shipment item code override; falls back to products.customer_item_code (V133). */
     item_code?: string | null;
     created_at: string;
@@ -173,6 +173,10 @@ export interface Delivery {
     shipped_by?: number;
     /** Per-shipment VAT registration override (V132). */
     vat_number?: string;
+    /** Challan-only carton label printed after "Master Carton For:". */
+    master_carton_for?: string | null;
+    /** Challan-only sub-label printed under the carton-for line (e.g. brand "Hanicom"). */
+    master_carton_sub_label?: string | null;
     items: DeliveryItem[];
     subtotal: number;
     created_at: string;
@@ -182,8 +186,8 @@ export interface Delivery {
 export interface CreateDeliveryItemRequest {
     order_line_item_id: number | string;
     quantity: number;
-    /** # of bundles in this shipment line (V132). */
-    bundles?: number | null;
+    /** Free-text bundle layout (e.g. "20 x 50"). */
+    bundles?: string | null;
     /** Item code override for this shipment line (V133). */
     item_code?: string | null;
 }
@@ -197,6 +201,10 @@ export interface CreateDeliveryRequest {
     notes?: string;
     /** Per-shipment VAT registration override (V132). */
     vat_number?: string;
+    /** Challan-only carton label printed after "Master Carton For:". */
+    master_carton_for?: string | null;
+    /** Challan-only sub-label printed under the carton-for line. */
+    master_carton_sub_label?: string | null;
     /** Customer-level entry point only (V145+). Order-level routes derive it from the path. */
     factory_customer_id?: number;
 }
@@ -285,8 +293,17 @@ export interface FactoryProduct {
     currency: string;
     current_stock?: number;
     status?: string;
+    category_name?: string;
     created_at: string;
     updated_at: string;
+}
+
+// BOM-eligible component product — includes cost/UoM/supplier fields needed by BOMEditor.
+export interface BomComponentProduct extends FactoryProduct {
+    cost_price: number;
+    unit_of_measure: string;
+    supplier_id?: number | null;
+    uses_per_unit?: number | null;
 }
 
 // Request/Response Types
@@ -786,6 +803,11 @@ export class CustomerOrdersApiService {
     // Get BOM-eligible parent products — Ready Goods and Ready Raw Materials (excludes Raw Materials)
     static async getAllBomParentProducts(): Promise<FactoryProduct[]> {
         return makeRequest<FactoryProduct[]>(`/factory/products/bom-parent-eligible`);
+    }
+
+    // Get BOM-eligible component products — Raw Materials and Ready Raw Materials (excludes Ready Goods)
+    static async getAllBomComponentProducts(): Promise<BomComponentProduct[]> {
+        return makeRequest<BomComponentProduct[]>(`/factory/products/bom-component-eligible`);
     }
 
     // Customer CRUD operations

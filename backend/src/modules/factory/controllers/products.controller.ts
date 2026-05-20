@@ -103,31 +103,35 @@ class ProductsController {
       if (cachedNonParentIds.length > 0) {
         query = `
           SELECT
-            id, sku, name, description,
-            selling_price as unit_price,
+            p.id, p.sku, p.name, p.description,
+            p.selling_price as unit_price,
             'BDT' as currency,
-            current_stock, status,
-            created_at, updated_at
-          FROM products
-          WHERE status = 'active'
-            AND (category_id IS NULL OR category_id <> ALL($1::int[]))
-          ORDER BY name
+            p.current_stock, p.status,
+            c.name as category_name,
+            p.created_at, p.updated_at
+          FROM products p
+          LEFT JOIN categories c ON c.id = p.category_id
+          WHERE p.status = 'active'
+            AND (p.category_id IS NULL OR p.category_id <> ALL($1::int[]))
+          ORDER BY p.name
         `;
         params = [cachedNonParentIds];
       } else {
         query = `
           SELECT
-            id, sku, name, description,
-            selling_price as unit_price,
+            p.id, p.sku, p.name, p.description,
+            p.selling_price as unit_price,
             'BDT' as currency,
-            current_stock, status,
-            created_at, updated_at
-          FROM products
-          WHERE status = 'active'
-            AND (category_id IS NULL OR category_id NOT IN (
+            p.current_stock, p.status,
+            c.name as category_name,
+            p.created_at, p.updated_at
+          FROM products p
+          LEFT JOIN categories c ON c.id = p.category_id
+          WHERE p.status = 'active'
+            AND (p.category_id IS NULL OR p.category_id NOT IN (
               SELECT id FROM categories WHERE name = ANY($1::text[])
             ))
-          ORDER BY name
+          ORDER BY p.name
         `;
         params = [NON_PARENT_NAMES];
       }
@@ -137,6 +141,82 @@ class ProductsController {
       const products = result.rows.map((row) => ({
         ...row,
         unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0,
+      }));
+
+      MyLogger.success(action, { count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get BOM-eligible component products — Raw Materials (RM) and Ready Raw Materials (RRM),
+  // excluding Ready Goods (FG cannot be a component, they are end products).
+  async getBomComponentProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/products/bom-component-eligible";
+      MyLogger.info(action);
+
+      const NON_COMPONENT_NAMES = ["Ready Goods"];
+
+      const cachedNonComponentIds = MasterDataLoader.categories
+        .filter((c) => NON_COMPONENT_NAMES.includes(c.name))
+        .map((c) => c.id);
+
+      let query: string;
+      let params: any[] = [];
+
+      if (cachedNonComponentIds.length > 0) {
+        query = `
+          SELECT
+            p.id, p.sku, p.name, p.description,
+            p.selling_price as unit_price,
+            p.cost_price,
+            p.unit_of_measure,
+            p.supplier_id,
+            p.uses_per_unit,
+            'BDT' as currency,
+            p.current_stock, p.status,
+            c.name as category_name,
+            p.created_at, p.updated_at
+          FROM products p
+          LEFT JOIN categories c ON c.id = p.category_id
+          WHERE p.status = 'active'
+            AND (p.category_id IS NULL OR p.category_id <> ALL($1::int[]))
+          ORDER BY p.name
+        `;
+        params = [cachedNonComponentIds];
+      } else {
+        query = `
+          SELECT
+            p.id, p.sku, p.name, p.description,
+            p.selling_price as unit_price,
+            p.cost_price,
+            p.unit_of_measure,
+            p.supplier_id,
+            p.uses_per_unit,
+            'BDT' as currency,
+            p.current_stock, p.status,
+            c.name as category_name,
+            p.created_at, p.updated_at
+          FROM products p
+          LEFT JOIN categories c ON c.id = p.category_id
+          WHERE p.status = 'active'
+            AND (p.category_id IS NULL OR p.category_id NOT IN (
+              SELECT id FROM categories WHERE name = ANY($1::text[])
+            ))
+          ORDER BY p.name
+        `;
+        params = [NON_COMPONENT_NAMES];
+      }
+
+      const result = await pool.query(query, params);
+
+      const products = result.rows.map((row) => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        cost_price: row.cost_price ? parseFloat(row.cost_price) : 0,
         current_stock: row.current_stock ? parseFloat(row.current_stock) : 0,
       }));
 

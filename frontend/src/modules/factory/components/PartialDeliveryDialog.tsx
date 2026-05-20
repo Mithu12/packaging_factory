@@ -91,6 +91,8 @@ export default function PartialDeliveryDialog({
     const [estimatedDate, setEstimatedDate] = useState("");
     const [notes, setNotes] = useState("");
     const [vatNumber, setVatNumber] = useState("");
+    const [masterCartonFor, setMasterCartonFor] = useState("");
+    const [masterCartonSubLabel, setMasterCartonSubLabel] = useState("");
     const [submitting, setSubmitting] = useState(false);
     // V145+: list of the customer's other open orders that can contribute lines to this delivery.
     const [otherOrders, setOtherOrders] = useState<FactoryCustomerOrder[]>([]);
@@ -105,6 +107,8 @@ export default function PartialDeliveryDialog({
             setEstimatedDate("");
             setNotes("");
             setVatNumber(order?.customer_vat_number ?? "");
+            setMasterCartonFor("");
+            setMasterCartonSubLabel("");
             setOtherOrders([]);
             setAddingOrderId("");
 
@@ -194,16 +198,13 @@ export default function PartialDeliveryDialog({
 
         const items: CreateDeliveryItemRequest[] = rows
             .map(r => {
-                const bundlesRaw = r.bundlesValue.trim();
-                const bundles =
-                    bundlesRaw === "" || Number.isNaN(Number(bundlesRaw))
-                        ? null
-                        : Math.max(0, Math.trunc(Number(bundlesRaw)));
+                // bundles is free text (e.g. "20 x 50") — pass the trimmed string as-is.
+                const bundlesTrimmed = r.bundlesValue.trim();
                 const itemCodeTrimmed = r.itemCode.trim();
                 return {
                     order_line_item_id: r.orderLineItemId,
                     quantity: Number(r.inputValue) || 0,
-                    bundles,
+                    bundles: bundlesTrimmed === "" ? null : bundlesTrimmed,
                     item_code: itemCodeTrimmed === "" ? null : itemCodeTrimmed,
                 };
             })
@@ -235,6 +236,8 @@ export default function PartialDeliveryDialog({
                 delivery_date: estimatedDate || undefined,
                 notes: notes || undefined,
                 vat_number: vatNumber || undefined,
+                master_carton_for: masterCartonFor.trim() || undefined,
+                master_carton_sub_label: masterCartonSubLabel.trim() || undefined,
             });
             toast.success(
                 `Delivery ${result.delivery.delivery_number} created (Invoice ${result.invoice.invoice_number})`
@@ -251,7 +254,7 @@ export default function PartialDeliveryDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl">
+            <DialogContent className="max-w-7xl">
                 <DialogHeader>
                     <DialogTitle>New Delivery</DialogTitle>
                     <DialogDescription>
@@ -317,14 +320,11 @@ export default function PartialDeliveryDialog({
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Input
-                                                    type="number"
-                                                    min={0}
-                                                    step="1"
                                                     value={r.bundlesValue}
                                                     disabled={r.remaining === 0}
                                                     onChange={e => setRowBundles(idx, e.target.value)}
                                                     className="h-8 text-right"
-                                                    placeholder="—"
+                                                    placeholder="e.g. 20 x 50"
                                                 />
                                             </TableCell>
                                         </TableRow>
@@ -388,17 +388,13 @@ export default function PartialDeliveryDialog({
                                 />
                             </div>
                             <div>
-                                <Label htmlFor="carrier">Carrier</Label>
-                                <Select value={carrier} onValueChange={setCarrier}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select carrier" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="truck">Truck</SelectItem>
-                                        <SelectItem value="pickup">Pickup</SelectItem>
-                                        <SelectItem value="other">Other</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label htmlFor="transport-name">Transport Name</Label>
+                                <Input
+                                    id="transport-name"
+                                    value={carrier}
+                                    onChange={e => setCarrier(e.target.value)}
+                                    placeholder="Optional"
+                                />
                             </div>
                         </div>
 
@@ -418,7 +414,28 @@ export default function PartialDeliveryDialog({
                                     id="vat-number"
                                     value={vatNumber}
                                     onChange={e => setVatNumber(e.target.value)}
-                                    placeholder={order?.customer_vat_number ? "Defaults from customer" : "Optional"}
+                                    placeholder="VAT"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="master-carton-for">Master Carton For</Label>
+                                <Input
+                                    id="master-carton-for"
+                                    value={masterCartonFor}
+                                    onChange={e => setMasterCartonFor(e.target.value)}
+                                    placeholder="e.g. Haque Food Industries"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="master-carton-sub-label">Sub Label</Label>
+                                <Input
+                                    id="master-carton-sub-label"
+                                    value={masterCartonSubLabel}
+                                    onChange={e => setMasterCartonSubLabel(e.target.value)}
+                                    placeholder="e.g. Hanicom"
                                 />
                             </div>
                         </div>

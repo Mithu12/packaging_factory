@@ -19,6 +19,8 @@ interface DeliveryRow {
   notes: string | null;
   shipped_by: string | null;
   vat_number: string | null;
+  master_carton_for: string | null;
+  master_carton_sub_label: string | null;
   touched_orders: unknown;
   created_at: string | Date;
   updated_at: string | Date | null;
@@ -37,7 +39,7 @@ interface DeliveryItemRow {
   unit_price_snapshot: string;
   line_total: string;
   ply: number | null;
-  bundles: number | null;
+  bundles: string | null;
   item_code: string | null;
   product_customer_item_code: string | null;
   created_at: string | Date;
@@ -50,6 +52,7 @@ const SELECT_DELIVERY = `
          d.invoice_id, inv.invoice_number,
          d.delivery_date, d.tracking_number, d.carrier, d.estimated_delivery_date,
          d.delivery_status, d.notes, d.shipped_by, d.vat_number,
+         d.master_carton_for, d.master_carton_sub_label,
          d.created_at, d.updated_at,
          COALESCE(tos.touched_orders, '[]'::json) AS touched_orders
     FROM factory_customer_order_deliveries d
@@ -289,7 +292,7 @@ export class GetDeliveriesMediator {
         unit_price_snapshot: parseFloat(row.unit_price_snapshot),
         line_total: parseFloat(row.line_total),
         ply: row.ply != null ? Number(row.ply) : null,
-        bundles: row.bundles != null ? Number(row.bundles) : null,
+        bundles: row.bundles ?? null,
         // Fall back to the product's customer_item_code when the per-shipment override is empty
         item_code: row.item_code ?? row.product_customer_item_code ?? null,
         created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),
@@ -336,6 +339,8 @@ export class GetDeliveriesMediator {
       notes: row.notes ?? undefined,
       shipped_by: row.shipped_by ? Number(row.shipped_by) : undefined,
       vat_number: row.vat_number ?? undefined,
+      master_carton_for: row.master_carton_for ?? null,
+      master_carton_sub_label: row.master_carton_sub_label ?? null,
       items,
       subtotal: +subtotal.toFixed(2),
       created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),

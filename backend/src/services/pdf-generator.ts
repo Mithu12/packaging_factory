@@ -1352,7 +1352,6 @@ export class PDFGenerator {
         <tr class="${rowClass}">
           <td class="col-sn">${index + 1}</td>
           <td class="col-particulars">
-            <div class="item-heading">Master Carton For:</div>
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
             ${plyLine}
             ${descLines}
@@ -1769,8 +1768,20 @@ export class PDFGenerator {
           quantity: Number(li.quantity),
           ply: li.ply ?? null,
           item_code: li.customer_item_code ?? '',
-          bundles: null as number | null,
+          bundles: null as string | null,
         }));
+
+    // Challan-only carton labels (delivery-level). The invoice deliberately omits these.
+    // Both lines are hidden entirely when their respective fields are blank, so an
+    // operator who skipped them doesn't see an empty "Master Carton For:" on the page.
+    const masterCartonFor = delivery?.master_carton_for?.trim() || '';
+    const masterCartonSubLabel = delivery?.master_carton_sub_label?.trim() || '';
+    const masterCartonHeading = masterCartonFor
+      ? `<div class="item-heading">${escapeHtml(masterCartonFor)}</div>`
+      : '';
+    const subLabelLine = masterCartonSubLabel
+      ? `<div class="item-sub-label">${escapeHtml(masterCartonSubLabel)}</div>`
+      : '';
 
     const itemsHtml = challanRows.map((item, index) => {
       const descLines = item.description
@@ -1786,7 +1797,8 @@ export class PDFGenerator {
         <tr class="${rowClass}">
           <td class="col-sn">${String(index + 1).padStart(2, '0')}</td>
           <td class="col-particulars">
-            <div class="item-heading">Master Carton For:</div>
+            ${masterCartonHeading}
+            ${subLabelLine}
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
             ${plyLine}
             ${descLines}
@@ -1944,7 +1956,8 @@ export class PDFGenerator {
         .col-qty { width: 15%; text-align: center; }
         .col-bundle { width: 18%; text-align: center; }
         .item-row .col-particulars { padding-top: 14px; padding-bottom: 14px; }
-        .item-heading { font-weight: normal; }
+        .item-heading { font-weight: 600; }
+        .item-sub-label { margin-top: 2px; font-size: 10.5pt; font-weight: 600; }
         .item-name { margin-top: 4px; }
         .item-ply { margin-top: 2px; font-size: 10.5pt; font-weight: 600; }
         .item-desc { margin-top: 4px; font-size: 10.5pt; white-space: pre-line; }

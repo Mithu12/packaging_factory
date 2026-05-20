@@ -59,16 +59,9 @@ import {
   BOMApiService,
   bomQueryKeys
 } from "@/services/bom-api";
-import { ProductApi, Product } from "@/services/api";
-import { CustomerOrdersApiService, FactoryProduct } from "@/modules/factory/services/customer-orders-api";
+import { Product } from "@/services/api";
+import { CustomerOrdersApiService, FactoryProduct, BomComponentProduct } from "@/modules/factory/services/customer-orders-api";
 import { QuickAddProductDialog } from "@/modules/factory/components/QuickAddProductDialog";
-
-type ProductsQueryData = {
-  products: Product[];
-  total: number;
-  page: number;
-  limit: number;
-};
 
 export default function BOMEditor() {
   const params = useParams()
@@ -87,7 +80,7 @@ export default function BOMEditor() {
   const [components, setComponents] = useState<BOMComponent[]>([]);
   const [showAddComponent, setShowAddComponent] = useState(false);
   const [quickAddProductOpen, setQuickAddProductOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<BomComponentProduct | null>(null);
   const [newComponent, setNewComponent] = useState({
     component_product_id: "",
     quantity_required: 1,
@@ -118,10 +111,10 @@ export default function BOMEditor() {
     notes: "",
   });
 
-  // Fetch products for component selection
-  const { data: productsData, isLoading: productsLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: () => ProductApi.getProducts({ limit: 100 }),
+  // Fetch BOM-eligible components — Raw Materials + Ready Raw Materials, excludes Ready Goods.
+  const { data: componentProducts = [], isLoading: productsLoading } = useQuery<BomComponentProduct[]>({
+    queryKey: ['bom-component-products'],
+    queryFn: () => CustomerOrdersApiService.getAllBomComponentProducts(),
   });
 
   const { data: parentProducts = [], isLoading: parentProductsLoading } = useQuery<FactoryProduct[]>({
@@ -181,14 +174,13 @@ export default function BOMEditor() {
     }
   }, [isEditing, existingBOM]);
 
-  const products = productsData?.products || [];
+  const products = componentProducts;
 
   const handleAddComponent = () => {
     if (!selectedProduct) return;
 
     const reusableUnitLabel =
-      (selectedProduct as { uses_per_unit?: number }).uses_per_unit &&
-      Number((selectedProduct as { uses_per_unit?: number }).uses_per_unit) > 1
+      selectedProduct.uses_per_unit && Number(selectedProduct.uses_per_unit) > 1
         ? 'uses'
         : selectedProduct.unit_of_measure;
     const component: BOMComponent = {
@@ -440,10 +432,17 @@ export default function BOMEditor() {
                   <SelectContent>
                     {parentProducts.map((product) => (
                       <SelectItem key={product.id} value={product.id.toString()}>
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center justify-between w-full gap-2">
                           <span>{product.name}</span>
-                          <span className="text-sm text-muted-foreground ml-2">
-                            {product.sku}
+                          <span className="flex items-center gap-2 ml-2">
+                            {product.category_name && (
+                              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                {product.category_name}
+                              </span>
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {product.sku}
+                            </span>
                           </span>
                         </div>
                       </SelectItem>
@@ -647,28 +646,32 @@ export default function BOMEditor() {
         onOpenChange={setQuickAddProductOpen}
         onProductCreated={async (created) => {
           const idStr = String(created.id);
+          const createdComponent: BomComponentProduct = {
+            id: created.id,
+            name: created.name,
+            sku: created.sku,
+            description: created.description,
+            unit_price: (created as Product).selling_price ?? 0,
+            cost_price: created.cost_price,
+            unit_of_measure: created.unit_of_measure,
+            supplier_id: (created as Product).supplier_id ?? null,
+            uses_per_unit: (created as Product).uses_per_unit ?? null,
+            currency: "BDT",
+            current_stock: created.current_stock,
+            status: created.status,
+            category_name: (created as Product).category_name ?? "Raw Materials",
+            created_at: created.created_at,
+            updated_at: created.updated_at,
+          };
           queryClient.setQueryData(
-            ["products"],
-            (old: ProductsQueryData | undefined): ProductsQueryData => {
-              if (!old?.products) {
-                return {
-                  products: [created as Product],
-                  total: 1,
-                  page: 1,
-                  limit: 100,
-                };
-              }
-              if (old.products.some((p) => String(p.id) === idStr)) {
-                return old;
-              }
-              return {
-                ...old,
-                products: [created as Product, ...old.products],
-                total: old.total + 1,
-              };
+            ["bom-component-products"],
+            (old: BomComponentProduct[] | undefined): BomComponentProduct[] => {
+              if (!old || old.length === 0) return [createdComponent];
+              if (old.some((p) => String(p.id) === idStr)) return old;
+              return [createdComponent, ...old];
             }
           );
-          setSelectedProduct(created as Product);
+          setSelectedProduct(createdComponent);
           setNewComponent((prev) => ({
             ...prev,
             component_product_id: idStr,
@@ -711,10 +714,17 @@ export default function BOMEditor() {
                   <SelectContent>
                     {products.map((product) => (
                       <SelectItem key={product.id} value={product.id.toString()}>
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center justify-between w-full gap-2">
                           <span>{product.name}</span>
-                          <span className="text-sm text-muted-foreground ml-2">
-                            {product.sku}
+                          <span className="flex items-center gap-2 ml-2">
+                            {product.category_name && (
+                              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                {product.category_name}
+                              </span>
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {product.sku}
+                            </span>
                           </span>
                         </div>
                       </SelectItem>
