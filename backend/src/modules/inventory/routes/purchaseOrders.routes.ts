@@ -274,6 +274,28 @@ router.patch(
 );
 
 router.get(
+  "/:id/receipts",
+  authenticate,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
+  expressAsyncHandler(async (req, res) => {
+    const action = "GET /api/purchase-orders/:id/receipts";
+    try {
+      const poId = parseInt(req.params.id);
+      if (isNaN(poId)) {
+        throw new Error("Invalid purchase order ID");
+      }
+      MyLogger.info(action, { poId });
+      const receipts =
+        await GetPurchaseOrderInfoMediator.listReceiptsByPurchaseOrder(poId);
+      serializeSuccessResponse(res, receipts, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error, { poId: req.params.id });
+      throw error;
+    }
+  })
+);
+
+router.get(
   "/:id/pdf",
   authenticate,
   requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
@@ -311,6 +333,52 @@ router.get(
       });
     } catch (error: any) {
       MyLogger.error(action, error, { purchaseOrderId: req.params.id });
+      throw error;
+    }
+  })
+);
+
+router.get(
+  "/:id/receipts/:receiptId/pdf",
+  authenticate,
+  requirePermission(PERMISSIONS.PURCHASE_ORDERS_READ),
+  expressAsyncHandler(async (req, res, next) => {
+    const action = "GET /api/purchase-orders/:id/receipts/:receiptId/pdf";
+    try {
+      const poId = parseInt(req.params.id);
+      const receiptId = parseInt(req.params.receiptId);
+      if (isNaN(poId) || isNaN(receiptId)) {
+        throw new Error("Invalid purchase order or receipt ID");
+      }
+
+      MyLogger.info(action, { poId, receiptId });
+
+      const { receipt, line_items, purchase_order } =
+        await GetPurchaseOrderInfoMediator.getReceiptById(poId, receiptId);
+      const pdfBuffer = await PDFGenerator.generateGoodsReceiptNotePDF(
+        receipt,
+        line_items,
+        purchase_order
+      );
+
+      const filename = `${receipt.receipt_number}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
+      res.send(pdfBuffer);
+
+      MyLogger.success(action, {
+        poId,
+        receiptId,
+        receiptNumber: receipt.receipt_number,
+        filename,
+        pdfSize: pdfBuffer.length,
+      });
+    } catch (error: any) {
+      MyLogger.error(action, error, {
+        poId: req.params.id,
+        receiptId: req.params.receiptId,
+      });
       throw error;
     }
   })

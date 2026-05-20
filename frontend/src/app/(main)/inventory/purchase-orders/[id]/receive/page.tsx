@@ -10,18 +10,21 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/AuthContext"
+import { useFormatting } from "@/hooks/useFormatting"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
 import { PurchaseOrderWithDetails } from "@/services/types"
 import { Loader2 } from "lucide-react"
-import { 
-  ArrowLeft, 
-  Save, 
-  Package, 
+import {
+  ArrowLeft,
+  Save,
+  Package,
   CheckCircle,
   AlertTriangle,
   Truck,
   FileText,
-  Calculator
+  Calculator,
+  Download
 } from "lucide-react"
 import {
   Table,
@@ -37,20 +40,34 @@ export default function ReceiveGoods() {
   const id = typeof params.id === 'string' ? params.id : params.id?.[0]
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const { formatCurrency } = useFormatting()
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [recordedReceipt, setRecordedReceipt] = useState<{ id: number; number: string } | null>(null)
+  const [downloadingPDF, setDownloadingPDF] = useState(false)
 
   const [receiptData, setReceiptData] = useState({
     receivedDate: new Date().toISOString().split('T')[0],
     deliveryNote: "",
-    receivedBy: "Current User",
+    receivedBy: "",
     notes: "",
     transportCompany: "",
     trackingNumber: ""
   })
+
+  // Auth context loads asynchronously — fill receivedBy with the logged-in
+  // user's name once available, unless the user has already typed something.
+  useEffect(() => {
+    if (!user) return
+    setReceiptData(prev => prev.receivedBy
+      ? prev
+      : { ...prev, receivedBy: user.full_name || user.username || "" }
+    )
+  }, [user])
 
   const [lineItems, setLineItems] = useState<Array<{
     id: number
@@ -150,28 +167,32 @@ export default function ReceiveGoods() {
 
     try {
       setSubmitting(true)
-      
+
       // Prepare data for API - only send items with additional quantity > 0
       const receiveData = {
         line_items: lineItems
           .filter(item => item.additionalQty > 0)
           .map(item => ({
             line_item_id: item.id,
-            received_quantity: item.additionalQty
+            received_quantity: item.additionalQty,
+            condition: item.condition,
+            notes: item.notes || undefined,
           })),
         received_date: receiptData.receivedDate,
-        notes: receiptData.notes || `Received by ${receiptData.receivedBy}. ${receiptData.deliveryNote ? `Delivery Note: ${receiptData.deliveryNote}` : ''}`
+        received_by_name: receiptData.receivedBy,
+        delivery_challan: receiptData.deliveryNote || undefined,
+        transport_company: receiptData.transportCompany || undefined,
+        transport_no: receiptData.trackingNumber || undefined,
+        notes: receiptData.notes || undefined,
       }
 
-      // Call the API to receive goods
-      await PurchaseOrderApi.receiveGoods(parseInt(id!), receiveData)
-      
+      const result = await PurchaseOrderApi.receiveGoods(parseInt(id!), receiveData)
+      setRecordedReceipt({ id: result.receipt_id, number: result.receipt_number })
+
       toast({
         title: "Goods Receipt Recorded",
-        description: "Goods receipt has been recorded and inventory updated."
+        description: `Receipt ${result.receipt_number} recorded. Click Download to print the Goods Receipt Note.`,
       })
-      
-      router.push(`/inventory/purchase-orders/${id}`)
     } catch (err: any) {
       console.error('Error recording goods receipt:', err)
       toast({
@@ -181,6 +202,31 @@ export default function ReceiveGoods() {
       })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDownloadGRN = async () => {
+    if (!recordedReceipt || !purchaseOrder) return
+    try {
+      setDownloadingPDF(true)
+      await PurchaseOrderApi.downloadGoodsReceiptNotePDF(
+        purchaseOrder.id,
+        recordedReceipt.id,
+        recordedReceipt.number,
+      )
+      toast({
+        title: "GRN downloaded",
+        description: `${recordedReceipt.number} downloaded.`,
+      })
+    } catch (err: any) {
+      console.error('Error downloading GRN:', err)
+      toast({
+        title: "Failed to download GRN",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingPDF(false)
     }
   }
 
@@ -236,14 +282,30 @@ export default function ReceiveGoods() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Receive Goods</h1>
-          <p className="text-muted-foreground">Record goods receipt for {purchaseOrder.po_number}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/purchase-orders/${id}`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Receive Goods</h1>
+            <p className="text-muted-foreground">Record goods receipt for {purchaseOrder.po_number}</p>
+          </div>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleDownloadGRN}
+          disabled={!recordedReceipt || downloadingPDF}
+          title={recordedReceipt ? "Download Goods Receipt Note" : "Record the receipt to enable download"}
+        >
+          {downloadingPDF ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          Download
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -298,12 +360,12 @@ export default function ReceiveGoods() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="deliveryNote">Delivery Note #</Label>
+                    <Label htmlFor="deliveryNote">Delivery Challan</Label>
                     <Input
                       id="deliveryNote"
                       value={receiptData.deliveryNote}
                       onChange={(e) => handleInputChange("deliveryNote", e.target.value)}
-                      placeholder="Enter delivery note number"
+                      placeholder="Enter delivery challan number"
                     />
                   </div>
                   <div>
@@ -318,12 +380,12 @@ export default function ReceiveGoods() {
                 </div>
 
                 <div>
-                  <Label htmlFor="trackingNumber">Tracking Number</Label>
+                  <Label htmlFor="trackingNumber">Transport No</Label>
                   <Input
                     id="trackingNumber"
                     value={receiptData.trackingNumber}
                     onChange={(e) => handleInputChange("trackingNumber", e.target.value)}
-                    placeholder="Enter tracking number"
+                    placeholder="Enter transport number"
                   />
                 </div>
 
@@ -383,7 +445,7 @@ export default function ReceiveGoods() {
                           <div>
                             <div className="font-medium">{item.productName}</div>
                             <div className="text-sm text-muted-foreground">SKU: {item.productSku}</div>
-                            <div className="text-xs text-muted-foreground">${item.unitPrice} per {item.unit}</div>
+                            <div className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)} per {item.unit}</div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -407,7 +469,7 @@ export default function ReceiveGoods() {
                               Total after: {item.alreadyReceivedQty + item.additionalQty} {item.unit}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Value: ${(item.additionalQty * item.unitPrice).toLocaleString()}
+                              Value: {formatCurrency(item.additionalQty * item.unitPrice)}
                             </div>
                           </div>
                         </TableCell>
@@ -479,7 +541,7 @@ export default function ReceiveGoods() {
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Additional Value:</span>
-                    <span>${additionalValue.toLocaleString()}</span>
+                    <span>{formatCurrency(additionalValue)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -514,27 +576,47 @@ export default function ReceiveGoods() {
             {/* Action Buttons */}
             <Card>
               <CardContent className="pt-6 space-y-3">
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Recording...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Record Receipt
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => router.push(`/inventory/purchase-orders/${id}`)}
-                >
-                  Cancel
-                </Button>
+                {recordedReceipt ? (
+                  <>
+                    <div className="rounded-md bg-success/10 p-3 text-sm">
+                      <div className="font-medium text-success">Receipt {recordedReceipt.number} recorded</div>
+                      <div className="text-muted-foreground text-xs mt-1">
+                        Click Download in the header to print the Goods Receipt Note.
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={() => router.push(`/inventory/purchase-orders/${id}`)}
+                    >
+                      Back to Purchase Order
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Recording...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Record Receipt
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push(`/inventory/purchase-orders/${id}`)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
 

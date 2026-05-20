@@ -553,10 +553,36 @@ export interface ReceiveGoodsRequest {
   line_items: {
     line_item_id: number;
     received_quantity: number;
+    condition?: string;
     notes?: string;
   }[];
   received_date?: string;
+  received_by_name: string;
+  delivery_challan?: string;
+  transport_company?: string;
+  transport_no?: string;
   notes?: string;
+}
+
+export interface ReceiveGoodsResponse {
+  purchase_order: PurchaseOrder;
+  receipt_id: number;
+  receipt_number: string;
+}
+
+export interface PurchaseOrderReceipt {
+  id: number;
+  purchase_order_id: number;
+  receipt_number: string;
+  receipt_date: string;
+  received_by_user_id: number | null;
+  received_by_name: string;
+  delivery_challan: string | null;
+  transport_company: string | null;
+  transport_no: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Inventory Types

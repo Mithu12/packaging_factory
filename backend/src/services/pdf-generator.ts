@@ -1,5 +1,9 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
-import { PurchaseOrderWithDetails } from '@/types/purchaseOrder';
+import {
+  PurchaseOrderWithDetails,
+  PurchaseOrderReceipt,
+  PurchaseOrderReceiptLineItem,
+} from '@/types/purchaseOrder';
 import { SalesInvoice } from '@/types/salesInvoice';
 import { FactoryCustomerOrder } from '@/types/factory';
 import { MyLogger } from '@/utils/new-logger';
@@ -2258,6 +2262,212 @@ export class PDFGenerator {
       return Buffer.from(pdfBuffer);
     } catch (error) {
       MyLogger.error(action, error, { periodName });
+      throw error;
+    }
+  }
+
+  // Generate HTML template for a Goods Receipt Note (GRN)
+  private static generateGoodsReceiptNoteHTML(
+    receipt: PurchaseOrderReceipt,
+    lineItems: PurchaseOrderReceiptLineItem[],
+    purchaseOrder: PurchaseOrderWithDetails
+  ): string {
+    const fmtMoney = (n: number) =>
+      `৳ ${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const fmtDate = (d: string) =>
+      new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const fmtQty = (n: number | undefined) =>
+      n == null ? '-' : Number(n).toLocaleString('en-IN');
+
+    const supplierName = purchaseOrder.supplier?.name || (purchaseOrder as any).supplier_name || '';
+    const supplierAddress = purchaseOrder.supplier?.address || '';
+
+    const rowsHtml = lineItems.map((li, idx) => {
+      const value = (li.received_quantity || 0) * (li.unit_price || 0);
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <div class="prod-name">${li.product_name || ''}</div>
+            <div class="prod-sku">SKU: ${li.product_sku || ''}</div>
+          </td>
+          <td class="num">${fmtQty(li.ordered_quantity)} ${li.unit_of_measure || ''}</td>
+          <td class="num">${fmtQty(li.received_quantity)} ${li.unit_of_measure || ''}</td>
+          <td class="num">${fmtQty(li.cumulative_received)} ${li.unit_of_measure || ''}</td>
+          <td>${(li.condition || 'good').replace('_', ' ')}</td>
+          <td class="num">${fmtMoney(value)}</td>
+        </tr>`;
+    }).join('');
+
+    const totalValue = lineItems.reduce(
+      (sum, li) => sum + (li.received_quantity || 0) * (li.unit_price || 0),
+      0
+    );
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Goods Receipt Note ${receipt.receipt_number}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #222; font-size: 12px; }
+    .container { padding: 24px 28px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1f2937; padding-bottom: 12px; margin-bottom: 16px; }
+    .header h1 { font-size: 22px; color: #1f2937; }
+    .header .meta { text-align: right; font-size: 11px; color: #555; }
+    .header .meta .grn-no { font-size: 14px; font-weight: 700; color: #1f2937; }
+    .section { display: flex; gap: 24px; margin: 14px 0; }
+    .section .col { flex: 1; }
+    .section h3 { font-size: 12px; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .section .val { font-size: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; margin: 12px 0; }
+    .field-label { color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .field-val { font-size: 12px; font-weight: 600; color: #1f2937; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; }
+    th { background: #f3f4f6; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: #374151; }
+    td.num { text-align: right; }
+    .prod-name { font-weight: 600; }
+    .prod-sku { font-size: 10px; color: #6b7280; }
+    .totals { margin-top: 10px; display: flex; justify-content: flex-end; }
+    .totals table { width: 280px; }
+    .totals td { border: none; padding: 4px 8px; }
+    .totals .label { color: #6b7280; }
+    .totals .grand { font-weight: 700; font-size: 13px; border-top: 1px solid #1f2937; }
+    .notes { margin-top: 16px; padding: 10px 12px; background: #f9fafb; border-left: 3px solid #6b7280; font-size: 11px; }
+    .sigs { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; }
+    .sigs .sig { flex: 1; text-align: center; font-size: 11px; color: #4b5563; }
+    .sigs .line { border-top: 1px solid #9ca3af; margin: 32px 0 4px; }
+    .footer { margin-top: 28px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Goods Receipt Note</h1>
+        <div style="font-size:11px; color:#6b7280;">Record of goods received against a Purchase Order</div>
+      </div>
+      <div class="meta">
+        <div class="grn-no">${receipt.receipt_number}</div>
+        <div>Receipt Date: ${fmtDate(receipt.receipt_date)}</div>
+        <div>PO Number: ${purchaseOrder.po_number}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="col">
+        <h3>Supplier</h3>
+        <div class="val"><strong>${supplierName}</strong></div>
+        ${supplierAddress ? `<div class="val">${supplierAddress}</div>` : ''}
+      </div>
+      <div class="col">
+        <h3>Purchase Order</h3>
+        <div class="val">PO Number: <strong>${purchaseOrder.po_number}</strong></div>
+        <div class="val">Status: ${purchaseOrder.status}</div>
+        ${purchaseOrder.expected_delivery_date
+          ? `<div class="val">Expected: ${fmtDate(String(purchaseOrder.expected_delivery_date))}</div>`
+          : ''}
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="field-label">Received By</div>
+        <div class="field-val">${receipt.received_by_name}</div>
+      </div>
+      <div>
+        <div class="field-label">Delivery Challan</div>
+        <div class="field-val">${receipt.delivery_challan || '-'}</div>
+      </div>
+      <div>
+        <div class="field-label">Transport Company</div>
+        <div class="field-val">${receipt.transport_company || '-'}</div>
+      </div>
+      <div>
+        <div class="field-label">Transport No</div>
+        <div class="field-val">${receipt.transport_no || '-'}</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th class="num">Ordered</th>
+          <th class="num">This Receipt</th>
+          <th class="num">Cumulative</th>
+          <th>Condition</th>
+          <th class="num">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <table>
+        <tr class="grand">
+          <td class="label">Total Value</td>
+          <td class="num">${fmtMoney(totalValue)}</td>
+        </tr>
+      </table>
+    </div>
+
+    ${receipt.notes ? `<div class="notes"><strong>Notes:</strong> ${receipt.notes}</div>` : ''}
+
+    <div class="sigs">
+      <div class="sig"><div class="line"></div>Received By</div>
+      <div class="sig"><div class="line"></div>Verified By</div>
+      <div class="sig"><div class="line"></div>Authorized Signature</div>
+    </div>
+
+    <div class="footer">
+      Generated on ${fmtDate(new Date().toISOString())} | GRN ${receipt.receipt_number} | PO ${purchaseOrder.po_number}
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  // Generate PDF for a Goods Receipt Note (GRN)
+  static async generateGoodsReceiptNotePDF(
+    receipt: PurchaseOrderReceipt,
+    lineItems: PurchaseOrderReceiptLineItem[],
+    purchaseOrder: PurchaseOrderWithDetails
+  ): Promise<Buffer> {
+    const action = 'Generate Goods Receipt Note PDF';
+    try {
+      MyLogger.info(action, { receiptNumber: receipt.receipt_number, receiptId: receipt.id });
+
+      const browser = await this.getBrowser();
+      const page = await browser.newPage();
+      const html = this.generateGoodsReceiptNoteHTML(receipt, lineItems, purchaseOrder);
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+      });
+
+      await page.close();
+
+      MyLogger.success(action, {
+        receiptNumber: receipt.receipt_number,
+        receiptId: receipt.id,
+        pdfSize: pdfBuffer.length,
+      });
+
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      MyLogger.error(action, error, { receiptNumber: receipt.receipt_number, receiptId: receipt.id });
       throw error;
     }
   }

@@ -103,12 +103,14 @@ class PurchaseOrdersController {
   ): Promise<void> {
     const id = parseInt(req.params.id);
     const username = req.user?.username || 'System User';
-    const purchaseOrder = await UpdatePurchaseOrderInfoMediator.receiveGoods(
+    const userId = req.user?.user_id;
+    const result = await UpdatePurchaseOrderInfoMediator.receiveGoods(
       id,
       req.body,
-      username
+      username,
+      userId
     );
-    serializeSuccessResponse(res, purchaseOrder, "SUCCESS");
+    serializeSuccessResponse(res, result, "SUCCESS");
   }
 
   // Cancel method can be added when mediator method is available

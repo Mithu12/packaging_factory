@@ -4,6 +4,7 @@ import {
   UpdatePurchaseOrderStatusRequest,
   PurchaseOrder,
   ReceiveGoodsRequest,
+  ReceiveGoodsResponse,
 } from "@/types/purchaseOrder";
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
@@ -378,8 +379,9 @@ class UpdatePurchaseOrderInfoMediator {
   async receiveGoods(
     id: number,
     data: ReceiveGoodsRequest,
-    username: string = 'System User'
-  ): Promise<PurchaseOrder> {
+    username: string = 'System User',
+    userId?: number
+  ): Promise<ReceiveGoodsResponse> {
     let action = "Receive Goods";
     const client = await pool.connect();
     try {
@@ -389,8 +391,8 @@ class UpdatePurchaseOrderInfoMediator {
 
       // Check if purchase order exists and is in correct status
       const checkQuery = `
-                SELECT id, status, total_amount 
-                FROM purchase_orders 
+                SELECT id, status, total_amount
+                FROM purchase_orders
                 WHERE id = $1
             `;
       const checkResult = await client.query(checkQuery, [id]);
@@ -417,6 +419,37 @@ class UpdatePurchaseOrderInfoMediator {
       const primaryDcQuery = "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1";
       const primaryDcResult = await client.query(primaryDcQuery);
       let distributionCenterId: number | undefined = primaryDcResult.rows[0]?.id;
+
+      // Create the GRN (Goods Receipt Note) header row up front so child
+      // line-item receipt rows can reference it. Each receive event gets
+      // its own immutable receipt_number for re-downloadable GRN PDFs.
+      const grnSeqResult = await client.query(
+        `SELECT nextval('grn_number_sequence') as seq`
+      );
+      const grnSeq = parseInt(grnSeqResult.rows[0].seq);
+      const receiptYear = new Date(data.received_date || Date.now()).getFullYear();
+      const receiptNumber = `GRN-${receiptYear}-${grnSeq.toString().padStart(3, '0')}`;
+
+      const receiptInsert = await client.query(
+        `INSERT INTO purchase_order_receipts (
+            purchase_order_id, receipt_number, receipt_date,
+            received_by_user_id, received_by_name,
+            delivery_challan, transport_company, transport_no, notes
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
+        [
+          id,
+          receiptNumber,
+          data.received_date || new Date().toISOString().split('T')[0],
+          userId || null,
+          data.received_by_name,
+          data.delivery_challan || null,
+          data.transport_company || null,
+          data.transport_no || null,
+          data.notes || null,
+        ]
+      );
+      const receiptId: number = receiptInsert.rows[0].id;
 
       // Update line items
       for (const receivedItem of data.line_items) {
@@ -515,6 +548,20 @@ class UpdatePurchaseOrderInfoMediator {
           pendingQtyStr,
           receivedItem.line_item_id,
         ]);
+
+        // Record this line in the GRN child table for permanent history
+        await client.query(
+          `INSERT INTO purchase_order_receipt_line_items (
+              receipt_id, line_item_id, received_quantity, condition, notes
+           ) VALUES ($1, $2, $3, $4, $5)`,
+          [
+            receiptId,
+            receivedItem.line_item_id,
+            receivedItem.received_quantity,
+            receivedItem.condition || 'good',
+            receivedItem.notes || null,
+          ]
+        );
 
         // Debug: Check what was actually stored in the database
         const verifyQuery = `
@@ -781,9 +828,15 @@ class UpdatePurchaseOrderInfoMediator {
         newStatus,
         receivedItemsCount: data.line_items.length,
         allItemsReceived,
+        receiptId,
+        receiptNumber,
       });
 
-      return updatedPO;
+      return {
+        purchase_order: updatedPO,
+        receipt_id: receiptId,
+        receipt_number: receiptNumber,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       MyLogger.error(action, error, { purchaseOrderId: id });

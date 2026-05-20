@@ -218,7 +218,11 @@ export const receiveGoodsSchema = Joi.object({
           "any.required": "Received quantity is required",
         }),
 
-        notes: Joi.string().max(200).optional().messages({
+        condition: Joi.string()
+          .valid("good", "damaged", "partial", "not_received")
+          .optional(),
+
+        notes: Joi.string().allow("").max(200).optional().messages({
           "string.max": "Notes cannot exceed 200 characters",
         }),
       })
@@ -235,7 +239,16 @@ export const receiveGoodsSchema = Joi.object({
     "date.format": "Received date must be in ISO format (YYYY-MM-DD)",
   }),
 
-  notes: Joi.string().max(500).optional().messages({
+  received_by_name: Joi.string().max(150).required().messages({
+    "string.max": "Received by name cannot exceed 150 characters",
+    "any.required": "Received by name is required",
+  }),
+
+  delivery_challan: Joi.string().allow("").max(100).optional(),
+  transport_company: Joi.string().allow("").max(150).optional(),
+  transport_no: Joi.string().allow("").max(100).optional(),
+
+  notes: Joi.string().allow("").max(500).optional().messages({
     "string.max": "Notes cannot exceed 500 characters",
   }),
 });

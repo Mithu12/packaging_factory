@@ -8,7 +8,9 @@ import {
   UpdatePurchaseOrderStatusRequest,
   PurchaseOrderQueryParams,
   PurchaseOrderStats,
-  ReceiveGoodsRequest
+  ReceiveGoodsRequest,
+  ReceiveGoodsResponse,
+  PurchaseOrderReceipt
 } from '@/services/types';
 
 export class PurchaseOrderApi {
@@ -93,12 +95,12 @@ export class PurchaseOrderApi {
     }
   }
 
-  // Receive goods for purchase order
-  static async receiveGoods(id: number, data: ReceiveGoodsRequest): Promise<PurchaseOrder> {
+  // Receive goods for purchase order — returns the created GRN's id/number
+  static async receiveGoods(id: number, data: ReceiveGoodsRequest): Promise<ReceiveGoodsResponse> {
     try {
-      return await makeRequest(`${this.baseUrl}/${id}/receive`, { 
-        method: 'POST', 
-        body: JSON.stringify(data) 
+      return await makeRequest(`${this.baseUrl}/${id}/receive`, {
+        method: 'POST',
+        body: JSON.stringify(data)
       });
     } catch (error) {
       console.error(`Error receiving goods for purchase order ${id}:`, error);
@@ -234,6 +236,58 @@ export class PurchaseOrderApi {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error(`Error downloading PDF for purchase order ${id}:`, error);
+      throw error;
+    }
+  }
+
+  static async getReceipts(poId: number): Promise<PurchaseOrderReceipt[]> {
+    try {
+      return await makeRequest(`${this.baseUrl}/${poId}/receipts`);
+    } catch (error) {
+      console.error(`Error fetching receipts for purchase order ${poId}:`, error);
+      throw error;
+    }
+  }
+
+  static async downloadGoodsReceiptNotePDF(
+    poId: number,
+    receiptId: number,
+    receiptNumber: string
+  ): Promise<void> {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${this.baseUrl}/${poId}/receipts/${receiptId}/pdf`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Accept': 'application/pdf' },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to download GRN PDF: ${response.statusText}`);
+      }
+
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${receiptNumber}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Error downloading GRN PDF for receipt ${receiptId}:`, error);
       throw error;
     }
   }

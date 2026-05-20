@@ -1,14 +1,22 @@
 import pool from "@/database/connection";
-import { 
-    PurchaseOrder, 
-    PurchaseOrderWithDetails, 
-    PurchaseOrderQueryParams, 
+import {
+    PurchaseOrder,
+    PurchaseOrderWithDetails,
+    PurchaseOrderQueryParams,
     PurchaseOrderStats,
     PurchaseOrderLineItem,
-    PurchaseOrderTimeline
+    PurchaseOrderTimeline,
+    PurchaseOrderReceipt,
+    PurchaseOrderReceiptLineItem
 } from "@/types/purchaseOrder";
 import { createError } from "@/middleware/errorHandler";
 import { MyLogger } from "@/utils/new-logger";
+
+export interface PurchaseOrderReceiptWithDetails {
+    receipt: PurchaseOrderReceipt;
+    line_items: PurchaseOrderReceiptLineItem[];
+    purchase_order: PurchaseOrderWithDetails;
+}
 
 class GetPurchaseOrderInfoMediator {
 
@@ -263,6 +271,84 @@ class GetPurchaseOrderInfoMediator {
             };
         } catch (error) {
             MyLogger.error(action, error)
+            throw error;
+        }
+    }
+
+    // List all Goods Receipt Notes for a purchase order (newest first)
+    async listReceiptsByPurchaseOrder(poId: number): Promise<PurchaseOrderReceipt[]> {
+        const action = 'List Purchase Order Receipts';
+        try {
+            MyLogger.info(action, { poId });
+            const result = await pool.query(
+                `SELECT * FROM purchase_order_receipts
+                 WHERE purchase_order_id = $1
+                 ORDER BY receipt_date DESC, id DESC`,
+                [poId]
+            );
+            return result.rows;
+        } catch (error) {
+            MyLogger.error(action, error, { poId });
+            throw error;
+        }
+    }
+
+    // Get a single Goods Receipt Note (with parent PO + line items) for PDF rendering
+    async getReceiptById(
+        poId: number,
+        receiptId: number
+    ): Promise<PurchaseOrderReceiptWithDetails> {
+        const action = 'Get Purchase Order Receipt By ID';
+        try {
+            MyLogger.info(action, { poId, receiptId });
+
+            const receiptResult = await pool.query(
+                `SELECT * FROM purchase_order_receipts
+                 WHERE id = $1 AND purchase_order_id = $2`,
+                [receiptId, poId]
+            );
+
+            if (receiptResult.rows.length === 0) {
+                throw createError('Goods receipt not found', 404);
+            }
+
+            const receipt: PurchaseOrderReceipt = receiptResult.rows[0];
+
+            const linesResult = await pool.query(
+                `SELECT
+                    rli.id,
+                    rli.receipt_id,
+                    rli.line_item_id,
+                    rli.received_quantity,
+                    rli.condition,
+                    rli.notes,
+                    p.sku as product_sku,
+                    p.name as product_name,
+                    poli.unit_of_measure,
+                    poli.quantity as ordered_quantity,
+                    poli.received_quantity as cumulative_received,
+                    poli.unit_price
+                 FROM purchase_order_receipt_line_items rli
+                 JOIN purchase_order_line_items poli ON rli.line_item_id = poli.id
+                 LEFT JOIN products p ON poli.product_id = p.id
+                 WHERE rli.receipt_id = $1
+                 ORDER BY rli.id`,
+                [receiptId]
+            );
+
+            const lineItems: PurchaseOrderReceiptLineItem[] = linesResult.rows.map((row: any) => ({
+                ...row,
+                received_quantity: parseFloat(row.received_quantity),
+                ordered_quantity: row.ordered_quantity != null ? parseFloat(row.ordered_quantity) : undefined,
+                cumulative_received: row.cumulative_received != null ? parseFloat(row.cumulative_received) : undefined,
+                unit_price: row.unit_price != null ? parseFloat(row.unit_price) : undefined,
+            }));
+
+            const purchaseOrder = await this.getPurchaseOrderById(poId);
+
+            return { receipt, line_items: lineItems, purchase_order: purchaseOrder };
+        } catch (error) {
+            MyLogger.error(action, error, { poId, receiptId });
             throw error;
         }
     }

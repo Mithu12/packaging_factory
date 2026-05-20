@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
 import { PaymentApi } from "@/modules/sales/services/payment-api"
-import { PurchaseOrderWithDetails, Invoice } from "@/services/types"
+import { PurchaseOrderWithDetails, Invoice, PurchaseOrderReceipt } from "@/services/types"
 import { CreateInvoiceForm } from "@/modules/sales/components/forms/CreateInvoiceForm"
 import { RecordPaymentForm } from "@/modules/sales/components/forms/RecordPaymentForm"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,14 +50,47 @@ export default function PurchaseOrderDetails() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [showCreateInvoiceForm, setShowCreateInvoiceForm] = useState(false)
   const [recordPaymentInvoiceId, setRecordPaymentInvoiceId] = useState<number | null>(null)
+  const [receipts, setReceipts] = useState<PurchaseOrderReceipt[]>([])
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null)
 
   // Fetch purchase order data
   useEffect(() => {
     if (id && !isNaN(parseInt(id))) {
       fetchPurchaseOrder()
       fetchInvoices()
+      fetchReceipts()
     }
   }, [id])
+
+  const fetchReceipts = async () => {
+    try {
+      const data = await PurchaseOrderApi.getReceipts(parseInt(id!))
+      setReceipts(data)
+    } catch (err: any) {
+      console.error('Error fetching receipts:', err)
+    }
+  }
+
+  const handleDownloadReceipt = async (receipt: PurchaseOrderReceipt) => {
+    try {
+      setDownloadingReceiptId(receipt.id)
+      await PurchaseOrderApi.downloadGoodsReceiptNotePDF(
+        receipt.purchase_order_id,
+        receipt.id,
+        receipt.receipt_number,
+      )
+      toast.success('GRN downloaded', {
+        description: `${receipt.receipt_number} downloaded.`,
+      })
+    } catch (err: any) {
+      console.error('Error downloading GRN:', err)
+      toast.error('Failed to download GRN', {
+        description: err?.message || 'Please try again later.',
+      })
+    } finally {
+      setDownloadingReceiptId(null)
+    }
+  }
 
   const fetchPurchaseOrder = async () => {
     try {
@@ -394,6 +427,56 @@ export default function PurchaseOrderDetails() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Goods Receipts (GRN) */}
+          {receipts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Goods Receipts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>GRN #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Received By</TableHead>
+                      <TableHead>Delivery Challan</TableHead>
+                      <TableHead>Transport</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {receipts.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.receipt_number}</TableCell>
+                        <TableCell>{new Date(r.receipt_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{r.received_by_name}</TableCell>
+                        <TableCell>{r.delivery_challan || '—'}</TableCell>
+                        <TableCell>
+                          {[r.transport_company, r.transport_no].filter(Boolean).join(' • ') || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadReceipt(r)}
+                            disabled={downloadingReceiptId === r.id}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            {downloadingReceiptId === r.id ? 'Downloading…' : 'Download'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Invoices Section */}
           <Card>
