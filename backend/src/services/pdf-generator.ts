@@ -1843,7 +1843,6 @@ export class PDFGenerator {
       ? touchedChallanPoNumbers.join(', ')
       : (order.po_number || '');
     const customerPoDate = formatDate(touchedChallanPoDates[0] ?? order.po_date);
-    const workOrderDate = formatDate(order.latest_work_order_date);
     const vatNo = delivery?.vat_number || order.customer_vat_number || '';
 
     return `
@@ -2005,9 +2004,8 @@ export class PDFGenerator {
                 <div class="kv-box"><div class="k">Transport No</div><div class="v">: ${escapeHtml(transportNo)}</div></div>
             </div>
             <div class="col">
-                <div class="kv-box"><div class="k">Customer PO No</div><div class="v">: ${escapeHtml(String(customerPoNo))}</div></div>
-                <div class="kv-box"><div class="k">Customer PO Date</div><div class="v">: ${escapeHtml(customerPoDate)}</div></div>
-                <div class="kv-box"><div class="k">Work Order Date</div><div class="v">: ${escapeHtml(workOrderDate)}</div></div>
+                <div class="kv-box"><div class="k">PO No</div><div class="v">: ${escapeHtml(String(customerPoNo))}</div></div>
+                <div class="kv-box"><div class="k">PO Date</div><div class="v">: ${escapeHtml(customerPoDate)}</div></div>
                 <div class="kv-box"><div class="k">VAT NO</div><div class="v">: ${escapeHtml(String(vatNo))}</div></div>
             </div>
         </div>
