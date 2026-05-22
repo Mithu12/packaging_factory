@@ -42,3 +42,41 @@ export interface StockAdjustmentStats {
   total_quantity_adjusted: number
   recent_adjustments: StockAdjustment[]
 }
+
+export interface StockAdjustmentBatchLineInput {
+  product_id: number
+  adjustment_type: 'increase' | 'decrease' | 'set'
+  quantity: number
+  notes?: string
+}
+
+export interface CreateStockAdjustmentBatchRequest {
+  reason: string
+  reference?: string
+  notes?: string
+  adjusted_by?: string
+  distribution_center_id?: number
+  lines: StockAdjustmentBatchLineInput[]
+}
+
+export interface StockAdjustmentBatch {
+  id: number
+  batch_number: string
+  reason: string
+  reference?: string | null
+  notes?: string | null
+  adjusted_by?: string | null
+  distribution_center_id?: number | null
+  line_count: number
+  created_at: string
+  updated_at: string
+  lines?: StockAdjustment[]
+}
+
+export interface StockAdjustmentBatchQueryParams {
+  limit?: number
+  offset?: number
+  start_date?: string
+  end_date?: string
+  distribution_center_id?: number
+}

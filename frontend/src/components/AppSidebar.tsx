@@ -212,6 +212,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PURCHASE_RETURNS_READ,
       },
       {
+        title: "Bulk Stock Adjustment",
+        url: "/inventory/stock-adjustments/bulk",
+        icon: Layers,
+        permission: PERMISSIONS.STOCK_ADJUSTMENTS_CREATE,
+      },
+      {
         title: "Supplier Payments",
         url: "/inventory/payments",
         icon: DollarSign,

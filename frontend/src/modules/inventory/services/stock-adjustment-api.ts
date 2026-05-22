@@ -2,7 +2,10 @@
 import {
   StockAdjustment,
   StockAdjustmentQueryParams,
-  StockAdjustmentStats
+  StockAdjustmentStats,
+  StockAdjustmentBatch,
+  StockAdjustmentBatchQueryParams,
+  CreateStockAdjustmentBatchRequest,
 } from '@/services/types';
 
 export class StockAdjustmentApi {
@@ -30,5 +33,31 @@ export class StockAdjustmentApi {
 
   static async getStockAdjustment(id: number) {
     return makeRequest<StockAdjustment>(`/stock-adjustments/${id}`);
+  }
+
+  static async createStockAdjustmentBatch(payload: CreateStockAdjustmentBatchRequest) {
+    return makeRequest<StockAdjustmentBatch>(`/stock-adjustments/batch`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async getStockAdjustmentBatches(params?: StockAdjustmentBatchQueryParams) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return makeRequest<StockAdjustmentBatch[]>(
+      `/stock-adjustments/batches${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  static async getStockAdjustmentBatch(id: number) {
+    return makeRequest<StockAdjustmentBatch>(`/stock-adjustments/batches/${id}`);
   }
 }

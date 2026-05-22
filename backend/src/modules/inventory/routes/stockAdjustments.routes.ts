@@ -2,6 +2,8 @@ import express, { NextFunction, Request, Response } from "express";
 import {
   createStockAdjustmentSchema,
   stockAdjustmentQuerySchema,
+  createStockAdjustmentBatchSchema,
+  stockAdjustmentBatchQuerySchema,
 } from "../validation/stockAdjustmentValidation";
 import { StockAdjustmentMediator } from "../mediators/stockAdjustments/StockAdjustmentMediator";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
@@ -124,6 +126,74 @@ router.get(
       serializeSuccessResponse(res, stats, "SUCCESS");
     } catch (error: any) {
       MyLogger.error(action, error);
+      throw error;
+    }
+  })
+);
+
+router.get(
+  "/batches",
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_READ),
+  validateQuery(stockAdjustmentBatchQuerySchema),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = "GET /api/stock-adjustments/batches";
+    try {
+      MyLogger.info(action, { query: req.query });
+      const batches = await StockAdjustmentMediator.getStockAdjustmentBatches(
+        req.query as any
+      );
+      MyLogger.success(action, { count: batches.length });
+      serializeSuccessResponse(res, batches, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error, { query: req.query });
+      throw error;
+    }
+  })
+);
+
+router.get(
+  "/batches/:id",
+  authenticate,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_READ),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = "GET /api/stock-adjustments/batches/:id";
+    try {
+      const id = parseInt(req.params.id);
+      MyLogger.info(action, { batchId: id });
+      const batch = await StockAdjustmentMediator.getStockAdjustmentBatchById(id);
+      MyLogger.success(action, { batchId: id });
+      serializeSuccessResponse(res, batch, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error, { batchId: req.params.id });
+      throw error;
+    }
+  })
+);
+
+router.post(
+  "/batch",
+  authenticate,
+  auditMiddleware,
+  requirePermission(PERMISSIONS.STOCK_ADJUSTMENTS_CREATE),
+  validateRequest(createStockAdjustmentBatchSchema),
+  expressAsyncHandler(async (req, res, next) => {
+    let action = "POST /api/stock-adjustments/batch";
+    try {
+      MyLogger.info(action, { lineCount: req.body.lines?.length });
+      const userId = (req as any).user?.user_id?.toString() || req.body.adjusted_by || "System User";
+      const batch = await StockAdjustmentMediator.createStockAdjustmentBatch(
+        req.body,
+        userId
+      );
+      MyLogger.success(action, {
+        batchId: batch.id,
+        batchNumber: batch.batch_number,
+        lineCount: batch.line_count,
+      });
+      serializeSuccessResponse(res, batch, "SUCCESS");
+    } catch (error: any) {
+      MyLogger.error(action, error, { lineCount: req.body.lines?.length });
       throw error;
     }
   })

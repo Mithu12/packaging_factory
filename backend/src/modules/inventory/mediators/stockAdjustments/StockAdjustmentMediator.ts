@@ -7,8 +7,31 @@ import {
   CreateStockAdjustmentRequest,
   StockAdjustmentQueryParams,
   StockAdjustmentStats,
+  CreateStockAdjustmentBatchRequest,
+  StockAdjustmentBatch,
+  StockAdjustmentBatchQueryParams,
 } from "@/types/stockAdjustment";
 import { ReusableStockService } from "@/modules/inventory/services/ReusableStockService";
+import type { PoolClient } from "pg";
+
+interface UnitsLineResult {
+  adjustment: StockAdjustment;
+  adjustmentData: {
+    adjustmentId: number;
+    productId: number;
+    productName: string;
+    productSku: string;
+    adjustmentType: "increase" | "decrease" | "set";
+    quantity: number;
+    previousStock: number;
+    newStock: number;
+    reason: string;
+    reference: string;
+    notes: string | null;
+    adjustmentDate: string;
+    distributionCenterId: number;
+  };
+}
 
 export class StockAdjustmentMediator {
   static async createStockAdjustment(
@@ -30,187 +53,57 @@ export class StockAdjustmentMediator {
         distributionCenterId: data.distribution_center_id
       });
 
-      // Determine Distribution Center
-      let distributionCenterId = data.distribution_center_id;
-      if (!distributionCenterId) {
-        const primaryDcQuery = "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1";
-        const primaryDcResult = await client.query(primaryDcQuery);
-        if (primaryDcResult.rows.length > 0) {
-          distributionCenterId = primaryDcResult.rows[0].id;
-        } else {
-          // Fallback or Error? For now, if no DC is specified and no primary exists, we might error or just update global stock (legacy behavior).
-          // But the requirement is to "add/remove stock from default ware house".
-          throw new Error("No distribution center specified and no primary distribution center found.");
-        }
-      }
-
-      // Update Product Location Stock
-      // Check if location exists
-      const locationQuery = "SELECT * FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2";
-      const locationResult = await client.query(locationQuery, [data.product_id, distributionCenterId]);
-
-      let currentLocationStock = 0;
-
-      if (locationResult.rows.length === 0) {
-        // If increasing stock, create location if it doesn't exist? 
-        // Or should we error? Usually you can't adjust stock for a location that doesn't exist.
-        // But for "Connect to default warehouse", maybe we should create it if it's missing?
-        // Let's assume we create it if it's missing and we are increasing stock.
-        if (data.adjustment_type === 'increase' || data.adjustment_type === 'set') {
-          const insertLocQuery = `
-                INSERT INTO product_locations (product_id, distribution_center_id, current_stock)
-                VALUES ($1, $2, 0) RETURNING *
-             `;
-          const newLoc = await client.query(insertLocQuery, [data.product_id, distributionCenterId]);
-          currentLocationStock = 0;
-        } else {
-          throw new Error("Product location not found for this distribution center");
-        }
-      } else {
-        currentLocationStock = parseFloat(locationResult.rows[0].current_stock);
-      }
-
-      let newLocationStock: number;
-      switch (data.adjustment_type) {
-        case "increase":
-          newLocationStock = currentLocationStock + data.quantity;
-          break;
-        case "decrease":
-          newLocationStock = currentLocationStock - data.quantity;
-          if (newLocationStock < 0) throw new Error("Cannot decrease stock below zero at this location");
-          break;
-        case "set":
-          newLocationStock = data.quantity;
-          break;
-        default:
-          throw new Error("Invalid adjustment type");
-      }
-
-      // Update Location Stock
-      await client.query(
-        "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
-        [newLocationStock, data.product_id, distributionCenterId]
+      const distributionCenterId = await StockAdjustmentMediator.resolveDistributionCenterId(
+        client,
+        data.distribution_center_id
       );
 
-
-      // Get current GLOBAL stock (for legacy compatibility and total count)
-      const productResult = await client.query(
-        "SELECT current_stock FROM products WHERE id = $1",
-        [data.product_id]
-      );
-
-      if (productResult.rows.length === 0) {
-        throw new Error("Product not found");
-      }
-
-      const currentGlobalStock = parseFloat(productResult.rows[0].current_stock);
-      let newGlobalStock: number;
-
-      // Calculate new GLOBAL stock based on adjustment type
-      // Note: This is a bit tricky. If we 'set' stock at a location, the global stock change is diff.
-      // If we increase/decrease, it's straightforward.
-
-      let quantityChange = 0;
-      if (data.adjustment_type === 'set') {
-        quantityChange = newLocationStock - currentLocationStock;
-      } else if (data.adjustment_type === 'increase') {
-        quantityChange = data.quantity;
-      } else if (data.adjustment_type === 'decrease') {
-        quantityChange = -data.quantity;
-      }
-
-      newGlobalStock = currentGlobalStock + quantityChange;
-
-      // Create stock adjustment record
-      const adjustmentResult = await client.query(
-        `
-        INSERT INTO stock_adjustments (
-          product_id, adjustment_type, quantity, previous_stock, new_stock,
-          reason, reference, notes, adjusted_by, distribution_center_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING *
-      `,
-        [
-          data.product_id,
-          data.adjustment_type,
-          data.quantity,
-          currentGlobalStock, // Keeping global stock history for now, or should it be location stock? 
-          // The schema has 'previous_stock' and 'new_stock'. Usually this refers to the scope of adjustment.
-          // If we add distribution_center_id, maybe these should reflect location stock?
-          // Let's stick to global for consistency with existing data, or maybe location stock is better?
-          // Given the user asked to "connect stock to default warehouse", tracking location stock seems more correct here.
-          // BUT, the existing frontend might expect global stock. 
-          // Let's use Global Stock for now to avoid breaking other things, but log the DC.
-          newGlobalStock,
-          data.reason,
-          data.reference || null,
-          data.notes || null,
-          data.adjusted_by || null,
-          distributionCenterId
-        ]
-      );
-
-      // Update product stock
-      await client.query(
-        "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [newGlobalStock, data.product_id]
-      );
+      const { adjustment, adjustmentData } = await StockAdjustmentMediator.applyUnitsLine(client, {
+        product_id: data.product_id,
+        adjustment_type: data.adjustment_type,
+        quantity: data.quantity,
+        reason: data.reason,
+        reference: data.reference,
+        notes: data.notes,
+        adjusted_by: data.adjusted_by,
+        distributionCenterId,
+        batchId: null,
+      });
 
       await client.query("COMMIT");
 
-      const adjustment = adjustmentResult.rows[0];
-
       // Emit accounting integration event
       try {
-        // Get product information for the event
-        const productQuery = `SELECT name, sku FROM products WHERE id = $1`;
-        const productResult = await pool.query(productQuery, [data.product_id]);
-        const product = productResult.rows[0];
-
-        const adjustmentData = {
-          adjustmentId: adjustment.id,
-          productId: data.product_id,
-          productName: product?.name || 'Unknown Product',
-          productSku: product?.sku || 'UNKNOWN',
-          adjustmentType: data.adjustment_type,
-          quantity: data.quantity,
-          previousStock: currentGlobalStock,
-          newStock: newGlobalStock,
-          reason: data.reason,
-          reference: data.reference || `ADJ-${adjustment.id}`,
-          notes: data.notes,
-          adjustmentDate: new Date().toISOString().split("T")[0],
-          distributionCenterId // Add this to event
-        };
-
-        // Emit event for accounting integration
         eventBus.emit(EVENT_NAMES.STOCK_ADJUSTMENT_CREATED, {
           adjustmentData,
-          userId: data.adjusted_by || "System User"
+          userId: data.adjusted_by || "System User",
         });
 
-        // Central Bridge: Call accounts module directly via InterModuleConnector
-        MyLogger.info("Stock Adjustment Bridge: Calling accModule.addStockAdjustmentVoucher", { adjustmentId: adjustment.id });
-        await interModuleConnector.accModule.addStockAdjustmentVoucher(adjustmentData, data.adjusted_by || "System User");
+        MyLogger.info("Stock Adjustment Bridge: Calling accModule.addStockAdjustmentVoucher", {
+          adjustmentId: adjustment.id,
+        });
+        await interModuleConnector.accModule.addStockAdjustmentVoucher(
+          adjustmentData,
+          data.adjusted_by || "System User"
+        );
 
         MyLogger.success("Stock Adjustment Accounting Event Emitted", {
           adjustmentId: adjustment.id,
           event: EVENT_NAMES.STOCK_ADJUSTMENT_CREATED,
-          productId: data.product_id
+          productId: data.product_id,
         });
       } catch (eventError: any) {
         MyLogger.error("Failed to emit stock adjustment accounting event", eventError, {
           adjustmentId: adjustment.id,
         });
-        // Don't fail the entire operation if event emission fails
       }
 
       MyLogger.success(action, {
         adjustmentId: adjustment.id,
         productId: data.product_id,
-        previousStock: currentGlobalStock,
-        newStock: newGlobalStock,
-        distributionCenterId
+        previousStock: adjustmentData.previousStock,
+        newStock: adjustmentData.newStock,
+        distributionCenterId,
       });
 
       return adjustment;
@@ -223,6 +116,329 @@ export class StockAdjustmentMediator {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  private static async resolveDistributionCenterId(
+    client: PoolClient,
+    requested?: number
+  ): Promise<number> {
+    if (requested) return requested;
+    const primaryDcResult = await client.query(
+      "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+    );
+    if (primaryDcResult.rows.length === 0) {
+      throw new Error("No distribution center specified and no primary distribution center found.");
+    }
+    return primaryDcResult.rows[0].id;
+  }
+
+  /**
+   * Apply a single 'units' adjustment line inside an open transaction.
+   * Used by both the single-product createStockAdjustment and the bulk
+   * createStockAdjustmentBatch so the stock-update logic stays in one place.
+   */
+  private static async applyUnitsLine(
+    client: PoolClient,
+    params: {
+      product_id: number;
+      adjustment_type: "increase" | "decrease" | "set";
+      quantity: number;
+      reason: string;
+      reference?: string;
+      notes?: string | null;
+      adjusted_by?: string | null;
+      distributionCenterId: number;
+      batchId: number | null;
+    }
+  ): Promise<UnitsLineResult> {
+    const locationResult = await client.query(
+      "SELECT current_stock FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2",
+      [params.product_id, params.distributionCenterId]
+    );
+
+    let currentLocationStock = 0;
+    if (locationResult.rows.length === 0) {
+      if (params.adjustment_type === "increase" || params.adjustment_type === "set") {
+        await client.query(
+          "INSERT INTO product_locations (product_id, distribution_center_id, current_stock) VALUES ($1, $2, 0)",
+          [params.product_id, params.distributionCenterId]
+        );
+      } else {
+        throw new Error("Product location not found for this distribution center");
+      }
+    } else {
+      currentLocationStock = parseFloat(locationResult.rows[0].current_stock);
+    }
+
+    let newLocationStock: number;
+    switch (params.adjustment_type) {
+      case "increase":
+        newLocationStock = currentLocationStock + params.quantity;
+        break;
+      case "decrease":
+        newLocationStock = currentLocationStock - params.quantity;
+        if (newLocationStock < 0) {
+          throw new Error("Cannot decrease stock below zero at this location");
+        }
+        break;
+      case "set":
+        newLocationStock = params.quantity;
+        break;
+      default:
+        throw new Error("Invalid adjustment type");
+    }
+
+    await client.query(
+      "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
+      [newLocationStock, params.product_id, params.distributionCenterId]
+    );
+
+    const productResult = await client.query(
+      "SELECT name, sku, current_stock FROM products WHERE id = $1",
+      [params.product_id]
+    );
+    if (productResult.rows.length === 0) {
+      throw new Error("Product not found");
+    }
+    const product = productResult.rows[0];
+    const currentGlobalStock = parseFloat(product.current_stock);
+
+    let quantityChange = 0;
+    if (params.adjustment_type === "set") {
+      quantityChange = newLocationStock - currentLocationStock;
+    } else if (params.adjustment_type === "increase") {
+      quantityChange = params.quantity;
+    } else if (params.adjustment_type === "decrease") {
+      quantityChange = -params.quantity;
+    }
+    const newGlobalStock = currentGlobalStock + quantityChange;
+
+    const adjustmentResult = await client.query(
+      `INSERT INTO stock_adjustments (
+        product_id, adjustment_type, quantity, previous_stock, new_stock,
+        reason, reference, notes, adjusted_by, distribution_center_id, batch_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *`,
+      [
+        params.product_id,
+        params.adjustment_type,
+        params.quantity,
+        currentGlobalStock,
+        newGlobalStock,
+        params.reason,
+        params.reference || null,
+        params.notes || null,
+        params.adjusted_by || null,
+        params.distributionCenterId,
+        params.batchId,
+      ]
+    );
+
+    await client.query(
+      "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [newGlobalStock, params.product_id]
+    );
+
+    const adjustment = adjustmentResult.rows[0] as StockAdjustment;
+
+    return {
+      adjustment,
+      adjustmentData: {
+        adjustmentId: adjustment.id,
+        productId: params.product_id,
+        productName: product.name || "Unknown Product",
+        productSku: product.sku || "UNKNOWN",
+        adjustmentType: params.adjustment_type,
+        quantity: params.quantity,
+        previousStock: currentGlobalStock,
+        newStock: newGlobalStock,
+        reason: params.reason,
+        reference: params.reference || `ADJ-${adjustment.id}`,
+        notes: params.notes ?? null,
+        adjustmentDate: new Date().toISOString().split("T")[0],
+        distributionCenterId: params.distributionCenterId,
+      },
+    };
+  }
+
+  /**
+   * Create a bulk multi-product stock adjustment: one stock_adjustment_batches
+   * header row + one stock_adjustments row per line, posted in a single
+   * transaction. The accounting voucher per line is posted after commit so a
+   * voucher failure doesn't roll back the inventory move (matches the
+   * single-product flow's behavior).
+   */
+  static async createStockAdjustmentBatch(
+    data: CreateStockAdjustmentBatchRequest,
+    userId: string
+  ): Promise<StockAdjustmentBatch> {
+    const action = "Create Stock Adjustment Batch";
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+      MyLogger.info(action, {
+        lineCount: data.lines.length,
+        distributionCenterId: data.distribution_center_id,
+      });
+
+      const distributionCenterId = await StockAdjustmentMediator.resolveDistributionCenterId(
+        client,
+        data.distribution_center_id
+      );
+
+      const batchInsert = await client.query(
+        `INSERT INTO stock_adjustment_batches (
+          reason, reference, notes, adjusted_by, distribution_center_id, line_count
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *`,
+        [
+          data.reason,
+          data.reference || null,
+          data.notes || null,
+          data.adjusted_by || userId,
+          distributionCenterId,
+          data.lines.length,
+        ]
+      );
+      const batch = batchInsert.rows[0] as StockAdjustmentBatch;
+
+      const perLineResults: UnitsLineResult[] = [];
+      for (const line of data.lines) {
+        const result = await StockAdjustmentMediator.applyUnitsLine(client, {
+          product_id: line.product_id,
+          adjustment_type: line.adjustment_type,
+          quantity: line.quantity,
+          reason: data.reason,
+          reference: data.reference || batch.batch_number,
+          notes: line.notes ?? data.notes ?? null,
+          adjusted_by: data.adjusted_by || userId,
+          distributionCenterId,
+          batchId: batch.id,
+        });
+        perLineResults.push(result);
+      }
+
+      await client.query("COMMIT");
+
+      // Per-line accounting voucher posting (mirrors single-product flow).
+      for (const { adjustment, adjustmentData } of perLineResults) {
+        try {
+          eventBus.emit(EVENT_NAMES.STOCK_ADJUSTMENT_CREATED, {
+            adjustmentData,
+            userId,
+          });
+          await interModuleConnector.accModule.addStockAdjustmentVoucher(adjustmentData, userId);
+        } catch (eventError: any) {
+          MyLogger.error("Failed to post voucher for batch line", eventError, {
+            batchId: batch.id,
+            adjustmentId: adjustment.id,
+          });
+        }
+      }
+
+      MyLogger.success(action, {
+        batchId: batch.id,
+        batchNumber: batch.batch_number,
+        lineCount: perLineResults.length,
+      });
+
+      return {
+        ...batch,
+        lines: perLineResults.map((r) => r.adjustment),
+      };
+    } catch (error: any) {
+      await client.query("ROLLBACK");
+      MyLogger.error(action, error, {
+        lineCount: data.lines.length,
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getStockAdjustmentBatches(
+    params: StockAdjustmentBatchQueryParams
+  ): Promise<StockAdjustmentBatch[]> {
+    const action = "Get Stock Adjustment Batches";
+    try {
+      MyLogger.info(action, { params });
+
+      let query = `
+        SELECT sab.*
+        FROM stock_adjustment_batches sab
+        WHERE 1=1
+      `;
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (params.distribution_center_id) {
+        query += ` AND sab.distribution_center_id = $${paramIndex}`;
+        queryParams.push(params.distribution_center_id);
+        paramIndex++;
+      }
+      if (params.start_date) {
+        query += ` AND sab.created_at >= $${paramIndex}`;
+        queryParams.push(params.start_date);
+        paramIndex++;
+      }
+      if (params.end_date) {
+        query += ` AND sab.created_at <= $${paramIndex}`;
+        queryParams.push(params.end_date);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY sab.created_at DESC`;
+      if (params.limit) {
+        query += ` LIMIT $${paramIndex}`;
+        queryParams.push(params.limit);
+        paramIndex++;
+      }
+      if (params.offset) {
+        query += ` OFFSET $${paramIndex}`;
+        queryParams.push(params.offset);
+        paramIndex++;
+      }
+
+      const result = await pool.query(query, queryParams);
+      MyLogger.success(action, { count: result.rows.length });
+      return result.rows;
+    } catch (error: any) {
+      MyLogger.error(action, error, { params });
+      throw error;
+    }
+  }
+
+  static async getStockAdjustmentBatchById(id: number): Promise<StockAdjustmentBatch> {
+    const action = "Get Stock Adjustment Batch By ID";
+    try {
+      MyLogger.info(action, { batchId: id });
+
+      const batchResult = await pool.query(
+        `SELECT * FROM stock_adjustment_batches WHERE id = $1`,
+        [id]
+      );
+      if (batchResult.rows.length === 0) {
+        throw new Error("Stock adjustment batch not found");
+      }
+      const batch = batchResult.rows[0] as StockAdjustmentBatch;
+
+      const linesResult = await pool.query(
+        `SELECT sa.*, p.name as product_name, p.sku as product_sku
+         FROM stock_adjustments sa
+         JOIN products p ON sa.product_id = p.id
+         WHERE sa.batch_id = $1
+         ORDER BY sa.id ASC`,
+        [id]
+      );
+
+      MyLogger.success(action, { batchId: id, lineCount: linesResult.rows.length });
+      return { ...batch, lines: linesResult.rows };
+    } catch (error: any) {
+      MyLogger.error(action, error, { batchId: id });
+      throw error;
     }
   }
 

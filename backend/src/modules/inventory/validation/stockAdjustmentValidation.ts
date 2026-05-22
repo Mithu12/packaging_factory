@@ -19,3 +19,27 @@ export const stockAdjustmentQuerySchema = Joi.object({
   start_date: Joi.date().iso().optional(),
   end_date: Joi.date().iso().optional(),
 });
+
+const batchLineSchema = Joi.object({
+  product_id: Joi.number().integer().positive().required(),
+  adjustment_type: Joi.string().valid("increase", "decrease", "set").required(),
+  quantity: Joi.number().positive().required(),
+  notes: Joi.string().allow("", null).optional(),
+});
+
+export const createStockAdjustmentBatchSchema = Joi.object({
+  reason: Joi.string().max(255).required(),
+  reference: Joi.string().max(100).allow("", null).optional(),
+  notes: Joi.string().allow("", null).optional(),
+  adjusted_by: Joi.string().max(100).allow("", null).optional(),
+  distribution_center_id: Joi.number().integer().positive().optional(),
+  lines: Joi.array().items(batchLineSchema).min(1).required(),
+});
+
+export const stockAdjustmentBatchQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  offset: Joi.number().integer().min(0).default(0),
+  start_date: Joi.date().iso().optional(),
+  end_date: Joi.date().iso().optional(),
+  distribution_center_id: Joi.number().integer().positive().optional(),
+});
