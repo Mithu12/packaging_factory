@@ -50,6 +50,7 @@ e2e_testing/.env
 
 # Test artifacts
 *.png
+!backend/src/utils/*.png
 *.webm
 *.zip
 test-results/
