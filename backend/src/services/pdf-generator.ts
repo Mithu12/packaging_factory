@@ -40,13 +40,31 @@ export class PDFGenerator {
   }
 
   // Generate HTML template for purchase order
-  private static generatePurchaseOrderHTML(purchaseOrder: PurchaseOrderWithDetails): string {
-    const formatCurrency = (amount: number, currency: string = 'USD') => {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency
-      }).format(amount);
-    };
+  private static generatePurchaseOrderHTML(
+    purchaseOrder: PurchaseOrderWithDetails,
+    settings: Record<string, any> = {},
+  ): string {
+    const formatCurrency = (amount: number) =>
+      `৳ ${Number(amount || 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+    const esc = (s: unknown) =>
+      String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const companyName = settings.company_name || 'Company';
+    const companyAddress = settings.company_address || '';
+    const companyPhone = settings.phone || '';
+    const companyEmail = settings.company_email || '';
+    const contactLineParts: string[] = [];
+    if (companyPhone) contactLineParts.push(`Phone: ${esc(companyPhone)}`);
+    if (companyEmail) contactLineParts.push(`Email: ${esc(companyEmail)}`);
+    const contactLine = contactLineParts.join(' | ');
 
     const formatDate = (dateString: string) => {
       return new Date(dateString).toLocaleDateString('en-US', {
@@ -69,8 +87,6 @@ export class PDFGenerator {
       }
     };
 
-    const subtotal = purchaseOrder.total_amount * 0.9;
-    const tax = purchaseOrder.total_amount * 0.1;
 
     return `
 <!DOCTYPE html>
@@ -318,9 +334,9 @@ export class PDFGenerator {
         <!-- Header -->
         <div class="header">
             <div class="company-info">
-                <h1>Your Company Name</h1>
-                <p>123 Business Street, City, State 12345</p>
-                <p>Phone: (555) 123-4567 | Email: info@company.com</p>
+                <h1>${esc(companyName)}</h1>
+                ${companyAddress ? `<p>${esc(companyAddress)}</p>` : ''}
+                ${contactLine ? `<p>${contactLine}</p>` : ''}
             </div>
             <div class="po-info">
                 <div class="po-number">${purchaseOrder.po_number}</div>
@@ -425,8 +441,8 @@ export class PDFGenerator {
                             ${receivedQty > 0 ? `<div class="received-info">Received: ${receivedQty}</div>` : ''}
                             ${pendingQty > 0 ? `<div class="pending-info">Pending: ${pendingQty}</div>` : ''}
                         </td>
-                        <td class="price">${formatCurrency(item.unit_price, purchaseOrder.currency)}</td>
-                        <td class="price">${formatCurrency(totalPrice, purchaseOrder.currency)}</td>
+                        <td class="price">${formatCurrency(item.unit_price)}</td>
+                        <td class="price">${formatCurrency(totalPrice)}</td>
                         <td class="${statusClass}">${statusText}</td>
                     </tr>
                   `;
@@ -438,16 +454,8 @@ export class PDFGenerator {
         <div class="totals">
             <table class="totals-table">
                 <tr>
-                    <td>Subtotal:</td>
-                    <td style="text-align: right;">${formatCurrency(subtotal, purchaseOrder.currency)}</td>
-                </tr>
-                <tr>
-                    <td>Tax (10%):</td>
-                    <td style="text-align: right;">${formatCurrency(tax, purchaseOrder.currency)}</td>
-                </tr>
-                <tr>
                     <td>Total:</td>
-                    <td style="text-align: right;">${formatCurrency(purchaseOrder.total_amount, purchaseOrder.currency)}</td>
+                    <td style="text-align: right;">${formatCurrency(purchaseOrder.total_amount)}</td>
                 </tr>
             </table>
         </div>
@@ -476,11 +484,23 @@ export class PDFGenerator {
     try {
       MyLogger.info(action, { poNumber: purchaseOrder.po_number, poId: purchaseOrder.id });
 
+      // Fetch company settings for the header (name, address, phone, email)
+      const settingsData: Record<string, any> = {};
+      try {
+        const settingsMediator = new SettingsMediator();
+        const companySettings = await settingsMediator.getSettingsByCategory('company');
+        for (const [key, setting] of Object.entries(companySettings)) {
+          settingsData[key] = setting.value;
+        }
+      } catch (settingsError) {
+        MyLogger.warn(`${action}.settingsError`, settingsError);
+      }
+
       const browser = await this.getBrowser();
       const page = await browser.newPage();
 
       // Generate HTML content
-      const html = this.generatePurchaseOrderHTML(purchaseOrder);
+      const html = this.generatePurchaseOrderHTML(purchaseOrder, settingsData);
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
