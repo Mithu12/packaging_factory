@@ -14,6 +14,7 @@ import path from 'path';
 
 const QUOTATION_PDF_BACKGROUND_FILE = 'quotation-pdf-background.png';
 const QUOTATION_LOGO_FILE = 'quotation-logo.png';
+const BILL_BACKGROUND_FILE = 'bill_background.jpg';
 
 export class PDFGenerator {
   private static browser: Browser | null = null;
@@ -26,6 +27,27 @@ export class PDFGenerator {
   /** Resolved from `src/services` or `dist/services` → `../utils/<file>`. */
   private static getQuotationLogoPath(): string {
     return path.join(__dirname, '..', 'utils', QUOTATION_LOGO_FILE);
+  }
+
+  /** Letterhead background applied to invoice + challan PDFs. */
+  private static getBillBackgroundPath(): string {
+    return path.join(__dirname, '..', 'utils', BILL_BACKGROUND_FILE);
+  }
+
+  /** Reads the bill background once per render and returns it as a base64 data URL. */
+  private static loadBillBackgroundBase64(action: string): string | null {
+    const bgPath = this.getBillBackgroundPath();
+    if (!fs.existsSync(bgPath)) {
+      MyLogger.warn(`${action}.billBackgroundMissing`, { path: bgPath });
+      return null;
+    }
+    try {
+      const buffer = fs.readFileSync(bgPath);
+      return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+    } catch (error) {
+      MyLogger.warn(`${action}.billBackgroundReadError`, { error, path: bgPath });
+      return null;
+    }
   }
 
   // Initialize browser instance
@@ -1449,24 +1471,42 @@ export class PDFGenerator {
     // billing_line freeform input doesn't force a visual wrap.
     const customerAddressOneLine = customerAddress.replace(/\s*\r?\n\s*/g, ', ').trim();
 
+    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
+    const hasBillBg = Boolean(billBgBase64);
+
     return `
 <!DOCTYPE html>
-<html>
+<html${hasBillBg ? ' class="bill-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
     <title>Bill ${escapeHtml(order.order_number || '')}</title>
     <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        ${hasBillBg ? `
+        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
+        .bill-bg-layer {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+            background-image: url("${billBgBase64}");
+            background-repeat: no-repeat;
+            background-position: center top;
+            background-size: 100% 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
+        ` : ''}
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
-            background: white;
+            background: ${hasBillBg ? 'transparent' : 'white'};
             line-height: 1.35;
         }
-        /* Top padding leaves space for the pre-printed company letterhead. */
-        .page { padding: 60mm 18mm 20mm 18mm; }
+        /* Top padding leaves space for the pre-printed company letterhead;
+           bottom padding clears the footer band on the background image. */
+        .page { padding: 50mm 18mm 25mm 18mm; }
         .title {
             text-align: center;
             font-weight: bold;
@@ -1559,6 +1599,7 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
+    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="page">
         <div class="title">INVOICE</div>
 
@@ -1673,6 +1714,9 @@ export class PDFGenerator {
           MyLogger.warn(`${action}.logoError`, logoError);
         }
       }
+
+      const billBg = this.loadBillBackgroundBase64(action);
+      if (billBg) settingsData.bill_background_base64 = billBg;
 
       // Load persisted invoice totals so the printed numbers match the
       // ledger exactly (multi-rate VAT, paisa precision).
@@ -1881,9 +1925,12 @@ export class PDFGenerator {
     const customerPoDate = formatDate(touchedChallanPoDates[0] ?? order.po_date);
     const vatNo = delivery?.vat_number || order.customer_vat_number || '';
 
+    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
+    const hasBillBg = Boolean(billBgBase64);
+
     return `
 <!DOCTYPE html>
-<html>
+<html${hasBillBg ? ' class="bill-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
     <title>Challan ${escapeHtml(delivery?.delivery_number || order.order_number || '')}</title>
@@ -1893,15 +1940,30 @@ export class PDFGenerator {
     <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        ${hasBillBg ? `
+        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
+        .bill-bg-layer {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+            background-image: url("${billBgBase64}");
+            background-repeat: no-repeat;
+            background-position: center top;
+            background-size: 100% 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
+        ` : ''}
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
-            background: white;
+            background: ${hasBillBg ? 'transparent' : 'white'};
             line-height: 1.35;
         }
         .bn { font-family: 'Noto Sans Bengali', 'SolaimanLipi', 'Kalpurush', sans-serif; }
-        .page { padding: 18mm 18mm 20mm 18mm; }
+        /* When the background letterhead is applied, reserve the header / footer bands. */
+        .page { padding: ${hasBillBg ? '50mm 18mm 25mm 18mm' : '18mm 18mm 20mm 18mm'}; }
 
         .letterhead { text-align: center; margin-bottom: 8px; }
         .letterhead .company-name {
@@ -2018,15 +2080,16 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
+    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="page">
-        <div class="letterhead">
+        ${hasBillBg ? '' : `<div class="letterhead">
             <div class="company-name">${escapeHtml(companyName)}</div>
             ${companyNameBn ? `<div class="company-name-bn bn">${escapeHtml(companyNameBn)}</div>` : ''}
             ${companyAddress ? `<div class="address">${escapeHtml(companyAddress)}</div>` : ''}
             ${phone ? `<div class="phone">Mobile : ${escapeHtml(phone)}</div>` : ''}
             ${email ? `<div class="email">E-mail : ${escapeHtml(email)}</div>` : ''}
             ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
-        </div>
+        </div>`}
 
         <div class="challan-tag-wrap">
             <div class="challan-tag">CHALLAN</div>
@@ -2126,6 +2189,9 @@ export class PDFGenerator {
           MyLogger.warn(`${action}.logoError`, logoError);
         }
       }
+
+      const billBg = this.loadBillBackgroundBase64(action);
+      if (billBg) settingsData.bill_background_base64 = billBg;
 
       const browser = await this.getBrowser();
       const page = await browser.newPage();
