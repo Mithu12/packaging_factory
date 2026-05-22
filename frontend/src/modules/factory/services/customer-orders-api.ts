@@ -972,6 +972,52 @@ export class CustomerOrdersApiService {
         );
     }
 
+    /**
+     * Download the consolidated monthly bill PDF for a customer over an
+     * arbitrary date range. The backend lists every non-cancelled challan in
+     * the period plus a payment summary; it does not create any new invoice.
+     */
+    static async downloadMonthlyBill(
+        customerId: string | number,
+        fromDate: string,
+        toDate: string
+    ): Promise<void> {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const qs = new URLSearchParams({ from: fromDate, to: toDate }).toString();
+        const response = await fetch(
+            `${baseUrl}/factory/customer-orders/customers/${customerId}/monthly-bill?${qs}`,
+            { method: 'GET', credentials: 'include' }
+        );
+        if (!response.ok) {
+            // Surface the server message (e.g. "No challans found in the selected period").
+            let message = `Failed to download monthly bill (${response.status})`;
+            try {
+                const body = await response.json();
+                if (body?.message) message = body.message;
+            } catch {
+                /* non-JSON response */
+            }
+            throw new Error(message);
+        }
+
+        let filename = `monthly-bill-${customerId}-${fromDate}-to-${toDate}.pdf`;
+        const disposition = response.headers.get('content-disposition');
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            if (match && match[1]) filename = match[1];
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    }
+
     private static async _downloadDeliveryPdf(
         deliveryId: string | number,
         kind: 'challan' | 'invoice'

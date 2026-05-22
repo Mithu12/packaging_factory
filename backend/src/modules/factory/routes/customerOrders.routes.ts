@@ -26,6 +26,7 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
 import { deliveriesController } from "../controllers/deliveries.controller";
+import { monthlyBillsController } from "../controllers/monthlyBills.controller";
 import { auditMiddleware } from "@/middleware/audit";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
 import { createError } from "@/middleware/errorHandler";
@@ -206,6 +207,16 @@ router.get(
     validateParams(customerIdSchema),
     auditMiddleware,
     expressAsyncHandler(deliveriesController.listDeliveriesForCustomer.bind(deliveriesController))
+);
+
+// GET /api/factory/customer-orders/customers/:customerId/monthly-bill
+// Consolidated per-customer bill covering every challan in ?from=YYYY-MM-DD&to=YYYY-MM-DD.
+router.get(
+    "/customers/:customerId/monthly-bill",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(customerIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(monthlyBillsController.exportMonthlyBillPdf.bind(monthlyBillsController))
 );
 
 // GET /api/factory/customer-orders - Get all customer orders with filtering and pagination

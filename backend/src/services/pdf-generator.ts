@@ -2558,6 +2558,256 @@ export class PDFGenerator {
     }
   }
 
+  // Generate HTML template for the customer monthly bill — one row per challan
+  // (delivery) in the selected date range, with totals and a payment summary.
+  private static generateMonthlyBillHTML(
+    data: import('@/modules/factory/mediators/monthlyBills/MonthlyBill.mediator').MonthlyBillData,
+    settings?: any,
+  ): string {
+    const formatCurrency = (amount: number) =>
+      new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    const formatQty = (q: number) =>
+      new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(q);
+    const formatDate = (d?: string | null) => {
+      if (!d) return '';
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return '';
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    };
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const numberToWords = (num: number): string => {
+      const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+        'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      const two = (n: number): string => n < 20 ? a[n] : (b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '')).trim();
+      const three = (n: number): string => {
+        const h = Math.floor(n / 100), r = n % 100;
+        return (h ? a[h] + ' Hundred' + (r ? ' ' + two(r) : '') : two(r)).trim();
+      };
+      const n = Math.floor(Math.abs(num));
+      if (n === 0) return 'Zero';
+      const crore = Math.floor(n / 10000000);
+      const lac = Math.floor((n % 10000000) / 100000);
+      const thousand = Math.floor((n % 100000) / 1000);
+      const rest = n % 1000;
+      const parts: string[] = [];
+      if (crore) parts.push(three(crore) + ' Crore');
+      if (lac) parts.push(two(lac) + ' Lac');
+      if (thousand) parts.push(two(thousand) + ' Thousand');
+      if (rest) parts.push(three(rest));
+      return parts.join(' ').replace(/\s+/g, ' ').trim();
+    };
+
+    const grandTotalTaka = Math.trunc(data.totals.total_amount);
+    const grandTotalPaisa = Math.round((data.totals.total_amount - grandTotalTaka) * 100);
+    const amountInWords = grandTotalPaisa > 0
+      ? `${numberToWords(grandTotalTaka)} and ${numberToWords(grandTotalPaisa)} Paisa`
+      : numberToWords(grandTotalTaka);
+
+    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
+    const hasBillBg = Boolean(billBgBase64);
+
+    const itemsHtml = data.rows.map((r, i) => `
+      <tr>
+        <td class="col-sn">${i + 1}</td>
+        <td class="col-date">${escapeHtml(formatDate(r.delivery_date))}</td>
+        <td class="col-challan">${escapeHtml(r.delivery_number)}</td>
+        <td class="col-invoice">${escapeHtml(r.invoice_number ?? '—')}</td>
+        <td class="col-po">${escapeHtml(r.po_numbers || '—')}</td>
+        <td class="col-qty">${formatQty(r.total_qty)}</td>
+        <td class="col-amount">${formatCurrency(r.subtotal)}</td>
+        <td class="col-amount">${formatCurrency(r.tax_amount)}</td>
+        <td class="col-amount">${formatCurrency(r.total_amount)}</td>
+      </tr>
+    `).join('');
+
+    return `
+<!DOCTYPE html>
+<html${hasBillBg ? ' class="bill-with-bg"' : ''}>
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Bill — ${escapeHtml(data.customer.company || data.customer.name)}</title>
+    <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ${hasBillBg ? `
+        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
+        .bill-bg-layer {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+            background-image: url("${billBgBase64}");
+            background-repeat: no-repeat;
+            background-position: center top;
+            background-size: 100% 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
+        ` : ''}
+        body {
+            font-family: Calibri, Arial, Helvetica, sans-serif;
+            font-size: 10.5pt;
+            color: #000;
+            background: ${hasBillBg ? 'transparent' : 'white'};
+            line-height: 1.35;
+        }
+        /* Mirror invoice/challan letterhead padding when bg is on. */
+        .page { padding: ${hasBillBg ? '50mm 14mm 25mm 14mm' : '20mm 14mm 20mm 14mm'}; }
+
+        .title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14pt;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .header-row { display: flex; gap: 0; margin-bottom: 12px; }
+        .box { border: 1px solid #000; padding: 10px 12px; min-height: 90px; }
+        .box.customer { flex: 1.2; border-right: 0; }
+        .box.period { flex: 1; }
+        .box .label { font-weight: bold; }
+        .box .heading { font-weight: bold; margin-bottom: 6px; }
+        .kv-line { margin-bottom: 4px; }
+        .kv-line .k { display: inline-block; min-width: 110px; }
+
+        table.rows { width: 100%; border-collapse: collapse; }
+        table.rows th, table.rows td {
+            border: 1px solid #000;
+            padding: 5px 6px;
+            vertical-align: top;
+        }
+        table.rows th { text-align: center; font-weight: bold; background: #fff; }
+        .col-sn { width: 4%; text-align: center; }
+        .col-date { width: 9%; text-align: center; }
+        .col-challan { width: 13%; }
+        .col-invoice { width: 13%; }
+        .col-po { width: 16%; }
+        .col-qty { width: 8%; text-align: center; }
+        .col-amount { width: 12%; text-align: right; }
+
+        .totals-row td { font-weight: bold; }
+        .totals-row td.label { text-align: right; }
+
+        .in-words { margin-top: 16px; font-weight: bold; }
+        .payment-summary {
+            margin-top: 16px;
+            border: 1px solid #000;
+            padding: 10px 12px;
+        }
+        .payment-summary .heading { font-weight: bold; margin-bottom: 6px; }
+        .payment-summary .ps-line { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    </style>
+</head>
+<body>
+    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
+    <div class="page">
+        <div class="title">MONTHLY BILL</div>
+
+        <div class="header-row">
+            <div class="box customer">
+                <div class="heading">Customer</div>
+                <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(data.customer.company || data.customer.name)}</div>
+                <div class="kv-line"><span class="label">Billing Address</span> :- ${escapeHtml(data.customer.address_line)}</div>
+                <div class="kv-line"><span class="label">VAT No</span> :- ${escapeHtml(data.customer.vat_number || '')}</div>
+            </div>
+            <div class="box period">
+                <div class="heading">Period</div>
+                <div class="kv-line"><span class="k label">From</span> :- ${escapeHtml(formatDate(data.period.from_date))}</div>
+                <div class="kv-line"><span class="k label">To</span> :- ${escapeHtml(formatDate(data.period.to_date))}</div>
+                <div class="kv-line"><span class="k label">Generated</span> :- ${escapeHtml(formatDate(data.period.generated_at))}</div>
+                <div class="kv-line"><span class="k label">Challans</span> :- ${data.rows.length}</div>
+            </div>
+        </div>
+
+        <table class="rows">
+            <thead>
+                <tr>
+                    <th class="col-sn">Sl.</th>
+                    <th class="col-date">Date</th>
+                    <th class="col-challan">Challan No</th>
+                    <th class="col-invoice">Invoice No</th>
+                    <th class="col-po">PO / Order</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-amount">Subtotal</th>
+                    <th class="col-amount">VAT</th>
+                    <th class="col-amount">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${itemsHtml}
+                <tr class="totals-row">
+                    <td colspan="5" class="label">Totals</td>
+                    <td class="col-qty">${formatQty(data.totals.total_qty)}</td>
+                    <td class="col-amount">${formatCurrency(data.totals.subtotal)}</td>
+                    <td class="col-amount">${formatCurrency(data.totals.tax_amount)}</td>
+                    <td class="col-amount">${formatCurrency(data.totals.total_amount)}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="in-words">Amount In Words: ${escapeHtml(amountInWords)} Only</div>
+
+        <div class="payment-summary">
+            <div class="heading">Payment Summary</div>
+            <div class="ps-line"><span>Billed in period</span><span>${formatCurrency(data.totals.total_amount)}</span></div>
+            <div class="ps-line"><span>Received in period${data.payments.payment_count ? ` (${data.payments.payment_count} payment${data.payments.payment_count === 1 ? '' : 's'})` : ''}</span><span>${formatCurrency(data.payments.paid_in_period)}</span></div>
+            ${data.payments.last_payment_date ? `<div class="ps-line"><span>Last payment date</span><span>${escapeHtml(formatDate(data.payments.last_payment_date))}</span></div>` : ''}
+            <div class="ps-line"><span><strong>Outstanding (current, all orders)</strong></span><span><strong>${formatCurrency(data.outstanding_now)}</strong></span></div>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+  }
+
+  // Generate consolidated monthly bill PDF for a customer over a date range.
+  public static async generateMonthlyBillPDF(
+    data: import('@/modules/factory/mediators/monthlyBills/MonthlyBill.mediator').MonthlyBillData,
+  ): Promise<Buffer> {
+    const action = 'PDFGenerator.generateMonthlyBillPDF';
+    try {
+      const settingsMediator = new SettingsMediator();
+      const companySettings = await settingsMediator.getSettingsByCategory('company');
+      const settingsData: any = {};
+      for (const [key, setting] of Object.entries(companySettings)) {
+        settingsData[key] = setting.value;
+      }
+
+      const billBg = this.loadBillBackgroundBase64(action);
+      if (billBg) settingsData.bill_background_base64 = billBg;
+
+      const browser = await this.getBrowser();
+      const page = await browser.newPage();
+      const html = this.generateMonthlyBillHTML(data, settingsData);
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+      });
+      await page.close();
+
+      MyLogger.success(action, {
+        customerId: data.customer.id,
+        rowCount: data.rows.length,
+        pdfSize: pdfBuffer.length,
+      });
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      MyLogger.error(action, error, { customerId: data.customer.id });
+      throw error;
+    }
+  }
+
   // Close browser instance
   static async closeBrowser(): Promise<void> {
     if (this.browser) {
