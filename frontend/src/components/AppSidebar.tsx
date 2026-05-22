@@ -206,17 +206,23 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
       },
       {
+        title: "Purchase Returns",
+        url: "/inventory/purchase-returns",
+        icon: ArrowLeftRight,
+        permission: PERMISSIONS.PURCHASE_RETURNS_READ,
+      },
+      {
         title: "Supplier Payments",
         url: "/inventory/payments",
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
       },
-      // {
-      //   title: "Distribution",
-      //   url: "/inventory/distribution",
-      //   icon: Truck,
-      //   permission: PERMISSIONS.WAREHOUSES_READ,
-      // },
+      {
+        title: "Distribution",
+        url: "/inventory/distribution",
+        icon: Truck,
+        permission: PERMISSIONS.WAREHOUSES_READ,
+      },
     ],
   },
   {
