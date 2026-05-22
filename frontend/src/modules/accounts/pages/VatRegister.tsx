@@ -17,8 +17,13 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { Receipt, FileText, Hash, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { ReportsApiService, type VatRegisterQueryParams } from "@/services/accounts-api";
+import { CustomerOrdersApiService } from "@/modules/factory/services/customer-orders-api";
 import { useFormatting } from "@/hooks/useFormatting";
+
+const ALL_CUSTOMERS = "all";
 
 export default function VatRegister() {
   const { formatCurrency, formatDate } = useFormatting();
@@ -27,11 +32,27 @@ export default function VatRegister() {
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date(),
   });
+  const [customerId, setCustomerId] = useState<string>(ALL_CUSTOMERS);
 
-  const params: VatRegisterQueryParams = {
-    dateFrom: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
-    dateTo: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
-  };
+  const { data: customers } = useQuery({
+    queryKey: ["factory-customers", "vat-register-filter"],
+    queryFn: () => CustomerOrdersApiService.getAllCustomers(),
+  });
+
+  const customerOptions: SearchableSelectOption[] = [
+    { value: ALL_CUSTOMERS, label: "All Customers" },
+    ...(customers ?? []).map((c) => ({
+      value: String(c.id),
+      label: c.name,
+      keywords: c.company ?? "",
+      hint: c.company,
+    })),
+  ];
+
+  const params: VatRegisterQueryParams = {};
+  if (dateRange?.from) params.dateFrom = format(dateRange.from, "yyyy-MM-dd");
+  if (dateRange?.to) params.dateTo = format(dateRange.to, "yyyy-MM-dd");
+  if (customerId !== ALL_CUSTOMERS) params.customerId = Number(customerId);
 
   const { data, isLoading } = useQuery({
     queryKey: ["vat-register", params],
@@ -42,14 +63,30 @@ export default function VatRegister() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">VAT Register</h1>
           <p className="text-muted-foreground">
             VAT collected from customers on sales invoices, per partial delivery
           </p>
         </div>
-        <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="flex flex-col gap-1 w-full md:w-64">
+            <Label htmlFor="vat-register-customer" className="text-sm font-medium">
+              Select Customer
+            </Label>
+            <SearchableSelect
+              id="vat-register-customer"
+              options={customerOptions}
+              value={customerId}
+              onValueChange={setCustomerId}
+              placeholder="All Customers"
+              searchPlaceholder="Search customers..."
+              emptyMessage="No customers found."
+            />
+          </div>
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -75,12 +112,12 @@ export default function VatRegister() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxable Sales</CardTitle>
+                <CardTitle className="text-sm font-medium">Without VAT Sales</CardTitle>
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(totalSubtotal)}</div>
-                <p className="text-xs text-muted-foreground mt-1">Subtotal of VAT-bearing invoices</p>
+                <p className="text-xs text-muted-foreground mt-1">Invoice amount (excl. VAT) of VAT-bearing invoices</p>
               </CardContent>
             </Card>
             <Card>
@@ -116,7 +153,7 @@ export default function VatRegister() {
                       <TableHead>Invoice #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>VAT Reg.</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead className="text-right">Invoice Amount</TableHead>
                       <TableHead className="text-right">Rate</TableHead>
                       <TableHead className="text-right">VAT Amount</TableHead>
                     </TableRow>

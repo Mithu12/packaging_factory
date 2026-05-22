@@ -4,6 +4,7 @@ import { MyLogger } from '@/utils/new-logger';
 export interface VatRegisterParams {
   dateFrom?: string;
   dateTo?: string;
+  customerId?: number;
 }
 
 interface VatEntry {
@@ -31,7 +32,7 @@ export class GetVatRegisterMediator {
    */
   static async getVatRegister(params: VatRegisterParams): Promise<VatRegisterResult> {
     const action = 'Get VAT Register';
-    const { dateFrom, dateTo } = params;
+    const { dateFrom, dateTo, customerId } = params;
 
     try {
       MyLogger.info(action, { params });
@@ -46,6 +47,10 @@ export class GetVatRegisterMediator {
       if (dateTo) {
         args.push(dateTo);
         where.push(`si.invoice_date <= $${args.length}`);
+      }
+      if (customerId) {
+        args.push(customerId);
+        where.push(`si.factory_customer_id = $${args.length}`);
       }
 
       const res = await pool.query<{

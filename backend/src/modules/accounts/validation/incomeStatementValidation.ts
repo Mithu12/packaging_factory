@@ -19,4 +19,5 @@ export const getBalanceSheetQuerySchema = Joi.object({
 export const getVatRegisterQuerySchema = Joi.object({
   dateFrom: Joi.date().iso().optional(),
   dateTo: Joi.date().iso().optional(),
+  customerId: Joi.number().integer().positive().optional(),
 });

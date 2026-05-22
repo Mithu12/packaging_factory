@@ -893,6 +893,7 @@ export class ReportsApiService {
 export interface VatRegisterQueryParams {
   dateFrom?: string;
   dateTo?: string;
+  customerId?: number;
 }
 
 export interface VatRegisterEntry {

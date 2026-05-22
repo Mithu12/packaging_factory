@@ -21,7 +21,6 @@ import {
   MoreHorizontal,
   FileText,
   Calendar,
-  DollarSign,
   CheckCircle2,
   Send,
   Clock
@@ -413,12 +412,9 @@ export default function PurchaseOrders() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-3 h-3" />
-                        <span className="font-medium">
-                          {formatCurrency(order.total_amount, order.currency)}
-                        </span>
-                      </div>
+                      <span className="font-medium">
+                        {formatCurrency(order.total_amount, 'bdt')}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span className={`text-sm font-medium ${getPriorityColor(order.priority)}`}>
