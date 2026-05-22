@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import {
 import { toast } from "@/components/ui/sonner";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   Loader2,
   Plus,
   Save,
@@ -34,7 +36,7 @@ import {
 } from "lucide-react";
 import { ApiService } from "@/services/api";
 import { StockAdjustmentApi } from "@/modules/inventory/services/stock-adjustment-api";
-import type { Product } from "@/services/types";
+import type { Product, StockAdjustment, StockAdjustmentBatch } from "@/services/types";
 
 type AdjustmentType = "increase" | "decrease" | "set";
 
@@ -94,6 +96,47 @@ export default function BulkStockAdjustmentPage() {
   const [notes, setNotes] = useState<string>("");
   const [lines, setLines] = useState<BulkLine[]>([newLine()]);
   const [submitting, setSubmitting] = useState(false);
+
+  const [recentBatches, setRecentBatches] = useState<StockAdjustmentBatch[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [expandedBatchId, setExpandedBatchId] = useState<number | null>(null);
+  const [batchLines, setBatchLines] = useState<Record<number, StockAdjustment[]>>({});
+  const [loadingBatchLines, setLoadingBatchLines] = useState<number | null>(null);
+
+  const fetchRecentBatches = async () => {
+    try {
+      setLoadingBatches(true);
+      const batches = await StockAdjustmentApi.getStockAdjustmentBatches({ limit: 10 });
+      setRecentBatches(batches);
+    } catch (err: any) {
+      toast.error("Failed to load recent batches", { description: err?.message });
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchRecentBatches();
+  }, []);
+
+  const toggleBatch = async (batchId: number) => {
+    if (expandedBatchId === batchId) {
+      setExpandedBatchId(null);
+      return;
+    }
+    setExpandedBatchId(batchId);
+    if (batchLines[batchId]) return;
+    try {
+      setLoadingBatchLines(batchId);
+      const full = await StockAdjustmentApi.getStockAdjustmentBatch(batchId);
+      setBatchLines((prev) => ({ ...prev, [batchId]: full.lines ?? [] }));
+    } catch (err: any) {
+      toast.error("Failed to load batch details", { description: err?.message });
+      setExpandedBatchId(null);
+    } finally {
+      setLoadingBatchLines(null);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -204,7 +247,11 @@ export default function BulkStockAdjustmentPage() {
       toast.success(`Stock adjustment batch ${created.batch_number} created`, {
         description: `${created.line_count} line${created.line_count === 1 ? "" : "s"} applied`,
       });
-      router.push("/inventory/products");
+      setReason("");
+      setReference("");
+      setNotes("");
+      setLines([newLine()]);
+      void fetchRecentBatches();
     } catch (err: any) {
       toast.error("Failed to create stock adjustment batch", {
         description: err?.message,
@@ -436,6 +483,136 @@ export default function BulkStockAdjustmentPage() {
           </Button>
         </div>
       </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Batches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingBatches ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Loading batches...
+            </div>
+          ) : recentBatches.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-6 text-center">
+              No bulk adjustment batches yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead>Batch #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead className="text-right">Lines</TableHead>
+                  <TableHead>Created by</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentBatches.map((batch) => {
+                  const isExpanded = expandedBatchId === batch.id;
+                  const linesForBatch = batchLines[batch.id];
+                  return (
+                    <Fragment key={batch.id}>
+                      <TableRow
+                        className="cursor-pointer"
+                        onClick={() => toggleBatch(batch.id)}
+                      >
+                        <TableCell>
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{batch.batch_number}</TableCell>
+                        <TableCell>
+                          {new Date(batch.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{batch.reason}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {batch.reference || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">{batch.line_count}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {batch.adjusted_by || "—"}
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="bg-accent/20">
+                          <TableCell />
+                          <TableCell colSpan={6} className="py-3">
+                            {loadingBatchLines === batch.id ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Loading lines...
+                              </div>
+                            ) : !linesForBatch || linesForBatch.length === 0 ? (
+                              <div className="text-sm text-muted-foreground">No lines.</div>
+                            ) : (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead className="text-right">Quantity</TableHead>
+                                    <TableHead className="text-right">Previous</TableHead>
+                                    <TableHead className="text-right">New</TableHead>
+                                    <TableHead>Notes</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {linesForBatch.map((line) => (
+                                    <TableRow key={line.id}>
+                                      <TableCell>
+                                        <div className="font-medium">
+                                          {line.product_name || `#${line.product_id}`}
+                                        </div>
+                                        {line.product_sku && (
+                                          <div className="text-xs text-muted-foreground">
+                                            {line.product_sku}
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-1 capitalize">
+                                          {line.adjustment_type === "increase" ? (
+                                            <TrendingUp className="w-4 h-4 text-success" />
+                                          ) : line.adjustment_type === "decrease" ? (
+                                            <TrendingDown className="w-4 h-4 text-destructive" />
+                                          ) : null}
+                                          {line.adjustment_type}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right">{line.quantity}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">
+                                        {line.previous_stock}
+                                      </TableCell>
+                                      <TableCell className="text-right font-medium">
+                                        {line.new_stock}
+                                      </TableCell>
+                                      <TableCell className="text-muted-foreground">
+                                        {line.notes || "—"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
