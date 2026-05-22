@@ -200,6 +200,13 @@ export const PERMISSIONS = {
     PURCHASE_ORDERS_APPROVE: createPermissionCheck('Purchase', 'approve', 'purchase_orders'),
     PURCHASE_ORDERS_CANCEL: createPermissionCheck('Purchase', 'update', 'purchase_order_status'),
 
+    // Purchase Returns
+    PURCHASE_RETURNS_CREATE: createPermissionCheck('Purchase', 'create', 'purchase_returns'),
+    PURCHASE_RETURNS_READ: createPermissionCheck('Purchase', 'read', 'purchase_returns'),
+    PURCHASE_RETURNS_UPDATE: createPermissionCheck('Purchase', 'update', 'purchase_returns'),
+    PURCHASE_RETURNS_DELETE: createPermissionCheck('Purchase', 'delete', 'purchase_returns'),
+    PURCHASE_RETURNS_APPROVE: createPermissionCheck('Purchase', 'approve', 'purchase_returns'),
+
     // Stock Adjustments
     STOCK_ADJUSTMENTS_CREATE: createPermissionCheck('Inventory', 'create', 'stock_adjustments'),
     STOCK_ADJUSTMENTS_READ: createPermissionCheck('Inventory', 'read', 'stock_adjustments'),
