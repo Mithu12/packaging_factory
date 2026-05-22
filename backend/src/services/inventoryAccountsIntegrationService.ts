@@ -74,6 +74,27 @@ export interface SupplierPaymentAccountingData {
   invoiceNumber?: string;
 }
 
+export interface PurchaseReturnAccountingData {
+  purchaseReturnId: number;
+  returnNumber: string;
+  purchaseOrderId: number;
+  poNumber: string;
+  supplierId: number;
+  supplierName: string;
+  originalVoucherId: number;
+  totalAmount: number;
+  currency: string;
+  returnDate: string;
+  distributionCenterId?: number;
+  lineItems: Array<{
+    productId: number;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+}
+
 export interface VoucherCreationResult {
   voucherId: number;
   voucherNo: string;
@@ -574,6 +595,173 @@ class InventoryAccountsIntegrationService {
         userId,
       });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Create accounting voucher for a purchase return (debit note)
+   * Debit: Accounts Payable (liability reduction), Credit: Inventory (asset reduction)
+   * Links to the original GRN voucher via vouchers.reverses_voucher_id (V39).
+   */
+  async createPurchaseReturnVoucher(
+    returnData: PurchaseReturnAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'Create Purchase Return Voucher';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, {
+        message: 'Accounts module not available, skipping voucher creation',
+        purchaseReturnId: returnData.purchaseReturnId
+      });
+      return null;
+    }
+
+    try {
+      MyLogger.info(action, {
+        purchaseReturnId: returnData.purchaseReturnId,
+        originalVoucherId: returnData.originalVoucherId
+      });
+
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) {
+        return {
+          voucherId: 0, voucherNo: '', success: false,
+          error: 'Accounts services unavailable'
+        };
+      }
+
+      // Resolve cost center from DC
+      let costCenterId: number | undefined = undefined;
+      if (returnData.distributionCenterId) {
+        costCenterId = await this.getDcCostCenter(returnData.distributionCenterId);
+      }
+
+      // Read the original GRN voucher to reuse its AP + Inventory accounts.
+      // The original posted: Debit Inventory, Credit AP.
+      let inventoryAccountId: number | null = null;
+      let apAccountId: number | null = null;
+      let originalVoucherNo = '';
+
+      if (accountsServices.getVoucherMediator) {
+        try {
+          const originalVoucher = await accountsServices.getVoucherMediator.getVoucherById(
+            returnData.originalVoucherId
+          );
+          originalVoucherNo = originalVoucher.voucherNo || '';
+          for (const line of (originalVoucher.lines || [])) {
+            if (Number(line.debit) > 0 && inventoryAccountId == null) {
+              inventoryAccountId = Number(line.accountId);
+            }
+            if (Number(line.credit) > 0 && apAccountId == null) {
+              apAccountId = Number(line.accountId);
+            }
+          }
+        } catch (err) {
+          MyLogger.warn(action, {
+            message: 'Could not load original GRN voucher; falling back to default account lookup',
+            originalVoucherId: returnData.originalVoucherId
+          });
+        }
+      }
+
+      if (!inventoryAccountId || !apAccountId) {
+        const inventoryAccount = await this.getDefaultAccount('inventory', costCenterId);
+        const apAccount = await this.getDefaultAccount('accounts_payable', costCenterId);
+        if (!inventoryAccount || !apAccount) {
+          return {
+            voucherId: 0, voucherNo: '', success: false,
+            error: 'Required accounts not configured (Inventory, Accounts Payable)'
+          };
+        }
+        inventoryAccountId = inventoryAccountId ?? inventoryAccount.id;
+        apAccountId = apAccountId ?? apAccount.id;
+      }
+
+      const totalAmount = Number(returnData.totalAmount);
+      if (!(totalAmount > 0)) {
+        return {
+          voucherId: 0, voucherNo: '', success: false,
+          error: 'Return total must be greater than zero'
+        };
+      }
+
+      const narration =
+        `Purchase Return ${returnData.returnNumber} – ${returnData.supplierName}` +
+        (originalVoucherNo
+          ? ` (debit note, reverses ${originalVoucherNo})`
+          : ' (debit note)');
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(returnData.returnDate),
+        reference: returnData.returnNumber,
+        payee: returnData.supplierName,
+        amount: totalAmount,
+        currency: returnData.currency,
+        narration,
+        costCenterId,
+        lines: [
+          {
+            accountId: apAccountId,
+            debit: totalAmount,
+            credit: 0,
+            description: `Debit Note - ${returnData.returnNumber}`,
+            costCenterId
+          },
+          {
+            accountId: inventoryAccountId,
+            debit: 0,
+            credit: totalAmount,
+            description: `Inventory return - ${returnData.returnNumber}`,
+            costCenterId
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+
+      // Link the new voucher to the original GRN voucher.
+      // AddVoucher.createVoucher does not accept reversesVoucherId in its payload,
+      // so we set it directly here (column added in V39).
+      try {
+        await pool.query(
+          `UPDATE vouchers SET reverses_voucher_id = $1 WHERE id = $2`,
+          [returnData.originalVoucherId, voucher.id]
+        );
+      } catch (linkErr) {
+        MyLogger.warn(action, {
+          message: 'Failed to set reverses_voucher_id on new voucher',
+          newVoucherId: voucher.id,
+          originalVoucherId: returnData.originalVoucherId
+        });
+      }
+
+      // Auto-approve
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      MyLogger.success(action, {
+        purchaseReturnId: returnData.purchaseReturnId,
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo,
+        totalAmount
+      });
+
+      return {
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo,
+        success: true
+      };
+    } catch (error: any) {
+      MyLogger.error(action, error, { returnData });
+      return {
+        voucherId: 0,
+        voucherNo: '',
+        success: false,
+        error: error.message || 'Failed to create purchase return voucher'
+      };
     }
   }
 

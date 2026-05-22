@@ -43,6 +43,7 @@ export const initializeAccountsModule = (): void => {
       addSalesVoucher: salesAccountsIntegrationService.createSalesOrderVoucher.bind(salesAccountsIntegrationService),
       addExpenseVoucher: accountsIntegrationService.createExpenseVoucher.bind(accountsIntegrationService),
       addPurchaseVoucher: inventoryAccountsIntegrationService.createPurchaseOrderReceiptVoucher.bind(inventoryAccountsIntegrationService),
+      addPurchaseReturnVoucher: inventoryAccountsIntegrationService.createPurchaseReturnVoucher.bind(inventoryAccountsIntegrationService),
       addStockAdjustmentVoucher: inventoryAccountsIntegrationService.createStockAdjustmentVoucher.bind(inventoryAccountsIntegrationService),
       addFactoryOrderReceivable: factoryAccountsIntegrationService.createCustomerOrderReceivable.bind(factoryAccountsIntegrationService),
       addMaterialConsumptionVoucher: factoryAccountsIntegrationService.createMaterialConsumptionVoucher.bind(factoryAccountsIntegrationService),

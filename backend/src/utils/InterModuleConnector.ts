@@ -36,6 +36,15 @@ class InterModuleConnector {
     },
 
     /**
+     * Create a purchase return voucher (Inventory)
+     * Debit: Accounts Payable, Credit: Inventory. Links to original GRN voucher.
+     */
+    addPurchaseReturnVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addPurchaseReturnVoucher");
+      return null;
+    },
+
+    /**
      * Create a stock adjustment voucher (Inventory)
      */
     addStockAdjustmentVoucher: async (...args: any[]): Promise<any> => {
