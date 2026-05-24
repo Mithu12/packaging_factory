@@ -9,12 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Search, Filter, TrendingUp, TrendingDown, ArrowUpDown } from 'lucide-react';
 import { SalaryHistoryProps } from '../types';
+import { useFormatting } from '@/hooks/useFormatting';
 
 const SalaryHistory: React.FC<SalaryHistoryProps> = ({
   history,
   employees,
   loading = false
 }) => {
+  const { formatCurrency } = useFormatting();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('date');
@@ -73,10 +75,6 @@ const SalaryHistory: React.FC<SalaryHistoryProps> = ({
       default:
         return null;
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `PKR ${amount.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {

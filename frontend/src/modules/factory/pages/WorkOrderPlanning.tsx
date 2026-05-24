@@ -1571,7 +1571,7 @@ export default function WorkOrderPlanning() {
                   {customerOrdersData?.orders?.length > 0 ? (
                     customerOrdersData.orders.map((order) => (
                       <SelectItem key={order.id} value={order.id.toString()}>
-                        {order.order_number} - {order.factory_customer_name} (${order.total_value})
+                        {order.order_number} - {order.factory_customer_name} ({formatCurrency(order.total_value)})
                       </SelectItem>
                     ))
                   ) : (

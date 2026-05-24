@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, Calculator, Save, X, DollarSign, Percent } from 'lucide-react';
 import { SalaryIncrementFormProps, Employee } from '../types';
 import { calculateIncrement, getEmployeeOptions } from '../data/salary-update-data';
+import { useFormatting } from '@/hooks/useFormatting';
 
 const SalaryIncrementForm: React.FC<SalaryIncrementFormProps> = ({
   employees,
@@ -19,6 +20,7 @@ const SalaryIncrementForm: React.FC<SalaryIncrementFormProps> = ({
   onCancel,
   loading = false
 }) => {
+  const { formatCurrency } = useFormatting();
   const [formData, setFormData] = useState({
     employee_id: '',
     current_salary: 0,
@@ -319,15 +321,15 @@ const SalaryIncrementForm: React.FC<SalaryIncrementFormProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Current Salary:</span>
-                  <p className="font-medium">PKR {formData.current_salary.toLocaleString()}</p>
+                  <p className="font-medium">{formatCurrency(formData.current_salary)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Increment Amount:</span>
-                  <p className="font-medium text-green-600">+PKR {formData.increment_amount.toLocaleString()}</p>
+                  <p className="font-medium text-green-600">+{formatCurrency(formData.increment_amount)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">New Salary:</span>
-                  <p className="font-medium">PKR {formData.new_salary.toLocaleString()}</p>
+                  <p className="font-medium">{formatCurrency(formData.new_salary)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Percentage:</span>

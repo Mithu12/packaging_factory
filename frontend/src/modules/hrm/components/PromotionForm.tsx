@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, FileText, Save, X, DollarSign, Percent, TrendingUp } from 'lucide-react';
 import { PromotionFormProps, Employee, Department, Designation } from '../types';
 import { getEmployeeOptions, getDepartmentOptions, getDesignationOptions, generatePromotionLetterTemplate } from '../data/salary-update-data';
+import { useFormatting } from '@/hooks/useFormatting';
 
 const PromotionForm: React.FC<PromotionFormProps> = ({
   employees,
@@ -21,6 +22,7 @@ const PromotionForm: React.FC<PromotionFormProps> = ({
   onCancel,
   loading = false
 }) => {
+  const { formatCurrency } = useFormatting();
   const [formData, setFormData] = useState({
     employee_id: '',
     current_designation_id: '',
@@ -245,7 +247,7 @@ const PromotionForm: React.FC<PromotionFormProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Current Salary:</span>
-                  <Badge variant="outline">PKR {formData.current_salary.toLocaleString()}</Badge>
+                  <Badge variant="outline">{formatCurrency(formData.current_salary)}</Badge>
                 </div>
               </div>
             )}
@@ -310,7 +312,7 @@ const PromotionForm: React.FC<PromotionFormProps> = ({
                   <div>
                     <span className="text-blue-700">Salary Range:</span>
                     <p className="font-medium">
-                      PKR {newDesignation.min_salary?.toLocaleString()} - {newDesignation.max_salary?.toLocaleString()}
+                      {formatCurrency(newDesignation.min_salary ?? 0)} - {formatCurrency(newDesignation.max_salary ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -392,15 +394,15 @@ const PromotionForm: React.FC<PromotionFormProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-green-700">Current Salary:</span>
-                  <p className="font-medium">PKR {formData.current_salary.toLocaleString()}</p>
+                  <p className="font-medium">{formatCurrency(formData.current_salary)}</p>
                 </div>
                 <div>
                   <span className="text-green-700">Adjustment:</span>
-                  <p className="font-medium text-green-600">+PKR {formData.salary_adjustment.toLocaleString()}</p>
+                  <p className="font-medium text-green-600">+{formatCurrency(formData.salary_adjustment)}</p>
                 </div>
                 <div>
                   <span className="text-green-700">New Salary:</span>
-                  <p className="font-medium">PKR {formData.new_salary.toLocaleString()}</p>
+                  <p className="font-medium">{formatCurrency(formData.new_salary)}</p>
                 </div>
                 <div>
                   <span className="text-green-700">Percentage:</span>

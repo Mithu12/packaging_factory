@@ -57,14 +57,16 @@ import {
     DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import CustomerOrdersApiService, { 
-    FactoryCustomer, 
-    FactoryCustomerOrder, 
+import CustomerOrdersApiService, {
+    FactoryCustomer,
+    FactoryCustomerOrder,
     FactoryCustomerPayment,
     RecordPaymentRequest
 } from '../services/customer-orders-api';
+import { useFormatting } from '@/hooks/useFormatting';
 
 const Payments: React.FC = () => {
+    const { formatCurrency } = useFormatting();
     // State
     const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('all');
@@ -139,14 +141,6 @@ const Payments: React.FC = () => {
     };
 
 
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-BD', {
-            style: 'currency',
-            currency: 'BDT',
-            minimumFractionDigits: 0
-        }).format(amount);
-    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {

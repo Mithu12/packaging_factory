@@ -36,12 +36,14 @@ import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-ap
 import { RecordPaymentForm } from "@/modules/sales/components/forms/RecordPaymentForm"
 import { InvoiceWithDetails, PurchaseOrderWithDetails } from "@/services/types"
 import jsPDF from 'jspdf'
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function ViewInvoice() {
   const params = useParams()
   const invoiceId = typeof params.invoiceId === 'string' ? params.invoiceId : params.invoiceId?.[0]
   const router = useRouter()
-  
+  const { formatCurrency } = useFormatting()
+
   // State management
   const [invoice, setInvoice] = useState<InvoiceWithDetails | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null)
@@ -215,8 +217,8 @@ export default function ViewInvoice() {
         // Quantity, price, and total
         const itemY = yPosition - (productText.split('\n').length * 5)
         doc.text(`${Number(item.quantity)} ${item.unit_of_measure}`, col2, itemY)
-        doc.text(`$${Number(item.unit_price).toLocaleString()}`, col3, itemY)
-        doc.text(`$${Number(item.total_price).toLocaleString()}`, col4, itemY)
+        doc.text(formatCurrency(item.unit_price), col3, itemY)
+        doc.text(formatCurrency(item.total_price), col4, itemY)
         
         yPosition += 5
       })
@@ -233,17 +235,17 @@ export default function ViewInvoice() {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.text('Subtotal:', totalsX, yPosition)
-    doc.text(`$${Number(invoice.total_amount).toLocaleString()}`, totalsX + 30, yPosition)
-    
+    doc.text(formatCurrency(invoice.total_amount), totalsX + 30, yPosition)
+
     yPosition += 7
     doc.text('VAT:', totalsX, yPosition)
-    doc.text('$0.00', totalsX + 30, yPosition)
-    
+    doc.text(formatCurrency(0), totalsX + 30, yPosition)
+
     yPosition += 7
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.text('Total:', totalsX, yPosition)
-    doc.text(`$${Number(invoice.total_amount).toLocaleString()}`, totalsX + 30, yPosition)
+    doc.text(formatCurrency(invoice.total_amount), totalsX + 30, yPosition)
 
     yPosition += 20
 
@@ -254,8 +256,8 @@ export default function ViewInvoice() {
     
     yPosition = addText('Payment Information:', margin, yPosition)
     yPosition = addText(`Status: ${invoice.status.toUpperCase()}`, margin, yPosition)
-    yPosition = addText(`Paid Amount: $${Number(invoice.paid_amount).toLocaleString()}`, margin, yPosition)
-    yPosition = addText(`Outstanding: $${Number(invoice.outstanding_amount).toLocaleString()}`, margin, yPosition)
+    yPosition = addText(`Paid Amount: ${formatCurrency(invoice.paid_amount)}`, margin, yPosition)
+    yPosition = addText(`Outstanding: ${formatCurrency(invoice.outstanding_amount)}`, margin, yPosition)
     
     if (invoice.terms) {
       yPosition = addText(`Payment Terms: ${invoice.terms}`, margin, yPosition)
@@ -441,10 +443,10 @@ export default function ViewInvoice() {
                               {Number(item.quantity)} {item.unit_of_measure}
                             </TableCell>
                             <TableCell className="text-right">
-                              ${Number(item.unit_price).toLocaleString()}
+                              {formatCurrency(item.unit_price)}
                             </TableCell>
                             <TableCell className="text-right font-medium">
-                              ${Number(item.total_price).toLocaleString()}
+                              {formatCurrency(item.total_price)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -470,12 +472,12 @@ export default function ViewInvoice() {
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between">
                       <span>Total Amount:</span>
-                      <span>${Number(invoice.total_amount).toLocaleString()}</span>
+                      <span>{formatCurrency(invoice.total_amount)}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-lg">
                       <span>Invoice Total:</span>
-                      <span>${Number(invoice.total_amount).toLocaleString()}</span>
+                      <span>{formatCurrency(invoice.total_amount)}</span>
                     </div>
                   </div>
                 </div>
@@ -497,15 +499,15 @@ export default function ViewInvoice() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-medium">${Number(invoice.total_amount).toLocaleString()}</span>
+                  <span className="font-medium">{formatCurrency(invoice.total_amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paid Amount:</span>
-                  <span className="font-medium text-success">${Number(invoice.paid_amount).toLocaleString()}</span>
+                  <span className="font-medium text-success">{formatCurrency(invoice.paid_amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Outstanding:</span>
-                  <span className="font-medium text-warning">${Number(invoice.outstanding_amount).toLocaleString()}</span>
+                  <span className="font-medium text-warning">{formatCurrency(invoice.outstanding_amount)}</span>
                 </div>
               </div>
               
@@ -594,16 +596,16 @@ export default function ViewInvoice() {
                           {history.new_value && (
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
-                              <span>Amount: ${Number(history.new_value).toLocaleString()}</span>
+                              <span>Amount: {formatCurrency(history.new_value)}</span>
                             </div>
                           )}
                         </div>
                         {history.old_value && history.new_value && (
                           <div className="mt-2 text-xs">
                             <span className="text-muted-foreground">Changed from </span>
-                            <span className="font-medium">${Number(history.old_value).toLocaleString()}</span>
+                            <span className="font-medium">{formatCurrency(history.old_value)}</span>
                             <span className="text-muted-foreground"> to </span>
-                            <span className="font-medium">${Number(history.new_value).toLocaleString()}</span>
+                            <span className="font-medium">{formatCurrency(history.new_value)}</span>
                           </div>
                         )}
                       </div>
@@ -650,7 +652,7 @@ export default function ViewInvoice() {
                       </div>
                       <div className="text-right">
                         <div className="font-medium text-success">
-                          ${Number(payment.amount).toLocaleString()}
+                          {formatCurrency(payment.amount)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {payment.status}

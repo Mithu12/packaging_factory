@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { CalendarIcon, Users, Save, X, DollarSign, Percent, Calculator } from 'lucide-react';
 import { BulkSalaryUpdateFormProps, Employee, Department, Designation } from '../types';
 import { getEmployeeOptions, getDepartmentOptions, getDesignationOptions } from '../data/salary-update-data';
+import { useFormatting } from '@/hooks/useFormatting';
 
 const BulkSalaryUpdateForm: React.FC<BulkSalaryUpdateFormProps> = ({
   employees,
@@ -22,6 +23,7 @@ const BulkSalaryUpdateForm: React.FC<BulkSalaryUpdateFormProps> = ({
   onCancel,
   loading = false
 }) => {
+  const { formatCurrency } = useFormatting();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -456,22 +458,22 @@ const BulkSalaryUpdateForm: React.FC<BulkSalaryUpdateFormProps> = ({
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  PKR {calculateTotalImpact().toLocaleString()}
+                  {formatCurrency(calculateTotalImpact())}
                 </div>
                 <div className="text-muted-foreground">Total Impact</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">
-                  PKR {formData.increment_type === 'percentage'
+                  {formData.increment_type === 'percentage'
                     ? `${formData.increment_value}%`
-                    : `PKR ${formData.increment_value.toLocaleString()}`
+                    : formatCurrency(formData.increment_value)
                   }
                 </div>
                 <div className="text-muted-foreground">Increment</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
-                  PKR {(calculateTotalImpact() / previewEmployees.length).toLocaleString()}
+                  {formatCurrency(calculateTotalImpact() / previewEmployees.length)}
                 </div>
                 <div className="text-muted-foreground">Avg Impact</div>
               </div>
@@ -492,7 +494,7 @@ const BulkSalaryUpdateForm: React.FC<BulkSalaryUpdateFormProps> = ({
                     <div className="text-right">
                       <Badge variant="outline">{employee.designation?.title}</Badge>
                       <div className="text-sm text-muted-foreground mt-1">
-                        Current: PKR {(employee.designation?.min_salary || 0).toLocaleString()}
+                        Current: {formatCurrency(employee.designation?.min_salary || 0)}
                       </div>
                     </div>
                   </div>

@@ -235,7 +235,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
       const totalAmount = validItems.reduce((sum, item) => sum + item.total, 0)
       
       toast.success("Purchase order created successfully!", {
-        description: `PO ${newPurchaseOrder.po_number} for $${totalAmount.toLocaleString()} has been created.`
+        description: `PO ${newPurchaseOrder.po_number} for ${formatCurrency(totalAmount)} has been created.`
       })
       
       // Reset form

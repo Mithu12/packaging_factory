@@ -30,11 +30,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function InventoryDetails() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : params.id?.[0]
   const router = useRouter()
+  const { formatCurrency } = useFormatting()
 
   // Mock inventory data - in real app, fetch by ID
   const inventoryItem = {
@@ -205,8 +207,8 @@ export default function InventoryDetails() {
                   <DollarSign className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">Total Value</span>
                 </div>
-                <div className="text-2xl font-bold">${inventoryItem.valuation.totalValue.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">@ ${inventoryItem.valuation.avgCostPrice} avg</div>
+                <div className="text-2xl font-bold">{formatCurrency(inventoryItem.valuation.totalValue)}</div>
+                <div className="text-xs text-muted-foreground">@ {formatCurrency(inventoryItem.valuation.avgCostPrice)} avg</div>
               </CardContent>
             </Card>
             <Card>
@@ -306,7 +308,7 @@ export default function InventoryDetails() {
                         <TableCell className="text-sm text-muted-foreground">{movement.reference}</TableCell>
                         <TableCell className="font-medium">{movement.balance}</TableCell>
                         <TableCell className="font-medium">
-                          ${(Math.abs(movement.quantity) * movement.costPrice).toLocaleString()}
+                          {formatCurrency(Math.abs(movement.quantity) * movement.costPrice)}
                         </TableCell>
                       </TableRow>
                     )
@@ -403,23 +405,23 @@ export default function InventoryDetails() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Average Cost</span>
-                <span className="font-medium">${inventoryItem.valuation.avgCostPrice}</span>
+                <span className="font-medium">{formatCurrency(inventoryItem.valuation.avgCostPrice)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Last Cost</span>
-                <span className="font-medium">${inventoryItem.valuation.lastCostPrice}</span>
+                <span className="font-medium">{formatCurrency(inventoryItem.valuation.lastCostPrice)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Selling Price</span>
-                <span className="font-medium">${inventoryItem.valuation.sellingPrice}</span>
+                <span className="font-medium">{formatCurrency(inventoryItem.valuation.sellingPrice)}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Total Value</span>
-                <span className="font-medium text-lg">${inventoryItem.valuation.totalValue.toLocaleString()}</span>
+                <span className="font-medium text-lg">{formatCurrency(inventoryItem.valuation.totalValue)}</span>
               </div>
               <div className="text-xs text-muted-foreground text-center">
-                {inventoryItem.stock.currentStock} units × ${inventoryItem.valuation.avgCostPrice} avg
+                {inventoryItem.stock.currentStock} units × {formatCurrency(inventoryItem.valuation.avgCostPrice)} avg
               </div>
             </CardContent>
           </Card>

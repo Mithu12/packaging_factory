@@ -53,7 +53,7 @@ import {
 } from "@/modules/inventory/services/distribution-api"
 
 export function StockTransfersList() {
-  const { formatNumber, formatDate } = useFormatting()
+  const { formatNumber, formatDate, formatCurrency } = useFormatting()
   const { hasPermission } = useRBAC()
   const { toast } = useToast()
   
@@ -573,13 +573,13 @@ export function StockTransfersList() {
                     {detailsTransfer.unit_cost && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Unit Cost:</span>
-                        <span className="font-medium">${formatNumber(detailsTransfer.unit_cost)}</span>
+                        <span className="font-medium">{formatCurrency(detailsTransfer.unit_cost)}</span>
                       </div>
                     )}
                     {detailsTransfer.total_cost && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Cost:</span>
-                        <span className="font-medium">${formatNumber(detailsTransfer.total_cost)}</span>
+                        <span className="font-medium">{formatCurrency(detailsTransfer.total_cost)}</span>
                       </div>
                     )}
                   </div>
@@ -655,7 +655,7 @@ export function StockTransfersList() {
                     {detailsTransfer.shipping_cost && (
                       <div>
                         <span className="text-muted-foreground block">Shipping Cost:</span>
-                        <span className="font-medium">${formatNumber(detailsTransfer.shipping_cost)}</span>
+                        <span className="font-medium">{formatCurrency(detailsTransfer.shipping_cost)}</span>
                       </div>
                     )}
                   </div>

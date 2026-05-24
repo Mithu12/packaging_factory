@@ -23,12 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function PaymentHistory() {
   const params = useParams()
   const supplierId = typeof params.supplierId === 'string' ? params.supplierId : params.supplierId?.[0]
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
+  const { formatCurrency } = useFormatting()
 
   // Mock payment history data
   const payments = [
@@ -152,7 +154,7 @@ export default function PaymentHistory() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">${totalAmount.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-success">{formatCurrency(totalAmount)}</div>
             <p className="text-xs text-success">Successfully processed</p>
           </CardContent>
         </Card>
@@ -161,7 +163,7 @@ export default function PaymentHistory() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">${pendingAmount.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-warning">{formatCurrency(pendingAmount)}</div>
             <p className="text-xs text-warning">Awaiting confirmation</p>
           </CardContent>
         </Card>
@@ -170,7 +172,7 @@ export default function PaymentHistory() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Failed Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">${failedAmount.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(failedAmount)}</div>
             <p className="text-xs text-destructive">Requires attention</p>
           </CardContent>
         </Card>
@@ -228,7 +230,7 @@ export default function PaymentHistory() {
                       </Button>
                     </TableCell>
                     <TableCell>{payment.date}</TableCell>
-                    <TableCell className="font-medium">${payment.amount.toLocaleString()}</TableCell>
+                    <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
                     <TableCell>{payment.method}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{payment.reference}</TableCell>
                     <TableCell className="text-sm max-w-xs truncate">{payment.description}</TableCell>

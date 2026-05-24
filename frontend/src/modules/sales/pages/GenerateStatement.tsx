@@ -16,21 +16,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/sonner"
-import { 
-  ArrowLeft, 
-  Download, 
+import {
+  ArrowLeft,
+  Download,
   FileText,
   Calendar,
   Building,
   Mail,
   Printer
 } from "lucide-react"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function GenerateStatement() {
   const params = useParams()
   const supplierId = typeof params.supplierId === 'string' ? params.supplierId : params.supplierId?.[0]
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
+  const { formatCurrency } = useFormatting()
   
   const [formData, setFormData] = useState({
     statementType: "account",
@@ -313,24 +315,24 @@ export default function GenerateStatement() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Opening Balance:</span>
-                <span className="font-medium">${statementData.openingBalance.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(statementData.openingBalance)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Invoices:</span>
-                <span className="font-medium">${statementData.totalInvoices.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(statementData.totalInvoices)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Payments:</span>
-                <span className="font-medium text-success">-${statementData.totalPayments.toLocaleString()}</span>
+                <span className="font-medium text-success">-{formatCurrency(statementData.totalPayments)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Credits:</span>
-                <span className="font-medium text-success">-${statementData.totalCredits.toLocaleString()}</span>
+                <span className="font-medium text-success">-{formatCurrency(statementData.totalCredits)}</span>
               </div>
               <div className="border-t pt-3">
                 <div className="flex justify-between font-bold">
                   <span>Closing Balance:</span>
-                  <span>${statementData.closingBalance.toLocaleString()}</span>
+                  <span>{formatCurrency(statementData.closingBalance)}</span>
                 </div>
               </div>
             </CardContent>
@@ -344,23 +346,23 @@ export default function GenerateStatement() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current:</span>
-                  <span className="font-medium">${statementData.aging.current.toLocaleString()}</span>
+                  <span className="font-medium">{formatCurrency(statementData.aging.current)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">1-30 Days:</span>
-                  <span className="font-medium">${statementData.aging.days30.toLocaleString()}</span>
+                  <span className="font-medium">{formatCurrency(statementData.aging.days30)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">31-60 Days:</span>
-                  <span className="font-medium text-warning">${statementData.aging.days60.toLocaleString()}</span>
+                  <span className="font-medium text-warning">{formatCurrency(statementData.aging.days60)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">61-90 Days:</span>
-                  <span className="font-medium text-warning">${statementData.aging.days90.toLocaleString()}</span>
+                  <span className="font-medium text-warning">{formatCurrency(statementData.aging.days90)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Over 90 Days:</span>
-                  <span className="font-medium text-destructive">${statementData.aging.over90.toLocaleString()}</span>
+                  <span className="font-medium text-destructive">{formatCurrency(statementData.aging.over90)}</span>
                 </div>
               </CardContent>
             </Card>

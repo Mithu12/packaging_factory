@@ -39,12 +39,14 @@ import {
 } from "@/components/ui/select"
 import { ApiService, Supplier, PurchaseOrder, ApiError } from "@/services/api"
 import { toast } from "@/components/ui/sonner"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function SupplierOrders() {
   const params = useParams()
   const rawId = typeof params.id === 'string' ? params.id : params.id?.[0]
   const id = rawId ? parseInt(rawId) : null
   const router = useRouter()
+  const { formatCurrency } = useFormatting()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   
@@ -195,7 +197,7 @@ export default function SupplierOrders() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${statsTotalValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(statsTotalValue)}</div>
             <p className="text-xs text-success">+12% vs last period</p>
           </CardContent>
         </Card>
@@ -221,7 +223,7 @@ export default function SupplierOrders() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgOrderValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(avgOrderValue)}</div>
             <p className="text-xs text-success">Above average</p>
           </CardContent>
         </Card>

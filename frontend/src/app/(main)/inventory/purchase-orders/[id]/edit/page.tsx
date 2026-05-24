@@ -34,6 +34,7 @@ import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-ap
 import { SupplierApi } from "@/modules/inventory/services/supplier-api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
 import { PurchaseOrderWithDetails, Supplier, Product, UpdatePurchaseOrderRequest } from "@/services/types"
+import { useFormatting } from "@/hooks/useFormatting"
 
 interface LineItem {
   id: number | string
@@ -50,6 +51,7 @@ export default function EditPurchaseOrder() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : params.id?.[0]
   const router = useRouter()
+  const { formatCurrency } = useFormatting()
 
   // State management
   const [loading, setLoading] = useState(true)
@@ -532,7 +534,7 @@ export default function EditPurchaseOrder() {
                               <div className="mt-1 flex items-start gap-1 text-xs text-warning">
                                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                 <span>
-                                  {Math.abs(v.pct * 100).toFixed(1)}% {direction} catalog (${v.catalogPrice.toFixed(2)})
+                                  {Math.abs(v.pct * 100).toFixed(1)}% {direction} catalog ({formatCurrency(v.catalogPrice)})
                                 </span>
                               </div>
                             )
@@ -551,7 +553,7 @@ export default function EditPurchaseOrder() {
                       
                       <div className="text-right">
                         <span className="text-sm text-muted-foreground">Line Total: </span>
-                        <span className="font-medium">${(item.quantity * item.unit_price).toLocaleString()}</span>
+                        <span className="font-medium">{formatCurrency(item.quantity * item.unit_price)}</span>
                       </div>
                     </div>
                   ))}
@@ -564,7 +566,7 @@ export default function EditPurchaseOrder() {
                   <div className="space-y-2 text-right min-w-64">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total:</span>
-                      <span>${calculateTotal().toLocaleString()}</span>
+                      <span>{formatCurrency(calculateTotal())}</span>
                     </div>
                   </div>
                 </div>
@@ -596,7 +598,7 @@ export default function EditPurchaseOrder() {
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span>${calculateTotal().toLocaleString()}</span>
+                  <span>{formatCurrency(calculateTotal())}</span>
                 </div>
               </CardContent>
             </Card>

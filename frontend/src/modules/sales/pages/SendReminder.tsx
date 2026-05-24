@@ -16,20 +16,22 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/sonner"
-import { 
-  ArrowLeft, 
-  Mail, 
+import {
+  ArrowLeft,
+  Mail,
   Send,
   FileText,
   Calendar,
   AlertCircle
 } from "lucide-react"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function SendReminder() {
   const params = useParams()
   const invoiceId = typeof params.invoiceId === 'string' ? params.invoiceId : params.invoiceId?.[0]
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { formatCurrency } = useFormatting()
   
   const [formData, setFormData] = useState({
     reminderType: "",
@@ -59,7 +61,7 @@ export default function SendReminder() {
       subject: `Gentle Reminder: Payment Due for Invoice ${invoice.id}`,
       message: `Dear ${invoice.supplier.contactPerson},
 
-I hope this message finds you well. This is a gentle reminder that payment for Invoice ${invoice.id} in the amount of $${invoice.outstandingAmount.toLocaleString()} was due on ${invoice.dueDate}.
+I hope this message finds you well. This is a gentle reminder that payment for Invoice ${invoice.id} in the amount of ${formatCurrency(invoice.outstandingAmount)} was due on ${invoice.dueDate}.
 
 We understand that oversights can happen, and we would appreciate your prompt attention to this matter. If you have any questions about this invoice or if there are any issues we should be aware of, please don't hesitate to contact us.
 
@@ -72,7 +74,7 @@ Finance Team`
       subject: `Payment Overdue: Immediate Action Required - Invoice ${invoice.id}`,
       message: `Dear ${invoice.supplier.contactPerson},
 
-This is to inform you that payment for Invoice ${invoice.id} in the amount of $${invoice.outstandingAmount.toLocaleString()} is now ${invoice.daysPastDue} days overdue.
+This is to inform you that payment for Invoice ${invoice.id} in the amount of ${formatCurrency(invoice.outstandingAmount)} is now ${invoice.daysPastDue} days overdue.
 
 The payment was due on ${invoice.dueDate}. We require immediate payment to avoid any disruption to our business relationship and potential late fees.
 
@@ -85,7 +87,7 @@ Finance Team`
       subject: `Final Notice: Payment Required - Invoice ${invoice.id}`,
       message: `Dear ${invoice.supplier.contactPerson},
 
-This is a FINAL NOTICE regarding the overdue payment for Invoice ${invoice.id} in the amount of $${invoice.outstandingAmount.toLocaleString()}.
+This is a FINAL NOTICE regarding the overdue payment for Invoice ${invoice.id} in the amount of ${formatCurrency(invoice.outstandingAmount)}.
 
 Despite previous reminders, this payment remains outstanding and is now ${invoice.daysPastDue} days past due. Immediate payment is required to avoid:
 - Collection proceedings
@@ -257,11 +259,11 @@ Finance Team`
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-medium">${invoice.amount.toLocaleString()}</span>
+                  <span className="font-medium">{formatCurrency(invoice.amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Outstanding:</span>
-                  <span className="font-medium text-warning">${invoice.outstandingAmount.toLocaleString()}</span>
+                  <span className="font-medium text-warning">{formatCurrency(invoice.outstandingAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Due Date:</span>

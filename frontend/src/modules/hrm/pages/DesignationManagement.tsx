@@ -67,6 +67,7 @@ import {
 import { Designation, DesignationListResponse, CreateDesignationForm, Department, DesignationHierarchyNode } from '../types';
 import DesignationForm from '../components/DesignationForm';
 import HRMApiService from '../services/hrm-api';
+import { useFormatting } from '@/hooks/useFormatting';
 
 // Dummy data for designations
 const DUMMY_DESIGNATIONS: Designation[] = [
@@ -218,6 +219,7 @@ const generateEmployeeCounts = (designations: Designation[]) => {
 };
 
 const DesignationManagement: React.FC = () => {
+  const { formatCurrency } = useFormatting();
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -413,11 +415,11 @@ const DesignationManagement: React.FC = () => {
 
   const getSalaryRange = (designation: Designation) => {
     if (designation.min_salary && designation.max_salary) {
-      return `$${designation.min_salary.toLocaleString()} - $${designation.max_salary.toLocaleString()}`;
+      return `${formatCurrency(designation.min_salary)} - ${formatCurrency(designation.max_salary)}`;
     } else if (designation.min_salary) {
-      return `$${designation.min_salary.toLocaleString()}+`;
+      return `${formatCurrency(designation.min_salary)}+`;
     } else if (designation.max_salary) {
-      return `Up to $${designation.max_salary.toLocaleString()}`;
+      return `Up to ${formatCurrency(designation.max_salary)}`;
     }
     return 'Not specified';
   };
