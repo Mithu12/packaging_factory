@@ -28,6 +28,8 @@ export type SearchableSelectOption = {
   hint?: React.ReactNode;
   /** Small pill rendered between label and hint (e.g. category). Searchable via `keywords`. */
   badge?: React.ReactNode;
+  /** Second line rendered below the label (e.g. company, email). Put any searchable text into `keywords`. */
+  description?: React.ReactNode;
 };
 
 export interface SearchableSelectProps {
@@ -102,12 +104,19 @@ export function SearchableSelect({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 mt-1 self-start",
                       value === opt.value ? "opacity-100" : "opacity-0",
                     )}
                   />
-                  <div className="flex items-center justify-between gap-2 w-full">
-                    <span className="truncate">{opt.label}</span>
+                  <div className="flex items-start justify-between gap-2 w-full">
+                    <div className="min-w-0 flex flex-col">
+                      <span className="truncate font-medium">{opt.label}</span>
+                      {opt.description && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {opt.description}
+                        </span>
+                      )}
+                    </div>
                     {(opt.badge || opt.hint) && (
                       <span className="flex items-center gap-2 ml-2 shrink-0">
                         {opt.badge}

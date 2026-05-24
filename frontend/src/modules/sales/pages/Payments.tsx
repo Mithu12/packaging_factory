@@ -247,6 +247,27 @@ export default function Payments() {
     fetchData(); // Refresh data after payment is recorded
   };
 
+  const handleDeleteInvoice = async (invoice: Invoice) => {
+    const confirmed = window.confirm(
+      `Delete invoice ${invoice.invoice_number}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await PaymentApi.deleteInvoice(invoice.id);
+      toast({
+        title: "Invoice deleted",
+        description: `${invoice.invoice_number} has been removed.`,
+      });
+      fetchData();
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete invoice",
+        description: err?.message || "Please try again.",
+      });
+    }
+  };
+
   // Filter handlers
   const handleInvoiceFilterChange = (
     key: keyof InvoiceQueryParams,
@@ -1176,6 +1197,14 @@ export default function Payments() {
                               >
                                 Generate Statement
                               </DropdownMenuItem>
+                              {invoice.status === "pending" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteInvoice(invoice)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  Delete Invoice
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

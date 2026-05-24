@@ -326,6 +326,22 @@ export default function PaymentsPage() {
     }
   };
 
+  const handleDeleteInvoice = async (invoice: Invoice) => {
+    const confirmed = window.confirm(
+      `Delete invoice ${invoice.invoice_number}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await PaymentApi.deleteInvoice(invoice.id);
+      toast.success(`Invoice ${invoice.invoice_number} deleted.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Error deleting invoice:", err);
+      toast.error(err?.message || "Failed to delete invoice.");
+    }
+  };
+
   const FilterComponent = useMemo(() => {
     const isInvoiceTab = activeTab === "invoices";
     const currentSearchTerm = isInvoiceTab ? invoiceSearchTerm : paymentSearchTerm;
@@ -557,6 +573,14 @@ export default function PaymentsPage() {
                                   {canCreatePayments && invoice.status !== "paid" && (
                                     <DropdownMenuItem onClick={() => setShowRecordPaymentForm(true)}>
                                       Record Payment
+                                    </DropdownMenuItem>
+                                  )}
+                                  {invoice.status === "pending" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteInvoice(invoice)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      Delete Invoice
                                     </DropdownMenuItem>
                                   )}
                                 </DropdownMenuContent>

@@ -26,6 +26,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -611,29 +612,29 @@ export default function OrderEntryForm({
                                                     <Plus className="h-4 w-4" />
                                                 </Button>
                                             </div>
-                                            <Select
-                                                key={`customer-select-${customers.length}-${field.value ?? ""}`}
-                                                onValueChange={(v) => field.onChange(String(v))}
-                                                value={field.value ? String(field.value) : ""}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger data-testid="customer-select-trigger">
-                                                        <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select a customer"} />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {customers.map((customer) => (
-                                                        <SelectItem key={customer.id} value={String(customer.id)}>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{customer.name}</span>
-                                                                <span className="text-sm text-muted-foreground">
-                                                                    {[customer.email, customer.phone].filter(Boolean).join(" · ") || "—"}
-                                                                </span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    data-testid="customer-select-trigger"
+                                                    disabled={loadingCustomers}
+                                                    placeholder={loadingCustomers ? "Loading customers..." : "Select a customer"}
+                                                    searchPlaceholder="Search by name, company, email or phone..."
+                                                    emptyMessage="No customers found."
+                                                    value={field.value ? String(field.value) : ""}
+                                                    onValueChange={(v) => field.onChange(String(v))}
+                                                    options={customers.map<SearchableSelectOption>((customer) => {
+                                                        const label = customer.company
+                                                            ? `${customer.company} - ${customer.name}`
+                                                            : customer.name;
+                                                        const contact = [customer.email, customer.phone].filter(Boolean).join(" · ");
+                                                        return {
+                                                            value: String(customer.id),
+                                                            label,
+                                                            keywords: [customer.company, customer.name, customer.email, customer.phone].filter(Boolean).join(" "),
+                                                            description: contact || "—",
+                                                        };
+                                                    })}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -647,6 +648,7 @@ export default function OrderEntryForm({
                                             return selectedCustomer ? (
                                                 <div className="space-y-1 text-sm">
                                                     <div><strong>Name:</strong> {selectedCustomer.name}</div>
+                                                    {selectedCustomer.company && <div><strong>Company:</strong> {selectedCustomer.company}</div>}
                                                     <div><strong>Email:</strong> {selectedCustomer.email ?? "—"}</div>
                                                     {selectedCustomer.phone && <div><strong>Phone:</strong> {selectedCustomer.phone}</div>}
                                                 </div>

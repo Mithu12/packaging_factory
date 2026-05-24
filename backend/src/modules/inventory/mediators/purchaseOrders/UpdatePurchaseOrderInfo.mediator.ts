@@ -320,35 +320,49 @@ class UpdatePurchaseOrderInfoMediator {
         "completed",
       ]);
 
-      // Create invoice when status is changed to received
+      // Create invoice when status is changed to received — skip if one already exists
       if (data.status === "received") {
         try {
-          const invoiceData = {
-            purchase_order_id: id,
-            supplier_id: updatedPO.supplier_id,
-            invoice_date: new Date().toISOString().split("T")[0],
-            due_date: this.calculateDueDate(updatedPO.payment_terms),
-            total_amount: parseFloat(updatedPO.total_amount),
-            terms: updatedPO.payment_terms,
-            notes: `Invoice for Purchase Order ${updatedPO.po_number}`,
-          };
+          const existingInvoice = await client.query(
+            `SELECT id, invoice_number FROM invoices
+              WHERE purchase_order_id = $1 AND status <> 'cancelled'
+              LIMIT 1`,
+            [id]
+          );
 
-          const invoice = await InvoiceMediator.createInvoice(invoiceData);
+          if (existingInvoice.rows.length > 0) {
+            MyLogger.info("Invoice auto-create skipped — already exists", {
+              purchaseOrderId: id,
+              invoiceNumber: existingInvoice.rows[0].invoice_number,
+            });
+          } else {
+            const invoiceData = {
+              purchase_order_id: id,
+              supplier_id: updatedPO.supplier_id,
+              invoice_date: new Date().toISOString().split("T")[0],
+              due_date: this.calculateDueDate(updatedPO.payment_terms),
+              total_amount: parseFloat(updatedPO.total_amount),
+              terms: updatedPO.payment_terms,
+              notes: `Invoice for Purchase Order ${updatedPO.po_number}`,
+            };
 
-          // Add timeline entry for invoice creation
-          await client.query(timelineQuery, [
-            id,
-            "Invoice Created",
-            `Invoice ${invoice.invoice_number} created automatically`,
-            username,
-            "completed",
-          ]);
+            const invoice = await InvoiceMediator.createInvoice(invoiceData);
 
-          MyLogger.success("Invoice Created", {
-            purchaseOrderId: id,
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoice_number,
-          });
+            // Add timeline entry for invoice creation
+            await client.query(timelineQuery, [
+              id,
+              "Invoice Created",
+              `Invoice ${invoice.invoice_number} created automatically`,
+              username,
+              "completed",
+            ]);
+
+            MyLogger.success("Invoice Created", {
+              purchaseOrderId: id,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            });
+          }
         } catch (invoiceError: any) {
           MyLogger.error("Failed to create invoice", invoiceError, {
             purchaseOrderId: id,
@@ -722,35 +736,49 @@ class UpdatePurchaseOrderInfoMediator {
         "completed",
       ]);
 
-      // Create invoice when all goods are received
+      // Create invoice when all goods are received — skip if one already exists
       if (allItemsReceived) {
         try {
-          const invoiceData = {
-            purchase_order_id: id,
-            supplier_id: updatedPO.supplier_id,
-            invoice_date: new Date().toISOString().split("T")[0],
-            due_date: this.calculateDueDate(updatedPO.payment_terms),
-            total_amount: parseFloat(updatedPO.total_amount),
-            terms: updatedPO.payment_terms,
-            notes: `Invoice for Purchase Order ${updatedPO.po_number}`,
-          };
+          const existingInvoice = await client.query(
+            `SELECT id, invoice_number FROM invoices
+              WHERE purchase_order_id = $1 AND status <> 'cancelled'
+              LIMIT 1`,
+            [id]
+          );
 
-          const invoice = await InvoiceMediator.createInvoice(invoiceData);
+          if (existingInvoice.rows.length > 0) {
+            MyLogger.info("Invoice auto-create skipped — already exists", {
+              purchaseOrderId: id,
+              invoiceNumber: existingInvoice.rows[0].invoice_number,
+            });
+          } else {
+            const invoiceData = {
+              purchase_order_id: id,
+              supplier_id: updatedPO.supplier_id,
+              invoice_date: new Date().toISOString().split("T")[0],
+              due_date: this.calculateDueDate(updatedPO.payment_terms),
+              total_amount: parseFloat(updatedPO.total_amount),
+              terms: updatedPO.payment_terms,
+              notes: `Invoice for Purchase Order ${updatedPO.po_number}`,
+            };
 
-          // Add timeline entry for invoice creation
-          await client.query(timelineQuery, [
-            id,
-            "Invoice Created",
-            `Invoice ${invoice.invoice_number} created automatically`,
-            username,
-            "completed",
-          ]);
+            const invoice = await InvoiceMediator.createInvoice(invoiceData);
 
-          MyLogger.success("Invoice Created", {
-            purchaseOrderId: id,
-            invoiceId: invoice.id,
-            invoiceNumber: invoice.invoice_number,
-          });
+            // Add timeline entry for invoice creation
+            await client.query(timelineQuery, [
+              id,
+              "Invoice Created",
+              `Invoice ${invoice.invoice_number} created automatically`,
+              username,
+              "completed",
+            ]);
+
+            MyLogger.success("Invoice Created", {
+              purchaseOrderId: id,
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+            });
+          }
         } catch (invoiceError: any) {
           MyLogger.error("Failed to create invoice", invoiceError, {
             purchaseOrderId: id,

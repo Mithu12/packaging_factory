@@ -66,49 +66,95 @@ export class PDFGenerator {
     purchaseOrder: PurchaseOrderWithDetails,
     settings: Record<string, any> = {},
   ): string {
-    const formatCurrency = (amount: number) =>
-      `৳ ${Number(amount || 0).toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
-
-    const esc = (s: unknown) =>
-      String(s ?? '')
+    const escapeHtml = (raw: unknown) =>
+      String(raw ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
-    const companyName = settings.company_name || 'Company';
-    const companyAddress = settings.company_address || '';
-    const companyPhone = settings.phone || '';
-    const companyEmail = settings.company_email || '';
-    const contactLineParts: string[] = [];
-    if (companyPhone) contactLineParts.push(`Phone: ${esc(companyPhone)}`);
-    if (companyEmail) contactLineParts.push(`Email: ${esc(companyEmail)}`);
-    const contactLine = contactLineParts.join(' | ');
+    const formatCurrency = (amount: number) =>
+      new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number(amount || 0));
 
-    const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+    const formatQty = (q: number) =>
+      new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(Number(q || 0));
+
+    // dd.mm.yyyy — matches invoice / challan formatting.
+    const formatDate = (dateString?: string | null) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
     };
 
-    const getStatusColor = (status: string) => {
-      switch (status) {
-        case 'draft': return '#6b7280';
-        case 'pending': return '#f59e0b';
-        case 'approved': return '#3b82f6';
-        case 'sent': return '#06b6d4';
-        case 'partially_received': return '#f97316';
-        case 'received': return '#10b981';
-        case 'cancelled': return '#ef4444';
-        default: return '#6b7280';
-      }
+    // Indian-numbering words (Lac/Crore), mirroring the invoice template.
+    const numberToWords = (num: number): string => {
+      const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+        'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      const two = (n: number): string => n < 20 ? a[n] : (b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '')).trim();
+      const three = (n: number): string => {
+        const h = Math.floor(n / 100), r = n % 100;
+        return (h ? a[h] + ' Hundred' + (r ? ' ' + two(r) : '') : two(r)).trim();
+      };
+      const n = Math.floor(Math.abs(num));
+      if (n === 0) return 'Zero';
+      const crore = Math.floor(n / 10000000);
+      const lac = Math.floor((n % 10000000) / 100000);
+      const thousand = Math.floor((n % 100000) / 1000);
+      const rest = n % 1000;
+      const parts: string[] = [];
+      if (crore) parts.push(three(crore) + ' Crore');
+      if (lac) parts.push(two(lac) + ' Lac');
+      if (thousand) parts.push(two(thousand) + ' Thousand');
+      if (rest) parts.push(three(rest));
+      return parts.join(' ').replace(/\s+/g, ' ').trim();
     };
 
+    const lineItems = purchaseOrder.line_items ?? [];
+    const subTotal = lineItems.reduce((sum, li) => sum + Number(li.quantity) * Number(li.unit_price), 0);
+    const totalQty = lineItems.reduce((sum, li) => sum + Number(li.quantity), 0);
+    const grandTotal = Number(purchaseOrder.total_amount || subTotal);
+    const grandTotalTaka = Math.trunc(grandTotal);
+    const grandTotalPaisa = Math.round((grandTotal - grandTotalTaka) * 100);
+    const amountInWords = grandTotalPaisa > 0
+      ? `${numberToWords(grandTotalTaka)} and ${numberToWords(grandTotalPaisa)} Paisa`
+      : numberToWords(grandTotalTaka);
+
+    const itemsHtml = lineItems.length > 0
+      ? lineItems.map((item, index) => {
+          const totalPrice = Number(item.quantity) * Number(item.unit_price);
+          const descHtml = item.description?.trim()
+            ? `<div class="item-desc">${escapeHtml(item.description).replace(/\n/g, '<br>')}</div>`
+            : '';
+          const isLast = index === lineItems.length - 1;
+          return `
+        <tr class="item-row${isLast ? ' last-item-row' : ''}">
+          <td class="col-sn">${index + 1}</td>
+          <td class="col-particulars">
+            <div class="item-name">${escapeHtml(item.product_name || '')}</div>
+            ${item.product_sku ? `<div class="item-sku">SKU: ${escapeHtml(item.product_sku)}</div>` : ''}
+            ${descHtml}
+          </td>
+          <td class="col-qty">${formatQty(Number(item.quantity))} ${escapeHtml(item.unit_of_measure || 'pcs')}</td>
+          <td class="col-price">${formatCurrency(Number(item.unit_price))}</td>
+          <td class="col-amount">${formatCurrency(totalPrice)}</td>
+        </tr>`;
+        }).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
+
+    const supplierAddress = purchaseOrder.supplier.address?.trim() || '';
+    const supplierContactBits = [
+      purchaseOrder.supplier.contact_person,
+      purchaseOrder.supplier.phone,
+    ].filter(Boolean).join(' / ');
+    const supplierEmail = purchaseOrder.supplier.email?.trim() || '';
 
     const billBgBase64 = settings?.bill_background_base64 as string | undefined;
     const hasBillBg = Boolean(billBgBase64);
@@ -118,15 +164,10 @@ export class PDFGenerator {
 <html lang="en"${hasBillBg ? ' class="bill-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Order - ${purchaseOrder.po_number}</title>
+    <title>Purchase Order ${escapeHtml(purchaseOrder.po_number)}</title>
     <style>
         @page { size: A4; margin: 0; }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         ${hasBillBg ? `
         html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
         .bill-bg-layer {
@@ -141,378 +182,159 @@ export class PDFGenerator {
         }
         html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
         ` : ''}
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: Calibri, Arial, Helvetica, sans-serif;
+            font-size: 11pt;
+            color: #000;
             background: ${hasBillBg ? 'transparent' : 'white'};
+            line-height: 1.35;
         }
+        /* Top padding clears the letterhead band; bottom clears the footer band. */
+        .page { padding: ${hasBillBg ? '50mm 18mm 25mm 18mm' : '18mm 18mm 20mm 18mm'}; }
 
-        /* When the letterhead background is on, reserve top/bottom bands. */
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: ${hasBillBg ? '50mm 18mm 25mm 18mm' : '20px'};
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        
-        .company-info h1 {
-            font-size: 24px;
-            color: #1f2937;
-            margin-bottom: 5px;
-        }
-        
-        .company-info p {
-            color: #6b7280;
-            font-size: 14px;
-        }
-        
-        .po-info {
-            text-align: right;
-        }
-        
-        .po-number {
-            font-size: 28px;
+        .title {
+            text-align: center;
             font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 10px;
+            font-size: 14pt;
+            letter-spacing: 0.5px;
+            margin-bottom: 14px;
         }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: white;
-            background-color: ${getStatusColor(purchaseOrder.status)};
-        }
-        
-        .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-        
-        .section {
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        
-        .section h3 {
-            color: #1f2937;
-            margin-bottom: 15px;
-            font-size: 16px;
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 8px;
-        }
-        
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
-        .detail-label {
-            color: #6b7280;
-            font-weight: 500;
-        }
-        
-        .detail-value {
-            color: #1f2937;
-            font-weight: 600;
-        }
-        
-        .items-table {
+        .header-row { display: flex; gap: 0; margin-bottom: 14px; }
+        .box { border: 1px solid #000; padding: 10px 12px; min-height: 120px; }
+        .box.supplier { flex: 1.2; border-right: 0; }
+        .box.po-details { flex: 1; }
+        .box .heading { font-weight: bold; margin-bottom: 8px; }
+        .kv-line { margin-bottom: 4px; white-space: nowrap; }
+        .kv-line .k { display: inline-block; min-width: 110px; }
+        .kv-line .label { font-weight: bold; }
+
+        table.items {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-top: 0;
         }
-        
-        .items-table th {
-            background: #f3f4f6;
-            color: #374151;
-            font-weight: 600;
-            padding: 12px;
-            text-align: left;
-            font-size: 14px;
+        table.items th, table.items td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            vertical-align: top;
         }
-        
-        .items-table td {
-            padding: 12px;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 14px;
+        table.items th { text-align: center; font-weight: bold; background: #fff; }
+        .col-sn { width: 7%; text-align: center; }
+        .col-particulars { width: 47%; }
+        .col-qty { width: 14%; text-align: center; }
+        .col-price { width: 14%; text-align: right; }
+        .col-amount { width: 18%; text-align: right; }
+
+        .item-row .col-particulars { padding-top: 10px; padding-bottom: 10px; }
+        .item-name { font-weight: 600; }
+        .item-sku { margin-top: 2px; font-size: 9.5pt; }
+        .item-desc { margin-top: 3px; font-size: 9.5pt; }
+
+        .filler-row td { height: 140px; border-top: 0 !important; border-bottom: 0; }
+        .last-item-row td { border-bottom: 0 !important; }
+
+        .totals-row td { font-weight: bold; }
+        .totals-row td.label { text-align: right; }
+
+        .in-words { margin-top: 20px; font-weight: bold; }
+
+        .terms {
+            margin-top: 16px;
+            font-size: 10pt;
         }
-        
-        .items-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .product-name {
-            font-weight: 600;
-            color: #1f2937;
-        }
-        
-        .product-sku {
-            color: #6b7280;
-            font-size: 12px;
-        }
-        
-        .product-description {
-            color: #6b7280;
-            font-size: 12px;
-            margin-top: 2px;
-        }
-        
-        .quantity-info {
-            font-weight: 600;
-        }
-        
-        .received-info {
-            color: #10b981;
-            font-size: 12px;
-            margin-top: 2px;
-        }
-        
-        .pending-info {
-            color: #f59e0b;
-            font-size: 12px;
-            margin-top: 2px;
-        }
-        
-        .price {
-            font-weight: 600;
-            color: #1f2937;
-        }
-        
-        .status-received {
-            color: #10b981;
-            font-weight: 600;
-        }
-        
-        .status-partial {
-            color: #f97316;
-            font-weight: 600;
-        }
-        
-        .status-pending {
-            color: #f59e0b;
-            font-weight: 600;
-        }
-        
-        .totals {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-        
-        .totals-table {
-            width: 300px;
-        }
-        
-        .totals-table tr td {
-            padding: 8px 12px;
-            border: none;
-        }
-        
-        .totals-table tr:last-child {
-            border-top: 2px solid #e5e7eb;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        
-        .totals-table tr:last-child td {
-            padding-top: 12px;
-        }
-        
-        .notes {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f9fafb;
-            border-radius: 8px;
-        }
-        
-        .notes h3 {
-            color: #1f2937;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        
-        .notes p {
-            color: #6b7280;
-            line-height: 1.6;
-        }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-            color: #6b7280;
-            font-size: 12px;
+        .terms .heading { font-weight: bold; margin-bottom: 4px; }
+        .terms .line { margin-bottom: 2px; }
+
+        .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+        .sign-col { flex: 1; text-align: center; font-size: 10.5pt; }
+        .sign-line {
+            border-top: 1px solid #000;
+            width: 70%;
+            margin: 0 auto 4px auto;
+            height: 0;
         }
     </style>
 </head>
 <body>
     ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            ${hasBillBg ? '<div class="company-info"></div>' : `<div class="company-info">
-                <h1>${esc(companyName)}</h1>
-                ${companyAddress ? `<p>${esc(companyAddress)}</p>` : ''}
-                ${contactLine ? `<p>${contactLine}</p>` : ''}
-            </div>`}
-            <div class="po-info">
-                <div class="po-number">${purchaseOrder.po_number}</div>
-                <div class="status-badge">${purchaseOrder.status.replace('_', ' ')}</div>
+    <div class="page">
+        <div class="title">PURCHASE ORDER</div>
+
+        <div class="header-row">
+            <div class="box supplier">
+                <div class="heading">Supplier</div>
+                <div class="kv-line"><span class="k label">Company</span> :- ${escapeHtml(purchaseOrder.supplier.name)}</div>
+                ${supplierAddress ? `<div class="kv-line"><span class="k label">Address</span> :- ${escapeHtml(supplierAddress)}</div>` : ''}
+                ${supplierContactBits ? `<div class="kv-line"><span class="k label">Contact</span> :- ${escapeHtml(supplierContactBits)}</div>` : ''}
+                ${supplierEmail ? `<div class="kv-line"><span class="k label">Email</span> :- ${escapeHtml(supplierEmail)}</div>` : ''}
+            </div>
+            <div class="box po-details">
+                <div class="kv-line"><span class="k label">PO No</span> :- ${escapeHtml(purchaseOrder.po_number)}</div>
+                <div class="kv-line"><span class="k label">Order Date</span> :- ${formatDate(purchaseOrder.order_date)}</div>
+                <div class="kv-line"><span class="k label">Expected</span> :- ${formatDate(purchaseOrder.expected_delivery_date)}</div>
+                ${purchaseOrder.actual_delivery_date ? `<div class="kv-line"><span class="k label">Delivered</span> :- ${formatDate(purchaseOrder.actual_delivery_date)}</div>` : ''}
+                <div class="kv-line"><span class="k label">Payment</span> :- ${escapeHtml(purchaseOrder.payment_terms || '')}</div>
+                <div class="kv-line"><span class="k label">Delivery</span> :- ${escapeHtml(purchaseOrder.delivery_terms || '')}</div>
+                <div class="kv-line"><span class="k label">Status</span> :- ${escapeHtml(purchaseOrder.status.replace(/_/g, ' ').toUpperCase())}</div>
             </div>
         </div>
 
-        <!-- Details Grid -->
-        <div class="details-grid">
-            <div class="section">
-                <h3>Order Information</h3>
-                <div class="detail-row">
-                    <span class="detail-label">Order Date:</span>
-                    <span class="detail-value">${formatDate(purchaseOrder.order_date)}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Expected Delivery:</span>
-                    <span class="detail-value">${formatDate(purchaseOrder.expected_delivery_date)}</span>
-                </div>
-                ${purchaseOrder.actual_delivery_date ? `
-                <div class="detail-row">
-                    <span class="detail-label">Actual Delivery:</span>
-                    <span class="detail-value">${formatDate(purchaseOrder.actual_delivery_date)}</span>
-                </div>
-                ` : ''}
-                <div class="detail-row">
-                    <span class="detail-label">Priority:</span>
-                    <span class="detail-value">${purchaseOrder.priority.toUpperCase()}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Payment Terms:</span>
-                    <span class="detail-value">${purchaseOrder.payment_terms}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Delivery Terms:</span>
-                    <span class="detail-value">${purchaseOrder.delivery_terms}</span>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>Supplier Information</h3>
-                <div class="detail-row">
-                    <span class="detail-label">Company:</span>
-                    <span class="detail-value">${purchaseOrder.supplier.name}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Code:</span>
-                    <span class="detail-value">${purchaseOrder.supplier.id}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Contact:</span>
-                    <span class="detail-value">${purchaseOrder.supplier.contact_person || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Email:</span>
-                    <span class="detail-value">${purchaseOrder.supplier.email || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Phone:</span>
-                    <span class="detail-value">${purchaseOrder.supplier.phone || 'N/A'}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Items Table -->
-        <table class="items-table">
+        <table class="items">
             <thead>
                 <tr>
-                    <th>Product</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th>Total</th>
-                    <th>Status</th>
+                    <th class="col-sn">Sl. No</th>
+                    <th class="col-particulars">Particulars</th>
+                    <th class="col-qty">Quantity</th>
+                    <th class="col-price">Unit Price</th>
+                    <th class="col-amount">Amount</th>
                 </tr>
             </thead>
             <tbody>
-                ${purchaseOrder.line_items?.map(item => {
-                  const receivedQty = item.received_quantity || 0;
-                  const pendingQty = item.quantity - receivedQty;
-                  const totalPrice = item.quantity * item.unit_price;
-                  
-                  let statusClass = 'status-pending';
-                  let statusText = 'Pending';
-                  
-                  if (receivedQty === item.quantity) {
-                    statusClass = 'status-received';
-                    statusText = 'Received';
-                  } else if (receivedQty > 0) {
-                    statusClass = 'status-partial';
-                    statusText = 'Partial';
-                  }
-                  
-                  return `
-                    <tr>
-                        <td>
-                            <div class="product-name">${item.product_name}</div>
-                            <div class="product-sku">SKU: ${item.product_sku || 'N/A'}</div>
-                            ${item.description ? `<div class="product-description">${item.description}</div>` : ''}
-                        </td>
-                        <td>
-                            <div class="quantity-info">${item.quantity} ${item.unit_of_measure || 'pcs'}</div>
-                            ${receivedQty > 0 ? `<div class="received-info">Received: ${receivedQty}</div>` : ''}
-                            ${pendingQty > 0 ? `<div class="pending-info">Pending: ${pendingQty}</div>` : ''}
-                        </td>
-                        <td class="price">${formatCurrency(item.unit_price)}</td>
-                        <td class="price">${formatCurrency(totalPrice)}</td>
-                        <td class="${statusClass}">${statusText}</td>
-                    </tr>
-                  `;
-                }).join('') || '<tr><td colspan="5" style="text-align: center; color: #6b7280;">No items found</td></tr>'}
+                ${itemsHtml}
+                <tr class="filler-row">
+                    <td class="col-sn"></td>
+                    <td class="col-particulars"></td>
+                    <td class="col-qty"></td>
+                    <td class="col-price"></td>
+                    <td class="col-amount"></td>
+                </tr>
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Sub Total</td>
+                    <td class="col-qty">${formatQty(totalQty)}</td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(subTotal)}</td>
+                </tr>
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Total Amount</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(grandTotal)}</td>
+                </tr>
             </tbody>
         </table>
 
-        <!-- Totals -->
-        <div class="totals">
-            <table class="totals-table">
-                <tr>
-                    <td>Total:</td>
-                    <td style="text-align: right;">${formatCurrency(purchaseOrder.total_amount)}</td>
-                </tr>
-            </table>
-        </div>
+        <div class="in-words">Amount In Words: ${escapeHtml(amountInWords)} Only</div>
 
-        <!-- Notes -->
-        ${purchaseOrder.notes ? `
-        <div class="notes">
-            <h3>Order Notes</h3>
-            <p>${purchaseOrder.notes}</p>
+        ${purchaseOrder.notes?.trim() ? `
+        <div class="terms">
+            <div class="heading">Notes</div>
+            <div class="line">${escapeHtml(purchaseOrder.notes).replace(/\n/g, '<br>')}</div>
         </div>
         ` : ''}
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>Generated on ${formatDate(new Date().toISOString())} | Purchase Order ${purchaseOrder.po_number}</p>
+        <div class="signatures">
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Prepared By
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Approved By
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Authorized Signature
+            </div>
         </div>
     </div>
 </body>

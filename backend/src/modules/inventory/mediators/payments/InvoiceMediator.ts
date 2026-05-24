@@ -66,6 +66,19 @@ export class InvoiceMediator {
         if (poCheck.rows.length === 0) {
           throw new Error("Purchase order not found");
         }
+
+        // Block duplicate invoices for the same PO (ignore cancelled ones)
+        const existing = await client.query(
+          `SELECT invoice_number FROM invoices
+            WHERE purchase_order_id = $1 AND status <> 'cancelled'
+            LIMIT 1`,
+          [data.purchase_order_id]
+        );
+        if (existing.rows.length > 0) {
+          throw new Error(
+            `Invoice ${existing.rows[0].invoice_number} already exists for this purchase order`
+          );
+        }
       }
 
       const query = `
