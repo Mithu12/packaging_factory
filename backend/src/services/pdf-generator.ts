@@ -110,31 +110,50 @@ export class PDFGenerator {
     };
 
 
+    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
+    const hasBillBg = Boolean(billBgBase64);
+
     return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"${hasBillBg ? ' class="bill-with-bg"' : ''}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Purchase Order - ${purchaseOrder.po_number}</title>
     <style>
+        @page { size: A4; margin: 0; }
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+        ${hasBillBg ? `
+        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
+        .bill-bg-layer {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+            background-image: url("${billBgBase64}");
+            background-repeat: no-repeat;
+            background-position: center top;
+            background-size: 100% 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
+        ` : ''}
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: white;
+            background: ${hasBillBg ? 'transparent' : 'white'};
         }
-        
+
+        /* When the letterhead background is on, reserve top/bottom bands. */
         .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
+            padding: ${hasBillBg ? '50mm 18mm 25mm 18mm' : '20px'};
         }
         
         .header {
@@ -352,14 +371,15 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
+    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="company-info">
+            ${hasBillBg ? '<div class="company-info"></div>' : `<div class="company-info">
                 <h1>${esc(companyName)}</h1>
                 ${companyAddress ? `<p>${esc(companyAddress)}</p>` : ''}
                 ${contactLine ? `<p>${contactLine}</p>` : ''}
-            </div>
+            </div>`}
             <div class="po-info">
                 <div class="po-number">${purchaseOrder.po_number}</div>
                 <div class="status-badge">${purchaseOrder.status.replace('_', ' ')}</div>
@@ -518,6 +538,9 @@ export class PDFGenerator {
         MyLogger.warn(`${action}.settingsError`, settingsError);
       }
 
+      const billBg = this.loadBillBackgroundBase64(action);
+      if (billBg) settingsData.bill_background_base64 = billBg;
+
       const browser = await this.getBrowser();
       const page = await browser.newPage();
 
@@ -527,16 +550,14 @@ export class PDFGenerator {
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
-      // Generate PDF
+      // Generate PDF. Zero Chromium margins so the letterhead background can
+      // print edge-to-edge; the HTML reserves its own header / footer bands.
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px'
-        }
+        margin: billBg
+          ? { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+          : { top: '20px', right: '20px', bottom: '20px', left: '20px' },
       });
 
       await page.close();

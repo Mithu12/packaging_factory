@@ -44,9 +44,11 @@ import {
   ProductLocationQueryParams 
 } from "@/modules/inventory/services/distribution-api";
 import { InventoryStats, StockMovement } from "@/services/types";
+import { useFormatting } from "@/hooks/useFormatting";
 
 export default function Inventory() {
   const router = useRouter();
+  const { formatCurrency } = useFormatting();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedDC, setSelectedDC] = useState<string>("all");
@@ -242,7 +244,11 @@ export default function Inventory() {
             <BarChart3 className="w-4 h-4 mr-2" />
             Reports
           </Button>
-          <Button type="button" variant="add">
+          <Button
+            type="button"
+            variant="add"
+            onClick={() => router.push("/inventory/stock-adjustments/bulk")}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Stock Adjustment
           </Button>
@@ -259,7 +265,7 @@ export default function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalInventoryValue.toLocaleString()}
+              {formatCurrency(totalInventoryValue)}
             </div>
             <p className="text-xs text-success">+5.2% this month</p>
           </CardContent>
@@ -449,10 +455,10 @@ export default function Inventory() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              ${((item.current_stock || 0) * (item.cost_price || 0)).toLocaleString()}
+                              {formatCurrency((item.current_stock || 0) * (item.cost_price || 0))}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              ${item.cost_price || 0} per unit
+                              {formatCurrency(item.cost_price || 0)} per unit
                             </div>
                           </div>
                         </TableCell>
@@ -462,7 +468,7 @@ export default function Inventory() {
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 rounded">Retail</span>
                                 <span className="text-sm font-semibold text-emerald-700">
-                                  ${item.selling_price}
+                                  {formatCurrency(item.selling_price)}
                                 </span>
                               </div>
                             )}
@@ -470,7 +476,7 @@ export default function Inventory() {
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-1 rounded">Wholesale</span>
                                 <span className="text-sm font-semibold text-blue-700">
-                                  ${item.wholesale_price}
+                                  {formatCurrency(item.wholesale_price)}
                                 </span>
                               </div>
                             )}
