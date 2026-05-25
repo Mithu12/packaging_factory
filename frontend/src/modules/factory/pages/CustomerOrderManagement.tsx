@@ -352,6 +352,82 @@ export default function CustomerOrderManagement() {
     // The orders are already filtered by the API based on search and status
     const filteredOrders = orders;
 
+    // Export the currently visible rows to CSV. We export only what the user
+    // sees so the file matches the on-screen result of search + status filter.
+    const handleExport = () => {
+        if (filteredOrders.length === 0) {
+            toast.error('Nothing to export');
+            return;
+        }
+
+        const isQuotations = mainTab === 'quotations';
+        const headers = [
+            isQuotations ? 'Quotation No' : 'Order No',
+            'Company PO No',
+            'Customer',
+            'Customer Email',
+            'Factory',
+            'Order Date',
+            'Required Date',
+            'Subtotal',
+            'VAT',
+            'Total (incl. VAT)',
+            'Status',
+            'Order Qty',
+            'Delivery Qty',
+        ];
+
+        const escape = (value: unknown) => {
+            const str = value == null ? '' : String(value);
+            return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        };
+
+        const rows = filteredOrders.map((order) => {
+            const subtotal = Number(order.total_value) || 0;
+            const vatAmount =
+                Number(order.tax_amount ?? 0) ||
+                (subtotal * Number(order.tax_rate ?? 0)) / 100;
+            const totalWithVat = subtotal + vatAmount;
+            const orderQty = (order.line_items ?? []).reduce(
+                (sum, li) => sum + (Number(li.quantity) || 0),
+                0,
+            );
+            const deliveryQty = (order.line_items ?? []).reduce(
+                (sum, li) => sum + (Number(li.delivered_qty) || 0),
+                0,
+            );
+
+            return [
+                order.order_number,
+                order.po_number || '',
+                order.factory_customer_name,
+                order.factory_customer_email,
+                order.factory_name || '',
+                formatDate(order.order_date),
+                formatDate(order.required_date),
+                subtotal.toFixed(2),
+                vatAmount.toFixed(2),
+                totalWithVat.toFixed(2),
+                order.status.replace(/_/g, ' ').toUpperCase(),
+                orderQty,
+                deliveryQty,
+            ].map(escape).join(',');
+        });
+
+        const csv = [headers.map(escape).join(','), ...rows].join('\r\n');
+        // BOM keeps Excel happy with non-ASCII (Bengali names, ৳, etc.).
+        const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = `${isQuotations ? 'quotations' : 'orders'}-${stamp}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case "draft":
@@ -469,7 +545,7 @@ export default function CustomerOrderManagement() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={handleExport}>
                         <Download className="h-4 w-4 mr-2"/>
                         Export
                     </Button>
