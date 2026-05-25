@@ -5,11 +5,14 @@ import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { FactoryCustomerPayment, RecordFactoryOrderPaymentRequest } from '@/types/factory';
 import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
 
-/** Firm orders only: no payments on draft / quote / pending in acceptance queue. */
+/** Firm orders only: no payments on draft / quote / pending in acceptance queue.
+ *  Partially-shipped orders carry an outstanding balance, so we accept payments
+ *  on them too. */
 const ORDER_STATUSES_ALLOWING_PAYMENT = [
   'approved',
   'in_production',
   'completed',
+  'partially_shipped',
   'shipped',
 ] as const;
 
