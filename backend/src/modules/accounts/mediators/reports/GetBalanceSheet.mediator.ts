@@ -26,80 +26,94 @@ export class GetBalanceSheetMediator implements MediatorInterface {
       // Set default date if not provided (current date)
       const defaultAsOfDate = asOfDate || new Date().toISOString().split('T')[0];
 
-      // Build the main query to get account balances as of the specified date
+      // Build the main query to get account balances as of the specified date.
+      // Assets carry a natural debit balance, Liabilities and Equity a natural
+      // credit balance, so balances are sign-normalized per category to come out
+      // positive. The category CHECK constraint only permits the five base
+      // categories, so Current vs Non-current is derived from the account code
+      // prefix (Assets 15xx-19xx = Non-current; Liabilities 25xx-29xx = Non-current).
       const query = `
         WITH account_balances AS (
-          SELECT 
+          SELECT
             coa.id,
             coa.code,
             coa.name,
             coa.category,
             coa.type,
             coa.parent_id,
-            -- Calculate balance as of the specified date
+            -- Calculate balance as of the specified date, sign-normalized per category
             COALESCE(
-              (SELECT SUM(le.debit - le.credit) 
+              (SELECT SUM(
+                 CASE WHEN coa.category = 'Assets'
+                      THEN le.debit - le.credit
+                      ELSE le.credit - le.debit
+                 END)
                FROM ledger_entries le
                JOIN vouchers v ON le.voucher_id = v.id
-               WHERE le.account_id = coa.id 
-               AND v.date <= $1 
+               WHERE le.account_id = coa.id
+               AND v.date <= $1
                AND v.status = 'Posted'
-               ${costCenterId ? 'AND (le.cost_center_id = $2 OR le.cost_center_id IS NULL)' : ''}
-              ), 
+               ${costCenterId ? 'AND le.cost_center_id = $2' : ''}
+              ),
               0
             ) as balance
           FROM chart_of_accounts coa
           WHERE coa.type = 'Posting'
+            AND coa.category IN ('Assets', 'Liabilities', 'Equity')
         ),
         categorized_accounts AS (
-          SELECT 
+          SELECT
             *,
-            CASE 
-              WHEN category IN ('Assets', 'Current Assets', 'Non-current Assets', 'Fixed Assets') THEN 'Assets'
-              WHEN category IN ('Liabilities', 'Current Liabilities', 'Non-current Liabilities', 'Long-term Liabilities') THEN 'Liabilities'
-              WHEN category IN ('Equity', 'Owner Equity', 'Shareholder Equity', 'Capital') THEN 'Equity'
-              ELSE 
-                CASE 
-                  WHEN category LIKE '%Asset%' THEN 'Assets'
-                  WHEN category LIKE '%Liability%' OR category LIKE '%Payable%' THEN 'Liabilities'
-                  WHEN category LIKE '%Equity%' OR category LIKE '%Capital%' THEN 'Equity'
-                  ELSE 'Assets' -- Default to Assets for unknown categories
-                END
-            END as balance_sheet_category,
-            CASE 
-              WHEN category IN ('Current Assets', 'Cash', 'Receivables', 'Inventory') THEN 'Current Assets'
-              WHEN category IN ('Fixed Assets', 'Non-current Assets', 'Property Plant Equipment') THEN 'Non-current Assets'
-              WHEN category IN ('Current Liabilities', 'Payables', 'Accrued Expenses') THEN 'Current Liabilities'
-              WHEN category IN ('Non-current Liabilities', 'Long-term Liabilities', 'Term Loans') THEN 'Non-current Liabilities'
-              WHEN category IN ('Owner Equity', 'Shareholder Equity', 'Capital', 'Retained Earnings') THEN 'Equity'
-              ELSE category
+            category as balance_sheet_category,
+            CASE
+              WHEN category = 'Assets' AND code ~ '^1[5-9]' THEN 'Non-current Assets'
+              WHEN category = 'Assets' THEN 'Current Assets'
+              WHEN category = 'Liabilities' AND code ~ '^2[5-9]' THEN 'Non-current Liabilities'
+              WHEN category = 'Liabilities' THEN 'Current Liabilities'
+              ELSE 'Equity'
             END as subcategory
           FROM account_balances
-          WHERE balance != 0 OR category IN ('Assets', 'Liabilities', 'Equity', 'Current Assets', 'Non-current Assets', 'Current Liabilities', 'Non-current Liabilities')
+          WHERE balance != 0
         )
-        SELECT 
+        SELECT
           balance_sheet_category,
           subcategory,
           category,
           name,
           balance
         FROM categorized_accounts
-        ORDER BY 
-          CASE balance_sheet_category 
-            WHEN 'Assets' THEN 1 
-            WHEN 'Liabilities' THEN 2 
-            WHEN 'Equity' THEN 3 
+        ORDER BY
+          CASE balance_sheet_category
+            WHEN 'Assets' THEN 1
+            WHEN 'Liabilities' THEN 2
+            WHEN 'Equity' THEN 3
           END,
           subcategory,
           name
       `;
 
-      const values = costCenterId 
+      const values = costCenterId
         ? [defaultAsOfDate, costCenterId]
         : [defaultAsOfDate];
 
       const result = await pool.query(query, values);
       const accounts = result.rows;
+
+      // Retained earnings: cumulative net income (Revenue credits less Expense
+      // debits) for all posted vouchers up to the as-of date. P&L accounts are not
+      // on the balance sheet, but their net must roll into equity for it to balance.
+      const retainedEarningsQuery = `
+        SELECT COALESCE(SUM(le.credit - le.debit), 0) as retained_earnings
+        FROM ledger_entries le
+        JOIN vouchers v ON le.voucher_id = v.id
+        JOIN chart_of_accounts coa ON le.account_id = coa.id
+        WHERE v.date <= $1
+          AND v.status = 'Posted'
+          AND coa.category IN ('Revenue', 'Expenses')
+          ${costCenterId ? 'AND le.cost_center_id = $2' : ''}
+      `;
+      const retainedEarningsResult = await pool.query(retainedEarningsQuery, values);
+      const retainedEarnings = parseFloat(retainedEarningsResult.rows[0]?.retained_earnings || 0);
 
       // Group accounts by balance sheet category and subcategory
       const groupedAccounts = accounts.reduce((acc: any, account: any) => {
@@ -153,11 +167,27 @@ export class GetBalanceSheetMediator implements MediatorInterface {
       // Build Equity sections
       const equity = buildSections(groupedAccounts['Equity'] || {});
 
+      // Add cumulative net income as Retained Earnings so equity reflects P&L
+      if (retainedEarnings !== 0) {
+        equity.push({
+          label: 'Retained Earnings',
+          amount: retainedEarnings,
+          category: 'Equity',
+          children: [
+            {
+              label: 'Current & Accumulated Earnings',
+              amount: retainedEarnings,
+              category: 'Equity'
+            }
+          ]
+        });
+      }
+
       // Calculate totals
       const totalAssets = assets.reduce((sum, section) => sum + section.amount, 0);
       const totalLiabilities = liabilities.reduce((sum, section) => sum + section.amount, 0);
       const totalEquity = equity.reduce((sum, section) => sum + section.amount, 0);
-      
+
       // Check if balance sheet balances (Assets = Liabilities + Equity)
       const balanceCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
 

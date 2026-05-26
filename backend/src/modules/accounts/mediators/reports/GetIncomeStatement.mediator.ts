@@ -30,41 +30,47 @@ export class GetIncomeStatementMediator implements MediatorInterface {
       const defaultDateFrom = dateFrom || `${currentYear}-01-01`;
       const defaultDateTo = dateTo || `${currentYear}-12-31`;
 
-      // Build the main query to get account balances from ledger entries
+      // Build the main query to get account balances from ledger entries.
+      // net_amount uses (credit - debit) so Revenue/Income come out positive and
+      // expenses come out negative, matching how the sections are summed below.
+      // The chart_of_accounts.category CHECK constraint only permits the five base
+      // categories, so finer P&L buckets (COGS vs Operating vs Other) are derived
+      // from the account code prefix instead: 50xx = COGS, 7xxx = Other Expenses,
+      // 6xxx Revenue accounts = Other Income.
       const query = `
         WITH account_balances AS (
-          SELECT 
+          SELECT
             coa.id,
             coa.code,
             coa.name,
             coa.category,
             coa.type,
             coa.parent_id,
-            COALESCE(SUM(le.debit - le.credit), 0) as net_amount
+            COALESCE(SUM(le.credit - le.debit), 0) as net_amount
           FROM chart_of_accounts coa
-          LEFT JOIN ledger_entries le ON coa.id = le.account_id
-          LEFT JOIN vouchers v ON le.voucher_id = v.id
-          WHERE 
+          INNER JOIN ledger_entries le ON coa.id = le.account_id
+          INNER JOIN vouchers v ON le.voucher_id = v.id
+          WHERE
             coa.type = 'Posting'
-            AND (le.id IS NULL OR (v.date >= $1 AND v.date <= $2 AND v.status = 'Posted'))
-            ${costCenterId ? 'AND (le.cost_center_id = $3 OR le.cost_center_id IS NULL)' : ''}
+            AND v.date >= $1 AND v.date <= $2 AND v.status = 'Posted'
+            ${costCenterId ? 'AND le.cost_center_id = $3' : ''}
           GROUP BY coa.id, coa.code, coa.name, coa.category, coa.type, coa.parent_id
         ),
         categorized_accounts AS (
-          SELECT 
+          SELECT
             *,
-            CASE 
-              WHEN category IN ('Revenue', 'Income') THEN 'Revenue'
-              WHEN category IN ('Cost of Goods Sold', 'COGS') THEN 'Cost of Goods Sold'
-              WHEN category IN ('Expense', 'Expenses', 'Operating Expenses') THEN 'Operating Expenses'
-              WHEN category IN ('Other Income') THEN 'Other Income'
-              WHEN category IN ('Other Expenses', 'Finance Charges') THEN 'Other Expenses'
+            CASE
+              WHEN category = 'Revenue' AND code LIKE '6%' THEN 'Other Income'
+              WHEN category = 'Revenue' THEN 'Revenue'
+              WHEN category = 'Expenses' AND code LIKE '50%' THEN 'Cost of Goods Sold'
+              WHEN category = 'Expenses' AND code LIKE '7%' THEN 'Other Expenses'
+              WHEN category = 'Expenses' THEN 'Operating Expenses'
               ELSE 'Other'
             END as statement_category
           FROM account_balances
-          WHERE category IN ('Revenue', 'Income', 'Cost of Goods Sold', 'COGS', 'Expense', 'Expenses', 'Operating Expenses', 'Other Income', 'Other Expenses', 'Finance Charges')
+          WHERE category IN ('Revenue', 'Expenses')
         )
-        SELECT 
+        SELECT
           statement_category,
           category,
           name,
@@ -95,62 +101,57 @@ export class GetIncomeStatementMediator implements MediatorInterface {
         return accounts.reduce((sum, account) => sum + parseFloat(account.net_amount || 0), 0);
       };
 
-      // Build income statement sections
+      // Build income statement sections. net_amount is already sign-normalized:
+      // Revenue/Other Income are positive, expense buckets are negative.
       const sections: IncomeStatementSection[] = [];
 
+      const mapChildren = (accounts: any[]): IncomeStatementSection[] =>
+        accounts.map((account: any) => ({
+          label: account.name,
+          amount: parseFloat(account.net_amount || 0)
+        }));
+
       // Revenue Section
+      const revenue = calculateCategoryTotal(groupedAccounts['Revenue'] || []);
       if (groupedAccounts['Revenue']) {
-        const revenueTotal = calculateCategoryTotal(groupedAccounts['Revenue']);
         sections.push({
           label: 'Revenue',
-          amount: revenueTotal,
-          children: groupedAccounts['Revenue'].map((account: any) => ({
-            label: account.name,
-            amount: parseFloat(account.net_amount || 0)
-          }))
+          amount: revenue,
+          children: mapChildren(groupedAccounts['Revenue'])
         });
       }
 
-      // Cost of Goods Sold Section
+      // Cost of Goods Sold Section (negative)
+      const cogs = calculateCategoryTotal(groupedAccounts['Cost of Goods Sold'] || []);
       if (groupedAccounts['Cost of Goods Sold']) {
-        const cogsTotal = -calculateCategoryTotal(groupedAccounts['Cost of Goods Sold']);
         sections.push({
           label: 'Cost of Goods Sold',
-          amount: cogsTotal,
-          children: groupedAccounts['Cost of Goods Sold'].map((account: any) => ({
-            label: account.name,
-            amount: -parseFloat(account.net_amount || 0)
-          }))
+          amount: cogs,
+          children: mapChildren(groupedAccounts['Cost of Goods Sold'])
         });
       }
 
       // Calculate Gross Profit
-      const revenue = sections.find(s => s.label === 'Revenue')?.amount || 0;
-      const cogs = sections.find(s => s.label === 'Cost of Goods Sold')?.amount || 0;
       const grossProfit = revenue + cogs; // COGS is already negative
 
-      if (revenue > 0 || cogs < 0) {
+      if (revenue !== 0 || cogs !== 0) {
         sections.push({
           label: 'Gross Profit',
           amount: grossProfit
         });
       }
 
-      // Operating Expenses Section
+      // Operating Expenses Section (negative)
+      const operatingExpenses = calculateCategoryTotal(groupedAccounts['Operating Expenses'] || []);
       if (groupedAccounts['Operating Expenses']) {
-        const expensesTotal = -calculateCategoryTotal(groupedAccounts['Operating Expenses']);
         sections.push({
           label: 'Operating Expenses',
-          amount: expensesTotal,
-          children: groupedAccounts['Operating Expenses'].map((account: any) => ({
-            label: account.name,
-            amount: -parseFloat(account.net_amount || 0)
-          }))
+          amount: operatingExpenses,
+          children: mapChildren(groupedAccounts['Operating Expenses'])
         });
       }
 
       // Calculate Operating Income
-      const operatingExpenses = sections.find(s => s.label === 'Operating Expenses')?.amount || 0;
       const operatingIncome = grossProfit + operatingExpenses; // Operating expenses is already negative
 
       if (grossProfit !== 0 || operatingExpenses !== 0) {
@@ -163,37 +164,18 @@ export class GetIncomeStatementMediator implements MediatorInterface {
       // Other Income/Expenses Section
       const otherIncomeAccounts = groupedAccounts['Other Income'] || [];
       const otherExpenseAccounts = groupedAccounts['Other Expenses'] || [];
-      
+      const otherAmount =
+        calculateCategoryTotal(otherIncomeAccounts) + calculateCategoryTotal(otherExpenseAccounts);
+
       if (otherIncomeAccounts.length > 0 || otherExpenseAccounts.length > 0) {
-        const otherIncomeTotal = calculateCategoryTotal(otherIncomeAccounts);
-        const otherExpenseTotal = -calculateCategoryTotal(otherExpenseAccounts);
-        const netOtherAmount = otherIncomeTotal + otherExpenseTotal;
-
-        const otherChildren: IncomeStatementSection[] = [];
-        
-        otherIncomeAccounts.forEach((account: any) => {
-          otherChildren.push({
-            label: account.name,
-            amount: parseFloat(account.net_amount || 0)
-          });
-        });
-
-        otherExpenseAccounts.forEach((account: any) => {
-          otherChildren.push({
-            label: account.name,
-            amount: -parseFloat(account.net_amount || 0)
-          });
-        });
-
         sections.push({
           label: 'Other Income / Expense',
-          amount: netOtherAmount,
-          children: otherChildren
+          amount: otherAmount,
+          children: [...mapChildren(otherIncomeAccounts), ...mapChildren(otherExpenseAccounts)]
         });
       }
 
       // Calculate Net Income
-      const otherAmount = sections.find(s => s.label === 'Other Income / Expense')?.amount || 0;
       const netIncome = operatingIncome + otherAmount;
 
       sections.push({
@@ -201,10 +183,11 @@ export class GetIncomeStatementMediator implements MediatorInterface {
         amount: netIncome
       });
 
-      // Calculate totals
+      // Calculate totals. Expense buckets are negative, so summing and negating
+      // yields the positive magnitude of total expenses.
       const totals = {
         revenue,
-        expenses: Math.abs(cogs + operatingExpenses + (otherAmount < 0 ? otherAmount : 0)),
+        expenses: -(cogs + operatingExpenses + (otherAmount < 0 ? otherAmount : 0)),
         grossProfit,
         netIncome
       };

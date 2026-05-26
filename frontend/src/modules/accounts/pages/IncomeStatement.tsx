@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Filter,
   Presentation,
-  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -331,7 +330,7 @@ export default function IncomeStatement() {
                     <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Total expenses</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xl font-semibold text-rose-600">{formatCurrency(Math.abs(totals.expenses))}</p>
+                    <p className="text-xl font-semibold text-rose-600">{formatCurrency(totals.expenses)}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/60 bg-muted/20">
