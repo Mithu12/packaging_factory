@@ -21,6 +21,16 @@ export const completeProductionRunSchema = Joi.object({
   good_quantity: Joi.number().min(0).optional(),
   rejected_quantity: Joi.number().min(0).optional(),
   notes: Joi.string().max(500).allow('', null).optional(),
+  // Plates used in this run; recorded as a whole (a run may use/break several).
+  plates_used: Joi.array()
+    .items(
+      Joi.object({
+        plate_id: numericIdSchema.required(),
+        outcome: Joi.string().valid('used', 'broke').default('used'),
+        notes: Joi.string().max(255).allow('', null).optional(),
+      })
+    )
+    .optional(),
 });
 
 export const pauseProductionRunSchema = Joi.object({

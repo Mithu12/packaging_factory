@@ -81,11 +81,18 @@ export interface CreateProductionRunRequest {
   notes?: string;
 }
 
+export interface PlateUsageInput {
+  plate_id: number;
+  outcome: 'used' | 'broke';
+  notes?: string;
+}
+
 export interface CompleteProductionRunRequest {
   produced_quantity?: number;
   good_quantity?: number;
   rejected_quantity?: number;
   notes?: string;
+  plates_used?: PlateUsageInput[];
 }
 
 export interface RecordDowntimeRequest {

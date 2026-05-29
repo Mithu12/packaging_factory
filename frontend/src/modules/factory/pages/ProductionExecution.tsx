@@ -70,6 +70,8 @@ import {
   type ProductionLine,
   type Operator,
 } from "@/services/work-orders-api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PlatesApiService, platesQueryKeys } from "@/services/plates-api";
 
 type CreateRunFormState = {
   work_order_id: string;
@@ -107,6 +109,10 @@ export default function ProductionExecution() {
     rejected_quantity: 0,
     notes: "",
   });
+  // Plates used in the run being completed, keyed by plate id → outcome.
+  const [platesUsed, setPlatesUsed] = useState<Record<string, "used" | "broke">>(
+    {}
+  );
   const emptyCreateRunState: CreateRunFormState = {
     work_order_id: "",
     production_line_id: "",
@@ -234,6 +240,14 @@ export default function ProductionExecution() {
     },
   });
 
+  // Active plates available to record against the run being completed.
+  const { data: activePlatesData } = useQuery({
+    queryKey: platesQueryKeys.list({ status: "active", limit: 100 }),
+    queryFn: () => PlatesApiService.getPlates({ status: "active", limit: 100 }),
+    enabled: showCompleteDialog,
+  });
+  const activePlates = activePlatesData?.plates ?? [];
+
   // Complete production run mutation
   const completeMutation = useMutation({
     mutationFn: ({
@@ -255,6 +269,8 @@ export default function ProductionExecution() {
         rejected_quantity: 0,
         notes: "",
       });
+      setPlatesUsed({});
+      queryClient.invalidateQueries({ queryKey: platesQueryKeys.all });
     },
     onError: (error: any) => {
       toast.error(error?.message || "Failed to complete production run");
@@ -469,6 +485,7 @@ export default function ProductionExecution() {
       rejected_quantity: existing > 0 ? 0 : Number(run.rejected_quantity ?? 0),
       notes: "",
     });
+    setPlatesUsed({});
     setShowCompleteDialog(true);
   };
 
@@ -1571,6 +1588,65 @@ export default function ProductionExecution() {
                 placeholder="Add completion notes..."
               />
             </div>
+            <div>
+              <Label>Plates used in this run</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Tick each plate used. Mark any that broke — a break counts as a use.
+              </p>
+              {activePlates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No active plates available.
+                </p>
+              ) : (
+                <div className="max-h-48 overflow-y-auto rounded-md border divide-y">
+                  {activePlates.map((plate) => {
+                    const selected = platesUsed[plate.id] !== undefined;
+                    const broke = platesUsed[plate.id] === "broke";
+                    return (
+                      <div
+                        key={plate.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={(checked) =>
+                              setPlatesUsed((prev) => {
+                                const next = { ...prev };
+                                if (checked) next[plate.id] = "used";
+                                else delete next[plate.id];
+                                return next;
+                              })
+                            }
+                          />
+                          <span className="text-sm">
+                            {plate.plate_code || `Plate #${plate.id}`}
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {plate.plate_type_name ?? "—"} · {plate.total_uses} uses
+                            </span>
+                          </span>
+                        </label>
+                        {selected && (
+                          <label className="flex items-center gap-1.5 text-xs text-red-600 cursor-pointer whitespace-nowrap">
+                            <Checkbox
+                              checked={broke}
+                              onCheckedChange={(checked) =>
+                                setPlatesUsed((prev) => ({
+                                  ...prev,
+                                  [plate.id]: checked ? "broke" : "used",
+                                }))
+                              }
+                            />
+                            Broke
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -1582,9 +1658,18 @@ export default function ProductionExecution() {
             <Button
               onClick={() => {
                 if (selectedRun) {
+                  const plates_used = Object.entries(platesUsed).map(
+                    ([plate_id, outcome]) => ({
+                      plate_id: Number(plate_id),
+                      outcome,
+                    })
+                  );
                   completeMutation.mutate({
                     id: selectedRun.id.toString(),
-                    data: completeData,
+                    data: {
+                      ...completeData,
+                      plates_used: plates_used.length ? plates_used : undefined,
+                    },
                   });
                 }
               }}

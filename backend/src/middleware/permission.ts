@@ -533,6 +533,18 @@ export const PERMISSIONS = {
   FACTORY_MACHINE_PART_REPLACEMENTS_CREATE: createPermissionCheck('Factory', 'create', 'machine_part_replacements'),
   FACTORY_MACHINE_PART_REPLACEMENTS_DELETE: createPermissionCheck('Factory', 'delete', 'machine_part_replacements'),
 
+  // Plates
+  FACTORY_PLATES_CREATE: createPermissionCheck('Factory', 'create', 'plates'),
+  FACTORY_PLATES_READ: createPermissionCheck('Factory', 'read', 'plates'),
+  FACTORY_PLATES_UPDATE: createPermissionCheck('Factory', 'update', 'plates'),
+  FACTORY_PLATES_DELETE: createPermissionCheck('Factory', 'delete', 'plates'),
+
+  // Plate Types
+  FACTORY_PLATE_TYPES_CREATE: createPermissionCheck('Factory', 'create', 'plate_types'),
+  FACTORY_PLATE_TYPES_READ: createPermissionCheck('Factory', 'read', 'plate_types'),
+  FACTORY_PLATE_TYPES_UPDATE: createPermissionCheck('Factory', 'update', 'plate_types'),
+  FACTORY_PLATE_TYPES_DELETE: createPermissionCheck('Factory', 'delete', 'plate_types'),
+
   // Work Order Assignments
   FACTORY_WORK_ORDER_ASSIGNMENTS_CREATE: createPermissionCheck('Factory', 'create', 'work_order_assignments'),
   FACTORY_WORK_ORDER_ASSIGNMENTS_READ: createPermissionCheck('Factory', 'read', 'work_order_assignments'),

@@ -33,6 +33,10 @@ export interface OrderAccountingData {
   factoryCostCenterId?: number;
   lineItems?: any[];
   notes?: string;
+  /** When the voucher is scoped to a single delivery (per-delivery recognition),
+   * these identify it for narration and reference. */
+  deliveryId?: number;
+  deliveryNumber?: string;
 }
 
 export interface VoucherCreationResult {
@@ -1264,10 +1268,10 @@ class FactoryAccountsIntegrationService {
     orderData: OrderAccountingData & { costOfGoodsSold?: number },
     userId: number
   ): Promise<void> {
-    const policy = await this.getRevenueRecognitionPolicy();
-    if (policy === 'on_shipment') {
-      await this.createRevenueRecognitionVoucher(orderData, userId);
-    }
+    // Shipment is itself the recognition event; recognise revenue unconditionally
+    // here. The policy gate is kept on the FACTORY_ORDER_SHIPPED event listener
+    // for legacy callers that may still wire shipment through the event bus.
+    await this.createRevenueRecognitionVoucher(orderData, userId);
     if (orderData.costOfGoodsSold && orderData.costOfGoodsSold > 0) {
       await this.createCOGSVoucher(orderData, userId);
     }
@@ -1315,62 +1319,54 @@ class FactoryAccountsIntegrationService {
         };
       }
 
-      // Split the revenue credit when VAT is present and a VAT Payable account
-      // exists: Sales Revenue is recognised net, VAT Payable gets the tax. If no
-      // VAT account is configured we fall back to a single gross Sales Revenue
-      // credit (current behaviour) so the voucher remains balanced.
+      // Recognize revenue at NET (subtotal) only. At approval we credited
+      // Deferred Revenue at net and VAT Payable at the tax portion separately,
+      // so recognition just reclassifies the deferred net amount into Sales
+      // Revenue — VAT stays where it is. taxAmount/totalValue are accepted on
+      // OrderAccountingData but only used to derive net when subtotal isn't set.
       const taxAmount = orderData.taxAmount && orderData.taxAmount > 0 ? orderData.taxAmount : 0;
-      const netRevenue = taxAmount > 0 && orderData.subtotal != null
+      const netRevenue = orderData.subtotal != null
         ? orderData.subtotal
         : orderData.totalValue - taxAmount;
-      const vatPayableAccount = taxAmount > 0 ? await this.getDefaultAccount('vat_payable') : null;
-      if (taxAmount > 0 && !vatPayableAccount) {
-        MyLogger.warn(action, {
-          message: 'VAT Payable account not configured; crediting Sales Revenue at gross amount',
+
+      if (!(netRevenue > 0)) {
+        MyLogger.info(action, {
+          message: 'Net revenue is zero or negative, skipping recognition voucher',
           orderId: orderData.orderId,
-          taxAmount,
+          netRevenue,
         });
+        return null;
       }
 
-      const revenueLines: Array<{
-        accountId: number;
-        debit: number;
-        credit: number;
-        description: string;
-        costCenterId?: number;
-      }> = [
+      const scopeLabel = orderData.deliveryNumber
+        ? `Delivery ${orderData.deliveryNumber} (Order ${orderData.orderNumber})`
+        : `Order ${orderData.orderNumber}`;
+      const reference = orderData.deliveryNumber || orderData.orderNumber;
+
+      const revenueLines = [
         {
           accountId: deferredRevenueAccount.id,
-          debit: orderData.totalValue,
+          debit: netRevenue,
           credit: 0,
-          description: `Deferred Revenue - ${orderData.orderNumber}`,
+          description: `Deferred Revenue - ${scopeLabel}`,
           costCenterId: orderData.factoryCostCenterId
         },
         {
           accountId: salesRevenueAccount.id,
           debit: 0,
-          credit: vatPayableAccount ? netRevenue : orderData.totalValue,
-          description: `Sales Revenue - ${orderData.orderNumber}`,
+          credit: netRevenue,
+          description: `Sales Revenue - ${scopeLabel}`,
           costCenterId: orderData.factoryCostCenterId
         }
       ];
-      if (vatPayableAccount && taxAmount > 0) {
-        revenueLines.push({
-          accountId: vatPayableAccount.id,
-          debit: 0,
-          credit: taxAmount,
-          description: `VAT Payable - ${orderData.orderNumber}`,
-          costCenterId: orderData.factoryCostCenterId
-        });
-      }
 
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(),
-        reference: orderData.orderNumber,
+        reference,
         payee: orderData.customerName,
-        amount: orderData.totalValue,
-        narration: `Revenue Recognition - Order ${orderData.orderNumber} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
+        amount: netRevenue,
+        narration: `Revenue Recognition - ${scopeLabel} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
         costCenterId: orderData.factoryCostCenterId,
         lines: revenueLines
       };
@@ -1381,9 +1377,11 @@ class FactoryAccountsIntegrationService {
         await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
       }
 
-      // Update order with revenue voucher reference
+      // Record the first delivery's recognition voucher on the order. Subsequent
+      // partial deliveries post their own vouchers but don't clobber the
+      // original reference.
       await pool.query(
-        'UPDATE factory_customer_orders SET revenue_voucher_id = $1 WHERE id = $2',
+        'UPDATE factory_customer_orders SET revenue_voucher_id = $1 WHERE id = $2 AND revenue_voucher_id IS NULL',
         [voucher.id, orderData.orderId]
       );
 
@@ -1460,27 +1458,32 @@ class FactoryAccountsIntegrationService {
         };
       }
 
+      const scopeLabel = orderData.deliveryNumber
+        ? `Delivery ${orderData.deliveryNumber} (Order ${orderData.orderNumber})`
+        : `Order ${orderData.orderNumber}`;
+      const cogsReference = orderData.deliveryNumber || orderData.orderNumber;
+
       const voucherData = {
         type: VoucherType.JOURNAL,
         date: new Date(),
-        reference: orderData.orderNumber,
+        reference: cogsReference,
         payee: orderData.customerName,
         amount: orderData.costOfGoodsSold,
-        narration: `Cost of Goods Sold - Order ${orderData.orderNumber} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
+        narration: `Cost of Goods Sold - ${scopeLabel} Shipped${orderData.factoryName ? ` - Factory: ${orderData.factoryName}` : ''}`,
         costCenterId: orderData.factoryCostCenterId,
         lines: [
           {
             accountId: cogsAccount.id,
             debit: orderData.costOfGoodsSold,
             credit: 0,
-            description: `COGS - ${orderData.orderNumber}`,
+            description: `COGS - ${scopeLabel}`,
             costCenterId: orderData.factoryCostCenterId
           },
           {
             accountId: finishedGoodsAccount.id,
             debit: 0,
             credit: orderData.costOfGoodsSold,
-            description: `Finished Goods Sold - ${orderData.orderNumber}`,
+            description: `Finished Goods Sold - ${scopeLabel}`,
             costCenterId: orderData.factoryCostCenterId
           }
         ]
@@ -1492,10 +1495,11 @@ class FactoryAccountsIntegrationService {
         await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
       }
 
-      // Update order with COGS voucher reference
+      // Record the first delivery's COGS voucher on the order. Subsequent
+      // partial deliveries post their own vouchers without overwriting the ref.
       try {
         await pool.query(
-          'UPDATE factory_customer_orders SET cogs_voucher_id = $1 WHERE id = $2',
+          'UPDATE factory_customer_orders SET cogs_voucher_id = $1 WHERE id = $2 AND cogs_voucher_id IS NULL',
           [voucher.id, orderData.orderId]
         );
       } catch (updateError) {

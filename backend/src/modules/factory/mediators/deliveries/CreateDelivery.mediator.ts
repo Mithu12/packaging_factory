@@ -10,6 +10,7 @@ import {
 import { SalesInvoice } from '@/types/salesInvoice';
 import { SalesInvoiceMediator } from '../salesInvoices/SalesInvoiceMediator';
 import { GetDeliveriesMediator } from './GetDeliveries.mediator';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
 
 interface OrderLineForLock {
   id: number;
@@ -176,7 +177,10 @@ export class CreateDeliveryMediator {
       );
       const delivery = deliveryRes.rows[0];
 
-      // 5. Insert delivery items + bump rollups + debit stock
+      // 5. Insert delivery items + bump rollups + debit stock.
+      // Accumulate cost of goods sold for the per-delivery COGS voucher posted
+      // after commit. Computed from products.cost_price × shipped qty.
+      let deliveryCogs = 0;
       for (const it of request.items) {
         const line = lineById.get(Number(it.order_line_item_id))!;
         const unitPrice = parseFloat(line.unit_price);
@@ -206,8 +210,10 @@ export class CreateDeliveryMediator {
           [it.quantity, line.id]
         );
 
-        await this.debitProductStock(client, line.product_id, it.quantity, line.product_name);
+        const unitCost = await this.debitProductStock(client, line.product_id, it.quantity, line.product_name);
+        deliveryCogs += +(unitCost * it.quantity).toFixed(2);
       }
+      deliveryCogs = +deliveryCogs.toFixed(2);
 
       // 6. Recompute status for EVERY touched order in one CTE.
       const touchedOrderIds = Array.from(
@@ -259,7 +265,93 @@ export class CreateDeliveryMediator {
         factoryCustomerId,
         touchedOrderIds,
         invoiceId: invoice.id,
+        deliveryCogs,
       });
+
+      // Post per-delivery revenue recognition + COGS vouchers. Voucher creation
+      // runs on its own DB connection (independent of this mediator's
+      // transaction), so we fire it AFTER the commit. Failures are caught and
+      // logged to the failed voucher queue without rolling back the delivery.
+      const recognitionOrderId =
+        primaryOrderId != null
+          ? Number(primaryOrderId)
+          : touchedOrderIds.length === 1
+            ? touchedOrderIds[0]
+            : null;
+
+      if (recognitionOrderId != null && touchedOrderIds.length === 1) {
+        try {
+          const orderRes = await pool.query<{
+            id: string;
+            order_number: string;
+            factory_customer_name: string;
+            factory_customer_email: string | null;
+            currency: string;
+            order_date: Date;
+            factory_id: number;
+            factory_name: string | null;
+            factory_cost_center_id: number | null;
+          }>(
+            `SELECT o.id, o.order_number, o.factory_customer_name, o.factory_customer_email,
+                    o.currency, o.order_date, o.factory_id,
+                    f.name AS factory_name,
+                    f.cost_center_id AS factory_cost_center_id
+               FROM factory_customer_orders o
+               LEFT JOIN factories f ON f.id = o.factory_id
+              WHERE o.id = $1`,
+            [recognitionOrderId]
+          );
+          if (orderRes.rows.length > 0) {
+            const o = orderRes.rows[0];
+            const subtotal = Number(invoice.subtotal) || 0;
+            const taxAmount = Number(invoice.tax_amount) || 0;
+            const totalAmount = Number(invoice.total_amount) || subtotal + taxAmount;
+            const orderData = {
+              orderId: String(o.id),
+              orderNumber: o.order_number,
+              customerId: String(factoryCustomerId),
+              customerName: o.factory_customer_name,
+              customerEmail: o.factory_customer_email ?? undefined,
+              totalValue: totalAmount,
+              subtotal,
+              taxAmount,
+              currency: o.currency || 'BDT',
+              orderDate:
+                o.order_date instanceof Date
+                  ? o.order_date.toISOString()
+                  : String(o.order_date),
+              factoryId: o.factory_id,
+              factoryName: o.factory_name ?? undefined,
+              factoryCostCenterId: o.factory_cost_center_id ?? undefined,
+              deliveryId: Number(delivery.id),
+              deliveryNumber: delivery.delivery_number,
+              costOfGoodsSold: deliveryCogs,
+            };
+            await interModuleConnector.accModule.addFactoryOrderShipmentVoucher(
+              orderData,
+              userId
+            );
+          } else {
+            MyLogger.warn(action, {
+              message: 'Order not found for recognition; shipment vouchers skipped',
+              recognitionOrderId,
+            });
+          }
+        } catch (vErr: any) {
+          MyLogger.warn(action, {
+            message: 'Shipment voucher posting failed (delivery still committed)',
+            error: vErr?.message,
+            deliveryId: delivery.id,
+            recognitionOrderId,
+          });
+        }
+      } else if (touchedOrderIds.length > 1) {
+        MyLogger.info(action, {
+          message:
+            'Multi-order delivery: per-order recognition not yet supported; shipment vouchers skipped',
+          touchedOrderIds,
+        });
+      }
 
       const fullDelivery = await GetDeliveriesMediator.getDeliveryById(delivery.id);
       if (!fullDelivery) {
@@ -319,9 +411,9 @@ export class CreateDeliveryMediator {
     productId: number,
     quantity: number,
     productName: string
-  ): Promise<void> {
-    const stockRes = await client.query<{ current_stock: string }>(
-      'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
+  ): Promise<number> {
+    const stockRes = await client.query<{ current_stock: string; cost_price: string | null }>(
+      'SELECT current_stock, cost_price FROM products WHERE id = $1 FOR UPDATE',
       [productId]
     );
     if (stockRes.rows.length === 0) {
@@ -341,5 +433,6 @@ export class CreateDeliveryMediator {
         WHERE id = $2`,
       [quantity, productId]
     );
+    return parseFloat(stockRes.rows[0].cost_price || '0');
   }
 }

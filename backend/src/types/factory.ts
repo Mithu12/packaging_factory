@@ -883,6 +883,113 @@ export interface MachinePartQueryParams {
     sort_order?: 'asc' | 'desc';
 }
 
+// Plates (printing-plate usage & breakage tracking)
+export type PlateStatus = 'active' | 'broken' | 'retired';
+export type PlateUseOutcome = 'used' | 'broke';
+
+export interface PlateType {
+    id: string;
+    name: string;
+    code?: string;
+    description?: string;
+    expected_lifespan_uses?: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string;
+    // Lifespan analytics (populated by getLifespanStats / list joins where available)
+    plate_count?: number;
+    active_count?: number;
+    broken_count?: number;
+    avg_uses_at_break?: number;
+    min_uses_at_break?: number;
+    max_uses_at_break?: number;
+}
+
+export interface Plate {
+    id: string;
+    plate_type_id: string;
+    plate_type_name?: string;
+    plate_code?: string;
+    total_uses: number;
+    status: PlateStatus;
+    broke_at_use_count?: number;
+    broken_at?: string;
+    broken_reason?: string;
+    expected_lifespan_uses?: number;
+    factory_id?: string;
+    notes?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface ProductionRunPlate {
+    id: string;
+    production_run_id: string;
+    plate_id: string;
+    plate_code?: string;
+    plate_type_name?: string;
+    outcome: PlateUseOutcome;
+    use_number?: number;
+    used_at?: string;
+    notes?: string;
+    created_at: string;
+    run_number?: string;
+}
+
+export interface CreatePlateTypeRequest {
+    name: string;
+    code?: string;
+    description?: string;
+    expected_lifespan_uses?: number;
+}
+
+export interface UpdatePlateTypeRequest {
+    name?: string;
+    code?: string | null;
+    description?: string | null;
+    expected_lifespan_uses?: number | null;
+    is_active?: boolean;
+}
+
+export interface CreatePlateRequest {
+    plate_type_id: number;
+    plate_code?: string;
+    expected_lifespan_uses?: number;
+    factory_id?: number;
+    notes?: string;
+}
+
+export interface UpdatePlateRequest {
+    plate_type_id?: number;
+    plate_code?: string | null;
+    status?: PlateStatus;
+    broken_reason?: string | null;
+    expected_lifespan_uses?: number | null;
+    factory_id?: number | null;
+    notes?: string | null;
+    is_active?: boolean;
+}
+
+export interface PlateQueryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: PlateStatus;
+    plate_type_id?: number;
+    factory_id?: number;
+    is_active?: boolean;
+    sort_by?: 'plate_code' | 'total_uses' | 'status' | 'created_at';
+    sort_order?: 'asc' | 'desc';
+}
+
+// One plate's outcome within a production run, as submitted on run completion.
+export interface PlateUsageInput {
+    plate_id: number;
+    outcome?: PlateUseOutcome;
+    notes?: string;
+}
+
 // Operator Management
 export interface CreateOperatorRequest {
     user_id: number;

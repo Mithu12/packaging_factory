@@ -391,6 +391,12 @@ const menuSections: MenuSection[] = [
         icon: Wrench,
         permission: PERMISSIONS.FACTORY_MACHINES_READ,
       },
+      {
+        title: "Plates",
+        url: "/factory/plates",
+        icon: Printer,
+        permission: PERMISSIONS.FACTORY_PLATES_READ,
+      },
       // {
       //   title: "Operators",
       //   url: "/factory/operators",

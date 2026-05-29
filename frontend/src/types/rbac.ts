@@ -354,6 +354,8 @@ export const PERMISSIONS = {
     FACTORY_PRODUCTION_LINES_READ: createPermissionCheck('Factory', 'read', 'production_lines'),
     FACTORY_OPERATORS_READ: createPermissionCheck('Factory', 'read', 'operators'),
     FACTORY_MACHINES_READ: createPermissionCheck('Factory', 'read', 'machines'),
+    FACTORY_PLATES_READ: createPermissionCheck('Factory', 'read', 'plates'),
+    FACTORY_PLATE_TYPES_READ: createPermissionCheck('Factory', 'read', 'plate_types'),
 
     // ---- Factory: Customer Orders ----
     FACTORY_ORDERS_CREATE: createPermissionCheck('Factory', 'create', 'factory_customer_orders'),

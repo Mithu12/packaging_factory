@@ -6,12 +6,19 @@ import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { UpdateWorkOrderMediator } from '../workOrders/UpdateWorkOrder.mediator';
 import { creditWorkOrderProductStock } from '../workOrders/creditWorkOrderStock';
 
+export interface PlateUsageInput {
+  plate_id: number | string;
+  outcome?: 'used' | 'broke';
+  notes?: string;
+}
+
 export interface UpdateProductionRunStatusRequest {
   status: 'in_progress' | 'paused' | 'completed' | 'cancelled';
   produced_quantity?: number;
   good_quantity?: number;
   rejected_quantity?: number;
   notes?: string;
+  plates_used?: PlateUsageInput[];
 }
 
 export interface RecordDowntimeRequest {
@@ -321,6 +328,41 @@ export class UpdateProductionRunStatusMediator {
         ) VALUES ($1, $2, $3, $4, $5, $6)`,
         [runId, 'complete', 'success', producedQty, data.notes, userId]
       );
+
+      // Record plate usage for this run (recorded as a whole — a run may use or
+      // break several plates). Each entry counts as one use; a break flips the
+      // plate to 'broken' and stamps the use number it failed on. Runs inside
+      // this transaction so an invalid plate rolls back the whole completion.
+      if (Array.isArray(data.plates_used) && data.plates_used.length > 0) {
+        for (const entry of data.plates_used) {
+          const outcome = entry.outcome === 'broke' ? 'broke' : 'used';
+          const plateUpdate = await client.query(
+            `UPDATE plates
+             SET total_uses = total_uses + 1,
+                 status = CASE WHEN $2 = 'broke' THEN 'broken' ELSE status END,
+                 broke_at_use_count = CASE WHEN $2 = 'broke' THEN total_uses + 1 ELSE broke_at_use_count END,
+                 broken_at = CASE WHEN $2 = 'broke' THEN CURRENT_TIMESTAMP ELSE broken_at END
+             WHERE id = $1 AND status = 'active'
+             RETURNING total_uses`,
+            [entry.plate_id, outcome]
+          );
+
+          if (plateUpdate.rowCount === 0) {
+            throw createError(
+              `Plate ${entry.plate_id} not found or not active`,
+              400
+            );
+          }
+
+          const useNumber = plateUpdate.rows[0].total_uses;
+          await client.query(
+            `INSERT INTO production_run_plates (
+               production_run_id, plate_id, outcome, use_number, notes, created_by
+             ) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [runId, entry.plate_id, outcome, useNumber, entry.notes ?? null, userId]
+          );
+        }
+      }
 
       // Synchronize parent Work Order status if target is met
       const woStatsResult = await client.query(
