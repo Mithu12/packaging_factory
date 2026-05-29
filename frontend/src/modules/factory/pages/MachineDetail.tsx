@@ -33,7 +33,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Cog, History, Pencil, Plus, RefreshCw, Trash2, Wrench } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Cog,
+  History,
+  Package,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import {
   MachinesApiService,
@@ -49,8 +61,11 @@ import {
   type MachinePart,
   type MachinePartStatus,
   type ReplacementReason,
+  type SpareStockAlertStatus,
   type UpdateMachinePartRequest,
 } from "@/services/machine-parts-api";
+import { ProductApi } from "@/modules/inventory/services/product-api";
+import { DistributionApi } from "@/modules/inventory/services/distribution-api";
 import { useFormatting } from "@/hooks/useFormatting";
 
 const TYPE_LABEL: Record<MaintenanceType, string> = {
@@ -80,6 +95,18 @@ const REPLACEMENT_REASON_LABEL: Record<ReplacementReason, string> = {
   failure: "Failure",
   upgrade: "Upgrade",
   other: "Other",
+};
+
+const SPARE_ALERT_LABEL: Record<SpareStockAlertStatus, string> = {
+  low: "Low",
+  critical: "Critical",
+  out_of_stock: "Out of stock",
+};
+
+const SPARE_ALERT_BADGE: Record<SpareStockAlertStatus, string> = {
+  low: "bg-amber-100 text-amber-700 border-amber-200",
+  critical: "bg-orange-100 text-orange-700 border-orange-200",
+  out_of_stock: "bg-red-100 text-red-700 border-red-200",
 };
 
 function isOverdue(dateStr?: string): boolean {
@@ -140,6 +167,7 @@ type PartForm = {
   next_replacement_date: string;
   status: MachinePartStatus;
   notes: string;
+  product_id: string;
 };
 
 const emptyPartForm: PartForm = {
@@ -154,6 +182,7 @@ const emptyPartForm: PartForm = {
   next_replacement_date: "",
   status: "active",
   notes: "",
+  product_id: "",
 };
 
 type ReplacementForm = {
@@ -164,6 +193,8 @@ type ReplacementForm = {
   next_replacement_date: string;
   notes: string;
   maintenance_log_id: string;
+  quantity: string;
+  distribution_center_id: string;
 };
 
 const emptyReplacementForm: ReplacementForm = {
@@ -174,6 +205,8 @@ const emptyReplacementForm: ReplacementForm = {
   next_replacement_date: "",
   notes: "",
   maintenance_log_id: "",
+  quantity: "",
+  distribution_center_id: "",
 };
 
 export default function MachineDetailPage() {
@@ -245,6 +278,49 @@ export default function MachineDetailPage() {
     queryFn: () => MachinePartsApiService.listReplacements(id!, historyPart!.id),
     enabled: !!id && !!historyPart && historyDialogOpen,
   });
+
+  // Inventory products available to link as spare parts.
+  const { data: productsData } = useQuery({
+    queryKey: ["machine-parts", "product-options"],
+    queryFn: () => ProductApi.getProducts({ limit: 1000, status: "active" } as any),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: centersData } = useQuery({
+    queryKey: ["machine-parts", "distribution-centers"],
+    queryFn: () => DistributionApi.getDistributionCenters({ limit: 200 } as any),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: stockAlerts } = useQuery({
+    queryKey: id ? machinePartsQueryKeys.stockAlerts(id) : [],
+    queryFn: () => MachinePartsApiService.getStockAlerts(id!),
+    enabled: !!id,
+  });
+
+  const { data: consumptionReport } = useQuery({
+    queryKey: id ? machinePartsQueryKeys.consumptionReport(id) : [],
+    queryFn: () => MachinePartsApiService.getConsumptionReport({ machine_id: id! }),
+    enabled: !!id,
+  });
+
+  const products = productsData?.products ?? [];
+  const centers = centersData?.centers ?? [];
+  const primaryCenter = centers.find((c) => c.is_primary);
+
+  const productOptions = products.map((p) => ({
+    value: String(p.id),
+    label: p.name,
+    hint: p.sku,
+    keywords: `${p.sku ?? ""} ${(p as any).product_code ?? ""}`,
+    description: `Stock: ${p.current_stock}`,
+  }));
+
+  const centerOptions = centers.map((c) => ({
+    value: String(c.id),
+    label: c.name,
+    hint: c.is_primary ? "Primary" : c.code,
+  }));
 
   const invalidatePartsAndMachine = () => {
     queryClient.invalidateQueries({ queryKey: machinePartsQueryKeys.all });
@@ -395,6 +471,7 @@ export default function MachineDetailPage() {
       next_replacement_date: part.next_replacement_date ?? "",
       status: part.status,
       notes: part.notes ?? "",
+      product_id: part.product_id ?? "",
     });
     setPartDialogOpen(true);
   };
@@ -414,6 +491,7 @@ export default function MachineDetailPage() {
       next_replacement_date: partForm.next_replacement_date || undefined,
       status: partForm.status,
       notes: partForm.notes.trim() || undefined,
+      product_id: partForm.product_id ? Number(partForm.product_id) : null,
     };
     if (editingPart) {
       updatePartMutation.mutate({ partId: editingPart.id, data: payload });
@@ -434,7 +512,14 @@ export default function MachineDetailPage() {
 
   const openReplacementDialog = (part: MachinePart) => {
     setReplacementPart(part);
-    setReplacementForm(emptyReplacementForm);
+    // When the part is product-linked, default the consumed quantity to the
+    // part's quantity and source from the primary distribution center.
+    setReplacementForm({
+      ...emptyReplacementForm,
+      quantity: part.product_id ? String(part.quantity ?? 1) : "",
+      distribution_center_id:
+        part.product_id && primaryCenter ? String(primaryCenter.id) : "",
+    });
     setReplacementDialogOpen(true);
   };
 
@@ -443,6 +528,12 @@ export default function MachineDetailPage() {
     if (!replacementPart) return;
     const toIso = (local?: string) =>
       local ? new Date(local).toISOString() : undefined;
+    const consumesStock = !!replacementPart.product_id;
+    const qty = consumesStock ? Number(replacementForm.quantity) : 0;
+    if (consumesStock && (!qty || qty <= 0)) {
+      toast.error("Enter a quantity to consume from stock");
+      return;
+    }
     const payload: CreateMachinePartReplacementRequest = {
       reason: replacementForm.reason,
       replaced_at: toIso(replacementForm.replaced_at),
@@ -453,6 +544,14 @@ export default function MachineDetailPage() {
       maintenance_log_id: replacementForm.maintenance_log_id
         ? parseInt(replacementForm.maintenance_log_id, 10)
         : undefined,
+      ...(consumesStock
+        ? {
+            quantity: qty,
+            distribution_center_id: replacementForm.distribution_center_id
+              ? Number(replacementForm.distribution_center_id)
+              : undefined,
+          }
+        : {}),
     };
     createReplacementMutation.mutate({ partId: replacementPart.id, data: payload });
   };
@@ -609,6 +708,50 @@ export default function MachineDetailPage() {
         </CardContent>
       </Card>
 
+      {stockAlerts && stockAlerts.length > 0 && (
+        <Card className="border-amber-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="w-5 h-5" />
+              Spares at Risk ({stockAlerts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Part</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">In Stock</TableHead>
+                  <TableHead className="text-right">Min Level</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stockAlerts.map((alert) => (
+                  <TableRow key={alert.part_id}>
+                    <TableCell className="font-medium">{alert.part_name}</TableCell>
+                    <TableCell className="text-xs">
+                      {alert.product_name}
+                      <span className="text-muted-foreground"> · {alert.product_sku}</span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{alert.current_stock}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {alert.min_stock_level}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={SPARE_ALERT_BADGE[alert.alert_status]}>
+                        {SPARE_ALERT_LABEL[alert.alert_status]}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
@@ -635,6 +778,7 @@ export default function MachineDetailPage() {
                   <TableHead>Code</TableHead>
                   <TableHead>Position</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>Spare Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Replaced</TableHead>
                   <TableHead>Next Replacement</TableHead>
@@ -650,6 +794,18 @@ export default function MachineDetailPage() {
                     </TableCell>
                     <TableCell>{part.position || "—"}</TableCell>
                     <TableCell className="text-right">{part.quantity}</TableCell>
+                    <TableCell>
+                      {part.product_id ? (
+                        <span className="text-xs">
+                          <span className="font-medium">{part.product_name}</span>
+                          {part.product_sku && (
+                            <span className="text-muted-foreground"> · {part.product_sku}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={PART_STATUS_BADGE[part.status]}>
                         {PART_STATUS_LABEL[part.status]}
@@ -716,6 +872,70 @@ export default function MachineDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {consumptionReport && consumptionReport.rows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Spare Consumption
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Part</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Stock Ref</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {consumptionReport.rows.map((row) => (
+                  <TableRow key={row.replacement_id}>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDateTime(row.replaced_at)}
+                    </TableCell>
+                    <TableCell className="font-medium">{row.part_name}</TableCell>
+                    <TableCell className="text-xs">
+                      {row.product_name ?? "—"}
+                      {row.product_sku && (
+                        <span className="text-muted-foreground"> · {row.product_sku}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{row.quantity ?? "—"}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(row.cost)}
+                    </TableCell>
+                    <TableCell>{REPLACEMENT_REASON_LABEL[row.reason]}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {row.stock_adjustment_id ? `#${row.stock_adjustment_id}` : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex justify-end gap-6 pt-3 text-sm">
+              <span className="text-muted-foreground">
+                Total qty:{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {consumptionReport.total_quantity}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Total cost:{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {formatCurrency(consumptionReport.total_cost)}
+                </span>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -962,6 +1182,23 @@ export default function MachineDetailPage() {
                   Leave blank to auto-derive from install date + lifespan.
                 </p>
               </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="part_product">Inventory Product (spare source)</Label>
+                <SearchableSelect
+                  id="part_product"
+                  options={[{ value: "", label: "(not linked)" }, ...productOptions]}
+                  value={partForm.product_id}
+                  onValueChange={(v) =>
+                    setPartForm({ ...partForm, product_id: v })
+                  }
+                  placeholder="Link an inventory product…"
+                  searchPlaceholder="Search products by name or SKU…"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional. When linked, logging a replacement will issue a stock
+                  movement against this product.
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="part_notes">Notes</Label>
@@ -1110,6 +1347,55 @@ export default function MachineDetailPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {replacementPart?.product_id && (
+                <>
+                  <div className="space-y-2 col-span-2 rounded-md border border-dashed p-3 bg-muted/30">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Package className="w-4 h-4" />
+                      Stock consumption
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This part is linked to{" "}
+                      <span className="font-medium">{replacementPart.product_name}</span>
+                      {replacementPart.product_sku && ` (${replacementPart.product_sku})`}.
+                      Submitting will issue a stock decrease.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rep_quantity">Quantity Consumed *</Label>
+                    <Input
+                      id="rep_quantity"
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      value={replacementForm.quantity}
+                      onChange={(e) =>
+                        setReplacementForm({
+                          ...replacementForm,
+                          quantity: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rep_dc">Source Warehouse</Label>
+                    <SearchableSelect
+                      id="rep_dc"
+                      options={centerOptions}
+                      value={replacementForm.distribution_center_id}
+                      onValueChange={(v) =>
+                        setReplacementForm({
+                          ...replacementForm,
+                          distribution_center_id: v,
+                        })
+                      }
+                      placeholder="Primary warehouse"
+                      searchPlaceholder="Search warehouses…"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="rep_notes">Notes</Label>
@@ -1164,6 +1450,8 @@ export default function MachineDetailPage() {
                   <TableHead>Reason</TableHead>
                   <TableHead>Technician</TableHead>
                   <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>Stock Ref</TableHead>
                   <TableHead>Next Replacement</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead></TableHead>
@@ -1179,6 +1467,12 @@ export default function MachineDetailPage() {
                     <TableCell>{r.technician || "—"}</TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(r.cost)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {r.quantity ?? "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {r.stock_adjustment_id ? `#${r.stock_adjustment_id}` : "—"}
                     </TableCell>
                     <TableCell>{r.next_replacement_date || "—"}</TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">

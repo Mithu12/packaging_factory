@@ -813,6 +813,10 @@ export interface MachinePart {
     status: MachinePartStatus;
     notes?: string;
     is_active: boolean;
+    // Optional link to an inventory product (spare-part stock source)
+    product_id?: string;
+    product_name?: string;
+    product_sku?: string;
     created_at: string;
     updated_at?: string;
 }
@@ -827,6 +831,13 @@ export interface MachinePartReplacement {
     cost: number;
     next_replacement_date?: string;
     notes?: string;
+    // Stock consumption + traceability (set when the part is product-linked)
+    product_id?: string;
+    quantity?: number;
+    distribution_center_id?: string;
+    stock_adjustment_id?: string;
+    product_name?: string;
+    product_sku?: string;
     created_at: string;
     updated_at?: string;
 }
@@ -844,6 +855,7 @@ export interface CreateMachinePartRequest {
     next_replacement_date?: string;
     status?: MachinePartStatus;
     notes?: string;
+    product_id?: number | null;
 }
 
 export interface UpdateMachinePartRequest {
@@ -860,6 +872,7 @@ export interface UpdateMachinePartRequest {
     status?: MachinePartStatus;
     notes?: string | null;
     is_active?: boolean;
+    product_id?: number | null;
 }
 
 export interface CreateMachinePartReplacementRequest {
@@ -870,6 +883,12 @@ export interface CreateMachinePartReplacementRequest {
     next_replacement_date?: string;
     notes?: string;
     maintenance_log_id?: number | null;
+    // When provided (and the part is product-linked), the replacement issues a
+    // stock decrease of `quantity` units from `distribution_center_id` (defaults
+    // to the primary distribution center).
+    product_id?: number | null;
+    quantity?: number;
+    distribution_center_id?: number | null;
 }
 
 export interface MachinePartQueryParams {
@@ -881,6 +900,44 @@ export interface MachinePartQueryParams {
     overdue_only?: boolean;
     sort_by?: 'name' | 'part_code' | 'status' | 'next_replacement_date' | 'created_at';
     sort_order?: 'asc' | 'desc';
+}
+
+export type SpareStockAlertStatus = 'low' | 'critical' | 'out_of_stock';
+
+export interface SpareStockAlert {
+    part_id: string;
+    part_name: string;
+    part_code?: string;
+    machine_id: string;
+    machine_name: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    current_stock: number;
+    min_stock_level: number;
+    alert_status: SpareStockAlertStatus;
+}
+
+export interface MachinePartConsumptionRow {
+    replacement_id: string;
+    replaced_at: string;
+    machine_id: string;
+    machine_name: string;
+    part_id: string;
+    part_name: string;
+    product_id?: string;
+    product_name?: string;
+    product_sku?: string;
+    quantity?: number;
+    cost: number;
+    stock_adjustment_id?: string;
+    reason: ReplacementReason;
+}
+
+export interface MachinePartConsumptionReport {
+    rows: MachinePartConsumptionRow[];
+    total_quantity: number;
+    total_cost: number;
 }
 
 // Plates (printing-plate usage & breakage tracking)

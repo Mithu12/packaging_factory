@@ -156,6 +156,41 @@ export class MachinePartsController {
     }
   }
 
+  async getStockAlerts(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const action = "GET /api/factory/machines/parts/stock-alerts";
+    try {
+      const machine_id = req.query.machine_id as string | undefined;
+      const alerts = await MachinePartsMediator.getSpareStockAlerts(machine_id);
+      serializeSuccessResponse(res, alerts, "Spare stock alerts retrieved successfully");
+    } catch (error: any) {
+      MyLogger.error(action, error, { query: req.query });
+      next(error);
+    }
+  }
+
+  async getConsumptionReport(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const action = "GET /api/factory/machines/parts/consumption-report";
+    try {
+      const report = await MachinePartsMediator.getConsumptionReport({
+        machine_id: req.query.machine_id as string | undefined,
+        date_from: req.query.date_from as string | undefined,
+        date_to: req.query.date_to as string | undefined,
+      });
+      serializeSuccessResponse(res, report, "Consumption report retrieved successfully");
+    } catch (error: any) {
+      MyLogger.error(action, error, { query: req.query });
+      next(error);
+    }
+  }
+
   async deleteReplacement(
     req: Request,
     res: Response,

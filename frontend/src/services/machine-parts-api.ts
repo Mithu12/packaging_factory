@@ -19,6 +19,9 @@ export interface MachinePart {
   status: MachinePartStatus;
   notes?: string;
   is_active: boolean;
+  product_id?: string;
+  product_name?: string;
+  product_sku?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -33,6 +36,12 @@ export interface MachinePartReplacement {
   cost: number;
   next_replacement_date?: string;
   notes?: string;
+  product_id?: string;
+  quantity?: number;
+  distribution_center_id?: string;
+  stock_adjustment_id?: string;
+  product_name?: string;
+  product_sku?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -50,6 +59,7 @@ export interface CreateMachinePartRequest {
   next_replacement_date?: string;
   status?: MachinePartStatus;
   notes?: string;
+  product_id?: number | null;
 }
 
 export interface UpdateMachinePartRequest extends Partial<CreateMachinePartRequest> {
@@ -64,6 +74,47 @@ export interface CreateMachinePartReplacementRequest {
   next_replacement_date?: string;
   notes?: string;
   maintenance_log_id?: number | null;
+  product_id?: number | null;
+  quantity?: number;
+  distribution_center_id?: number | null;
+}
+
+export type SpareStockAlertStatus = "low" | "critical" | "out_of_stock";
+
+export interface SpareStockAlert {
+  part_id: string;
+  part_name: string;
+  part_code?: string;
+  machine_id: string;
+  machine_name: string;
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  current_stock: number;
+  min_stock_level: number;
+  alert_status: SpareStockAlertStatus;
+}
+
+export interface MachinePartConsumptionRow {
+  replacement_id: string;
+  replaced_at: string;
+  machine_id: string;
+  machine_name: string;
+  part_id: string;
+  part_name: string;
+  product_id?: string;
+  product_name?: string;
+  product_sku?: string;
+  quantity?: number;
+  cost: number;
+  stock_adjustment_id?: string;
+  reason: ReplacementReason;
+}
+
+export interface MachinePartConsumptionReport {
+  rows: MachinePartConsumptionRow[];
+  total_quantity: number;
+  total_cost: number;
 }
 
 export interface MachinePartQueryParams {
@@ -187,6 +238,24 @@ export class MachinePartsApiService {
       { method: "DELETE" }
     );
   }
+
+  static async getStockAlerts(machineId?: string): Promise<SpareStockAlert[]> {
+    return makeRequest<SpareStockAlert[]>(
+      `${this.BASE_URL}/parts/stock-alerts${toQueryString(
+        machineId ? { machine_id: machineId } : undefined
+      )}`
+    );
+  }
+
+  static async getConsumptionReport(params?: {
+    machine_id?: string;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<MachinePartConsumptionReport> {
+    return makeRequest<MachinePartConsumptionReport>(
+      `${this.BASE_URL}/parts/consumption-report${toQueryString(params)}`
+    );
+  }
 }
 
 export const machinePartsQueryKeys = {
@@ -201,4 +270,8 @@ export const machinePartsQueryKeys = {
     [...machinePartsQueryKeys.details(machineId), partId] as const,
   replacements: (machineId: string, partId: string) =>
     [...machinePartsQueryKeys.all, "replacements", machineId, partId] as const,
+  stockAlerts: (machineId?: string) =>
+    [...machinePartsQueryKeys.all, "stock-alerts", machineId ?? "all"] as const,
+  consumptionReport: (machineId?: string) =>
+    [...machinePartsQueryKeys.all, "consumption-report", machineId ?? "all"] as const,
 };

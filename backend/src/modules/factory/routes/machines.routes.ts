@@ -93,6 +93,7 @@ const createMachinePartSchema = Joi.object({
   next_replacement_date: Joi.date().iso().allow(null).optional(),
   status: Joi.string().valid(...machinePartStatuses).optional(),
   notes: Joi.string().max(2000).allow("", null).optional(),
+  product_id: Joi.number().integer().positive().allow(null).optional(),
 });
 
 const updateMachinePartSchema = Joi.object({
@@ -109,6 +110,7 @@ const updateMachinePartSchema = Joi.object({
   status: Joi.string().valid(...machinePartStatuses).optional(),
   notes: Joi.string().max(2000).allow("", null).optional(),
   is_active: Joi.boolean().optional(),
+  product_id: Joi.number().integer().positive().allow(null).optional(),
 }).min(1);
 
 const createReplacementSchema = Joi.object({
@@ -119,11 +121,24 @@ const createReplacementSchema = Joi.object({
   next_replacement_date: Joi.date().iso().allow(null).optional(),
   notes: Joi.string().max(2000).allow("", null).optional(),
   maintenance_log_id: Joi.number().integer().positive().allow(null).optional(),
+  product_id: Joi.number().integer().positive().allow(null).optional(),
+  quantity: Joi.number().positive().precision(3).optional(),
+  distribution_center_id: Joi.number().integer().positive().allow(null).optional(),
 });
 
 const replacementQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
+});
+
+const consumptionReportQuerySchema = Joi.object({
+  machine_id: Joi.number().integer().positive().optional(),
+  date_from: Joi.date().iso().optional(),
+  date_to: Joi.date().iso().optional(),
+});
+
+const stockAlertsQuerySchema = Joi.object({
+  machine_id: Joi.number().integer().positive().optional(),
 });
 
 const validateRequest =
@@ -164,6 +179,23 @@ router.get(
   "/stats",
   requirePermission(PERMISSIONS.FACTORY_MACHINES_READ),
   expressAsyncHandler(machineController.getMachineStats)
+);
+
+// =======================================
+// Spare-part stock traceability (collection-level, declared before "/:id")
+// =======================================
+router.get(
+  "/parts/stock-alerts",
+  requirePermission(PERMISSIONS.FACTORY_MACHINE_PARTS_READ),
+  validateQuery(stockAlertsQuerySchema),
+  expressAsyncHandler(machinePartsController.getStockAlerts)
+);
+
+router.get(
+  "/parts/consumption-report",
+  requirePermission(PERMISSIONS.FACTORY_MACHINE_PARTS_READ),
+  validateQuery(consumptionReportQuerySchema),
+  expressAsyncHandler(machinePartsController.getConsumptionReport)
 );
 
 router.get(

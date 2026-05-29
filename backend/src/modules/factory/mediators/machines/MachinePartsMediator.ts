@@ -1,5 +1,7 @@
+import { PoolClient } from "pg";
 import pool from "@/database/connection";
 import { MyLogger } from "@/utils/new-logger";
+import { interModuleConnector } from "@/utils/InterModuleConnector";
 import {
   MachinePart,
   MachinePartReplacement,
@@ -8,6 +10,10 @@ import {
   UpdateMachinePartRequest,
   CreateMachinePartReplacementRequest,
   MachinePartQueryParams,
+  SpareStockAlert,
+  SpareStockAlertStatus,
+  MachinePartConsumptionReport,
+  MachinePartConsumptionRow,
 } from "@/types/factory";
 
 type MachinePartRow = {
@@ -26,6 +32,9 @@ type MachinePartRow = {
   status: MachinePartStatus;
   notes: string | null;
   is_active: boolean;
+  product_id: number | string | null;
+  product_name?: string | null;
+  product_sku?: string | null;
   created_at: Date;
   updated_at: Date | null;
 };
@@ -53,6 +62,12 @@ function serializeMachinePart(row: MachinePartRow): MachinePart {
     status: row.status,
     notes: row.notes ?? undefined,
     is_active: row.is_active,
+    product_id:
+      row.product_id !== null && row.product_id !== undefined
+        ? row.product_id.toString()
+        : undefined,
+    product_name: row.product_name ?? undefined,
+    product_sku: row.product_sku ?? undefined,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at?.toISOString(),
   };
@@ -74,6 +89,25 @@ function serializeReplacement(row: any): MachinePartReplacement {
       ? row.next_replacement_date.toISOString().slice(0, 10)
       : undefined,
     notes: row.notes ?? undefined,
+    product_id:
+      row.product_id !== null && row.product_id !== undefined
+        ? row.product_id.toString()
+        : undefined,
+    quantity:
+      row.quantity !== null && row.quantity !== undefined
+        ? Number(row.quantity)
+        : undefined,
+    distribution_center_id:
+      row.distribution_center_id !== null &&
+      row.distribution_center_id !== undefined
+        ? row.distribution_center_id.toString()
+        : undefined,
+    stock_adjustment_id:
+      row.stock_adjustment_id !== null && row.stock_adjustment_id !== undefined
+        ? row.stock_adjustment_id.toString()
+        : undefined,
+    product_name: row.product_name ?? undefined,
+    product_sku: row.product_sku ?? undefined,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at?.toISOString(),
   };
@@ -117,43 +151,44 @@ export class MachinePartsMediator {
 
       const offset = (page - 1) * limit;
 
-      const whereConditions: string[] = ["machine_id = $1"];
+      const whereConditions: string[] = ["mp.machine_id = $1"];
       const queryParams: any[] = [machine_id];
 
       if (status) {
-        whereConditions.push(`status = $${queryParams.length + 1}`);
+        whereConditions.push(`mp.status = $${queryParams.length + 1}`);
         queryParams.push(status);
       }
 
       if (is_active !== undefined) {
-        whereConditions.push(`is_active = $${queryParams.length + 1}`);
+        whereConditions.push(`mp.is_active = $${queryParams.length + 1}`);
         queryParams.push(is_active);
       }
 
       if (overdue_only) {
         whereConditions.push(
-          `next_replacement_date IS NOT NULL AND next_replacement_date < CURRENT_DATE`
+          `mp.next_replacement_date IS NOT NULL AND mp.next_replacement_date < CURRENT_DATE`
         );
       }
 
       if (search) {
         whereConditions.push(
-          `(name ILIKE $${queryParams.length + 1} OR part_code ILIKE $${queryParams.length + 1} OR position ILIKE $${queryParams.length + 1} OR manufacturer ILIKE $${queryParams.length + 1})`
+          `(mp.name ILIKE $${queryParams.length + 1} OR mp.part_code ILIKE $${queryParams.length + 1} OR mp.position ILIKE $${queryParams.length + 1} OR mp.manufacturer ILIKE $${queryParams.length + 1})`
         );
         queryParams.push(`%${search}%`);
       }
 
       const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
-      const countQuery = `SELECT COUNT(*) AS total FROM machine_parts ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) AS total FROM machine_parts mp ${whereClause}`;
       const countResult = await client.query(countQuery, queryParams);
       const total = parseInt(countResult.rows[0].total, 10);
 
       const dataQuery = `
-        SELECT *
-        FROM machine_parts
+        SELECT mp.*, p.name AS product_name, p.sku AS product_sku
+        FROM machine_parts mp
+        LEFT JOIN products p ON p.id = mp.product_id
         ${whereClause}
-        ORDER BY ${sortColumn} ${sortDir}, id ASC
+        ORDER BY mp.${sortColumn} ${sortDir}, mp.id ASC
         LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
       `;
       queryParams.push(limit, offset);
@@ -178,7 +213,10 @@ export class MachinePartsMediator {
     try {
       MyLogger.info(action, { machine_id, part_id });
       const result = await client.query(
-        `SELECT * FROM machine_parts WHERE id = $1 AND machine_id = $2`,
+        `SELECT mp.*, p.name AS product_name, p.sku AS product_sku
+         FROM machine_parts mp
+         LEFT JOIN products p ON p.id = mp.product_id
+         WHERE mp.id = $1 AND mp.machine_id = $2`,
         [part_id, machine_id]
       );
       if (result.rows.length === 0) {
@@ -221,11 +259,11 @@ export class MachinePartsMediator {
         `INSERT INTO machine_parts (
            machine_id, name, part_code, position, quantity, manufacturer,
            model_number, installed_at, expected_lifespan_days, last_replaced_at,
-           next_replacement_date, status, notes, created_by
+           next_replacement_date, status, notes, created_by, product_id
          ) VALUES (
            $1,$2,$3,$4, COALESCE($5, 1), $6,
            $7,$8,$9,$10,
-           $11, COALESCE($12, 'active'), $13, $14
+           $11, COALESCE($12, 'active'), $13, $14, $15
          )
          RETURNING *`,
         [
@@ -243,6 +281,7 @@ export class MachinePartsMediator {
           data.status ?? null,
           data.notes ?? null,
           created_by,
+          data.product_id ?? null,
         ]
       );
       const part = serializeMachinePart(result.rows[0]);
@@ -288,6 +327,7 @@ export class MachinePartsMediator {
       if (data.status !== undefined) setField("status", data.status);
       if (data.notes !== undefined) setField("notes", data.notes);
       if (data.is_active !== undefined) setField("is_active", data.is_active);
+      if (data.product_id !== undefined) setField("product_id", data.product_id);
 
       if (updateFields.length === 0) {
         throw new Error("No fields to update");
@@ -379,10 +419,11 @@ export class MachinePartsMediator {
       const total = parseInt(countRes.rows[0].total, 10);
 
       const result = await client.query(
-        `SELECT *
-         FROM machine_part_replacements
-         WHERE machine_part_id = $1
-         ORDER BY replaced_at DESC
+        `SELECT r.*, p.name AS product_name, p.sku AS product_sku
+         FROM machine_part_replacements r
+         LEFT JOIN products p ON p.id = r.product_id
+         WHERE r.machine_part_id = $1
+         ORDER BY r.replaced_at DESC
          LIMIT $2 OFFSET $3`,
         [part_id, limit, offset]
       );
@@ -412,7 +453,7 @@ export class MachinePartsMediator {
 
       // Lock the parent part row and confirm it belongs to the machine.
       const partRes = await client.query(
-        `SELECT id, expected_lifespan_days
+        `SELECT id, expected_lifespan_days, product_id
          FROM machine_parts
          WHERE id = $1 AND machine_id = $2
          FOR UPDATE`,
@@ -443,13 +484,39 @@ export class MachinePartsMediator {
         }
       }
 
+      // Decide whether this replacement consumes inventory stock. It does only
+      // when a product is linked (on the part, or overridden on the request)
+      // and a positive quantity is supplied. Otherwise it stays a cost-only
+      // record, preserving the original behaviour.
+      const effectiveProductId =
+        data.product_id ?? partRes.rows[0].product_id ?? null;
+      const consumeQty = data.quantity ?? 0;
+      let stockResult: {
+        stockAdjustmentId: number;
+        distributionCenterId: number;
+        adjustmentData: any;
+      } | null = null;
+
+      if (effectiveProductId && consumeQty > 0) {
+        stockResult = await MachinePartsMediator.issueStockForReplacement(client, {
+          product_id: Number(effectiveProductId),
+          quantity: consumeQty,
+          distribution_center_id: data.distribution_center_id ?? null,
+          machine_id,
+          part_id,
+          adjusted_by: created_by.toString(),
+        });
+      }
+
       const insertRes = await client.query(
         `INSERT INTO machine_part_replacements (
            machine_part_id, maintenance_log_id, replaced_at, reason, technician,
-           cost, next_replacement_date, notes, created_by
+           cost, next_replacement_date, notes, created_by,
+           product_id, quantity, distribution_center_id, stock_adjustment_id
          ) VALUES (
            $1, $2, COALESCE($3, CURRENT_TIMESTAMP), $4, $5,
-           COALESCE($6, 0), $7, $8, $9
+           COALESCE($6, 0), $7, $8, $9,
+           $10, $11, $12, $13
          )
          RETURNING *`,
         [
@@ -462,6 +529,10 @@ export class MachinePartsMediator {
           data.next_replacement_date ?? null,
           data.notes ?? null,
           created_by,
+          stockResult ? Number(effectiveProductId) : null,
+          stockResult ? consumeQty : null,
+          stockResult ? stockResult.distributionCenterId : null,
+          stockResult ? stockResult.stockAdjustmentId : null,
         ]
       );
 
@@ -490,6 +561,23 @@ export class MachinePartsMediator {
 
       await client.query("COMMIT");
 
+      // Post the accounting voucher after commit so a voucher failure doesn't
+      // roll back the stock movement (mirrors StockAdjustmentMediator).
+      if (stockResult) {
+        try {
+          await interModuleConnector.accModule.addStockAdjustmentVoucher(
+            stockResult.adjustmentData,
+            created_by
+          );
+        } catch (voucherError: any) {
+          MyLogger.error("Failed to post voucher for part replacement", voucherError, {
+            machine_id,
+            part_id,
+            stockAdjustmentId: stockResult.stockAdjustmentId,
+          });
+        }
+      }
+
       const replacement = serializeReplacement(insertRes.rows[0]);
       MyLogger.success(action, { id: replacement.id });
       return replacement;
@@ -500,6 +588,129 @@ export class MachinePartsMediator {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Issue a stock decrease for a product-linked part replacement, writing to the
+   * existing stock_adjustments ledger and decrementing both the per-location and
+   * global product stock — all within the caller's transaction. Mirrors the
+   * ledger writes in StockAdjustmentMediator.applyUnitsLine (decrease path).
+   */
+  private static async issueStockForReplacement(
+    client: PoolClient,
+    params: {
+      product_id: number;
+      quantity: number;
+      distribution_center_id: number | null;
+      machine_id: string;
+      part_id: string;
+      adjusted_by: string;
+    }
+  ): Promise<{
+    stockAdjustmentId: number;
+    distributionCenterId: number;
+    adjustmentData: any;
+  }> {
+    // Resolve the source distribution center: explicit choice, else the primary.
+    let distributionCenterId = params.distribution_center_id;
+    if (!distributionCenterId) {
+      const dcRes = await client.query(
+        "SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1"
+      );
+      if (dcRes.rows.length === 0) {
+        const err: any = new Error("No primary distribution center configured");
+        err.statusCode = 500;
+        throw err;
+      }
+      distributionCenterId = Number(dcRes.rows[0].id);
+    }
+
+    const locationResult = await client.query(
+      "SELECT current_stock FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2",
+      [params.product_id, distributionCenterId]
+    );
+    if (locationResult.rows.length === 0) {
+      const err: any = new Error(
+        "Product has no stock at this distribution center"
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+    const currentLocationStock = parseFloat(locationResult.rows[0].current_stock);
+    const newLocationStock = currentLocationStock - params.quantity;
+    if (newLocationStock < 0) {
+      const err: any = new Error(
+        "Cannot consume more stock than is available at this distribution center"
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    await client.query(
+      "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
+      [newLocationStock, params.product_id, distributionCenterId]
+    );
+
+    const productResult = await client.query(
+      "SELECT name, sku, current_stock FROM products WHERE id = $1 FOR UPDATE",
+      [params.product_id]
+    );
+    if (productResult.rows.length === 0) {
+      const err: any = new Error("Product not found");
+      err.statusCode = 400;
+      throw err;
+    }
+    const product = productResult.rows[0];
+    const currentGlobalStock = parseFloat(product.current_stock);
+    const newGlobalStock = currentGlobalStock - params.quantity;
+
+    const reason = "Machine part replacement";
+    const reference = `MACHINE-${params.machine_id}-PART-${params.part_id}`;
+
+    const adjustmentResult = await client.query(
+      `INSERT INTO stock_adjustments (
+        product_id, adjustment_type, quantity, previous_stock, new_stock,
+        reason, reference, notes, adjusted_by, distribution_center_id
+      ) VALUES ($1, 'decrease', $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id`,
+      [
+        params.product_id,
+        params.quantity,
+        currentGlobalStock,
+        newGlobalStock,
+        reason,
+        reference,
+        null,
+        params.adjusted_by,
+        distributionCenterId,
+      ]
+    );
+    const stockAdjustmentId = Number(adjustmentResult.rows[0].id);
+
+    await client.query(
+      "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [newGlobalStock, params.product_id]
+    );
+
+    return {
+      stockAdjustmentId,
+      distributionCenterId,
+      adjustmentData: {
+        adjustmentId: stockAdjustmentId,
+        productId: params.product_id,
+        productName: product.name || "Unknown Product",
+        productSku: product.sku || "UNKNOWN",
+        adjustmentType: "decrease",
+        quantity: params.quantity,
+        previousStock: currentGlobalStock,
+        newStock: newGlobalStock,
+        reason,
+        reference,
+        notes: null,
+        adjustmentDate: new Date().toISOString().split("T")[0],
+        distributionCenterId,
+      },
+    };
   }
 
   // NOTE: Deleting a replacement does NOT recompute last_replaced_at or
@@ -528,6 +739,175 @@ export class MachinePartsMediator {
       return deleted;
     } catch (error: any) {
       MyLogger.error(action, error, { machine_id, part_id, replacement_id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ---------------- Stock traceability ----------------
+
+  /**
+   * Low-spare alerts: active, product-linked parts whose linked product's stock
+   * is at or below its min_stock_level. Reuses the product min-stock thresholds
+   * used across inventory (see InventoryMediator stock_status logic).
+   */
+  static async getSpareStockAlerts(
+    machine_id?: string
+  ): Promise<SpareStockAlert[]> {
+    const action = "Get Spare Stock Alerts";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { machine_id });
+
+      const params: any[] = [];
+      let machineFilter = "";
+      if (machine_id) {
+        params.push(machine_id);
+        machineFilter = `AND mp.machine_id = $${params.length}`;
+      }
+
+      const result = await client.query(
+        `SELECT
+           mp.id AS part_id,
+           mp.name AS part_name,
+           mp.part_code,
+           mp.machine_id,
+           m.name AS machine_name,
+           p.id AS product_id,
+           p.name AS product_name,
+           p.sku AS product_sku,
+           p.current_stock,
+           p.min_stock_level,
+           CASE
+             WHEN p.current_stock <= 0 THEN 'out_of_stock'
+             WHEN p.current_stock <= (p.min_stock_level * 0.5) THEN 'critical'
+             ELSE 'low'
+           END AS alert_status
+         FROM machine_parts mp
+         JOIN products p ON p.id = mp.product_id
+         JOIN machines m ON m.id = mp.machine_id
+         WHERE mp.product_id IS NOT NULL
+           AND mp.status = 'active'
+           AND mp.is_active = true
+           AND p.current_stock <= p.min_stock_level
+           ${machineFilter}
+         ORDER BY p.current_stock ASC, m.name ASC, mp.name ASC`,
+        params
+      );
+
+      const alerts: SpareStockAlert[] = result.rows.map((row) => ({
+        part_id: row.part_id.toString(),
+        part_name: row.part_name,
+        part_code: row.part_code ?? undefined,
+        machine_id: row.machine_id.toString(),
+        machine_name: row.machine_name,
+        product_id: row.product_id.toString(),
+        product_name: row.product_name,
+        product_sku: row.product_sku,
+        current_stock: Number(row.current_stock ?? 0),
+        min_stock_level: Number(row.min_stock_level ?? 0),
+        alert_status: row.alert_status as SpareStockAlertStatus,
+      }));
+
+      MyLogger.success(action, { count: alerts.length });
+      return alerts;
+    } catch (error: any) {
+      MyLogger.error(action, error, { machine_id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Consumption report: stock-consuming part replacements joined to machine,
+   * part, product and the stock movement they created, with qty + cost rollup.
+   */
+  static async getConsumptionReport(params: {
+    machine_id?: string;
+    date_from?: string;
+    date_to?: string;
+  } = {}): Promise<MachinePartConsumptionReport> {
+    const action = "Get Machine Part Consumption Report";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { params });
+
+      const conditions: string[] = ["r.product_id IS NOT NULL"];
+      const queryParams: any[] = [];
+
+      if (params.machine_id) {
+        queryParams.push(params.machine_id);
+        conditions.push(`mp.machine_id = $${queryParams.length}`);
+      }
+      if (params.date_from) {
+        queryParams.push(params.date_from);
+        conditions.push(`r.replaced_at >= $${queryParams.length}`);
+      }
+      if (params.date_to) {
+        queryParams.push(params.date_to);
+        conditions.push(`r.replaced_at <= $${queryParams.length}`);
+      }
+
+      const whereClause = `WHERE ${conditions.join(" AND ")}`;
+
+      const result = await client.query(
+        `SELECT
+           r.id AS replacement_id,
+           r.replaced_at,
+           mp.machine_id,
+           m.name AS machine_name,
+           mp.id AS part_id,
+           mp.name AS part_name,
+           r.product_id,
+           p.name AS product_name,
+           p.sku AS product_sku,
+           r.quantity,
+           r.cost,
+           r.stock_adjustment_id,
+           r.reason
+         FROM machine_part_replacements r
+         JOIN machine_parts mp ON mp.id = r.machine_part_id
+         JOIN machines m ON m.id = mp.machine_id
+         LEFT JOIN products p ON p.id = r.product_id
+         ${whereClause}
+         ORDER BY r.replaced_at DESC`,
+        queryParams
+      );
+
+      const rows: MachinePartConsumptionRow[] = result.rows.map((row) => ({
+        replacement_id: row.replacement_id.toString(),
+        replaced_at: row.replaced_at.toISOString(),
+        machine_id: row.machine_id.toString(),
+        machine_name: row.machine_name,
+        part_id: row.part_id.toString(),
+        part_name: row.part_name,
+        product_id:
+          row.product_id !== null && row.product_id !== undefined
+            ? row.product_id.toString()
+            : undefined,
+        product_name: row.product_name ?? undefined,
+        product_sku: row.product_sku ?? undefined,
+        quantity:
+          row.quantity !== null && row.quantity !== undefined
+            ? Number(row.quantity)
+            : undefined,
+        cost: Number(row.cost ?? 0),
+        stock_adjustment_id:
+          row.stock_adjustment_id !== null && row.stock_adjustment_id !== undefined
+            ? row.stock_adjustment_id.toString()
+            : undefined,
+        reason: row.reason,
+      }));
+
+      const total_quantity = rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+      const total_cost = rows.reduce((sum, r) => sum + r.cost, 0);
+
+      MyLogger.success(action, { count: rows.length });
+      return { rows, total_quantity, total_cost };
+    } catch (error: any) {
+      MyLogger.error(action, error, { params });
       throw error;
     } finally {
       client.release();
