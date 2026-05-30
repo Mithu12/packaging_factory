@@ -80,11 +80,25 @@ type MenuItem = {
   permission: PermissionCheck | null;
 };
 
+// A named cluster of items rendered as a collapsible subsection inside a section.
+type MenuGroup = {
+  title: string;
+  items: MenuItem[];
+};
+
 type MenuSection = {
   title: string;
   icon: LucideIcon;
-  items: MenuItem[];
+  // A section renders either a flat list of items or a set of named subgroups.
+  items?: MenuItem[];
+  groups?: MenuGroup[];
 };
+
+// All leaf items of a section, regardless of whether it uses flat items or groups.
+const sectionItems = (section: MenuSection): MenuItem[] => [
+  ...(section.items ?? []),
+  ...(section.groups ?? []).flatMap((group) => group.items),
+];
 
 const menuSections: MenuSection[] = [
   {
@@ -234,181 +248,204 @@ const menuSections: MenuSection[] = [
   {
     title: "Factory Operations",
     icon: Building2,
-    items: [
+    groups: [
       {
-        title: "Order Dashboard",
-        url: "/factory",
-        icon: BarChart3,
-        permission: PERMISSIONS.FACTORY_DASHBOARD_READ,
+        title: "Overview",
+        items: [
+          {
+            title: "Order Dashboard",
+            url: "/factory",
+            icon: BarChart3,
+            permission: PERMISSIONS.FACTORY_DASHBOARD_READ,
+          },
+        ],
       },
-      // {
-      //   title: "Factory Management",
-      //   url: "/factory/management",
-      //   icon: Building2,
-      //   permission: PERMISSIONS.FACTORY_MANAGEMENT_READ,
-      // },
+      {
+        title: "Sales & Billing",
+        items: [
+          {
+            title: "Customer Management",
+            url: "/factory/customers",
+            icon: Users,
+            permission: PERMISSIONS.FACTORY_CUSTOMERS_READ,
+          },
+          {
+            title: "Orders & Quotations",
+            url: "/factory/customer-orders",
+            icon: ShoppingCart,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+          {
+            title: "Sales Invoices",
+            url: "/factory/sales-invoices",
+            icon: FileText,
+            permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
+          },
+          {
+            title: "Deliveries",
+            url: "/factory/deliveries",
+            icon: Truck,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+          {
+            title: "Monthly Bills",
+            url: "/factory/monthly-bills",
+            icon: Receipt,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+          {
+            title: "Customer Payments",
+            url: "/factory/payments",
+            icon: Wallet,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+        ],
+      },
       {
         title: "Bill of Materials",
-        url: "/factory/bom",
-        icon: ClipboardList,
-        permission: PERMISSIONS.FACTORY_BOMS_READ,
+        items: [
+          {
+            title: "All BOMs",
+            url: "/factory/bom",
+            icon: ClipboardList,
+            permission: PERMISSIONS.FACTORY_BOMS_READ,
+          },
+          {
+            title: "Corrugation",
+            url: "/factory/bom/corrugation",
+            icon: Layers,
+            permission: PERMISSIONS.FACTORY_BOMS_READ,
+          },
+          {
+            title: "Printing",
+            url: "/factory/bom/printing",
+            icon: Printer,
+            permission: PERMISSIONS.FACTORY_BOMS_READ,
+          },
+          {
+            title: "Ready Goods",
+            url: "/factory/bom/ready-goods",
+            icon: Package2,
+            permission: PERMISSIONS.FACTORY_BOMS_READ,
+          },
+        ],
       },
       {
-        title: "— Corrugation BOMs",
-        url: "/factory/bom/corrugation",
-        icon: Layers,
-        permission: PERMISSIONS.FACTORY_BOMS_READ,
+        title: "Production",
+        items: [
+          {
+            title: "Order Acceptance",
+            url: "/factory/orders",
+            icon: Package,
+            permission: PERMISSIONS.FACTORY_ORDER_ACCEPTANCE_READ,
+          },
+          {
+            title: "Work Order Planning",
+            url: "/factory/work-orders",
+            icon: Calendar,
+            permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+          },
+          {
+            title: "Finished Goods",
+            url: "/factory/work-orders/finished-goods",
+            icon: Package,
+            permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+          },
+          {
+            title: "Pre-Production (RRM)",
+            url: "/factory/work-orders/pre-production",
+            icon: Wrench,
+            permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+          },
+          {
+            title: "Production Execution",
+            url: "/factory/production",
+            icon: Activity,
+            permission: PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ,
+          },
+          {
+            title: "Wastage Tracking",
+            url: "/factory/wastage",
+            icon: AlertTriangle,
+            permission: PERMISSIONS.FACTORY_WASTAGE_READ,
+          },
+        ],
       },
       {
-        title: "— Printing BOMs",
-        url: "/factory/bom/printing",
-        icon: Printer,
-        permission: PERMISSIONS.FACTORY_BOMS_READ,
+        title: "Materials",
+        items: [
+          {
+            title: "Material Requirements",
+            url: "/factory/mrp",
+            icon: TrendingUp,
+            permission: PERMISSIONS.FACTORY_MRP_READ,
+          },
+          {
+            title: "Material Allocation",
+            url: "/factory/materials",
+            icon: Package2,
+            permission: PERMISSIONS.FACTORY_MATERIAL_ALLOCATIONS_READ,
+          },
+          {
+            title: "Material Consumption",
+            url: "/factory/material-consumption",
+            icon: Activity,
+            permission: PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ,
+          },
+        ],
       },
       {
-        title: "— Ready Goods BOMs",
-        url: "/factory/bom/ready-goods",
-        icon: Package2,
-        permission: PERMISSIONS.FACTORY_BOMS_READ,
+        title: "Costing & Expenses",
+        items: [
+          {
+            title: "Factory Expenses",
+            url: "/factory/expenses",
+            icon: Receipt,
+            permission: PERMISSIONS.FACTORY_EXPENSES_READ,
+          },
+          {
+            title: "Material Cost Analysis",
+            url: "/factory/material-costs",
+            icon: CalculatorIcon,
+            permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
+          },
+          {
+            title: "Packaging Costing",
+            url: "/factory/costing",
+            icon: FileSpreadsheet,
+            permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
+          },
+        ],
       },
       {
-        title: "Customer Management",
-        url: "/factory/customers",
-        icon: Users,
-        permission: PERMISSIONS.FACTORY_CUSTOMERS_READ,
+        title: "Equipment & Maintenance",
+        items: [
+          {
+            title: "Production Lines",
+            url: "/factory/production-lines",
+            icon: Settings,
+            permission: PERMISSIONS.FACTORY_PRODUCTION_LINES_READ,
+          },
+          {
+            title: "Machines",
+            url: "/factory/machines",
+            icon: Wrench,
+            permission: PERMISSIONS.FACTORY_MACHINES_READ,
+          },
+          {
+            title: "Spare Parts",
+            url: "/factory/parts",
+            icon: Package2,
+            permission: PERMISSIONS.FACTORY_MACHINES_READ,
+          },
+          {
+            title: "Plates",
+            url: "/factory/plates",
+            icon: Printer,
+            permission: PERMISSIONS.FACTORY_PLATES_READ,
+          },
+        ],
       },
-      {
-        title: "Orders & Quotations",
-        url: "/factory/customer-orders",
-        icon: ShoppingCart,
-        permission: PERMISSIONS.FACTORY_ORDERS_READ,
-      },
-      {
-        title: "Sales Invoices",
-        url: "/factory/sales-invoices",
-        icon: FileText,
-        permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
-      },
-      {
-        title: "Deliveries",
-        url: "/factory/deliveries",
-        icon: Truck,
-        permission: PERMISSIONS.FACTORY_ORDERS_READ,
-      },
-      {
-        title: "Monthly Bills",
-        url: "/factory/monthly-bills",
-        icon: Receipt,
-        permission: PERMISSIONS.FACTORY_ORDERS_READ,
-      },
-      {
-        title: "Customer Payments",
-        url: "/factory/payments",
-        icon: Wallet,
-        permission: PERMISSIONS.FACTORY_ORDERS_READ,
-      },
-      {
-        title: "Order Acceptance",
-        url: "/factory/orders",
-        icon: Package,
-        permission: PERMISSIONS.FACTORY_ORDER_ACCEPTANCE_READ,
-      },
-      {
-        title: "Work Order Planning",
-        url: "/factory/work-orders",
-        icon: Calendar,
-        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
-      },
-      {
-        title: "— Finished Goods",
-        url: "/factory/work-orders/finished-goods",
-        icon: Package,
-        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
-      },
-      {
-        title: "— Pre-Production (RRM)",
-        url: "/factory/work-orders/pre-production",
-        icon: Wrench,
-        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
-      },
-      {
-        title: "Material Requirements",
-        url: "/factory/mrp",
-        icon: TrendingUp,
-        permission: PERMISSIONS.FACTORY_MRP_READ,
-      },
-      {
-        title: "Material Allocation",
-        url: "/factory/materials",
-        icon: Package2,
-        permission: PERMISSIONS.FACTORY_MATERIAL_ALLOCATIONS_READ,
-      },
-      {
-        title: "Material Consumption",
-        url: "/factory/material-consumption",
-        icon: Activity,
-        permission: PERMISSIONS.FACTORY_MATERIAL_CONSUMPTIONS_READ,
-      },
-      {
-        title: "Production Execution",
-        url: "/factory/production",
-        icon: Activity,
-        permission: PERMISSIONS.FACTORY_PRODUCTION_RUNS_READ,
-      },
-      {
-        title: "Wastage Tracking",
-        url: "/factory/wastage",
-        icon: AlertTriangle,
-        permission: PERMISSIONS.FACTORY_WASTAGE_READ,
-      },
-      {
-        title: "Factory Expenses",
-        url: "/factory/expenses",
-        icon: Receipt,
-        permission: PERMISSIONS.FACTORY_EXPENSES_READ,
-      },
-      {
-        title: "Material Cost Analysis",
-        url: "/factory/material-costs",
-        icon: CalculatorIcon,
-        permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
-      },
-      {
-        title: "Packaging costing",
-        url: "/factory/costing",
-        icon: FileSpreadsheet,
-        permission: PERMISSIONS.FACTORY_MATERIAL_COSTS_READ,
-      },
-      {
-        title: "Production Lines",
-        url: "/factory/production-lines",
-        icon: Settings,
-        permission: PERMISSIONS.FACTORY_PRODUCTION_LINES_READ,
-      },
-      {
-        title: "Machines",
-        url: "/factory/machines",
-        icon: Wrench,
-        permission: PERMISSIONS.FACTORY_MACHINES_READ,
-      },
-      {
-        title: "Spare Parts",
-        url: "/factory/parts",
-        icon: Package2,
-        permission: PERMISSIONS.FACTORY_MACHINES_READ,
-      },
-      {
-        title: "Plates",
-        url: "/factory/plates",
-        icon: Printer,
-        permission: PERMISSIONS.FACTORY_PLATES_READ,
-      },
-      // {
-      //   title: "Operators",
-      //   url: "/factory/operators",
-      //   icon: UserCog,
-      //   permission: PERMISSIONS.FACTORY_OPERATORS_READ,
-      // },
     ],
   },
   {
@@ -689,10 +726,29 @@ export function AppSidebar() {
   >(() => {
     const initialState: Record<string, boolean> = {};
     menuSections.forEach((section) => {
-      const sectionHasActiveItem = section.items.some((item) =>
+      const sectionHasActiveItem = sectionItems(section).some((item) =>
         matchesPath(item.url),
       );
       initialState[section.title] = !sectionHasActiveItem;
+    });
+    return initialState;
+  });
+
+  // Per-subgroup collapse state, keyed by `${sectionTitle}::${groupTitle}`.
+  const groupKey = (sectionTitle: string, groupTitle: string) =>
+    `${sectionTitle}::${groupTitle}`;
+
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >(() => {
+    const initialState: Record<string, boolean> = {};
+    menuSections.forEach((section) => {
+      (section.groups ?? []).forEach((group) => {
+        const groupHasActiveItem = group.items.some((item) =>
+          matchesPath(item.url),
+        );
+        initialState[groupKey(section.title, group.title)] = !groupHasActiveItem;
+      });
     });
     return initialState;
   });
@@ -704,12 +760,19 @@ export function AppSidebar() {
     }));
   }, []);
 
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }));
+  }, []);
+
   useEffect(() => {
     setCollapsedSections((previous) => {
       let updated = previous;
 
       menuSections.forEach((section) => {
-        const sectionHasActiveItem = section.items.some((item) =>
+        const sectionHasActiveItem = sectionItems(section).some((item) =>
           matchesPath(item.url),
         );
         if (sectionHasActiveItem && previous[section.title]) {
@@ -722,6 +785,26 @@ export function AppSidebar() {
 
       return updated;
     });
+
+    // Auto-open the subgroup that contains the active route.
+    setCollapsedGroups((previous) => {
+      let updated = previous;
+      menuSections.forEach((section) => {
+        (section.groups ?? []).forEach((group) => {
+          const key = groupKey(section.title, group.title);
+          const groupHasActiveItem = group.items.some((item) =>
+            matchesPath(item.url),
+          );
+          if (groupHasActiveItem && previous[key]) {
+            if (updated === previous) {
+              updated = { ...previous };
+            }
+            updated[key] = false;
+          }
+        });
+      });
+      return updated;
+    });
   }, [currentPath, matchesPath]);
 
   const isActive = matchesPath;
@@ -732,21 +815,29 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
 
   // Filter menu items based on user permissions
+  const canSeeItem = (item: MenuItem) => {
+    // If no permission required, show to all authenticated users
+    if (!item.permission) return true;
+    // If RBAC is still loading, don't show permission-protected items yet
+    if (isLoading) return false;
+    // Check if user has the required permission
+    return hasPermission(item.permission);
+  };
+
   const visibleMenuSections = menuSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => {
-        // If no permission required, show to all authenticated users
-        if (!item.permission) return true;
-
-        // If RBAC is still loading, don't show permission-protected items yet
-        if (isLoading) return false;
-
-        // Check if user has the required permission
-        return hasPermission(item.permission);
-      }),
+      items: (section.items ?? []).filter(canSeeItem),
+      groups: (section.groups ?? [])
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(canSeeItem),
+        }))
+        .filter((group) => group.items.length > 0),
     }))
-    .filter((section) => section.items.length > 0);
+    .filter(
+      (section) => section.items.length > 0 || section.groups.length > 0,
+    );
 
   return (
     <Sidebar collapsible="icon">
@@ -808,8 +899,27 @@ export function AppSidebar() {
               .replace(/[^a-z0-9]+/g, "-")}`;
             const isSectionCollapsed =
               collapsedSections[section.title] ?? false;
-            const hasActiveItem = section.items.some((item) =>
-              isActive(item.url),
+            const allItems = [
+              ...section.items,
+              ...section.groups.flatMap((group) => group.items),
+            ];
+            const hasActiveItem = allItems.some((item) => isActive(item.url));
+            // Subgroups only make sense in the expanded rail; the icon rail
+            // flattens them so items stay reachable.
+            const useGroups = section.groups.length > 0 && !isCollapsed;
+
+            const renderSubItem = (item: MenuItem) => (
+              <SidebarMenuSubItem key={item.title}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={isActive(item.url)}
+                  className="gap-2"
+                >
+                  <Link href={item.url}>
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
             );
 
             return (
@@ -845,26 +955,51 @@ export function AppSidebar() {
                         )}
                       </button>
                     </SidebarMenuButton>
-                    {!isSectionCollapsed && (
-                      <SidebarMenuSub
-                        id={sectionId}
-                        className="mt-1 mx-0 border-l-0 pl-3"
-                      >
-                        {section.items.map((item) => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(item.url)}
-                              className="gap-2"
-                            >
-                              <Link href={item.url}>
-                                <span>{item.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    )}
+                    {!isSectionCollapsed &&
+                      (useGroups ? (
+                        <div id={sectionId} className="mt-1 space-y-0.5">
+                          {section.groups.map((group) => {
+                            const key = groupKey(section.title, group.title);
+                            const isGroupCollapsed =
+                              collapsedGroups[key] ?? false;
+                            const groupHasActiveItem = group.items.some((item) =>
+                              isActive(item.url),
+                            );
+                            return (
+                              <div key={group.title}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGroup(key)}
+                                  aria-expanded={!isGroupCollapsed}
+                                  data-active={groupHasActiveItem}
+                                  className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-wide text-sidebar-foreground/55 hover:text-sidebar-foreground"
+                                >
+                                  <span className="flex-1 text-left">
+                                    {group.title}
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-3 w-3 transition-transform ${
+                                      isGroupCollapsed ? "" : "rotate-180"
+                                    }`}
+                                  />
+                                </button>
+                                {!isGroupCollapsed && (
+                                  <SidebarMenuSub className="mt-0.5 mx-0 border-l border-sidebar-border/60 pl-3">
+                                    {group.items.map(renderSubItem)}
+                                  </SidebarMenuSub>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <SidebarMenuSub
+                          id={sectionId}
+                          className="mt-1 mx-0 border-l-0 pl-3"
+                        >
+                          {allItems.map(renderSubItem)}
+                        </SidebarMenuSub>
+                      ))}
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroup>
