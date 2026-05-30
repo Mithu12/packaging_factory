@@ -117,6 +117,26 @@ export interface MachinePartConsumptionReport {
   total_cost: number;
 }
 
+export interface MachinePartListItem extends MachinePart {
+  machine_name: string;
+  machine_code?: string;
+  product_current_stock?: number;
+  product_min_stock_level?: number;
+  alert_status?: SpareStockAlertStatus;
+}
+
+export interface MachinePartListQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: MachinePartStatus;
+  machine_id?: string;
+  linked_only?: boolean;
+  overdue_only?: boolean;
+  sort_by?: "name" | "part_code" | "status" | "next_replacement_date" | "created_at";
+  sort_order?: "asc" | "desc";
+}
+
 export interface MachinePartQueryParams {
   page?: number;
   limit?: number;
@@ -239,6 +259,21 @@ export class MachinePartsApiService {
     );
   }
 
+  static async listAllParts(
+    params?: MachinePartListQueryParams
+  ): Promise<{
+    parts: MachinePartListItem[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    return makeRequest(
+      `${this.BASE_URL}/parts${toQueryString(
+        params as Record<string, unknown> | undefined
+      )}`
+    );
+  }
+
   static async getStockAlerts(machineId?: string): Promise<SpareStockAlert[]> {
     return makeRequest<SpareStockAlert[]>(
       `${this.BASE_URL}/parts/stock-alerts${toQueryString(
@@ -260,6 +295,8 @@ export class MachinePartsApiService {
 
 export const machinePartsQueryKeys = {
   all: ["machine-parts"] as const,
+  allParts: (params?: MachinePartListQueryParams) =>
+    ["machine-parts", "all-parts", params] as const,
   lists: (machineId: string) =>
     [...machinePartsQueryKeys.all, "list", machineId] as const,
   list: (machineId: string, params?: MachinePartQueryParams) =>

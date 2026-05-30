@@ -392,6 +392,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.FACTORY_MACHINES_READ,
       },
       {
+        title: "Spare Parts",
+        url: "/factory/parts",
+        icon: Package2,
+        permission: PERMISSIONS.FACTORY_MACHINES_READ,
+      },
+      {
         title: "Plates",
         url: "/factory/plates",
         icon: Printer,

@@ -14,6 +14,8 @@ import {
   SpareStockAlertStatus,
   MachinePartConsumptionReport,
   MachinePartConsumptionRow,
+  MachinePartListItem,
+  MachinePartListQueryParams,
 } from "@/types/factory";
 
 type MachinePartRow = {
@@ -739,6 +741,141 @@ export class MachinePartsMediator {
       return deleted;
     } catch (error: any) {
       MyLogger.error(action, error, { machine_id, part_id, replacement_id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ---------------- Cross-machine listing ----------------
+
+  /**
+   * Factory-wide parts list across all machines, with the linked product's
+   * stock and a derived low-spare status. Filterable + paginated.
+   */
+  static async listAllParts(
+    params: MachinePartListQueryParams = {}
+  ): Promise<{
+    parts: MachinePartListItem[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const action = "List All Machine Parts";
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { params });
+
+      const {
+        search,
+        status,
+        machine_id,
+        linked_only,
+        overdue_only,
+        sort_by = "name",
+        sort_order = "asc",
+        page = 1,
+        limit = 20,
+      } = params;
+
+      const allowedSort = new Set([
+        "name",
+        "part_code",
+        "status",
+        "next_replacement_date",
+        "created_at",
+      ]);
+      const sortColumn = allowedSort.has(sort_by) ? sort_by : "name";
+      const sortDir = sort_order === "desc" ? "DESC" : "ASC";
+      const offset = (page - 1) * limit;
+
+      const whereConditions: string[] = ["1 = 1"];
+      const queryParams: any[] = [];
+
+      if (status) {
+        queryParams.push(status);
+        whereConditions.push(`mp.status = $${queryParams.length}`);
+      }
+      if (machine_id) {
+        queryParams.push(machine_id);
+        whereConditions.push(`mp.machine_id = $${queryParams.length}`);
+      }
+      if (linked_only) {
+        whereConditions.push(`mp.product_id IS NOT NULL`);
+      }
+      if (overdue_only) {
+        whereConditions.push(
+          `mp.next_replacement_date IS NOT NULL AND mp.next_replacement_date < CURRENT_DATE`
+        );
+      }
+      if (search) {
+        queryParams.push(`%${search}%`);
+        const idx = queryParams.length;
+        whereConditions.push(
+          `(mp.name ILIKE $${idx} OR mp.part_code ILIKE $${idx} OR m.name ILIKE $${idx} OR p.name ILIKE $${idx} OR p.sku ILIKE $${idx})`
+        );
+      }
+
+      const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+
+      const countResult = await client.query(
+        `SELECT COUNT(*) AS total
+         FROM machine_parts mp
+         JOIN machines m ON m.id = mp.machine_id
+         LEFT JOIN products p ON p.id = mp.product_id
+         ${whereClause}`,
+        queryParams
+      );
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      const dataParams = [...queryParams, limit, offset];
+      const result = await client.query(
+        `SELECT
+           mp.*,
+           m.name AS machine_name,
+           m.code AS machine_code,
+           p.name AS product_name,
+           p.sku AS product_sku,
+           p.current_stock AS product_current_stock,
+           p.min_stock_level AS product_min_stock_level,
+           CASE
+             WHEN mp.product_id IS NULL THEN NULL
+             WHEN p.current_stock <= 0 THEN 'out_of_stock'
+             WHEN p.current_stock <= (p.min_stock_level * 0.5) THEN 'critical'
+             WHEN p.current_stock <= p.min_stock_level THEN 'low'
+             ELSE NULL
+           END AS alert_status
+         FROM machine_parts mp
+         JOIN machines m ON m.id = mp.machine_id
+         LEFT JOIN products p ON p.id = mp.product_id
+         ${whereClause}
+         ORDER BY mp.${sortColumn} ${sortDir}, mp.id ASC
+         LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`,
+        dataParams
+      );
+
+      const parts: MachinePartListItem[] = result.rows.map((row) => ({
+        ...serializeMachinePart(row),
+        machine_name: row.machine_name,
+        machine_code: row.machine_code ?? undefined,
+        product_current_stock:
+          row.product_current_stock !== null &&
+          row.product_current_stock !== undefined
+            ? Number(row.product_current_stock)
+            : undefined,
+        product_min_stock_level:
+          row.product_min_stock_level !== null &&
+          row.product_min_stock_level !== undefined
+            ? Number(row.product_min_stock_level)
+            : undefined,
+        alert_status: (row.alert_status as SpareStockAlertStatus) ?? undefined,
+      }));
+
+      const totalPages = Math.ceil(total / limit);
+      MyLogger.success(action, { count: parts.length, total });
+      return { parts, total, page, totalPages };
+    } catch (error: any) {
+      MyLogger.error(action, error, { params });
       throw error;
     } finally {
       client.release();

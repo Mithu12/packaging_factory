@@ -141,6 +141,20 @@ const stockAlertsQuerySchema = Joi.object({
   machine_id: Joi.number().integer().positive().optional(),
 });
 
+const allPartsQuerySchema = Joi.object({
+  search: Joi.string().max(255).optional(),
+  status: Joi.string().valid(...machinePartStatuses).optional(),
+  machine_id: Joi.number().integer().positive().optional(),
+  linked_only: Joi.boolean().optional(),
+  overdue_only: Joi.boolean().optional(),
+  sort_by: Joi.string()
+    .valid("name", "part_code", "status", "next_replacement_date", "created_at")
+    .optional(),
+  sort_order: Joi.string().valid("asc", "desc").optional(),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
+});
+
 const validateRequest =
   (schema: Joi.ObjectSchema) =>
   (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -184,6 +198,13 @@ router.get(
 // =======================================
 // Spare-part stock traceability (collection-level, declared before "/:id")
 // =======================================
+router.get(
+  "/parts",
+  requirePermission(PERMISSIONS.FACTORY_MACHINE_PARTS_READ),
+  validateQuery(allPartsQuerySchema),
+  expressAsyncHandler(machinePartsController.listAllParts)
+);
+
 router.get(
   "/parts/stock-alerts",
   requirePermission(PERMISSIONS.FACTORY_MACHINE_PARTS_READ),

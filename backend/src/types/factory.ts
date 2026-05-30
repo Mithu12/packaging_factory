@@ -904,6 +904,26 @@ export interface MachinePartQueryParams {
 
 export type SpareStockAlertStatus = 'low' | 'critical' | 'out_of_stock';
 
+export interface MachinePartListItem extends MachinePart {
+    machine_name: string;
+    machine_code?: string;
+    product_current_stock?: number;
+    product_min_stock_level?: number;
+    alert_status?: SpareStockAlertStatus;
+}
+
+export interface MachinePartListQueryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: MachinePartStatus;
+    machine_id?: string;
+    linked_only?: boolean;
+    overdue_only?: boolean;
+    sort_by?: 'name' | 'part_code' | 'status' | 'next_replacement_date' | 'created_at';
+    sort_order?: 'asc' | 'desc';
+}
+
 export interface SpareStockAlert {
     part_id: string;
     part_name: string;

@@ -156,6 +156,34 @@ export class MachinePartsController {
     }
   }
 
+  async listAllParts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const action = "GET /api/factory/machines/parts";
+    try {
+      const params = {
+        search: req.query.search as string | undefined,
+        status: req.query.status as MachinePartStatus | undefined,
+        machine_id: req.query.machine_id as string | undefined,
+        linked_only:
+          req.query.linked_only !== undefined
+            ? req.query.linked_only === "true"
+            : undefined,
+        overdue_only:
+          req.query.overdue_only !== undefined
+            ? req.query.overdue_only === "true"
+            : undefined,
+        sort_by: req.query.sort_by as any,
+        sort_order: req.query.sort_order as "asc" | "desc" | undefined,
+        page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 20,
+      };
+      const result = await MachinePartsMediator.listAllParts(params);
+      serializeSuccessResponse(res, result, "Machine parts retrieved successfully");
+    } catch (error: any) {
+      MyLogger.error(action, error, { query: req.query });
+      next(error);
+    }
+  }
+
   async getStockAlerts(
     req: Request,
     res: Response,
