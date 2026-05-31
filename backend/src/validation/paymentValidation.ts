@@ -93,7 +93,7 @@ export const invoiceQuerySchema = Joi.object({
 
 export const paymentQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(1000).optional(),
   search: Joi.string().max(255).optional().allow(''),
   supplier_id: Joi.number().integer().positive().optional(),
   invoice_id: Joi.number().integer().positive().optional(),

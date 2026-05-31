@@ -18,9 +18,12 @@ import {
   FileText,
   User,
   History,
+  Download,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentApi } from "@/modules/sales/services/payment-api";
+import { downloadCsv, printHtml, escapeHtml } from "@/utils/export-print";
 import { useFormatting } from "@/hooks/useFormatting";
 import { useRBAC, useFinancePermissions } from "@/contexts/RBACContext";
 import { PERMISSIONS } from "@/types/rbac";
@@ -103,6 +106,75 @@ export default function PaymentDetailsPage() {
     }
   };
 
+  // Allocation rows for export/print: prefer the allocation breakdown, fall
+  // back to the single legacy invoice.
+  const allocationRows = (p: PaymentWithDetails) =>
+    p.allocations && p.allocations.length > 0
+      ? p.allocations.map((a) => ({
+          invoice: a.invoice_number || `#${a.invoice_id}`,
+          amount: Number(a.allocated_amount || 0),
+        }))
+      : p.invoice
+      ? [{ invoice: p.invoice.invoice_number, amount: Number(p.amount || 0) }]
+      : [];
+
+  const handleExportPayment = () => {
+    if (!payment) return;
+    const allocs = allocationRows(payment);
+    downloadCsv(
+      `payment-${payment.payment_number}`,
+      ["Field", "Value"],
+      [
+        ["Payment #", payment.payment_number],
+        ["Date", new Date(payment.payment_date).toISOString().slice(0, 10)],
+        ["Supplier", payment.supplier?.name || payment.supplier_name || ""],
+        ["Supplier Code", payment.supplier?.supplier_code || payment.supplier_code || ""],
+        ["Amount", Number(payment.amount || 0).toFixed(2)],
+        ["Method", (payment.payment_method || "").replace(/[-_]/g, " ")],
+        ["Bank Name", payment.bank_name || ""],
+        ["Reference", payment.reference || ""],
+        ["Status", payment.status],
+        ["Approval", payment.approval_status],
+        ["Notes", payment.notes || ""],
+        ...allocs.map((a) => [`Invoice ${a.invoice}`, a.amount.toFixed(2)] as [string, string]),
+      ]
+    );
+  };
+
+  const handlePrintPayment = () => {
+    if (!payment) return;
+    const allocs = allocationRows(payment);
+    const row = (label: string, value: string) =>
+      `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`;
+    const allocTable = allocs.length
+      ? `<table><thead><tr><th>Invoice</th><th class="num">Allocated</th></tr></thead><tbody>${allocs
+          .map(
+            (a) =>
+              `<tr><td>${escapeHtml(a.invoice)}</td><td class="num">${escapeHtml(formatCurrency(a.amount))}</td></tr>`
+          )
+          .join("")}</tbody></table>`
+      : "";
+    const body = `
+      <h1>Payment ${escapeHtml(payment.payment_number)}</h1>
+      <div class="meta">Generated ${escapeHtml(new Date().toLocaleString())}</div>
+      <div class="section"><dl class="kv">
+        ${row("Supplier", payment.supplier?.name || payment.supplier_name || "")}
+        ${row("Supplier Code", payment.supplier?.supplier_code || payment.supplier_code || "")}
+        ${row("Amount", formatCurrency(Number(payment.amount || 0)))}
+        ${row("Payment Date", new Date(payment.payment_date).toLocaleDateString())}
+        ${row("Payment Method", (payment.payment_method || "").replace(/[-_]/g, " "))}
+        ${payment.bank_name ? row("Bank Name", payment.bank_name) : ""}
+        ${row("Reference", payment.reference || "—")}
+        ${row("Status", payment.status)}
+        ${row("Approval", payment.approval_status)}
+        ${payment.notes ? row("Notes", payment.notes) : ""}
+      </dl></div>
+      ${allocTable ? `<div class="section"><strong>Settled Invoices</strong>${allocTable}</div>` : ""}`;
+    if (!printHtml(`Payment ${payment.payment_number}`, body)) {
+      toast.error("Unable to open print window — please allow popups");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid":
@@ -170,6 +242,14 @@ export default function PaymentDetailsPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPayment}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={handlePrintPayment}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
           {payment.approval_status === "draft" && hasPermission(PERMISSIONS.PAYMENTS_CREATE) && (
             <Button onClick={handleSubmitForApproval} disabled={isActionLoading}>
               <Upload className="w-4 h-4 mr-2" />

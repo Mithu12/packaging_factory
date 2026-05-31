@@ -33,9 +33,12 @@ import {
   Eye,
   Edit,
   Upload,
+  Download,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentApi } from "@/modules/sales/services/payment-api";
+import { downloadCsv, printHtml, escapeHtml } from "@/utils/export-print";
 import { ApiService } from "@/services/api";
 import {
   Invoice,
@@ -326,6 +329,91 @@ export default function PaymentsPage() {
     }
   };
 
+  // Fetch the full filtered payment set (ignoring pagination) for export/print.
+  const fetchAllPaymentsForOutput = async (): Promise<Payment[]> => {
+    const { page, limit, ...rest } = paymentFilters;
+    return PaymentApi.getPayments({ ...rest, page: 1, limit: 1000 });
+  };
+
+  const invoiceLabel = (p: Payment) =>
+    Number(p.invoice_count) > 1
+      ? `Multiple (${p.invoice_count})`
+      : p.invoice_number || (p.invoice_id ? `#${p.invoice_id}` : "—");
+
+  const handleExportPayments = async () => {
+    try {
+      const rows = await fetchAllPaymentsForOutput();
+      if (rows.length === 0) {
+        toast.error("No payments to export");
+        return;
+      }
+      downloadCsv(
+        `supplier-payments-${new Date().toISOString().slice(0, 10)}`,
+        ["Payment #", "Date", "Supplier", "Supplier Code", "Invoice(s)", "Amount", "Method", "Bank Name", "Reference", "Status", "Approval"],
+        rows.map((p) => [
+          p.payment_number,
+          new Date(p.payment_date).toISOString().slice(0, 10),
+          p.supplier_name || "",
+          p.supplier_code || "",
+          invoiceLabel(p),
+          Number(p.amount || 0).toFixed(2),
+          (p.payment_method || "").replace(/[-_]/g, " "),
+          p.bank_name || "",
+          p.reference || "",
+          p.status,
+          p.approval_status,
+        ])
+      );
+    } catch (error) {
+      console.error("Error exporting payments:", error);
+      toast.error("Failed to export payments");
+    }
+  };
+
+  const handlePrintPayments = async () => {
+    try {
+      const rows = await fetchAllPaymentsForOutput();
+      if (rows.length === 0) {
+        toast.error("No payments to print");
+        return;
+      }
+      const total = rows.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const body = `
+        <h1>Supplier Payments</h1>
+        <div class="meta">Generated ${escapeHtml(new Date().toLocaleString())} · ${rows.length} payment(s) · Total ${escapeHtml(formatCurrency(total))}</div>
+        <table>
+          <thead><tr>
+            <th>Payment #</th><th>Date</th><th>Supplier</th><th>Invoice(s)</th>
+            <th class="num">Amount</th><th>Method</th><th>Bank</th><th>Reference</th><th>Status</th><th>Approval</th>
+          </tr></thead>
+          <tbody>
+            ${rows
+              .map(
+                (p) => `<tr>
+              <td>${escapeHtml(p.payment_number)}</td>
+              <td>${escapeHtml(new Date(p.payment_date).toLocaleDateString())}</td>
+              <td>${escapeHtml(p.supplier_name || "")}</td>
+              <td>${escapeHtml(invoiceLabel(p))}</td>
+              <td class="num">${escapeHtml(formatCurrency(Number(p.amount || 0)))}</td>
+              <td>${escapeHtml((p.payment_method || "").replace(/[-_]/g, " "))}</td>
+              <td>${escapeHtml(p.bank_name || "")}</td>
+              <td>${escapeHtml(p.reference || "")}</td>
+              <td>${escapeHtml(p.status)}</td>
+              <td>${escapeHtml(p.approval_status)}</td>
+            </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>`;
+      if (!printHtml("Supplier Payments", body)) {
+        toast.error("Unable to open print window — please allow popups");
+      }
+    } catch (error) {
+      console.error("Error printing payments:", error);
+      toast.error("Failed to print payments");
+    }
+  };
+
   const handleDeleteInvoice = async (invoice: Invoice) => {
     const confirmed = window.confirm(
       `Delete invoice ${invoice.invoice_number}? This cannot be undone.`
@@ -460,6 +548,14 @@ export default function PaymentsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={handleExportPayments}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button type="button" variant="outline" onClick={handlePrintPayments}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
           {canCreatePayments && (
             <Button type="button" variant="add" onClick={() => setShowRecordPaymentForm(true)}>
               <Plus className="w-4 h-4 mr-2" />
