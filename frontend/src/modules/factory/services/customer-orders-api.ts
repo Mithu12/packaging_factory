@@ -258,6 +258,7 @@ export interface DeliveryReturn {
     factory_customer_id: number;
     factory_customer_name?: string;
     customer_order_id?: number;
+    distribution_center_id?: number;
     return_date: string;
     return_reason: string;
     status: DeliveryReturnStatus;
@@ -287,6 +288,7 @@ export interface CreateDeliveryReturnRequest {
     return_date?: string;
     return_reason?: string;
     notes?: string;
+    distribution_center_id?: number;
 }
 
 export interface DeliveryReturnQueryParams {

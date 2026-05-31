@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -56,6 +56,7 @@ import {
   type DeliveryReturnQueryParams,
   type CreateDeliveryReturnItemRequest,
 } from "../services/customer-orders-api";
+import { DistributionApi } from "@/modules/inventory/services/distribution-api";
 
 const STATUS_VARIANTS: Record<
   DeliveryReturnStatus,
@@ -283,8 +284,23 @@ function NewReturnDialog({
   const [deliveryId, setDeliveryId] = useState<string>(presetDeliveryId ?? "");
   const [reason, setReason] = useState("damaged");
   const [notes, setNotes] = useState("");
+  const [dcId, setDcId] = useState<string>("");
   // delivery_item_id -> return quantity
   const [quantities, setQuantities] = useState<Record<number, string>>({});
+
+  // Distribution centers for the restock destination; default to the primary.
+  const { data: dcData } = useQuery({
+    queryKey: ["distribution-centers"],
+    queryFn: () => DistributionApi.getDistributionCenters({ limit: 100 }),
+    enabled: open,
+  });
+  const distributionCenters = dcData?.centers ?? [];
+  useEffect(() => {
+    if (!dcId && distributionCenters.length > 0) {
+      const primary = distributionCenters.find((c) => c.is_primary) ?? distributionCenters[0];
+      if (primary) setDcId(String(primary.id));
+    }
+  }, [dcId, distributionCenters]);
 
   // Recent deliveries for the picker (shipped/delivered only — returnable).
   const { data: deliveriesList } = useQuery({
@@ -301,7 +317,12 @@ function NewReturnDialog({
 
   const createMut = useMutation({
     mutationFn: (items: CreateDeliveryReturnItemRequest[]) =>
-      CustomerOrdersApiService.createDeliveryReturn(deliveryId, { items, return_reason: reason, notes: notes || undefined }),
+      CustomerOrdersApiService.createDeliveryReturn(deliveryId, {
+        items,
+        return_reason: reason,
+        notes: notes || undefined,
+        distribution_center_id: dcId ? Number(dcId) : undefined,
+      }),
     onSuccess: () => {
       toast.success("Return created (draft) — approve it to restore stock");
       setQuantities({});
@@ -363,6 +384,22 @@ function NewReturnDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div>
+            <Label className="mb-1 block">Restock to (distribution center)</Label>
+            <Select value={dcId} onValueChange={setDcId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select distribution center" />
+              </SelectTrigger>
+              <SelectContent>
+                {distributionCenters.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}{c.is_primary ? " (primary)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {loadingDelivery ? (

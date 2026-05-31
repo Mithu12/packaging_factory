@@ -75,16 +75,27 @@ export class CreateDeliveryReturnMediator {
       const itemById = new Map<number, DeliveryItemForReturn>();
       itemsRes.rows.forEach(r => itemById.set(Number(r.id), r));
 
+      // Resolve the destination DC for restocking: explicit choice, else primary.
+      let dcId: number | null = request.distribution_center_id ?? null;
+      if (dcId == null) {
+        const dcRes = await client.query<{ id: string }>(
+          `SELECT id FROM distribution_centers WHERE is_primary = true LIMIT 1`
+        );
+        dcId = dcRes.rows[0] ? Number(dcRes.rows[0].id) : null;
+      }
+
       // Insert header (total filled in after lines).
       const headerRes = await client.query<{ id: string }>(
         `INSERT INTO factory_delivery_returns
-           (delivery_id, factory_customer_id, customer_order_id, return_date, return_reason, status, created_by, notes)
-         VALUES ($1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5, 'draft', $6, $7)
+           (delivery_id, factory_customer_id, customer_order_id, distribution_center_id,
+            return_date, return_reason, status, created_by, notes)
+         VALUES ($1, $2, $3, $4, COALESCE($5::date, CURRENT_DATE), $6, 'draft', $7, $8)
          RETURNING id`,
         [
           deliveryId,
           delivery.factory_customer_id,
           delivery.customer_order_id,
+          dcId,
           request.return_date || null,
           request.return_reason || 'other',
           userId,

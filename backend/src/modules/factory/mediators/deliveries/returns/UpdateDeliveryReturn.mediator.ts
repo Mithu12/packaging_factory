@@ -53,6 +53,7 @@ export class UpdateDeliveryReturnMediator {
         delivery_id: string;
         factory_customer_id: string;
         customer_order_id: string | null;
+        distribution_center_id: string | null;
         status: string;
         return_number: string;
         return_date: string | Date;
@@ -60,8 +61,8 @@ export class UpdateDeliveryReturnMediator {
         total_return_value: string;
         currency: string | null;
       }>(
-        `SELECT id, delivery_id, factory_customer_id, customer_order_id, status,
-                return_number, return_date, return_reason, total_return_value, currency
+        `SELECT id, delivery_id, factory_customer_id, customer_order_id, distribution_center_id,
+                status, return_number, return_date, return_reason, total_return_value, currency
            FROM factory_delivery_returns
           WHERE id = $1
           FOR UPDATE`,
@@ -72,6 +73,7 @@ export class UpdateDeliveryReturnMediator {
       if (ret.status !== 'draft') {
         throw createError(`Only draft returns can be approved (current: ${ret.status})`, 400);
       }
+      const dcId = ret.distribution_center_id != null ? Number(ret.distribution_center_id) : null;
 
       const itemsRes = await client.query<ReturnItemForApproval>(
         `SELECT delivery_item_id, order_line_item_id, product_id, product_name, returned_quantity
@@ -119,6 +121,7 @@ export class UpdateDeliveryReturnMediator {
         );
 
         if (it.product_id != null) {
+          // Global aggregate stock.
           await client.query(
             `UPDATE products
                 SET current_stock = current_stock + $1,
@@ -126,6 +129,19 @@ export class UpdateDeliveryReturnMediator {
               WHERE id = $2`,
             [qty, it.product_id]
           );
+          // Per-DC stock: upsert the destination DC's product_locations row
+          // (mirrors the GRN restock pattern). Skipped if no DC is resolved.
+          if (dcId != null) {
+            await client.query(
+              `INSERT INTO product_locations (product_id, distribution_center_id, current_stock, last_movement_date)
+               VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+               ON CONFLICT (product_id, distribution_center_id)
+               DO UPDATE SET current_stock = product_locations.current_stock + EXCLUDED.current_stock,
+                             last_movement_date = CURRENT_TIMESTAMP,
+                             updated_at = CURRENT_TIMESTAMP`,
+              [it.product_id, dcId, qty]
+            );
+          }
         }
       }
 

@@ -347,6 +347,8 @@ export interface DeliveryReturn {
     factory_customer_id: number;
     factory_customer_name?: string;
     customer_order_id?: number;
+    /** DC whose product_locations stock is credited on approval. */
+    distribution_center_id?: number;
     return_date: string;
     return_reason: string;
     status: DeliveryReturnStatus;
@@ -377,6 +379,8 @@ export interface CreateDeliveryReturnRequest {
     return_date?: string;
     return_reason?: string;
     notes?: string;
+    /** DC to restock on approval. Defaults to the primary DC when omitted. */
+    distribution_center_id?: number;
 }
 
 export interface Address {

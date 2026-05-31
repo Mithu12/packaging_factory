@@ -17,6 +17,7 @@ export const createDeliveryReturnSchema = Joi.object({
   return_date: Joi.date().iso().optional(),
   return_reason: Joi.string().max(50).optional().allow('', null),
   notes: Joi.string().max(1000).optional().allow('', null),
+  distribution_center_id: idLike.optional().allow(null),
 });
 
 export const returnIdSchema = Joi.object({

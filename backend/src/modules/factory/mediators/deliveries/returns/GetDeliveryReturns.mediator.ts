@@ -10,6 +10,7 @@ interface ReturnRow {
   factory_customer_id: string;
   factory_customer_name: string | null;
   customer_order_id: string | null;
+  distribution_center_id: string | null;
   return_date: string | Date;
   return_reason: string;
   status: 'draft' | 'approved' | 'rejected' | 'cancelled';
@@ -44,7 +45,7 @@ interface ReturnItemRow {
 const SELECT_RETURN = `
   SELECT r.id, r.return_number, r.delivery_id, d.delivery_number,
          r.factory_customer_id, fc.name AS factory_customer_name,
-         r.customer_order_id, r.return_date, r.return_reason, r.status,
+         r.customer_order_id, r.distribution_center_id, r.return_date, r.return_reason, r.status,
          r.total_return_value, r.currency, r.reversal_voucher_id, r.credit_note_voucher_id,
          r.accounting_integrated, r.created_by, r.approved_by, r.approved_at, r.notes,
          r.created_at, r.updated_at
@@ -143,6 +144,7 @@ export class GetDeliveryReturnsMediator {
       factory_customer_id: Number(row.factory_customer_id),
       factory_customer_name: row.factory_customer_name ?? undefined,
       customer_order_id: row.customer_order_id != null ? Number(row.customer_order_id) : undefined,
+      distribution_center_id: row.distribution_center_id != null ? Number(row.distribution_center_id) : undefined,
       return_date: String(row.return_date),
       return_reason: row.return_reason,
       status: row.status,
