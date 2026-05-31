@@ -1573,6 +1573,117 @@ class FactoryAccountsIntegrationService {
   }
 
   /**
+   * Post the reversal voucher for a delivery (challan) return.
+   * Credit note — Debit: Sales Returns, Credit: Accounts Receivable — for the
+   * returned sale value. Writes the voucher id back to factory_delivery_returns.
+   * The goods' physical stock is already restored by the return mediator; this
+   * only reverses the receivable side.
+   */
+  async createDeliveryReturnVouchers(
+    data: {
+      returnId: string;
+      returnNumber: string;
+      deliveryId: number;
+      deliveryNumber: string | null;
+      customerId: string;
+      customerName: string;
+      customerOrderId: number | null;
+      totalReturnValue: number;
+      currency: string;
+      returnDate: string;
+      returnReason: string;
+    },
+    userId: number
+  ): Promise<{ creditNote: VoucherCreationResult | null }> {
+    const action = 'Create Delivery Return Vouchers';
+
+    if (!this.isAccountsAvailable()) {
+      MyLogger.info(action, { message: 'Accounts module not available', returnId: data.returnId });
+      return { creditNote: null };
+    }
+
+    try {
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return { creditNote: null };
+
+      const salesReturnsAccount = await this.getDefaultAccount('sales_returns');
+      const receivableAccount = await this.getDefaultAccount('accounts_receivable');
+
+      if (!salesReturnsAccount || !receivableAccount) {
+        const errMsg = 'Required accounts not configured (Sales Returns, Accounts Receivable)';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addDeliveryReturnVoucher',
+          sourceEntityType: 'delivery_return',
+          sourceEntityId: parseInt(data.returnId),
+          errorMessage: errMsg,
+          payload: { returnNumber: data.returnNumber },
+          userId,
+        });
+        await pool.query(
+          `UPDATE factory_delivery_returns SET accounting_integration_error = $1 WHERE id = $2`,
+          [errMsg, data.returnId]
+        );
+        return { creditNote: { voucherId: 0, voucherNo: '', success: false, error: errMsg } };
+      }
+
+      const voucherData = {
+        type: VoucherType.JOURNAL,
+        date: new Date(data.returnDate),
+        reference: data.returnNumber,
+        payee: data.customerName,
+        amount: data.totalReturnValue,
+        narration: `Delivery Return ${data.returnNumber} (challan ${data.deliveryNumber ?? data.deliveryId}) - Reason: ${data.returnReason}`,
+        lines: [
+          {
+            accountId: salesReturnsAccount.id,
+            debit: data.totalReturnValue,
+            credit: 0,
+            description: `Sales Returns - ${data.returnNumber}`,
+          },
+          {
+            accountId: receivableAccount.id,
+            debit: 0,
+            credit: data.totalReturnValue,
+            description: `A/R reduction - ${data.returnNumber}`,
+          },
+        ],
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      await pool.query(
+        `UPDATE factory_delivery_returns
+            SET credit_note_voucher_id = $1,
+                reversal_voucher_id = $1,
+                accounting_integrated = TRUE,
+                accounting_integration_error = NULL,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2`,
+        [voucher.id, data.returnId]
+      );
+
+      MyLogger.success(action, { returnId: data.returnId, voucherId: voucher.id });
+      return { creditNote: { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true } };
+    } catch (error: any) {
+      MyLogger.error(action, error, { data });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addDeliveryReturnVoucher',
+        sourceEntityType: 'delivery_return',
+        sourceEntityId: parseInt(data.returnId),
+        errorMessage: error.message || 'Failed to create delivery return voucher',
+        payload: { returnNumber: data.returnNumber },
+        userId,
+      });
+      return { creditNote: { voucherId: 0, voucherNo: '', success: false, error: error.message } };
+    }
+  }
+
+  /**
    * Create credit note voucher for customer return
    * Debit: Sales Returns, Credit: Accounts Receivable
    */

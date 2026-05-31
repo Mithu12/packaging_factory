@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -33,75 +34,127 @@ interface RecordPaymentFormProps {
   preselectedInvoiceId?: number | null // Preselect invoice when opening from PO details
 }
 
+// Payment methods that move money through a bank and therefore require a bank name.
+const BANK_METHODS = ["bank-transfer", "check", "wire-transfer"]
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, paymentId, preselectedInvoiceId }: RecordPaymentFormProps) {
-  const [formData, setFormData] = useState({
-    invoice: "",
-    supplier: "",
-    amount: "",
-    paymentDate: new Date().toISOString().split('T')[0],
-    paymentMethod: "",
-    reference: "",
-    notes: "",
-    outstanding_amount: "0"
-  })
+  const [supplier, setSupplier] = useState("")
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [paymentMethod, setPaymentMethod] = useState("")
+  const [bankName, setBankName] = useState("")
+  const [reference, setReference] = useState("")
+  const [notes, setNotes] = useState("")
+  // Manual amount only used for supplier "advance" payments (no invoice selected).
+  const [advanceAmount, setAdvanceAmount] = useState("")
+
+  // invoice_id -> amount string for the invoices being settled by this payment.
+  const [allocations, setAllocations] = useState<Record<number, string>>({})
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [supplierInvoices, setSupplierInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(false)
+
+  const bankRequired = BANK_METHODS.includes(paymentMethod)
+  const selectedIds = Object.keys(allocations).map(Number)
+  const hasAllocations = selectedIds.length > 0
+  const allocationTotal = round2(
+    Object.values(allocations).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+  )
+  const outstandingTotal = round2(
+    supplierInvoices
+      .filter((inv) => allocations[inv.id] !== undefined)
+      .reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0)
+  )
+  const paymentAmount = hasAllocations ? allocationTotal : (parseFloat(advanceAmount) || 0)
 
   useEffect(() => {
     if (open) {
-      fetchData()
+      void initialize()
+    } else {
+      resetForm()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, paymentId, preselectedInvoiceId])
 
-  const fetchData = async () => {
+  function resetForm() {
+    setSupplier("")
+    setPaymentDate(new Date().toISOString().split('T')[0])
+    setPaymentMethod("")
+    setBankName("")
+    setReference("")
+    setNotes("")
+    setAdvanceAmount("")
+    setAllocations({})
+    setSupplierInvoices([])
+  }
+
+  // Load a supplier's invoices that still owe money so they can be allocated against.
+  async function loadSupplierInvoices(supplierId: number): Promise<Invoice[]> {
+    try {
+      const invoices = await PaymentApi.getSupplierInvoices(supplierId, { limit: 1000 })
+      const outstanding = invoices.filter(
+        (inv) =>
+          Number(inv.outstanding_amount || 0) > 0 &&
+          inv.status !== "paid" &&
+          inv.status !== "cancelled"
+      )
+      setSupplierInvoices(outstanding)
+      return outstanding
+    } catch (error) {
+      console.error("Error loading supplier invoices:", error)
+      toast.error("Failed to load supplier invoices")
+      setSupplierInvoices([])
+      return []
+    }
+  }
+
+  async function initialize() {
     try {
       setLoading(true)
-      const [invoicesResponse, suppliersResponse] = await Promise.all([
-        PaymentApi.getInvoices({ limit: 100 }),
-        SupplierApi.getSuppliers({ limit: 100 })
-      ])
-      setInvoices(invoicesResponse)
+      resetForm()
+
+      const suppliersResponse = await SupplierApi.getSuppliers({ limit: 100 })
       setSuppliers(suppliersResponse.suppliers)
 
-      // If editing, fetch payment details
+      // Edit mode: hydrate from the existing payment + its allocations.
       if (paymentId) {
-        const payment = await PaymentApi.getPayment(paymentId);
-        setFormData({
-          invoice: payment.invoice_id?.toString() || "",
-          supplier: payment.supplier_id.toString(),
-          amount: payment.amount.toString(),
-          paymentDate: new Date(payment.payment_date).toISOString().split('T')[0],
-          paymentMethod: payment.payment_method,
-          reference: payment.reference || "",
-          notes: payment.notes || "",
-          outstanding_amount: "0" // Will be updated if invoice matches
-        });
-        
-        if (payment.invoice_id) {
-          const matchedInvoice = invoicesResponse.find(inv => inv.id === payment.invoice_id);
-          if (matchedInvoice) {
-            setFormData(prev => ({
-              ...prev,
-              outstanding_amount: matchedInvoice.outstanding_amount.toString()
-            }));
-          }
+        const payment = await PaymentApi.getPayment(paymentId)
+        setSupplier(payment.supplier_id.toString())
+        setPaymentDate(new Date(payment.payment_date).toISOString().split('T')[0])
+        setPaymentMethod(payment.payment_method)
+        setBankName(payment.bank_name || "")
+        setReference(payment.reference || "")
+        setNotes(payment.notes || "")
+
+        await loadSupplierInvoices(payment.supplier_id)
+
+        const existing = payment.allocations && payment.allocations.length > 0
+          ? payment.allocations.map((a) => ({ invoice_id: a.invoice_id, amount: a.allocated_amount }))
+          : payment.invoice_id
+          ? [{ invoice_id: payment.invoice_id, amount: payment.amount }]
+          : []
+        if (existing.length > 0) {
+          const next: Record<number, string> = {}
+          existing.forEach((a) => { next[a.invoice_id] = a.amount.toString() })
+          setAllocations(next)
+        } else {
+          setAdvanceAmount(payment.amount.toString())
         }
-      } else {
-        resetFormData();
-        if (preselectedInvoiceId) {
-          const matched = invoicesResponse.find(inv => inv.id === preselectedInvoiceId);
-          if (matched) {
-            setFormData(prev => ({
-              ...prev,
-              invoice: matched.id.toString(),
-              supplier: matched.supplier_id.toString(),
-              outstanding_amount: matched.outstanding_amount.toString(),
-              amount: matched.outstanding_amount.toString(),
-            }));
-          }
+        return
+      }
+
+      // Preselect flow (opened from a PO/invoice): select that invoice's supplier
+      // and pre-check the single invoice for full payment.
+      if (preselectedInvoiceId) {
+        const invoices = await PaymentApi.getInvoices({ limit: 1000 })
+        const matched = invoices.find((inv) => inv.id === preselectedInvoiceId)
+        if (matched) {
+          setSupplier(matched.supplier_id.toString())
+          await loadSupplierInvoices(matched.supplier_id)
+          setAllocations({ [matched.id]: matched.outstanding_amount.toString() })
         }
       }
     } catch (error) {
@@ -114,48 +167,84 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
     }
   }
 
-  function resetFormData() {
-    setFormData({
-      invoice: "",
-      supplier: "",
-      amount: "",
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: "",
-      reference: "",
-      notes: "",
-      outstanding_amount: "0",
+  async function handleSupplierChange(value: string) {
+    setSupplier(value)
+    setAllocations({})
+    setAdvanceAmount("")
+    if (value) {
+      await loadSupplierInvoices(Number(value))
+    } else {
+      setSupplierInvoices([])
+    }
+  }
+
+  function toggleInvoice(invoice: Invoice, checked: boolean) {
+    setAllocations((prev) => {
+      const next = { ...prev }
+      if (checked) {
+        next[invoice.id] = Number(invoice.outstanding_amount || 0).toString()
+      } else {
+        delete next[invoice.id]
+      }
+      return next
     })
+  }
+
+  function setAllocationAmount(invoiceId: number, value: string) {
+    setAllocations((prev) => ({ ...prev, [invoiceId]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validation
+    if (!supplier) {
+      toast.error("Please select a supplier")
+      return
+    }
+    if (!paymentMethod) {
+      toast.error("Please select a payment method")
+      return
+    }
+    if (bankRequired && !bankName.trim()) {
+      toast.error("Bank name is required for this payment method")
+      return
+    }
+    if (paymentAmount <= 0) {
+      toast.error("Enter a valid payment amount")
+      return
+    }
+
+    const allocationList = supplierInvoices
+      .filter((inv) => allocations[inv.id] !== undefined)
+      .map((inv) => ({ invoice_id: inv.id, amount: round2(parseFloat(allocations[inv.id]) || 0) }))
+
+    // Each allocation must be positive and within the invoice's outstanding balance.
+    for (const inv of supplierInvoices) {
+      if (allocations[inv.id] === undefined) continue
+      const amt = parseFloat(allocations[inv.id]) || 0
+      if (amt <= 0) {
+        toast.error(`Enter a valid amount for invoice ${inv.invoice_number}`)
+        return
+      }
+      if (amt > Number(inv.outstanding_amount || 0) + 0.005) {
+        toast.error(`Amount for invoice ${inv.invoice_number} exceeds its outstanding balance`)
+        return
+      }
+    }
+
     setIsSubmitting(true)
-
     try {
-      // Validation
-      if (!formData.amount || !formData.paymentMethod) {
-        toast.error("Please fill in all required fields")
-        setIsSubmitting(false)
-        return
-      }
-
-      // If no invoice is selected, supplier is required
-      if (!formData.invoice && !formData.supplier) {
-        toast.error("Please select either an invoice or a supplier")
-        setIsSubmitting(false)
-        return
-      }
-
       const paymentData = {
-        invoice_id: formData.invoice ? parseInt(formData.invoice) : undefined,
-        supplier_id: parseInt(formData.supplier),
-        amount: parseFloat(formData.amount),
-        outstanding_amount: parseFloat(formData.outstanding_amount),
-        payment_date: formData.paymentDate,
-        payment_method: formData.paymentMethod,
-        reference: formData.reference || undefined,
-        notes: formData.notes || undefined,
-        created_by: "Current User" // TODO: Get from auth context
+        supplier_id: parseInt(supplier),
+        amount: round2(paymentAmount),
+        payment_date: paymentDate,
+        payment_method: paymentMethod,
+        bank_name: bankRequired ? bankName.trim() : undefined,
+        reference: reference || undefined,
+        notes: notes || undefined,
+        allocations: allocationList.length > 0 ? allocationList : undefined,
+        created_by: "Current User", // TODO: Get from auth context
       }
 
       if (paymentId) {
@@ -164,13 +253,11 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
       } else {
         await PaymentApi.createPayment(paymentData)
         toast.success("Payment recorded successfully!", {
-          description: `Payment of $${parseFloat(formData.amount).toLocaleString()} has been recorded.`
+          description: `Payment of $${round2(paymentAmount).toLocaleString()} has been recorded.`
         })
       }
-      
-      // Reset form
-      resetFormData()
-      
+
+      resetForm()
       onPaymentRecorded?.()
       onOpenChange(false)
     } catch (error: any) {
@@ -183,132 +270,142 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => {
-      const newData = { ...prev, [field]: value }
-      
-      // Auto-populate supplier when invoice is selected
-      if (field === 'invoice' && value) {
-        const selectedInvoice = invoices.find(inv => inv.id.toString() === value)
-        if (selectedInvoice) {
-          newData.supplier = selectedInvoice.supplier_id.toString()
-          newData.outstanding_amount = selectedInvoice.outstanding_amount.toString()
-          newData.amount = selectedInvoice.outstanding_amount.toString() // Default to full amount
-        }
-      }
-      
-      return newData
-    })
-  }
+  const submitDisabled =
+    isSubmitting ||
+    !supplier ||
+    !paymentMethod ||
+    paymentAmount <= 0 ||
+    (bankRequired && !bankName.trim())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
-            Record a payment made to a supplier for an invoice.
+            Record a payment made to a supplier. One payment can settle several invoices (e.g. a single check).
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="invoice">Invoice</Label>
-                {formData.invoice && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { resetFormData() }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-              <Select value={formData.invoice} onValueChange={(value) => handleInputChange("invoice", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select invoice (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {invoices.map((invoice) => (
-                    <SelectItem key={invoice.id} value={invoice.id.toString()}>
-                      {invoice.invoice_number} - {invoice.supplier_name || 'Unknown Supplier'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="supplier">
-                Supplier {!formData.invoice ? '*' : ''}
-                {formData.invoice && <span className="text-sm text-muted-foreground ml-1">(auto-filled from invoice)</span>}
-              </Label>
-              <Select 
-                value={formData.supplier} 
-                onValueChange={(value) => handleInputChange("supplier", value)}
-                disabled={!!formData.invoice}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={formData.invoice ? "Auto-filled from invoice" : "Select supplier"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                      {supplier.name} ({supplier.supplier_code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Supplier *</Label>
+            <Select value={supplier} onValueChange={handleSupplierChange} disabled={!!paymentId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select supplier" />
+              </SelectTrigger>
+              <SelectContent>
+                {suppliers.map((s) => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
+                    {s.name} ({s.supplier_code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Outstanding invoices to allocate this payment against */}
+          {supplier && (
+            <div className="space-y-2">
+              <Label>Invoices to pay</Label>
+              {supplierInvoices.length === 0 ? (
+                <p className="text-sm text-muted-foreground border rounded-md p-3">
+                  {loading ? "Loading invoices…" : "No outstanding invoices. You can still record an advance payment below."}
+                </p>
+              ) : (
+                <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
+                  {supplierInvoices.map((inv) => {
+                    const selected = allocations[inv.id] !== undefined
+                    return (
+                      <div key={inv.id} className="flex items-center gap-3 p-2 text-sm">
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={(checked) => toggleInvoice(inv, checked === true)}
+                          id={`inv-${inv.id}`}
+                        />
+                        <label htmlFor={`inv-${inv.id}`} className="flex-1 cursor-pointer">
+                          <span className="font-medium">{inv.invoice_number}</span>
+                          <span className="text-muted-foreground ml-2">
+                            due {new Date(inv.due_date).toLocaleDateString()} · outstanding {Number(inv.outstanding_amount || 0).toLocaleString()}
+                          </span>
+                        </label>
+                        {selected && (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-28"
+                            value={allocations[inv.id]}
+                            onChange={(e) => setAllocationAmount(inv.id, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Outstanding Amount *</Label>
+              <Label htmlFor="outstanding">Outstanding Amount</Label>
               <Input
-                id="amount"
-                type="number"     
-                value={formData.outstanding_amount}
-                onChange={(e) => {}}
+                id="outstanding"
+                type="number"
+                value={hasAllocations ? outstandingTotal : 0}
                 placeholder="0.00"
-                required
                 disabled
               />
             </div>
-
 
             <div className="space-y-2">
               <Label htmlFor="amount">Payment Amount *</Label>
               <Input
                 id="amount"
                 type="number"
-                value={formData.amount}
-                onChange={(e) => handleInputChange("amount", e.target.value)}
+                min="0"
+                step="0.01"
+                value={hasAllocations ? allocationTotal : advanceAmount}
+                onChange={(e) => setAdvanceAmount(e.target.value)}
                 placeholder="0.00"
+                disabled={hasAllocations}
                 required
               />
+              {hasAllocations && (
+                <p className="text-xs text-muted-foreground">Sum of selected invoice allocations.</p>
+              )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="paymentDate">Payment Date *</Label>
               <Input
                 id="paymentDate"
                 type="date"
-                value={formData.paymentDate}
-                onChange={(e) => handleInputChange("paymentDate", e.target.value)}
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
                 required
               />
             </div>
+
+            {bankRequired && (
+              <div className="space-y-2">
+                <Label htmlFor="bankName">Bank Name *</Label>
+                <Input
+                  id="bankName"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="Bank name"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method *</Label>
-              <Select value={formData.paymentMethod} onValueChange={(value) => handleInputChange("paymentMethod", value)}>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -321,13 +418,13 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="reference">Reference Number</Label>
               <Input
                 id="reference"
-                value={formData.reference}
-                onChange={(e) => handleInputChange("reference", e.target.value)}
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
                 placeholder="Transaction/Check number"
               />
             </div>
@@ -337,8 +434,8 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
-              value={formData.notes}
-              onChange={(e) => handleInputChange("notes", e.target.value)}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Additional notes about the payment"
               rows={3}
             />
@@ -348,7 +445,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !formData.amount || !formData.paymentMethod || (!formData.invoice && !formData.supplier)}>
+            <Button type="submit" disabled={submitDisabled}>
               {isSubmitting ? "Recording..." : "Record Payment"}
             </Button>
           </DialogFooter>

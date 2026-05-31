@@ -109,6 +109,14 @@ class InterModuleConnector {
     },
 
     /**
+     * Create delivery (challan) return reversal voucher (Factory)
+     */
+    addDeliveryReturnVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addDeliveryReturnVoucher");
+      return null;
+    },
+
+    /**
      * Create factory payment voucher (Factory)
      */
     addFactoryPaymentVoucher: async (...args: any[]): Promise<any> => {

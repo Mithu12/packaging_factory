@@ -229,6 +229,80 @@ export interface DeliveryListResponse {
     totalPages: number;
 }
 
+// ---------------------------------------------------------------------------
+// Delivery (challan) returns (V156)
+// ---------------------------------------------------------------------------
+
+export type DeliveryReturnStatus = 'draft' | 'approved' | 'rejected' | 'cancelled';
+
+export interface DeliveryReturnItem {
+    id: number;
+    return_id: number;
+    delivery_item_id: number;
+    order_line_item_id: number;
+    product_id?: number;
+    product_name?: string;
+    returned_quantity: number;
+    unit_price: number;
+    line_total: number;
+    condition?: string;
+    notes?: string;
+    created_at: string;
+}
+
+export interface DeliveryReturn {
+    id: number;
+    return_number: string;
+    delivery_id: number;
+    delivery_number?: string;
+    factory_customer_id: number;
+    factory_customer_name?: string;
+    customer_order_id?: number;
+    return_date: string;
+    return_reason: string;
+    status: DeliveryReturnStatus;
+    total_return_value: number;
+    currency?: string;
+    reversal_voucher_id?: number;
+    credit_note_voucher_id?: number;
+    accounting_integrated: boolean;
+    created_by?: number;
+    approved_by?: number;
+    approved_at?: string;
+    notes?: string;
+    items: DeliveryReturnItem[];
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface CreateDeliveryReturnItemRequest {
+    delivery_item_id: number;
+    returned_quantity: number;
+    condition?: string;
+    notes?: string;
+}
+
+export interface CreateDeliveryReturnRequest {
+    items: CreateDeliveryReturnItemRequest[];
+    return_date?: string;
+    return_reason?: string;
+    notes?: string;
+}
+
+export interface DeliveryReturnQueryParams {
+    page?: number;
+    limit?: number;
+    status?: DeliveryReturnStatus;
+    factory_customer_id?: string | number;
+}
+
+export interface DeliveryReturnListResponse {
+    returns: DeliveryReturn[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
 export interface Address {
     street?: string;
     city?: string;
@@ -944,6 +1018,51 @@ export class CustomerOrdersApiService {
             method: 'POST',
             body: JSON.stringify({ reason }),
         });
+    }
+
+    // ---- Delivery (challan) returns (V156) ----
+
+    /** Create a draft return against a delivery. */
+    static async createDeliveryReturn(
+        deliveryId: string | number,
+        data: CreateDeliveryReturnRequest
+    ): Promise<DeliveryReturn> {
+        return makeRequest<DeliveryReturn>(`${this.BASE_URL}/deliveries/${deliveryId}/returns`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    /** Paginated list of all delivery returns. */
+    static async listDeliveryReturns(params: DeliveryReturnQueryParams = {}): Promise<DeliveryReturnListResponse> {
+        const query = new URLSearchParams();
+        if (params.page) query.set('page', String(params.page));
+        if (params.limit) query.set('limit', String(params.limit));
+        if (params.status) query.set('status', params.status);
+        if (params.factory_customer_id) query.set('factory_customer_id', String(params.factory_customer_id));
+        const qs = query.toString();
+        return makeRequest<DeliveryReturnListResponse>(`${this.BASE_URL}/returns${qs ? `?${qs}` : ''}`);
+    }
+
+    /** Returns recorded against a single delivery (newest first). */
+    static async listReturnsForDelivery(deliveryId: string | number): Promise<DeliveryReturn[]> {
+        return makeRequest<DeliveryReturn[]>(`${this.BASE_URL}/deliveries/${deliveryId}/returns`);
+    }
+
+    static async getDeliveryReturn(returnId: string | number): Promise<DeliveryReturn> {
+        return makeRequest<DeliveryReturn>(`${this.BASE_URL}/returns/${returnId}`);
+    }
+
+    static async approveDeliveryReturn(returnId: string | number): Promise<DeliveryReturn> {
+        return makeRequest<DeliveryReturn>(`${this.BASE_URL}/returns/${returnId}/approve`, { method: 'POST' });
+    }
+
+    static async rejectDeliveryReturn(returnId: string | number): Promise<DeliveryReturn> {
+        return makeRequest<DeliveryReturn>(`${this.BASE_URL}/returns/${returnId}/reject`, { method: 'POST' });
+    }
+
+    static async cancelDeliveryReturn(returnId: string | number): Promise<DeliveryReturn> {
+        return makeRequest<DeliveryReturn>(`${this.BASE_URL}/returns/${returnId}/cancel`, { method: 'POST' });
     }
 
     /** Download per-delivery challan PDF (only this shipment's items). */

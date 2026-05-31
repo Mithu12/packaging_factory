@@ -68,10 +68,13 @@ export interface SupplierPaymentAccountingData {
   amount: number;
   paymentDate: string;
   paymentMethod: string;
+  bankName?: string;
   reference?: string;
   notes?: string;
   invoiceId?: number;
   invoiceNumber?: string;
+  // Populated when a single payment settles several invoices.
+  invoiceNumbers?: string[];
 }
 
 export interface PurchaseReturnAccountingData {
@@ -547,20 +550,34 @@ class InventoryAccountsIntegrationService {
         paymentData.invoiceId
       );
 
+      // Build the invoice reference text from all settled invoices (or the
+      // single invoice / nothing for advance payments).
+      const invoiceList =
+        paymentData.invoiceNumbers && paymentData.invoiceNumbers.length > 0
+          ? paymentData.invoiceNumbers
+          : paymentData.invoiceNumber
+          ? [paymentData.invoiceNumber]
+          : [];
+      const invoiceText =
+        invoiceList.length > 0
+          ? ` for Invoice${invoiceList.length > 1 ? 's' : ''} ${invoiceList.join(', ')}`
+          : '';
+      const bankText = paymentData.bankName ? ` via ${paymentData.bankName}` : '';
+
       const voucherData = {
         type: VoucherType.PAYMENT,
         date: new Date(paymentData.paymentDate),
         reference: paymentData.reference || paymentData.paymentNumber,
         payee: paymentData.supplierName,
         amount: paymentData.amount,
-        narration: `Payment to ${paymentData.supplierName} ${paymentData.invoiceNumber ? `for Invoice ${paymentData.invoiceNumber}` : ''}`,
+        narration: `Payment to ${paymentData.supplierName}${invoiceText}${bankText}`,
         costCenterId,
         lines: [
           {
             accountId: apAccount.id,
             debit: paymentData.amount,
             credit: 0,
-            description: `Settle ${paymentData.invoiceNumber || 'Account'}`,
+            description: `Settle ${invoiceList.length > 0 ? invoiceList.join(', ') : 'Account'}`,
             costCenterId
           },
           {

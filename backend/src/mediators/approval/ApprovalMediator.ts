@@ -276,17 +276,36 @@ export class ApprovalMediator {
      */
     private static async processApprovedPayment(client: any, paymentId: number): Promise<void> {
         try {
-            // Get payment details
+            // A payment may settle several invoices via the allocation table.
+            const allocationsResult = await client.query(
+                `SELECT invoice_id, allocated_amount
+                 FROM payment_invoice_allocations
+                 WHERE payment_id = $1`,
+                [paymentId]
+            );
+
+            if (allocationsResult.rows.length > 0) {
+                for (const alloc of allocationsResult.rows) {
+                    await this.updateInvoicePaymentStatus(
+                        client,
+                        alloc.invoice_id,
+                        parseFloat(alloc.allocated_amount)
+                    );
+                }
+                return;
+            }
+
+            // Fallback for legacy payments recorded before allocations existed.
             const paymentQuery = `
-                SELECT invoice_id, amount 
-                FROM payments 
+                SELECT invoice_id, amount
+                FROM payments
                 WHERE id = $1 AND invoice_id IS NOT NULL
             `;
             const paymentResult = await client.query(paymentQuery, [paymentId]);
-            
+
             if (paymentResult.rows.length > 0) {
                 const payment = paymentResult.rows[0];
-                
+
                 // Update invoice payment status
                 await this.updateInvoicePaymentStatus(client, payment.invoice_id, parseFloat(payment.amount));
             }

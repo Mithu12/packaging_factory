@@ -318,6 +318,67 @@ export interface CreateDeliveryRequest {
     factory_customer_id?: number;
 }
 
+// =====================================================
+// Delivery Returns (challan returns)
+// =====================================================
+
+export type DeliveryReturnStatus = 'draft' | 'approved' | 'rejected' | 'cancelled';
+
+export interface DeliveryReturnItem {
+    id: number;
+    return_id: number;
+    delivery_item_id: number;
+    order_line_item_id: number;
+    product_id?: number;
+    product_name?: string;
+    returned_quantity: number;
+    unit_price: number;
+    line_total: number;
+    condition?: string;
+    notes?: string;
+    created_at: string;
+}
+
+export interface DeliveryReturn {
+    id: number;
+    return_number: string;
+    delivery_id: number;
+    delivery_number?: string;
+    factory_customer_id: number;
+    factory_customer_name?: string;
+    customer_order_id?: number;
+    return_date: string;
+    return_reason: string;
+    status: DeliveryReturnStatus;
+    total_return_value: number;
+    currency?: string;
+    reversal_voucher_id?: number;
+    credit_note_voucher_id?: number;
+    accounting_integrated: boolean;
+    created_by?: number;
+    approved_by?: number;
+    approved_at?: string;
+    notes?: string;
+    items: DeliveryReturnItem[];
+    created_at: string;
+    updated_at?: string;
+}
+
+export interface CreateDeliveryReturnItemRequest {
+    /** The delivery line being returned (factory_customer_order_delivery_items.id). */
+    delivery_item_id: number;
+    returned_quantity: number;
+    condition?: string;
+    notes?: string;
+}
+
+export interface CreateDeliveryReturnRequest {
+    items: CreateDeliveryReturnItemRequest[];
+    return_date?: string;
+    return_reason?: string;
+    notes?: string;
+}
+
 export interface Address {
     street: string;
     city: string;

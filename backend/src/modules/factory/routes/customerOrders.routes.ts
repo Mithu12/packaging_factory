@@ -17,6 +17,11 @@ import {
     cancelDeliverySchema,
     customerIdSchema,
 } from "../validation/deliveryValidation";
+import {
+    createDeliveryReturnSchema,
+    returnIdSchema,
+    deliveryIdParamSchema,
+} from "../validation/deliveryReturnValidation";
 import { authenticate } from "@/middleware/auth";
 import {
     requirePermission,
@@ -26,6 +31,7 @@ import expressAsyncHandler from "express-async-handler";
 import { MyLogger } from "@/utils/new-logger";
 import CustomerOrdersController from "../controllers/customerOrders.controller";
 import { deliveriesController } from "../controllers/deliveries.controller";
+import { deliveryReturnsController } from "../controllers/deliveryReturns.controller";
 import { monthlyBillsController } from "../controllers/monthlyBills.controller";
 import { auditMiddleware } from "@/middleware/audit";
 import { serializeSuccessResponse } from "@/utils/responseHelper";
@@ -185,6 +191,73 @@ router.post(
     validateParams(deliveryIdSchema),
     auditMiddleware,
     expressAsyncHandler(deliveriesController.generateInvoiceForDelivery.bind(deliveriesController))
+);
+
+// ---------------------------------------------------------------------------
+// Delivery (challan) return routes — also declared BEFORE /:id.
+// ---------------------------------------------------------------------------
+
+// GET /api/factory/customer-orders/returns - paginated list of all returns
+router.get(
+    "/returns",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.listAllReturns.bind(deliveryReturnsController))
+);
+
+// GET /api/factory/customer-orders/returns/:returnId
+router.get(
+    "/returns/:returnId",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(returnIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.getReturnById.bind(deliveryReturnsController))
+);
+
+// POST /api/factory/customer-orders/returns/:returnId/approve
+router.post(
+    "/returns/:returnId/approve",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(returnIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.approveReturn.bind(deliveryReturnsController))
+);
+
+// POST /api/factory/customer-orders/returns/:returnId/reject
+router.post(
+    "/returns/:returnId/reject",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(returnIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.rejectReturn.bind(deliveryReturnsController))
+);
+
+// POST /api/factory/customer-orders/returns/:returnId/cancel
+router.post(
+    "/returns/:returnId/cancel",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(returnIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.cancelReturn.bind(deliveryReturnsController))
+);
+
+// GET /api/factory/customer-orders/deliveries/:deliveryId/returns
+router.get(
+    "/deliveries/:deliveryId/returns",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(deliveryIdParamSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.listReturnsForDelivery.bind(deliveryReturnsController))
+);
+
+// POST /api/factory/customer-orders/deliveries/:deliveryId/returns
+router.post(
+    "/deliveries/:deliveryId/returns",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(deliveryIdParamSchema),
+    validateRequest(createDeliveryReturnSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveryReturnsController.createReturn.bind(deliveryReturnsController))
 );
 
 // POST /api/factory/customer-orders/customers/:customerId/deliveries

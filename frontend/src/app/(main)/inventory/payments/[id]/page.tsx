@@ -219,6 +219,12 @@ export default function PaymentDetailsPage() {
                   <label className="text-sm font-medium text-muted-foreground">Reference</label>
                   <p className="text-lg">{payment.reference || "N/A"}</p>
                 </div>
+                {payment.bank_name && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                    <p className="text-lg">{payment.bank_name}</p>
+                  </div>
+                )}
               </div>
               <Separator />
               <div>
@@ -293,25 +299,41 @@ export default function PaymentDetailsPage() {
             </CardContent>
           </Card>
 
-          {payment.invoice && (
+          {(payment.allocations?.length || payment.invoice) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
-                  Related Invoice
+                  {(payment.allocations?.length || 0) > 1 ? "Settled Invoices" : "Related Invoice"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="font-bold text-lg">{payment.invoice.invoice_number}</p>
-                <p className="text-sm text-muted-foreground">#{payment.invoice.id}</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mt-2"
-                  onClick={() => router.push(`/inventory/payments`)} // Or specific invoice view if exists
-                >
-                  View All Invoices
-                </Button>
+                {payment.allocations && payment.allocations.length > 0 ? (
+                  payment.allocations.map((alloc) => (
+                    <div
+                      key={alloc.invoice_id}
+                      className="flex items-center justify-between gap-2 border-b pb-2 last:border-b-0 last:pb-0"
+                    >
+                      <span className="font-medium">
+                        {alloc.invoice_number || `Invoice #${alloc.invoice_id}`}
+                      </span>
+                      <span className="font-semibold">{formatCurrency(alloc.allocated_amount)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <p className="font-bold text-lg">{payment.invoice?.invoice_number}</p>
+                    <p className="text-sm text-muted-foreground">#{payment.invoice?.id}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => router.push(`/inventory/payments`)} // Or specific invoice view if exists
+                    >
+                      View All Invoices
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

@@ -52,6 +52,7 @@ export const initializeAccountsModule = (): void => {
       addWorkOrderCompletionVoucher: factoryAccountsIntegrationService.createWorkOrderFGTransferVoucher.bind(factoryAccountsIntegrationService),
       addFactoryOrderShipmentVoucher: factoryAccountsIntegrationService.createOrderShipmentVouchers.bind(factoryAccountsIntegrationService),
       addFactoryReturnVoucher: factoryAccountsIntegrationService.createReturnReversalVouchers.bind(factoryAccountsIntegrationService),
+      addDeliveryReturnVoucher: factoryAccountsIntegrationService.createDeliveryReturnVouchers.bind(factoryAccountsIntegrationService),
       addFactoryPaymentVoucher: factoryAccountsIntegrationService.createCustomerPaymentVoucher.bind(factoryAccountsIntegrationService),
       addCustomerPaymentVoucher: salesAccountsIntegrationService.createCustomerPaymentVoucher.bind(salesAccountsIntegrationService),
       addInternalTransferVoucher: inventoryAccountsIntegrationService.createStockTransferVoucher.bind(inventoryAccountsIntegrationService),

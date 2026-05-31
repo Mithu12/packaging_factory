@@ -21,6 +21,33 @@ export const updateInvoiceSchema = Joi.object({
   status: Joi.string().valid('pending', 'partial', 'paid', 'overdue', 'cancelled').optional()
 });
 
+const allocationsSchema = Joi.array()
+  .items(
+    Joi.object({
+      invoice_id: Joi.number().integer().positive().required(),
+      amount: Joi.number().positive().precision(2).required()
+    })
+  )
+  .min(1)
+  .optional();
+
+// When allocations are supplied, their amounts must add up to the payment amount.
+const allocationsSumMatchesAmount = (value: any, helpers: any) => {
+  if (!value.allocations || value.allocations.length === 0) return value;
+  const sum = value.allocations.reduce(
+    (acc: number, a: { amount: number }) => acc + Number(a.amount),
+    0
+  );
+  if (value.amount != null && Math.abs(sum - Number(value.amount)) > 0.005) {
+    return helpers.error('allocations.sumMismatch');
+  }
+  return value;
+};
+
+const allocationMessages = {
+  'allocations.sumMismatch': 'Allocation amounts must sum to the payment amount'
+};
+
 export const createPaymentSchema = Joi.object({
   invoice_id: Joi.number().integer().positive().optional().allow(null),
   supplier_id: Joi.number().integer().positive().required(),
@@ -28,10 +55,12 @@ export const createPaymentSchema = Joi.object({
   outstanding_amount: Joi.number().positive().precision(2).optional(),
   payment_date: Joi.date().iso().required(),
   payment_method: Joi.string().max(50).required(),
+  bank_name: Joi.string().max(100).optional().allow(null, ''),
   reference: Joi.string().max(100).optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
-  created_by: Joi.string().max(100).optional().allow(null, '')
-});
+  created_by: Joi.string().max(100).optional().allow(null, ''),
+  allocations: allocationsSchema
+}).custom(allocationsSumMatchesAmount).messages(allocationMessages);
 
 export const updatePaymentSchema = Joi.object({
   invoice_id: Joi.number().integer().positive().optional().allow(null),
@@ -39,15 +68,17 @@ export const updatePaymentSchema = Joi.object({
   amount: Joi.number().positive().precision(2).optional(),
   payment_date: Joi.date().iso().optional(),
   payment_method: Joi.string().max(50).optional(),
+  bank_name: Joi.string().max(100).optional().allow(null, ''),
   reference: Joi.string().max(100).optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
   created_by: Joi.string().max(100).optional().allow(null, ''),
-  status: Joi.string().valid('pending', 'completed', 'failed', 'cancelled').optional()
-});
+  status: Joi.string().valid('pending', 'completed', 'failed', 'cancelled').optional(),
+  allocations: allocationsSchema
+}).custom(allocationsSumMatchesAmount).messages(allocationMessages);
 
 export const invoiceQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(1000).optional(),
   search: Joi.string().max(255).optional().allow(''),
   supplier_id: Joi.number().integer().positive().optional(),
   purchase_order_id: Joi.number().integer().positive().optional(),

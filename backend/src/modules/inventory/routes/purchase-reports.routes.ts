@@ -30,4 +30,11 @@ router.get(
   expressAsyncHandler(PurchaseReportsController.getPurchasePayments)
 );
 
+router.get(
+  "/supplier-due",
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  expressAsyncHandler(PurchaseReportsController.getSupplierDueReport)
+);
+
 export default router;

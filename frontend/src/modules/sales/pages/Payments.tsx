@@ -1258,7 +1258,11 @@ export default function Payments() {
                       <TableCell className="font-medium">
                         {payment.id}
                       </TableCell>
-                      <TableCell>{payment.invoice_id || "N/A"}</TableCell>
+                      <TableCell>
+                        {Number(payment.invoice_count) > 1
+                          ? `Multiple (${payment.invoice_count})`
+                          : payment.invoice_number || payment.invoice_id || "N/A"}
+                      </TableCell>
                       <TableCell>
                         {payment.supplier_name || "Unknown Supplier"}
                       </TableCell>

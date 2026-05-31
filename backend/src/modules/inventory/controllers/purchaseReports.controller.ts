@@ -189,6 +189,94 @@ class PurchaseReportsController {
             throw error;
         }
     }
+
+    /**
+     * Total Supplier Due Report — outstanding payables aggregated per supplier.
+     * Due = supplier opening balance + sum of outstanding on non-cancelled invoices.
+     */
+    async getSupplierDueReport(req: Request, res: Response, next: NextFunction): Promise<void> {
+        let action = 'GET /api/inventory/reports/supplier-due';
+        try {
+            const { supplier_id, as_of_date, only_with_dues } = req.query;
+            MyLogger.info(action, { supplier_id, as_of_date, only_with_dues });
+
+            const queryParams: any[] = [];
+            // Invoice-side conditions live inside the LEFT JOIN so suppliers with
+            // no matching invoices still appear (with their opening balance).
+            const invoiceConditions = [`i.status != 'cancelled'`];
+            if (as_of_date) {
+                invoiceConditions.push(`DATE(i.invoice_date) <= $${queryParams.length + 1}`);
+                queryParams.push(as_of_date);
+            }
+
+            const supplierConditions = [`s.status = 'active'`];
+            if (supplier_id) {
+                supplierConditions.push(`s.id = $${queryParams.length + 1}`);
+                queryParams.push(supplier_id);
+            }
+
+            const havingClause = only_with_dues === 'true'
+                ? `HAVING COALESCE(s.opening_balance, 0) + COALESCE(SUM(i.outstanding_amount), 0) > 0`
+                : '';
+
+            const query = `
+                SELECT
+                    s.id,
+                    s.supplier_code,
+                    s.name,
+                    s.contact_person,
+                    s.phone,
+                    COALESCE(s.opening_balance, 0) as opening_balance,
+                    COALESCE(SUM(i.total_amount), 0) as total_invoiced,
+                    COALESCE(SUM(i.paid_amount), 0) as total_paid,
+                    COALESCE(SUM(i.outstanding_amount), 0) as invoice_outstanding,
+                    COALESCE(s.opening_balance, 0) + COALESCE(SUM(i.outstanding_amount), 0) as total_due,
+                    COUNT(i.id) as invoice_count,
+                    COUNT(i.id) FILTER (WHERE i.due_date < CURRENT_DATE AND i.status <> 'paid') as overdue_count
+                FROM suppliers s
+                LEFT JOIN invoices i ON s.id = i.supplier_id AND ${invoiceConditions.join(' AND ')}
+                WHERE ${supplierConditions.join(' AND ')}
+                GROUP BY s.id, s.supplier_code, s.name, s.contact_person, s.phone, s.opening_balance
+                ${havingClause}
+                ORDER BY total_due DESC, s.name ASC
+            `;
+
+            const result = await pool.query(query, queryParams);
+            const suppliers = result.rows.map(row => ({
+                id: row.id,
+                supplier_code: row.supplier_code,
+                name: row.name,
+                contact_person: row.contact_person,
+                phone: row.phone,
+                opening_balance: parseFloat(row.opening_balance) || 0,
+                total_invoiced: parseFloat(row.total_invoiced) || 0,
+                total_paid: parseFloat(row.total_paid) || 0,
+                invoice_outstanding: parseFloat(row.invoice_outstanding) || 0,
+                total_due: parseFloat(row.total_due) || 0,
+                invoice_count: parseInt(row.invoice_count) || 0,
+                overdue_count: parseInt(row.overdue_count) || 0,
+            }));
+
+            const totals = suppliers.reduce(
+                (acc, s) => ({
+                    opening_balance: acc.opening_balance + s.opening_balance,
+                    total_invoiced: acc.total_invoiced + s.total_invoiced,
+                    total_paid: acc.total_paid + s.total_paid,
+                    invoice_outstanding: acc.invoice_outstanding + s.invoice_outstanding,
+                    total_due: acc.total_due + s.total_due,
+                    supplier_count: acc.supplier_count + 1,
+                    suppliers_with_dues: acc.suppliers_with_dues + (s.total_due > 0 ? 1 : 0),
+                }),
+                { opening_balance: 0, total_invoiced: 0, total_paid: 0, invoice_outstanding: 0, total_due: 0, supplier_count: 0, suppliers_with_dues: 0 }
+            );
+
+            MyLogger.success(action, { suppliersCount: suppliers.length, totalDue: totals.total_due });
+            serializeSuccessResponse(res, { suppliers, totals }, 'SUCCESS');
+        } catch (error: any) {
+            MyLogger.error(action, error, { query: req.query });
+            throw error;
+        }
+    }
 }
 
 export default new PurchaseReportsController();

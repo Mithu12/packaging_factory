@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -243,6 +244,19 @@ export default function Deliveries() {
                               <Download className="h-4 w-4 mr-1" />
                               Invoice
                             </Button>
+                            {d.delivery_status !== "cancelled" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                title="Create return against this delivery"
+                              >
+                                <Link href={`/factory/delivery-returns?deliveryId=${d.id}`}>
+                                  <RotateCcw className="h-4 w-4 mr-1" />
+                                  Return
+                                </Link>
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -169,6 +169,12 @@ export default function PaymentDetails() {
                   <p className="text-sm font-medium text-muted-foreground">Reference</p>
                   <p className="font-medium">{payment.reference || "N/A"}</p>
                 </div>
+                {payment.bank_name && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Bank Name</p>
+                    <p className="font-medium">{payment.bank_name}</p>
+                  </div>
+                )}
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -241,29 +247,51 @@ export default function PaymentDetails() {
             </CardContent>
           </Card>
 
-          {/* Invoice Information */}
-          {payment.invoice_id && (
+          {/* Invoice allocations — a payment can settle several invoices */}
+          {(payment.allocations?.length || payment.invoice_id) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5" />
-                  Related Invoice
+                  {(payment.allocations?.length || 0) > 1 ? "Settled Invoices" : "Related Invoice"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Invoice Number</p>
-                  <p className="font-medium">{payment.invoice_number || "N/A"}</p>
-                </div>
-                <Button 
-                  onClick={() => router.push(`/view-invoice/${payment.invoice_id}`)}
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Invoice
-                </Button>
+                {payment.allocations && payment.allocations.length > 0 ? (
+                  payment.allocations.map((alloc) => (
+                    <div
+                      key={alloc.invoice_id}
+                      className="flex items-center justify-between gap-2 border-b pb-2 last:border-b-0 last:pb-0"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/view-invoice/${alloc.invoice_id}`)}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {alloc.invoice_number || `Invoice #${alloc.invoice_id}`}
+                      </button>
+                      <span className="text-sm font-semibold">
+                        {formatCurrency(alloc.allocated_amount)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Invoice Number</p>
+                      <p className="font-medium">{payment.invoice_number || "N/A"}</p>
+                    </div>
+                    <Button
+                      onClick={() => router.push(`/view-invoice/${payment.invoice_id}`)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Invoice
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

@@ -28,6 +28,8 @@ import {
   Banknote,
   NotebookPen,
   ArrowLeftRight,
+  RotateCcw,
+  Landmark,
   Notebook,
   LineChart,
   Scale,
@@ -226,7 +228,7 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PURCHASE_RETURNS_READ,
       },
       {
-        title: "Bulk Stock Adjustment",
+        title: "Stock Adjustment",
         url: "/inventory/stock-adjustments/bulk",
         icon: Layers,
         permission: PERMISSIONS.STOCK_ADJUSTMENTS_CREATE,
@@ -238,7 +240,7 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.PAYMENTS_READ,
       },
       {
-        title: "Distribution",
+        title: "Warehouse",
         url: "/inventory/distribution",
         icon: Truck,
         permission: PERMISSIONS.WAREHOUSES_READ,
@@ -285,6 +287,12 @@ const menuSections: MenuSection[] = [
             title: "Deliveries",
             url: "/factory/deliveries",
             icon: Truck,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+          {
+            title: "Delivery Returns",
+            url: "/factory/delivery-returns",
+            icon: RotateCcw,
             permission: PERMISSIONS.FACTORY_ORDERS_READ,
           },
           {
@@ -501,6 +509,18 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.VOUCHERS_READ,
       },
       {
+        title: "Cheque Register",
+        url: "/accounts/cheque-register",
+        icon: CreditCard,
+        permission: PERMISSIONS.VOUCHERS_READ,
+      },
+      {
+        title: "Bank Reconciliation",
+        url: "/accounts/bank-reconciliation",
+        icon: Landmark,
+        permission: PERMISSIONS.VOUCHERS_READ,
+      },
+      {
         title: "General Ledger",
         url: "/accounts/general-ledger",
         icon: Notebook,
@@ -661,6 +681,12 @@ const menuSections: MenuSection[] = [
         url: "/reports/supplier-payments-reports",
         icon: DollarSign,
         permission: PERMISSIONS.PAYMENTS_READ,
+      },
+      {
+        title: "Supplier Due Report",
+        url: "/reports/supplier-due-reports",
+        icon: Wallet,
+        permission: PERMISSIONS.SUPPLIERS_READ,
       },
       {
         title: "Stock vs Order Demand",

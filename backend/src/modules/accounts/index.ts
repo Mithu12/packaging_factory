@@ -5,6 +5,8 @@ import vouchersRoutes from "./routes/vouchers.routes";
 import voucherFailuresRoutes from "./routes/voucherFailures.routes";
 import ledgerRoutes from "./routes/ledger.routes";
 import reportsRoutes from "./routes/reports.routes";
+import chequesRoutes from "./routes/cheques.routes";
+import bankReconciliationRoutes from "./routes/bankReconciliation.routes";
 import express from "express";
 
 const router = express.Router();
@@ -17,5 +19,7 @@ router.use("/vouchers", vouchersRoutes);
 router.use("/voucher-failures", voucherFailuresRoutes);
 router.use("/ledger", ledgerRoutes);
 router.use("/reports", reportsRoutes);
+router.use("/cheques", chequesRoutes);
+router.use("/bank-reconciliation", bankReconciliationRoutes);
 
 export default router;

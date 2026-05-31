@@ -19,6 +19,12 @@ export interface Invoice {
   po_number?: string;
 }
 
+export interface PaymentAllocation {
+  invoice_id: number;
+  allocated_amount: number;
+  invoice_number?: string;
+}
+
 export interface Payment {
   id: number;
   payment_number: string;
@@ -27,6 +33,7 @@ export interface Payment {
   amount: number;
   payment_date: string;
   payment_method: string;
+  bank_name?: string;
   reference?: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   notes?: string;
@@ -44,6 +51,7 @@ export interface Payment {
   supplier_name?: string;
   supplier_code?: string;
   invoice_number?: string;
+  invoice_count?: number;
 }
 
 export interface PaymentHistory {
@@ -79,9 +87,13 @@ export interface CreatePaymentRequest {
   amount: number;
   payment_date: string;
   payment_method: string;
+  bank_name?: string;
   reference?: string;
   notes?: string;
   created_by?: string;
+  // When present, this payment settles several invoices at once. The sum of
+  // amounts must equal `amount`. A single allocation is equivalent to invoice_id.
+  allocations?: { invoice_id: number; amount: number }[];
 }
 
 export interface UpdatePaymentRequest extends Partial<CreatePaymentRequest> {
@@ -165,6 +177,8 @@ export interface PaymentWithDetails extends Payment {
     id: number;
     invoice_number: string;
   };
+  allocations?: PaymentAllocation[];
+  invoice_count?: number;
 }
 
 // Approval workflow interfaces for payments

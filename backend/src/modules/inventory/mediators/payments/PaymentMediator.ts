@@ -61,37 +61,60 @@ export class PaymentMediator {
         throw new Error("Supplier not found");
       }
 
-      // Validate invoice if provided
-      if (data.invoice_id) {
+      // Normalize the invoices being settled into allocation rows. A single
+      // invoice_id (legacy / from-PO flow) is treated as one allocation; a
+      // supplier-only "advance" payment carries none.
+      const allocations =
+        data.allocations && data.allocations.length > 0
+          ? data.allocations
+          : data.invoice_id
+          ? [{ invoice_id: data.invoice_id, amount: data.amount }]
+          : [];
+
+      // Validate each invoice: it must belong to the supplier and have enough
+      // outstanding balance to cover the allocated amount.
+      for (const alloc of allocations) {
         const invoiceCheck = await client.query(
-          "SELECT id, outstanding_amount FROM invoices WHERE id = $1",
-          [data.invoice_id]
+          "SELECT id, supplier_id, outstanding_amount FROM invoices WHERE id = $1",
+          [alloc.invoice_id]
         );
         if (invoiceCheck.rows.length === 0) {
-          throw new Error("Invoice not found");
+          throw new Error(`Invoice ${alloc.invoice_id} not found`);
         }
-
         const invoice = invoiceCheck.rows[0];
-        if (data.amount > parseFloat(invoice.outstanding_amount)) {
-          throw new Error("Payment amount cannot exceed outstanding amount");
+        if (invoice.supplier_id !== data.supplier_id) {
+          throw new Error(
+            `Invoice ${alloc.invoice_id} does not belong to this supplier`
+          );
+        }
+        if (Number(alloc.amount) > parseFloat(invoice.outstanding_amount) + 0.005) {
+          throw new Error(
+            `Allocated amount exceeds outstanding amount on invoice ${alloc.invoice_id}`
+          );
         }
       }
+
+      // Keep payments.invoice_id populated for the single-invoice case so the
+      // existing list/voucher joins keep working; multi-invoice leaves it null.
+      const singleInvoiceId =
+        allocations.length === 1 ? allocations[0].invoice_id : null;
 
       const query = `
         INSERT INTO payments (
           payment_number, invoice_id, supplier_id, amount, payment_date,
-          payment_method, reference, notes, created_by, approval_status, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          payment_method, bank_name, reference, notes, created_by, approval_status, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
 
       const values = [
         paymentNumber,
-        data.invoice_id || null,
+        singleInvoiceId,
         data.supplier_id,
         data.amount,
         data.payment_date,
         data.payment_method,
+        data.bank_name || null,
         data.reference || null,
         data.notes || null,
         data.created_by || null,
@@ -101,6 +124,15 @@ export class PaymentMediator {
 
       const result = await client.query(query, values);
       const payment = result.rows[0];
+
+      // Persist the per-invoice allocation breakdown.
+      for (const alloc of allocations) {
+        await client.query(
+          `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount)
+           VALUES ($1, $2, $3)`,
+          [payment.id, alloc.invoice_id, alloc.amount]
+        );
+      }
 
       // Only update invoice if payment is approved (not for draft payments)
       // Invoice will be updated when payment is approved through the approval workflow
@@ -260,11 +292,12 @@ export class PaymentMediator {
       const offset = (page - 1) * limit;
 
       let query = `
-        SELECT 
+        SELECT
           p.*,
           s.name as supplier_name,
           s.supplier_code,
-          i.invoice_number
+          i.invoice_number,
+          (SELECT COUNT(*) FROM payment_invoice_allocations pia WHERE pia.payment_id = p.id) AS invoice_count
         FROM payments p
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         LEFT JOIN invoices i ON p.invoice_id = i.id
@@ -382,6 +415,22 @@ export class PaymentMediator {
 
       const payment = result.rows[0];
 
+      // Pull the per-invoice allocation breakdown for this payment.
+      const allocationsResult = await client.query(
+        `SELECT pia.invoice_id, pia.allocated_amount, i.invoice_number
+         FROM payment_invoice_allocations pia
+         LEFT JOIN invoices i ON pia.invoice_id = i.id
+         WHERE pia.payment_id = $1
+         ORDER BY pia.id`,
+        [id]
+      );
+
+      const allocations = allocationsResult.rows.map((row) => ({
+        invoice_id: row.invoice_id,
+        allocated_amount: parseFloat(row.allocated_amount),
+        invoice_number: row.invoice_number,
+      }));
+
       const paymentWithDetails: PaymentWithDetails = {
         ...payment,
         supplier: {
@@ -395,6 +444,8 @@ export class PaymentMediator {
               invoice_number: payment.invoice_number,
             }
           : undefined,
+        allocations,
+        invoice_count: allocations.length,
       };
 
       MyLogger.success(action, {
@@ -433,12 +484,15 @@ export class PaymentMediator {
 
       const oldPayment = currentPayment.rows[0];
 
+      // `allocations` is not a payments column — it is handled separately below.
+      const { allocations, ...columnData } = data;
+
       // Build dynamic update query
       const updateFields: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
 
-      Object.entries(data).forEach(([key, value]) => {
+      Object.entries(columnData).forEach(([key, value]) => {
         if (value !== undefined) {
           updateFields.push(`${key} = $${paramIndex}`);
           values.push(value);
@@ -446,22 +500,55 @@ export class PaymentMediator {
         }
       });
 
-      if (updateFields.length === 0) {
+      if (updateFields.length === 0 && allocations === undefined) {
         throw new Error("No fields to update");
       }
 
-      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-      values.push(id);
+      let payment = oldPayment;
+      if (updateFields.length > 0) {
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(id);
 
-      const query = `
-        UPDATE payments 
-        SET ${updateFields.join(", ")}
-        WHERE id = $${paramIndex}
-        RETURNING *
-      `;
+        const query = `
+          UPDATE payments
+          SET ${updateFields.join(", ")}
+          WHERE id = $${paramIndex}
+          RETURNING *
+        `;
 
-      const result = await client.query(query, values);
-      const payment = result.rows[0];
+        const result = await client.query(query, values);
+        payment = result.rows[0];
+      }
+
+      // Replace the invoice allocations only while the payment is still a draft;
+      // once approved the invoice balances have been applied and must not shift.
+      if (allocations !== undefined) {
+        if (oldPayment.approval_status !== "draft") {
+          throw new Error(
+            "Invoice allocations can only be changed while the payment is a draft"
+          );
+        }
+        await client.query(
+          "DELETE FROM payment_invoice_allocations WHERE payment_id = $1",
+          [id]
+        );
+        for (const alloc of allocations) {
+          await client.query(
+            `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount)
+             VALUES ($1, $2, $3)`,
+            [id, alloc.invoice_id, alloc.amount]
+          );
+        }
+        // Keep payments.invoice_id consistent with the single-invoice case.
+        const singleInvoiceId =
+          allocations.length === 1 ? allocations[0].invoice_id : null;
+        const synced = await client.query(
+          `UPDATE payments SET invoice_id = $1, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2 RETURNING *`,
+          [singleInvoiceId, id]
+        );
+        payment = synced.rows[0];
+      }
 
       // Add payment history entry
       await this.addPaymentHistory(
@@ -516,15 +603,28 @@ export class PaymentMediator {
 
       const payment = paymentResult.rows[0];
 
-      // If payment is for an invoice, reverse the invoice payment status
-      if (payment.invoice_id) {
+      // Reverse the invoice balances this payment had settled. Multi-invoice
+      // payments record each share in the allocation table; legacy single-invoice
+      // payments fall back to payments.invoice_id.
+      const allocationsResult = await client.query(
+        "SELECT invoice_id, allocated_amount FROM payment_invoice_allocations WHERE payment_id = $1",
+        [id]
+      );
+      if (allocationsResult.rows.length > 0) {
+        for (const alloc of allocationsResult.rows) {
+          await this.reverseInvoicePaymentStatus(
+            alloc.invoice_id,
+            parseFloat(alloc.allocated_amount)
+          );
+        }
+      } else if (payment.invoice_id) {
         await this.reverseInvoicePaymentStatus(
           payment.invoice_id,
           payment.amount
         );
       }
 
-      // Delete payment
+      // Delete payment (allocations cascade via FK)
       const result = await client.query("DELETE FROM payments WHERE id = $1", [
         id,
       ]);
@@ -693,6 +793,10 @@ export class PaymentMediator {
       const payment = await this.getPaymentById(paymentId);
       if (!payment) return;
 
+      const invoiceNumbers = (payment.allocations || [])
+        .map((a) => a.invoice_number)
+        .filter((n): n is string => !!n);
+
       const paymentData = {
         paymentId: payment.id,
         paymentNumber: payment.payment_number,
@@ -701,10 +805,12 @@ export class PaymentMediator {
         amount: parseFloat(payment.amount.toString()),
         paymentDate: payment.payment_date,
         paymentMethod: payment.payment_method,
+        bankName: payment.bank_name,
         reference: payment.reference,
         notes: payment.notes,
         invoiceId: payment.invoice_id,
-        invoiceNumber: payment.invoice_number
+        invoiceNumber: payment.invoice_number,
+        invoiceNumbers: invoiceNumbers.length > 0 ? invoiceNumbers : undefined
       };
 
       // 1. Emit event

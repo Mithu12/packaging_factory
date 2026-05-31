@@ -20,6 +20,116 @@ export enum VoucherStatus {
 }
 
 // =====================================================
+// Cheque / Pay-Order register
+// =====================================================
+
+export type ChequeInstrumentType = 'cheque' | 'pay_order';
+export type ChequeStatus = 'issued' | 'cleared' | 'bounced' | 'cancelled';
+
+export interface Cheque {
+  id: number;
+  cheque_no: string;
+  cheque_date: string;
+  instrument_type: ChequeInstrumentType;
+  bank_account_id?: number;
+  bank_account_name?: string;
+  drawee_bank_name?: string;
+  payee: string;
+  amount: number;
+  currency?: string;
+  status: ChequeStatus;
+  cleared_date?: string;
+  voucher_id?: number;
+  voucher_no?: string;
+  memo?: string;
+  created_by?: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateChequeRequest {
+  cheque_no: string;
+  cheque_date: string;
+  instrument_type?: ChequeInstrumentType;
+  bank_account_id?: number;
+  drawee_bank_name?: string;
+  payee: string;
+  amount: number;
+  currency?: string;
+  voucher_id?: number;
+  memo?: string;
+}
+
+export interface ChequeQueryParams {
+  page?: number;
+  limit?: number;
+  status?: ChequeStatus;
+  instrument_type?: ChequeInstrumentType;
+  bank_account_id?: number;
+  search?: string;
+}
+
+// =====================================================
+// Bank Reconciliation
+// =====================================================
+
+export type BankReconciliationStatus = 'in_progress' | 'completed';
+
+/** A ledger entry presented for reconciliation against a bank statement. */
+export interface ReconciliationEntry {
+  ledger_entry_id: number;
+  date: string;
+  voucher_no?: string;
+  description: string;
+  debit: number;
+  credit: number;
+  /** True if this entry was cleared in a prior reconciliation. */
+  already_cleared: boolean;
+}
+
+export interface StartReconciliationResult {
+  bank_account_id: number;
+  bank_account_name: string;
+  statement_date: string;
+  book_balance: number;
+  entries: ReconciliationEntry[];
+}
+
+export interface SaveReconciliationRequest {
+  bank_account_id: number;
+  statement_date: string;
+  statement_balance: number;
+  cleared_ledger_entry_ids: number[];
+  notes?: string;
+  complete?: boolean;
+}
+
+export interface BankReconciliationLine {
+  id: number;
+  ledger_entry_id: number;
+  is_cleared: boolean;
+  cleared_date?: string;
+}
+
+export interface BankReconciliation {
+  id: number;
+  bank_account_id: number;
+  bank_account_name?: string;
+  statement_date: string;
+  statement_balance: number;
+  book_balance: number;
+  reconciled_balance: number;
+  difference: number;
+  status: BankReconciliationStatus;
+  notes?: string;
+  created_by?: number;
+  completed_at?: string;
+  cleared_ledger_entry_ids: number[];
+  created_at: string;
+  updated_at?: string;
+}
+
+// =====================================================
 // Account Groups
 // =====================================================
 

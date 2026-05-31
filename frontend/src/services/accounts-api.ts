@@ -919,5 +919,179 @@ export const reportsQueryKeys = {
   balanceSheet: (params?: BalanceSheetQueryParams) => ['reports', 'balance-sheet', params] as const
 };
 
+// =====================================================
+// Cheque / Pay-Order register (V157)
+// =====================================================
+
+export type ChequeInstrumentType = 'cheque' | 'pay_order';
+export type ChequeStatus = 'issued' | 'cleared' | 'bounced' | 'cancelled';
+
+export interface Cheque {
+  id: number;
+  cheque_no: string;
+  cheque_date: string;
+  instrument_type: ChequeInstrumentType;
+  bank_account_id?: number;
+  bank_account_name?: string;
+  drawee_bank_name?: string;
+  payee: string;
+  amount: number;
+  currency?: string;
+  status: ChequeStatus;
+  cleared_date?: string;
+  voucher_id?: number;
+  voucher_no?: string;
+  memo?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateChequeRequest {
+  cheque_no: string;
+  cheque_date: string;
+  instrument_type?: ChequeInstrumentType;
+  bank_account_id?: number;
+  drawee_bank_name?: string;
+  payee: string;
+  amount: number;
+  currency?: string;
+  voucher_id?: number;
+  memo?: string;
+}
+
+export interface ChequeQueryParams {
+  page?: number;
+  limit?: number;
+  status?: ChequeStatus;
+  instrument_type?: ChequeInstrumentType;
+  bank_account_id?: number;
+  search?: string;
+}
+
+export interface ChequeListResponse {
+  cheques: Cheque[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export class ChequesApiService {
+  private static readonly BASE_URL = '/accounts/cheques';
+
+  static async getCheques(params?: ChequeQueryParams): Promise<ChequeListResponse> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.status) query.set('status', params.status);
+    if (params?.instrument_type) query.set('instrument_type', params.instrument_type);
+    if (params?.bank_account_id) query.set('bank_account_id', String(params.bank_account_id));
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString();
+    return makeRequest<ChequeListResponse>(`${this.BASE_URL}${qs ? `?${qs}` : ''}`);
+  }
+
+  static async createCheque(data: CreateChequeRequest): Promise<Cheque> {
+    return makeRequest<Cheque>(this.BASE_URL, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  static async updateChequeStatus(
+    id: number,
+    status: ChequeStatus,
+    clearedDate?: string
+  ): Promise<Cheque> {
+    return makeRequest<Cheque>(`${this.BASE_URL}/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, cleared_date: clearedDate }),
+    });
+  }
+}
+
+// =====================================================
+// Bank Reconciliation (V158)
+// =====================================================
+
+export type BankReconciliationStatus = 'in_progress' | 'completed';
+
+export interface ReconciliationEntry {
+  ledger_entry_id: number;
+  date: string;
+  voucher_no?: string;
+  description: string;
+  debit: number;
+  credit: number;
+  already_cleared: boolean;
+}
+
+export interface StartReconciliationResult {
+  bank_account_id: number;
+  bank_account_name: string;
+  statement_date: string;
+  book_balance: number;
+  entries: ReconciliationEntry[];
+}
+
+export interface SaveReconciliationRequest {
+  bank_account_id: number;
+  statement_date: string;
+  statement_balance: number;
+  cleared_ledger_entry_ids: number[];
+  notes?: string;
+  complete?: boolean;
+}
+
+export interface BankReconciliation {
+  id: number;
+  bank_account_id: number;
+  bank_account_name?: string;
+  statement_date: string;
+  statement_balance: number;
+  book_balance: number;
+  reconciled_balance: number;
+  difference: number;
+  status: BankReconciliationStatus;
+  notes?: string;
+  completed_at?: string;
+  cleared_ledger_entry_ids: number[];
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface BankReconciliationListResponse {
+  reconciliations: BankReconciliation[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export class BankReconciliationApiService {
+  private static readonly BASE_URL = '/accounts/bank-reconciliation';
+
+  static async getEntries(bankAccountId: number, statementDate: string): Promise<StartReconciliationResult> {
+    const query = new URLSearchParams({
+      bank_account_id: String(bankAccountId),
+      statement_date: statementDate,
+    });
+    return makeRequest<StartReconciliationResult>(`${this.BASE_URL}/entries?${query.toString()}`);
+  }
+
+  static async save(data: SaveReconciliationRequest): Promise<BankReconciliation> {
+    return makeRequest<BankReconciliation>(this.BASE_URL, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  static async list(params?: { page?: number; limit?: number; bank_account_id?: number; status?: BankReconciliationStatus }): Promise<BankReconciliationListResponse> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.bank_account_id) query.set('bank_account_id', String(params.bank_account_id));
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return makeRequest<BankReconciliationListResponse>(`${this.BASE_URL}${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getById(id: number): Promise<BankReconciliation> {
+    return makeRequest<BankReconciliation>(`${this.BASE_URL}/${id}`);
+  }
+}
+
 // Export default service for convenience
 export default AccountGroupsApiService;
