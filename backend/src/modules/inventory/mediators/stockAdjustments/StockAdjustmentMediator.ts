@@ -150,6 +150,8 @@ export class StockAdjustmentMediator {
       adjusted_by?: string | null;
       distributionCenterId: number;
       batchId: number | null;
+      /** When false, skip the global products.current_stock write (DC-only). */
+      syncGlobalStock?: boolean;
     }
   ): Promise<UnitsLineResult> {
     const locationResult = await client.query(
@@ -235,10 +237,14 @@ export class StockAdjustmentMediator {
       ]
     );
 
-    await client.query(
-      "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-      [newGlobalStock, params.product_id]
-    );
+    // Sync the global products.current_stock unless the caller opts out
+    // (DC-only mode: a DB trigger derives the global value from DC totals).
+    if (params.syncGlobalStock !== false) {
+      await client.query(
+        "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [newGlobalStock, params.product_id]
+      );
+    }
 
     const adjustment = adjustmentResult.rows[0] as StockAdjustment;
 
@@ -316,6 +322,7 @@ export class StockAdjustmentMediator {
           adjusted_by: data.adjusted_by || userId,
           distributionCenterId,
           batchId: batch.id,
+          syncGlobalStock: data.sync_global_stock,
         });
         perLineResults.push(result);
       }

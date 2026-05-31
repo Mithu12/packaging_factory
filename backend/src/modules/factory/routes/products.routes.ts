@@ -37,6 +37,20 @@ router.get(
   expressAsyncHandler(ProductsController.getBomComponentProducts)
 );
 
+// GET /api/factory/products/pre-production-finished - Ready Raw Materials with subcategory (Printing/Media/Liner)
+router.get(
+  "/pre-production-finished",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(ProductsController.getPreProductionFinishedProducts)
+);
+
+// GET /api/factory/products/raw-materials - Raw Materials with brand info (paper brands)
+router.get(
+  "/raw-materials",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+  expressAsyncHandler(ProductsController.getRawMaterialProducts)
+);
+
 // GET /api/factory/products/search - Search products
 router.get(
   "/search",

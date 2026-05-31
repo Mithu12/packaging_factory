@@ -56,6 +56,12 @@ export interface CreateStockAdjustmentBatchRequest {
   notes?: string
   adjusted_by?: string
   distribution_center_id?: number
+  /**
+   * When false, only the per-DC product_locations row is updated and the
+   * global products.current_stock is left untouched (a DB trigger derives it
+   * from DC-wise totals). Defaults to true to preserve existing behavior.
+   */
+  sync_global_stock?: boolean
   lines: StockAdjustmentBatchLineInput[]
 }
 

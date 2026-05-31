@@ -93,6 +93,8 @@ export default function BOMEditor() {
     effective_date: string;
     is_active: boolean;
     category: BOMCategory;
+    cutting_size: string;
+    reel_size: string;
     notes: string;
   }>({
     parent_product_id: "",
@@ -102,6 +104,8 @@ export default function BOMEditor() {
     effective_date: new Date().toISOString().split("T")[0],
     is_active: true,
     category: initialCategory,
+    cutting_size: "",
+    reel_size: "",
     notes: "",
   });
 
@@ -162,6 +166,8 @@ export default function BOMEditor() {
         effective_date: existingBOM.effective_date.split('T')[0],
         is_active: existingBOM.is_active,
         category: existingBOM.category,
+        cutting_size: existingBOM.cutting_size || "",
+        reel_size: existingBOM.reel_size || "",
         notes: existingBOM.notes || "",
       });
       setComponents(existingBOM.components || []);
@@ -237,6 +243,8 @@ export default function BOMEditor() {
         effective_date: formData.effective_date,
         is_active: formData.is_active,
         category: formData.category,
+        cutting_size: formData.cutting_size,
+        reel_size: formData.reel_size,
         notes: formData.notes,
         components: components.map((comp): UpdateBOMComponentRequest => ({
           id: comp.id.startsWith('COMP-') ? undefined : comp.id, // Only include ID for existing components
@@ -258,6 +266,8 @@ export default function BOMEditor() {
         version: formData.version,
         effective_date: formData.effective_date,
         category: formData.category,
+        cutting_size: formData.cutting_size,
+        reel_size: formData.reel_size,
         components: components.map((comp): CreateBOMComponentRequest => ({
           component_product_id: comp.component_product_id,
           quantity_required: comp.quantity_required,
@@ -416,6 +426,10 @@ export default function BOMEditor() {
                       parent_product_id: value,
                       parent_product_name: product?.name || "",
                       parent_product_sku: product?.sku || "",
+                      // Prefill the variant fields from the product's own
+                      // cutting/reel (editable so the user can vary them).
+                      cutting_size: product?.cutting_size || "",
+                      reel_size: product?.reel_size || "",
                     }));
                   }}
                   placeholder="Select parent product"
@@ -449,6 +463,39 @@ export default function BOMEditor() {
                   }
                   placeholder="1.0"
                 />
+              </div>
+
+              {/* Variant attributes: let multiple BOMs of the same parent product
+                  (same name) coexist when they differ by cutting / reel. */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cutting_size">Cutting</Label>
+                  <Input
+                    id="cutting_size"
+                    value={formData.cutting_size}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        cutting_size: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. 25 x 18"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reel_size">Reel Size/Number</Label>
+                  <Input
+                    id="reel_size"
+                    value={formData.reel_size}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        reel_size: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. 36 / R-12"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2" data-testid="bom-category-field">

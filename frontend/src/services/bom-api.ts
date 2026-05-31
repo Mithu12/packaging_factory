@@ -28,6 +28,10 @@ export interface BillOfMaterials {
   effective_date: string;
   is_active: boolean;
   category: BOMCategory;
+  /** Free-text cutting that distinguishes this BOM variant of the parent product. */
+  cutting_size?: string;
+  /** Free-text reel size/number that distinguishes this BOM variant. */
+  reel_size?: string;
   total_cost: number;
   created_by: number;
   created_at: string;
@@ -156,6 +160,8 @@ export interface CreateBOMRequest {
   version: string;
   effective_date: string;
   category: BOMCategory;
+  cutting_size?: string;
+  reel_size?: string;
   components: CreateBOMComponentRequest[];
   notes?: string;
 }
@@ -175,6 +181,8 @@ export interface UpdateBOMRequest {
   effective_date?: string;
   is_active?: boolean;
   category?: BOMCategory;
+  cutting_size?: string;
+  reel_size?: string;
   components?: UpdateBOMComponentRequest[];
   notes?: string;
 }

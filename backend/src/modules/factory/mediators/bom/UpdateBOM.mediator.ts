@@ -61,21 +61,35 @@ export class UpdateBOMMediator {
         throw new Error('Access denied to this BOM');
       }
 
-      // Check if version is being changed and if new version already exists
-      if (updateData.version && updateData.version !== existingBOM.version) {
-        const existingVersionQuery = `
+      // Recheck the (version + cutting + reel) variant key whenever any of those
+      // change, so the update can't collide with another active BOM of the same
+      // parent product (matches the uniqueness index from V161).
+      const nextVersion = updateData.version ?? existingBOM.version;
+      const nextCutting = updateData.cutting_size ?? existingBOM.cutting_size ?? "";
+      const nextReel = updateData.reel_size ?? existingBOM.reel_size ?? "";
+      const variantChanged =
+        nextVersion !== existingBOM.version ||
+        nextCutting !== (existingBOM.cutting_size ?? "") ||
+        nextReel !== (existingBOM.reel_size ?? "");
+
+      if (variantChanged) {
+        const existingVariantQuery = `
           SELECT id FROM bill_of_materials
-          WHERE parent_product_id = $1 AND version = $2 AND id != $3 AND is_active = true
+          WHERE parent_product_id = $1 AND version = $2
+            AND cutting_size = $3 AND reel_size = $4
+            AND id != $5 AND is_active = true
         `;
 
-        const existingVersionResult = await client.query(existingVersionQuery, [
+        const existingVariantResult = await client.query(existingVariantQuery, [
           existingBOM.parent_product_id,
-          updateData.version,
+          nextVersion,
+          nextCutting,
+          nextReel,
           bomId
         ]);
 
-        if (existingVersionResult.rows.length > 0) {
-          throw new Error(`BOM version ${updateData.version} already exists for this product`);
+        if (existingVariantResult.rows.length > 0) {
+          throw new Error(`BOM version ${nextVersion} already exists for this product variant`);
         }
       }
 
@@ -107,6 +121,16 @@ export class UpdateBOMMediator {
       if (updateData.category !== undefined) {
         updateFields.push(`category = $${paramIndex++}`);
         updateValues.push(updateData.category);
+      }
+
+      if (updateData.cutting_size !== undefined) {
+        updateFields.push(`cutting_size = $${paramIndex++}`);
+        updateValues.push(updateData.cutting_size ?? "");
+      }
+
+      if (updateData.reel_size !== undefined) {
+        updateFields.push(`reel_size = $${paramIndex++}`);
+        updateValues.push(updateData.reel_size ?? "");
       }
 
       // Always update the updated_by and updated_at fields
@@ -357,6 +381,8 @@ export class UpdateBOMMediator {
           bom.effective_date,
           bom.is_active,
           bom.category,
+          bom.cutting_size,
+          bom.reel_size,
           bom.total_cost,
           bom.created_by,
           bom.created_at,

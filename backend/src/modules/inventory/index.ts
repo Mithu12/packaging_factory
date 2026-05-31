@@ -14,6 +14,7 @@ import { registerInventoryAccountingListeners, inventoryAccountsIntegrationServi
 import express from "express";
 import { interModuleConnector } from "@/utils/InterModuleConnector";
 import purchaseReportsRoutes from "@/modules/inventory/routes/purchase-reports.routes";
+import { StockAdjustmentMediator } from "@/modules/inventory/mediators/stockAdjustments/StockAdjustmentMediator";
 
 // Register inventory accounting listeners
 // This is now handled via InterModuleConnector called directly from Inventory mediators
@@ -22,7 +23,9 @@ import purchaseReportsRoutes from "@/modules/inventory/routes/purchase-reports.r
 // Register with InterModuleConnector for cross-module communication
 interModuleConnector.register('invModule', {
   addPurchaseStock: inventoryAccountsIntegrationService.createPurchaseOrderReceiptVoucher.bind(inventoryAccountsIntegrationService),
-  adjustStock: inventoryAccountsIntegrationService.createStockAdjustmentVoucher.bind(inventoryAccountsIntegrationService)
+  adjustStock: inventoryAccountsIntegrationService.createStockAdjustmentVoucher.bind(inventoryAccountsIntegrationService),
+  // Atomic multi-line stock movement (e.g. factory pre-production manual entry).
+  createStockAdjustmentBatch: StockAdjustmentMediator.createStockAdjustmentBatch.bind(StockAdjustmentMediator)
 });
 
 const router = express.Router();

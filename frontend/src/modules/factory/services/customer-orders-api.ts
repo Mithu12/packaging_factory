@@ -370,6 +370,10 @@ export interface FactoryProduct {
     current_stock?: number;
     status?: string;
     category_name?: string;
+    /** Carton cutting (BOM parents only) — used to prefill the BOM variant field. */
+    cutting_size?: string | null;
+    /** Carton reel size/number (BOM parents only) — used to prefill the BOM variant field. */
+    reel_size?: string | null;
     created_at: string;
     updated_at: string;
 }

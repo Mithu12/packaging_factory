@@ -363,6 +363,16 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
                           <div className="text-sm text-muted-foreground">
                             {bom.parent_product_sku}
                           </div>
+                          {(bom.cutting_size || bom.reel_size) && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {[
+                                bom.cutting_size && `Cutting: ${bom.cutting_size}`,
+                                bom.reel_size && `Reel: ${bom.reel_size}`,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>

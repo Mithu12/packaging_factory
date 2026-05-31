@@ -108,6 +108,7 @@ class ProductsController {
             'BDT' as currency,
             p.current_stock, p.status,
             c.name as category_name,
+            p.cutting_size, p.reel_size,
             p.created_at, p.updated_at
           FROM products p
           LEFT JOIN categories c ON c.id = p.category_id
@@ -124,6 +125,7 @@ class ProductsController {
             'BDT' as currency,
             p.current_stock, p.status,
             c.name as category_name,
+            p.cutting_size, p.reel_size,
             p.created_at, p.updated_at
           FROM products p
           LEFT JOIN categories c ON c.id = p.category_id
@@ -213,6 +215,87 @@ class ProductsController {
 
       const result = await pool.query(query, params);
 
+      const products = result.rows.map((row) => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        cost_price: row.cost_price ? parseFloat(row.cost_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0,
+      }));
+
+      MyLogger.success(action, { count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get finished pre-production products — Ready Raw Materials, with their
+  // sub-category name so the manual-entry form can filter by production type
+  // (Printing / Media / Liner).
+  async getPreProductionFinishedProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/products/pre-production-finished";
+      MyLogger.info(action);
+
+      const query = `
+        SELECT
+          p.id, p.sku, p.name, p.description,
+          p.selling_price as unit_price,
+          p.cost_price,
+          p.unit_of_measure,
+          p.current_stock, p.status,
+          c.name as category_name,
+          p.subcategory_id, sc.name as subcategory_name,
+          p.created_at, p.updated_at
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+        WHERE p.status = 'active'
+          AND c.name = 'Ready Raw Materials'
+        ORDER BY p.name
+      `;
+
+      const result = await pool.query(query);
+      const products = result.rows.map((row) => ({
+        ...row,
+        unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,
+        cost_price: row.cost_price ? parseFloat(row.cost_price) : 0,
+        current_stock: row.current_stock ? parseFloat(row.current_stock) : 0,
+      }));
+
+      MyLogger.success(action, { count: products.length });
+      serializeSuccessResponse(res, products, "SUCCESS");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get raw paper products — Raw Materials, with brand info so the manual-entry
+  // form can filter by paper brand.
+  async getRawMaterialProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = "GET /api/factory/products/raw-materials";
+      MyLogger.info(action);
+
+      const query = `
+        SELECT
+          p.id, p.sku, p.name, p.description,
+          p.selling_price as unit_price,
+          p.cost_price,
+          p.unit_of_measure,
+          p.current_stock, p.status,
+          c.name as category_name,
+          p.brand_id, b.name as brand_name,
+          p.created_at, p.updated_at
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        LEFT JOIN brands b ON b.id = p.brand_id
+        WHERE p.status = 'active'
+          AND c.name = 'Raw Materials'
+        ORDER BY p.name
+      `;
+
+      const result = await pool.query(query);
       const products = result.rows.map((row) => ({
         ...row,
         unit_price: row.unit_price ? parseFloat(row.unit_price) : 0,

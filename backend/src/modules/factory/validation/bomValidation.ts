@@ -24,6 +24,8 @@ export const createBOMSchema = Joi.object({
       "any.only": "Category must be one of: corrugation, printing, ready_goods",
       "any.required": "Category is required",
     }),
+  cutting_size: Joi.string().max(100).allow("", null).optional().default(""),
+  reel_size: Joi.string().max(100).allow("", null).optional().default(""),
   components: Joi.array()
     .items(
       Joi.object({
@@ -76,6 +78,8 @@ export const updateBOMSchema = Joi.object({
       "string.empty": "Category cannot be empty",
       "any.only": "Category must be one of: corrugation, printing, ready_goods",
     }),
+  cutting_size: Joi.string().max(100).allow("", null).optional(),
+  reel_size: Joi.string().max(100).allow("", null).optional(),
   components: Joi.array()
     .items(
       Joi.object({

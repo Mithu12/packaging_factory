@@ -366,6 +366,12 @@ const menuSections: MenuSection[] = [
             permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
           },
           {
+            title: "Manual Pre-Production",
+            url: "/factory/work-orders/manual-pre-production",
+            icon: Wrench,
+            permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+          },
+          {
             title: "Production Execution",
             url: "/factory/production",
             icon: Activity,

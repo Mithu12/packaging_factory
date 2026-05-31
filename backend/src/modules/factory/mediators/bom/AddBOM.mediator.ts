@@ -50,19 +50,27 @@ export class AddBOMMediator {
       //   throw new Error('Access denied to this product');
       // }
 
-      // Check if BOM version already exists for this product
+      // Variant attributes: cutting + reel size/number distinguish multiple
+      // active BOMs of the same parent product/version.
+      const cuttingSize = bomData.cutting_size ?? "";
+      const reelSize = bomData.reel_size ?? "";
+
+      // Check if an active BOM with the same version + variant already exists.
       const existingBOMQuery = `
         SELECT id FROM bill_of_materials
-        WHERE parent_product_id = $1 AND version = $2 AND is_active = true
+        WHERE parent_product_id = $1 AND version = $2
+          AND cutting_size = $3 AND reel_size = $4 AND is_active = true
       `;
 
       const existingBOMResult = await client.query(existingBOMQuery, [
         bomData.parent_product_id,
-        bomData.version
+        bomData.version,
+        cuttingSize,
+        reelSize
       ]);
 
       if (existingBOMResult.rows.length > 0) {
-        throw new Error(`BOM version ${bomData.version} already exists for this product`);
+        throw new Error(`BOM version ${bomData.version} already exists for this product variant`);
       }
 
       // Enforce product-type rules: parent must be FG or RRM; components must match.
@@ -120,10 +128,12 @@ export class AddBOMMediator {
           effective_date,
           is_active,
           category,
+          cutting_size,
+          reel_size,
           total_cost,
           created_by,
           notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
       `;
 
@@ -133,6 +143,8 @@ export class AddBOMMediator {
         bomData.effective_date,
         true, // is_active
         bomData.category,
+        cuttingSize,
+        reelSize,
         totalCost,
         userId,
         bomData.notes || null
@@ -203,6 +215,8 @@ export class AddBOMMediator {
           bom.effective_date,
           bom.is_active,
           bom.category,
+          bom.cutting_size,
+          bom.reel_size,
           bom.total_cost,
           bom.created_by,
           bom.created_at,
@@ -280,6 +294,8 @@ export class AddBOMMediator {
         effective_date: bomRow.effective_date,
         is_active: bomRow.is_active,
         category: bomRow.category,
+        cutting_size: bomRow.cutting_size,
+        reel_size: bomRow.reel_size,
         total_cost: parseFloat(bomRow.total_cost),
         created_by: bomRow.created_by,
         created_at: bomRow.created_at,

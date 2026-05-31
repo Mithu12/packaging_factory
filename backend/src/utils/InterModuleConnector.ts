@@ -192,6 +192,15 @@ class InterModuleConnector {
     adjustStock: async (...args: any[]): Promise<any> => {
       this.logNotImplemented("invModule", "adjustStock");
       return null;
+    },
+
+    /**
+     * Create a multi-line stock adjustment batch (atomic). Used by the factory
+     * pre-production manual entry to move raw + finished stock in one go.
+     */
+    createStockAdjustmentBatch: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("invModule", "createStockAdjustmentBatch");
+      return null;
     }
   };
 
