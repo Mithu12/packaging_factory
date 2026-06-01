@@ -809,8 +809,9 @@ export class SalesInvoiceMediator {
            payment_method,
            payment_reference,
            notes,
+           bank_name,
            recorded_by
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id, payment_date`,
         [
           invoice.customer_order_id ?? null,
@@ -822,6 +823,7 @@ export class SalesInvoiceMediator {
           data.payment_method ?? 'cash',
           data.reference_number ?? null,
           data.notes ?? null,
+          data.bank_name ?? null,
           userId,
         ],
       );

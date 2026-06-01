@@ -344,17 +344,20 @@ export class FactoryCustomerPaymentsMediator {
       const { customer_id, factory_id, start_date, end_date, search } = params;
 
       let query = `
-        SELECT 
+        SELECT
           fcp.*,
           fco.order_number,
           fc.name as customer_name,
+          fc.company as company_name,
+          fsi.invoice_number,
           f.name as factory_name,
           u.username as recorded_by_username,
           v.voucher_no as voucher_no
         FROM factory_customer_payments fcp
-        JOIN factory_customer_orders fco ON fcp.factory_customer_order_id = fco.id
+        LEFT JOIN factory_customer_orders fco ON fcp.factory_customer_order_id = fco.id
         JOIN factory_customers fc ON fcp.factory_customer_id = fc.id
-        JOIN factories f ON fcp.factory_id = f.id
+        LEFT JOIN factory_sales_invoices fsi ON fcp.factory_sales_invoice_id = fsi.id
+        LEFT JOIN factories f ON fcp.factory_id = f.id
         LEFT JOIN users u ON fcp.recorded_by = u.id
         LEFT JOIN vouchers v ON fcp.voucher_id = v.id
         WHERE 1=1
@@ -388,7 +391,7 @@ export class FactoryCustomerPaymentsMediator {
       }
 
       if (search) {
-        query += ` AND (fc.name ILIKE $${paramIndex} OR fco.order_number ILIKE $${paramIndex} OR fcp.payment_reference ILIKE $${paramIndex})`;
+        query += ` AND (fc.name ILIKE $${paramIndex} OR fc.company ILIKE $${paramIndex} OR fco.order_number ILIKE $${paramIndex} OR fsi.invoice_number ILIKE $${paramIndex} OR fcp.payment_reference ILIKE $${paramIndex})`;
         values.push(`%${search}%`);
         paramIndex++;
       }
@@ -412,6 +415,9 @@ export class FactoryCustomerPaymentsMediator {
           factory_customer_order_id: row.factory_customer_order_id,
           order_number: row.order_number,
           customer_name: row.customer_name,
+          company_name: row.company_name,
+          invoice_number: row.invoice_number,
+          bank_name: row.bank_name,
           factory_name: row.factory_name,
           factory_customer_id: row.factory_customer_id,
           factory_id: row.factory_id,

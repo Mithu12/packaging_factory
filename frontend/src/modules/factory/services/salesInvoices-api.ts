@@ -45,8 +45,9 @@ export interface RecordPaymentRequest {
   payment_amount: number;
   payment_date: string;
   payment_method: string;
-  payment_reference?: string;
+  reference_number?: string;
   notes?: string;
+  bank_name?: string;
 }
 
 export interface SalesInvoiceQueryParams {

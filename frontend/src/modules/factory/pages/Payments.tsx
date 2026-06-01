@@ -59,10 +59,9 @@ import {
 import { toast } from "sonner";
 import CustomerOrdersApiService, {
     FactoryCustomer,
-    FactoryCustomerOrder,
     FactoryCustomerPayment,
-    RecordPaymentRequest
 } from '../services/customer-orders-api';
+import { SalesInvoicesApi, SalesInvoice } from '../services/salesInvoices-api';
 import { useFormatting } from '@/hooks/useFormatting';
 
 const Payments: React.FC = () => {
@@ -78,18 +77,22 @@ const Payments: React.FC = () => {
     // Record-payment dialog state
     const [showRecordDialog, setShowRecordDialog] = useState(false);
     const [dialogCustomerId, setDialogCustomerId] = useState<string>('');
-    const [outstandingOrders, setOutstandingOrders] = useState<FactoryCustomerOrder[]>([]);
-    const [dialogOrderId, setDialogOrderId] = useState<string>('');
+    const [outstandingInvoices, setOutstandingInvoices] = useState<SalesInvoice[]>([]);
+    const [dialogInvoiceId, setDialogInvoiceId] = useState<string>('');
     const [dialogAmount, setDialogAmount] = useState<string>('');
     const [dialogMethod, setDialogMethod] = useState<string>('cash');
     const [dialogDate, setDialogDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [dialogReference, setDialogReference] = useState<string>('');
+    const [dialogBankName, setDialogBankName] = useState<string>('');
     const [dialogNotes, setDialogNotes] = useState<string>('');
     const [dialogSubmitting, setDialogSubmitting] = useState(false);
 
-    const dialogSelectedOrder = useMemo(
-        () => outstandingOrders.find(o => o.id.toString() === dialogOrderId) || null,
-        [outstandingOrders, dialogOrderId]
+    // Bank name is only meaningful for instrument-based receipts.
+    const methodNeedsBank = dialogMethod === 'cheque' || dialogMethod === 'bank_transfer';
+
+    const dialogSelectedInvoice = useMemo(
+        () => outstandingInvoices.find(i => i.id.toString() === dialogInvoiceId) || null,
+        [outstandingInvoices, dialogInvoiceId]
     );
 
     // Fetch initial data
@@ -165,57 +168,58 @@ const Payments: React.FC = () => {
     const openRecordDialog = async () => {
         const initialCustomerId = selectedCustomerId !== 'all' ? selectedCustomerId : '';
         setDialogCustomerId(initialCustomerId);
-        setDialogOrderId('');
-        setOutstandingOrders([]);
+        setDialogInvoiceId('');
+        setOutstandingInvoices([]);
         setDialogAmount('');
         setDialogMethod('cash');
         setDialogDate(new Date().toISOString().split('T')[0]);
         setDialogReference('');
+        setDialogBankName('');
         setDialogNotes('');
         setShowRecordDialog(true);
         if (initialCustomerId) {
-            await loadOutstandingOrders(initialCustomerId);
+            await loadOutstandingInvoices(initialCustomerId);
         }
     };
 
-    const loadOutstandingOrders = async (customerId: string) => {
+    const loadOutstandingInvoices = async (customerId: string) => {
         if (!customerId) {
-            setOutstandingOrders([]);
+            setOutstandingInvoices([]);
             return;
         }
         try {
-            const response = await CustomerOrdersApiService.getCustomerOrders({
-                factory_customer_id: customerId,
+            const response = await SalesInvoicesApi.getSalesInvoices({
+                factory_customer_id: Number(customerId),
                 limit: 100,
             });
-            // Only orders with money still owed are eligible for payment recording.
-            const eligible = response.orders.filter(o => Number(o.outstanding_amount || 0) > 0);
-            setOutstandingOrders(eligible);
+            // Only invoices with money still owed are eligible for payment recording.
+            const eligible = response.invoices.filter(i => Number(i.outstanding_amount || 0) > 0);
+            setOutstandingInvoices(eligible);
         } catch (error) {
-            console.error('Error loading customer orders:', error);
-            toast.error('Failed to load orders for this customer');
-            setOutstandingOrders([]);
+            console.error('Error loading customer invoices:', error);
+            toast.error('Failed to load invoices for this customer');
+            setOutstandingInvoices([]);
         }
     };
 
     const handleDialogCustomerChange = async (customerId: string) => {
         setDialogCustomerId(customerId);
-        setDialogOrderId('');
+        setDialogInvoiceId('');
         setDialogAmount('');
-        await loadOutstandingOrders(customerId);
+        await loadOutstandingInvoices(customerId);
     };
 
-    const handleDialogOrderChange = (orderId: string) => {
-        setDialogOrderId(orderId);
-        const order = outstandingOrders.find(o => o.id.toString() === orderId);
-        if (order) {
-            setDialogAmount(String(Number(order.outstanding_amount || 0).toFixed(2)));
+    const handleDialogInvoiceChange = (invoiceId: string) => {
+        setDialogInvoiceId(invoiceId);
+        const invoice = outstandingInvoices.find(i => i.id.toString() === invoiceId);
+        if (invoice) {
+            setDialogAmount(String(Number(invoice.outstanding_amount || 0).toFixed(2)));
         }
     };
 
     const submitRecordPayment = async () => {
-        if (!dialogOrderId) {
-            toast.error('Select an order to record payment against');
+        if (!dialogInvoiceId) {
+            toast.error('Select an invoice to record payment against');
             return;
         }
         const amount = Number(dialogAmount);
@@ -223,20 +227,21 @@ const Payments: React.FC = () => {
             toast.error('Enter a valid payment amount');
             return;
         }
-        const order = dialogSelectedOrder;
-        const outstanding = Number(order?.outstanding_amount || 0);
-        if (order && amount > outstanding + 0.005) {
+        const invoice = dialogSelectedInvoice;
+        const outstanding = Number(invoice?.outstanding_amount || 0);
+        if (invoice && amount > outstanding + 0.005) {
             toast.error(`Amount exceeds outstanding (${outstanding.toFixed(2)})`);
             return;
         }
         try {
             setDialogSubmitting(true);
-            await CustomerOrdersApiService.recordPayment(dialogOrderId, {
+            await SalesInvoicesApi.recordPayment(Number(dialogInvoiceId), {
                 payment_amount: amount,
                 payment_method: dialogMethod,
                 payment_date: dialogDate,
-                payment_reference: dialogReference.trim() || undefined,
+                reference_number: dialogReference.trim() || undefined,
                 notes: dialogNotes.trim() || undefined,
+                bank_name: methodNeedsBank ? (dialogBankName.trim() || undefined) : undefined,
             });
             toast.success('Payment recorded');
             setShowRecordDialog(false);
@@ -275,6 +280,7 @@ const Payments: React.FC = () => {
             'Amount',
             'Method',
             'Voucher',
+            'Bank',
             'Reference',
             'Notes',
         ];
@@ -284,11 +290,12 @@ const Payments: React.FC = () => {
         };
         const lines = rowsToExport.map(p => [
             new Date(p.payment_date).toISOString().slice(0, 10),
-            p.customer_name || '',
-            p.order_number || '',
+            p.company_name || p.customer_name || '',
+            p.invoice_number || (p.order_number ? `#${p.order_number}` : ''),
             Number(p.payment_amount || 0).toFixed(2),
             p.payment_method.replace(/_/g, ' '),
             p.voucher_no || '',
+            p.bank_name || '',
             p.payment_reference || '',
             p.notes || '',
         ].map(escape).join(','));
@@ -454,11 +461,11 @@ const Payments: React.FC = () => {
                                                         <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
                                                         {!selectedCustomer && (
                                                             <TableCell className="font-medium italic">
-                                                                {payment.customer_name || 'N/A'}
+                                                                {payment.company_name || payment.customer_name || 'N/A'}
                                                             </TableCell>
                                                         )}
                                                         <TableCell className="text-muted-foreground">
-                                                            #{payment.order_number || 'N/A'}
+                                                            {payment.invoice_number || (payment.order_number ? `#${payment.order_number}` : '—')}
                                                         </TableCell>
                                                         <TableCell className="font-bold text-green-600">
                                                             {formatCurrency(payment.payment_amount)}
@@ -473,8 +480,8 @@ const Payments: React.FC = () => {
                                                                 <span className="text-xs text-muted-foreground">-</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell className="text-xs max-w-[150px] truncate">
-                                                            {payment.payment_reference || '-'}
+                                                        <TableCell className="text-xs max-w-[180px] truncate">
+                                                            {[payment.bank_name, payment.payment_reference].filter(Boolean).join(' · ') || '-'}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -495,7 +502,7 @@ const Payments: React.FC = () => {
                     <DialogHeader>
                         <DialogTitle>Record Payment</DialogTitle>
                         <DialogDescription>
-                            Record a payment against an outstanding order.
+                            Record a payment against an outstanding invoice.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -517,32 +524,32 @@ const Payments: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Order</Label>
+                            <Label>Invoice</Label>
                             <Select
-                                value={dialogOrderId}
-                                onValueChange={handleDialogOrderChange}
-                                disabled={!dialogCustomerId || outstandingOrders.length === 0}
+                                value={dialogInvoiceId}
+                                onValueChange={handleDialogInvoiceChange}
+                                disabled={!dialogCustomerId || outstandingInvoices.length === 0}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder={
                                         !dialogCustomerId
                                             ? 'Select a customer first'
-                                            : outstandingOrders.length === 0
-                                                ? 'No outstanding orders'
-                                                : 'Select order'
+                                            : outstandingInvoices.length === 0
+                                                ? 'No outstanding invoices'
+                                                : 'Select invoice'
                                     } />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {outstandingOrders.map(o => (
-                                        <SelectItem key={o.id} value={o.id.toString()}>
-                                            {o.order_number} — Outstanding {formatCurrency(o.outstanding_amount || 0)}
+                                    {outstandingInvoices.map(i => (
+                                        <SelectItem key={i.id} value={i.id.toString()}>
+                                            {i.invoice_number} — Outstanding {formatCurrency(i.outstanding_amount || 0)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                            {dialogSelectedOrder && (
+                            {dialogSelectedInvoice && (
                                 <p className="text-xs text-muted-foreground">
-                                    Outstanding: {formatCurrency(dialogSelectedOrder.outstanding_amount || 0)} of {formatCurrency(dialogSelectedOrder.total_value || 0)}
+                                    Outstanding: {formatCurrency(dialogSelectedInvoice.outstanding_amount || 0)} of {formatCurrency(dialogSelectedInvoice.total_amount || 0)}
                                 </p>
                             )}
                         </div>
@@ -596,6 +603,18 @@ const Payments: React.FC = () => {
                                 placeholder="Cheque #, txn ID, etc."
                             />
                         </div>
+
+                        {methodNeedsBank && (
+                            <div className="space-y-2">
+                                <Label htmlFor="payment-bank-name">Bank Name</Label>
+                                <Input
+                                    id="payment-bank-name"
+                                    value={dialogBankName}
+                                    onChange={(e) => setDialogBankName(e.target.value)}
+                                    placeholder="e.g. Standard Chartered"
+                                />
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="payment-notes">Notes</Label>

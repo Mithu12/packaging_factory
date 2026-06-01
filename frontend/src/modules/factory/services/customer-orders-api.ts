@@ -546,6 +546,9 @@ export interface FactoryCustomerPayment {
     factory_customer_order_id: string;
     order_number?: string;
     customer_name?: string;
+    company_name?: string;
+    invoice_number?: string;
+    bank_name?: string;
     factory_customer_id: string;
     factory_id?: number;
     factory_sales_invoice_id?: number;
