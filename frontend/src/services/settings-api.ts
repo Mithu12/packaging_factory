@@ -9,7 +9,8 @@ import {
   NotificationSettings,
   SecuritySettings,
   EcommerceSettings,
-  IntegrationSettings
+  IntegrationSettings,
+  DashboardSettings
 } from './settings-types';
 
 class SettingsApiService {
@@ -104,6 +105,20 @@ class SettingsApiService {
 
   async updatePayrollSettings(settings: Partial<PayrollSettings>): Promise<Setting[]> {
     return this.updateSettings('payroll', settings);
+  }
+
+  async getDashboardSettings(): Promise<DashboardSettings> {
+    const settings = await this.getSettingsByCategory('factory_dashboard');
+    const result: any = {};
+    Object.values(settings).forEach(setting => {
+      // ids are stored as numbers; surface them as strings for the picker
+      result[setting.key] = setting.value != null ? String(setting.value) : '';
+    });
+    return result as DashboardSettings;
+  }
+
+  async updateDashboardSettings(settings: Partial<DashboardSettings>): Promise<Setting[]> {
+    return this.updateSettings('factory_dashboard', settings);
   }
 
   async getNotificationSettings(): Promise<NotificationSettings> {

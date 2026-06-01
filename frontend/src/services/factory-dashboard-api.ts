@@ -49,11 +49,28 @@ export interface FactoryDashboardStats {
   // Pending orders (factory_customer_orders)
   pending_orders: number;
 
-  // Monthly income (last 12 months from factory_sales_invoices)
-  monthly_income: { month: string; income: number }[];
+  // Total ordered quantity across all (non-cancelled) order line items
+  total_order_qty: number;
 
-  // Daily income (last 30 days from factory_sales_invoices)
-  daily_income: { date: string; income: number }[];
+  // Cash-flow snapshots
+  daily_revenue: number;          // today's invoiced sales
+  daily_expenses: number;         // today's approved/paid expenses
+  electricity_bill_month: number; // current-month "Utilities" expenses
+
+  // Manpower (today's attendance vs active headcount)
+  present_workers: number;
+  total_workers: number;
+
+  // Accounts payable to suppliers
+  total_supplier_dues: number;
+
+  // Stock levels for admin-mapped products (null = not configured)
+  named_stock: {
+    media_paper: number | null;
+    liner_paper: number | null;
+    silicate_gum: number | null;
+    stitching_wire: number | null;
+  };
 }
 
 // =====================================================

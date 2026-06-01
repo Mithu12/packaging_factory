@@ -87,6 +87,14 @@ export interface PayrollSettings {
   payroll_default_tax_rate: number;
 }
 
+export interface DashboardSettings {
+  /** Product ids whose stock backs the named Factory Dashboard cards. Empty string = unmapped. */
+  media_paper_product_id: string;
+  liner_paper_product_id: string;
+  silicate_gum_product_id: string;
+  stitching_wire_product_id: string;
+}
+
 export interface IntegrationSettings {
   email_service_connected: boolean;
   email_service_config: {
@@ -118,4 +126,5 @@ export interface AllSettings {
   security: SecuritySettings;
   ecommerce: EcommerceSettings;
   integrations: IntegrationSettings;
+  dashboard: DashboardSettings;
 }

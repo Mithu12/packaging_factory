@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Factory,
@@ -17,34 +16,144 @@ import {
   Zap,
   Target,
   DollarSign,
-  BarChart3,
   Wallet,
   FileText,
   Users,
+  Layers,
+  RefreshCw,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useFormatting } from "@/hooks/useFormatting";
 import { FactoryDashboardApiService, factoryDashboardQueryKeys } from "@/services/factory-dashboard-api";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+
+// Tailwind class pairs per accent. Kept as static strings so the JIT compiler
+// can see every class literally (dynamic `bg-${color}-50` would be purged).
+const STAT_STYLES = {
+  blue: { card: "bg-blue-50/60 border-blue-100 dark:bg-blue-950/20 dark:border-blue-900", chip: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300" },
+  indigo: { card: "bg-indigo-50/60 border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900", chip: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  purple: { card: "bg-purple-50/60 border-purple-100 dark:bg-purple-950/20 dark:border-purple-900", chip: "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300" },
+  sky: { card: "bg-sky-50/60 border-sky-100 dark:bg-sky-950/20 dark:border-sky-900", chip: "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300" },
+  green: { card: "bg-green-50/60 border-green-100 dark:bg-green-950/20 dark:border-green-900", chip: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300" },
+  emerald: { card: "bg-emerald-50/60 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900", chip: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  amber: { card: "bg-amber-50/60 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900", chip: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300" },
+  yellow: { card: "bg-yellow-50/60 border-yellow-100 dark:bg-yellow-950/20 dark:border-yellow-900", chip: "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-300" },
+  orange: { card: "bg-orange-50/60 border-orange-100 dark:bg-orange-950/20 dark:border-orange-900", chip: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300" },
+  red: { card: "bg-red-50/60 border-red-100 dark:bg-red-950/20 dark:border-red-900", chip: "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300" },
+  rose: { card: "bg-rose-50/60 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900", chip: "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300" },
+} as const;
+
+type StatColor = keyof typeof STAT_STYLES;
+
+interface StatCardProps {
+  title: string;
+  value: ReactNode;
+  subtitle?: ReactNode;
+  icon: LucideIcon;
+  color: StatColor;
+  loading?: boolean;
+  /** Renders a dashed, de-emphasised card (e.g. an unconfigured slot). */
+  muted?: boolean;
+  /** When set, the whole card becomes a keyboard-accessible button. */
+  onClick?: () => void;
+}
+
+function StatCard({ title, value, subtitle, icon: Icon, color, loading, muted, onClick }: StatCardProps) {
+  const styles = STAT_STYLES[color];
+  return (
+    <Card
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "border-2 shadow-sm transition-all duration-300 group overflow-hidden",
+        muted ? "border-dashed bg-muted/30" : styles.card,
+        onClick &&
+          "cursor-pointer hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      )}
+    >
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-muted-foreground font-medium">{title}</p>
+            {loading ? (
+              <div className="h-8 w-24 mt-2 rounded-md bg-muted animate-pulse" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground mt-1 truncate">{value}</p>
+            )}
+            {!loading && subtitle ? (
+              <p className="text-xs text-muted-foreground/80 mt-1 truncate">{subtitle}</p>
+            ) : null}
+          </div>
+          <div
+            className={cn(
+              "p-3 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110",
+              muted ? "bg-muted text-muted-foreground" : styles.chip
+            )}
+          >
+            <Icon className="h-6 w-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </h2>
+  );
+}
 
 export default function FactoryDashboard() {
   const { formatCurrency, formatDate, formatNumber } = useFormatting();
   const router = useRouter();
 
   // Fetch dashboard stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, isFetching, refetch } = useQuery({
     queryKey: factoryDashboardQueryKeys.stats(),
     queryFn: () => FactoryDashboardApiService.getDashboardStats(),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
+
+  // Render one of the four admin-mapped stock cards. Unmapped slots become a
+  // dashed, clickable card that deep-links to Settings → Dashboard.
+  const renderStockCard = (
+    title: string,
+    value: number | null | undefined,
+    color: StatColor
+  ) => {
+    const configured = value != null;
+    return (
+      <StatCard
+        title={title}
+        icon={Layers}
+        color={color}
+        loading={statsLoading}
+        value={configured ? formatNumber(value as number) : "Not set"}
+        subtitle={configured ? "In stock" : "Tap to configure"}
+        muted={!statsLoading && !configured}
+        onClick={
+          !statsLoading && !configured
+            ? () => router.push("/settings?tab=dashboard")
+            : undefined
+        }
+      />
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -61,272 +170,143 @@ export default function FactoryDashboard() {
     }
   };
 
-  const chartData12Months = useMemo(() => {
-    const data = stats?.monthly_income ?? [];
-    return data.map(({ month, income }) => {
-      const [year, m] = month.split("-");
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const label = `${monthNames[parseInt(m, 10) - 1]} ${year}`;
-      return { month: label, income, fullMonth: month };
-    });
-  }, [stats?.monthly_income]);
-
-  const chartData30Days = useMemo(() => {
-    const data = stats?.daily_income ?? [];
-    return data.map(({ date, income }) => {
-      const d = new Date(date);
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const label = `${monthNames[d.getMonth()]} ${d.getDate()}`;
-      return { date: label, income, fullDate: date };
-    });
-  }, [stats?.daily_income]);
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Factory className="h-8 w-8 text-blue-600" />
             Factory Dashboard
           </h1>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             Real-time overview of factory operations
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </Button>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Customer Orders
-            </CardTitle>
-            <Package className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? "..." : stats?.active_orders || 0}
-            </div>
-            <p className="text-xs text-gray-500">
-              Active of {stats?.total_orders || 0} total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Work Orders
-            </CardTitle>
-            <Activity className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? "..." : stats?.active_work_orders || 0}
-            </div>
-            <p className="text-xs text-gray-500">
-              Active of {stats?.total_work_orders || 0} total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Production Runs
-            </CardTitle>
-            <Zap className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading ? "..." : stats?.active_production_runs || 0}
-            </div>
-            <p className="text-xs text-gray-500">Currently running</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Produced Today
-            </CardTitle>
-            <Target className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {statsLoading
-                ? "..."
-                : stats?.total_produced_today.toFixed(0) || 0}
-            </div>
-            <p className="text-xs text-gray-500">Units completed</p>
-          </CardContent>
-        </Card>
+      {/* Production & People */}
+      <div className="space-y-3">
+        <SectionHeading>Production &amp; People</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Total Customer Orders Qty"
+            icon={Package}
+            color="blue"
+            loading={statsLoading}
+            value={formatNumber(stats?.total_order_qty || 0)}
+            subtitle="Units ordered across all orders"
+          />
+          <StatCard
+            title="Today Production"
+            icon={Target}
+            color="purple"
+            loading={statsLoading}
+            value={formatNumber(Math.round(stats?.total_produced_today || 0))}
+            subtitle="Units completed today"
+          />
+          <StatCard
+            title="Pending Orders"
+            icon={FileText}
+            color="indigo"
+            loading={statsLoading}
+            value={formatNumber(stats?.pending_orders || 0)}
+            subtitle={`${stats?.active_orders || 0} in progress`}
+          />
+          <StatCard
+            title="Present Workers"
+            icon={Users}
+            color="sky"
+            loading={statsLoading}
+            value={`${formatNumber(stats?.present_workers || 0)} / ${formatNumber(stats?.total_workers || 0)}`}
+            subtitle="Present today"
+          />
+        </div>
       </div>
 
-      {/* Secondary Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-blue-50/50 border-blue-100 border-2 shadow-md hover:shadow-xl transition-all duration-300 group overflow-hidden">
-          <CardContent className="pt-6 relative">
-            <div className="flex items-center justify-between">
-              <div className="z-10">
-                <p className="text-sm text-muted-foreground font-medium">Pending Orders</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {statsLoading ? "..." : formatNumber(stats?.pending_orders || 0)}
-                </p>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  {stats?.active_orders || 0} in progress
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-blue-100 text-blue-600 group-hover:scale-110 transition-transform duration-300">
-                <FileText className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-50/50 border-emerald-100 border-2 shadow-md hover:shadow-xl transition-all duration-300 group overflow-hidden">
-          <CardContent className="pt-6 relative">
-            <div className="flex items-center justify-between">
-              <div className="z-10">
-                <p className="text-sm text-muted-foreground font-medium">Low Stock Items</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {statsLoading ? "..." : formatNumber(stats?.low_stock_count || 0)}
-                </p>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  {stats?.out_of_stock_count || 0} out of stock
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600 group-hover:scale-110 transition-transform duration-300">
-                <Package className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-purple-50/50 border-purple-100 border-2 shadow-md hover:shadow-xl transition-all duration-300 group overflow-hidden">
-          <CardContent className="pt-6 relative">
-            <div className="flex items-center justify-between">
-              <div className="z-10">
-                <p className="text-sm text-muted-foreground font-medium">Outstanding Dues</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {statsLoading ? "..." : formatCurrency(stats?.total_outstanding_dues || 0)}
-                </p>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  {stats?.customers_with_dues || 0} customers
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-purple-100 text-purple-600 group-hover:scale-110 transition-transform duration-300">
-                <Wallet className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-orange-50/50 border-orange-100 border-2 shadow-md hover:shadow-xl transition-all duration-300 group overflow-hidden">
-          <CardContent className="pt-6 relative">
-            <div className="flex items-center justify-between">
-              <div className="z-10">
-                <p className="text-sm text-muted-foreground font-medium">Material Shortages</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {statsLoading ? "..." : formatNumber(stats?.material_shortages || 0)}
-                </p>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  {stats?.wastage_pending_approval || 0} pending approval
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-orange-100 text-orange-600 group-hover:scale-110 transition-transform duration-300">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Materials & Stock */}
+      <div className="space-y-3">
+        <SectionHeading>Materials &amp; Stock</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {renderStockCard("Media Paper Stock", stats?.named_stock?.media_paper, "green")}
+          {renderStockCard("Liner Paper Stock", stats?.named_stock?.liner_paper, "orange")}
+          {renderStockCard("Silicate Gum Stock", stats?.named_stock?.silicate_gum, "amber")}
+          {renderStockCard("Stitching Wire Stock", stats?.named_stock?.stitching_wire, "yellow")}
+          <StatCard
+            title="Low Stock Items"
+            icon={Package}
+            color="emerald"
+            loading={statsLoading}
+            value={formatNumber(stats?.low_stock_count || 0)}
+            subtitle={`${stats?.out_of_stock_count || 0} out of stock`}
+          />
+          <StatCard
+            title="Material Shortages"
+            icon={AlertTriangle}
+            color="red"
+            loading={statsLoading}
+            value={formatNumber(stats?.material_shortages || 0)}
+            subtitle={`${stats?.wastage_pending_approval || 0} pending approval`}
+          />
+        </div>
       </div>
 
-      {/* Monthly Income Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-emerald-600" />
-            Monthly Income
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Revenue from factory sales invoices
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="12m" className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="12m">Last 12 Months</TabsTrigger>
-              <TabsTrigger value="30d">Last 30 Days</TabsTrigger>
-            </TabsList>
-            <TabsContent value="12m">
-              {statsLoading ? (
-                <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                  Loading chart...
-                </div>
-              ) : chartData12Months.length === 0 ? (
-                <div className="flex h-[300px] flex-col items-center justify-center text-muted-foreground">
-                  <BarChart3 className="h-12 w-12 mb-2 opacity-30" />
-                  <p>No invoice data for the last 12 months</p>
-                </div>
-              ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData12Months} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis
-                        dataKey="month"
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => formatCurrency(v)} />
-                      <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), "Income"]}
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.month ?? ""}
-                      />
-                      <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} name="Income" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="30d">
-              {statsLoading ? (
-                <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                  Loading chart...
-                </div>
-              ) : chartData30Days.length === 0 ? (
-                <div className="flex h-[300px] flex-col items-center justify-center text-muted-foreground">
-                  <BarChart3 className="h-12 w-12 mb-2 opacity-30" />
-                  <p>No invoice data for the last 30 days</p>
-                </div>
-              ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData30Days} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => formatCurrency(v)} />
-                      <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), "Income"]}
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ""}
-                      />
-                      <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} name="Income" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+      {/* Finance */}
+      <div className="space-y-3">
+        <SectionHeading>Finance</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <StatCard
+            title="Daily Revenue"
+            icon={TrendingUp}
+            color="green"
+            loading={statsLoading}
+            value={formatCurrency(stats?.daily_revenue || 0)}
+            subtitle="Invoiced today"
+          />
+          <StatCard
+            title="Daily Expenses"
+            icon={DollarSign}
+            color="red"
+            loading={statsLoading}
+            value={formatCurrency(stats?.daily_expenses || 0)}
+            subtitle="Spent today"
+          />
+          <StatCard
+            title="Electricity Bill"
+            icon={Zap}
+            color="yellow"
+            loading={statsLoading}
+            value={formatCurrency(stats?.electricity_bill_month || 0)}
+            subtitle="Utilities this month"
+          />
+          <StatCard
+            title="Outstanding Dues"
+            icon={Wallet}
+            color="purple"
+            loading={statsLoading}
+            value={formatCurrency(stats?.total_outstanding_dues || 0)}
+            subtitle={`${stats?.customers_with_dues || 0} customers`}
+          />
+          <StatCard
+            title="Total Supplier Dues"
+            icon={Wallet}
+            color="rose"
+            loading={statsLoading}
+            value={formatCurrency(stats?.total_supplier_dues || 0)}
+            subtitle="Payable to suppliers"
+          />
+        </div>
+      </div>
 
       {/* Inventory Overview & Customer Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

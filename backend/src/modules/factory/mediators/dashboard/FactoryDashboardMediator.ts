@@ -42,11 +42,28 @@ export interface FactoryDashboardStats {
   // Pending orders (factory_customer_orders)
   pending_orders: number;
 
-  // Monthly income (last 12 months from factory_sales_invoices)
-  monthly_income: { month: string; income: number }[];
+  // Total ordered quantity across all (non-cancelled) order line items
+  total_order_qty: number;
 
-  // Daily income (last 30 days from factory_sales_invoices)
-  daily_income: { date: string; income: number }[];
+  // Cash-flow snapshots
+  daily_revenue: number;        // today's invoiced sales
+  daily_expenses: number;       // today's approved/paid expenses
+  electricity_bill_month: number; // current-month "Utilities" expenses
+
+  // Manpower (today's attendance vs active headcount)
+  present_workers: number;
+  total_workers: number;
+
+  // Accounts payable to suppliers
+  total_supplier_dues: number;
+
+  // Stock levels for admin-mapped products (null = not configured)
+  named_stock: {
+    media_paper: number | null;
+    liner_paper: number | null;
+    silicate_gum: number | null;
+    stitching_wire: number | null;
+  };
 }
 
 export class FactoryDashboardMediator {
@@ -188,62 +205,61 @@ export class FactoryDashboardMediator {
       `;
       const pendingOrdersResult = await pool.query(pendingOrdersQuery);
 
-      // Get monthly income (last 12 months from factory_sales_invoices)
-      const monthlyIncomeQuery = `
-        SELECT 
-          TO_CHAR(invoice_date, 'YYYY-MM') as month,
-          COALESCE(SUM(total_amount), 0)::float as income
-        FROM factory_sales_invoices
-        WHERE status != 'cancelled'
-          AND invoice_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '11 months')
-        GROUP BY TO_CHAR(invoice_date, 'YYYY-MM')
-        ORDER BY month ASC
+      // Total ordered quantity across all non-cancelled orders
+      const orderQtyQuery = `
+        SELECT COALESCE(SUM(li.quantity), 0)::float as total_order_qty
+        FROM factory_customer_order_line_items li
+        JOIN factory_customer_orders co ON co.id = li.order_id
+        WHERE co.status <> 'cancelled'
       `;
-      const monthlyIncomeResult = await pool.query(monthlyIncomeQuery);
+      const orderQtyResult = await pool.query(orderQtyQuery);
 
-      // Build full 12 months with 0 for months without data
-      const incomeByMonth = new Map<string, number>(
-        monthlyIncomeResult.rows.map((r: { month: string; income: string | number }) => [
-          String(r.month),
-          Number(r.income) || 0,
-        ])
-      );
-      const monthlyIncome: { month: string; income: number }[] = [];
-      const now = new Date();
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const m = d.getMonth() + 1;
-        const month = `${d.getFullYear()}-${m < 10 ? '0' : ''}${m}`;
-        monthlyIncome.push({ month, income: incomeByMonth.get(month) ?? 0 });
-      }
-
-      // Get daily income (last 30 days from factory_sales_invoices)
-      const dailyIncomeQuery = `
-        SELECT 
-          invoice_date::date::text as date,
-          COALESCE(SUM(total_amount), 0)::float as income
+      // Today's invoiced sales (daily revenue)
+      const dailyRevenueQuery = `
+        SELECT COALESCE(SUM(total_amount), 0)::float as daily_revenue
         FROM factory_sales_invoices
-        WHERE status != 'cancelled'
-          AND invoice_date >= CURRENT_DATE - INTERVAL '29 days'
-        GROUP BY invoice_date::date
-        ORDER BY date ASC
+        WHERE status <> 'cancelled'
+          AND invoice_date::date = CURRENT_DATE
       `;
-      const dailyIncomeResult = await pool.query(dailyIncomeQuery);
+      const dailyRevenueResult = await pool.query(dailyRevenueQuery);
 
-      const incomeByDate = new Map<string, number>(
-        dailyIncomeResult.rows.map((r: { date: string; income: string | number }) => [
-          String(r.date),
-          Number(r.income) || 0,
-        ])
-      );
-      const dailyIncome: { date: string; income: number }[] = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-        const mo = d.getMonth() + 1;
-        const day = d.getDate();
-        const date = `${d.getFullYear()}-${mo < 10 ? '0' : ''}${mo}-${day < 10 ? '0' : ''}${day}`;
-        dailyIncome.push({ date, income: incomeByDate.get(date) ?? 0 });
-      }
+      // Today's expenses + current-month electricity (Utilities category).
+      // Resolve the category by name to avoid hardcoding the seeded id.
+      const expensesQuery = `
+        SELECT
+          COALESCE(SUM(amount) FILTER (WHERE DATE(expense_date) = CURRENT_DATE), 0)::float as daily_expenses,
+          COALESCE(SUM(amount) FILTER (
+            WHERE DATE_TRUNC('month', expense_date) = DATE_TRUNC('month', CURRENT_DATE)
+              AND category_id = (SELECT id FROM expense_categories WHERE name = 'Utilities' LIMIT 1)
+          ), 0)::float as electricity_bill_month
+        FROM expenses
+        WHERE status IN ('approved', 'paid')
+      `;
+      const expensesResult = await pool.query(expensesQuery);
+
+      // Manpower: present today vs active headcount
+      const workersQuery = `
+        SELECT
+          (SELECT COUNT(*) FROM attendance_records
+             WHERE attendance_date = CURRENT_DATE
+               AND status IN ('present', 'late', 'half_day')) as present_workers,
+          (SELECT COUNT(*) FROM employees WHERE is_active = true) as total_workers
+      `;
+      const workersResult = await pool.query(workersQuery);
+
+      // Total supplier dues (opening balances + outstanding invoice amounts)
+      const supplierDuesQuery = `
+        SELECT COALESCE(SUM(s.opening_balance), 0)::float
+             + COALESCE(SUM(i.outstanding_amount), 0)::float as total_supplier_dues
+        FROM suppliers s
+        LEFT JOIN invoices i ON s.id = i.supplier_id AND i.status <> 'cancelled'
+        WHERE s.status = 'active'
+      `;
+      const supplierDuesResult = await pool.query(supplierDuesQuery);
+
+      // Admin-mapped product stock levels (Media/Liner Paper, Silicate Gum,
+      // Stitching Wire). Mapping lives in settings(category='factory_dashboard').
+      const namedStock = await this.getNamedStock();
 
       const stats: FactoryDashboardStats = {
         // Overview
@@ -286,11 +302,23 @@ export class FactoryDashboardMediator {
         // Pending orders
         pending_orders: parseInt(pendingOrdersResult.rows[0].pending_orders) || 0,
 
-        // Monthly income
-        monthly_income: monthlyIncome,
+        // Total ordered quantity
+        total_order_qty: parseFloat(orderQtyResult.rows[0].total_order_qty) || 0,
 
-        // Daily income
-        daily_income: dailyIncome,
+        // Cash-flow snapshots
+        daily_revenue: parseFloat(dailyRevenueResult.rows[0].daily_revenue) || 0,
+        daily_expenses: parseFloat(expensesResult.rows[0].daily_expenses) || 0,
+        electricity_bill_month: parseFloat(expensesResult.rows[0].electricity_bill_month) || 0,
+
+        // Manpower
+        present_workers: parseInt(workersResult.rows[0].present_workers) || 0,
+        total_workers: parseInt(workersResult.rows[0].total_workers) || 0,
+
+        // Supplier dues
+        total_supplier_dues: parseFloat(supplierDuesResult.rows[0].total_supplier_dues) || 0,
+
+        // Mapped product stock
+        named_stock: namedStock,
       };
 
       MyLogger.success(action, stats);
@@ -300,6 +328,61 @@ export class FactoryDashboardMediator {
       MyLogger.error(action, error);
       throw error;
     }
+  }
+
+  /**
+   * Resolve the four admin-mapped dashboard products to their current stock.
+   * The mapping (product ids) is stored in settings(category='factory_dashboard',
+   * key in {media_paper,liner_paper,silicate_gum,stitching_wire}_product_id).
+   * Returns null for any slot that is unmapped or whose product no longer exists.
+   */
+  private static async getNamedStock(): Promise<FactoryDashboardStats['named_stock']> {
+    const slots = [
+      'media_paper',
+      'liner_paper',
+      'silicate_gum',
+      'stitching_wire',
+    ] as const;
+
+    const empty: FactoryDashboardStats['named_stock'] = {
+      media_paper: null,
+      liner_paper: null,
+      silicate_gum: null,
+      stitching_wire: null,
+    };
+
+    // Read the configured product ids.
+    const settingsRes = await pool.query<{ key: string; value: string }>(
+      `SELECT key, value FROM settings WHERE category = 'factory_dashboard'`
+    );
+    const idByKey = new Map<string, number>();
+    for (const row of settingsRes.rows) {
+      const id = parseInt(row.value, 10);
+      if (Number.isFinite(id) && id > 0) idByKey.set(row.key, id);
+    }
+
+    const productIds = slots
+      .map(s => idByKey.get(`${s}_product_id`))
+      .filter((v): v is number => v != null);
+
+    if (productIds.length === 0) return empty;
+
+    const stockRes = await pool.query<{ id: string; current_stock: string }>(
+      `SELECT id, current_stock FROM products WHERE id = ANY($1::bigint[])`,
+      [productIds]
+    );
+    const stockById = new Map<number, number>(
+      stockRes.rows.map(r => [Number(r.id), parseFloat(r.current_stock) || 0])
+    );
+
+    const result = { ...empty };
+    for (const s of slots) {
+      const id = idByKey.get(`${s}_product_id`);
+      if (id != null && stockById.has(id)) {
+        result[s] = stockById.get(id)!;
+      }
+    }
+    return result;
   }
 }
 

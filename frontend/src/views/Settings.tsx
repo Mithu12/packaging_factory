@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +24,8 @@ import {
   Globe,
   Facebook,
   CreditCard,
-  Building2
+  Building2,
+  LayoutDashboard
 } from "lucide-react"
 import {
   Tabs,
@@ -39,21 +41,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/sonner"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SettingsApi } from "@/services/settings-api"
-import { 
-  CompanySettings, 
-  SystemSettings, 
+import { ProductsApiService, Product } from "@/services/products-api"
+import {
+  CompanySettings,
+  SystemSettings,
   PayrollSettings,
-  NotificationSettings, 
-  SecuritySettings, 
+  NotificationSettings,
+  SecuritySettings,
   EcommerceSettings,
-  IntegrationSettings 
+  IntegrationSettings,
+  DashboardSettings
 } from "@/services/settings-types"
 
 export default function Settings() {
+  const searchParams = useSearchParams()
+  const VALID_TABS = ["general", "dashboard", "payroll", "notifications", "security", "integrations"]
+  const requestedTab = searchParams?.get("tab")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState("general")
+  const [activeTab, setActiveTab] = useState(
+    requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "general"
+  )
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [uploadingSystemLogo, setUploadingSystemLogo] = useState(false)
@@ -112,6 +122,14 @@ export default function Settings() {
   const [ecommerceSettings, setEcommerceSettings] = useState<EcommerceSettings>({
     auto_customer_signup: false
   })
+
+  const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings>({
+    media_paper_product_id: '',
+    liner_paper_product_id: '',
+    silicate_gum_product_id: '',
+    stitching_wire_product_id: ''
+  })
+  const [products, setProducts] = useState<Product[]>([])
   
   const [integrationSettings, setIntegrationSettings] = useState<IntegrationSettings>({
     email_service_connected: true,
@@ -139,6 +157,42 @@ export default function Settings() {
   // Load settings on component mount
   useEffect(() => {
     loadSettings()
+  }, [])
+
+  // Load the dashboard product mapping + the product list that backs its pickers.
+  // Kept separate from loadSettings: the 'factory_dashboard' category is created
+  // lazily on first save, so a missing-category read must not block other tabs.
+  useEffect(() => {
+    const loadDashboardMapping = async () => {
+      try {
+        // NOTE: the products endpoint validates with Joi (unknown keys rejected)
+        // and expects sortBy/sortOrder — so we omit sort params here and sort
+        // client-side by name instead.
+        const [productsResult, dashboard] = await Promise.all([
+          ProductsApiService.getProducts({ status: 'active', limit: 1000 }),
+          SettingsApi.getDashboardSettings().catch((): DashboardSettings => ({
+            media_paper_product_id: '',
+            liner_paper_product_id: '',
+            silicate_gum_product_id: '',
+            stitching_wire_product_id: '',
+          })),
+        ])
+        setProducts(
+          [...productsResult.products].sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '')
+          )
+        )
+        setDashboardSettings(prev => ({
+          media_paper_product_id: dashboard?.media_paper_product_id || prev.media_paper_product_id,
+          liner_paper_product_id: dashboard?.liner_paper_product_id || prev.liner_paper_product_id,
+          silicate_gum_product_id: dashboard?.silicate_gum_product_id || prev.silicate_gum_product_id,
+          stitching_wire_product_id: dashboard?.stitching_wire_product_id || prev.stitching_wire_product_id,
+        }))
+      } catch (error) {
+        console.error('Error loading dashboard mapping:', error)
+      }
+    }
+    loadDashboardMapping()
   }, [])
 
   const loadSettings = async () => {
@@ -243,6 +297,9 @@ export default function Settings() {
           break
         case 'payroll':
           await SettingsApi.updatePayrollSettings(payrollSettings)
+          break
+        case 'dashboard':
+          await SettingsApi.updateDashboardSettings(dashboardSettings)
           break
         case 'integrations':
           await SettingsApi.updateIntegrationSettings(integrationSettings)
@@ -469,6 +526,7 @@ export default function Settings() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -931,6 +989,52 @@ export default function Settings() {
         </TabsContent>
 
         {/* Payroll Settings */}
+        <TabsContent value="dashboard">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <LayoutDashboard className="w-5 h-5" />
+                  <CardTitle>Factory Dashboard Stock Cards</CardTitle>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Choose which product backs each named stock card on the Factory Dashboard.
+                  Cards show &quot;Not configured&quot; until a product is selected.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {([
+                    { key: 'media_paper_product_id', label: 'Media Paper Stock' },
+                    { key: 'liner_paper_product_id', label: 'Liner Paper Stock' },
+                    { key: 'silicate_gum_product_id', label: 'Silicate Gum Stock' },
+                    { key: 'stitching_wire_product_id', label: 'Stitching Wire Stock' },
+                  ] as const).map(({ key, label }) => (
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      <SearchableSelect
+                        value={dashboardSettings[key]}
+                        onValueChange={(value) =>
+                          setDashboardSettings(prev => ({ ...prev, [key]: value }))
+                        }
+                        placeholder="Select a product"
+                        searchPlaceholder="Search products..."
+                        emptyMessage="No products found."
+                        options={products.map(p => ({
+                          value: String(p.id),
+                          label: p.name,
+                          keywords: `${p.sku ?? ''} ${p.product_code ?? ''}`,
+                          hint: p.sku || p.product_code,
+                        }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="payroll">
           <div className="grid gap-6">
             <Card>
