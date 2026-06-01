@@ -270,8 +270,8 @@ const Payments: React.FC = () => {
         }
         const headers = [
             'Date',
-            'Customer',
-            'Order #',
+            'Company Name',
+            'Invoice No',
             'Amount',
             'Method',
             'Voucher',
@@ -438,8 +438,8 @@ const Payments: React.FC = () => {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Date</TableHead>
-                                                    {!selectedCustomer && <TableHead>Customer</TableHead>}
-                                                    <TableHead>Order #</TableHead>
+                                                    {!selectedCustomer && <TableHead>Company Name</TableHead>}
+                                                    <TableHead>Invoice No</TableHead>
                                                     <TableHead>Amount</TableHead>
                                                     <TableHead>Method</TableHead>
                                                     <TableHead>Voucher</TableHead>

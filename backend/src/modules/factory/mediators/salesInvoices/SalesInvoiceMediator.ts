@@ -291,6 +291,16 @@ export class SalesInvoiceMediator {
 
       // 6. Post one shipment voucher with aggregated COGS across touched orders
       // (best-effort — outside the txn).
+      //
+      // ONLY when we own the transaction. When a sharedClient is passed (the
+      // CreateDelivery path), the caller's txn is still open and holds FOR
+      // UPDATE locks on the touched factory_customer_orders rows. Posting the
+      // voucher here would issue an UPDATE on those rows from a *separate* pool
+      // connection, which blocks on the lock the caller holds — a self-deadlock
+      // Postgres can't break (the caller is idle-in-transaction, not waiting on
+      // a DB lock). CreateDelivery posts its own shipment voucher after commit,
+      // so this would also be a duplicate.
+      if (ownsTxn) {
       try {
         // For each touched order: subtotal contributed by that order in this delivery
         const perOrderSubtotal = new Map<number, number>();
@@ -364,6 +374,7 @@ export class SalesInvoiceMediator {
           invoiceId: invoice.id,
           message: 'Voucher posting failed but invoice creation succeeded',
         });
+      }
       }
 
       MyLogger.success(action, {

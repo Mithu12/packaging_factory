@@ -629,7 +629,7 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <div className="space-y-2 sm:col-span-2">
               <Label>Compensation (monthly ↔ hourly)</Label>
               <p className="text-xs text-muted-foreground">
-                Uses {STANDARD_MONTHLY_WORK_HOURS} hours per month (8h × 22 days), same as payroll conversion.
+                Uses {STANDARD_MONTHLY_WORK_HOURS} hours per month (8h × 30 days), same as payroll conversion.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -663,32 +663,6 @@ const EmployeeForm: React.FC<EmployeeFormProps> = ({
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="tax_rate">Tax rate (%)</Label>
-              <p className="text-xs text-muted-foreground">
-                Payroll income tax as a percent of gross pay. Leave empty to use the default in Settings → Payroll.
-              </p>
-              <Input
-                id="tax_rate"
-                type="number"
-                min={0}
-                max={100}
-                step={0.01}
-                className="max-w-xs"
-                value={formData.tax_rate === undefined || formData.tax_rate === null ? '' : formData.tax_rate}
-                onChange={(e) => {
-                  const raw = e.target.value.trim();
-                  if (raw === '') {
-                    setFormData((prev) => ({ ...prev, tax_rate: undefined }));
-                    return;
-                  }
-                  const n = parseFloat(raw);
-                  if (!Number.isFinite(n) || n < 0) return;
-                  setFormData((prev) => ({ ...prev, tax_rate: Math.min(100, n) }));
-                }}
-              />
             </div>
 
             <div className="space-y-2">

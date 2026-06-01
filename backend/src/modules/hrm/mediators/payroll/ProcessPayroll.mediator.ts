@@ -4,6 +4,7 @@ import { AuditService } from '../../../../services/audit-service';
 import { eventBus } from '../../../../utils/eventBus';
 import { MyLogger } from '@/utils/new-logger';
 import SettingsMediator from '@/mediators/settings/SettingsMediator';
+import { STANDARD_MONTHLY_WORK_HOURS } from '../../utils/employeeSalaryRates';
 
 export class ProcessPayrollMediator {
 
@@ -239,11 +240,11 @@ export class ProcessPayrollMediator {
         const basicComponent = components.find((c: any) => c.component_type === 'earning' && (c.category === 'basic' || c.name?.toLowerCase().includes('basic')));
         const basicMonthly = basicComponent ? parseFloat(basicComponent.assigned_amount || '0') : 0;
         if (basicMonthly > 0) {
-          hourlyRate = basicMonthly / (8 * 22); // monthly to hourly (22 working days)
+          hourlyRate = basicMonthly / STANDARD_MONTHLY_WORK_HOURS; // monthly to hourly (8h × 30 days)
         } else {
           const designationMin = parseFloat(employee.designation_min_salary || '0');
           if (designationMin > 0) {
-            hourlyRate = designationMin / (8 * 22);
+            hourlyRate = designationMin / STANDARD_MONTHLY_WORK_HOURS;
           }
         }
       }

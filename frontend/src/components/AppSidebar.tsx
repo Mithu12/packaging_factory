@@ -272,7 +272,7 @@ const menuSections: MenuSection[] = [
             permission: PERMISSIONS.FACTORY_CUSTOMERS_READ,
           },
           {
-            title: "Orders & Quotations",
+            title: "Company Orders & Quotation",
             url: "/factory/customer-orders",
             icon: ShoppingCart,
             permission: PERMISSIONS.FACTORY_ORDERS_READ,
@@ -284,7 +284,7 @@ const menuSections: MenuSection[] = [
             permission: PERMISSIONS.FACTORY_SALES_INVOICES_READ,
           },
           {
-            title: "Deliveries",
+            title: "Delivery Challan & Invoice",
             url: "/factory/deliveries",
             icon: Truck,
             permission: PERMISSIONS.FACTORY_ORDERS_READ,
@@ -296,7 +296,7 @@ const menuSections: MenuSection[] = [
             permission: PERMISSIONS.FACTORY_ORDERS_READ,
           },
           {
-            title: "Monthly Bills",
+            title: "Monthly Invoice",
             url: "/factory/monthly-bills",
             icon: Receipt,
             permission: PERMISSIONS.FACTORY_ORDERS_READ,

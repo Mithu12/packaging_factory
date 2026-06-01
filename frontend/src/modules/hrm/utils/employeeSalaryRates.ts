@@ -1,5 +1,5 @@
-/** Aligns with payroll: basic monthly ÷ (8 × 22 working days). */
-export const STANDARD_MONTHLY_WORK_HOURS = 8 * 22;
+/** Aligns with payroll: basic monthly ÷ (8 × 30 days). */
+export const STANDARD_MONTHLY_WORK_HOURS = 8 * 30;
 
 export function monthlyFromHourly(hourly: number): number {
   return Math.round(hourly * STANDARD_MONTHLY_WORK_HOURS * 100) / 100;

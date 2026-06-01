@@ -1,8 +1,8 @@
 /**
  * Standard month equivalent for hourly ↔ monthly conversion.
- * Matches ProcessPayroll.mediator (basic monthly ÷ (8 × 22)).
+ * Matches ProcessPayroll.mediator (basic monthly ÷ (8 × 30)).
  */
-export const STANDARD_MONTHLY_WORK_HOURS = 8 * 22;
+export const STANDARD_MONTHLY_WORK_HOURS = 8 * 30;
 
 export type RateInput = {
   hourly_rate?: number | null;
