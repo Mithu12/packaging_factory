@@ -5,14 +5,19 @@ export type PreProductionType =
   | "corrugation_media"
   | "corrugation_liner";
 
+/** One raw material consumed by a pre-production entry. */
+export interface PreProductionMaterial {
+  raw_material_id: number;
+  raw_material_name?: string;
+  raw_material_sku?: string;
+  consumed_quantity: number;
+}
+
 export interface PreProductionManualEntry {
   id: number;
   entry_number: string;
   production_type: PreProductionType;
-  raw_material_id: number;
-  raw_material_name?: string;
-  raw_material_sku?: string;
-  raw_consumed_quantity: number;
+  raw_materials: PreProductionMaterial[];
   finished_product_id: number;
   finished_product_name?: string;
   finished_product_sku?: string;
@@ -27,10 +32,14 @@ export interface PreProductionManualEntry {
   updated_at?: string;
 }
 
+export interface CreatePreProductionMaterialInput {
+  raw_material_id: number;
+  consumed_quantity: number;
+}
+
 export interface CreatePreProductionEntryRequest {
   production_type: PreProductionType;
-  raw_material_id: number;
-  raw_consumed_quantity: number;
+  raw_materials: CreatePreProductionMaterialInput[];
   finished_product_id: number;
   finished_produced_quantity: number;
   distribution_center_id?: number;

@@ -9,14 +9,25 @@ export const createPreProductionEntrySchema = Joi.object({
         "Production type must be one of: printing, corrugation_media, corrugation_liner",
       "any.required": "Production type is required",
     }),
-  raw_material_id: Joi.number().integer().positive().required().messages({
-    "number.base": "Raw material is required",
-    "any.required": "Raw material is required",
-  }),
-  raw_consumed_quantity: Joi.number().positive().precision(4).required().messages({
-    "number.positive": "Consumed quantity must be positive",
-    "any.required": "Consumed quantity is required",
-  }),
+  raw_materials: Joi.array()
+    .items(
+      Joi.object({
+        raw_material_id: Joi.number().integer().positive().required().messages({
+          "number.base": "Raw material is required",
+          "any.required": "Raw material is required",
+        }),
+        consumed_quantity: Joi.number().positive().precision(4).required().messages({
+          "number.positive": "Consumed quantity must be positive",
+          "any.required": "Consumed quantity is required",
+        }),
+      })
+    )
+    .min(1)
+    .required()
+    .messages({
+      "array.min": "At least one raw material is required",
+      "any.required": "Raw materials are required",
+    }),
   finished_product_id: Joi.number().integer().positive().required().messages({
     "number.base": "Finished product is required",
     "any.required": "Finished product is required",

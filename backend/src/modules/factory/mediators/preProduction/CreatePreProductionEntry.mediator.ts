@@ -9,14 +9,16 @@ import {
   CreatePreProductionEntryRequest,
   PreProductionManualEntry,
 } from "@/types/preProduction";
+import { GetPreProductionEntriesMediator } from "./GetPreProductionEntries.mediator";
 
 /**
- * Records a manual pre-production entry: consume raw paper and produce a
- * finished Ready Raw Material. The stock movement (decrease raw + increase
- * finished) is delegated to the inventory stock-adjustment batch engine in a
- * single transaction, scoped to the chosen distribution center, and writes
- * only product_locations (sync_global_stock=false) — the global
- * products.current_stock is derived from DC totals by a DB trigger.
+ * Records a manual pre-production entry: consume one or more raw papers and
+ * produce a finished Ready Raw Material. The stock movement (one decrease per
+ * raw material + one increase for the finished product) is delegated to the
+ * inventory stock-adjustment batch engine in a single transaction, scoped to
+ * the chosen distribution center, and writes only product_locations
+ * (sync_global_stock=false) — the global products.current_stock is derived
+ * from DC totals by a DB trigger.
  */
 export class CreatePreProductionEntryMediator {
   static async create(
@@ -26,34 +28,39 @@ export class CreatePreProductionEntryMediator {
     const action = "CreatePreProductionEntryMediator.create";
     MyLogger.info(action, { data, userId });
 
-    // Validate both products exist and have the expected categories.
+    const rawIds = data.raw_materials.map((m) => m.raw_material_id);
+    const allIds = Array.from(new Set([...rawIds, data.finished_product_id]));
+
+    // Validate all referenced products exist and have the expected categories.
     const productsRes = await pool.query(
       `SELECT p.id, p.name, c.name AS category_name
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.id = ANY($1::bigint[])`,
-      [[data.raw_material_id, data.finished_product_id]]
+      [allIds]
     );
+    const byId = new Map(productsRes.rows.map((r) => [String(r.id), r]));
 
-    const rawRow = productsRes.rows.find((r) => String(r.id) === String(data.raw_material_id));
-    const finishedRow = productsRes.rows.find(
-      (r) => String(r.id) === String(data.finished_product_id)
-    );
-
-    if (!rawRow) {
-      throw new Error("Raw material product not found");
-    }
+    const finishedRow = byId.get(String(data.finished_product_id));
     if (!finishedRow) {
       throw new Error("Finished product not found");
-    }
-    if (!isRawMaterialsCategory(rawRow.category_name)) {
-      throw new Error("Selected raw material must be a Raw Materials product");
     }
     if (!isReadyRawMaterialsCategory(finishedRow.category_name)) {
       throw new Error("Selected finished product must be a Ready Raw Materials product");
     }
 
-    // Move stock atomically (DC-scoped, product_locations only).
+    for (const material of data.raw_materials) {
+      const row = byId.get(String(material.raw_material_id));
+      if (!row) {
+        throw new Error(`Raw material product ${material.raw_material_id} not found`);
+      }
+      if (!isRawMaterialsCategory(row.category_name)) {
+        throw new Error(`${row.name} must be a Raw Materials product`);
+      }
+    }
+
+    // Move stock atomically (DC-scoped, product_locations only):
+    // one increase for the finished product + one decrease per raw material.
     const batch = await interModuleConnector.invModule.createStockAdjustmentBatch(
       {
         reason: "Pre-Production Manual Entry",
@@ -68,12 +75,12 @@ export class CreatePreProductionEntryMediator {
             quantity: data.finished_produced_quantity,
             notes: `Produced (${data.production_type})`,
           },
-          {
-            product_id: data.raw_material_id,
-            adjustment_type: "decrease",
-            quantity: data.raw_consumed_quantity,
+          ...data.raw_materials.map((m) => ({
+            product_id: m.raw_material_id,
+            adjustment_type: "decrease" as const,
+            quantity: m.consumed_quantity,
             notes: `Consumed for ${data.production_type}`,
-          },
+          })),
         ],
       },
       userId
@@ -83,59 +90,56 @@ export class CreatePreProductionEntryMediator {
       throw new Error("Failed to record stock movement for pre-production entry");
     }
 
-    // Persist the manual-entry record linking the stock batch.
-    const insertRes = await pool.query(
-      `INSERT INTO pre_production_manual_entries (
-        production_type, raw_material_id, raw_consumed_quantity,
-        finished_product_id, finished_produced_quantity,
-        distribution_center_id, stock_adjustment_batch_id, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id`,
-      [
-        data.production_type,
-        data.raw_material_id,
-        data.raw_consumed_quantity,
-        data.finished_product_id,
-        data.finished_produced_quantity,
-        batch.distribution_center_id ?? data.distribution_center_id ?? null,
-        batch.id,
-        data.notes || null,
-        parseInt(userId, 10),
-      ]
-    );
+    // Persist the manual-entry record + its consumed raw materials.
+    const client = await pool.connect();
+    let entryId: number;
+    try {
+      await client.query("BEGIN");
 
-    const entryId = insertRes.rows[0].id;
+      const insertRes = await client.query(
+        `INSERT INTO pre_production_manual_entries (
+          production_type, finished_product_id, finished_produced_quantity,
+          distribution_center_id, stock_adjustment_batch_id, notes, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id`,
+        [
+          data.production_type,
+          data.finished_product_id,
+          data.finished_produced_quantity,
+          batch.distribution_center_id ?? data.distribution_center_id ?? null,
+          batch.id,
+          data.notes || null,
+          parseInt(userId, 10),
+        ]
+      );
+      entryId = insertRes.rows[0].id;
 
-    const entryRes = await pool.query(
-      `SELECT
-        e.id, e.entry_number, e.production_type,
-        e.raw_material_id, rp.name AS raw_material_name, rp.sku AS raw_material_sku,
-        e.raw_consumed_quantity,
-        e.finished_product_id, fp.name AS finished_product_name, fp.sku AS finished_product_sku,
-        e.finished_produced_quantity,
-        e.distribution_center_id, dc.name AS distribution_center_name,
-        e.stock_adjustment_batch_id, e.notes, e.created_by, u.full_name AS created_by_name,
-        e.created_at, e.updated_at
-      FROM pre_production_manual_entries e
-      JOIN products rp ON rp.id = e.raw_material_id
-      JOIN products fp ON fp.id = e.finished_product_id
-      LEFT JOIN distribution_centers dc ON dc.id = e.distribution_center_id
-      LEFT JOIN users u ON u.id = e.created_by
-      WHERE e.id = $1`,
-      [entryId]
-    );
+      for (const m of data.raw_materials) {
+        await client.query(
+          `INSERT INTO pre_production_manual_entry_materials (entry_id, raw_material_id, consumed_quantity)
+           VALUES ($1, $2, $3)`,
+          [entryId, m.raw_material_id, m.consumed_quantity]
+        );
+      }
 
-    const row = entryRes.rows[0];
-    const entry: PreProductionManualEntry = {
-      ...row,
-      raw_consumed_quantity: parseFloat(row.raw_consumed_quantity),
-      finished_produced_quantity: parseFloat(row.finished_produced_quantity),
-    };
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const entry = await GetPreProductionEntriesMediator.getById(entryId);
+    if (!entry) {
+      throw new Error("Failed to load created pre-production entry");
+    }
 
     MyLogger.success(action, {
       entryId: entry.id,
       entryNumber: entry.entry_number,
       batchId: batch.id,
+      rawMaterialCount: data.raw_materials.length,
     });
 
     return entry;

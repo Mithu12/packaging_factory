@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Save, Factory } from "lucide-react";
+import { Loader2, Save, Factory, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFormatting } from "@/hooks/useFormatting";
@@ -38,14 +38,26 @@ const PRODUCTION_TYPE_OPTIONS: { value: PreProductionType; label: string }[] = [
   { value: "corrugation_liner", label: PRODUCTION_TYPE_LABEL.corrugation_liner },
 ];
 
+interface RawLine {
+  key: string;
+  raw_material_id: string;
+  consumed_quantity: string;
+}
+
+let rawLineSeq = 0;
+const newRawLine = (): RawLine => ({
+  key: `raw-${rawLineSeq++}`,
+  raw_material_id: "",
+  consumed_quantity: "",
+});
+
 export default function PreProductionManualEntry() {
   const queryClient = useQueryClient();
   const { formatDate } = useFormatting();
 
   const [productionType, setProductionType] = useState<PreProductionType>("printing");
   const [distributionCenterId, setDistributionCenterId] = useState<string>("");
-  const [rawMaterialId, setRawMaterialId] = useState<string>("");
-  const [rawConsumed, setRawConsumed] = useState<string>("");
+  const [rawLines, setRawLines] = useState<RawLine[]>([newRawLine()]);
   const [finishedProductId, setFinishedProductId] = useState<string>("");
   const [finishedProduced, setFinishedProduced] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -103,8 +115,7 @@ export default function PreProductionManualEntry() {
       toast.success(`Recorded ${entry.entry_number}`);
       queryClient.invalidateQueries({ queryKey: ["pre-production-entries"] });
       // Keep DC + production type; clear the per-entry fields.
-      setRawMaterialId("");
-      setRawConsumed("");
+      setRawLines([newRawLine()]);
       setFinishedProductId("");
       setFinishedProduced("");
       setNotes("");
@@ -114,19 +125,34 @@ export default function PreProductionManualEntry() {
     },
   });
 
+  const updateRawLine = (key: string, patch: Partial<RawLine>) => {
+    setRawLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  };
+  const addRawLine = () => setRawLines((prev) => [...prev, newRawLine()]);
+  const removeRawLine = (key: string) =>
+    setRawLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
+
   const handleSubmit = () => {
     if (!distributionCenterId) return toast.error("Select a distribution center");
-    if (!rawMaterialId) return toast.error("Select a raw material");
     if (!finishedProductId) return toast.error("Select a finished product");
-    const consumed = parseFloat(rawConsumed);
+
+    const materials = rawLines
+      .filter((l) => l.raw_material_id)
+      .map((l) => ({
+        raw_material_id: parseInt(l.raw_material_id, 10),
+        consumed_quantity: parseFloat(l.consumed_quantity),
+      }));
+
+    if (materials.length === 0) return toast.error("Add at least one raw material");
+    if (materials.some((m) => !(m.consumed_quantity > 0)))
+      return toast.error("Each raw material needs a quantity greater than 0");
+
     const produced = parseFloat(finishedProduced);
-    if (!(consumed > 0)) return toast.error("Consumed quantity must be greater than 0");
     if (!(produced > 0)) return toast.error("Produced quantity must be greater than 0");
 
     createMutation.mutate({
       production_type: productionType,
-      raw_material_id: parseInt(rawMaterialId, 10),
-      raw_consumed_quantity: consumed,
+      raw_materials: materials,
       finished_product_id: parseInt(finishedProductId, 10),
       finished_produced_quantity: produced,
       distribution_center_id: parseInt(distributionCenterId, 10),
@@ -162,8 +188,8 @@ export default function PreProductionManualEntry() {
           <Factory className="h-7 w-7" /> Manual Pre-Production Entry
         </h1>
         <p className="text-muted-foreground">
-          Record in-house production: consume raw paper and produce finished
-          corrugation/printing stock at a distribution center.
+          Record in-house production: consume one or more raw papers and produce
+          finished corrugation/printing stock at a distribution center.
         </p>
       </div>
 
@@ -206,29 +232,51 @@ export default function PreProductionManualEntry() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Raw Material (Paper) *</Label>
-              <SearchableSelect
-                value={rawMaterialId}
-                onValueChange={setRawMaterialId}
-                placeholder="Select raw material"
-                searchPlaceholder="Search by name / SKU / brand..."
-                emptyMessage="No raw materials found."
-                options={rawOptions}
-              />
+          {/* Raw materials (one or many) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Raw Materials (Paper) *</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addRawLine}>
+                <Plus className="h-4 w-4 mr-1" /> Add Raw Material
+              </Button>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rawConsumed">Consumed Quantity *</Label>
-              <Input
-                id="rawConsumed"
-                type="number"
-                min="0.0001"
-                step="0.0001"
-                value={rawConsumed}
-                onChange={(e) => setRawConsumed(e.target.value)}
-                placeholder="e.g. 500"
-              />
+              {rawLines.map((line) => (
+                <div key={line.key} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={line.raw_material_id}
+                      onValueChange={(v) => updateRawLine(line.key, { raw_material_id: v })}
+                      placeholder="Select raw material"
+                      searchPlaceholder="Search by name / SKU / brand..."
+                      emptyMessage="No raw materials found."
+                      options={rawOptions}
+                    />
+                  </div>
+                  <div className="w-40">
+                    <Input
+                      type="number"
+                      min="0.0001"
+                      step="0.0001"
+                      value={line.consumed_quantity}
+                      onChange={(e) =>
+                        updateRawLine(line.key, { consumed_quantity: e.target.value })
+                      }
+                      placeholder="Qty consumed"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeRawLine(line.key)}
+                    disabled={rawLines.length <= 1}
+                    aria-label="Remove raw material"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -302,8 +350,7 @@ export default function PreProductionManualEntry() {
                 <TableRow>
                   <TableHead>Entry #</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Raw Material</TableHead>
-                  <TableHead>Consumed</TableHead>
+                  <TableHead>Raw Materials</TableHead>
                   <TableHead>Finished Product</TableHead>
                   <TableHead>Produced</TableHead>
                   <TableHead>Center</TableHead>
@@ -318,10 +365,17 @@ export default function PreProductionManualEntry() {
                       <Badge variant="outline">{PRODUCTION_TYPE_LABEL[e.production_type]}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{e.raw_material_name}</div>
-                      <div className="text-xs text-muted-foreground">{e.raw_material_sku}</div>
+                      <div className="space-y-0.5">
+                        {e.raw_materials.map((m, idx) => (
+                          <div key={idx} className="text-sm">
+                            <span className="font-medium">{m.raw_material_name}</span>{" "}
+                            <span className="text-muted-foreground">
+                              ({m.consumed_quantity})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </TableCell>
-                    <TableCell>{e.raw_consumed_quantity}</TableCell>
                     <TableCell>
                       <div className="font-medium">{e.finished_product_name}</div>
                       <div className="text-xs text-muted-foreground">{e.finished_product_sku}</div>
