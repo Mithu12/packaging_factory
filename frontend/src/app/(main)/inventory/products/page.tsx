@@ -15,16 +15,18 @@ import { useRBAC } from "@/contexts/RBACContext"
 import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 import { PermissionButton } from "@/components/rbac/PermissionButton"
 import { PERMISSIONS } from "@/types/rbac"
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   Package,
   AlertTriangle,
   CheckCircle,
-  Loader2
+  Loader2,
+  ChevronRight
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { ApiService, Product, ProductStats, ApiError } from "@/services/api"
 import { toast } from "@/components/ui/sonner"
 import {
@@ -74,7 +76,9 @@ export default function Products() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL)
   const [stockFilter, setStockFilter] = useState<StockFilter>("all")
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>(ALL)
   const [supplierFilter, setSupplierFilter] = useState<string>(ALL)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   // Debounce the search term so we don't hit the API on every keystroke
   useEffect(() => {
@@ -99,23 +103,57 @@ export default function Products() {
       getStockBucket(product.current_stock, product.min_stock_level) === stockFilter
     const matchesCategory =
       categoryFilter === ALL || product.category_name === categoryFilter
+    const matchesSubcategory =
+      subcategoryFilter === ALL || product.subcategory_name?.toString() === subcategoryFilter
     const matchesSupplier =
       supplierFilter === ALL || product.supplier_name?.toString() === supplierFilter
 
-    return matchesStatus && matchesStock && matchesCategory && matchesSupplier
+    return matchesStatus && matchesStock && matchesCategory && matchesSubcategory && matchesSupplier
   })
 
   const activeFilterCount =
     (statusFilter !== ALL ? 1 : 0) +
     (stockFilter !== "all" ? 1 : 0) +
     (categoryFilter !== ALL ? 1 : 0) +
+    (subcategoryFilter !== ALL ? 1 : 0) +
     (supplierFilter !== ALL ? 1 : 0)
 
   const clearFilters = () => {
     setStatusFilter(ALL)
     setStockFilter("all")
     setCategoryFilter(ALL)
+    setSubcategoryFilter(ALL)
     setSupplierFilter(ALL)
+  }
+
+  // Select a whole category (clears any subcategory) and reveal its children.
+  const selectCategory = (name: string) => {
+    const isActive = categoryFilter === name && subcategoryFilter === ALL
+    setSubcategoryFilter(ALL)
+    setCategoryFilter(isActive ? ALL : name)
+    if (!isActive) {
+      setExpandedCategories(prev => new Set(prev).add(name))
+    }
+  }
+
+  // Drill into a single subcategory (implies its parent category).
+  const selectSubcategory = (categoryName: string, subName: string) => {
+    const isActive = categoryFilter === categoryName && subcategoryFilter === subName
+    if (isActive) {
+      setSubcategoryFilter(ALL)
+    } else {
+      setCategoryFilter(categoryName)
+      setSubcategoryFilter(subName)
+    }
+  }
+
+  const toggleCategoryExpanded = (name: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
 
   const categoryOptions = Array.from(
@@ -137,7 +175,7 @@ export default function Products() {
 
   useEffect(() => {
     pagination.setPage(1)
-  }, [debouncedSearch, statusFilter, stockFilter, categoryFilter, supplierFilter])
+  }, [debouncedSearch, statusFilter, stockFilter, categoryFilter, subcategoryFilter, supplierFilter])
 
   // Fetch products whenever the debounced search changes; stats only on mount
   useEffect(() => {
@@ -234,25 +272,39 @@ export default function Products() {
       }
     }
   }
-  // Get unique categories from products
+  // Get unique categories (with their subcategories) from products
+  type CategoryNode = {
+    name: string
+    count: number
+    color: string
+    subcategories: { name: string; count: number }[]
+  }
   const categories = products.reduce((acc, product) => {
     if (product.category_name) {
-      const existing = acc.find(cat => cat.name === product.category_name)
+      let existing = acc.find(cat => cat.name === product.category_name)
       if (existing) {
         existing.count++
       } else {
-        acc.push({
+        existing = {
           name: product.category_name,
           count: 1,
           color: acc.length % 4 === 0 ? "bg-blue-100 text-blue-800" :
                  acc.length % 4 === 1 ? "bg-green-100 text-green-800" :
                  acc.length % 4 === 2 ? "bg-yellow-100 text-yellow-800" :
-                 "bg-purple-100 text-purple-800"
-        })
+                 "bg-purple-100 text-purple-800",
+          subcategories: []
+        }
+        acc.push(existing)
+      }
+      if (product.subcategory_name) {
+        const subName = product.subcategory_name.toString()
+        const sub = existing.subcategories.find(s => s.name === subName)
+        if (sub) sub.count++
+        else existing.subcategories.push({ name: subName, count: 1 })
       }
     }
     return acc
-  }, [] as { name: string; count: number; color: string }[])
+  }, [] as CategoryNode[])
 
   if (loading) {
     return (
@@ -353,7 +405,10 @@ export default function Products() {
           <CardContent className="space-y-3">
             <button
               type="button"
-              onClick={() => setCategoryFilter(ALL)}
+              onClick={() => {
+                setCategoryFilter(ALL)
+                setSubcategoryFilter(ALL)
+              }}
               aria-pressed={categoryFilter === ALL}
               className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
                 categoryFilter === ALL
@@ -369,31 +424,78 @@ export default function Products() {
               <Badge variant="outline">{products.length}</Badge>
             </button>
             {categories.map((category) => {
-              const isActive = categoryFilter === category.name
+              const isActive = categoryFilter === category.name && subcategoryFilter === ALL
+              const hasSubs = category.subcategories.length > 0
+              const expanded = expandedCategories.has(category.name)
               return (
-                <button
-                  key={category.name}
-                  type="button"
-                  onClick={() =>
-                    setCategoryFilter(isActive ? ALL : category.name)
-                  }
-                  aria-pressed={isActive}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
-                    isActive
-                      ? "bg-primary/10 ring-1 ring-primary"
-                      : "bg-accent/20 hover:bg-accent/30"
-                  }`}
-                  data-testid="product-category-filter"
-                  data-category={category.name}
-                >
-                  <div>
-                    <div className="font-medium text-sm">{category.name}</div>
-                    <div className="text-xs text-muted-foreground">{category.count} products</div>
+                <div key={category.name}>
+                  <div
+                    className={`flex items-stretch rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-primary/10 ring-1 ring-primary"
+                        : "bg-accent/20 hover:bg-accent/30"
+                    }`}
+                  >
+                    {hasSubs ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleCategoryExpanded(category.name)}
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Collapse" : "Expand"} ${category.name}`}
+                        className="flex items-center pl-2 pr-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronRight
+                          className={cn("h-4 w-4 transition-transform", expanded && "rotate-90")}
+                        />
+                      </button>
+                    ) : (
+                      <span className="w-[26px]" aria-hidden />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => selectCategory(category.name)}
+                      aria-pressed={isActive}
+                      className="flex-1 flex items-center justify-between p-3 pl-1 text-left"
+                      data-testid="product-category-filter"
+                      data-category={category.name}
+                    >
+                      <div>
+                        <div className="font-medium text-sm">{category.name}</div>
+                        <div className="text-xs text-muted-foreground">{category.count} products</div>
+                      </div>
+                      <Badge className={category.color}>
+                        {category.count}
+                      </Badge>
+                    </button>
                   </div>
-                  <Badge className={category.color}>
-                    {category.count}
-                  </Badge>
-                </button>
+                  {hasSubs && expanded && (
+                    <div className="mt-1 ml-5 pl-2 border-l space-y-1">
+                      {category.subcategories.map((sub) => {
+                        const subActive =
+                          categoryFilter === category.name && subcategoryFilter === sub.name
+                        return (
+                          <button
+                            key={sub.name}
+                            type="button"
+                            onClick={() => selectSubcategory(category.name, sub.name)}
+                            aria-pressed={subActive}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-left transition-colors ${
+                              subActive
+                                ? "bg-primary/10 ring-1 ring-primary"
+                                : "hover:bg-accent/30"
+                            }`}
+                            data-testid="product-subcategory-filter"
+                            data-category={category.name}
+                            data-subcategory={sub.name}
+                          >
+                            <span className="text-sm text-muted-foreground">{sub.name}</span>
+                            <Badge variant="outline">{sub.count}</Badge>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </CardContent>
@@ -486,7 +588,13 @@ export default function Products() {
 
                     <div className="space-y-2">
                       <Label className="text-xs">Category</Label>
-                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <Select
+                        value={categoryFilter}
+                        onValueChange={(value) => {
+                          setCategoryFilter(value)
+                          setSubcategoryFilter(ALL)
+                        }}
+                      >
                         <SelectTrigger data-testid="product-filter-category">
                           <SelectValue placeholder="All categories" />
                         </SelectTrigger>
