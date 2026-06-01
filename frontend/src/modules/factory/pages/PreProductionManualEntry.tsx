@@ -64,7 +64,7 @@ export default function PreProductionManualEntry() {
 
   const { data: dcData } = useQuery({
     queryKey: ["distribution-centers", { status: "active" }],
-    queryFn: () => DistributionApi.getDistributionCenters({ status: "active", limit: 200 }),
+    queryFn: () => DistributionApi.getDistributionCenters({ status: "active", limit: 100 }),
   });
   const centers = dcData?.centers ?? [];
 
@@ -91,10 +91,15 @@ export default function PreProductionManualEntry() {
     queryFn: () => PreProductionApiService.listEntries({ limit: 50 }),
   });
 
-  // Finished products filtered to the subcategory matching the production type.
+  // Finished products for the chosen production type. Prefer products tagged
+  // with the matching sub-category (Printing / Media / Liner); if none are
+  // tagged yet, fall back to untagged Ready Raw Materials so the form stays
+  // usable before products are categorised.
   const filteredFinished = useMemo(() => {
     const wanted = PRODUCTION_TYPE_SUBCATEGORY[productionType];
-    return finishedProducts.filter((p) => p.subcategory_name === wanted);
+    const tagged = finishedProducts.filter((p) => p.subcategory_name === wanted);
+    if (tagged.length > 0) return tagged;
+    return finishedProducts.filter((p) => !p.subcategory_name);
   }, [finishedProducts, productionType]);
 
   // Reset the finished selection when production type changes and the current
@@ -177,7 +182,20 @@ export default function PreProductionManualEntry() {
     label: p.name,
     keywords: `${p.sku} ${p.subcategory_name ?? ""}`,
     hint: p.sku,
+    badge: p.subcategory_name ? (
+      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+        {p.subcategory_name}
+      </span>
+    ) : undefined,
   }));
+
+  const finishedHasTagged = useMemo(
+    () =>
+      finishedProducts.some(
+        (p) => p.subcategory_name === PRODUCTION_TYPE_SUBCATEGORY[productionType]
+      ),
+    [finishedProducts, productionType]
+  );
 
   const isSaving = createMutation.isPending;
 
@@ -292,7 +310,9 @@ export default function PreProductionManualEntry() {
                 options={finishedOptions}
               />
               <p className="text-xs text-muted-foreground">
-                Showing Ready Raw Materials tagged “{PRODUCTION_TYPE_SUBCATEGORY[productionType]}”.
+                {finishedHasTagged
+                  ? `Showing Ready Raw Materials tagged “${PRODUCTION_TYPE_SUBCATEGORY[productionType]}”.`
+                  : `No Ready Raw Materials tagged “${PRODUCTION_TYPE_SUBCATEGORY[productionType]}” yet — showing untagged products. Set a product's sub-category to filter precisely.`}
               </p>
             </div>
             <div className="space-y-2">
