@@ -316,6 +316,8 @@ export interface CreateDeliveryRequest {
     master_carton_sub_label?: string | null;
     /** Customer-level entry point only. Order-level routes set this from the path param. */
     factory_customer_id?: number;
+    /** Source DC the shipment is picked from. Defaults to the primary DC. */
+    distribution_center_id?: number;
 }
 
 // =====================================================
@@ -754,6 +756,8 @@ export interface CreateWorkOrderRequest {
     assigned_operators?: number[];
     notes?: string;
     specifications?: string;
+    /** DC the produced finished goods are credited into. Defaults to the primary DC. */
+    distribution_center_id?: number;
 }
 
 export interface UpdateWorkOrderRequest {

@@ -118,6 +118,8 @@ export interface CreateWorkOrderRequest {
   assigned_operators?: number[];
   notes?: string;
   specifications?: string;
+  /** DC the produced finished goods are credited into. Defaults to the primary DC. */
+  distribution_center_id?: number;
 }
 
 export interface UpdateWorkOrderRequest {

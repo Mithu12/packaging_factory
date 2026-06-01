@@ -381,13 +381,9 @@ class UpdatePurchaseReturnInfoMediator {
           [unitCost, lineTotal, line.id]
         );
 
+        // products.current_stock is derived from product_locations by trigger
+        // (V163); newStock is retained only for the audit record below.
         const newStock = currentStock - qty;
-        await client.query(
-          `UPDATE products
-              SET current_stock = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2`,
-          [newStock, line.product_id]
-        );
 
         if (header.distribution_center_id) {
           await client.query(

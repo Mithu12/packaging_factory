@@ -3,6 +3,7 @@ import { UpdateProductRequest, Product } from "@/types/product";
 import { AddProductMediator } from "./AddProduct.mediator";
 import { isInventoryPrimaryCategoryName } from "@/constants/inventoryProductCategories";
 import { MyLogger } from "@/utils/new-logger";
+import { resolvePrimaryDcId } from "@/utils/stockLocations";
 
 const PRODUCT_REF_KEYS: (keyof UpdateProductRequest)[] = [
   "category_id",
@@ -167,14 +168,29 @@ export class UpdateProductInfoMediator {
         throw new Error("Stock cannot be negative");
       }
 
-      const query = `
-                UPDATE products 
-                SET current_stock = $1, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $2
-                RETURNING *
-            `;
+      // Stock is per-DC now: set the primary DC so the global total (derived by
+      // the V163 trigger) equals newStock. Other DCs' stock is preserved; the
+      // primary absorbs the remainder (clamped at 0).
+      const primaryDcId = await resolvePrimaryDcId(pool);
+      const otherRes = await pool.query(
+        `SELECT COALESCE(SUM(current_stock), 0) AS other_sum
+           FROM product_locations
+          WHERE product_id = $1 AND distribution_center_id <> $2`,
+        [id, primaryDcId]
+      );
+      const otherSum = parseFloat(otherRes.rows[0].other_sum) || 0;
+      const primaryTarget = Math.max(0, newStock - otherSum);
+      await pool.query(
+        `INSERT INTO product_locations (product_id, distribution_center_id, current_stock, last_movement_date)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+         ON CONFLICT (product_id, distribution_center_id)
+         DO UPDATE SET current_stock = EXCLUDED.current_stock,
+                       last_movement_date = CURRENT_TIMESTAMP,
+                       updated_at = CURRENT_TIMESTAMP`,
+        [id, primaryDcId, primaryTarget]
+      );
 
-      const result = await pool.query(query, [newStock, id]);
+      const result = await pool.query(`SELECT * FROM products WHERE id = $1`, [id]);
       const updatedProduct = result.rows[0];
 
       MyLogger.success(action, {

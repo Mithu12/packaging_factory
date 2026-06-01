@@ -65,6 +65,7 @@ import {
   UpdateWorkOrderRequest,
 } from "@/services/work-orders-api";
 import { BOMApiService } from "@/services/bom-api";
+import { DistributionApi } from "@/modules/inventory/services/distribution-api";
 import { ProductsApiService, Product, ProductQueryParams as ProductQueryParamsType } from "@/services/products-api";
 import { CustomerOrdersApiService, FactoryCustomerOrder } from "../services/customer-orders-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -186,6 +187,19 @@ export default function WorkOrderPlanning() {
   const manufacturableProducts = (productsData?.products ?? []).filter(
     (p) => p.category_name !== 'Raw Materials'
   );
+
+  // Distribution centers — the produced FG is credited into the chosen DC.
+  const { data: dcData } = useQuery({
+    queryKey: ['distribution-centers'],
+    queryFn: () => DistributionApi.getDistributionCenters({ limit: 100 }),
+  });
+  const distributionCenters = dcData?.centers ?? [];
+  useEffect(() => {
+    if (!newWorkOrder.distribution_center_id && distributionCenters.length > 0) {
+      const primary = distributionCenters.find((c) => c.is_primary) ?? distributionCenters[0];
+      if (primary) setNewWorkOrder(prev => ({ ...prev, distribution_center_id: primary.id }));
+    }
+  }, [distributionCenters, newWorkOrder.distribution_center_id]);
 
   // Fetch customer orders for work order linking
   const { data: customerOrdersData, isLoading: customerOrdersLoading } = useQuery({
@@ -1490,6 +1504,25 @@ export default function WorkOrderPlanning() {
                     ) : (
                       <div className="px-2 py-1.5 text-sm text-muted-foreground">No manufacturable products available</div>
                     )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Produce into (warehouse)</Label>
+                <Select
+                  value={newWorkOrder.distribution_center_id ? String(newWorkOrder.distribution_center_id) : ''}
+                  onValueChange={(value) => setNewWorkOrder(prev => ({ ...prev, distribution_center_id: Number(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distributionCenters.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}{c.is_primary ? ' (primary)' : ''}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

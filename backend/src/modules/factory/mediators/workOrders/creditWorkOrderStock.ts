@@ -1,5 +1,6 @@
 import { PoolClient } from "pg";
 import { MyLogger } from "@/utils/new-logger";
+import { creditLocationStock, resolvePrimaryDcId } from "@/utils/stockLocations";
 
 /**
  * Credits the produced FG/RRM into stock when a work order is completed.
@@ -24,10 +25,12 @@ export async function creditWorkOrderProductStock(
     product_id: string | null;
     planned: string;
     good_total: string;
+    distribution_center_id: string | null;
   }>(
     `SELECT
        wo.product_id,
        wo.quantity AS planned,
+       wo.distribution_center_id,
        (
          SELECT COALESCE(SUM(good_quantity), 0)
          FROM production_runs
@@ -62,17 +65,16 @@ export async function creditWorkOrderProductStock(
     return;
   }
 
-  await client.query(
-    `UPDATE products
-        SET current_stock = current_stock + $1,
-            updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2`,
-    [credit, row.product_id]
-  );
+  // Credit the work order's target DC; products.current_stock follows by trigger.
+  const dcId = row.distribution_center_id
+    ? Number(row.distribution_center_id)
+    : await resolvePrimaryDcId(client);
+  await creditLocationStock(client, Number(row.product_id), dcId, credit);
 
   MyLogger.success(action, {
     workOrderId,
     productId: row.product_id,
+    distributionCenterId: dcId,
     credit,
     source: goodTotal > 0 ? "production_runs.good_quantity" : "work_orders.quantity (fallback)",
   });

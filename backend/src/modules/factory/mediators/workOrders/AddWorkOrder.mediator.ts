@@ -8,6 +8,7 @@ import {
 import { MyLogger } from "@/utils/new-logger";
 import { isRawMaterialsCategory } from "@/constants/inventoryProductCategories";
 import { createError } from "@/middleware/errorHandler";
+import { resolvePrimaryDcId } from "@/utils/stockLocations";
 
 // Helper function to get user's accessible factories
 async function getUserFactories(userId: number): Promise<{factory_id: string, factory_name: string, factory_code: string, role: string, is_primary: boolean}[]> {
@@ -167,8 +168,9 @@ export class AddWorkOrderMediator {
           assigned_operator_ids,
           created_by,
           notes,
-          specifications
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+          specifications,
+          distribution_center_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING *
       `;
 
@@ -191,7 +193,8 @@ export class AddWorkOrderMediator {
         JSON.stringify(workOrderData.assigned_operators || []),
         userId,
         workOrderData.notes || null,
-        workOrderData.specifications || null
+        workOrderData.specifications || null,
+        workOrderData.distribution_center_id ?? (await resolvePrimaryDcId(client))
       ];
 
       const workOrderResult = await client.query(createWorkOrderQuery, workOrderValues);

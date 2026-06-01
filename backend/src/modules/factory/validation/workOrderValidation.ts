@@ -55,6 +55,7 @@ export const createWorkOrderSchema = Joi.object({
   assigned_operators: Joi.array().items(Joi.number()).optional(),
   notes: Joi.string().max(2000).optional().allow(''),
   specifications: Joi.string().max(2000).optional().allow(''),
+  distribution_center_id: Joi.number().integer().positive().optional(),
 });
 
 // Update work order validation schema

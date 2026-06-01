@@ -1224,14 +1224,10 @@ class FactoryAccountsIntegrationService {
         [voucher.id, workOrderData.workOrderId]
       );
 
-      // Update product stock (add to finished goods inventory)
-      await pool.query(
-        `UPDATE products 
-         SET current_stock = current_stock + $1,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [workOrderData.quantity, workOrderData.productId]
-      );
+      // NOTE: physical FG stock is credited once, per-DC, by
+      // creditWorkOrderProductStock (which moves product_locations and lets the
+      // trigger derive products.current_stock). This accounting service only
+      // posts the GL voucher — it must NOT also move stock (was a double-count).
 
       MyLogger.success(action, {
         workOrderId: workOrderData.workOrderId,

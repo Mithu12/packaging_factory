@@ -11,6 +11,7 @@ import { SalesInvoice } from '@/types/salesInvoice';
 import { SalesInvoiceMediator } from '../salesInvoices/SalesInvoiceMediator';
 import { GetDeliveriesMediator } from './GetDeliveries.mediator';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { debitLocationStock, resolvePrimaryDcId } from '@/utils/stockLocations';
 
 interface OrderLineForLock {
   id: number;
@@ -88,6 +89,9 @@ export class CreateDeliveryMediator {
         throw createError('Either primaryOrderId or factory_customer_id is required', 400);
       }
 
+      // Resolve the source DC the shipment is picked from (default primary).
+      const sourceDcId = request.distribution_center_id ?? (await resolvePrimaryDcId(client));
+
       // 2. Lock & validate ALL line items in one customer-scoped query.
       const lineIds = request.items.map(it => Number(it.order_line_item_id));
       const linesRes = await client.query<OrderLineForLock>(
@@ -157,8 +161,8 @@ export class CreateDeliveryMediator {
            delivery_number, factory_customer_id, customer_order_id, delivery_date,
            tracking_number, carrier, estimated_delivery_date,
            delivery_status, notes, shipped_by, vat_number,
-           master_carton_for, master_carton_sub_label
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'shipped', $8, $9, $10, $11, $12)
+           master_carton_for, master_carton_sub_label, distribution_center_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'shipped', $8, $9, $10, $11, $12, $13)
          RETURNING *`,
         [
           deliveryNumber,
@@ -173,6 +177,7 @@ export class CreateDeliveryMediator {
           request.vat_number || null,
           request.master_carton_for?.trim() || null,
           request.master_carton_sub_label?.trim() || null,
+          sourceDcId,
         ]
       );
       const delivery = deliveryRes.rows[0];
@@ -210,7 +215,7 @@ export class CreateDeliveryMediator {
           [it.quantity, line.id]
         );
 
-        const unitCost = await this.debitProductStock(client, line.product_id, it.quantity, line.product_name);
+        const unitCost = await this.debitProductStock(client, line.product_id, it.quantity, line.product_name, sourceDcId);
         deliveryCogs += +(unitCost * it.quantity).toFixed(2);
       }
       deliveryCogs = +deliveryCogs.toFixed(2);
@@ -402,37 +407,26 @@ export class CreateDeliveryMediator {
   }
 
   /**
-   * Debit FG stock symmetrically to creditWorkOrderProductStock. Honors the
-   * existing products.current_stock >= 0 CHECK constraint via a guard query;
-   * postgres will also enforce it but we want a friendlier error.
+   * Debit FG stock from the shipment's source DC. products.current_stock is
+   * derived from product_locations by trigger, so we move the per-DC row (with
+   * a friendly insufficient-stock guard) and return the product's cost_price
+   * for the COGS voucher.
    */
   private static async debitProductStock(
     client: PoolClient,
     productId: number,
     quantity: number,
-    productName: string
+    productName: string,
+    distributionCenterId: number
   ): Promise<number> {
-    const stockRes = await client.query<{ current_stock: string; cost_price: string | null }>(
-      'SELECT current_stock, cost_price FROM products WHERE id = $1 FOR UPDATE',
+    const costRes = await client.query<{ cost_price: string | null }>(
+      'SELECT cost_price FROM products WHERE id = $1',
       [productId]
     );
-    if (stockRes.rows.length === 0) {
+    if (costRes.rows.length === 0) {
       throw createError(`Product ${productId} not found while debiting stock`, 404);
     }
-    const current = parseFloat(stockRes.rows[0].current_stock);
-    if (current < quantity - 1e-9) {
-      throw createError(
-        `Insufficient stock for "${productName}": have ${current}, need ${quantity}`,
-        400
-      );
-    }
-    await client.query(
-      `UPDATE products
-          SET current_stock = current_stock - $1,
-              updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2`,
-      [quantity, productId]
-    );
-    return parseFloat(stockRes.rows[0].cost_price || '0');
+    await debitLocationStock(client, productId, distributionCenterId, quantity, productName);
+    return parseFloat(costRes.rows[0].cost_price || '0');
   }
 }

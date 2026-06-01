@@ -7,6 +7,7 @@ import {
 } from '@/types/factory';
 import { GetDeliveriesMediator } from './GetDeliveries.mediator';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { creditLocationStock, resolvePrimaryDcId } from '@/utils/stockLocations';
 
 /**
  * Cancels a delivery: reverses qty rollups, returns stock, cancels the linked
@@ -28,7 +29,7 @@ export class CancelDeliveryMediator {
       MyLogger.info(action, { deliveryId, userId, reason });
 
       const deliveryRes = await client.query(
-        `SELECT id, customer_order_id, delivery_status, invoice_id
+        `SELECT id, customer_order_id, delivery_status, invoice_id, distribution_center_id
            FROM factory_customer_order_deliveries
           WHERE id = $1
           FOR UPDATE`,
@@ -50,7 +51,11 @@ export class CancelDeliveryMediator {
         [deliveryId]
       );
 
-      // 1. Reverse rollups + return stock
+      // 1. Reverse rollups + return stock to the DC the shipment was picked from
+      //    (products.current_stock follows via the product_locations trigger).
+      const restoreDcId = delivery.distribution_center_id
+        ? Number(delivery.distribution_center_id)
+        : await resolvePrimaryDcId(client);
       for (const it of itemsRes.rows) {
         await client.query(
           `UPDATE factory_customer_order_line_items
@@ -60,13 +65,7 @@ export class CancelDeliveryMediator {
             WHERE id = $2`,
           [it.quantity, it.order_line_item_id]
         );
-        await client.query(
-          `UPDATE products
-              SET current_stock = current_stock + $1,
-                  updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2`,
-          [it.quantity, it.product_id]
-        );
+        await creditLocationStock(client, Number(it.product_id), restoreDcId, Number(it.quantity));
       }
 
       // 2. Mark delivery cancelled (preserve audit history rather than delete)

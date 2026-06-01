@@ -4,6 +4,7 @@ import { createError } from '@/utils/responseHelper';
 import { DeliveryReturn, FactoryCustomerOrderStatus } from '@/types/factory';
 import { GetDeliveryReturnsMediator } from './GetDeliveryReturns.mediator';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { creditLocationStock, resolvePrimaryDcId } from '@/utils/stockLocations';
 
 interface ReturnItemForApproval {
   delivery_item_id: number;
@@ -121,27 +122,10 @@ export class UpdateDeliveryReturnMediator {
         );
 
         if (it.product_id != null) {
-          // Global aggregate stock.
-          await client.query(
-            `UPDATE products
-                SET current_stock = current_stock + $1,
-                    updated_at = CURRENT_TIMESTAMP
-              WHERE id = $2`,
-            [qty, it.product_id]
-          );
-          // Per-DC stock: upsert the destination DC's product_locations row
-          // (mirrors the GRN restock pattern). Skipped if no DC is resolved.
-          if (dcId != null) {
-            await client.query(
-              `INSERT INTO product_locations (product_id, distribution_center_id, current_stock, last_movement_date)
-               VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-               ON CONFLICT (product_id, distribution_center_id)
-               DO UPDATE SET current_stock = product_locations.current_stock + EXCLUDED.current_stock,
-                             last_movement_date = CURRENT_TIMESTAMP,
-                             updated_at = CURRENT_TIMESTAMP`,
-              [it.product_id, dcId, qty]
-            );
-          }
+          // Restock the destination DC. products.current_stock is derived from
+          // product_locations by trigger, so we only move the per-DC row.
+          const targetDc = dcId ?? (await resolvePrimaryDcId(client));
+          await creditLocationStock(client, it.product_id, targetDc, qty);
         }
       }
 

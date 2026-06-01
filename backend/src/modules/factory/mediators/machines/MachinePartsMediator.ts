@@ -689,10 +689,8 @@ export class MachinePartsMediator {
     );
     const stockAdjustmentId = Number(adjustmentResult.rows[0].id);
 
-    await client.query(
-      "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-      [newGlobalStock, params.product_id]
-    );
+    // products.current_stock is derived from product_locations by trigger (V163);
+    // the location UPDATE above already moved the physical stock.
 
     return {
       stockAdjustmentId,

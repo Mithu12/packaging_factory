@@ -27,6 +27,10 @@ export const createDeliverySchema = Joi.object({
   vat_number: Joi.string().max(50).optional().allow('', null),
   master_carton_for: Joi.string().max(255).optional().allow('', null),
   master_carton_sub_label: Joi.string().max(255).optional().allow('', null),
+  distribution_center_id: Joi.alternatives()
+    .try(Joi.number().integer().positive(), Joi.string().pattern(/^\d+$/))
+    .optional()
+    .allow(null),
 });
 
 export const deliveryIdSchema = Joi.object({

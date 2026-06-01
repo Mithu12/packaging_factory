@@ -237,14 +237,8 @@ export class StockAdjustmentMediator {
       ]
     );
 
-    // Sync the global products.current_stock unless the caller opts out
-    // (DC-only mode: a DB trigger derives the global value from DC totals).
-    if (params.syncGlobalStock !== false) {
-      await client.query(
-        "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [newGlobalStock, params.product_id]
-      );
-    }
+    // products.current_stock is derived from product_locations by the V163
+    // trigger (fired by the location UPDATE above) — no direct global write.
 
     const adjustment = adjustmentResult.rows[0] as StockAdjustment;
 
@@ -511,12 +505,10 @@ export class StockAdjustmentMediator {
       let stockAdjustmentRow: StockAdjustment | null = null;
 
       if (unitsDepleted > 0) {
-        // Sync the global products.current_stock for legacy compatibility.
+        // products.current_stock is derived from product_locations by trigger
+        // (ReusableStockService.consumeUses moved the location above); this value
+        // is only used for the audit record below.
         const newGlobalStock = previousGlobalStock - unitsDepleted;
-        await client.query(
-          "UPDATE products SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-          [newGlobalStock, data.product_id]
-        );
 
         const adjustmentResult = await client.query(
           `

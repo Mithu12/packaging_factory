@@ -4,6 +4,7 @@ import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { ReusableStockService } from '@/modules/inventory/services/ReusableStockService';
+import { debitLocationStock } from '@/utils/stockLocations';
 import type { PoolClient } from 'pg';
 
 async function resolvePrimaryDistributionCenterId(client: PoolClient): Promise<number> {
@@ -69,12 +70,8 @@ async function applyReusableConsumption(
   // physical units were depleted — the uses are now consumed.
   await ReusableStockService.releaseReservedUses(params.productId, dcId, params.usesRequested, client);
 
-  if (unitsDepleted > 0) {
-    await client.query(
-      `UPDATE products SET current_stock = current_stock - $1 WHERE id = $2`,
-      [unitsDepleted, params.productId]
-    );
-  }
+  // products.current_stock is derived from product_locations by trigger (V163);
+  // ReusableStockService.consumeUses already moved the location stock above.
 
   await ReusableStockService.logConsumption(
     {
@@ -268,10 +265,14 @@ export class AddMaterialConsumptionMediator {
         unitsDepleted = outcome.unitsDepleted;
         costBearingQuantity = outcome.effectiveCostQuantity;
       } else {
+        // Physical stock moves through the material's DC (primary, where raw
+        // materials are received/allocated); products.current_stock follows via
+        // trigger. reserved_stock (global reservation) is decremented directly.
+        const materialDc = await resolvePrimaryDistributionCenterId(client);
+        await debitLocationStock(client, parseInt(data.material_id, 10), materialDc, data.consumed_quantity, material.name);
         await client.query(
           `UPDATE products
-           SET current_stock = current_stock - $1,
-               reserved_stock = COALESCE(reserved_stock, 0) - $1
+           SET reserved_stock = COALESCE(reserved_stock, 0) - $1
            WHERE id = $2`,
           [data.consumed_quantity, data.material_id]
         );
@@ -548,10 +549,11 @@ export class AddMaterialConsumptionMediator {
           });
           bulkCostBearingQuantity = outcome.effectiveCostQuantity;
         } else {
+          const materialDc = await resolvePrimaryDistributionCenterId(client);
+          await debitLocationStock(client, parseInt(item.material_id, 10), materialDc, item.consumed_quantity, material.name);
           await client.query(
             `UPDATE products
-             SET current_stock = current_stock - $1,
-                 reserved_stock = COALESCE(reserved_stock, 0) - $1
+             SET reserved_stock = COALESCE(reserved_stock, 0) - $1
              WHERE id = $2`,
             [item.consumed_quantity, item.material_id]
           );

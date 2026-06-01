@@ -207,6 +207,8 @@ export interface CreateDeliveryRequest {
     master_carton_sub_label?: string | null;
     /** Customer-level entry point only (V145+). Order-level routes derive it from the path. */
     factory_customer_id?: number;
+    /** Source DC the shipment is picked from. Defaults to the primary DC. */
+    distribution_center_id?: number;
 }
 
 export interface DeliveryQueryParams {

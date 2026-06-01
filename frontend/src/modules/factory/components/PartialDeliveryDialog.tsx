@@ -29,6 +29,7 @@ import {
     type CreateDeliveryItemRequest,
     type FactoryCustomerOrder,
 } from "../services/customer-orders-api";
+import { DistributionApi, type DistributionCenter } from "@/modules/inventory/services/distribution-api";
 
 interface PartialDeliveryDialogProps {
     open: boolean;
@@ -94,6 +95,8 @@ export default function PartialDeliveryDialog({
     const [masterCartonFor, setMasterCartonFor] = useState("");
     const [masterCartonSubLabel, setMasterCartonSubLabel] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [distributionCenters, setDistributionCenters] = useState<DistributionCenter[]>([]);
+    const [dcId, setDcId] = useState<string>("");
     // V145+: list of the customer's other open orders that can contribute lines to this delivery.
     const [otherOrders, setOtherOrders] = useState<FactoryCustomerOrder[]>([]);
     const [addingOrderId, setAddingOrderId] = useState<string>("");
@@ -111,6 +114,16 @@ export default function PartialDeliveryDialog({
             setMasterCartonSubLabel("");
             setOtherOrders([]);
             setAddingOrderId("");
+
+            // Load distribution centers; default the "ship from" DC to the primary.
+            DistributionApi.getDistributionCenters({ limit: 100 })
+                .then(res => {
+                    const centers = res.centers ?? [];
+                    setDistributionCenters(centers);
+                    const primary = centers.find(c => c.is_primary) ?? centers[0];
+                    setDcId(primary ? String(primary.id) : "");
+                })
+                .catch(err => console.error("Failed to load distribution centers", err));
 
             // Async: load other open orders for the same customer so the user
             // can pull more line items into this shipment.
@@ -238,6 +251,7 @@ export default function PartialDeliveryDialog({
                 vat_number: vatNumber || undefined,
                 master_carton_for: masterCartonFor.trim() || undefined,
                 master_carton_sub_label: masterCartonSubLabel.trim() || undefined,
+                distribution_center_id: dcId ? Number(dcId) : undefined,
             });
             toast.success(
                 `Delivery ${result.delivery.delivery_number} created (Invoice ${result.invoice.invoice_number})`
@@ -416,6 +430,24 @@ export default function PartialDeliveryDialog({
                                     onChange={e => setVatNumber(e.target.value)}
                                     placeholder="VAT"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label>Ship from (warehouse)</Label>
+                                <Select value={dcId} onValueChange={setDcId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select warehouse" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {distributionCenters.map(c => (
+                                            <SelectItem key={c.id} value={String(c.id)}>
+                                                {c.name}{c.is_primary ? " (primary)" : ""}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

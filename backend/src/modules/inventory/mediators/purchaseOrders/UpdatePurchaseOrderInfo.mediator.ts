@@ -622,15 +622,16 @@ class UpdatePurchaseOrderInfoMediator {
           ? (currentStock * currentCostPrice + receivedQty * lineUnitPrice) / newStock
           : lineUnitPrice;
 
+        // current_stock is derived from product_locations by trigger (V163), so
+        // only the moving-average cost is written here; the location upsert below
+        // moves the physical stock.
         const updateStockQuery = `
                     UPDATE products
-                    SET current_stock = $1,
-                        cost_price = $2,
+                    SET cost_price = $1,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE id = $3
+                    WHERE id = $2
                 `;
         await client.query(updateStockQuery, [
-          newStock,
           newCostPrice.toFixed(2),
           lineItem.product_id,
         ]);
