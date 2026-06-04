@@ -1299,16 +1299,11 @@ export class PDFGenerator {
       order.billing_address?.city,
       order.billing_address?.postal_code,
     ].filter(Boolean).join(', ');
-    const shippingStructured = [
-      order.shipping_address?.street,
-      order.shipping_address?.city,
-      order.shipping_address?.postal_code,
-    ].filter(Boolean).join(', ');
+    // Show only the billing address; if none is set, leave the line blank rather
+    // than falling back to the shipping address (which misleads on the invoice).
     const customerAddress =
       order.billing_address?.billing_line ||
       billingStructured ||
-      order.shipping_address?.shipping_line ||
-      shippingStructured ||
       '';
     // Address must print on a single kv-line; collapse embedded newlines so the
     // billing_line freeform input doesn't force a visual wrap.
@@ -1378,6 +1373,10 @@ export class PDFGenerator {
         .box .customer-heading { font-weight: bold; margin-bottom: 8px; }
         .kv-line { margin-bottom: 4px; white-space: nowrap; }
         .kv-line .k { display: inline-block; min-width: 110px; }
+        /* A billing address can be long; let it wrap inside the customer box
+           instead of overflowing the border (the nowrap default broke layout). */
+        .box.customer .kv-line.addr { white-space: normal; word-break: break-word; }
+        .box.customer .kv-line.addr .label { vertical-align: top; }
 
         table.items {
             width: 100%;
@@ -1450,7 +1449,7 @@ export class PDFGenerator {
             <div class="box customer">
                 <div class="customer-heading">Customer</div>
                 <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(customerCompany)}</div>
-                <div class="kv-line"><span class="label">Billing Address</span> :- ${escapeHtml(customerAddressOneLine)}</div>
+                <div class="kv-line addr"><span class="label">Billing Address</span> :- ${escapeHtml(customerAddressOneLine)}</div>
             </div>
             <div class="box invoice-details">
                 <div class="kv-line"><span class="k label">Invoice No</span> :- ${escapeHtml(String(invoiceNo))}</div>
