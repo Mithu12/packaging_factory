@@ -40,8 +40,10 @@ interface PartialDeliveryDialogProps {
 
 interface RowState {
     orderLineItemId: string;
-    /** Source order number — shown in the Order column. Lets users see which order each row came from. */
+    /** Source order number — used to map rows back to their order (e.g. the order picker). */
     sourceOrderNumber: string;
+    /** Customer PO number for the source order — shown in the "PO No" column. */
+    sourceOrderPoNumber: string;
     productName: string;
     productSku: string;
     /** Editable; pre-filled from products.customer_item_code, overridable per shipment line. */
@@ -62,6 +64,7 @@ function buildRowsFromOrder(order: FactoryCustomerOrder, defaultShipRemaining: b
         return {
             orderLineItemId: String(li.id),
             sourceOrderNumber: order.order_number,
+            sourceOrderPoNumber: order.po_number ?? "",
             productName: li.product_name,
             productSku: li.product_sku,
             itemCode: li.customer_item_code ?? "",
@@ -109,7 +112,8 @@ export default function PartialDeliveryDialog({
             setCarrier("");
             setEstimatedDate("");
             setNotes("");
-            setVatNumber(order?.customer_vat_number ?? "");
+            // VAT is entered by hand per shipment — do not auto-link the customer's VAT.
+            setVatNumber("");
             setMasterCartonFor("");
             setMasterCartonSubLabel("");
             setOtherOrders([]);
@@ -273,7 +277,7 @@ export default function PartialDeliveryDialog({
                     <DialogTitle>New Delivery</DialogTitle>
                     <DialogDescription>
                         {order
-                            ? `Ship part or all of order #${order.order_number}. A challan and invoice will be generated for this shipment.`
+                            ? `Ship part or all of Company PO #${order.po_number || order.order_number}. A challan and invoice will be generated for this shipment.`
                             : ""}
                     </DialogDescription>
                 </DialogHeader>
@@ -288,13 +292,13 @@ export default function PartialDeliveryDialog({
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Order</TableHead>
-                                        <TableHead>Product</TableHead>
+                                        <TableHead>PO No</TableHead>
+                                        <TableHead>Product Name</TableHead>
                                         <TableHead>Item Code</TableHead>
-                                        <TableHead className="text-right">Ordered</TableHead>
-                                        <TableHead className="text-right">Delivered</TableHead>
-                                        <TableHead className="text-right">Remaining</TableHead>
-                                        <TableHead className="text-right w-32">Ship now</TableHead>
+                                        <TableHead className="text-right">Total Ordered</TableHead>
+                                        <TableHead className="text-right">Total Delivered</TableHead>
+                                        <TableHead className="text-right">Due Ordered</TableHead>
+                                        <TableHead className="text-right w-32">Now Delivery</TableHead>
                                         <TableHead className="text-right w-24">Bundles</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -302,7 +306,7 @@ export default function PartialDeliveryDialog({
                                     {rows.map((r, idx) => (
                                         <TableRow key={r.orderLineItemId}>
                                             <TableCell className="text-xs whitespace-nowrap">
-                                                {r.sourceOrderNumber}
+                                                {r.sourceOrderPoNumber || r.sourceOrderNumber}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{r.productName}</div>
@@ -333,11 +337,12 @@ export default function PartialDeliveryDialog({
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Input
+                                                <Textarea
+                                                    rows={2}
                                                     value={r.bundlesValue}
                                                     disabled={r.remaining === 0}
                                                     onChange={e => setRowBundles(idx, e.target.value)}
-                                                    className="h-8 text-right"
+                                                    className="text-right min-h-0 resize-none"
                                                     placeholder="e.g. 20 x 50"
                                                 />
                                             </TableCell>
@@ -435,7 +440,7 @@ export default function PartialDeliveryDialog({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label>Ship from (warehouse)</Label>
+                                <Label>Delivery from ( Warehouse )</Label>
                                 <Select value={dcId} onValueChange={setDcId}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select warehouse" />
@@ -454,17 +459,19 @@ export default function PartialDeliveryDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label htmlFor="master-carton-for">Master Carton For</Label>
-                                <Input
+                                <Textarea
                                     id="master-carton-for"
+                                    rows={2}
                                     value={masterCartonFor}
                                     onChange={e => setMasterCartonFor(e.target.value)}
-                                    placeholder="e.g. Haque Food Industries"
+                                    placeholder="Corrugated Carton"
                                 />
                             </div>
                             <div>
                                 <Label htmlFor="master-carton-sub-label">Sub Label</Label>
-                                <Input
+                                <Textarea
                                     id="master-carton-sub-label"
+                                    rows={2}
                                     value={masterCartonSubLabel}
                                     onChange={e => setMasterCartonSubLabel(e.target.value)}
                                     placeholder="e.g. Hanicom"
