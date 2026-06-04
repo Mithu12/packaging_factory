@@ -1686,11 +1686,13 @@ export class PDFGenerator {
     // operator who skipped them doesn't see an empty "Master Carton For:" on the page.
     const masterCartonFor = delivery?.master_carton_for?.trim() || '';
     const masterCartonSubLabel = delivery?.master_carton_sub_label?.trim() || '';
+    // These free-text labels may carry a second stacked line (entered in the
+    // delivery dialog); preserve the newline as a <br> on the challan.
     const masterCartonHeading = masterCartonFor
-      ? `<div class="item-heading">${escapeHtml(masterCartonFor)}</div>`
+      ? `<div class="item-heading">${escapeHtml(masterCartonFor).replace(/\n/g, '<br>')}</div>`
       : '';
     const subLabelLine = masterCartonSubLabel
-      ? `<div class="item-sub-label">${escapeHtml(masterCartonSubLabel)}</div>`
+      ? `<div class="item-sub-label">${escapeHtml(masterCartonSubLabel).replace(/\n/g, '<br>')}</div>`
       : '';
 
     const itemsHtml = challanRows.map((item, index) => {
@@ -1715,7 +1717,7 @@ export class PDFGenerator {
           </td>
           <td class="col-code">${escapeHtml(item.item_code || '')}</td>
           <td class="col-qty">${formatQty(item.quantity)} Pcs.</td>
-          <td class="col-bundle">${escapeHtml(bundleCell)}</td>
+          <td class="col-bundle">${escapeHtml(bundleCell).replace(/\n/g, '<br>')}</td>
         </tr>
       `;
     }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;">No items found</td></tr>';
