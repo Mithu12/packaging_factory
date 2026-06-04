@@ -32,6 +32,7 @@ import {
 import { ApiService, Supplier, SupplierStats, ApiError } from "@/services/api"
 import { toast } from "@/components/ui/sonner"
 import { useRBAC } from "@/contexts/RBACContext"
+import { useFormatting } from "@/hooks/useFormatting"
 import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 import { PermissionButton } from "@/components/rbac/PermissionButton"
 import { PERMISSIONS } from "@/types/rbac"
@@ -52,6 +53,7 @@ import {
 
 export default function Suppliers() {
   const { hasPermission } = useRBAC()
+  const { formatCurrency } = useFormatting()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAddForm, setShowAddForm] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -434,7 +436,7 @@ export default function Suppliers() {
                              )}
                            </TableCell>
                            <TableCell className="font-medium">
-                             {supplier.opening_balance ? `$${Number(supplier.opening_balance).toLocaleString()}` : '$0.00'}
+                             {formatCurrency(supplier.opening_balance || 0)}
                            </TableCell>
                            <TableCell>
                             <Badge className={getStatusColor(supplier.status)}>
