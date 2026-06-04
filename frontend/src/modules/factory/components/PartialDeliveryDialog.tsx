@@ -306,7 +306,7 @@ export default function PartialDeliveryDialog({
                                     {rows.map((r, idx) => (
                                         <TableRow key={r.orderLineItemId}>
                                             <TableCell className="text-xs whitespace-nowrap">
-                                                {r.sourceOrderPoNumber || r.sourceOrderNumber}
+                                                {r.sourceOrderPoNumber || "—"}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{r.productName}</div>
