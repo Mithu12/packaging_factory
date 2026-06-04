@@ -375,6 +375,7 @@ export default function CustomerOrderManagement() {
             'Status',
             'Order Qty',
             'Delivery Qty',
+            'Due Order Balance',
         ];
 
         const escape = (value: unknown) => {
@@ -400,7 +401,7 @@ export default function CustomerOrderManagement() {
             return [
                 order.order_number,
                 order.po_number || '',
-                order.factory_customer_name,
+                order.customer_company || order.factory_customer_name,
                 order.factory_customer_email,
                 order.factory_name || '',
                 formatDate(order.order_date),
@@ -411,6 +412,7 @@ export default function CustomerOrderManagement() {
                 order.status.replace(/_/g, ' ').toUpperCase(),
                 orderQty,
                 deliveryQty,
+                Math.max(0, orderQty - deliveryQty),
             ].map(escape).join(',');
         });
 
@@ -717,7 +719,7 @@ export default function CustomerOrderManagement() {
                     {/* Orders Table */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Customer Orders {loading && "(Loading...)"}</CardTitle>
+                            <CardTitle>Customer Work Orders {loading && "(Loading...)"}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -733,6 +735,7 @@ export default function CustomerOrderManagement() {
                                         <TableHead>Status</TableHead>
                                         <TableHead>Order Qty</TableHead>
                                         <TableHead>Delivery Qty</TableHead>
+                                        <TableHead>Due Order Balance</TableHead>
                                         <TableHead>Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -759,7 +762,7 @@ export default function CustomerOrderManagement() {
                                             <TableCell>
                                                 <div>
                                                     <div className="font-medium">
-                                                        {order.factory_customer_name}
+                                                        {order.customer_company || order.factory_customer_name}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
                                                         {order.factory_customer_email}
@@ -794,6 +797,16 @@ export default function CustomerOrderManagement() {
                                             </TableCell>
                                             <TableCell>{orderQty}</TableCell>
                                             <TableCell>{deliveryQty}</TableCell>
+                                            <TableCell>
+                                                {(() => {
+                                                    const dueQty = Math.max(0, orderQty - deliveryQty);
+                                                    return (
+                                                        <span className={dueQty > 0 ? "font-semibold text-orange-600" : "text-muted-foreground"}>
+                                                            {dueQty}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Button
