@@ -148,10 +148,12 @@ export class GetCustomerOrderInfoMediator {
                     f.name as factory_name,
                     f.cost_center_id as factory_cost_center_id,
                     cc.name as factory_cost_center_name,
+                    fc.company as customer_company,
                     COALESCE(li_rows.line_items, '[]'::json) as line_items
                 FROM factory_customer_orders co
                          JOIN factories f ON co.factory_id = f.id
                          LEFT JOIN cost_centers cc ON f.cost_center_id = cc.id
+                         LEFT JOIN factory_customers fc ON co.factory_customer_id = fc.id
                          LEFT JOIN LATERAL (
                              SELECT json_agg(
                                     json_build_object(
@@ -240,6 +242,7 @@ export class GetCustomerOrderInfoMediator {
                 pr_no: row.pr_no ?? undefined,
                 po_number: row.po_number ?? undefined,
                 po_date: row.po_date ?? undefined,
+                customer_company: row.customer_company ?? undefined,
             }));
 
             const totalPages = Math.ceil(total / limit);
