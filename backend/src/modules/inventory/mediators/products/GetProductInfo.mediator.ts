@@ -106,11 +106,13 @@ export class GetProductInfoMediator {
 
       // Main query with joins
       const mainQuery = `
-                SELECT 
+                SELECT
                     p.*,
                     ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
                     c.name as category_name,
+                    c.sort_order as category_sort_order,
                     sc.name as subcategory_name,
+                    sc.sort_order as subcategory_sort_order,
                     b.name as brand_name,
                     o.name as origin_name,
                     s.name as supplier_name,

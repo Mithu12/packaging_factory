@@ -36,17 +36,18 @@ class UpdateCategoryInfoMediator {
         );
       }
 
-      const { name, description } = data;
+      const { name, description, sort_order } = data;
 
       const query = {
         text: `
                     UPDATE categories
                     SET name = $2,
-                        description = $3
+                        description = $3,
+                        sort_order = COALESCE($4, sort_order)
                     WHERE id = $1
                     RETURNING *
                 `,
-        values: [id, name, description],
+        values: [id, name, description, sort_order ?? null],
       };
 
       const result = await client.query(query);
@@ -89,7 +90,7 @@ class UpdateCategoryInfoMediator {
         updateFields: Object.keys(data),
       });
 
-      const { name, description, category_id } = data;
+      const { name, description, category_id, sort_order } = data;
 
       if (category_id) {
         const categoryCheck = await client.query(
@@ -117,11 +118,12 @@ class UpdateCategoryInfoMediator {
                     UPDATE subcategories
                     SET name = $2,
                         description = $3,
-                        category_id = $4
+                        category_id = $4,
+                        sort_order = COALESCE($5, sort_order)
                     WHERE id = $1
                     RETURNING *
                 `,
-        values: [id, name, description, category_id],
+        values: [id, name, description, category_id, sort_order ?? null],
       };
 
       const result = await client.query(query);

@@ -111,6 +111,7 @@ export interface Category {
   id: number;
   name: string;
   description?: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +131,7 @@ export interface Subcategory {
   category_id: number;
   name: string;
   description?: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -137,29 +139,33 @@ export interface Subcategory {
 export interface CreateCategoryRequest {
   name: string;
   description?: string;
+  sort_order?: number;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   description?: string;
+  sort_order?: number;
 }
 
 export interface CreateSubcategoryRequest {
   category_id: number;
   name: string;
   description?: string;
+  sort_order?: number;
 }
 
 export interface UpdateSubcategoryRequest {
   name?: string;
   description?: string;
+  sort_order?: number;
 }
 
 export interface CategoryQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  sortBy?: 'id' | 'name' | 'created_at' | 'updated_at';
+  sortBy?: 'id' | 'name' | 'sort_order' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
   /** When true, only Raw Materials and Ready Goods. */
   primary_product_types_only?: boolean;
@@ -170,7 +176,7 @@ export interface SubcategoryQueryParams {
   limit?: number;
   search?: string;
   category_id?: number;
-  sortBy?: 'id' | 'name' | 'created_at' | 'updated_at';
+  sortBy?: 'id' | 'name' | 'sort_order' | 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -223,6 +229,8 @@ export interface Product {
   carton_size?: string | null;
   customer_item_code?: string | null;
   category_name?: string;
+  category_sort_order?: number;
+  subcategory_sort_order?: number;
   created_at: string;
   updated_at: string;
 }

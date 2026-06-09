@@ -32,7 +32,7 @@ class AddCategoryMediator {
         categoryId: data.category_id,
       });
 
-      const { name, description, category_id } = data;
+      const { name, description, category_id, sort_order } = data;
 
       const categoryCheck = await client.query(
         "SELECT id, name FROM categories WHERE id = $1",
@@ -55,12 +55,12 @@ class AddCategoryMediator {
       }
 
       const query = `
-                INSERT INTO subcategories (name, description, category_id)
-                VALUES ($1, $2, $3)
+                INSERT INTO subcategories (name, description, category_id, sort_order)
+                VALUES ($1, $2, $3, COALESCE($4, 0))
                 RETURNING *
             `;
 
-      const values = [name, description, category_id];
+      const values = [name, description, category_id, sort_order ?? null];
 
       const result = await client.query(query, values);
       MyLogger.success(action, {

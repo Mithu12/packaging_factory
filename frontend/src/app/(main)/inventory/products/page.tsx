@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -60,8 +60,9 @@ import { Label } from "@/components/ui/label"
 const ALL = "__all__"
 type StockFilter = "all" | "good" | "low" | "critical"
 
-export default function Products() {
+function ProductsContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { formatCurrency, formatNumber, formatDate } = useFormatting()
   const { user } = useAuth()
   const { hasPermission } = useRBAC()
@@ -79,6 +80,19 @@ export default function Products() {
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>(ALL)
   const [supplierFilter, setSupplierFilter] = useState<string>(ALL)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  // Deep link: honor ?category=&subcategory= (used by the sidebar catalog tree)
+  // so a sidebar group opens Products pre-filtered to that group. Reacts to
+  // every navigation, since the page stays mounted across client-side links.
+  useEffect(() => {
+    const cat = searchParams.get("category")
+    const sub = searchParams.get("subcategory")
+    setCategoryFilter(cat || ALL)
+    setSubcategoryFilter(sub || ALL)
+    if (cat) {
+      setExpandedCategories(prev => new Set(prev).add(cat))
+    }
+  }, [searchParams])
 
   // Debounce the search term so we don't hit the API on every keystroke
   useEffect(() => {
@@ -272,13 +286,17 @@ export default function Products() {
       }
     }
   }
-  // Get unique categories (with their subcategories) from products
+  // Get unique categories (with their subcategories) from products.
+  // Ordered by the catalog's stored sort_order (then name) so groups always
+  // appear in the deliberate sequence configured on the category/subcategory.
   type CategoryNode = {
     name: string
     count: number
     color: string
-    subcategories: { name: string; count: number }[]
+    sortOrder: number
+    subcategories: { name: string; count: number; sortOrder: number }[]
   }
+  const SORT_LAST = Number.MAX_SAFE_INTEGER
   const categories = products.reduce((acc, product) => {
     if (product.category_name) {
       let existing = acc.find(cat => cat.name === product.category_name)
@@ -292,6 +310,7 @@ export default function Products() {
                  acc.length % 4 === 1 ? "bg-green-100 text-green-800" :
                  acc.length % 4 === 2 ? "bg-yellow-100 text-yellow-800" :
                  "bg-purple-100 text-purple-800",
+          sortOrder: product.category_sort_order ?? SORT_LAST,
           subcategories: []
         }
         acc.push(existing)
@@ -300,11 +319,20 @@ export default function Products() {
         const subName = product.subcategory_name.toString()
         const sub = existing.subcategories.find(s => s.name === subName)
         if (sub) sub.count++
-        else existing.subcategories.push({ name: subName, count: 1 })
+        else existing.subcategories.push({
+          name: subName,
+          count: 1,
+          sortOrder: product.subcategory_sort_order ?? SORT_LAST,
+        })
       }
     }
     return acc
   }, [] as CategoryNode[])
+
+  const byOrderThenName = <T extends { sortOrder: number; name: string }>(a: T, b: T) =>
+    a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+  categories.sort(byOrderThenName)
+  categories.forEach(cat => cat.subcategories.sort(byOrderThenName))
 
   if (loading) {
     return (
@@ -786,6 +814,19 @@ export default function Products() {
       />
       </div>
     </PermissionGuard>
+  )
+}
+
+// useSearchParams() requires a Suspense boundary in the App Router.
+export default function Products() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   )
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -74,6 +74,8 @@ import {
 import { ModuleStatusIndicator } from "@/components/ModuleStatusIndicator";
 import { PERMISSIONS, type PermissionCheck } from "@/types/rbac";
 import { SettingsApi } from "@/services/settings-api";
+import { ApiService, type Category, type Subcategory } from "@/services/api";
+import { displayPrimaryCategoryLabel } from "@/modules/inventory/constants/inventoryProductCategories";
 
 type MenuItem = {
   title: string;
@@ -744,6 +746,59 @@ export function AppSidebar() {
     fetchSettings();
   }, []);
 
+  // Live catalog tree for the sidebar: fixed categories (ordered by sort_order)
+  // with their subcategories, each linking to a pre-filtered Products page.
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
+  const [catalogSubcategories, setCatalogSubcategories] = useState<Subcategory[]>([]);
+
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      try {
+        const [catRes, subRes] = await Promise.all([
+          ApiService.getCategories({ limit: 100, primary_product_types_only: true }),
+          ApiService.getSubcategories({ limit: 1000 }),
+        ]);
+        setCatalogCategories(catRes.categories);
+        setCatalogSubcategories(subRes.subcategories);
+      } catch {
+        // Silently fall back to the static catalog links.
+      }
+    };
+    fetchCatalog();
+  }, []);
+
+  // Replace the static "Catalog" section's children with a "Manage" group
+  // (Products / Categories) followed by one collapsible group per category,
+  // whose items are subcategories that deep-link into the filtered Products page.
+  const sections = useMemo<MenuSection[]>(() => {
+    if (catalogCategories.length === 0) return menuSections;
+    const subsByCategory = catalogSubcategories.reduce((acc, sub) => {
+      (acc[sub.category_id] ??= []).push(sub);
+      return acc;
+    }, {} as Record<number, Subcategory[]>);
+
+    return menuSections.map((section) => {
+      if (section.title !== "Catalog") return section;
+      const manageGroup: MenuGroup = { title: "Manage", items: section.items ?? [] };
+      const categoryGroups: MenuGroup[] = catalogCategories.map((category) => ({
+        title: displayPrimaryCategoryLabel(category.name),
+        items: (subsByCategory[category.id] ?? []).map((sub) => ({
+          title: sub.name,
+          url: `/inventory/products?category=${encodeURIComponent(
+            category.name,
+          )}&subcategory=${encodeURIComponent(sub.name)}`,
+          icon: Tag,
+          permission: PERMISSIONS.PRODUCTS_READ,
+        })),
+      }));
+      return {
+        ...section,
+        items: undefined,
+        groups: [manageGroup, ...categoryGroups.filter((g) => g.items.length > 0)],
+      };
+    });
+  }, [catalogCategories, catalogSubcategories]);
+
   const matchesPath = useCallback(
     (path: string) => {
       if (path === "/dashboard")
@@ -856,7 +911,7 @@ export function AppSidebar() {
     return hasPermission(item.permission);
   };
 
-  const visibleMenuSections = menuSections
+  const visibleMenuSections = sections
     .map((section) => ({
       ...section,
       items: (section.items ?? []).filter(canSeeItem),

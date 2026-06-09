@@ -4,6 +4,7 @@ import Joi from "joi";
 const categoryBaseSchema = Joi.object({
   name: Joi.string().min(2).max(255).required(),
   description: Joi.string().max(1000).optional().allow(null, ""),
+  sort_order: Joi.number().integer().min(0).optional(),
 });
 
 export const createCategorySchema = categoryBaseSchema;
@@ -19,8 +20,8 @@ export const getCategoriesQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(10),
   search: Joi.string().optional().allow(""),
   sortBy: Joi.string()
-    .valid("id", "name", "created_at", "updated_at")
-    .default("id"),
+    .valid("id", "name", "sort_order", "created_at", "updated_at")
+    .default("sort_order"),
   sortOrder: Joi.string().valid("asc", "desc").default("asc"),
   primary_product_types_only: Joi.boolean()
     .optional()
@@ -33,6 +34,7 @@ const subcategoryBaseSchema = Joi.object({
   name: Joi.string().min(2).max(255).required(),
   description: Joi.string().max(1000).optional().allow(null, ""),
   category_id: Joi.number().integer().positive().required(),
+  sort_order: Joi.number().integer().min(0).optional(),
 });
 
 export const createSubcategorySchema = subcategoryBaseSchema;
@@ -50,7 +52,7 @@ export const getSubcategoriesQuerySchema = Joi.object({
   search: Joi.string().optional().allow(""),
   category_id: Joi.number().integer().positive().optional(),
   sortBy: Joi.string()
-    .valid("id", "name", "category_id", "created_at", "updated_at")
-    .default("id"),
+    .valid("id", "name", "category_id", "sort_order", "created_at", "updated_at")
+    .default("sort_order"),
   sortOrder: Joi.string().valid("asc", "desc").default("asc"),
 });

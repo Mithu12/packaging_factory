@@ -5,6 +5,7 @@ export interface Subcategory {
   name: string;
   description?: string;
   category_id: number;
+  sort_order: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -13,6 +14,7 @@ export interface Category {
   id: number;
   name: string;
   description?: string;
+  sort_order: number;
   created_at: Date;
   updated_at: Date;
   subcategories?: Subcategory[];
@@ -21,6 +23,7 @@ export interface Category {
 export interface CreateCategoryRequest {
   name: string;
   description?: string;
+  sort_order?: number;
 }
 
 export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
@@ -29,6 +32,7 @@ export interface CreateSubcategoryRequest {
   name: string;
   description?: string;
   category_id: number;
+  sort_order?: number;
 }
 
 export interface UpdateSubcategoryRequest extends Partial<CreateSubcategoryRequest> {}

@@ -32,12 +32,14 @@ import { PERMISSIONS } from "@/types/rbac"
 const categorySchema = z.object({
   name: z.string().min(2, "Category name must be at least 2 characters"),
   description: z.string().optional(),
+  sort_order: z.coerce.number().int().min(0).optional(),
 })
 
 const subcategorySchema = z.object({
   name: z.string().min(2, "Subcategory name must be at least 2 characters"),
   description: z.string().optional(),
   category_id: z.number().min(1, "Please select a category"),
+  sort_order: z.coerce.number().int().min(0).optional(),
 })
 
 type CategoryForm = z.infer<typeof categorySchema>
@@ -89,13 +91,13 @@ const Categories = () => {
   // Category form
   const categoryForm = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: "", description: "" },
+    defaultValues: { name: "", description: "", sort_order: 0 },
   })
 
   // Subcategory form
   const subcategoryForm = useForm<SubcategoryForm>({
     resolver: zodResolver(subcategorySchema),
-    defaultValues: { name: "", description: "", category_id: 0 },
+    defaultValues: { name: "", description: "", category_id: 0, sort_order: 0 },
   })
 
   // Fetch categories and subcategories on component mount
@@ -225,7 +227,8 @@ const Categories = () => {
       const newSubcategory = await ApiService.createSubcategory({
         name: data.name,
         description: data.description,
-        category_id: data.category_id
+        category_id: data.category_id,
+        sort_order: data.sort_order
       })
       
       // Refresh subcategories data from the database
@@ -326,6 +329,7 @@ const Categories = () => {
     setEditingCategory(category)
     categoryForm.setValue("name", category.name)
     categoryForm.setValue("description", category.description || "")
+    categoryForm.setValue("sort_order", category.sort_order ?? 0)
   }
 
   const startEditSubcategory = (subcategory: Subcategory, categoryId: number) => {
@@ -333,6 +337,7 @@ const Categories = () => {
     subcategoryForm.setValue("name", subcategory.name)
     subcategoryForm.setValue("description", subcategory.description || "")
     subcategoryForm.setValue("category_id", categoryId)
+    subcategoryForm.setValue("sort_order", subcategory.sort_order ?? 0)
   }
 
   if (loading) {
@@ -434,6 +439,19 @@ const Categories = () => {
                         <FormLabel>Description (Optional)</FormLabel>
                         <FormControl>
                           <Input placeholder="Enter subcategory description" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={subcategoryForm.control}
+                    name="sort_order"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sort order</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} placeholder="0" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -636,6 +654,19 @@ const Categories = () => {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={categoryForm.control}
+                name="sort_order"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sort order</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setEditingCategory(null)} disabled={saving}>
                   Cancel
@@ -686,6 +717,19 @@ const Categories = () => {
                     <FormLabel>Description (Optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter subcategory description" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={subcategoryForm.control}
+                name="sort_order"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sort order</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} placeholder="0" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

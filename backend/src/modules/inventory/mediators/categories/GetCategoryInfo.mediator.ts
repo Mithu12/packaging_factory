@@ -32,7 +32,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
         page = 1,
         limit = 10,
         search,
-        sortBy = "id",
+        sortBy = "sort_order",
         sortOrder = "asc",
         primary_product_types_only,
       } = params;
@@ -71,7 +71,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
       const categoriesQuery = `
                 SELECT *
                 FROM categories ${whereClause}
-                ORDER BY ${sortBy} ${sortOrder.toUpperCase()}
+                ORDER BY ${sortBy} ${sortOrder.toUpperCase()}, name ASC
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
@@ -122,7 +122,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
 
       // Get subcategories for this category
       const subcategoriesResult = await client.query(
-        "SELECT * FROM subcategories WHERE category_id = $1 ORDER BY name",
+        "SELECT * FROM subcategories WHERE category_id = $1 ORDER BY sort_order ASC, name ASC",
         [id]
       );
 
@@ -159,7 +159,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
         limit = 10,
         search,
         category_id,
-        sortBy = "id",
+        sortBy = "sort_order",
         sortOrder = "asc",
       } = params;
 
@@ -203,7 +203,7 @@ class GetCategoryInfoMediator implements MediatorInterface {
                 FROM subcategories s
                 LEFT JOIN categories c ON s.category_id = c.id
                 ${whereClause}
-                ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}
+                ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}, s.name ASC
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
