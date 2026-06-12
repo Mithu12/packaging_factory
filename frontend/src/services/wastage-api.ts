@@ -22,7 +22,8 @@ export interface MaterialWastage {
   recorded_date: string;
   recorded_by: number;
   recorded_by_name?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'sold';
+  wastage_sale_id?: number | null;
   approved_by?: number;
   approved_by_name?: string;
   approved_date?: string;
@@ -49,6 +50,41 @@ export interface WastageStats {
   average_wastage: number;
   top_reason: string;
   monthly_trend: number;
+  recovered_value: number;
+}
+
+export interface WastageSaleItem {
+  id: number;
+  material_name: string;
+  quantity: number;
+  cost: number;
+}
+
+export interface WastageSale {
+  id: number;
+  sale_number: string;
+  buyer_name: string;
+  buyer_phone?: string;
+  total_amount: number;
+  payment_method: 'cash' | 'bank_transfer';
+  payment_reference?: string;
+  sale_date: string;
+  notes?: string;
+  voucher_id?: number | null;
+  sold_by: number;
+  sold_by_name?: string;
+  items: WastageSaleItem[];
+  created_at: string;
+}
+
+export interface CreateWastageSalePayload {
+  wastage_ids: number[];
+  buyer_name: string;
+  buyer_phone?: string;
+  total_amount: number;
+  payment_method: 'cash' | 'bank_transfer';
+  payment_reference?: string;
+  notes?: string;
 }
 
 export interface CreateWastagePayload {
@@ -140,6 +176,38 @@ export class WastageApiService {
   static async getWastageStats(): Promise<WastageStats> {
     return makeRequest<WastageStats>('/factory/wastage/stats');
   }
+
+  static async createWastageSale(payload: CreateWastageSalePayload): Promise<WastageSale> {
+    return makeRequest<WastageSale>('/factory/wastage/sales', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async getWastageSales(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{
+    sales: WastageSale[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      searchParams.append(key, String(value));
+    });
+    const serialized = searchParams.toString();
+
+    return makeRequest<{
+      sales: WastageSale[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/factory/wastage/sales${serialized ? `?${serialized}` : ''}`);
+  }
 }
 
 // =====================================================
@@ -154,5 +222,6 @@ export const wastageQueryKeys = {
   details: () => [...wastageQueryKeys.all, 'detail'] as const,
   detail: (id: string) => [...wastageQueryKeys.details(), id] as const,
   stats: () => [...wastageQueryKeys.all, 'stats'] as const,
+  sales: () => [...wastageQueryKeys.all, 'sales'] as const,
 };
 

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { MaterialWastageMediator } from '../mediators/wastage/MaterialWastageMediator';
+import { WastageSaleMediator } from '../mediators/wastage/WastageSaleMediator';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
 
 /**
@@ -72,6 +73,32 @@ export const rejectWastage = asyncHandler(async (req: Request, res: Response) =>
   const result = await MaterialWastageMediator.rejectWastage(id, userId, notes);
 
   serializeSuccessResponse(res, result, 'Wastage rejected successfully');
+});
+
+/**
+ * @desc    Sell approved wastage records to a buyer (scrap sale)
+ * @route   POST /api/factory/wastage/sales
+ * @access  Private (FACTORY_WASTAGE_SELL)
+ */
+export const createWastageSale = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.user_id;
+
+  const sale = await WastageSaleMediator.createWastageSale(req.body, userId);
+
+  serializeSuccessResponse(res, sale, 'Wastage sold successfully');
+});
+
+/**
+ * @desc    List wastage sales with their sold items
+ * @route   GET /api/factory/wastage/sales
+ * @access  Private (FACTORY_WASTAGE_READ)
+ */
+export const getWastageSales = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.user_id;
+
+  const result = await WastageSaleMediator.getWastageSales(req.query, userId);
+
+  serializeSuccessResponse(res, result, 'Wastage sales retrieved successfully');
 });
 
 /**

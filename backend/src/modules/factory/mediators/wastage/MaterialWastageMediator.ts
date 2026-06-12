@@ -22,6 +22,7 @@ export interface WastageStats {
   average_wastage: number;
   top_reason: string;
   monthly_trend: number;
+  recovered_value: number;
 }
 
 export interface CreateWastageRequest {
@@ -478,6 +479,10 @@ export class MaterialWastageMediator {
         ? Math.round(((currentMonth - previousMonth) / previousMonth) * 1000) / 10
         : currentMonth > 0 ? 100 : 0;
 
+      const recoveredResult = await pool.query(
+        'SELECT COALESCE(SUM(total_amount), 0) as recovered_value FROM factory_wastage_sales'
+      );
+
       MyLogger.success(action, stats);
 
       return {
@@ -486,7 +491,8 @@ export class MaterialWastageMediator {
         total_cost: parseFloat(stats.total_cost) || 0,
         average_wastage: parseFloat(stats.average_wastage) || 0,
         top_reason: topReason,
-        monthly_trend: monthlyTrend
+        monthly_trend: monthlyTrend,
+        recovered_value: parseFloat(recoveredResult.rows[0].recovered_value) || 0
       };
     } catch (error) {
       MyLogger.error(action, error);

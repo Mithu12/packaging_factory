@@ -62,6 +62,7 @@ test.describe('Wastage Management', () => {
         await page.getByTestId('wastage-reason').fill('E2E storage damage');
         await page.getByTestId('wastage-submit').click();
         await expect(page.locator('.toast', { hasText: 'Wastage recorded successfully' })).toBeVisible();
+        await expect(page.getByTestId('wastage-submit')).toBeHidden();
 
         // Stock deducted at recording time
         expect(await getStock(page, materialId)).toBe(INITIAL_STOCK - 10);
@@ -81,6 +82,7 @@ test.describe('Wastage Management', () => {
         await pendingRow.getByRole('button').click();
         await page.getByRole('button', { name: 'Approve' }).click();
         await expect(page.locator('.toast', { hasText: 'Wastage approved successfully' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Approve' })).toBeHidden();
 
         // Approval posts the write-off; stock stays deducted
         expect(await getStock(page, materialId)).toBe(INITIAL_STOCK - 10);
@@ -96,6 +98,7 @@ test.describe('Wastage Management', () => {
         await page.getByTestId('wastage-reason').fill('E2E mis-recorded wastage');
         await page.getByTestId('wastage-submit').click();
         await expect(page.locator('.toast', { hasText: 'Wastage recorded successfully' })).toBeVisible();
+        await expect(page.getByTestId('wastage-submit')).toBeHidden();
 
         expect(await getStock(page, materialId)).toBe(INITIAL_STOCK - 15);
 
@@ -107,11 +110,96 @@ test.describe('Wastage Management', () => {
         await pendingRow2.getByRole('button').click();
         await page.getByRole('button', { name: 'Reject' }).click();
         await expect(page.locator('.toast', { hasText: 'Wastage rejected successfully' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Reject' })).toBeHidden();
 
         // Rejection restores the stock the recording deducted
         expect(await getStock(page, materialId)).toBe(INITIAL_STOCK - 10);
         const rejectedData = await api(page, 'get', `/factory/wastage?search=${encodeURIComponent(MATERIAL_NAME)}&status=rejected`);
         expect(rejectedData.wastage_records).toHaveLength(1);
+    });
+
+    test('scrap sale: bulk sell approved wastage, voucher posts, stock untouched', async ({ page }) => {
+        await login(page);
+
+        const SALE_MATERIAL = `E2E Scrap Material ${RUN_ID}`;
+        const categoriesData = await api(page, 'get', '/categories?limit=1');
+        const categoryId = (categoriesData.categories || categoriesData)[0].id;
+        const suppliersData = await api(page, 'get', '/suppliers?limit=1');
+        const supplierId = (suppliersData.suppliers || suppliersData)[0].id;
+
+        const material = await api(page, 'post', '/products', {
+            sku: `E2E-SCRAP-${RUN_ID}`,
+            name: SALE_MATERIAL,
+            category_id: categoryId,
+            unit_of_measure: 'kg',
+            cost_price: COST_PRICE,
+            selling_price: COST_PRICE + 10,
+            current_stock: INITIAL_STOCK,
+            min_stock_level: 0,
+            supplier_id: supplierId,
+            barcode: `E2ESCRAP${RUN_ID}`,
+        });
+
+        // Record two wastages and approve both (recording/approval UI is
+        // covered by the lifecycle test — go through the API here)
+        for (const quantity of [10, 5]) {
+            await api(page, 'post', '/factory/wastage', {
+                material_id: String(material.id),
+                quantity,
+                wastage_reason: 'E2E scrap for sale',
+            });
+        }
+        const pending = await api(page, 'get', `/factory/wastage?search=${encodeURIComponent(SALE_MATERIAL)}&status=pending`);
+        expect(pending.wastage_records).toHaveLength(2);
+        for (const record of pending.wastage_records) {
+            await api(page, 'post', `/factory/wastage/${record.id}/approve`, {});
+        }
+        const stockAfterWastage = INITIAL_STOCK - 15;
+        expect(await getStock(page, material.id)).toBe(stockAfterWastage);
+
+        // --- SELL via UI ---
+        await page.goto('/factory/wastage');
+        await page.waitForLoadState('networkidle');
+        await page.getByTestId('sell-wastage-button').click();
+        for (const record of pending.wastage_records) {
+            await page.getByTestId(`sell-wastage-row-${record.id}`).click();
+        }
+        await page.getByTestId('sell-buyer-name').fill('E2E Scrap Buyer');
+        await page.getByTestId('sell-total-amount').fill('300');
+        await page.getByTestId('sell-submit').click();
+        await expect(page.locator('.toast', { hasText: 'Wastage sold successfully' })).toBeVisible();
+        await expect(page.getByTestId('sell-submit')).toBeHidden();
+
+        // Records flipped to sold and linked to the sale
+        const sold = await api(page, 'get', `/factory/wastage?search=${encodeURIComponent(SALE_MATERIAL)}&status=sold`);
+        expect(sold.wastage_records).toHaveLength(2);
+        for (const record of sold.wastage_records) {
+            expect(record.wastage_sale_id).not.toBeNull();
+        }
+
+        // Sale recorded with receipt voucher posted (voucher_id set proves
+        // the accounting bridge + auto-approve ran)
+        const salesData = await api(page, 'get', '/factory/wastage/sales?search=E2E Scrap Buyer');
+        expect(salesData.sales.length).toBeGreaterThanOrEqual(1);
+        const sale = salesData.sales[0];
+        expect(sale.sale_number).toMatch(/^WS-\d{4}-\d{5}$/);
+        expect(parseFloat(sale.total_amount)).toBe(300);
+        expect(sale.items).toHaveLength(2);
+        expect(sale.voucher_id).not.toBeNull();
+
+        // Selling scrap is a GL-only event — product stock must not move
+        expect(await getStock(page, material.id)).toBe(stockAfterWastage);
+
+        // Re-selling the same records is refused (they are no longer approved)
+        const resell = await page.request.post(`${API_URL}/factory/wastage/sales`, {
+            data: {
+                wastage_ids: sold.wastage_records.map((r: any) => Number(r.id)),
+                buyer_name: 'E2E Double Buyer',
+                total_amount: 100,
+                payment_method: 'cash',
+            },
+        });
+        expect(resell.status()).toBe(400);
     });
 
     test('recording wastage beyond available stock is refused', async ({ page }) => {

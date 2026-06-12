@@ -85,6 +85,20 @@ export interface PaymentAccountingData {
   timestamp: Date;
 }
 
+export interface WastageSaleAccountingData {
+  saleId: number;
+  saleNumber: string;
+  buyerName: string;
+  amount: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  saleDate: string;
+  itemCount: number;
+  itemSummary: string;
+  notes?: string;
+  userId: number;
+}
+
 class FactoryAccountsIntegrationService {
   private isAccountsAvailable(): boolean {
     return moduleRegistry.isModuleAvailable(MODULE_NAMES.ACCOUNTS);
@@ -530,6 +544,10 @@ class FactoryAccountsIntegrationService {
         case 'wastage_expense':
           searchTerm = 'Wastage';
           category = 'Expenses';
+          break;
+        case 'scrap_sales_income':
+          searchTerm = 'Scrap Sales';
+          category = 'Revenue';
           break;
         case 'wages_payable':
           searchTerm = 'Wages Payable';
@@ -2002,6 +2020,155 @@ class FactoryAccountsIntegrationService {
         errorMessage: error.message || 'Failed to create voucher',
         payload: { orderNumber: paymentData.orderNumber },
         userId: paymentData.userId,
+      });
+      return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
+    }
+  }
+
+  /**
+   * Create receipt voucher for a wastage (scrap) sale
+   * Debit: Cash/Bank (by payment method)
+   * Credit: Scrap Sales Income
+   * Stock is untouched — it already left at wastage recording; the sale is a
+   * GL-only event.
+   */
+  async createWastageSaleVoucher(
+    saleData: WastageSaleAccountingData,
+    userId: number
+  ): Promise<VoucherCreationResult | null> {
+    const action = 'FactoryAccountsIntegration.createWastageSaleVoucher';
+
+    try {
+      if (!this.isAccountsAvailable()) {
+        MyLogger.info(action, { message: 'Accounts module not available' });
+        return null;
+      }
+
+      const accountsServices = moduleRegistry.getModuleServices(MODULE_NAMES.ACCOUNTS);
+      if (!accountsServices?.voucherMediator) return null;
+
+      const cashBankAccount = await this.getDefaultAccount(
+        saleData.paymentMethod === 'cash' ? 'cash_in_hand' : 'bank_account'
+      );
+      const scrapIncomeAccount = await this.getDefaultAccount('scrap_sales_income');
+
+      if (!cashBankAccount || !scrapIncomeAccount) {
+        const errMsg = 'Required accounts not configured';
+        logVoucherFailureFromError({
+          sourceModule: 'factory',
+          operationType: 'addWastageSaleVoucher',
+          sourceEntityType: 'factory_wastage_sale',
+          sourceEntityId: saleData.saleId,
+          errorMessage: errMsg,
+          payload: { saleNumber: saleData.saleNumber },
+          userId: saleData.userId,
+        });
+        return {
+          voucherId: 0,
+          voucherNo: '',
+          success: false,
+          error: errMsg
+        };
+      }
+
+      const eventId = factoryEventLogService.generateEventId(
+        'wastage_sale_created',
+        saleData.saleId
+      );
+
+      const alreadyProcessed = await factoryEventLogService.isEventProcessed(eventId);
+      if (alreadyProcessed) {
+        MyLogger.info(action, {
+          saleId: saleData.saleId,
+          message: 'Wastage sale voucher already created',
+          eventId
+        });
+        return null;
+      }
+
+      let eventLogId: number | null = null;
+      try {
+        eventLogId = await factoryEventLogService.logEventStart(
+          eventId,
+          'wastage_sale_created',
+          'factory_wastage_sale',
+          saleData.saleId,
+          saleData,
+          saleData.userId
+        );
+      } catch (error) {
+        MyLogger.warn(action, { message: 'Failed to log event start', error });
+      }
+
+      const voucherData = {
+        type: VoucherType.RECEIPT,
+        date: new Date(saleData.saleDate),
+        reference: saleData.saleNumber,
+        payee: saleData.buyerName,
+        amount: saleData.amount,
+        narration: `Scrap Sale ${saleData.saleNumber} to ${saleData.buyerName} - ${saleData.itemCount} wastage item(s): ${saleData.itemSummary} via ${saleData.paymentMethod}${saleData.paymentReference ? ` (Ref: ${saleData.paymentReference})` : ''}${saleData.notes ? ` - ${saleData.notes}` : ''}`,
+        lines: [
+          {
+            accountId: cashBankAccount.id,
+            debit: saleData.amount,
+            credit: 0,
+            description: `Scrap sale proceeds - ${saleData.saleNumber}`
+          },
+          {
+            accountId: scrapIncomeAccount.id,
+            debit: 0,
+            credit: saleData.amount,
+            description: `Scrap sales income - ${saleData.saleNumber}`
+          }
+        ]
+      };
+
+      const voucher = await accountsServices.voucherMediator.createVoucher(voucherData, userId);
+
+      if (accountsServices.updateVoucherMediator) {
+        await accountsServices.updateVoucherMediator.approveVoucher(voucher.id, userId);
+      }
+
+      try {
+        await pool.query(
+          'UPDATE factory_wastage_sales SET voucher_id = $1 WHERE id = $2',
+          [voucher.id, saleData.saleId]
+        );
+      } catch (updateError) {
+        MyLogger.warn(action, {
+          message: 'Failed to update wastage sale with voucher_id',
+          error: updateError,
+          saleId: saleData.saleId,
+          voucherId: voucher.id
+        });
+      }
+
+      if (eventLogId) {
+        try {
+          await factoryEventLogService.logEventSuccess(eventLogId, [voucher.id]);
+        } catch (error) {
+          MyLogger.warn(action, { message: 'Failed to log event success', error });
+        }
+      }
+
+      MyLogger.success(action, {
+        saleId: saleData.saleId,
+        voucherId: voucher.id,
+        voucherNo: voucher.voucherNo,
+        amount: saleData.amount
+      });
+
+      return { voucherId: voucher.id, voucherNo: voucher.voucherNo, success: true };
+    } catch (error: any) {
+      MyLogger.error(action, error, { saleData });
+      logVoucherFailureFromError({
+        sourceModule: 'factory',
+        operationType: 'addWastageSaleVoucher',
+        sourceEntityType: 'factory_wastage_sale',
+        sourceEntityId: saleData.saleId,
+        errorMessage: error.message || 'Failed to create voucher',
+        payload: { saleNumber: saleData.saleNumber },
+        userId: saleData.userId,
       });
       return { voucherId: 0, voucherNo: '', success: false, error: error.message || 'Failed to create voucher' };
     }

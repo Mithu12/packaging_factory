@@ -23,7 +23,7 @@ export const wastageQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
   search: Joi.string().allow('').optional(),
   status: Joi.string()
-    .valid('', 'pending', 'approved', 'rejected')
+    .valid('', 'pending', 'approved', 'rejected', 'sold')
     .optional(),
   work_order_id: numericIdSchema.optional(),
   sort_by: Joi.string()
@@ -34,4 +34,20 @@ export const wastageQuerySchema = Joi.object({
 
 export const wastageParamsSchema = Joi.object({
   id: numericIdSchema.required(),
+});
+
+export const createWastageSaleSchema = Joi.object({
+  wastage_ids: Joi.array().items(numericIdSchema).min(1).unique().required(),
+  buyer_name: Joi.string().max(255).required(),
+  buyer_phone: Joi.string().max(50).allow('', null).optional(),
+  total_amount: Joi.number().positive().required(),
+  payment_method: Joi.string().valid('cash', 'bank_transfer').required(),
+  payment_reference: Joi.string().max(255).allow('', null).optional(),
+  notes: Joi.string().max(500).allow('', null).optional(),
+});
+
+export const wastageSaleQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  search: Joi.string().allow('').optional(),
 });

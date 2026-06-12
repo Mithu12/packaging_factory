@@ -6,7 +6,9 @@ import { auditMiddleware } from '@/middleware/audit';
 import {
   approveWastageSchema,
   createWastageSchema,
+  createWastageSaleSchema,
   wastageQuerySchema,
+  wastageSaleQuerySchema,
   wastageParamsSchema,
 } from '@/validation/wastage.validation';
 import * as wastageController from '../controllers/wastage.controller';
@@ -50,6 +52,36 @@ router.post(
   validateRequest(createWastageSchema),
   auditMiddleware,
   wastageController.createWastage
+);
+
+/**
+ * Sale routes must be registered before '/:id' so 'sales' is not captured
+ * as an id parameter.
+ *
+ * @route   GET /api/factory/wastage/sales
+ * @desc    List wastage sales with their sold items
+ * @access  Private (FACTORY_WASTAGE_READ)
+ */
+router.get(
+  '/sales',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_READ),
+  validateQuery(wastageSaleQuerySchema),
+  wastageController.getWastageSales
+);
+
+/**
+ * @route   POST /api/factory/wastage/sales
+ * @desc    Sell approved wastage records to a buyer (scrap sale)
+ * @access  Private (FACTORY_WASTAGE_SELL)
+ */
+router.post(
+  '/sales',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_SELL),
+  validateRequest(createWastageSaleSchema),
+  auditMiddleware,
+  wastageController.createWastageSale
 );
 
 /**

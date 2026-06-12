@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { useRBAC } from "@/contexts/RBACContext";
 import { PERMISSIONS } from "@/types/rbac";
 import RecordWastageDialog from "@/modules/factory/components/RecordWastageDialog";
+import SellWastageDialog from "@/modules/factory/components/SellWastageDialog";
 
 export default function WastageTracking() {
   const { formatCurrency, formatDate } = useFormatting();
@@ -69,6 +70,7 @@ export default function WastageTracking() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showRecordDialog, setShowRecordDialog] = useState(false);
+  const [showSellDialog, setShowSellDialog] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
 
   // API query parameters
@@ -91,6 +93,12 @@ export default function WastageTracking() {
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: wastageQueryKeys.stats(),
     queryFn: () => WastageApiService.getWastageStats(),
+  });
+
+  // Fetch scrap sales history
+  const { data: salesData, isLoading: salesLoading } = useQuery({
+    queryKey: wastageQueryKeys.sales(),
+    queryFn: () => WastageApiService.getWastageSales({ limit: 100 }),
   });
 
   // Approve wastage mutation
@@ -131,11 +139,14 @@ export default function WastageTracking() {
     average_wastage: 0,
     top_reason: "N/A",
     monthly_trend: 0,
+    recovered_value: 0,
   };
   const totalWastage = Number(stats.total_wastage ?? 0);
   const totalCost = Number(stats.total_cost ?? 0);
   const averageWastage = Number(stats.average_wastage ?? 0);
   const monthlyTrend = Number(stats.monthly_trend ?? 0);
+  const recoveredValue = Number(stats.recovered_value ?? 0);
+  const wastageSales = salesData?.sales || [];
 
   const handleApprove = () => {
     if (!selectedRecord) return;
@@ -169,6 +180,8 @@ export default function WastageTracking() {
         return "bg-red-100 text-red-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
+      case "sold":
+        return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -182,6 +195,8 @@ export default function WastageTracking() {
         return X;
       case "pending":
         return Clock;
+      case "sold":
+        return DollarSign;
       default:
         return AlertTriangle;
     }
@@ -197,15 +212,28 @@ export default function WastageTracking() {
             Monitor and manage material wastage
           </p>
         </div>
-        {hasPermission(PERMISSIONS.FACTORY_WASTAGE_CREATE) && (
-          <Button data-testid="record-wastage-button" onClick={() => setShowRecordDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Record Wastage
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {hasPermission(PERMISSIONS.FACTORY_WASTAGE_SELL) && (
+            <Button
+              variant="outline"
+              data-testid="sell-wastage-button"
+              onClick={() => setShowSellDialog(true)}
+            >
+              <DollarSign className="mr-2 h-4 w-4" />
+              Sell Scrap
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.FACTORY_WASTAGE_CREATE) && (
+            <Button data-testid="record-wastage-button" onClick={() => setShowRecordDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Record Wastage
+            </Button>
+          )}
+        </div>
       </div>
 
       <RecordWastageDialog open={showRecordDialog} onOpenChange={setShowRecordDialog} />
+      <SellWastageDialog open={showSellDialog} onOpenChange={setShowSellDialog} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -250,7 +278,11 @@ export default function WastageTracking() {
             <div className="text-2xl font-bold">
               {statsLoading ? "..." : formatCurrency(totalCost)}
             </div>
-            <p className="text-xs text-gray-500">This Month</p>
+            <p className="text-xs text-gray-500">
+              {recoveredValue > 0
+                ? `${formatCurrency(recoveredValue)} recovered`
+                : "This Month"}
+            </p>
           </CardContent>
         </Card>
 
@@ -300,6 +332,15 @@ export default function WastageTracking() {
         </Card>
       </div>
 
+      <Tabs defaultValue="records">
+        <TabsList>
+          <TabsTrigger value="records">Wastage Records</TabsTrigger>
+          <TabsTrigger value="sales" data-testid="scrap-sales-tab">
+            Scrap Sales
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="records">
       {/* Filters and Search */}
       <Card>
         <CardHeader>
@@ -325,6 +366,7 @@ export default function WastageTracking() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="sold">Sold</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -407,6 +449,74 @@ export default function WastageTracking() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="sales">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sale #</TableHead>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Sold By</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {salesLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          Loading scrap sales...
+                        </TableCell>
+                      </TableRow>
+                    ) : wastageSales.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                          No scrap sales recorded yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      wastageSales.map((sale) => (
+                        <TableRow key={sale.id}>
+                          <TableCell className="font-medium">{sale.sale_number}</TableCell>
+                          <TableCell>
+                            <div>{sale.buyer_name}</div>
+                            {sale.buyer_phone && (
+                              <div className="text-sm text-gray-500">{sale.buyer_phone}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div>{sale.items.length} item(s)</div>
+                            <div className="text-sm text-gray-500">
+                              {sale.items
+                                .map((item) => `${item.material_name} x${Number(item.quantity)}`)
+                                .join(", ")}
+                            </div>
+                          </TableCell>
+                          <TableCell>{formatCurrency(Number(sale.total_amount ?? 0))}</TableCell>
+                          <TableCell className="capitalize">
+                            {sale.payment_method.replace("_", " ")}
+                            {sale.payment_reference && (
+                              <div className="text-sm text-gray-500">{sale.payment_reference}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>{sale.sold_by_name || `User #${sale.sold_by}`}</TableCell>
+                          <TableCell>{formatDate(sale.sale_date)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Details Dialog */}
       <Dialog

@@ -77,6 +77,14 @@ class InterModuleConnector {
     },
 
     /**
+     * Create a wastage sale (scrap sale) receipt voucher (Factory)
+     */
+    addWastageSaleVoucher: async (...args: any[]): Promise<any> => {
+      this.logNotImplemented("accModule", "addWastageSaleVoucher");
+      return null;
+    },
+
+    /**
      * Create production run vouchers (Factory)
      */
     addProductionRunVouchers: async (...args: any[]): Promise<any> => {

@@ -571,6 +571,7 @@ export const PERMISSIONS = {
   FACTORY_WASTAGE_CREATE: createPermissionCheck('Factory', 'create', 'wastage'),
   FACTORY_WASTAGE_READ: createPermissionCheck('Factory', 'read', 'wastage'),
   FACTORY_WASTAGE_APPROVE: createPermissionCheck('Factory', 'approve', 'wastage'),
+  FACTORY_WASTAGE_SELL: createPermissionCheck('Factory', 'sell', 'wastage'),
 
   // Production Runs
   FACTORY_PRODUCTION_RUNS_CREATE: createPermissionCheck('Factory', 'create', 'production_runs'),
