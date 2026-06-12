@@ -349,6 +349,7 @@ export const PERMISSIONS = {
     FACTORY_MATERIAL_CONSUMPTIONS_READ: createPermissionCheck('Factory', 'read', 'material_consumptions'),
     FACTORY_PRODUCTION_RUNS_READ: createPermissionCheck('Factory', 'read', 'production_runs'),
     FACTORY_WASTAGE_READ: createPermissionCheck('Factory', 'read', 'wastage'),
+    FACTORY_WASTAGE_CREATE: createPermissionCheck('Factory', 'create', 'wastage'),
     FACTORY_EXPENSES_READ: createPermissionCheck('Factory', 'read', 'expenses'),
     FACTORY_MATERIAL_COSTS_READ: createPermissionCheck('Factory', 'read', 'cost_analysis'),
     FACTORY_PRODUCTION_LINES_READ: createPermissionCheck('Factory', 'read', 'production_lines'),

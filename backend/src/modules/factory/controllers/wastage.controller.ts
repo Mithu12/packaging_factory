@@ -32,6 +32,19 @@ export const getWastageById = asyncHandler(async (req: Request, res: Response) =
 });
 
 /**
+ * @desc    Record a standalone wastage (storage damage, QC rejects, etc.)
+ * @route   POST /api/factory/wastage
+ * @access  Private (FACTORY_WASTAGE_CREATE)
+ */
+export const createWastage = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.user_id;
+
+  const wastage = await MaterialWastageMediator.createWastage(req.body, userId);
+
+  serializeSuccessResponse(res, wastage, 'Wastage recorded successfully');
+});
+
+/**
  * @desc    Approve wastage record
  * @route   POST /api/factory/wastage/:id/approve
  * @access  Private (FACTORY_WASTAGE_APPROVE)

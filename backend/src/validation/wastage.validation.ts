@@ -9,6 +9,15 @@ export const approveWastageSchema = Joi.object({
   notes: Joi.string().max(500).allow('', null).optional(),
 });
 
+export const createWastageSchema = Joi.object({
+  material_id: numericIdSchema.required(),
+  quantity: Joi.number().positive().required(),
+  wastage_reason: Joi.string().max(255).required(),
+  work_order_id: numericIdSchema.allow(null).optional(),
+  batch_number: Joi.string().max(100).allow('', null).optional(),
+  notes: Joi.string().max(500).allow('', null).optional(),
+});
+
 export const wastageQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),

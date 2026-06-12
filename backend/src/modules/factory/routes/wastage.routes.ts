@@ -5,6 +5,7 @@ import { validateRequest, validateQuery, validateParams } from '@/middleware/val
 import { auditMiddleware } from '@/middleware/audit';
 import {
   approveWastageSchema,
+  createWastageSchema,
   wastageQuerySchema,
   wastageParamsSchema,
 } from '@/validation/wastage.validation';
@@ -35,6 +36,20 @@ router.get(
   requirePermission(PERMISSIONS.FACTORY_WASTAGE_READ),
   validateQuery(wastageQuerySchema),
   wastageController.getWastageRecords
+);
+
+/**
+ * @route   POST /api/factory/wastage
+ * @desc    Record a standalone wastage (storage damage, QC rejects, etc.)
+ * @access  Private (FACTORY_WASTAGE_CREATE)
+ */
+router.post(
+  '/',
+  authenticate,
+  requirePermission(PERMISSIONS.FACTORY_WASTAGE_CREATE),
+  validateRequest(createWastageSchema),
+  auditMiddleware,
+  wastageController.createWastage
 );
 
 /**

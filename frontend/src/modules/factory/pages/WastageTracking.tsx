@@ -18,6 +18,7 @@ import {
   DollarSign,
   BarChart3,
   Eye,
+  Plus,
 } from "lucide-react";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -54,15 +55,20 @@ import {
 } from "@/services/wastage-api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useRBAC } from "@/contexts/RBACContext";
+import { PERMISSIONS } from "@/types/rbac";
+import RecordWastageDialog from "@/modules/factory/components/RecordWastageDialog";
 
 export default function WastageTracking() {
   const { formatCurrency, formatDate } = useFormatting();
   const queryClient = useQueryClient();
-  
+  const { hasPermission } = useRBAC();
+
   const [selectedRecord, setSelectedRecord] = useState<MaterialWastage | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showRecordDialog, setShowRecordDialog] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
 
   // API query parameters
@@ -191,7 +197,15 @@ export default function WastageTracking() {
             Monitor and manage material wastage
           </p>
         </div>
+        {hasPermission(PERMISSIONS.FACTORY_WASTAGE_CREATE) && (
+          <Button data-testid="record-wastage-button" onClick={() => setShowRecordDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Wastage
+          </Button>
+        )}
       </div>
+
+      <RecordWastageDialog open={showRecordDialog} onOpenChange={setShowRecordDialog} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -352,7 +366,7 @@ export default function WastageTracking() {
                   return (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
-                        {record.work_order_number}
+                        {record.work_order_number || "—"}
                       </TableCell>
                         <TableCell>
                           <div>
@@ -416,7 +430,7 @@ export default function WastageTracking() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Work Order</Label>
-                  <div className="font-medium">{selectedRecord.work_order_number}</div>
+                  <div className="font-medium">{selectedRecord.work_order_number || "—"}</div>
                 </div>
                 <div>
                   <Label>Status</Label>

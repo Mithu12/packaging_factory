@@ -51,6 +51,15 @@ export interface WastageStats {
   monthly_trend: number;
 }
 
+export interface CreateWastagePayload {
+  material_id: string;
+  quantity: number;
+  wastage_reason: string;
+  work_order_id?: string;
+  batch_number?: string;
+  notes?: string;
+}
+
 // =====================================================
 // API Service
 // =====================================================
@@ -93,6 +102,13 @@ export class WastageApiService {
 
   static async getWastageById(id: string): Promise<MaterialWastage> {
     return makeRequest<MaterialWastage>(`/factory/wastage/${id}`);
+  }
+
+  static async createWastage(payload: CreateWastagePayload): Promise<MaterialWastage> {
+    return makeRequest<MaterialWastage>('/factory/wastage', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   static async approveWastage(

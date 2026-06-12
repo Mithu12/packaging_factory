@@ -28,7 +28,7 @@ echo "🔌 Starting Backend (Port 3002)..."
 cd backend
 # Manual command construction to avoid polluting package.json
 # We use cross-env from backend's deps or just set env vars inline (linux)
-NODE_ENV=test PORT=3002 DB_NAME=erp_test npx tsx src/index.ts &
+NODE_ENV=test PORT=3002 DB_NAME=erp_test CORS_ORIGIN=http://localhost:3003 npx tsx src/index.ts &
 BACKEND_PID=$!
 cd ..
 

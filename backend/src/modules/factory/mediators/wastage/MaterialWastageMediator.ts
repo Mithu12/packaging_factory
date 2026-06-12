@@ -3,6 +3,7 @@ import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
 import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { creditLocationStock, debitLocationStock, resolvePrimaryDcId } from '@/utils/stockLocations';
 
 export interface WastageQueryParams {
   page?: number;
@@ -21,6 +22,15 @@ export interface WastageStats {
   average_wastage: number;
   top_reason: string;
   monthly_trend: number;
+}
+
+export interface CreateWastageRequest {
+  material_id: string;
+  quantity: number;
+  wastage_reason: string;
+  work_order_id?: string;
+  batch_number?: string;
+  notes?: string;
 }
 
 export class MaterialWastageMediator {
@@ -80,7 +90,7 @@ export class MaterialWastageMediator {
       const countQuery = `
         SELECT COUNT(DISTINCT mw.id) as count
         FROM material_wastage mw
-        JOIN work_orders wo ON mw.work_order_id = wo.id
+        LEFT JOIN work_orders wo ON mw.work_order_id = wo.id
         WHERE ${whereClause}
       `;
 
@@ -96,7 +106,7 @@ export class MaterialWastageMediator {
           u1.full_name as recorded_by_name,
           u2.full_name as approved_by_name
         FROM material_wastage mw
-        JOIN work_orders wo ON mw.work_order_id = wo.id
+        LEFT JOIN work_orders wo ON mw.work_order_id = wo.id
         JOIN products p ON mw.material_id = p.id
         LEFT JOIN users u1 ON mw.recorded_by = u1.id
         LEFT JOIN users u2 ON mw.approved_by = u2.id
@@ -141,7 +151,7 @@ export class MaterialWastageMediator {
           u1.full_name as recorded_by_name,
           u2.full_name as approved_by_name
         FROM material_wastage mw
-        JOIN work_orders wo ON mw.work_order_id = wo.id
+        LEFT JOIN work_orders wo ON mw.work_order_id = wo.id
         JOIN products p ON mw.material_id = p.id
         LEFT JOIN users u1 ON mw.recorded_by = u1.id
         LEFT JOIN users u2 ON mw.approved_by = u2.id
@@ -160,6 +170,88 @@ export class MaterialWastageMediator {
     } catch (error) {
       MyLogger.error(action, error);
       throw error;
+    }
+  }
+
+  static async createWastage(
+    data: CreateWastageRequest,
+    userId: number
+  ): Promise<any> {
+    const action = 'Create Wastage';
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { materialId: data.material_id, quantity: data.quantity, userId });
+
+      const materialResult = await client.query(
+        'SELECT id, name, cost_price FROM products WHERE id = $1',
+        [data.material_id]
+      );
+
+      if (materialResult.rows.length === 0) {
+        throw createError('Material not found', 404);
+      }
+
+      const material = materialResult.rows[0];
+
+      if (data.work_order_id) {
+        const workOrderResult = await client.query(
+          'SELECT id FROM work_orders WHERE id = $1',
+          [data.work_order_id]
+        );
+        if (workOrderResult.rows.length === 0) {
+          throw createError('Work order not found', 404);
+        }
+      }
+
+      // Standalone wastage is always counted in physical units and comes from
+      // free stock (no allocation backs it, unlike consumption-recorded
+      // wastage which draws from the work order's reservation). Stock leaves
+      // at recording time; rejection credits it back.
+      const dcId = await resolvePrimaryDcId(client);
+      await debitLocationStock(client, Number(data.material_id), dcId, data.quantity, material.name);
+
+      const unitCost = parseFloat(material.cost_price) || 0;
+      const insertResult = await client.query(
+        `INSERT INTO material_wastage (
+          work_order_id,
+          material_id,
+          material_name,
+          quantity,
+          wastage_reason,
+          cost,
+          status,
+          recorded_by,
+          batch_number,
+          notes,
+          stock_deducted
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, true)
+        RETURNING *`,
+        [
+          data.work_order_id || null,
+          data.material_id,
+          material.name,
+          data.quantity,
+          data.wastage_reason,
+          unitCost * data.quantity,
+          userId,
+          data.batch_number || null,
+          data.notes || null
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, { wastageId: insertResult.rows[0].id });
+
+      return insertResult.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -308,6 +400,15 @@ export class MaterialWastageMediator {
         [userId, notes, wastageId]
       );
 
+      // Rejecting a wastage claim restores the stock that recording deducted —
+      // pending wastage never touched the GL, so this keeps stock and books
+      // consistent. Records from before stock_deducted existed never deducted
+      // stock, so there is nothing to restore for them.
+      if (wastage.stock_deducted) {
+        const dcId = await resolvePrimaryDcId(client);
+        await creditLocationStock(client, Number(wastage.material_id), dcId, parseFloat(wastage.quantity));
+      }
+
       await client.query('COMMIT');
 
       MyLogger.success(action, { wastageId });
@@ -357,6 +458,26 @@ export class MaterialWastageMediator {
       const reasonResult = await pool.query(reasonQuery);
       const topReason = reasonResult.rows.length > 0 ? reasonResult.rows[0].wastage_reason : 'N/A';
 
+      // Month-over-month change in wasted quantity (positive = more wastage)
+      const trendQuery = `
+        SELECT
+          COALESCE(SUM(quantity) FILTER (
+            WHERE recorded_date >= date_trunc('month', CURRENT_TIMESTAMP)
+          ), 0) as current_month,
+          COALESCE(SUM(quantity) FILTER (
+            WHERE recorded_date >= date_trunc('month', CURRENT_TIMESTAMP) - INTERVAL '1 month'
+              AND recorded_date < date_trunc('month', CURRENT_TIMESTAMP)
+          ), 0) as previous_month
+        FROM material_wastage
+        WHERE status != 'rejected'
+      `;
+      const trendResult = await pool.query(trendQuery);
+      const currentMonth = parseFloat(trendResult.rows[0].current_month) || 0;
+      const previousMonth = parseFloat(trendResult.rows[0].previous_month) || 0;
+      const monthlyTrend = previousMonth > 0
+        ? Math.round(((currentMonth - previousMonth) / previousMonth) * 1000) / 10
+        : currentMonth > 0 ? 100 : 0;
+
       MyLogger.success(action, stats);
 
       return {
@@ -365,7 +486,7 @@ export class MaterialWastageMediator {
         total_cost: parseFloat(stats.total_cost) || 0,
         average_wastage: parseFloat(stats.average_wastage) || 0,
         top_reason: topReason,
-        monthly_trend: -5 // TODO: Calculate actual trend from historical data
+        monthly_trend: monthlyTrend
       };
     } catch (error) {
       MyLogger.error(action, error);

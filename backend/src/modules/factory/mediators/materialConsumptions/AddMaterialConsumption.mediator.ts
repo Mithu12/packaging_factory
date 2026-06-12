@@ -170,7 +170,7 @@ export class AddMaterialConsumptionMediator {
 
       // 2. Get material info
       const materialResult = await client.query(
-        'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit FROM products WHERE id = $1',
+        'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit, cost_price FROM products WHERE id = $1',
         [data.material_id]
       );
 
@@ -180,12 +180,15 @@ export class AddMaterialConsumptionMediator {
 
       const material = materialResult.rows[0];
       const isReusable = ReusableStockService.isReusable(material);
+      const unitCost = parseFloat(material.cost_price) || 0;
+      const wastageQuantity = data.wastage_quantity && data.wastage_quantity > 0 ? data.wastage_quantity : 0;
 
       // 3. Check if there's enough reserved stock (for non-reusable items; reusable
       // items are checked against reserved_uses inside applyReusableConsumption).
-      if (!isReusable && parseFloat(material.reserved_stock || 0) < data.consumed_quantity) {
+      // Wastage draws from the same allocation, so the reservation must cover both.
+      if (!isReusable && parseFloat(material.reserved_stock || 0) < data.consumed_quantity + wastageQuantity) {
         throw createError(
-          `Insufficient reserved stock. Reserved: ${material.reserved_stock}, Requested: ${data.consumed_quantity}`,
+          `Insufficient reserved stock. Reserved: ${material.reserved_stock}, Requested: ${data.consumed_quantity + wastageQuantity} (consumption + wastage)`,
           400
         );
       }
@@ -268,13 +271,16 @@ export class AddMaterialConsumptionMediator {
         // Physical stock moves through the material's DC (primary, where raw
         // materials are received/allocated); products.current_stock follows via
         // trigger. reserved_stock (global reservation) is decremented directly.
+        // Wasted material physically leaves stock at recording time too — the
+        // approval workflow only gates the GL write-off (rejection credits the
+        // wastage back).
         const materialDc = await resolvePrimaryDistributionCenterId(client);
-        await debitLocationStock(client, parseInt(data.material_id, 10), materialDc, data.consumed_quantity, material.name);
+        await debitLocationStock(client, parseInt(data.material_id, 10), materialDc, data.consumed_quantity + wastageQuantity, material.name);
         await client.query(
           `UPDATE products
            SET reserved_stock = COALESCE(reserved_stock, 0) - $1
            WHERE id = $2`,
-          [data.consumed_quantity, data.material_id]
+          [data.consumed_quantity + wastageQuantity, data.material_id]
         );
       }
 
@@ -289,8 +295,14 @@ export class AddMaterialConsumptionMediator {
         [data.work_order_id, data.material_id]
       );
 
-      // 9. If wastage > 0, create wastage record (pending approval)
-      if (data.wastage_quantity && data.wastage_quantity > 0) {
+      // 9. If wastage > 0, create wastage record (pending approval). Reusable
+      // items deplete no physical units for wastage (v1 — mirrors the
+      // consumption amortization scope above), so their cost is prorated per
+      // use and stock_deducted stays false.
+      if (wastageQuantity > 0) {
+        const wastageCost = isReusable
+          ? (unitCost / (parseFloat(material.uses_per_unit) || 1)) * wastageQuantity
+          : unitCost * wastageQuantity;
         await client.query(
           `INSERT INTO material_wastage (
             work_order_id,
@@ -301,17 +313,19 @@ export class AddMaterialConsumptionMediator {
             cost,
             status,
             recorded_by,
-            notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+            notes,
+            stock_deducted
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9)`,
           [
             data.work_order_id,
             data.material_id,
             material.name,
-            data.wastage_quantity,
+            wastageQuantity,
             data.wastage_reason || 'Unknown',
-            parseFloat(material.current_stock) * data.wastage_quantity, // Calculate cost
+            wastageCost,
             userId,
-            data.notes
+            data.notes,
+            !isReusable
           ]
         );
       }
@@ -356,7 +370,7 @@ export class AddMaterialConsumptionMediator {
             materialId: data.material_id,
             materialName: material.name,
             quantity: costBearingQuantity,
-            cost: parseFloat(material.current_stock) * costBearingQuantity,
+            cost: unitCost * costBearingQuantity,
             productionLineId: data.production_line_id,
             costCenterId: productionLineName ? undefined : factoryInfo?.factory_cost_center_id,
             factoryId: factoryInfo?.factory_id,
@@ -464,7 +478,7 @@ export class AddMaterialConsumptionMediator {
       for (const item of consumptions) {
         // Get material info
         const materialResult = await client.query(
-          'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit FROM products WHERE id = $1',
+          'SELECT id, name, sku, current_stock, reserved_stock, uses_per_unit, cost_price FROM products WHERE id = $1',
           [item.material_id]
         );
 
@@ -474,12 +488,15 @@ export class AddMaterialConsumptionMediator {
 
         const material = materialResult.rows[0];
         const isReusable = ReusableStockService.isReusable(material);
+        const unitCost = parseFloat(material.cost_price) || 0;
+        const wastageQuantity = item.wastage_quantity && item.wastage_quantity > 0 ? item.wastage_quantity : 0;
 
         // Check if there's enough reserved stock (non-reusable only; reusable
         // items are validated inside applyReusableConsumption against reserved_uses).
-        if (!isReusable && parseFloat(material.reserved_stock || 0) < item.consumed_quantity) {
+        // Wastage draws from the same allocation, so the reservation must cover both.
+        if (!isReusable && parseFloat(material.reserved_stock || 0) < item.consumed_quantity + wastageQuantity) {
           throw createError(
-            `Insufficient reserved stock for ${material.name}. Reserved: ${material.reserved_stock}, Requested: ${item.consumed_quantity}`,
+            `Insufficient reserved stock for ${material.name}. Reserved: ${material.reserved_stock}, Requested: ${item.consumed_quantity + wastageQuantity} (consumption + wastage)`,
             400
           );
         }
@@ -549,13 +566,16 @@ export class AddMaterialConsumptionMediator {
           });
           bulkCostBearingQuantity = outcome.effectiveCostQuantity;
         } else {
+          // Wasted material physically leaves stock at recording time too — the
+          // approval workflow only gates the GL write-off (rejection credits the
+          // wastage back).
           const materialDc = await resolvePrimaryDistributionCenterId(client);
-          await debitLocationStock(client, parseInt(item.material_id, 10), materialDc, item.consumed_quantity, material.name);
+          await debitLocationStock(client, parseInt(item.material_id, 10), materialDc, item.consumed_quantity + wastageQuantity, material.name);
           await client.query(
             `UPDATE products
              SET reserved_stock = COALESCE(reserved_stock, 0) - $1
              WHERE id = $2`,
-            [item.consumed_quantity, item.material_id]
+            [item.consumed_quantity + wastageQuantity, item.material_id]
           );
         }
 
@@ -570,8 +590,14 @@ export class AddMaterialConsumptionMediator {
           [context.work_order_id, item.material_id]
         );
 
-        // If wastage > 0, create wastage record (pending approval)
-        if (item.wastage_quantity && item.wastage_quantity > 0) {
+        // If wastage > 0, create wastage record (pending approval). Reusable
+        // items deplete no physical units for wastage (v1 — mirrors the
+        // consumption amortization scope), so their cost is prorated per use
+        // and stock_deducted stays false.
+        if (wastageQuantity > 0) {
+          const wastageCost = isReusable
+            ? (unitCost / (parseFloat(material.uses_per_unit) || 1)) * wastageQuantity
+            : unitCost * wastageQuantity;
           await client.query(
             `INSERT INTO material_wastage (
               work_order_id,
@@ -582,17 +608,21 @@ export class AddMaterialConsumptionMediator {
               cost,
               status,
               recorded_by,
-              notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+              batch_number,
+              notes,
+              stock_deducted
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10)`,
             [
               context.work_order_id,
               item.material_id,
               material.name,
-              item.wastage_quantity,
+              wastageQuantity,
               item.wastage_reason || 'Unknown',
-              parseFloat(material.current_stock) * item.wastage_quantity, // Calculate cost
+              wastageCost,
               userId,
-              context.notes
+              context.batch_number || null,
+              context.notes,
+              !isReusable
             ]
           );
         }
@@ -625,7 +655,7 @@ export class AddMaterialConsumptionMediator {
               materialId: item.material_id,
               materialName: material.name,
               quantity: bulkCostBearingQuantity,
-              cost: parseFloat(material.current_stock) * bulkCostBearingQuantity,
+              cost: unitCost * bulkCostBearingQuantity,
               productionLineId: context.production_line_id,
               consumptionDate: new Date().toISOString(),
               userId
