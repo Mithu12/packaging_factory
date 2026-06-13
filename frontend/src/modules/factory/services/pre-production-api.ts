@@ -128,4 +128,38 @@ export const PRODUCTION_TYPE_LABEL: Record<PreProductionType, string> = {
   corrugation_liner: 'Corrugation — Liner',
 };
 
+export interface FinishedProductFilterResult {
+  products: PreProductionProductOption[];
+  /** True when the products are tagged with the production type's sub-category. */
+  matchesSubcategory: boolean;
+}
+
+const normalizeName = (value?: string | null) => (value ?? '').trim().toLowerCase();
+
+/**
+ * Pick the Ready Raw Materials to offer as the finished product for a
+ * production type. Prefer products tagged with the matching sub-category;
+ * otherwise fall back to products not claimed by a sibling production type
+ * (untagged or tagged with an unrelated sub-category such as
+ * "Pre-Production (Corrugation)"), and as a last resort show everything —
+ * an empty dropdown makes the form unusable.
+ */
+export function filterPreProductionFinished(
+  products: PreProductionProductOption[],
+  productionType: PreProductionType
+): FinishedProductFilterResult {
+  const wanted = normalizeName(PRODUCTION_TYPE_SUBCATEGORY[productionType]);
+  const tagged = products.filter((p) => normalizeName(p.subcategory_name) === wanted);
+  if (tagged.length > 0) return { products: tagged, matchesSubcategory: true };
+
+  const siblingTags = Object.values(PRODUCTION_TYPE_SUBCATEGORY).map(normalizeName);
+  const unclaimed = products.filter(
+    (p) => !siblingTags.includes(normalizeName(p.subcategory_name))
+  );
+  return {
+    products: unclaimed.length > 0 ? unclaimed : products,
+    matchesSubcategory: false,
+  };
+}
+
 export default PreProductionApiService;

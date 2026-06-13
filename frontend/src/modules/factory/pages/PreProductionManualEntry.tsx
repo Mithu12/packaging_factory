@@ -30,6 +30,7 @@ import {
   PRODUCTION_TYPE_SUBCATEGORY,
   PRODUCTION_TYPE_LABEL,
   CreatePreProductionEntryRequest,
+  filterPreProductionFinished,
 } from "@/modules/factory/services/pre-production-api";
 
 const PRODUCTION_TYPE_OPTIONS: { value: PreProductionType; label: string }[] = [
@@ -92,15 +93,13 @@ export default function PreProductionManualEntry() {
   });
 
   // Finished products for the chosen production type. Prefer products tagged
-  // with the matching sub-category (Printing / Media / Liner); if none are
-  // tagged yet, fall back to untagged Ready Raw Materials so the form stays
-  // usable before products are categorised.
-  const filteredFinished = useMemo(() => {
-    const wanted = PRODUCTION_TYPE_SUBCATEGORY[productionType];
-    const tagged = finishedProducts.filter((p) => p.subcategory_name === wanted);
-    if (tagged.length > 0) return tagged;
-    return finishedProducts.filter((p) => !p.subcategory_name);
-  }, [finishedProducts, productionType]);
+  // with the matching sub-category (Printing / Media / Liner); otherwise fall
+  // back so the form stays usable before products are categorised.
+  const { products: filteredFinished, matchesSubcategory: finishedHasTagged } =
+    useMemo(
+      () => filterPreProductionFinished(finishedProducts, productionType),
+      [finishedProducts, productionType]
+    );
 
   // Reset the finished selection when production type changes and the current
   // pick no longer matches the filtered list.
@@ -188,14 +187,6 @@ export default function PreProductionManualEntry() {
       </span>
     ) : undefined,
   }));
-
-  const finishedHasTagged = useMemo(
-    () =>
-      finishedProducts.some(
-        (p) => p.subcategory_name === PRODUCTION_TYPE_SUBCATEGORY[productionType]
-      ),
-    [finishedProducts, productionType]
-  );
 
   const isSaving = createMutation.isPending;
 
@@ -312,7 +303,7 @@ export default function PreProductionManualEntry() {
               <p className="text-xs text-muted-foreground">
                 {finishedHasTagged
                   ? `Showing Ready Raw Materials tagged “${PRODUCTION_TYPE_SUBCATEGORY[productionType]}”.`
-                  : `No Ready Raw Materials tagged “${PRODUCTION_TYPE_SUBCATEGORY[productionType]}” yet — showing untagged products. Set a product's sub-category to filter precisely.`}
+                  : `No Ready Raw Materials tagged “${PRODUCTION_TYPE_SUBCATEGORY[productionType]}” yet — showing all available products. Set a product's sub-category to filter precisely.`}
               </p>
             </div>
             <div className="space-y-2">
