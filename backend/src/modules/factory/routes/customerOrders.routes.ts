@@ -282,8 +282,20 @@ router.get(
     expressAsyncHandler(deliveriesController.listDeliveriesForCustomer.bind(deliveriesController))
 );
 
+// GET /api/factory/customer-orders/customers/:customerId/monthly-bill/data
+// JSON preview of the consolidated bill (challan list) for the on-screen table.
+// Registered before the PDF route so "/data" isn't swallowed by the PDF handler.
+router.get(
+    "/customers/:customerId/monthly-bill/data",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),
+    validateParams(customerIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(monthlyBillsController.getMonthlyBillData.bind(monthlyBillsController))
+);
+
 // GET /api/factory/customer-orders/customers/:customerId/monthly-bill
 // Consolidated per-customer bill covering every challan in ?from=YYYY-MM-DD&to=YYYY-MM-DD.
+// Optional ?vat=with|without splits into VAT-bearing vs without-VAT bills.
 router.get(
     "/customers/:customerId/monthly-bill",
     requirePermission(PERMISSIONS.FACTORY_ORDERS_READ),

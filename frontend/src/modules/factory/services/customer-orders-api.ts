@@ -390,6 +390,37 @@ export interface BomComponentProduct extends FactoryProduct {
     uses_per_unit?: number | null;
 }
 
+// Consolidated monthly bill (challan list) preview + VAT split.
+export type MonthlyBillVatFilter = "with" | "without";
+
+export interface MonthlyBillRow {
+    delivery_id: number;
+    delivery_number: string;
+    delivery_date: string;
+    invoice_id: number | null;
+    invoice_number: string | null;
+    vat_number: string | null;
+    po_numbers: string;
+    total_qty: number;
+    subtotal: number;
+    tax_amount: number;
+    total_amount: number;
+}
+
+export interface MonthlyBillData {
+    customer: {
+        id: number;
+        name: string;
+        company: string | null;
+        vat_number: string | null;
+        address_line: string;
+    };
+    invoice_no: string;
+    period: { from_date: string; to_date: string; generated_at: string };
+    rows: MonthlyBillRow[];
+    totals: { subtotal: number; tax_amount: number; total_amount: number; total_qty: number };
+}
+
 // Request/Response Types
 export interface CreateCustomerOrderRequest {
     factory_customer_id: number;
@@ -1112,10 +1143,13 @@ export class CustomerOrdersApiService {
     static async downloadMonthlyBill(
         customerId: string | number,
         fromDate: string,
-        toDate: string
+        toDate: string,
+        vat?: MonthlyBillVatFilter
     ): Promise<void> {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
-        const qs = new URLSearchParams({ from: fromDate, to: toDate }).toString();
+        const params: Record<string, string> = { from: fromDate, to: toDate };
+        if (vat) params.vat = vat;
+        const qs = new URLSearchParams(params).toString();
         const response = await fetch(
             `${baseUrl}/factory/customer-orders/customers/${customerId}/monthly-bill?${qs}`,
             { method: 'GET', credentials: 'include' }
@@ -1148,6 +1182,21 @@ export class CustomerOrdersApiService {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(downloadUrl);
+    }
+
+    /**
+     * Fetch the consolidated bill data as JSON (no PDF) to preview the challans
+     * in the period before downloading the VAT / without-VAT bills.
+     */
+    static async getMonthlyBillData(
+        customerId: string | number,
+        fromDate: string,
+        toDate: string
+    ): Promise<MonthlyBillData> {
+        const qs = new URLSearchParams({ from: fromDate, to: toDate }).toString();
+        return makeRequest<MonthlyBillData>(
+            `/factory/customer-orders/customers/${customerId}/monthly-bill/data?${qs}`
+        );
     }
 
     private static async _downloadDeliveryPdf(

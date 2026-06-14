@@ -9,6 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -19,11 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Loader2, Receipt } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useFormatting } from "@/hooks/useFormatting";
 import {
   CustomerOrdersApiService,
   type FactoryCustomer,
+  type MonthlyBillRow,
+  type MonthlyBillVatFilter,
 } from "../services/customer-orders-api";
 
 // First day of the current month, formatted as YYYY-MM-DD for <input type="date">.
@@ -33,11 +44,15 @@ const firstOfMonth = (): string => {
 };
 const today = (): string => new Date().toISOString().slice(0, 10);
 
+// A challan is VAT-bearing when its (return-netted) invoice carries VAT.
+const isVatRow = (r: MonthlyBillRow): boolean => r.tax_amount > 0.005;
+
 export default function MonthlyBills() {
   const [customerId, setCustomerId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>(firstOfMonth());
   const [toDate, setToDate] = useState<string>(today());
-  const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState<MonthlyBillVatFilter | null>(null);
+  const { formatCurrency, formatDate } = useFormatting();
 
   const { data: customers, isLoading: loadingCustomers } = useQuery({
     queryKey: ["factory-customers", "all"],
@@ -58,19 +73,144 @@ export default function MonthlyBills() {
   }, [customers]);
 
   const rangeInvalid = !!fromDate && !!toDate && fromDate > toDate;
-  const canSubmit = !!customerId && !!fromDate && !!toDate && !rangeInvalid && !busy;
+  const canPreview = !!customerId && !!fromDate && !!toDate && !rangeInvalid;
 
-  const handleDownload = async () => {
-    if (!canSubmit) return;
+  // Auto-load the selected company's challans for the period (view-only).
+  const {
+    data: bill,
+    isFetching: loadingBill,
+    error: billError,
+  } = useQuery({
+    queryKey: ["monthly-bill-data", customerId, fromDate, toDate],
+    queryFn: () =>
+      CustomerOrdersApiService.getMonthlyBillData(customerId, fromDate, toDate),
+    enabled: canPreview,
+  });
+
+  const vatRows = useMemo(() => (bill?.rows ?? []).filter(isVatRow), [bill]);
+  const nonVatRows = useMemo(
+    () => (bill?.rows ?? []).filter(r => !isVatRow(r)),
+    [bill]
+  );
+
+  const handleDownload = async (vat: MonthlyBillVatFilter) => {
+    if (!canPreview || downloading) return;
     try {
-      setBusy(true);
-      await CustomerOrdersApiService.downloadMonthlyBill(customerId, fromDate, toDate);
-      toast.success("Monthly bill downloaded");
+      setDownloading(vat);
+      await CustomerOrdersApiService.downloadMonthlyBill(
+        customerId,
+        fromDate,
+        toDate,
+        vat
+      );
+      toast.success(`${vat === "with" ? "VAT" : "Without-VAT"} bill downloaded`);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to download monthly bill");
+      toast.error(err?.message ?? "Failed to download bill");
     } finally {
-      setBusy(false);
+      setDownloading(null);
     }
+  };
+
+  const renderSection = (
+    title: string,
+    vat: MonthlyBillVatFilter,
+    rows: MonthlyBillRow[]
+  ) => {
+    const totals = rows.reduce(
+      (acc, r) => ({
+        qty: acc.qty + r.total_qty,
+        subtotal: acc.subtotal + r.subtotal,
+        tax: acc.tax + r.tax_amount,
+        total: acc.total + r.total_amount,
+      }),
+      { qty: 0, subtotal: 0, tax: 0, total: 0 }
+    );
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-lg">
+            {title}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              ({rows.length} challan{rows.length === 1 ? "" : "s"})
+            </span>
+          </CardTitle>
+          <Button
+            size="sm"
+            onClick={() => handleDownload(vat)}
+            disabled={rows.length === 0 || !!downloading}
+          >
+            {downloading === vat ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            Download PDF
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No {vat === "with" ? "VAT" : "without-VAT"} challans in this period.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">Sl.</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Challan No</TableHead>
+                  <TableHead>Vat No</TableHead>
+                  <TableHead>PO / Order</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Subtotal</TableHead>
+                  <TableHead className="text-right">VAT</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r, i) => (
+                  <TableRow key={r.delivery_id}>
+                    <TableCell>{i + 1}</TableCell>
+                    <TableCell>{formatDate(r.delivery_date)}</TableCell>
+                    <TableCell className="font-medium">
+                      {r.delivery_number}
+                    </TableCell>
+                    <TableCell>{r.vat_number ?? "—"}</TableCell>
+                    <TableCell>{r.po_numbers || "—"}</TableCell>
+                    <TableCell className="text-right">{r.total_qty}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(r.subtotal)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(r.tax_amount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(r.total_amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-semibold">
+                  <TableCell colSpan={5} className="text-right">
+                    Totals
+                  </TableCell>
+                  <TableCell className="text-right">{totals.qty}</TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals.subtotal)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals.tax)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals.total)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -78,8 +218,8 @@ export default function MonthlyBills() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Monthly Bills</h1>
         <p className="text-muted-foreground">
-          Consolidated bill listing every challan for a customer over a date
-          range, with payment summary.
+          Pick a company and date range to list its challans, then download
+          separate VAT and without-VAT bills.
         </p>
       </div>
 
@@ -87,9 +227,8 @@ export default function MonthlyBills() {
         <CardHeader>
           <CardTitle>Generate Bill</CardTitle>
           <CardDescription>
-            Pick a customer and date range. The PDF includes one row per challan
-            issued in the period, totals, and the customer&apos;s current
-            outstanding balance.
+            The challans of the selected company appear below, split into VAT and
+            without-VAT bills you can download separately.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -147,43 +286,39 @@ export default function MonthlyBills() {
               &quot;From&quot; date must be on or before &quot;To&quot; date.
             </p>
           )}
-
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleDownload} disabled={!canSubmit}>
-              {busy ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              Generate &amp; Download PDF
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Receipt className="h-5 w-5" />
-            About the monthly bill
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            Each row corresponds to one delivery challan and its per-delivery
-            invoice. Cancelled deliveries are excluded.
-          </p>
-          <p>
-            The payment summary shows totals received from the customer within
-            the same period plus the customer&apos;s current outstanding balance
-            across all orders.
-          </p>
-          <p>
-            This bill is informational — it does not post any ledger entry, so
-            it can be regenerated as often as needed without double-counting.
-          </p>
-        </CardContent>
-      </Card>
+      {!canPreview ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Select a company and a valid date range to list its challans.
+          </CardContent>
+        </Card>
+      ) : loadingBill ? (
+        <Card>
+          <CardContent className="py-10 flex items-center justify-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Loading challans…
+          </CardContent>
+        </Card>
+      ) : billError ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-destructive">
+            {(billError as Error)?.message ?? "Failed to load challans"}
+          </CardContent>
+        </Card>
+      ) : (bill?.rows.length ?? 0) === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            No challans found for this company in the selected period.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {renderSection("VAT Bill", "with", vatRows)}
+          {renderSection("Without-VAT Bill", "without", nonVatRows)}
+        </>
+      )}
     </div>
   );
 }

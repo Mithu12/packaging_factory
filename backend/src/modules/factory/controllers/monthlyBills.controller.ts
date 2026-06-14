@@ -18,18 +18,20 @@ class MonthlyBillsController {
       const { customerId } = req.params;
       const from = req.query.from as string | undefined;
       const to = req.query.to as string | undefined;
-      MyLogger.info(action, { customerId, from, to });
+      const vat = parseVatFilter(req.query.vat);
+      MyLogger.info(action, { customerId, from, to, vat });
 
       if (!from || !to) {
         throw createError('Both "from" and "to" date query params are required (YYYY-MM-DD)', 400);
       }
 
-      const data = await MonthlyBillMediator.getMonthlyBillData(Number(customerId), from, to);
+      const data = await MonthlyBillMediator.getMonthlyBillData(Number(customerId), from, to, vat);
 
       if (data.rows.length === 0) {
+        const scope = vat === 'with' ? ' (VAT)' : vat === 'without' ? ' (without VAT)' : '';
         res
           .status(404)
-          .json({ success: false, message: 'No challans found in the selected period', data: null });
+          .json({ success: false, message: `No challans found in the selected period${scope}`, data: null });
         return;
       }
 
@@ -40,16 +42,49 @@ class MonthlyBillsController {
       const safeName = (data.customer.company || data.customer.name || `customer-${customerId}`)
         .replace(/[^A-Za-z0-9_-]+/g, '_')
         .slice(0, 60);
-      const filename = `monthly-bill-${safeName}-${from}-to-${to}.pdf`;
+      const vatTag = vat === 'with' ? '-vat' : vat === 'without' ? '-without-vat' : '';
+      const filename = `monthly-bill${vatTag}-${safeName}-${from}-to-${to}.pdf`;
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(pdfBuffer);
+      MyLogger.success(action, { customerId, from, to, vat, rowCount: data.rows.length });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/factory/customer-orders/customers/:customerId/monthly-bill/data
+   *   ?from=YYYY-MM-DD&to=YYYY-MM-DD
+   *
+   * Returns the consolidated bill data as JSON (no PDF) so the UI can preview
+   * the challans in the period before downloading the VAT / without-VAT bills.
+   */
+  async getMonthlyBillData(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'GET /api/factory/customer-orders/customers/:customerId/monthly-bill/data';
+      const { customerId } = req.params;
+      const from = req.query.from as string | undefined;
+      const to = req.query.to as string | undefined;
+      MyLogger.info(action, { customerId, from, to });
+
+      if (!from || !to) {
+        throw createError('Both "from" and "to" date query params are required (YYYY-MM-DD)', 400);
+      }
+
+      const data = await MonthlyBillMediator.getMonthlyBillData(Number(customerId), from, to);
+      res.json({ success: true, data });
       MyLogger.success(action, { customerId, from, to, rowCount: data.rows.length });
     } catch (error) {
       next(error);
     }
   }
+}
+
+// Accept only the two supported split values; anything else means "all".
+function parseVatFilter(raw: unknown): 'with' | 'without' | undefined {
+  return raw === 'with' || raw === 'without' ? raw : undefined;
 }
 
 export const monthlyBillsController = new MonthlyBillsController();

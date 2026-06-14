@@ -39,20 +39,28 @@ export interface MonthlyBillData {
   outstanding_now: number;
 }
 
+// VAT-bearing vs without-VAT split for separate bills. Classification is by the
+// (return-netted) invoice VAT amount on each challan row.
+export type MonthlyBillVatFilter = 'with' | 'without';
+
 export class MonthlyBillMediator {
   /**
    * Build the read-only data set for a per-customer, per-period bill.
    * Aggregates challans (deliveries) + their per-delivery invoices in the
    * given date range. No persistence: callers turn this into a PDF.
+   *
+   * When `vatFilter` is given, rows are split into VAT-bearing (tax > 0) or
+   * without-VAT (tax = 0) so the two can be billed separately.
    */
   static async getMonthlyBillData(
     customerId: number | string,
     fromDate: string,
     toDate: string,
+    vatFilter?: MonthlyBillVatFilter,
   ): Promise<MonthlyBillData> {
     const action = 'MonthlyBillMediator.getMonthlyBillData';
     try {
-      MyLogger.info(action, { customerId, fromDate, toDate });
+      MyLogger.info(action, { customerId, fromDate, toDate, vatFilter });
 
       const customerRes = await pool.query(
         `SELECT id, name, company, vat_number, address, total_outstanding_amount
@@ -116,7 +124,7 @@ export class MonthlyBillMediator {
         [customerId, fromDate, toDate],
       );
 
-      const rows: MonthlyBillRow[] = rowsRes.rows
+      let rows: MonthlyBillRow[] = rowsRes.rows
         .map(r => {
           // Net approved returns out of the billed figures. The returned value is
           // pre-tax; VAT is removed proportionally at the invoice's tax_rate.
@@ -148,6 +156,10 @@ export class MonthlyBillMediator {
         // Drop fully-returned challans: nothing left to bill.
         .filter(row => row.total_qty > 1e-9 || row.total_amount > 0.005);
 
+      // Split into VAT-bearing vs without-VAT challans for separate bills.
+      if (vatFilter === 'with') rows = rows.filter(row => row.tax_amount > 0.005);
+      else if (vatFilter === 'without') rows = rows.filter(row => row.tax_amount <= 0.005);
+
       const totals = rows.reduce(
         (acc, row) => ({
           subtotal: +(acc.subtotal + row.subtotal).toFixed(2),
@@ -171,7 +183,9 @@ export class MonthlyBillMediator {
 
       // Derive a stable invoice number from the bill period + customer:
       // INV-YYYYMM-<4-digit customer id> (period month taken from the end date).
-      const invoiceNo = `INV-${toDate.slice(0, 7).replace('-', '')}-${String(c.id).padStart(4, '0')}`;
+      // A -V / -NV suffix keeps the VAT and without-VAT bills distinct.
+      const vatSuffix = vatFilter === 'with' ? '-V' : vatFilter === 'without' ? '-NV' : '';
+      const invoiceNo = `INV-${toDate.slice(0, 7).replace('-', '')}-${String(c.id).padStart(4, '0')}${vatSuffix}`;
 
       return {
         customer: {
