@@ -1710,10 +1710,10 @@ export class PDFGenerator {
           <td class="col-sn">${String(index + 1).padStart(2, '0')}</td>
           <td class="col-particulars">
             ${masterCartonHeading}
-            ${subLabelLine}
             <div class="item-name">${escapeHtml(item.product_name || '')}</div>
             ${plyLine}
             ${descLines}
+            ${subLabelLine}
           </td>
           <td class="col-code">${escapeHtml(item.item_code || '')}</td>
           <td class="col-qty">${formatQty(item.quantity)} Pcs.</td>
