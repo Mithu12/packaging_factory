@@ -43,9 +43,9 @@ export default function VatRegister() {
     { value: ALL_CUSTOMERS, label: "All Customers" },
     ...(customers ?? []).map((c) => ({
       value: String(c.id),
-      label: c.name,
-      keywords: c.company ?? "",
-      hint: c.company,
+      label: c.company ?? c.name,
+      keywords: c.name,
+      hint: c.company ? c.name : undefined,
     })),
   ];
 
@@ -163,7 +163,7 @@ export default function VatRegister() {
                       <TableRow key={`vat-${idx}`}>
                         <TableCell>{formatDate(e.date)}</TableCell>
                         <TableCell className="font-medium">{e.invoice_number}</TableCell>
-                        <TableCell>{e.customer_name}</TableCell>
+                        <TableCell>{e.customer_company ?? e.customer_name}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {e.vat_number ?? "—"}
                         </TableCell>

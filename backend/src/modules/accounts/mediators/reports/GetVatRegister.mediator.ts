@@ -11,6 +11,7 @@ interface VatEntry {
   date: string;
   invoice_number: string;
   customer_name: string;
+  customer_company: string | null;
   vat_number: string | null;
   subtotal: number;
   vat_rate: number;
@@ -57,6 +58,7 @@ export class GetVatRegisterMediator {
         invoice_date: Date;
         invoice_number: string;
         customer_name: string;
+        customer_company: string | null;
         vat_number: string | null;
         subtotal: string;
         tax_rate: string;
@@ -65,6 +67,7 @@ export class GetVatRegisterMediator {
         `SELECT si.invoice_date,
                 si.invoice_number,
                 fc.name AS customer_name,
+                fc.company AS customer_company,
                 fc.vat_number,
                 si.subtotal,
                 si.tax_rate,
@@ -80,6 +83,7 @@ export class GetVatRegisterMediator {
         date: r.invoice_date.toISOString().split('T')[0],
         invoice_number: r.invoice_number,
         customer_name: r.customer_name,
+        customer_company: r.customer_company,
         vat_number: r.vat_number,
         subtotal: parseFloat(r.subtotal ?? '0'),
         vat_rate: parseFloat(r.tax_rate ?? '0'),

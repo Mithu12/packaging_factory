@@ -7,6 +7,7 @@ interface DeliveryRow {
   delivery_number: string;
   factory_customer_id: string;
   factory_customer_name: string | null;
+  factory_customer_company: string | null;
   customer_order_id: string | null;
   order_number: string | null;
   invoice_id: string | null;
@@ -47,7 +48,7 @@ interface DeliveryItemRow {
 
 const SELECT_DELIVERY = `
   SELECT d.id, d.delivery_number,
-         d.factory_customer_id, fc.name AS factory_customer_name,
+         d.factory_customer_id, fc.name AS factory_customer_name, fc.company AS factory_customer_company,
          d.customer_order_id, co.order_number,
          d.invoice_id, inv.invoice_number,
          d.delivery_date, d.tracking_number, d.carrier, d.estimated_delivery_date,
@@ -319,6 +320,7 @@ export class GetDeliveriesMediator {
       delivery_number: row.delivery_number,
       factory_customer_id: Number(row.factory_customer_id),
       factory_customer_name: row.factory_customer_name ?? undefined,
+      factory_customer_company: row.factory_customer_company ?? undefined,
       customer_order_id: row.customer_order_id ? Number(row.customer_order_id) : undefined,
       customer_order_number: row.order_number ?? undefined,
       touched_orders: touchedOrders,

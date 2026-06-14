@@ -157,6 +157,7 @@ export interface Delivery {
     /** Authoritative scope: customer this delivery is for (V145+). */
     factory_customer_id: number;
     factory_customer_name?: string;
+    factory_customer_company?: string;
     /** Primary/opened-from order — optional for customer-level deliveries (V145+). */
     customer_order_id?: number;
     customer_order_number?: string;
@@ -259,6 +260,7 @@ export interface DeliveryReturn {
     delivery_number?: string;
     factory_customer_id: number;
     factory_customer_name?: string;
+    factory_customer_company?: string;
     customer_order_id?: number;
     distribution_center_id?: number;
     return_date: string;

@@ -9,6 +9,7 @@ interface ReturnRow {
   delivery_number: string | null;
   factory_customer_id: string;
   factory_customer_name: string | null;
+  factory_customer_company: string | null;
   customer_order_id: string | null;
   distribution_center_id: string | null;
   return_date: string | Date;
@@ -44,7 +45,7 @@ interface ReturnItemRow {
 
 const SELECT_RETURN = `
   SELECT r.id, r.return_number, r.delivery_id, d.delivery_number,
-         r.factory_customer_id, fc.name AS factory_customer_name,
+         r.factory_customer_id, fc.name AS factory_customer_name, fc.company AS factory_customer_company,
          r.customer_order_id, r.distribution_center_id, r.return_date, r.return_reason, r.status,
          r.total_return_value, r.currency, r.reversal_voucher_id, r.credit_note_voucher_id,
          r.accounting_integrated, r.created_by, r.approved_by, r.approved_at, r.notes,
@@ -143,6 +144,7 @@ export class GetDeliveryReturnsMediator {
       delivery_number: row.delivery_number ?? undefined,
       factory_customer_id: Number(row.factory_customer_id),
       factory_customer_name: row.factory_customer_name ?? undefined,
+      factory_customer_company: row.factory_customer_company ?? undefined,
       customer_order_id: row.customer_order_id != null ? Number(row.customer_order_id) : undefined,
       distribution_center_id: row.distribution_center_id != null ? Number(row.distribution_center_id) : undefined,
       return_date: String(row.return_date),

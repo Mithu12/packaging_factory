@@ -193,7 +193,7 @@ export default function DeliveryReturns() {
                       <TableCell className="font-medium">{r.return_number}</TableCell>
                       <TableCell>{formatDate(r.return_date)}</TableCell>
                       <TableCell>{r.delivery_number ?? r.delivery_id}</TableCell>
-                      <TableCell>{r.factory_customer_name ?? "—"}</TableCell>
+                      <TableCell>{r.factory_customer_company ?? r.factory_customer_name ?? "—"}</TableCell>
                       <TableCell className="capitalize">{r.return_reason.replace(/_/g, " ")}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(r.total_return_value)}</TableCell>
                       <TableCell>{getStatusBadge(r.status)}</TableCell>
@@ -365,7 +365,7 @@ function NewReturnDialog({
                     .filter((d) => d.delivery_status !== "cancelled")
                     .map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
-                        {d.delivery_number} — {d.factory_customer_name ?? "—"}
+                        {d.delivery_number} — {d.factory_customer_company ?? d.factory_customer_name ?? "—"}
                       </SelectItem>
                     ))}
                 </SelectContent>

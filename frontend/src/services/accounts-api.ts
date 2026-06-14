@@ -900,6 +900,7 @@ export interface VatRegisterEntry {
   date: string;
   invoice_number: string;
   customer_name: string;
+  customer_company: string | null;
   vat_number: string | null;
   subtotal: number;
   vat_rate: number;
