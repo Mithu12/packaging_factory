@@ -2464,7 +2464,7 @@ export class PDFGenerator {
         <td class="col-sn">${i + 1}</td>
         <td class="col-date">${escapeHtml(formatDate(r.delivery_date))}</td>
         <td class="col-challan">${escapeHtml(r.delivery_number)}</td>
-        <td class="col-invoice">${escapeHtml(r.invoice_number ?? '—')}</td>
+        <td class="col-vatno">${escapeHtml(r.vat_number ?? '—')}</td>
         <td class="col-po">${escapeHtml(r.po_numbers || '—')}</td>
         <td class="col-qty">${formatQty(r.total_qty)}</td>
         <td class="col-amount">${formatCurrency(r.subtotal)}</td>
@@ -2529,45 +2529,42 @@ export class PDFGenerator {
             vertical-align: top;
         }
         table.rows th { text-align: center; font-weight: bold; background: #fff; }
-        .col-sn { width: 4%; text-align: center; }
-        .col-date { width: 9%; text-align: center; }
-        .col-challan { width: 13%; }
-        .col-invoice { width: 13%; }
+        .col-sn { width: 5%; text-align: center; }
+        .col-date { width: 10%; text-align: center; }
+        .col-challan { width: 14%; }
+        .col-vatno { width: 13%; }
         .col-po { width: 16%; }
         .col-qty { width: 8%; text-align: center; }
-        .col-amount { width: 12%; text-align: right; }
+        .col-amount { width: 11.33%; text-align: right; }
 
         .totals-row td { font-weight: bold; }
         .totals-row td.label { text-align: right; }
 
         .in-words { margin-top: 16px; font-weight: bold; }
-        .payment-summary {
-            margin-top: 16px;
-            border: 1px solid #000;
-            padding: 10px 12px;
+        .signatures { margin-top: 60px; display: flex; justify-content: space-between; }
+        .sign-col { flex: 1; text-align: center; font-size: 10.5pt; }
+        .sign-line {
+            border-top: 1px solid #000;
+            width: 70%;
+            margin: 0 auto 4px auto;
+            height: 0;
         }
-        .payment-summary .heading { font-weight: bold; margin-bottom: 6px; }
-        .payment-summary .ps-line { display: flex; justify-content: space-between; margin-bottom: 3px; }
     </style>
 </head>
 <body>
     ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="page">
-        <div class="title">MONTHLY BILL</div>
+        <div class="title">Invoice</div>
 
         <div class="header-row">
             <div class="box customer">
                 <div class="heading">Customer</div>
                 <div class="kv-line"><span class="label">Company Name</span> :- ${escapeHtml(data.customer.company || data.customer.name)}</div>
                 <div class="kv-line"><span class="label">Billing Address</span> :- ${escapeHtml(data.customer.address_line)}</div>
-                <div class="kv-line"><span class="label">VAT No</span> :- ${escapeHtml(data.customer.vat_number || '')}</div>
             </div>
             <div class="box period">
-                <div class="heading">Period</div>
-                <div class="kv-line"><span class="k label">From</span> :- ${escapeHtml(formatDate(data.period.from_date))}</div>
-                <div class="kv-line"><span class="k label">To</span> :- ${escapeHtml(formatDate(data.period.to_date))}</div>
-                <div class="kv-line"><span class="k label">Generated</span> :- ${escapeHtml(formatDate(data.period.generated_at))}</div>
-                <div class="kv-line"><span class="k label">Challans</span> :- ${data.rows.length}</div>
+                <div class="kv-line"><span class="k label">Invoice No</span> :- ${escapeHtml(data.invoice_no)}</div>
+                <div class="kv-line"><span class="k label">Invoice Date</span> :- ${escapeHtml(formatDate(data.period.generated_at))}</div>
             </div>
         </div>
 
@@ -2577,7 +2574,7 @@ export class PDFGenerator {
                     <th class="col-sn">Sl.</th>
                     <th class="col-date">Date</th>
                     <th class="col-challan">Challan No</th>
-                    <th class="col-invoice">Invoice No</th>
+                    <th class="col-vatno">Vat No</th>
                     <th class="col-po">PO / Order</th>
                     <th class="col-qty">Qty</th>
                     <th class="col-amount">Subtotal</th>
@@ -2599,12 +2596,19 @@ export class PDFGenerator {
 
         <div class="in-words">Amount In Words: ${escapeHtml(amountInWords)} Only</div>
 
-        <div class="payment-summary">
-            <div class="heading">Payment Summary</div>
-            <div class="ps-line"><span>Billed in period</span><span>${formatCurrency(data.totals.total_amount)}</span></div>
-            <div class="ps-line"><span>Received in period${data.payments.payment_count ? ` (${data.payments.payment_count} payment${data.payments.payment_count === 1 ? '' : 's'})` : ''}</span><span>${formatCurrency(data.payments.paid_in_period)}</span></div>
-            ${data.payments.last_payment_date ? `<div class="ps-line"><span>Last payment date</span><span>${escapeHtml(formatDate(data.payments.last_payment_date))}</span></div>` : ''}
-            <div class="ps-line"><span><strong>Outstanding (current, all orders)</strong></span><span><strong>${formatCurrency(data.outstanding_now)}</strong></span></div>
+        <div class="signatures">
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Received by
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Manager
+            </div>
+            <div class="sign-col">
+                <div class="sign-line"></div>
+                Authorized Signature
+            </div>
         </div>
     </div>
 </body>

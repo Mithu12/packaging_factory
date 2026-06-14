@@ -16,6 +16,7 @@ export interface MonthlyBillRow {
   delivery_date: string;
   invoice_id: number | null;
   invoice_number: string | null;
+  vat_number: string | null;
   po_numbers: string;
   total_qty: number;
   subtotal: number;
@@ -28,6 +29,9 @@ export interface MonthlyBillRow {
 
 export interface MonthlyBillData {
   customer: MonthlyBillCustomer;
+  // Document-level invoice number for the consolidated bill (this doc aggregates
+  // many per-delivery invoices, so it carries its own derived number).
+  invoice_no: string;
   period: { from_date: string; to_date: string; generated_at: string };
   rows: MonthlyBillRow[];
   totals: { subtotal: number; tax_amount: number; total_amount: number; total_qty: number };
@@ -75,6 +79,7 @@ export class MonthlyBillMediator {
         `SELECT d.id                                              AS delivery_id,
                 d.delivery_number,
                 d.delivery_date,
+                d.vat_number,
                 inv.id                                            AS invoice_id,
                 inv.invoice_number,
                 inv.subtotal,
@@ -106,6 +111,7 @@ export class MonthlyBillMediator {
         delivery_date: r.delivery_date,
         invoice_id: r.invoice_id != null ? Number(r.invoice_id) : null,
         invoice_number: r.invoice_number,
+        vat_number: r.vat_number ?? null,
         po_numbers: r.po_numbers || '',
         total_qty: Number(r.total_qty || 0),
         subtotal: r.subtotal != null ? parseFloat(r.subtotal) : 0,
@@ -137,6 +143,10 @@ export class MonthlyBillMediator {
       );
       const p = paymentsRes.rows[0];
 
+      // Derive a stable invoice number from the bill period + customer:
+      // INV-YYYYMM-<4-digit customer id> (period month taken from the end date).
+      const invoiceNo = `INV-${toDate.slice(0, 7).replace('-', '')}-${String(c.id).padStart(4, '0')}`;
+
       return {
         customer: {
           id: Number(c.id),
@@ -145,6 +155,7 @@ export class MonthlyBillMediator {
           vat_number: c.vat_number ?? null,
           address_line: addressLine,
         },
+        invoice_no: invoiceNo,
         period: { from_date: fromDate, to_date: toDate, generated_at: new Date().toISOString() },
         rows,
         totals,
