@@ -85,12 +85,23 @@ export class MonthlyBillMediator {
                 inv.subtotal,
                 inv.tax_amount,
                 inv.total_amount,
+                inv.tax_rate,
                 inv.paid_amount,
                 inv.outstanding_amount,
                 inv.status,
                 (SELECT COALESCE(SUM(di.quantity), 0)
                    FROM factory_customer_order_delivery_items di
                   WHERE di.delivery_id = d.id)                    AS total_qty,
+                -- Approved returns against this challan (partial or full). The
+                -- returned goods value is pre-tax (unit_price * qty); VAT is
+                -- netted proportionally at the invoice tax_rate below.
+                (SELECT COALESCE(SUM(dr.total_return_value), 0)
+                   FROM factory_delivery_returns dr
+                  WHERE dr.delivery_id = d.id AND dr.status = 'approved') AS returned_subtotal,
+                (SELECT COALESCE(SUM(ri.returned_quantity), 0)
+                   FROM factory_delivery_returns dr
+                   JOIN factory_delivery_return_items ri ON ri.return_id = dr.id
+                  WHERE dr.delivery_id = d.id AND dr.status = 'approved') AS returned_qty,
                 (SELECT COALESCE(string_agg(DISTINCT co.po_number, ', '), '')
                    FROM factory_customer_order_delivery_items di
                    JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
@@ -105,22 +116,37 @@ export class MonthlyBillMediator {
         [customerId, fromDate, toDate],
       );
 
-      const rows: MonthlyBillRow[] = rowsRes.rows.map(r => ({
-        delivery_id: Number(r.delivery_id),
-        delivery_number: r.delivery_number,
-        delivery_date: r.delivery_date,
-        invoice_id: r.invoice_id != null ? Number(r.invoice_id) : null,
-        invoice_number: r.invoice_number,
-        vat_number: r.vat_number ?? null,
-        po_numbers: r.po_numbers || '',
-        total_qty: Number(r.total_qty || 0),
-        subtotal: r.subtotal != null ? parseFloat(r.subtotal) : 0,
-        tax_amount: r.tax_amount != null ? parseFloat(r.tax_amount) : 0,
-        total_amount: r.total_amount != null ? parseFloat(r.total_amount) : 0,
-        paid_amount: r.paid_amount != null ? parseFloat(r.paid_amount) : 0,
-        outstanding_amount: r.outstanding_amount != null ? parseFloat(r.outstanding_amount) : 0,
-        status: r.status ?? null,
-      }));
+      const rows: MonthlyBillRow[] = rowsRes.rows
+        .map(r => {
+          // Net approved returns out of the billed figures. The returned value is
+          // pre-tax; VAT is removed proportionally at the invoice's tax_rate.
+          const subtotal = r.subtotal != null ? parseFloat(r.subtotal) : 0;
+          const taxAmount = r.tax_amount != null ? parseFloat(r.tax_amount) : 0;
+          const totalAmount = r.total_amount != null ? parseFloat(r.total_amount) : 0;
+          const taxRate = r.tax_rate != null ? parseFloat(r.tax_rate) : 0;
+          const returnedSubtotal = parseFloat(r.returned_subtotal ?? '0') || 0;
+          const returnedQty = parseFloat(r.returned_qty ?? '0') || 0;
+          const returnedTax = +(returnedSubtotal * (taxRate / 100)).toFixed(2);
+
+          return {
+            delivery_id: Number(r.delivery_id),
+            delivery_number: r.delivery_number,
+            delivery_date: r.delivery_date,
+            invoice_id: r.invoice_id != null ? Number(r.invoice_id) : null,
+            invoice_number: r.invoice_number,
+            vat_number: r.vat_number ?? null,
+            po_numbers: r.po_numbers || '',
+            total_qty: Math.max(0, Number(r.total_qty || 0) - returnedQty),
+            subtotal: Math.max(0, +(subtotal - returnedSubtotal).toFixed(2)),
+            tax_amount: Math.max(0, +(taxAmount - returnedTax).toFixed(2)),
+            total_amount: Math.max(0, +(totalAmount - returnedSubtotal - returnedTax).toFixed(2)),
+            paid_amount: r.paid_amount != null ? parseFloat(r.paid_amount) : 0,
+            outstanding_amount: r.outstanding_amount != null ? parseFloat(r.outstanding_amount) : 0,
+            status: r.status ?? null,
+          };
+        })
+        // Drop fully-returned challans: nothing left to bill.
+        .filter(row => row.total_qty > 1e-9 || row.total_amount > 0.005);
 
       const totals = rows.reduce(
         (acc, row) => ({

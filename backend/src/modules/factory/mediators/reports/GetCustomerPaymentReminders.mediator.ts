@@ -104,22 +104,42 @@ export class GetCustomerPaymentRemindersMediator {
         }
 
         const sql = `
-            WITH invoice_agg AS (
+            WITH inv_net AS (
+                -- Net approved returns out of each invoice's outstanding balance.
+                -- The returned value is pre-tax; VAT is removed proportionally at
+                -- the invoice tax_rate so a fully-returned challan nets to zero.
                 SELECT
                     si.factory_customer_id,
-                    SUM(si.outstanding_amount) FILTER (WHERE CURRENT_DATE - si.due_date <= 0)                  AS not_yet_due,
-                    SUM(si.outstanding_amount) FILTER (WHERE CURRENT_DATE - si.due_date BETWEEN 1  AND 30)     AS bucket_0_30,
-                    SUM(si.outstanding_amount) FILTER (WHERE CURRENT_DATE - si.due_date BETWEEN 31 AND 60)     AS bucket_31_60,
-                    SUM(si.outstanding_amount) FILTER (WHERE CURRENT_DATE - si.due_date BETWEEN 61 AND 90)     AS bucket_61_90,
-                    SUM(si.outstanding_amount) FILTER (WHERE CURRENT_DATE - si.due_date > 90)                  AS bucket_90_plus,
-                    MAX(CURRENT_DATE - si.due_date)                                                            AS max_days_overdue,
-                    COUNT(*)                                                                                    AS open_invoice_count,
-                    SUM(si.outstanding_amount)                                                                 AS invoiced_outstanding
+                    si.due_date,
+                    GREATEST(
+                        0,
+                        si.outstanding_amount
+                          - COALESCE((
+                              SELECT SUM(dr.total_return_value)
+                                FROM factory_customer_order_deliveries d
+                                JOIN factory_delivery_returns dr ON dr.delivery_id = d.id
+                               WHERE d.invoice_id = si.id AND dr.status = 'approved'
+                            ), 0) * (1 + COALESCE(si.tax_rate, 0) / 100.0)
+                    ) AS net_outstanding
                 FROM factory_sales_invoices si
                 WHERE si.status <> 'cancelled'
                   AND si.outstanding_amount > 0
                   ${factoryClause}
-                GROUP BY si.factory_customer_id
+            ),
+            invoice_agg AS (
+                SELECT
+                    factory_customer_id,
+                    SUM(net_outstanding) FILTER (WHERE CURRENT_DATE - due_date <= 0)              AS not_yet_due,
+                    SUM(net_outstanding) FILTER (WHERE CURRENT_DATE - due_date BETWEEN 1  AND 30) AS bucket_0_30,
+                    SUM(net_outstanding) FILTER (WHERE CURRENT_DATE - due_date BETWEEN 31 AND 60) AS bucket_31_60,
+                    SUM(net_outstanding) FILTER (WHERE CURRENT_DATE - due_date BETWEEN 61 AND 90) AS bucket_61_90,
+                    SUM(net_outstanding) FILTER (WHERE CURRENT_DATE - due_date > 90)              AS bucket_90_plus,
+                    MAX(CURRENT_DATE - due_date)                                                  AS max_days_overdue,
+                    COUNT(*)                                                                      AS open_invoice_count,
+                    SUM(net_outstanding)                                                          AS invoiced_outstanding
+                FROM inv_net
+                WHERE net_outstanding > 0
+                GROUP BY factory_customer_id
             ),
             latest_currency AS (
                 SELECT DISTINCT ON (co.factory_customer_id)
@@ -224,8 +244,14 @@ export class GetCustomerPaymentRemindersMediator {
 
         const invoicesRes = await pool.query(
             `SELECT si.id, si.invoice_number, si.invoice_date, si.due_date,
-                    si.total_amount, si.paid_amount, si.outstanding_amount, si.status,
-                    GREATEST(0, (CURRENT_DATE - si.due_date)::int) AS days_overdue
+                    si.total_amount, si.paid_amount, si.outstanding_amount, si.status, si.tax_rate,
+                    GREATEST(0, (CURRENT_DATE - si.due_date)::int) AS days_overdue,
+                    COALESCE((
+                        SELECT SUM(dr.total_return_value)
+                          FROM factory_customer_order_deliveries d
+                          JOIN factory_delivery_returns dr ON dr.delivery_id = d.id
+                         WHERE d.invoice_id = si.id AND dr.status = 'approved'
+                    ), 0) AS returned_subtotal
              FROM factory_sales_invoices si
              WHERE si.factory_customer_id = $1
                AND si.status <> 'cancelled'
@@ -235,17 +261,27 @@ export class GetCustomerPaymentRemindersMediator {
             invoiceParams
         );
 
-        const invoices: CustomerPaymentReminderInvoice[] = invoicesRes.rows.map((r: any) => ({
-            invoice_id: String(r.id),
-            invoice_number: r.invoice_number,
-            invoice_date: typeof r.invoice_date === "string" ? r.invoice_date : r.invoice_date.toISOString().slice(0, 10),
-            due_date: typeof r.due_date === "string" ? r.due_date : r.due_date.toISOString().slice(0, 10),
-            total_amount: Number(r.total_amount) || 0,
-            paid_amount: Number(r.paid_amount) || 0,
-            outstanding_amount: Number(r.outstanding_amount) || 0,
-            status: r.status,
-            days_overdue: Number(r.days_overdue) || 0,
-        }));
+        const invoices: CustomerPaymentReminderInvoice[] = invoicesRes.rows
+            .map((r: any) => {
+                // Net approved returns (pre-tax value + proportional VAT) out of the
+                // billed total and balance. A fully-returned challan nets to zero.
+                const taxRate = Number(r.tax_rate) || 0;
+                const returnedTotal = (Number(r.returned_subtotal) || 0) * (1 + taxRate / 100);
+                const total = Math.max(0, (Number(r.total_amount) || 0) - returnedTotal);
+                const outstanding = Math.max(0, (Number(r.outstanding_amount) || 0) - returnedTotal);
+                return {
+                    invoice_id: String(r.id),
+                    invoice_number: r.invoice_number,
+                    invoice_date: typeof r.invoice_date === "string" ? r.invoice_date : r.invoice_date.toISOString().slice(0, 10),
+                    due_date: typeof r.due_date === "string" ? r.due_date : r.due_date.toISOString().slice(0, 10),
+                    total_amount: +total.toFixed(2),
+                    paid_amount: Number(r.paid_amount) || 0,
+                    outstanding_amount: +outstanding.toFixed(2),
+                    status: r.status,
+                    days_overdue: Number(r.days_overdue) || 0,
+                };
+            })
+            .filter(inv => inv.outstanding_amount > 0.005);
 
         const aging = invoices.reduce(
             (acc, inv) => {
