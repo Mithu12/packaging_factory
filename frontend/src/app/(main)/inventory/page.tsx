@@ -11,7 +11,6 @@ import { useClientPagination } from "@/hooks/usePagination";
 import {
   Plus,
   Search,
-  Filter,
   MoreHorizontal,
   Warehouse,
   AlertTriangle,
@@ -19,6 +18,7 @@ import {
   Package,
   BarChart3,
   Loader2,
+  Printer,
 } from "lucide-react";
 import {
   Table,
@@ -45,6 +45,7 @@ import {
 } from "@/modules/inventory/services/distribution-api";
 import { InventoryStats, StockMovement } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
+import { printHtml, escapeHtml } from "@/utils/export-print";
 
 export default function Inventory() {
   const router = useRouter();
@@ -131,6 +132,55 @@ export default function Inventory() {
   const inventoryPagination = useClientPagination(filteredItems, {
     initialPageSize: 15,
   });
+
+  // Print the current (search/DC/status-filtered) stock levels via a clean
+  // print window. Prints every matching row, not just the current page.
+  const handlePrintInventory = () => {
+    const rows = filteredItems
+      .map((item, i) => {
+        const available = item.available_stock ?? item.current_stock;
+        const value = (item.current_stock || 0) * (item.cost_price || 0);
+        const location = [item.center_name || "Main Warehouse", item.location_in_warehouse]
+          .filter(Boolean)
+          .join(" — ");
+        return `<tr>
+          <td class="num">${i + 1}</td>
+          <td>${escapeHtml(item.product_name)} <span style="color:#666">(${escapeHtml(item.product_sku)})</span></td>
+          <td>${escapeHtml(location)}</td>
+          <td class="num">${escapeHtml(item.current_stock)}</td>
+          <td class="num">${escapeHtml(available)}</td>
+          <td class="num">${escapeHtml(item.min_stock_level)}</td>
+          <td class="num">${escapeHtml(formatCurrency(item.cost_price || 0))}</td>
+          <td class="num">${escapeHtml(formatCurrency(value))}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const body = `
+      <h1>Inventory — Current Stock Levels</h1>
+      <div class="meta">Generated ${new Date().toLocaleString()} • ${filteredItems.length} item(s)</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Product</th>
+            <th>Location</th>
+            <th class="num">Stock</th>
+            <th class="num">Available</th>
+            <th class="num">Min</th>
+            <th class="num">Cost / Unit</th>
+            <th class="num">Value</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    if (!printHtml("Inventory — Current Stock Levels", body)) {
+      toast.error("Could not open print window", {
+        description: "Allow pop-ups for this site and try again.",
+      });
+    }
+  };
 
   const getStockStatus = (current: number, min: number, max?: number) => {
     if (current <= min * 0.5)
@@ -352,8 +402,13 @@ export default function Inventory() {
                     <option value="low_stock">Low Stock</option>
                     <option value="out_of_stock">Out of Stock</option>
                   </select>
-                  <Button variant="outline" size="icon">
-                    <Filter className="h-4 w-4" />
+                  <Button
+                    variant="outline"
+                    onClick={handlePrintInventory}
+                    disabled={filteredItems.length === 0}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
                   </Button>
                 </div>
               </div>

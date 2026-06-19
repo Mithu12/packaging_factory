@@ -361,12 +361,13 @@ const menuSections: MenuSection[] = [
             icon: Package,
             permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
           },
-          {
-            title: "Pre-Production (RRM)",
-            url: "/factory/work-orders/pre-production",
-            icon: Wrench,
-            permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
-          },
+          // Hidden — Pre-Production (RRM) is not in use; keep for future re-enable.
+          // {
+          //   title: "Pre-Production (RRM)",
+          //   url: "/factory/work-orders/pre-production",
+          //   icon: Wrench,
+          //   permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+          // },
           {
             title: "Manual Pre-Production",
             url: "/factory/work-orders/manual-pre-production",

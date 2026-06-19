@@ -7,23 +7,23 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { DataTablePagination } from "@/components/DataTablePagination"
-import { useClientPagination } from "@/hooks/usePagination"
 import { CreatePurchaseOrderForm } from "@/modules/inventory/components/forms/CreatePurchaseOrderForm"
 import { toast } from "@/components/ui/sonner"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
-import { PurchaseOrder, PurchaseOrderStats } from "@/services/types"
+import { PurchaseOrder, PurchaseOrderStats, PurchaseOrderQueryParams } from "@/services/types"
 import { useFormatting } from "@/hooks/useFormatting"
 import { useAuth } from "@/contexts/AuthContext"
+import { printHtml, escapeHtml } from "@/utils/export-print"
 import {
-  Plus, 
-  Search, 
-  Filter, 
+  Plus,
+  Search,
   MoreHorizontal,
   FileText,
   Calendar,
   CheckCircle2,
   Send,
-  Clock
+  Clock,
+  Printer
 } from "lucide-react"
 import {
   Table,
@@ -47,30 +47,68 @@ export default function PurchaseOrders() {
   const { formatCurrency, formatDate } = useFormatting()
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [stats, setStats] = useState<PurchaseOrderStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [printing, setPrinting] = useState(false)
 
-  // Fetch purchase orders and stats
+  // Server-side pagination state.
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+
+  // Build the backend filter params from the active search + status. Search is
+  // matched server-side across ALL purchase orders, not just the current page.
+  const buildFilterParams = (): PurchaseOrderQueryParams => ({
+    search: debouncedSearch || undefined,
+    status:
+      statusFilter !== "all"
+        ? (statusFilter as PurchaseOrderQueryParams["status"])
+        : undefined,
+  })
+
+  // Debounce the search box so typing doesn't fire a request per keystroke.
   useEffect(() => {
-    fetchData()
+    const t = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchTerm])
+
+  // Any filter change returns to the first page.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, statusFilter, pageSize])
+
+  // Stats are filter-independent — load once.
+  useEffect(() => {
+    PurchaseOrderApi.getPurchaseOrderStats()
+      .then(setStats)
+      .catch(err => console.error('Error fetching purchase order stats:', err))
   }, [])
 
-  const fetchData = async () => {
+  // Refetch the current page whenever filters or paging change.
+  useEffect(() => {
+    fetchOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, statusFilter, page, pageSize])
+
+  const fetchOrders = async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      const [ordersResponse, statsResponse] = await Promise.all([
-        PurchaseOrderApi.getPurchaseOrders({ limit: 100 }),
-        PurchaseOrderApi.getPurchaseOrderStats()
-      ])
-      
-      setPurchaseOrders(ordersResponse.purchase_orders)
-      setStats(statsResponse)
+      const res = await PurchaseOrderApi.getPurchaseOrders({
+        ...buildFilterParams(),
+        page,
+        limit: pageSize,
+      })
+      setPurchaseOrders(res.purchase_orders)
+      setTotalItems(res.total)
+      setTotalPages(res.total_pages)
     } catch (err) {
       console.error('Error fetching purchase orders:', err)
       setError('Failed to load purchase orders')
@@ -82,16 +120,84 @@ export default function PurchaseOrders() {
     }
   }
 
-  const filteredOrders = purchaseOrders.filter(order =>
-    order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (order.supplier_name && order.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    order.status.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Kept for action handlers (status change, approve, etc.) that refresh data.
+  const fetchData = fetchOrders
 
-  // Use client-side pagination for filtered purchase orders
-  const ordersPagination = useClientPagination(filteredOrders, {
-    initialPageSize: 10
-  })
+  // Print every purchase order matching the active filters (across all pages),
+  // not just the current page. Pages through the API in 100-row batches.
+  const handlePrintPurchaseOrders = async () => {
+    try {
+      setPrinting(true)
+      const all: PurchaseOrder[] = []
+      const batch = 100
+      let p = 1
+      for (;;) {
+        const res = await PurchaseOrderApi.getPurchaseOrders({
+          ...buildFilterParams(),
+          page: p,
+          limit: batch,
+        })
+        all.push(...res.purchase_orders)
+        if (p >= res.total_pages || res.purchase_orders.length === 0) break
+        p++
+      }
+
+      if (all.length === 0) {
+        toast.info("Nothing to print", { description: "No purchase orders match the current filters." })
+        return
+      }
+
+      const rows = all
+        .map((o, i) => `<tr>
+          <td class="num">${i + 1}</td>
+          <td>${escapeHtml(o.po_number)}</td>
+          <td>${escapeHtml(o.supplier_name || 'Unknown Supplier')}</td>
+          <td>${escapeHtml(new Date(o.order_date).toLocaleDateString())}</td>
+          <td>${escapeHtml(o.expected_delivery_date ? new Date(o.expected_delivery_date).toLocaleDateString() : '—')}</td>
+          <td>${escapeHtml(o.status.replace(/_/g, ' '))}</td>
+          <td class="num">${escapeHtml(o.line_items_count ?? 0)}</td>
+          <td class="num">${escapeHtml(formatCurrency(o.total_amount, 'bdt'))}</td>
+          <td>${escapeHtml(o.priority)}</td>
+        </tr>`)
+        .join("")
+
+      const filterLabel = [
+        debouncedSearch ? `search: "${debouncedSearch}"` : null,
+        statusFilter !== "all" ? `status: ${statusFilter.replace(/_/g, ' ')}` : null,
+      ].filter(Boolean).join(" • ") || "all orders"
+
+      const body = `
+        <h1>Purchase Orders</h1>
+        <div class="meta">Generated ${new Date().toLocaleString()} • ${all.length} order(s) • ${escapeHtml(filterLabel)}</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th>PO Number</th>
+              <th>Supplier</th>
+              <th>Order Date</th>
+              <th>Expected</th>
+              <th>Status</th>
+              <th class="num">Items</th>
+              <th class="num">Amount</th>
+              <th>Priority</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`
+
+      if (!printHtml("Purchase Orders", body)) {
+        toast.error("Could not open print window", {
+          description: "Allow pop-ups for this site and try again.",
+        })
+      }
+    } catch (err: any) {
+      console.error('Error printing purchase orders:', err)
+      toast.error("Failed to prepare print", { description: err?.message })
+    } finally {
+      setPrinting(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -309,8 +415,27 @@ export default function PurchaseOrders() {
                   className="pl-10 w-full sm:w-80"
                 />
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="all">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="sent">Sent</option>
+                <option value="partially_received">Partially Received</option>
+                <option value="received">Received</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <Button
+                variant="outline"
+                onClick={handlePrintPurchaseOrders}
+                disabled={printing || loading}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                {printing ? "Preparing…" : "Print"}
               </Button>
             </div>
           </div>
@@ -356,7 +481,7 @@ export default function PurchaseOrders() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : ordersPagination.totalItems === 0 ? (
+              ) : purchaseOrders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8">
                     <div className="text-muted-foreground">
@@ -365,7 +490,7 @@ export default function PurchaseOrders() {
                   </TableCell>
                 </TableRow>
               ) : (
-                ordersPagination.data.map((order) => (
+                purchaseOrders.map((order) => (
                   <TableRow key={order.id} className="hover:bg-accent/50">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -490,12 +615,12 @@ export default function PurchaseOrders() {
           {/* Pagination */}
           <div className="mt-4">
             <DataTablePagination
-              currentPage={ordersPagination.currentPage}
-              totalPages={ordersPagination.totalPages}
-              pageSize={ordersPagination.pageSize}
-              totalItems={ordersPagination.totalItems}
-              onPageChange={ordersPagination.setPage}
-              onPageSizeChange={ordersPagination.setPageSize}
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
             />
           </div>
         </CardContent>
