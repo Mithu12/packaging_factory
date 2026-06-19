@@ -40,6 +40,8 @@ interface PartialDeliveryDialogProps {
 
 interface RowState {
     orderLineItemId: string;
+    /** Product id — used to look up per-DC available stock. */
+    productId: string;
     /** Source order number — used to map rows back to their order (e.g. the order picker). */
     sourceOrderNumber: string;
     /** Customer PO number for the source order — shown in the "PO No" column. */
@@ -63,6 +65,7 @@ function buildRowsFromOrder(order: FactoryCustomerOrder, defaultShipRemaining: b
         const remaining = Math.max(ordered - delivered, 0);
         return {
             orderLineItemId: String(li.id),
+            productId: String(li.product_id),
             sourceOrderNumber: order.order_number,
             sourceOrderPoNumber: order.po_number ?? "",
             productName: li.product_name,
@@ -100,14 +103,58 @@ export default function PartialDeliveryDialog({
     const [submitting, setSubmitting] = useState(false);
     const [distributionCenters, setDistributionCenters] = useState<DistributionCenter[]>([]);
     const [dcId, setDcId] = useState<string>("");
+    // Available stock per product id at the currently selected DC (the shipment source).
+    const [availableByProduct, setAvailableByProduct] = useState<Record<string, number>>({});
+    const [stockLoading, setStockLoading] = useState(false);
     // V145+: list of the customer's other open orders that can contribute lines to this delivery.
     const [otherOrders, setOtherOrders] = useState<FactoryCustomerOrder[]>([]);
     const [addingOrderId, setAddingOrderId] = useState<string>("");
 
+    // Fetch per-DC available stock for every product in `targetRows`, then clamp
+    // each row's "Now Delivery" down to min(remaining, available). We only ever
+    // lower the entered qty so the user can ship exactly what is on hand and no
+    // more — the rest stays on the order for a later (post-production) delivery.
+    async function loadStockAndClamp(targetRows: RowState[], dc: string) {
+        if (!dc) return;
+        const productIds = Array.from(
+            new Set(targetRows.map(r => r.productId).filter(pid => pid && pid !== "undefined"))
+        );
+        if (productIds.length === 0) return;
+        setStockLoading(true);
+        try {
+            const results = await Promise.all(
+                productIds.map(pid =>
+                    DistributionApi.getProductLocations({
+                        distribution_center_id: Number(dc),
+                        product_id: Number(pid),
+                    })
+                        .then(res => ({ pid, available: res.locations?.[0]?.available_stock ?? 0 }))
+                        .catch(() => ({ pid, available: 0 }))
+                )
+            );
+            const map: Record<string, number> = {};
+            results.forEach(({ pid, available }) => {
+                map[pid] = Number(available) || 0;
+            });
+            setAvailableByProduct(map);
+            setRows(prev =>
+                prev.map(r => {
+                    const cap = Math.min(r.remaining, map[r.productId] ?? 0);
+                    const cur = Number(r.inputValue) || 0;
+                    return cur > cap ? { ...r, inputValue: String(cap) } : r;
+                })
+            );
+        } finally {
+            setStockLoading(false);
+        }
+    }
+
     // Reset state whenever the dialog opens for a new order
     useEffect(() => {
         if (open) {
-            setRows(buildRows(order));
+            const builtRows = buildRows(order);
+            setRows(builtRows);
+            setAvailableByProduct({});
             setTrackingNumber("");
             setCarrier("");
             setEstimatedDate("");
@@ -125,7 +172,9 @@ export default function PartialDeliveryDialog({
                     const centers = res.centers ?? [];
                     setDistributionCenters(centers);
                     const primary = centers.find(c => c.is_primary) ?? centers[0];
-                    setDcId(primary ? String(primary.id) : "");
+                    const primaryId = primary ? String(primary.id) : "";
+                    setDcId(primaryId);
+                    if (primaryId) void loadStockAndClamp(builtRows, primaryId);
                 })
                 .catch(err => console.error("Failed to load distribution centers", err));
 
@@ -168,7 +217,10 @@ export default function PartialDeliveryDialog({
             if (usable.length === 0) {
                 toast.info(`Order ${fresh.order_number} has no remaining quantity to ship.`);
             } else {
-                setRows(prev => [...prev, ...usable]);
+                const merged = [...rows, ...usable];
+                setRows(merged);
+                // Pull in stock for the newly added products and clamp the merged set.
+                void loadStockAndClamp(merged, dcId);
                 toast.success(`Added ${usable.length} line(s) from order ${fresh.order_number}.`);
             }
             setAddingOrderId("");
@@ -178,11 +230,33 @@ export default function PartialDeliveryDialog({
         }
     }
 
+    function handleDcChange(value: string) {
+        setDcId(value);
+        // Available stock is DC-specific — refetch and re-clamp for the new source.
+        void loadStockAndClamp(rows, value);
+    }
+
     const totalToShip = useMemo(
         () => rows.reduce((sum, r) => sum + (Number(r.inputValue) || 0), 0),
         [rows]
     );
     const fullyDelivered = rows.length > 0 && rows.every(r => r.remaining === 0);
+
+    // Available cap per row = min(remaining, on-hand stock at the selected DC).
+    function availableFor(r: RowState): number {
+        const avail = availableByProduct[r.productId];
+        return avail === undefined ? r.remaining : Math.min(r.remaining, avail);
+    }
+    // A row entered above its on-hand stock blocks submit (would 400 mid-transaction).
+    const hasOverStock = useMemo(
+        () =>
+            rows.some(r => {
+                const avail = availableByProduct[r.productId];
+                if (avail === undefined) return false;
+                return (Number(r.inputValue) || 0) > avail + 1e-9;
+            }),
+        [rows, availableByProduct]
+    );
 
     function setRowQty(idx: number, value: string) {
         setRows(prev =>
@@ -203,7 +277,8 @@ export default function PartialDeliveryDialog({
     }
 
     function shipAll() {
-        setRows(prev => prev.map(r => ({ ...r, inputValue: String(r.remaining) })));
+        // "Ship all available" — never exceed on-hand stock at the selected DC.
+        setRows(prev => prev.map(r => ({ ...r, inputValue: String(availableFor(r)) })));
     }
 
     function clearAll() {
@@ -237,6 +312,13 @@ export default function PartialDeliveryDialog({
             if (qty > r.remaining + 1e-9) {
                 toast.error(
                     `${r.productName}: cannot ship ${qty}; only ${r.remaining} remaining`
+                );
+                return;
+            }
+            const avail = availableByProduct[r.productId];
+            if (avail !== undefined && qty > avail + 1e-9) {
+                toast.error(
+                    `${r.productName}: only ${avail} in stock at the selected warehouse; produce the rest before shipping it`
                 );
                 return;
             }
@@ -298,6 +380,7 @@ export default function PartialDeliveryDialog({
                                         <TableHead className="text-right">Total Ordered</TableHead>
                                         <TableHead className="text-right">Total Delivered</TableHead>
                                         <TableHead className="text-right">Due Ordered</TableHead>
+                                        <TableHead className="text-right">In Stock</TableHead>
                                         <TableHead className="text-right w-32">Now Delivery</TableHead>
                                         <TableHead className="text-right w-24">Bundles</TableHead>
                                     </TableRow>
@@ -325,15 +408,37 @@ export default function PartialDeliveryDialog({
                                             <TableCell className="text-right">{r.delivered}</TableCell>
                                             <TableCell className="text-right font-medium">{r.remaining}</TableCell>
                                             <TableCell className="text-right">
+                                                {availableByProduct[r.productId] === undefined ? (
+                                                    <span className="text-muted-foreground">
+                                                        {stockLoading ? "…" : "—"}
+                                                    </span>
+                                                ) : (
+                                                    <span
+                                                        className={
+                                                            availableByProduct[r.productId] <= 0
+                                                                ? "text-orange-600 font-medium"
+                                                                : ""
+                                                        }
+                                                    >
+                                                        {availableByProduct[r.productId]}
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
                                                 <Input
                                                     type="number"
                                                     min={0}
-                                                    max={r.remaining}
+                                                    max={availableFor(r)}
                                                     step="0.001"
                                                     value={r.inputValue}
                                                     disabled={r.remaining === 0}
                                                     onChange={e => setRowQty(idx, e.target.value)}
-                                                    className="h-8 text-right"
+                                                    className={`h-8 text-right ${
+                                                        availableByProduct[r.productId] !== undefined &&
+                                                        (Number(r.inputValue) || 0) > availableByProduct[r.productId] + 1e-9
+                                                            ? "border-orange-500 focus-visible:ring-orange-500"
+                                                            : ""
+                                                    }`}
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -355,7 +460,7 @@ export default function PartialDeliveryDialog({
                         <div className="flex items-center justify-between text-sm">
                             <div className="space-x-2">
                                 <Button type="button" variant="ghost" size="sm" onClick={shipAll}>
-                                    Ship all remaining
+                                    Ship all available
                                 </Button>
                                 <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
                                     Clear
@@ -365,6 +470,13 @@ export default function PartialDeliveryDialog({
                                 Total this shipment: <span className="font-medium text-foreground">{totalToShip}</span>
                             </div>
                         </div>
+
+                        {hasOverStock && (
+                            <div className="text-sm text-orange-600">
+                                Some lines exceed the stock available at the selected warehouse. Ship only
+                                what is on hand now; the remainder can be delivered once it is produced.
+                            </div>
+                        )}
 
                         {/* V145+: add line items from another of this customer's open orders */}
                         {otherOrders.length > 0 && (
@@ -441,7 +553,7 @@ export default function PartialDeliveryDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Delivery from ( Warehouse )</Label>
-                                <Select value={dcId} onValueChange={setDcId}>
+                                <Select value={dcId} onValueChange={handleDcChange}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select warehouse" />
                                     </SelectTrigger>
@@ -498,7 +610,7 @@ export default function PartialDeliveryDialog({
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={submitting || fullyDelivered || totalToShip <= 0}
+                        disabled={submitting || fullyDelivered || totalToShip <= 0 || hasOverStock}
                     >
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Create Delivery

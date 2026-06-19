@@ -874,15 +874,17 @@ export default function CustomerOrderManagement() {
                                                                 </DropdownMenuItem>
                                                             )}
 
-                                                            {(order.status === 'in_production' || order.status === 'completed' || order.status === 'partially_shipped') && (
+                                                            {(order.status === 'approved' || order.status === 'in_production' || order.status === 'completed' || order.status === 'partially_shipped') && (
                                                                 <DropdownMenuItem onClick={() => handleShipOrder(order)} className="text-blue-600">
                                                                     <Package className="mr-2 h-4 w-4" />
                                                                     <span>
                                                                         {order.status === 'partially_shipped'
                                                                             ? 'New Delivery'
-                                                                            : order.status === 'in_production'
-                                                                                ? 'Ship Ready Items'
-                                                                                : 'Ship Order'}
+                                                                            : order.status === 'approved'
+                                                                                ? 'Ship Available Stock'
+                                                                                : order.status === 'in_production'
+                                                                                    ? 'Ship Ready Items'
+                                                                                    : 'Ship Order'}
                                                                     </span>
                                                                 </DropdownMenuItem>
                                                             )}

@@ -1009,6 +1009,7 @@ export class CustomerOrdersApiService {
         // backend filters by exact match so a single comma-separated value isn't
         // supported. Cost is fine for typical small N.
         const statuses: FactoryCustomerOrderStatus[] = [
+            'approved',
             'in_production',
             'completed',
             'partially_shipped',

@@ -108,7 +108,11 @@ export class CreateDeliveryMediator {
         throw createError('One or more line items not found', 400);
       }
 
+      // 'approved' is allowed so on-hand stock can be shipped without first
+      // running production; the per-line stock guard caps how much can go out,
+      // and the status recompute below moves the order to partially_shipped/shipped.
       const allowedStatuses = new Set<string>([
+        FactoryCustomerOrderStatus.APPROVED,
         FactoryCustomerOrderStatus.IN_PRODUCTION,
         FactoryCustomerOrderStatus.COMPLETED,
         FactoryCustomerOrderStatus.PARTIALLY_SHIPPED,
@@ -122,7 +126,7 @@ export class CreateDeliveryMediator {
         }
         if (!allowedStatuses.has(row.order_status)) {
           throw createError(
-            `Cannot ship from order in '${row.order_status}' status; must be 'in_production', 'completed', or 'partially_shipped'.`,
+            `Cannot ship from order in '${row.order_status}' status; must be 'approved', 'in_production', 'completed', or 'partially_shipped'.`,
             400
           );
         }
