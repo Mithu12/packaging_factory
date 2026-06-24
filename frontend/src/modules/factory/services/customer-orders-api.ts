@@ -1150,9 +1150,13 @@ export class CustomerOrdersApiService {
     }
 
     /** Print per-delivery challan PDF via the browser's native print dialog. */
-    static async printDeliveryChallan(deliveryId: string | number): Promise<void> {
+    static async printDeliveryChallan(
+        deliveryId: string | number,
+        addressChoice?: '1' | '2'
+    ): Promise<void> {
+        const query = addressChoice ? `?addressChoice=${addressChoice}` : '';
         await this._fetchAndPrint(
-            `/factory/customer-orders/deliveries/${deliveryId}/challan`,
+            `/factory/customer-orders/deliveries/${deliveryId}/challan${query}`,
             'challan'
         );
     }

@@ -12,6 +12,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
 
 import {
@@ -59,11 +65,15 @@ export default function CustomerDeliveriesListDialog({
         };
     }, [open, customer]);
 
-    const download = async (deliveryId: number, kind: "challan" | "invoice") => {
+    const download = async (
+        deliveryId: number,
+        kind: "challan" | "invoice",
+        addressChoice?: "1" | "2",
+    ) => {
         try {
             setBusyId(deliveryId);
             if (kind === "challan") {
-                await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId);
+                await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId, addressChoice);
             } else {
                 await CustomerOrdersApiService.downloadDeliveryInvoice(deliveryId);
             }
@@ -133,16 +143,41 @@ export default function CustomerDeliveriesListDialog({
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex justify-end gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => download(d.id, "challan")}
-                                                        disabled={busyId === d.id}
-                                                        title="Download challan"
-                                                    >
-                                                        <FileText className="h-4 w-4 mr-1" />
-                                                        Challan
-                                                    </Button>
+                                                    {d.delivery_address_2 ? (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="outline" size="sm" disabled={busyId === d.id} title="Download challan — choose delivery address">
+                                                                    <FileText className="h-4 w-4 mr-1" />
+                                                                    Challan
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="max-w-xs">
+                                                                <DropdownMenuItem onClick={() => download(d.id, "challan", "1")}>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">Delivery Address 1</span>
+                                                                        <span className="text-xs text-muted-foreground truncate">{d.delivery_address_1 || "—"}</span>
+                                                                    </div>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => download(d.id, "challan", "2")}>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">Delivery Address 2</span>
+                                                                        <span className="text-xs text-muted-foreground truncate">{d.delivery_address_2}</span>
+                                                                    </div>
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => download(d.id, "challan")}
+                                                            disabled={busyId === d.id}
+                                                            title="Download challan"
+                                                        >
+                                                            <FileText className="h-4 w-4 mr-1" />
+                                                            Challan
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         variant="outline"
                                                         size="sm"

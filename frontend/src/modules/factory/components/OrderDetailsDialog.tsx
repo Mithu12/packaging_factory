@@ -15,6 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
     Table,
     TableBody,
     TableCell,
@@ -130,9 +136,9 @@ export default function OrderDetailsDialog({
         }
     };
 
-    const handleDownloadDeliveryChallan = async (deliveryId: number) => {
+    const handleDownloadDeliveryChallan = async (deliveryId: number, addressChoice?: "1" | "2") => {
         try {
-            await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId);
+            await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId, addressChoice);
         } catch (error) {
             console.error('Failed to download challan:', error);
         }
@@ -146,9 +152,9 @@ export default function OrderDetailsDialog({
         }
     };
 
-    const handlePrintDeliveryChallan = async (deliveryId: number) => {
+    const handlePrintDeliveryChallan = async (deliveryId: number, addressChoice?: "1" | "2") => {
         try {
-            await CustomerOrdersApiService.printDeliveryChallan(deliveryId);
+            await CustomerOrdersApiService.printDeliveryChallan(deliveryId, addressChoice);
         } catch (error) {
             console.error('Failed to print challan:', error);
         }
@@ -590,22 +596,70 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                                                     </TableCell>
                                                     <TableCell className="text-sm">{d.invoice_number ?? '—'}</TableCell>
                                                     <TableCell className="text-right space-x-1">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => handleDownloadDeliveryChallan(d.id)}
-                                                            title="Download challan"
-                                                        >
-                                                            <Download className="h-4 w-4 mr-1" /> Challan
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => handlePrintDeliveryChallan(d.id)}
-                                                            title="Print challan"
-                                                        >
-                                                            <Printer className="h-4 w-4 mr-1" /> Print
-                                                        </Button>
+                                                        {d.delivery_address_2 ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button size="sm" variant="ghost" title="Download challan — choose delivery address">
+                                                                        <Download className="h-4 w-4 mr-1" /> Challan
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="max-w-xs">
+                                                                    <DropdownMenuItem onClick={() => handleDownloadDeliveryChallan(d.id, "1")}>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">Delivery Address 1</span>
+                                                                            <span className="text-xs text-muted-foreground truncate">{d.delivery_address_1 || "—"}</span>
+                                                                        </div>
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handleDownloadDeliveryChallan(d.id, "2")}>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">Delivery Address 2</span>
+                                                                            <span className="text-xs text-muted-foreground truncate">{d.delivery_address_2}</span>
+                                                                        </div>
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handleDownloadDeliveryChallan(d.id)}
+                                                                title="Download challan"
+                                                            >
+                                                                <Download className="h-4 w-4 mr-1" /> Challan
+                                                            </Button>
+                                                        )}
+                                                        {d.delivery_address_2 ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button size="sm" variant="ghost" title="Print challan — choose delivery address">
+                                                                        <Printer className="h-4 w-4 mr-1" /> Print
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="max-w-xs">
+                                                                    <DropdownMenuItem onClick={() => handlePrintDeliveryChallan(d.id, "1")}>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">Delivery Address 1</span>
+                                                                            <span className="text-xs text-muted-foreground truncate">{d.delivery_address_1 || "—"}</span>
+                                                                        </div>
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => handlePrintDeliveryChallan(d.id, "2")}>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">Delivery Address 2</span>
+                                                                            <span className="text-xs text-muted-foreground truncate">{d.delivery_address_2}</span>
+                                                                        </div>
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handlePrintDeliveryChallan(d.id)}
+                                                                title="Print challan"
+                                                            >
+                                                                <Printer className="h-4 w-4 mr-1" /> Print
+                                                            </Button>
+                                                        )}
                                                         {d.invoice_id && (
                                                             <>
                                                                 <Button
