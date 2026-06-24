@@ -470,6 +470,16 @@ export class GetCustomerOrderInfoMediator {
             const result = await client.query(query, queryParams);
             const row = result.rows[0];
 
+            // Total outstanding (due) balance across ALL non-cancelled orders
+            // (not date-scoped) — drives the "Due Order Balance" stat card.
+            const dueResult = await client.query(
+                `SELECT COALESCE(SUM(outstanding_amount), 0) AS due_order_balance
+                   FROM factory_customer_orders
+                  WHERE status <> 'cancelled'${factoryFilter}`,
+                queryParams,
+            );
+            const dueOrderBalance = parseFloat(dueResult.rows[0].due_order_balance) || 0;
+
             const stats: OrderStats = {
                 total_orders: parseInt(row.total_orders),
                 pending_orders: parseInt(row.pending_orders),
@@ -480,6 +490,7 @@ export class GetCustomerOrderInfoMediator {
                 total_value: parseFloat(row.total_value),
                 average_order_value: parseFloat(row.average_order_value),
                 on_time_delivery: parseFloat(row.on_time_delivery),
+                due_order_balance: dueOrderBalance,
                 total_quotations: parseInt(row.quoted_orders),
                 approved_value: parseFloat(row.approved_quoted_value),
                 conversion_rate: parseInt(row.total_orders) > 0 ? (parseInt(row.approved_orders) * 100 / (parseInt(row.quoted_orders) + parseInt(row.approved_orders))) : 0,

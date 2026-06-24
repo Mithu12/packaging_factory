@@ -45,6 +45,16 @@ export const createPurchaseOrderSchema = Joi.object({
     "string.max": "Notes cannot exceed 1000 characters",
   }),
 
+  tax_rate: Joi.number().min(0).max(100).optional().messages({
+    "number.base": "VAT rate must be a number",
+    "number.min": "VAT rate cannot be negative",
+    "number.max": "VAT rate cannot exceed 100",
+  }),
+  transport_payment: Joi.number().min(0).optional(),
+  transport_in_total: Joi.boolean().optional(),
+  others_payment: Joi.number().min(0).optional(),
+  others_in_total: Joi.boolean().optional(),
+
   line_items: Joi.array()
     .items(
       Joi.object({

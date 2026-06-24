@@ -7,6 +7,7 @@ const customerAddressSchema = Joi.object({
   postal_code: Joi.string().optional().allow(''),
   country: Joi.string().optional().allow(''),
   shipping_line: Joi.string().optional().allow(''),
+  shipping_line_2: Joi.string().optional().allow(''),
   billing_line: Joi.string().optional().allow(''),
 }).optional();
 

@@ -26,12 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/sonner"
 import { Plus, Trash2, AlertTriangle } from "lucide-react"
 import { QuickAddSupplierDialog } from "@/modules/factory/components/QuickAddSupplierDialog"
 import { PurchaseOrderApi } from "@/modules/inventory/services/purchase-order-api"
 import { SupplierApi } from "@/modules/inventory/services/supplier-api"
 import { ProductApi } from "@/modules/inventory/services/product-api"
+import { CategoryApi } from "@/modules/inventory/services/category-api"
 import { CreatePurchaseOrderRequest, Supplier, Product } from "@/services/types"
 import { useFormatting } from "@/hooks/useFormatting"
 
@@ -66,7 +68,12 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
     department: "",
     project: "",
     work_order_id: defaultValues?.work_order_id?.toString() || "",
-    customer_order_id: defaultValues?.customer_order_id?.toString() || ""
+    customer_order_id: defaultValues?.customer_order_id?.toString() || "",
+    tax_rate: "",
+    transport_payment: "",
+    transport_in_total: false,
+    others_payment: "",
+    others_in_total: false,
   })
 
   // Initialize items from defaults if provided
@@ -162,7 +169,12 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         department: "",
         project: "",
         work_order_id: "",
-        customer_order_id: ""
+        customer_order_id: "",
+        tax_rate: "",
+        transport_payment: "",
+        transport_in_total: false,
+        others_payment: "",
+        others_in_total: false,
       });
       setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
     }
@@ -171,11 +183,18 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
   const fetchData = async () => {
     try {
       setLoading(true)
+      // Purchase orders only buy raw materials, so scope the product list to the
+      // "Raw Materials" category. Fall back to all products if it isn't found.
+      const categoriesResponse = await CategoryApi.getCategories({ limit: 200 })
+      const rawCategory = categoriesResponse.categories.find(
+        c => c.name.trim().toLowerCase() === "raw materials"
+      )
+
       const [suppliersResponse, productsResponse] = await Promise.all([
         SupplierApi.getSuppliers({ limit: 100 }),
-        ProductApi.getProducts({ limit: 100 })
+        ProductApi.getProducts({ limit: 100, category_id: rawCategory?.id })
       ])
-      
+
       setSuppliers(suppliersResponse.suppliers)
       setProducts(productsResponse.products)
       return { suppliers: suppliersResponse.suppliers, products: productsResponse.products };
@@ -222,6 +241,11 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         notes: formData.notes || undefined,
         work_order_id: formData.work_order_id ? parseInt(formData.work_order_id) : undefined,
         customer_order_id: formData.customer_order_id ? parseInt(formData.customer_order_id) : undefined,
+        tax_rate: taxRate,
+        transport_payment: transport,
+        transport_in_total: formData.transport_in_total,
+        others_payment: others,
+        others_in_total: formData.others_in_total,
         line_items: validItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -231,9 +255,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
 
       // Create purchase order
       const newPurchaseOrder = await PurchaseOrderApi.createPurchaseOrder(createRequest)
-      
-      const totalAmount = validItems.reduce((sum, item) => sum + item.total, 0)
-      
+
       toast.success("Purchase order created successfully!", {
         description: `PO ${newPurchaseOrder.po_number} for ${formatCurrency(totalAmount)} has been created.`
       })
@@ -249,7 +271,12 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         department: "",
         project: "",
         work_order_id: defaultValues?.work_order_id?.toString() || "",
-        customer_order_id: defaultValues?.customer_order_id?.toString() || ""
+        customer_order_id: defaultValues?.customer_order_id?.toString() || "",
+        tax_rate: "",
+        transport_payment: "",
+        transport_in_total: false,
+        others_payment: "",
+        others_in_total: false,
       })
       setItems(initialItems)
       
@@ -312,7 +339,16 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
     }))
   }
 
-  const totalAmount = items.reduce((sum, item) => sum + item.total, 0)
+  const subtotal = items.reduce((sum, item) => sum + item.total, 0)
+  const taxRate = parseFloat(formData.tax_rate) || 0
+  const taxAmount = subtotal * (taxRate / 100)
+  const transport = parseFloat(formData.transport_payment) || 0
+  const others = parseFloat(formData.others_payment) || 0
+  const totalAmount =
+    subtotal +
+    taxAmount +
+    (formData.transport_in_total ? transport : 0) +
+    (formData.others_in_total ? others : 0)
 
   // Returns variance info if the entered unit_price diverges from the catalog cost_price by >10%
   const PRICE_VARIANCE_THRESHOLD = 0.1
@@ -385,7 +421,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="expectedDate">Expected Delivery Date</Label>
+              <Label htmlFor="expectedDate">Delivery Date</Label>
               <Input
                 id="expectedDate"
                 type="date"
@@ -452,13 +488,21 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(item.id, "quantity", parseInt(e.target.value) || 0)}
-                          className="w-20"
-                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item.id, "quantity", parseInt(e.target.value) || 0)}
+                            className="w-20"
+                          />
+                          {(() => {
+                            const unit = products.find(p => p.id === item.product_id)?.unit_of_measure
+                            return unit ? (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{unit}</span>
+                            ) : null
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -504,8 +548,73 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
             </div>
             
             <div className="flex justify-end">
-              <div className="text-lg font-semibold">
-                Total: {formatCurrency(totalAmount)}
+              <div className="w-full sm:w-80 space-y-2 rounded-lg border p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground whitespace-nowrap">VAT %</span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={formData.tax_rate}
+                      onChange={(e) => handleInputChange("tax_rate", e.target.value)}
+                      className="w-20 h-8"
+                      placeholder="0"
+                    />
+                    <span className="w-24 text-right font-medium">{formatCurrency(taxAmount)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.transport_in_total}
+                      onCheckedChange={(v) => setFormData(prev => ({ ...prev, transport_in_total: v }))}
+                      title="Add transport to total"
+                    />
+                    <span className="text-muted-foreground whitespace-nowrap">Transport Payment</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.transport_payment}
+                    onChange={(e) => handleInputChange("transport_payment", e.target.value)}
+                    className="w-24 h-8 text-right"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.others_in_total}
+                      onCheckedChange={(v) => setFormData(prev => ({ ...prev, others_in_total: v }))}
+                      title="Add others to total"
+                    />
+                    <span className="text-muted-foreground whitespace-nowrap">Others Payment</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.others_payment}
+                    onChange={(e) => handleInputChange("others_payment", e.target.value)}
+                    className="w-24 h-8 text-right"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border-t pt-2 text-lg font-semibold">
+                  <span>Total</span>
+                  <span>{formatCurrency(totalAmount)}</span>
+                </div>
               </div>
             </div>
           </div>

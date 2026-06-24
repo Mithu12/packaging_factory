@@ -50,6 +50,7 @@ const createCustomerFormSchema = z
     phone: z.string().optional(),
     email: z.string().optional(),
     shipping_line: z.string().optional(),
+    shipping_line_2: z.string().optional(),
     billing_line: z.string().optional(),
     opening_balance: z
       .number()
@@ -111,10 +112,12 @@ type CreateCustomerFormData = z.infer<typeof createCustomerFormSchema>;
 
 function buildCreateAddressPayload(data: CreateCustomerFormData) {
   const shipping = data.shipping_line?.trim();
+  const shipping2 = data.shipping_line_2?.trim();
   const billing = data.billing_line?.trim();
-  if (!shipping && !billing) return undefined;
+  if (!shipping && !shipping2 && !billing) return undefined;
   return {
     ...(shipping ? { shipping_line: shipping } : {}),
+    ...(shipping2 ? { shipping_line_2: shipping2 } : {}),
     ...(billing ? { billing_line: billing } : {}),
   };
 }
@@ -140,6 +143,7 @@ function CustomerCreateForm({
       phone: "",
       email: "",
       shipping_line: "",
+      shipping_line_2: "",
       billing_line: "",
       opening_balance: 0,
       vat_number: "",
@@ -158,6 +162,7 @@ function CustomerCreateForm({
         phone: "",
         email: "",
         shipping_line: "",
+        shipping_line_2: "",
         billing_line: "",
         opening_balance: 0,
         vat_number: "",
@@ -362,9 +367,23 @@ function CustomerCreateForm({
               name="shipping_line"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Shipping Address (Optional)</FormLabel>
+                  <FormLabel>Delivery Address 1</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. 123 Commerce St" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shipping_line_2"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Address 2</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. alternate delivery location" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -376,10 +395,10 @@ function CustomerCreateForm({
               name="billing_line"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Billing Address (Optional)</FormLabel>
+                  <FormLabel>Billing Address</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g. Same as shipping..."
+                      placeholder="e.g. Same as delivery..."
                       {...field}
                     />
                   </FormControl>
@@ -468,6 +487,7 @@ const customerEditFormSchema = z
     phone: z.string().optional(),
     email: z.string().optional(),
     shipping_line: z.string().optional(),
+    shipping_line_2: z.string().optional(),
     billing_line: z.string().optional(),
     credit_limit: z.number().min(0, "Credit limit must be positive").optional(),
     payment_terms: z.string().optional(),
@@ -546,6 +566,7 @@ function CustomerEditForm({
       phone: "",
       email: "",
       shipping_line: "",
+      shipping_line_2: "",
       billing_line: "",
       credit_limit: 0,
       payment_terms: DEFAULT_PAYMENT_TERMS,
@@ -569,6 +590,7 @@ function CustomerEditForm({
       phone: customer.phone || "",
       email: customer.email ?? "",
       shipping_line: customer.address?.shipping_line || "",
+      shipping_line_2: customer.address?.shipping_line_2 || "",
       billing_line: customer.address?.billing_line || "",
       credit_limit: Number(customer.credit_limit) || 0,
       payment_terms: customer.payment_terms || DEFAULT_PAYMENT_TERMS,
@@ -593,13 +615,15 @@ function CustomerEditForm({
       const emailTrim = data.email?.trim() ?? "";
       const phoneTrim = data.phone?.trim() ?? "";
       const shippingTrim = data.shipping_line?.trim() ?? "";
+      const shipping2Trim = data.shipping_line_2?.trim() ?? "";
       const billingTrim = data.billing_line?.trim() ?? "";
       const vatTrim = data.vat_number?.trim() ?? "";
 
       const addressPayload =
-        shippingTrim || billingTrim
+        shippingTrim || shipping2Trim || billingTrim
           ? {
               ...(shippingTrim ? { shipping_line: shippingTrim } : {}),
+              ...(shipping2Trim ? { shipping_line_2: shipping2Trim } : {}),
               ...(billingTrim ? { billing_line: billingTrim } : {}),
             }
           : undefined;
@@ -924,7 +948,7 @@ function CustomerEditForm({
                   name="shipping_line"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Shipping Address (Optional)</FormLabel>
+                      <FormLabel>Delivery Address 1</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="e.g. 123 Commerce St"
@@ -937,13 +961,29 @@ function CustomerEditForm({
                 />
                 <FormField
                   control={form.control}
+                  name="shipping_line_2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Delivery Address 2</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. alternate delivery location"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="billing_line"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Billing Address (Optional)</FormLabel>
+                      <FormLabel>Billing Address</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g. Same as shipping..."
+                          placeholder="e.g. Same as delivery..."
                           {...field}
                         />
                       </FormControl>

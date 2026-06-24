@@ -193,6 +193,15 @@ router.post(
     expressAsyncHandler(deliveriesController.generateInvoiceForDelivery.bind(deliveriesController))
 );
 
+// PATCH /api/factory/customer-orders/deliveries/:deliveryId/bill-submitted
+router.patch(
+    "/deliveries/:deliveryId/bill-submitted",
+    requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+    validateParams(deliveryIdSchema),
+    auditMiddleware,
+    expressAsyncHandler(deliveriesController.setBillSubmitted.bind(deliveriesController))
+);
+
 // ---------------------------------------------------------------------------
 // Delivery (challan) return routes — also declared BEFORE /:id.
 // ---------------------------------------------------------------------------

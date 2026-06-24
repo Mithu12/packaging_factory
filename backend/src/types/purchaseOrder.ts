@@ -7,6 +7,13 @@ export interface PurchaseOrder {
   actual_delivery_date?: string;
   status: 'draft' | 'pending' | 'approved' | 'sent' | 'partially_received' | 'received' | 'cancelled';
   priority: 'low' | 'normal' | 'high' | 'urgent';
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  transport_payment: number;
+  transport_in_total: boolean;
+  others_payment: number;
+  others_in_total: boolean;
   total_amount: number;
   currency: string;
   payment_terms: string;
@@ -84,6 +91,11 @@ export interface CreatePurchaseOrderRequest {
   notes?: string;
   work_order_id?: number;
   customer_order_id?: number;
+  tax_rate?: number;
+  transport_payment?: number;
+  transport_in_total?: boolean;
+  others_payment?: number;
+  others_in_total?: boolean;
   line_items: CreatePurchaseOrderLineItemRequest[];
 }
 

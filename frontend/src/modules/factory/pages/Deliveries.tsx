@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFormatting } from "@/hooks/useFormatting";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import {
   CustomerOrdersApiService,
   type DeliveryQueryParams,
@@ -49,25 +50,30 @@ import {
 
 const STATUS_VARIANTS: Record<
   DeliveryStatus,
-  { variant: "default" | "secondary" | "destructive" | "outline"; icon: any }
+  { variant: "default" | "secondary" | "destructive" | "outline"; icon: any; className?: string }
 > = {
   shipped: { variant: "secondary", icon: Truck },
   delivered: { variant: "default", icon: CheckCircle },
-  returned: { variant: "outline", icon: RotateCcw },
+  // Returned shows in red to stand out in the list.
+  returned: { variant: "outline", icon: RotateCcw, className: "text-red-600 border-red-600" },
   cancelled: { variant: "destructive", icon: XCircle },
 };
 
 export default function Deliveries() {
   const { formatCurrency, formatDate } = useFormatting();
+  const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [customerFilter, setCustomerFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [billBusyId, setBillBusyId] = useState<number | null>(null);
 
   const queryParams: DeliveryQueryParams = {
     search: searchTerm || undefined,
     status: statusFilter !== "all" ? (statusFilter as DeliveryStatus) : undefined,
+    factory_customer_id: customerFilter !== "all" ? customerFilter : undefined,
     page: currentPage,
     limit: 20,
     sort_by: "delivery_date",
@@ -78,6 +84,36 @@ export default function Deliveries() {
     queryKey: ["all-deliveries", queryParams],
     queryFn: () => CustomerOrdersApiService.listAllDeliveries(queryParams),
   });
+
+  const { data: customers } = useQuery({
+    queryKey: ["factory-customers", "deliveries-filter"],
+    queryFn: () => CustomerOrdersApiService.getAllCustomers(),
+  });
+
+  const customerOptions: SearchableSelectOption[] = [
+    { value: "all", label: "All Customers" },
+    ...(customers ?? [])
+      .filter(c => c.is_active !== false)
+      .map(c => ({
+        value: String(c.id),
+        label: c.company ?? c.name,
+        keywords: c.name,
+        hint: c.company ? c.name : undefined,
+      })),
+  ];
+
+  const toggleBillSubmitted = async (deliveryId: number, current: boolean) => {
+    try {
+      setBillBusyId(deliveryId);
+      await CustomerOrdersApiService.setDeliveryBillSubmitted(deliveryId, !current);
+      await queryClient.invalidateQueries({ queryKey: ["all-deliveries"] });
+      toast.success(!current ? "Marked bill as submitted" : "Bill submission cleared");
+    } catch (err: any) {
+      toast.error(`Failed to update bill status: ${err?.message ?? "Unknown error"}`);
+    } finally {
+      setBillBusyId(null);
+    }
+  };
 
   const download = async (
     deliveryId: number,
@@ -107,7 +143,7 @@ export default function Deliveries() {
     const cfg = STATUS_VARIANTS[status] ?? STATUS_VARIANTS.shipped;
     const Icon = cfg.icon;
     return (
-      <Badge variant={cfg.variant} className="gap-1">
+      <Badge variant={cfg.variant} className={`gap-1 ${cfg.className ?? ""}`}>
         <Icon className="h-3 w-3" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
@@ -146,6 +182,17 @@ export default function Deliveries() {
                 />
               </div>
             </div>
+            <SearchableSelect
+              options={customerOptions}
+              value={customerFilter}
+              onValueChange={(v) => {
+                setCustomerFilter(v);
+                setCurrentPage(1);
+              }}
+              placeholder="Select Customer"
+              searchPlaceholder="Search company…"
+              className="w-[220px]"
+            />
             <Select
               value={statusFilter}
               onValueChange={(value) => {
@@ -192,8 +239,9 @@ export default function Deliveries() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Orders</TableHead>
                     <TableHead>Invoice</TableHead>
-                    <TableHead className="text-right">Subtotal</TableHead>
+                    <TableHead className="text-right">Total Amount</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Bill Submitted</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -209,15 +257,39 @@ export default function Deliveries() {
                           {d.delivery_number}
                         </TableCell>
                         <TableCell>{formatDate(d.delivery_date)}</TableCell>
-                        <TableCell>{d.factory_customer_name ?? "—"}</TableCell>
+                        <TableCell>{d.factory_customer_company ?? d.factory_customer_name ?? "—"}</TableCell>
                         <TableCell className="max-w-xs truncate" title={orderNumbers}>
                           {orderNumbers}
                         </TableCell>
                         <TableCell>{d.invoice_number ?? "—"}</TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(d.subtotal)}
+                          {formatCurrency(d.total_amount)}
                         </TableCell>
                         <TableCell>{getStatusBadge(d.delivery_status)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant={d.bill_submitted ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleBillSubmitted(d.id, d.bill_submitted)}
+                            disabled={billBusyId === d.id}
+                            title={
+                              d.bill_submitted
+                                ? "Bill submitted — click to clear"
+                                : "Mark bill as submitted to customer"
+                            }
+                          >
+                            {billBusyId === d.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : d.bill_submitted ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                OK
+                              </>
+                            ) : (
+                              "Mark"
+                            )}
+                          </Button>
+                        </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
                             <Button
@@ -244,19 +316,20 @@ export default function Deliveries() {
                               <Download className="h-4 w-4 mr-1" />
                               Invoice
                             </Button>
-                            {d.delivery_status !== "cancelled" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
-                                title="Create return against this delivery"
-                              >
-                                <Link href={`/factory/delivery-returns?deliveryId=${d.id}`}>
-                                  <RotateCcw className="h-4 w-4 mr-1" />
-                                  Return
-                                </Link>
-                              </Button>
-                            )}
+                            {d.delivery_status !== "cancelled" &&
+                              d.delivery_status !== "returned" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  asChild
+                                  title="Create return against this delivery"
+                                >
+                                  <Link href={`/factory/delivery-returns?deliveryId=${d.id}`}>
+                                    <RotateCcw className="h-4 w-4 mr-1" />
+                                    Return
+                                  </Link>
+                                </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>

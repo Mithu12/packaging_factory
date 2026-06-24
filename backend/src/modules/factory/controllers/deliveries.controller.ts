@@ -237,6 +237,22 @@ class DeliveriesController {
       next(error);
     }
   }
+
+  /** PATCH /api/factory/customer-orders/deliveries/:deliveryId/bill-submitted */
+  async setBillSubmitted(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { deliveryId } = req.params;
+      const userId = req.user?.user_id;
+      if (!userId) throw createError('User not authenticated', 401);
+
+      const submitted = req.body?.bill_submitted !== false; // default true
+      const delivery = await GetDeliveriesMediator.setBillSubmitted(deliveryId, userId, submitted);
+      if (!delivery) throw createError('Delivery not found', 404);
+      serializeSuccessResponse(res, delivery, 'Bill submission status updated');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const deliveriesController = new DeliveriesController();

@@ -294,6 +294,12 @@ export interface Delivery {
     master_carton_sub_label?: string | null;
     items: DeliveryItem[];
     subtotal: number;
+    /** VAT-inclusive total from the linked invoice; falls back to subtotal. */
+    total_amount: number;
+    tax_amount: number;
+    /** Manual flag: bill for this delivery has been submitted to the customer. */
+    bill_submitted: boolean;
+    bill_submitted_at?: string;
     created_at: string;
     updated_at?: string;
 }
@@ -512,6 +518,8 @@ export interface OrderStats {
     total_value: number;
     average_order_value: number;
     on_time_delivery: number;
+    // Total outstanding (due) balance across all non-cancelled orders.
+    due_order_balance: number;
     // Quotation specific stats
     total_quotations?: number;
     approved_value?: number;

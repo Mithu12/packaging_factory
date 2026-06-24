@@ -37,19 +37,34 @@ class AddPurchaseOrderMediator {
             // Generate PO number
             const poNumber = await this.generatePONumber();
 
-            // Calculate total amount from line items
-            const totalAmount = data.line_items.reduce((sum, item) => {
+            // Subtotal from line items, then VAT (% of subtotal) + optional extra
+            // costs. Transport/Others only roll into the grand total when flagged.
+            const subtotal = data.line_items.reduce((sum, item) => {
                 return sum + (item.quantity * item.unit_price);
             }, 0);
+            const taxRate = Number(data.tax_rate) || 0;
+            const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
+            const transportPayment = Number(data.transport_payment) || 0;
+            const transportInTotal = data.transport_in_total === true;
+            const othersPayment = Number(data.others_payment) || 0;
+            const othersInTotal = data.others_in_total === true;
+            const totalAmount = +(
+                subtotal
+                + taxAmount
+                + (transportInTotal ? transportPayment : 0)
+                + (othersInTotal ? othersPayment : 0)
+            ).toFixed(2);
 
             // Insert purchase order
             const poQuery = `
                 INSERT INTO purchase_orders (
                     po_number, supplier_id, expected_delivery_date, priority,
                     payment_terms, delivery_terms, department, project, notes,
+                    subtotal, tax_rate, tax_amount,
+                    transport_payment, transport_in_total, others_payment, others_in_total,
                     total_amount, created_by, work_order_id, customer_order_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
                 RETURNING *
             `;
 
@@ -63,6 +78,13 @@ class AddPurchaseOrderMediator {
                 data.department,
                 data.project,
                 data.notes,
+                subtotal,
+                taxRate,
+                taxAmount,
+                transportPayment,
+                transportInTotal,
+                othersPayment,
+                othersInTotal,
                 totalAmount,
                 createdBy,
                 data.work_order_id,

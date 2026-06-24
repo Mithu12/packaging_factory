@@ -75,8 +75,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Progress} from "@/components/ui/progress";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import {
     CustomerOrdersApiService,
+    FactoryCustomer,
     FactoryCustomerOrder,
     FactoryCustomerOrderStatus,
     OrderStats as ApiOrderStats,
@@ -107,6 +109,7 @@ export default function CustomerOrderManagement() {
         total_value: 0,
         average_order_value: 0,
         on_time_delivery: 0,
+        due_order_balance: 0,
     });
     const [quotationStats, setQuotationStats] = useState<QuotationStats>({
         total_quotations: 0,
@@ -148,6 +151,8 @@ export default function CustomerOrderManagement() {
         null
     );
     const [quotedSnapshotOrder, setQuotedSnapshotOrder] = useState<FactoryCustomerOrder | null>(null);
+    const [customers, setCustomers] = useState<FactoryCustomer[]>([]);
+    const [customerFilter, setCustomerFilter] = useState<string>("all");
 
     // Load orders from API
     const loadOrders = useCallback(async () => {
@@ -158,6 +163,7 @@ export default function CustomerOrderManagement() {
             const queryParams: OrderQueryParams = {
                 ...search,
                 status: statusFilter !== "all" ? (statusFilter as FactoryCustomerOrderStatus) : undefined,
+                factory_customer_id: customerFilter !== "all" ? customerFilter : undefined,
             };
 
             const response = await CustomerOrdersApiService.getCustomerOrders(queryParams);
@@ -170,7 +176,7 @@ export default function CustomerOrderManagement() {
         } finally {
             setLoading(false);
         }
-    }, [search, statusFilter]);
+    }, [search, statusFilter, customerFilter]);
 
     // Load stats from API
     const loadStats = async () => {
@@ -203,6 +209,25 @@ export default function CustomerOrderManagement() {
     useEffect(() => {
         loadStats();
     }, []);
+
+    // Customer list for the searchable "Select Customer" filter.
+    useEffect(() => {
+        CustomerOrdersApiService.getAllCustomers()
+            .then(setCustomers)
+            .catch(err => console.error('Error loading customers:', err));
+    }, []);
+
+    const customerOptions: SearchableSelectOption[] = [
+        { value: "all", label: "All Customers" },
+        ...customers
+            .filter(c => c.is_active !== false)
+            .map(c => ({
+                value: String(c.id),
+                label: c.company ?? c.name,
+                keywords: c.name,
+                hint: c.company ? c.name : undefined,
+            })),
+    ];
 
     // Note: Using real API data instead of mock data
 
@@ -546,7 +571,18 @@ export default function CustomerOrderManagement() {
                         Create, manage, and track customer quotations and orders
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <SearchableSelect
+                        options={customerOptions}
+                        value={customerFilter}
+                        onValueChange={(v) => {
+                            setCustomerFilter(v);
+                            setSearch(prev => ({ ...prev, page: 1 }));
+                        }}
+                        placeholder="Select Customer"
+                        searchPlaceholder="Search company…"
+                        className="w-56"
+                    />
                     <Button variant="outline" onClick={handleExport}>
                         <Download className="h-4 w-4 mr-2"/>
                         Export
@@ -594,16 +630,16 @@ export default function CustomerOrderManagement() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            {mainTab === 'orders' ? 'Pending Orders' : 'Conversion Rate'}
+                            {mainTab === 'orders' ? 'Due Order Balance' : 'Conversion Rate'}
                         </CardTitle>
                         {mainTab === 'orders' ? <Clock className="h-4 w-4 text-muted-foreground"/> : <TrendingUp className="h-4 w-4 text-muted-foreground"/>}
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {mainTab === 'orders' ? stats.pending_orders : `${quotationStats.conversion_rate}%`}
+                            {mainTab === 'orders' ? formatCurrency(stats.due_order_balance) : `${quotationStats.conversion_rate}%`}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            {mainTab === 'orders' ? 'Awaiting approval' : 'Quotations to Orders'}
+                            {mainTab === 'orders' ? 'Outstanding across orders' : 'Quotations to Orders'}
                         </p>
                     </CardContent>
                 </Card>

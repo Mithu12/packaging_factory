@@ -12,6 +12,10 @@ interface DeliveryRow {
   order_number: string | null;
   invoice_id: string | null;
   invoice_number: string | null;
+  invoice_total_amount: string | null;
+  invoice_tax_amount: string | null;
+  bill_submitted: boolean | null;
+  bill_submitted_at: string | Date | null;
   delivery_date: string | Date;
   tracking_number: string | null;
   carrier: string | null;
@@ -51,6 +55,8 @@ const SELECT_DELIVERY = `
          d.factory_customer_id, fc.name AS factory_customer_name, fc.company AS factory_customer_company,
          d.customer_order_id, co.order_number,
          d.invoice_id, inv.invoice_number,
+         inv.total_amount AS invoice_total_amount, inv.tax_amount AS invoice_tax_amount,
+         d.bill_submitted, d.bill_submitted_at,
          d.delivery_date, d.tracking_number, d.carrier, d.estimated_delivery_date,
          d.delivery_status, d.notes, d.shipped_by, d.vat_number,
          d.master_carton_for, d.master_carton_sub_label,
@@ -254,6 +260,32 @@ export class GetDeliveriesMediator {
     }
   }
 
+  /** Manually flag/unflag that the bill for a delivery was submitted to the customer. */
+  static async setBillSubmitted(
+    deliveryId: number | string,
+    userId: number,
+    submitted: boolean,
+  ): Promise<Delivery | null> {
+    const action = 'Set Delivery Bill Submitted';
+    try {
+      MyLogger.info(action, { deliveryId, userId, submitted });
+      const res = await pool.query(
+        `UPDATE factory_customer_order_deliveries
+            SET bill_submitted = $1,
+                bill_submitted_at = CASE WHEN $1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                bill_submitted_by = CASE WHEN $1 THEN $2 ELSE NULL END,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3`,
+        [submitted, userId, deliveryId],
+      );
+      if (res.rowCount === 0) return null;
+      return this.getDeliveryById(deliveryId);
+    } catch (error) {
+      MyLogger.error(action, error, { deliveryId });
+      throw error;
+    }
+  }
+
   private static async loadItemsByDeliveryIds(
     deliveryIds: number[]
   ): Promise<Map<number, DeliveryItem[]>> {
@@ -345,6 +377,18 @@ export class GetDeliveriesMediator {
       master_carton_sub_label: row.master_carton_sub_label ?? null,
       items,
       subtotal: +subtotal.toFixed(2),
+      // VAT-inclusive amount from the linked invoice; falls back to subtotal
+      // (pre-VAT) when the delivery has no invoice yet.
+      total_amount: row.invoice_total_amount != null
+        ? parseFloat(row.invoice_total_amount)
+        : +subtotal.toFixed(2),
+      tax_amount: row.invoice_tax_amount != null ? parseFloat(row.invoice_tax_amount) : 0,
+      bill_submitted: row.bill_submitted === true,
+      bill_submitted_at: row.bill_submitted_at
+        ? (typeof row.bill_submitted_at === 'string'
+            ? row.bill_submitted_at
+            : row.bill_submitted_at.toISOString())
+        : undefined,
       created_at: typeof row.created_at === 'string' ? row.created_at : row.created_at.toISOString(),
       updated_at: row.updated_at
         ? typeof row.updated_at === 'string'

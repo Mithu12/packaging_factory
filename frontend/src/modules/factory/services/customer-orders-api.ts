@@ -180,6 +180,12 @@ export interface Delivery {
     master_carton_sub_label?: string | null;
     items: DeliveryItem[];
     subtotal: number;
+    /** VAT-inclusive total from the linked invoice; falls back to subtotal. */
+    total_amount: number;
+    tax_amount: number;
+    /** Manual flag: bill for this delivery has been submitted to the customer. */
+    bill_submitted: boolean;
+    bill_submitted_at?: string;
     created_at: string;
     updated_at?: string;
 }
@@ -316,6 +322,7 @@ export interface Address {
     postal_code?: string;
     country?: string;
     shipping_line?: string;
+    shipping_line_2?: string;
     billing_line?: string;
 }
 
@@ -520,6 +527,8 @@ export interface OrderStats {
     total_value: number;
     average_order_value: number;
     on_time_delivery: number;
+    // Total outstanding (due) balance across all non-cancelled orders.
+    due_order_balance: number;
     // Quotation specific stats
     total_quotations?: number;
     approved_value?: number;
@@ -1062,6 +1071,17 @@ export class CustomerOrdersApiService {
         return makeRequest<Delivery>(`${this.BASE_URL}/deliveries/${deliveryId}/cancel`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
+        });
+    }
+
+    /** Manually flag/unflag that this delivery's bill was submitted to the customer. */
+    static async setDeliveryBillSubmitted(
+        deliveryId: string | number,
+        submitted: boolean,
+    ): Promise<Delivery> {
+        return makeRequest<Delivery>(`${this.BASE_URL}/deliveries/${deliveryId}/bill-submitted`, {
+            method: 'PATCH',
+            body: JSON.stringify({ bill_submitted: submitted }),
         });
     }
 
