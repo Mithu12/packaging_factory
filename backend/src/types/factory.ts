@@ -272,6 +272,9 @@ export interface Delivery {
     factory_customer_id: number;
     factory_customer_name?: string;
     factory_customer_company?: string;
+    /** Customer's delivery addresses (from factory_customers.address), for challan print choice. */
+    delivery_address_1?: string;
+    delivery_address_2?: string;
     /** Primary/opened-from order. Optional for customer-level deliveries. */
     customer_order_id?: number;
     customer_order_number?: string;

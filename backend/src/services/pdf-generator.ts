@@ -1619,7 +1619,8 @@ export class PDFGenerator {
   private static generateChallanHTML(
     order: FactoryCustomerOrder,
     settings?: any,
-    delivery?: import('@/types/factory').Delivery
+    delivery?: import('@/types/factory').Delivery,
+    deliveryAddressOverride?: string
   ): string {
     const formatDate = (dateString?: string | null) => {
       if (!dateString) return '';
@@ -1748,6 +1749,7 @@ export class PDFGenerator {
       order.billing_address?.postal_code,
     ].filter(Boolean).join(', ');
     const customerAddress =
+      deliveryAddressOverride?.trim() ||
       order.shipping_address?.shipping_line ||
       shippingStructured ||
       order.billing_address?.billing_line ||
@@ -2006,7 +2008,8 @@ export class PDFGenerator {
   // Generate PDF for Challan
   public static async generateChallanPDF(
     order: FactoryCustomerOrder,
-    delivery?: import('@/types/factory').Delivery
+    delivery?: import('@/types/factory').Delivery,
+    options?: { deliveryAddressOverride?: string }
   ): Promise<Buffer> {
     const action = "PDFGenerator.generateChallanPDF";
     try {
@@ -2041,7 +2044,7 @@ export class PDFGenerator {
       const page = await browser.newPage();
 
       // Generate HTML content
-      const html = this.generateChallanHTML(order, settingsData, delivery);
+      const html = this.generateChallanHTML(order, settingsData, delivery, options?.deliveryAddressOverride);
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });

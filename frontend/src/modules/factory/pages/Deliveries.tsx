@@ -29,6 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Truck,
   Download,
   FileText,
@@ -119,6 +125,7 @@ export default function Deliveries() {
     deliveryId: number,
     kind: "challan" | "invoice",
     invoiceId?: number,
+    addressChoice?: "1" | "2",
   ) => {
     if (kind === "invoice" && !invoiceId) {
       toast.error("Invoice not yet generated for this delivery");
@@ -127,7 +134,7 @@ export default function Deliveries() {
     try {
       setBusyId(deliveryId);
       if (kind === "challan") {
-        await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId);
+        await CustomerOrdersApiService.downloadDeliveryChallan(deliveryId, addressChoice);
       } else {
         await CustomerOrdersApiService.downloadDeliveryInvoice(deliveryId);
       }
@@ -292,16 +299,50 @@ export default function Deliveries() {
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => download(d.id, "challan")}
-                              disabled={busyId === d.id}
-                              title="Download challan"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              Challan
-                            </Button>
+                            {d.delivery_address_2 ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busyId === d.id}
+                                    title="Download challan — choose delivery address"
+                                  >
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    Challan
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="max-w-xs">
+                                  <DropdownMenuItem onClick={() => download(d.id, "challan", undefined, "1")}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">Delivery Address 1</span>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {d.delivery_address_1 || "—"}
+                                      </span>
+                                    </div>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => download(d.id, "challan", undefined, "2")}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">Delivery Address 2</span>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {d.delivery_address_2}
+                                      </span>
+                                    </div>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => download(d.id, "challan")}
+                                disabled={busyId === d.id}
+                                title="Download challan"
+                              >
+                                <FileText className="h-4 w-4 mr-1" />
+                                Challan
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

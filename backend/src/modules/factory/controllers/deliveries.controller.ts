@@ -143,8 +143,16 @@ class DeliveriesController {
         return;
       }
 
+      // Optional delivery-address choice for the printed challan: '2' uses the
+      // customer's second delivery address, anything else uses the first.
+      const addressChoice = req.query.addressChoice === '2' ? '2' : '1';
+      const deliveryAddressOverride =
+        addressChoice === '2' ? delivery.delivery_address_2 : delivery.delivery_address_1;
+
       const { PDFGenerator } = await import('@/services/pdf-generator');
-      const pdfBuffer = await PDFGenerator.generateChallanPDF(order, delivery);
+      const pdfBuffer = await PDFGenerator.generateChallanPDF(order, delivery, {
+        deliveryAddressOverride,
+      });
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(

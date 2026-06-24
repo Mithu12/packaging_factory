@@ -158,6 +158,9 @@ export interface Delivery {
     factory_customer_id: number;
     factory_customer_name?: string;
     factory_customer_company?: string;
+    /** Customer's delivery addresses (for challan print choice). */
+    delivery_address_1?: string;
+    delivery_address_2?: string;
     /** Primary/opened-from order — optional for customer-level deliveries (V145+). */
     customer_order_id?: number;
     customer_order_number?: string;
@@ -1130,9 +1133,15 @@ export class CustomerOrdersApiService {
         return makeRequest<DeliveryReturn>(`${this.BASE_URL}/returns/${returnId}/cancel`, { method: 'POST' });
     }
 
-    /** Download per-delivery challan PDF (only this shipment's items). */
-    static async downloadDeliveryChallan(deliveryId: string | number): Promise<void> {
-        await this._downloadDeliveryPdf(deliveryId, 'challan');
+    /**
+     * Download per-delivery challan PDF (only this shipment's items).
+     * `addressChoice` picks which customer delivery address prints ('1' or '2').
+     */
+    static async downloadDeliveryChallan(
+        deliveryId: string | number,
+        addressChoice?: '1' | '2'
+    ): Promise<void> {
+        await this._downloadDeliveryPdf(deliveryId, 'challan', addressChoice);
     }
 
     /** Download per-delivery invoice PDF (only this shipment's items). */
@@ -1222,11 +1231,13 @@ export class CustomerOrdersApiService {
 
     private static async _downloadDeliveryPdf(
         deliveryId: string | number,
-        kind: 'challan' | 'invoice'
+        kind: 'challan' | 'invoice',
+        addressChoice?: '1' | '2'
     ): Promise<void> {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000/api';
+        const query = addressChoice ? `?addressChoice=${addressChoice}` : '';
         const response = await fetch(
-            `${baseUrl}/factory/customer-orders/deliveries/${deliveryId}/${kind}`,
+            `${baseUrl}/factory/customer-orders/deliveries/${deliveryId}/${kind}${query}`,
             { method: 'GET', credentials: 'include' }
         );
         if (!response.ok) throw new Error(`Failed to download ${kind} PDF`);
