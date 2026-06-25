@@ -277,7 +277,7 @@ export class GetDeliveriesMediator {
         `UPDATE factory_customer_order_deliveries
             SET bill_submitted = $1,
                 bill_submitted_at = CASE WHEN $1 THEN CURRENT_TIMESTAMP ELSE NULL END,
-                bill_submitted_by = CASE WHEN $1 THEN $2 ELSE NULL END,
+                bill_submitted_by = CASE WHEN $1 THEN $2::bigint ELSE NULL END,
                 updated_at = CURRENT_TIMESTAMP
           WHERE id = $3`,
         [submitted, userId, deliveryId],
