@@ -22,7 +22,9 @@ export interface SalesInvoice {
   total_amount: number;
   paid_amount: number;
   outstanding_amount: number;
-  
+  /** Approved-return value (incl. VAT) against this invoice's delivery. */
+  returned_amount?: number;
+
   // Status
   status: SalesInvoiceStatus;
   payment_terms?: string;
@@ -75,6 +77,10 @@ export interface RecordPaymentRequest {
   reference_number?: string;
   notes?: string;
   bank_name?: string;
+  /** Advance income tax withheld by the customer; settles the invoice with payment_amount. */
+  ait_amount?: number;
+  /** Cheque date (for cheque payments). */
+  cheque_date?: string;
 }
 
 export interface SalesInvoiceQueryParams {

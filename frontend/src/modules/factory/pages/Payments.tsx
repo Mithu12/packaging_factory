@@ -84,11 +84,15 @@ const Payments: React.FC = () => {
     const [dialogDate, setDialogDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [dialogReference, setDialogReference] = useState<string>('');
     const [dialogBankName, setDialogBankName] = useState<string>('');
+    const [dialogAit, setDialogAit] = useState<string>('');
+    const [dialogChequeDate, setDialogChequeDate] = useState<string>('');
     const [dialogNotes, setDialogNotes] = useState<string>('');
     const [dialogSubmitting, setDialogSubmitting] = useState(false);
 
     // Bank name is only meaningful for instrument-based receipts.
     const methodNeedsBank = dialogMethod === 'cheque' || dialogMethod === 'bank_transfer';
+    // Cheque-specific fields (number + dated cheque).
+    const methodIsCheque = dialogMethod === 'cheque';
 
     const dialogSelectedInvoice = useMemo(
         () => outstandingInvoices.find(i => i.id.toString() === dialogInvoiceId) || null,
@@ -175,6 +179,8 @@ const Payments: React.FC = () => {
         setDialogDate(new Date().toISOString().split('T')[0]);
         setDialogReference('');
         setDialogBankName('');
+        setDialogAit('');
+        setDialogChequeDate('');
         setDialogNotes('');
         setShowRecordDialog(true);
         if (initialCustomerId) {
@@ -192,8 +198,11 @@ const Payments: React.FC = () => {
                 factory_customer_id: Number(customerId),
                 limit: 100,
             });
-            // Only invoices with money still owed are eligible for payment recording.
-            const eligible = response.invoices.filter(i => Number(i.outstanding_amount || 0) > 0);
+            // Eligible = money still owed AND not fully covered by approved returns.
+            // (A returned challan's invoice nets to zero and must not be payable.)
+            const eligible = response.invoices.filter(
+                i => Number(i.outstanding_amount || 0) - Number(i.returned_amount || 0) > 0.005
+            );
             setOutstandingInvoices(eligible);
         } catch (error) {
             console.error('Error loading customer invoices:', error);
@@ -209,11 +218,15 @@ const Payments: React.FC = () => {
         await loadOutstandingInvoices(customerId);
     };
 
+    // Net outstanding after approved returns — the most that can be settled.
+    const netOutstanding = (inv: SalesInvoice | null | undefined) =>
+        Number(inv?.outstanding_amount || 0) - Number(inv?.returned_amount || 0);
+
     const handleDialogInvoiceChange = (invoiceId: string) => {
         setDialogInvoiceId(invoiceId);
         const invoice = outstandingInvoices.find(i => i.id.toString() === invoiceId);
         if (invoice) {
-            setDialogAmount(String(Number(invoice.outstanding_amount || 0).toFixed(2)));
+            setDialogAmount(String(Math.max(0, netOutstanding(invoice)).toFixed(2)));
         }
     };
 
@@ -227,10 +240,15 @@ const Payments: React.FC = () => {
             toast.error('Enter a valid payment amount');
             return;
         }
+        const ait = Number(dialogAit) || 0;
+        if (ait < 0) {
+            toast.error('AIT cannot be negative');
+            return;
+        }
         const invoice = dialogSelectedInvoice;
-        const outstanding = Number(invoice?.outstanding_amount || 0);
-        if (invoice && amount > outstanding + 0.005) {
-            toast.error(`Amount exceeds outstanding (${outstanding.toFixed(2)})`);
+        const outstanding = netOutstanding(invoice);
+        if (invoice && amount + ait > outstanding + 0.005) {
+            toast.error(`Payment + AIT exceeds outstanding (${outstanding.toFixed(2)})`);
             return;
         }
         try {
@@ -242,6 +260,8 @@ const Payments: React.FC = () => {
                 reference_number: dialogReference.trim() || undefined,
                 notes: dialogNotes.trim() || undefined,
                 bank_name: methodNeedsBank ? (dialogBankName.trim() || undefined) : undefined,
+                ait_amount: ait > 0 ? ait : undefined,
+                cheque_date: methodIsCheque ? (dialogChequeDate || undefined) : undefined,
             });
             toast.success('Payment recorded');
             setShowRecordDialog(false);
@@ -542,21 +562,21 @@ const Payments: React.FC = () => {
                                 <SelectContent>
                                     {outstandingInvoices.map(i => (
                                         <SelectItem key={i.id} value={i.id.toString()}>
-                                            {i.invoice_number} — Outstanding {formatCurrency(i.outstanding_amount || 0)}
+                                            {i.invoice_number} — Outstanding {formatCurrency(netOutstanding(i))}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                             {dialogSelectedInvoice && (
                                 <p className="text-xs text-muted-foreground">
-                                    Outstanding: {formatCurrency(dialogSelectedInvoice.outstanding_amount || 0)} of {formatCurrency(dialogSelectedInvoice.total_amount || 0)}
+                                    Outstanding: {formatCurrency(netOutstanding(dialogSelectedInvoice))} of {formatCurrency(dialogSelectedInvoice.total_amount || 0)}
                                 </p>
                             )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
-                                <Label htmlFor="payment-amount">Amount</Label>
+                                <Label htmlFor="payment-amount">Payment Amount</Label>
                                 <Input
                                     id="payment-amount"
                                     type="number"
@@ -568,13 +588,39 @@ const Payments: React.FC = () => {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="payment-date">Date</Label>
+                                <Label htmlFor="payment-date">Payment Date</Label>
                                 <Input
                                     id="payment-date"
                                     type="date"
                                     value={dialogDate}
                                     onChange={(e) => setDialogDate(e.target.value)}
                                 />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="payment-ait">AIT (Advance Income Tax)</Label>
+                                <Input
+                                    id="payment-ait"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={dialogAit}
+                                    onChange={(e) => setDialogAit(e.target.value)}
+                                    placeholder="0.00"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Settles the invoice with the payment; not cash received.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Total Invoice Amount</Label>
+                                <div className="h-10 flex items-center rounded-md border bg-muted/40 px-3 text-sm font-medium">
+                                    {dialogSelectedInvoice
+                                        ? formatCurrency(dialogSelectedInvoice.total_amount || 0)
+                                        : '—'}
+                                </div>
                             </div>
                         </div>
 
@@ -595,14 +641,28 @@ const Payments: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="payment-reference">Reference</Label>
+                            <Label htmlFor="payment-reference">
+                                {methodIsCheque ? 'Cheque Number' : 'Reference'}
+                            </Label>
                             <Input
                                 id="payment-reference"
                                 value={dialogReference}
                                 onChange={(e) => setDialogReference(e.target.value)}
-                                placeholder="Cheque #, txn ID, etc."
+                                placeholder={methodIsCheque ? 'Cheque number' : 'Cheque #, txn ID, etc.'}
                             />
                         </div>
+
+                        {methodIsCheque && (
+                            <div className="space-y-2">
+                                <Label htmlFor="payment-cheque-date">Cheque Date</Label>
+                                <Input
+                                    id="payment-cheque-date"
+                                    type="date"
+                                    value={dialogChequeDate}
+                                    onChange={(e) => setDialogChequeDate(e.target.value)}
+                                />
+                            </div>
+                        )}
 
                         {methodNeedsBank && (
                             <div className="space-y-2">

@@ -520,7 +520,13 @@ export class SalesInvoiceMediator {
           co.order_number as customer_order_number,
           fc.name as factory_customer_name,
           f.name as factory_name,
-          v.voucher_no
+          v.voucher_no,
+          COALESCE((
+            SELECT SUM(dr.total_return_value)
+              FROM factory_customer_order_deliveries d
+              JOIN factory_delivery_returns dr ON dr.delivery_id = d.id AND dr.status = 'approved'
+             WHERE d.invoice_id = si.id
+          ), 0) * (1 + COALESCE(si.tax_rate, 0) / 100.0) AS returned_amount
         FROM factory_sales_invoices si
         LEFT JOIN factory_customer_orders co ON si.customer_order_id = co.id
         JOIN factory_customers fc ON si.factory_customer_id = fc.id
@@ -780,14 +786,24 @@ export class SalesInvoiceMediator {
         throw createError('Payment amount must be greater than 0', 400);
       }
 
+      // AIT (advance income tax) withheld by the customer settles the invoice
+      // alongside the cash payment, but is NOT cash received. The invoice/order
+      // outstanding therefore reduces by (payment + AIT); the cash voucher still
+      // posts only the cash payment_amount.
+      const aitAmount = Number(data.ait_amount) || 0;
+      if (!Number.isFinite(aitAmount) || aitAmount < 0) {
+        throw createError('AIT amount cannot be negative', 400);
+      }
+      const settledAmount = +(paymentAmount + aitAmount).toFixed(2);
+
       const outstanding = parseFloat(invoice.outstanding_amount);
-      if (paymentAmount - outstanding > CURRENCY_EPSILON) {
-        throw createError('Payment amount exceeds outstanding amount', 400);
+      if (settledAmount - outstanding > CURRENCY_EPSILON) {
+        throw createError('Payment amount plus AIT exceeds outstanding amount', 400);
       }
 
       // Compute new invoice totals. Clamp residual float drift to 0 so the
       // outstanding_amount >= 0 DB constraint never trips on rounding.
-      const newPaidAmount = parseFloat(invoice.paid_amount) + paymentAmount;
+      const newPaidAmount = parseFloat(invoice.paid_amount) + settledAmount;
       const rawOutstanding = parseFloat(invoice.total_amount) - newPaidAmount;
       const newOutstandingAmount = Math.abs(rawOutstanding) < CURRENCY_EPSILON ? 0 : rawOutstanding;
 
@@ -810,8 +826,10 @@ export class SalesInvoiceMediator {
            payment_reference,
            notes,
            bank_name,
+           ait_amount,
+           cheque_date,
            recorded_by
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING id, payment_date`,
         [
           invoice.customer_order_id ?? null,
@@ -824,6 +842,8 @@ export class SalesInvoiceMediator {
           data.reference_number ?? null,
           data.notes ?? null,
           data.bank_name ?? null,
+          aitAmount,
+          data.cheque_date ?? null,
           userId,
         ],
       );
@@ -850,7 +870,7 @@ export class SalesInvoiceMediator {
         await this.applyPaymentToOrder(
           client,
           Number(invoice.customer_order_id),
-          paymentAmount,
+          settledAmount,
         );
       } else {
         // Discover the delivery linked to this invoice, then split the payment
@@ -873,13 +893,13 @@ export class SalesInvoiceMediator {
           const shareTotal = allocations.reduce((s, a) => s + a.share, 0);
           if (shareTotal > 0) {
             // Round each share to paisa; the last allocation absorbs rounding
-            // residue so the sum exactly equals paymentAmount.
-            let remaining = paymentAmount;
+            // residue so the sum exactly equals settledAmount (cash + AIT).
+            let remaining = settledAmount;
             for (let i = 0; i < allocations.length; i++) {
               const isLast = i === allocations.length - 1;
               const portion = isLast
                 ? remaining
-                : +((paymentAmount * allocations[i].share) / shareTotal).toFixed(2);
+                : +((settledAmount * allocations[i].share) / shareTotal).toFixed(2);
               remaining = +(remaining - portion).toFixed(2);
               if (portion > 0) {
                 await this.applyPaymentToOrder(client, allocations[i].orderId, portion);
@@ -1084,6 +1104,7 @@ export class SalesInvoiceMediator {
       total_amount: parseFloat(row.total_amount),
       paid_amount: parseFloat(row.paid_amount),
       outstanding_amount: parseFloat(row.outstanding_amount),
+      returned_amount: row.returned_amount != null ? parseFloat(row.returned_amount) : 0,
       status: row.status as SalesInvoiceStatus,
       payment_terms: row.payment_terms,
       notes: row.notes,
