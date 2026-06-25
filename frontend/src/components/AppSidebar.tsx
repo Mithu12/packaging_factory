@@ -39,7 +39,6 @@ import {
   AlertTriangle,
   Clock,
   Wrench,
-  ClipboardList,
   TrendingUp,
   Package2,
   Calculator as CalculatorIcon,
@@ -315,19 +314,13 @@ const menuSections: MenuSection[] = [
         title: "Bill of Materials",
         items: [
           {
-            title: "All BOMs",
-            url: "/factory/bom",
-            icon: ClipboardList,
-            permission: PERMISSIONS.FACTORY_BOMS_READ,
-          },
-          {
-            title: "Corrugation",
+            title: "Corrugation ( Pre-Production )",
             url: "/factory/bom/corrugation",
             icon: Layers,
             permission: PERMISSIONS.FACTORY_BOMS_READ,
           },
           {
-            title: "Printing",
+            title: "Printing Item ( Pre-Production )",
             url: "/factory/bom/printing",
             icon: Printer,
             permission: PERMISSIONS.FACTORY_BOMS_READ,
