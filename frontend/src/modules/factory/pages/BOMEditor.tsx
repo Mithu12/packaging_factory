@@ -771,7 +771,7 @@ export default function BOMEditor() {
             {selectedProduct && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity Required</Label>
+                  <Label htmlFor="quantity">Weight Quantity Required</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -788,7 +788,7 @@ export default function BOMEditor() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="scrapFactor">Scrap Factor (%)</Label>
+                  <Label htmlFor="scrapFactor">Wastage %</Label>
                   <Input
                     id="scrapFactor"
                     type="number"

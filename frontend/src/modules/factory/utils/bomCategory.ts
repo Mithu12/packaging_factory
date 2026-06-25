@@ -3,6 +3,8 @@ import type { BOMCategory } from "@/services/bom-api";
 
 export type BOMCategoryMeta = {
   label: string;
+  /** Heading variant of the label (defaults to `label` when omitted). */
+  titleLabel?: string;
   slug: string; // URL-safe segment
   icon: LucideIcon;
   badgeClass: string;
@@ -11,6 +13,7 @@ export type BOMCategoryMeta = {
 export const CATEGORY_META: Record<BOMCategory, BOMCategoryMeta> = {
   corrugation: {
     label: "Corrugation",
+    titleLabel: "Corrugation - Pre-Production",
     slug: "corrugation",
     icon: Layers,
     badgeClass: "bg-amber-100 text-amber-800 hover:bg-amber-100",

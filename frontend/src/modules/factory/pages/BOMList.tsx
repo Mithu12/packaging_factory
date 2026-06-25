@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,6 @@ import {
   Copy,
   History,
   Package,
-  DollarSign,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -49,9 +49,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMCategory, BOMStats } from "@/services/bom-api";
-import { useQuery } from "@tanstack/react-query";
+import { BOMApiService, bomQueryKeys, BOMQueryParams, BillOfMaterials, BOMCategory, CreateBOMRequest } from "@/services/bom-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CATEGORY_META } from "@/modules/factory/utils/bomCategory";
+import { downloadCsv } from "@/utils/export-print";
 
 type BOMListProps = {
   defaultCategory?: BOMCategory;
@@ -68,6 +69,10 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
   );
   const [showBOMDialog, setShowBOMDialog] = useState(false);
   const [selectedBOM, setSelectedBOM] = useState<BillOfMaterials | null>(null);
+  const [activeTab, setActiveTab] = useState("all-boms");
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   // API query parameters
   const queryParams: BOMQueryParams = {
@@ -120,6 +125,175 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
       setShowBOMDialog(true);
     } catch (error) {
       console.error("Failed to fetch BOM details:", error);
+    }
+  };
+
+  // CSV columns shared by export and import (round-trippable).
+  const CSV_HEADERS = [
+    "Parent Product ID",
+    "Parent Product",
+    "SKU",
+    "Version",
+    "Effective Date",
+    "Category",
+    "Active",
+    "Cutting Size",
+    "Reel Size",
+    "Component Product ID",
+    "Component",
+    "Component SKU",
+    "Quantity Required",
+    "Unit",
+    "Optional",
+    "Scrap Factor",
+    "Unit Cost",
+    "Total Cost",
+  ];
+
+  const handleExportBOM = async () => {
+    try {
+      const targets = filteredBOMs;
+      if (targets.length === 0) {
+        toast.info("No BOMs to export");
+        return;
+      }
+      // List endpoint omits components, so fetch each BOM's full detail.
+      const detailed = await Promise.all(targets.map((b) => BOMApiService.getBOMById(b.id)));
+      const rows: (string | number)[][] = [];
+      for (const bom of detailed) {
+        const base = [
+          bom.parent_product_id ?? "",
+          bom.parent_product_name ?? "",
+          bom.parent_product_sku ?? "",
+          bom.version ?? "",
+          bom.effective_date ? bom.effective_date.slice(0, 10) : "",
+          bom.category ?? "",
+          bom.is_active ? "yes" : "no",
+          bom.cutting_size ?? "",
+          bom.reel_size ?? "",
+        ];
+        if (bom.components && bom.components.length > 0) {
+          for (const c of bom.components) {
+            rows.push([
+              ...base,
+              c.component_product_id ?? "",
+              c.component_product_name ?? "",
+              c.component_product_sku ?? "",
+              c.quantity_required ?? "",
+              c.unit_of_measure ?? "",
+              c.is_optional ? "yes" : "no",
+              c.scrap_factor ?? 0,
+              c.unit_cost ?? "",
+              c.total_cost ?? "",
+            ]);
+          }
+        } else {
+          rows.push([...base, "", "", "", "", "", "", "", "", ""]);
+        }
+      }
+      const label = defaultCategory ? CATEGORY_META[defaultCategory].slug : "all";
+      downloadCsv(`boms-${label}.csv`, CSV_HEADERS, rows);
+      toast.success(`Exported ${detailed.length} BOM(s)`);
+    } catch (error) {
+      console.error("Failed to export BOMs:", error);
+      toast.error("Failed to export BOMs");
+    }
+  };
+
+  // Minimal RFC-4180-ish CSV parser (handles quoted fields, commas, newlines).
+  const parseCsv = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+        } else { field += ch; }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        row.push(field); field = "";
+      } else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); field = "";
+        if (row.some((c) => c.trim() !== "")) rows.push(row);
+        row = [];
+      } else { field += ch; }
+    }
+    if (field !== "" || row.length > 0) { row.push(field); if (row.some((c) => c.trim() !== "")) rows.push(row); }
+    return rows;
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = parseCsv(text);
+      if (parsed.length < 2) {
+        toast.error("CSV is empty or missing a header row");
+        return;
+      }
+      const idx = (name: string) => CSV_HEADERS.indexOf(name);
+      // Group rows into BOMs keyed by parent product + version + category.
+      const groups = new Map<string, CreateBOMRequest>();
+      for (const cols of parsed.slice(1)) {
+        const parentId = (cols[idx("Parent Product ID")] || "").trim();
+        if (!parentId) continue;
+        const version = (cols[idx("Version")] || "1.0").trim() || "1.0";
+        const category = (cols[idx("Category")] || "").trim() as BOMCategory;
+        const key = `${parentId}|${version}|${category}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            parent_product_id: parentId,
+            version,
+            effective_date:
+              (cols[idx("Effective Date")] || "").trim() || new Date().toISOString().slice(0, 10),
+            category: category || defaultCategory || "corrugation",
+            cutting_size: (cols[idx("Cutting Size")] || "").trim() || undefined,
+            reel_size: (cols[idx("Reel Size")] || "").trim() || undefined,
+            components: [],
+          });
+        }
+        const componentId = (cols[idx("Component Product ID")] || "").trim();
+        if (componentId) {
+          groups.get(key)!.components.push({
+            component_product_id: componentId,
+            quantity_required: parseFloat(cols[idx("Quantity Required")] || "0") || 0,
+            unit_of_measure: (cols[idx("Unit")] || "").trim() || "pcs",
+            is_optional: /^(yes|true|1)$/i.test((cols[idx("Optional")] || "").trim()),
+            scrap_factor: parseFloat(cols[idx("Scrap Factor")] || "0") || 0,
+          });
+        }
+      }
+      const requests = [...groups.values()].filter((b) => b.components.length > 0);
+      if (requests.length === 0) {
+        toast.error("No valid BOM rows found in the CSV");
+        return;
+      }
+      let created = 0;
+      const failures: string[] = [];
+      for (const req of requests) {
+        try {
+          await BOMApiService.createBOM(req);
+          created++;
+        } catch (err: any) {
+          failures.push(err?.message || req.parent_product_id);
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: bomQueryKeys.all });
+      if (created > 0) toast.success(`Imported ${created} BOM(s)`);
+      if (failures.length > 0) toast.error(`${failures.length} BOM(s) failed to import`);
+    } catch (error) {
+      console.error("Failed to import BOMs:", error);
+      toast.error("Failed to read or parse the CSV file");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -197,7 +371,7 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
             return (
               <h1 className="text-3xl font-bold flex items-center gap-2" data-testid="bom-list-title">
                 {Icon && <Icon className="h-7 w-7" />}
-                {meta ? `${meta.label} BOMs` : "Bill of Materials"}
+                {meta ? `${meta.titleLabel ?? meta.label} BOMs` : "Bill of Materials"}
               </h1>
             );
           })()}
@@ -208,11 +382,24 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
           </p>
         </div>
         <div className="flex gap-2" data-testid="bom-list-actions">
-          <Button variant="outline" data-testid="import-bom-button">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportFile}
+            data-testid="import-bom-input"
+          />
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            data-testid="import-bom-button"
+          >
             <Upload className="h-4 w-4 mr-2" />
-            Import BOM
+            {importing ? "Importing…" : "Import BOM"}
           </Button>
-          <Button variant="outline" data-testid="export-bom-button">
+          <Button variant="outline" onClick={handleExportBOM} data-testid="export-bom-button">
             <Download className="h-4 w-4 mr-2" />
             Export BOM
           </Button>
@@ -254,7 +441,7 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
         <Card data-testid="avg-cost-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium" data-testid="avg-cost-title">Avg Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" data-testid="avg-cost-icon" />
+            <span className="text-base font-semibold leading-none text-muted-foreground" data-testid="avg-cost-icon" aria-hidden>৳</span>
           </CardHeader>
           <CardContent data-testid="avg-cost-content">
             <div className="text-2xl font-bold" data-testid="avg-cost-value">
@@ -264,7 +451,19 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
           </CardContent>
         </Card>
 
-        <Card data-testid="bom-issues-card">
+        <Card
+          data-testid="bom-issues-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveTab("issues")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveTab("issues");
+            }
+          }}
+          className="cursor-pointer transition-colors hover:bg-muted/50"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium" data-testid="issues-title">Issues</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" data-testid="issues-icon" />
@@ -279,7 +478,7 @@ export default function BOMList({ defaultCategory }: BOMListProps = {}) {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="all-boms" className="space-y-4" data-testid="bom-main-tabs">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" data-testid="bom-main-tabs">
         <TabsList data-testid="bom-tabs-list">
           <TabsTrigger value="all-boms" data-testid="all-boms-tab">All BOMs</TabsTrigger>
           <TabsTrigger value="active-boms" data-testid="active-boms-tab">Active BOMs</TabsTrigger>
