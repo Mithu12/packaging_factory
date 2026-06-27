@@ -77,6 +77,7 @@ export default function ReceiveGoods() {
     receivedQty: number
     alreadyReceivedQty: number
     additionalQty: number
+    rollsReceived: number
     unitPrice: number
     unit: string
     condition: string
@@ -107,6 +108,7 @@ export default function ReceiveGoods() {
           receivedQty: parseFloat(item.received_quantity.toString()),
           alreadyReceivedQty: parseFloat(item.received_quantity.toString()),
           additionalQty: 0, // Start with 0 additional quantity to receive
+          rollsReceived: 0,
           unitPrice: parseFloat(item.unit_price.toString()),
           unit: item.unit_of_measure,
           condition: "good",
@@ -175,6 +177,7 @@ export default function ReceiveGoods() {
           .map(item => ({
             line_item_id: item.id,
             received_quantity: item.additionalQty,
+            rolls_received: item.rollsReceived || 0,
             condition: item.condition,
             notes: item.notes || undefined,
           })),
@@ -434,6 +437,7 @@ export default function ReceiveGoods() {
                       <TableHead>Product</TableHead>
                       <TableHead>Ordered</TableHead>
                       <TableHead>Received</TableHead>
+                      <TableHead>Rolls</TableHead>
                       <TableHead>Condition</TableHead>
                       <TableHead>Notes</TableHead>
                     </TableRow>
@@ -472,6 +476,17 @@ export default function ReceiveGoods() {
                               Value: {formatCurrency(item.additionalQty * item.unitPrice)}
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.rollsReceived}
+                            onChange={(e) => handleLineItemChange(index, "rollsReceived", parseFloat(e.target.value) || 0)}
+                            className="w-24"
+                            placeholder="Rolls"
+                          />
                         </TableCell>
                         <TableCell>
                           <select

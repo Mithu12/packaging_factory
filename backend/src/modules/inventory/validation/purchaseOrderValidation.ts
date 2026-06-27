@@ -228,6 +228,11 @@ export const receiveGoodsSchema = Joi.object({
           "any.required": "Received quantity is required",
         }),
 
+        rolls_received: Joi.number().min(0).optional().messages({
+          "number.base": "Rolls received must be a number",
+          "number.min": "Rolls received cannot be negative",
+        }),
+
         condition: Joi.string()
           .valid("good", "damaged", "partial", "not_received")
           .optional(),

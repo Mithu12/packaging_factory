@@ -62,6 +62,7 @@ export interface ProductLocation {
   product_id: number;
   distribution_center_id: number;
   current_stock: number;
+  current_rolls?: number;
   reserved_stock: number;
   available_stock: number;
   min_stock_level: number;

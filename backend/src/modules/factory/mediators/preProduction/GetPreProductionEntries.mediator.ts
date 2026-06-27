@@ -21,7 +21,8 @@ const ENTRY_SELECT = `
           'raw_material_id', m.raw_material_id,
           'raw_material_name', rp.name,
           'raw_material_sku', rp.sku,
-          'consumed_quantity', m.consumed_quantity
+          'consumed_quantity', m.consumed_quantity,
+          'consumed_rolls', m.consumed_rolls
         ) ORDER BY m.id)
         FROM pre_production_manual_entry_materials m
         JOIN products rp ON rp.id = m.raw_material_id
@@ -42,6 +43,7 @@ function mapEntry(row: any): PreProductionManualEntry {
     raw_materials: (row.raw_materials || []).map((m: any) => ({
       ...m,
       consumed_quantity: parseFloat(m.consumed_quantity),
+      consumed_rolls: parseFloat(m.consumed_rolls),
     })),
   };
 }

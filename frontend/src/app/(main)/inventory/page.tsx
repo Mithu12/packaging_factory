@@ -149,6 +149,7 @@ export default function Inventory() {
           <td>${escapeHtml(location)}</td>
           <td class="num">${escapeHtml(item.current_stock)}</td>
           <td class="num">${escapeHtml(available)}</td>
+          <td class="num">${escapeHtml(item.current_rolls ?? 0)}</td>
           <td class="num">${escapeHtml(item.min_stock_level)}</td>
           <td class="num">${escapeHtml(formatCurrency(item.cost_price || 0))}</td>
           <td class="num">${escapeHtml(formatCurrency(value))}</td>
@@ -167,6 +168,7 @@ export default function Inventory() {
             <th>Location</th>
             <th class="num">Stock</th>
             <th class="num">Available</th>
+            <th class="num">Rolls</th>
             <th class="num">Min</th>
             <th class="num">Cost / Unit</th>
             <th class="num">Value</th>
@@ -490,6 +492,12 @@ export default function Inventory() {
                                   </>
                                 )}
                             </div>
+                            {item.current_rolls != null &&
+                              item.current_rolls > 0 && (
+                                <div className="text-xs font-medium text-primary">
+                                  {item.current_rolls} rolls left
+                                </div>
+                              )}
                             <div className="text-xs text-muted-foreground">
                               Min: {item.min_stock_level}{" "}
                               {item.max_stock_level &&

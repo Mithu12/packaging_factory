@@ -20,6 +20,9 @@ export const createPreProductionEntrySchema = Joi.object({
           "number.positive": "Consumed quantity must be positive",
           "any.required": "Consumed quantity is required",
         }),
+        consumed_rolls: Joi.number().min(0).precision(4).optional().messages({
+          "number.min": "Consumed rolls cannot be negative",
+        }),
       })
     )
     .min(1)

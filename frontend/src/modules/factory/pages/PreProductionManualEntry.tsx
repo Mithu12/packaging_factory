@@ -43,6 +43,7 @@ interface RawLine {
   key: string;
   raw_material_id: string;
   consumed_quantity: string;
+  consumed_rolls: string;
 }
 
 let rawLineSeq = 0;
@@ -50,6 +51,7 @@ const newRawLine = (): RawLine => ({
   key: `raw-${rawLineSeq++}`,
   raw_material_id: "",
   consumed_quantity: "",
+  consumed_rolls: "",
 });
 
 export default function PreProductionManualEntry() {
@@ -145,6 +147,7 @@ export default function PreProductionManualEntry() {
       .map((l) => ({
         raw_material_id: parseInt(l.raw_material_id, 10),
         consumed_quantity: parseFloat(l.consumed_quantity),
+        consumed_rolls: l.consumed_rolls ? parseFloat(l.consumed_rolls) : 0,
       }));
 
     if (materials.length === 0) return toast.error("Add at least one raw material");
@@ -262,7 +265,7 @@ export default function PreProductionManualEntry() {
                       options={rawOptions}
                     />
                   </div>
-                  <div className="w-40">
+                  <div className="w-32">
                     <Input
                       type="number"
                       min="0.0001"
@@ -272,6 +275,18 @@ export default function PreProductionManualEntry() {
                         updateRawLine(line.key, { consumed_quantity: e.target.value })
                       }
                       placeholder="Qty consumed"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.consumed_rolls}
+                      onChange={(e) =>
+                        updateRawLine(line.key, { consumed_rolls: e.target.value })
+                      }
+                      placeholder="Rolls"
                     />
                   </div>
                   <Button
@@ -381,7 +396,11 @@ export default function PreProductionManualEntry() {
                           <div key={idx} className="text-sm">
                             <span className="font-medium">{m.raw_material_name}</span>{" "}
                             <span className="text-muted-foreground">
-                              ({m.consumed_quantity})
+                              ({m.consumed_quantity}
+                              {m.consumed_rolls > 0
+                                ? ` • ${m.consumed_rolls} rolls`
+                                : ""}
+                              )
                             </span>
                           </div>
                         ))}

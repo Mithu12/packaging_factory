@@ -613,6 +613,7 @@ export interface ReceiveGoodsRequest {
   line_items: {
     line_item_id: number;
     received_quantity: number;
+    rolls_received?: number;
     condition?: string;
     notes?: string;
   }[];

@@ -14,6 +14,7 @@ export interface PreProductionMaterial {
   raw_material_name?: string;
   raw_material_sku?: string;
   consumed_quantity: number;
+  consumed_rolls: number;
 }
 
 export interface PreProductionManualEntry {
@@ -38,6 +39,7 @@ export interface PreProductionManualEntry {
 export interface CreatePreProductionMaterialInput {
   raw_material_id: number;
   consumed_quantity: number;
+  consumed_rolls?: number;
 }
 
 export interface CreatePreProductionEntryRequest {

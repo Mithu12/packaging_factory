@@ -47,6 +47,7 @@ export class ProductLocationMediator {
           pl.product_id,
           pl.distribution_center_id,
           pl.current_stock,
+          pl.current_rolls,
           pl.reserved_stock,
           pl.available_stock,
           COALESCE(NULLIF(pl.min_stock_level, 0), p.min_stock_level) as min_stock_level,

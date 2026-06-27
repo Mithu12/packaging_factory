@@ -566,12 +566,13 @@ class UpdatePurchaseOrderInfoMediator {
         // Record this line in the GRN child table for permanent history
         await client.query(
           `INSERT INTO purchase_order_receipt_line_items (
-              receipt_id, line_item_id, received_quantity, condition, notes
-           ) VALUES ($1, $2, $3, $4, $5)`,
+              receipt_id, line_item_id, received_quantity, rolls_received, condition, notes
+           ) VALUES ($1, $2, $3, $4, $5, $6)`,
           [
             receiptId,
             receivedItem.line_item_id,
             receivedItem.received_quantity,
+            receivedItem.rolls_received || 0,
             receivedItem.condition || 'good',
             receivedItem.notes || null,
           ]
@@ -649,23 +650,26 @@ class UpdatePurchaseOrderInfoMediator {
         if (distributionCenterId) {
           const locationQuery = `
                 INSERT INTO product_locations (
-                    product_id, distribution_center_id, current_stock
-                ) VALUES ($1, $2, $3)
+                    product_id, distribution_center_id, current_stock, current_rolls
+                ) VALUES ($1, $2, $3, $4)
                 ON CONFLICT (product_id, distribution_center_id)
-                DO UPDATE SET 
+                DO UPDATE SET
                     current_stock = product_locations.current_stock + EXCLUDED.current_stock,
+                    current_rolls = product_locations.current_rolls + EXCLUDED.current_rolls,
                     updated_at = CURRENT_TIMESTAMP
             `;
           await client.query(locationQuery, [
             lineItem.product_id,
             distributionCenterId,
-            receivedItem.received_quantity
+            receivedItem.received_quantity,
+            receivedItem.rolls_received || 0
           ]);
 
           MyLogger.info("Updated product location stock", {
             productId: lineItem.product_id,
             distributionCenterId,
-            addedStock: receivedItem.received_quantity
+            addedStock: receivedItem.received_quantity,
+            addedRolls: receivedItem.rolls_received || 0
           });
         }
 

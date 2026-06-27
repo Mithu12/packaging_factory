@@ -114,12 +114,26 @@ export class CreatePreProductionEntryMediator {
       );
       entryId = insertRes.rows[0].id;
 
+      const dcId = batch.distribution_center_id ?? data.distribution_center_id ?? null;
       for (const m of data.raw_materials) {
+        const consumedRolls = m.consumed_rolls ?? 0;
         await client.query(
-          `INSERT INTO pre_production_manual_entry_materials (entry_id, raw_material_id, consumed_quantity)
-           VALUES ($1, $2, $3)`,
-          [entryId, m.raw_material_id, m.consumed_quantity]
+          `INSERT INTO pre_production_manual_entry_materials (entry_id, raw_material_id, consumed_quantity, consumed_rolls)
+           VALUES ($1, $2, $3, $4)`,
+          [entryId, m.raw_material_id, m.consumed_quantity, consumedRolls]
         );
+
+        // Roll counter runs parallel to current_stock (which the batch engine
+        // already moved). Decrement the DC's physical rolls, clamped at zero.
+        if (consumedRolls > 0 && dcId !== null) {
+          await client.query(
+            `UPDATE product_locations
+               SET current_rolls = GREATEST(current_rolls - $1, 0),
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE product_id = $2 AND distribution_center_id = $3`,
+            [consumedRolls, m.raw_material_id, dcId]
+          );
+        }
       }
 
       await client.query("COMMIT");
