@@ -349,7 +349,7 @@ export default function PaymentsPage() {
       }
       downloadCsv(
         `supplier-payments-${new Date().toISOString().slice(0, 10)}`,
-        ["Payment #", "Date", "Supplier", "Supplier Code", "Invoice(s)", "Amount", "Method", "Bank Name", "Reference", "Status", "Approval"],
+        ["Payment #", "Date", "Supplier", "Supplier Code", "Invoice(s)", "Amount", "Method", "Bank Name", "Check no", "Check Date", "Status", "Approval"],
         rows.map((p) => [
           p.payment_number,
           new Date(p.payment_date).toISOString().slice(0, 10),
@@ -360,6 +360,7 @@ export default function PaymentsPage() {
           (p.payment_method || "").replace(/[-_]/g, " "),
           p.bank_name || "",
           p.reference || "",
+          p.check_date ? new Date(p.check_date).toISOString().slice(0, 10) : "",
           p.status,
           p.approval_status,
         ])
@@ -384,7 +385,7 @@ export default function PaymentsPage() {
         <table>
           <thead><tr>
             <th>Payment #</th><th>Date</th><th>Supplier</th><th>Invoice(s)</th>
-            <th class="num">Amount</th><th>Method</th><th>Bank</th><th>Reference</th><th>Status</th><th>Approval</th>
+            <th class="num">Amount</th><th>Method</th><th>Bank</th><th>Check no</th><th>Check Date</th><th>Status</th><th>Approval</th>
           </tr></thead>
           <tbody>
             ${rows
@@ -398,6 +399,7 @@ export default function PaymentsPage() {
               <td>${escapeHtml((p.payment_method || "").replace(/[-_]/g, " "))}</td>
               <td>${escapeHtml(p.bank_name || "")}</td>
               <td>${escapeHtml(p.reference || "")}</td>
+              <td>${escapeHtml(p.check_date ? new Date(p.check_date).toLocaleDateString() : "")}</td>
               <td>${escapeHtml(p.status)}</td>
               <td>${escapeHtml(p.approval_status)}</td>
             </tr>`

@@ -774,6 +774,7 @@ export interface Payment {
   payment_method: string;
   bank_name?: string;
   reference?: string;
+  check_date?: string | null;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   approval_status: 'draft' | 'submitted' | 'approved' | 'rejected';
   notes?: string;
@@ -827,6 +828,7 @@ export interface CreatePaymentRequest {
   payment_method: string;
   bank_name?: string;
   reference?: string;
+  check_date?: string | null;
   notes?: string;
   created_by?: string;
   // When present, this payment settles several invoices. `amount` is the settled

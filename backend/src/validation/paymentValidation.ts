@@ -61,6 +61,7 @@ export const createPaymentSchema = Joi.object({
   payment_method: Joi.string().max(50).required(),
   bank_name: Joi.string().max(100).optional().allow(null, ''),
   reference: Joi.string().max(100).optional().allow(null, ''),
+  check_date: Joi.date().iso().optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
   created_by: Joi.string().max(100).optional().allow(null, ''),
   allocations: allocationsSchema
@@ -74,6 +75,7 @@ export const updatePaymentSchema = Joi.object({
   payment_method: Joi.string().max(50).optional(),
   bank_name: Joi.string().max(100).optional().allow(null, ''),
   reference: Joi.string().max(100).optional().allow(null, ''),
+  check_date: Joi.date().iso().optional().allow(null, ''),
   notes: Joi.string().max(1000).optional().allow(null, ''),
   created_by: Joi.string().max(100).optional().allow(null, ''),
   status: Joi.string().valid('pending', 'completed', 'failed', 'cancelled').optional(),

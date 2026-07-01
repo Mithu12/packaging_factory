@@ -109,8 +109,8 @@ export class PaymentMediator {
       const query = `
         INSERT INTO payments (
           payment_number, invoice_id, supplier_id, amount, discount_amount, payment_date,
-          payment_method, bank_name, reference, notes, created_by, approval_status, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          payment_method, bank_name, reference, check_date, notes, created_by, approval_status, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
 
@@ -124,6 +124,7 @@ export class PaymentMediator {
         data.payment_method,
         data.bank_name || null,
         data.reference || null,
+        data.check_date || null,
         data.notes || null,
         data.created_by || null,
         "draft", // Set default approval_status

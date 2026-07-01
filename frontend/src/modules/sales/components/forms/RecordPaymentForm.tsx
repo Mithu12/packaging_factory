@@ -45,6 +45,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
   const [paymentMethod, setPaymentMethod] = useState("")
   const [bankName, setBankName] = useState("")
   const [reference, setReference] = useState("")
+  const [checkDate, setCheckDate] = useState("")
   const [notes, setNotes] = useState("")
   // Manual amount only used for supplier "advance" payments (no invoice selected).
   const [advanceAmount, setAdvanceAmount] = useState("")
@@ -93,6 +94,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
     setPaymentMethod("")
     setBankName("")
     setReference("")
+    setCheckDate("")
     setNotes("")
     setAdvanceAmount("")
     setAllocations({})
@@ -136,6 +138,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
         setPaymentMethod(payment.payment_method)
         setBankName(payment.bank_name || "")
         setReference(payment.reference || "")
+        setCheckDate(payment.check_date ? new Date(payment.check_date).toISOString().split('T')[0] : "")
         setNotes(payment.notes || "")
 
         await loadSupplierInvoices(payment.supplier_id)
@@ -282,6 +285,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
         payment_method: paymentMethod,
         bank_name: bankRequired ? bankName.trim() : undefined,
         reference: reference || undefined,
+        check_date: paymentMethod === "check" ? (checkDate || undefined) : undefined,
         notes: notes || undefined,
         allocations: allocationList.length > 0 ? allocationList : undefined,
         created_by: "Current User", // TODO: Get from auth context
@@ -480,14 +484,26 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reference">Reference Number</Label>
+              <Label htmlFor="reference">Check no</Label>
               <Input
                 id="reference"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                placeholder="Transaction/Check number"
+                placeholder="Check number"
               />
             </div>
+
+            {paymentMethod === "check" && (
+              <div className="space-y-2">
+                <Label htmlFor="checkDate">Check Date</Label>
+                <Input
+                  id="checkDate"
+                  type="date"
+                  value={checkDate}
+                  onChange={(e) => setCheckDate(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

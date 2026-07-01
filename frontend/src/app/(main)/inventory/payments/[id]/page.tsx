@@ -132,7 +132,8 @@ export default function PaymentDetailsPage() {
         ["Amount", Number(payment.amount || 0).toFixed(2)],
         ["Method", (payment.payment_method || "").replace(/[-_]/g, " ")],
         ["Bank Name", payment.bank_name || ""],
-        ["Reference", payment.reference || ""],
+        ["Check no", payment.reference || ""],
+        ["Check Date", payment.check_date ? new Date(payment.check_date).toISOString().slice(0, 10) : ""],
         ["Status", payment.status],
         ["Approval", payment.approval_status],
         ["Notes", payment.notes || ""],
@@ -164,7 +165,8 @@ export default function PaymentDetailsPage() {
         ${row("Payment Date", new Date(payment.payment_date).toLocaleDateString())}
         ${row("Payment Method", (payment.payment_method || "").replace(/[-_]/g, " "))}
         ${payment.bank_name ? row("Bank Name", payment.bank_name) : ""}
-        ${row("Reference", payment.reference || "—")}
+        ${row("Check no", payment.reference || "—")}
+        ${payment.check_date ? row("Check Date", new Date(payment.check_date).toLocaleDateString()) : ""}
         ${row("Status", payment.status)}
         ${row("Approval", payment.approval_status)}
         ${payment.notes ? row("Notes", payment.notes) : ""}
@@ -301,9 +303,15 @@ export default function PaymentDetailsPage() {
                   <p className="text-lg capitalize">{payment.payment_method?.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Reference</label>
+                  <label className="text-sm font-medium text-muted-foreground">Check no</label>
                   <p className="text-lg">{payment.reference || "N/A"}</p>
                 </div>
+                {payment.check_date && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Check Date</label>
+                    <p className="text-lg">{formatDate(payment.check_date)}</p>
+                  </div>
+                )}
                 {payment.bank_name && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
