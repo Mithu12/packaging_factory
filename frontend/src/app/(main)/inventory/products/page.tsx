@@ -709,6 +709,11 @@ function ProductsContent() {
                             {product.reserved_stock > 0 && <div className="text-xs text-muted-foreground">
                               Reserved: {product.reserved_stock} {product.unit_of_measure}
                             </div>}
+                            {product.current_rolls != null && product.current_rolls > 0 && (
+                              <div className="text-xs font-medium text-primary">
+                                {product.current_rolls} rolls left
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>

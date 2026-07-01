@@ -77,6 +77,8 @@ export interface ProductLocation {
   // Joined fields
   product_name?: string;
   product_sku?: string;
+  category_id?: number;
+  category_name?: string;
   center_name?: string;
   center_type?: string;
 }

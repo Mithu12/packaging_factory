@@ -78,6 +78,8 @@ export interface ProductLocation {
   // Joined fields
   product_name?: string;
   product_sku?: string;
+  category_id?: number;
+  category_name?: string;
   cost_price?: number;
   selling_price?: number;
   center_name?: string;

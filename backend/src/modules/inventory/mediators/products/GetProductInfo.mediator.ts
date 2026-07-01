@@ -109,6 +109,7 @@ export class GetProductInfoMediator {
                 SELECT
                     p.*,
                     ${distribution_center_id ? 'COALESCE(pl.current_stock, 0) as current_stock, pl.min_stock_level as dc_min_stock,' : ''}
+                    COALESCE(plr.current_rolls, 0) as current_rolls,
                     c.name as category_name,
                     c.sort_order as category_sort_order,
                     sc.name as subcategory_name,
@@ -123,6 +124,11 @@ export class GetProductInfoMediator {
                 LEFT JOIN brands b ON p.brand_id = b.id
                 LEFT JOIN origins o ON p.origin_id = o.id
                 LEFT JOIN suppliers s ON p.supplier_id = s.id
+                LEFT JOIN (
+                    SELECT product_id, SUM(current_rolls) as current_rolls
+                    FROM product_locations
+                    GROUP BY product_id
+                ) plr ON plr.product_id = p.id
                 ${distribution_center_id ? `LEFT JOIN product_locations pl ON p.id = pl.product_id AND pl.distribution_center_id = $${paramIndex + 2}` : ''}
                 WHERE ${whereClause}
                 ORDER BY p.${sortBy} ${sortOrder.toUpperCase()}

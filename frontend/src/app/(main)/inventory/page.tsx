@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   TrendingUp,
   Package,
-  BarChart3,
   Loader2,
   Printer,
 } from "lucide-react";
@@ -43,7 +42,8 @@ import {
   DistributionCenter,
   ProductLocationQueryParams 
 } from "@/modules/inventory/services/distribution-api";
-import { InventoryStats, StockMovement } from "@/services/types";
+import { CategoryApi } from "@/modules/inventory/services/category-api";
+import { Category, InventoryStats, StockMovement } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
 import { printHtml, escapeHtml } from "@/utils/export-print";
 
@@ -54,10 +54,12 @@ export default function Inventory() {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedDC, setSelectedDC] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // State for real data
   const [locations, setLocations] = useState<ProductLocation[]>([]);
   const [centers, setCenters] = useState<DistributionCenter[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,7 @@ export default function Inventory() {
   useEffect(() => {
     fetchData();
     fetchCenters();
+    fetchCategories();
   }, []);
 
   const fetchCenters = async () => {
@@ -75,6 +78,15 @@ export default function Inventory() {
       setCenters(result.centers);
     } catch (err) {
       console.error("Error fetching centers:", err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const result = await CategoryApi.getCategories({ limit: 100 });
+      setCategories(result.categories);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
     }
   };
 
@@ -121,12 +133,16 @@ export default function Inventory() {
     fetchData();
   }, [selectedDC, selectedStatus]);
 
-  const filteredItems = locations.filter(
-    (item) =>
+  const filteredItems = locations.filter((item) => {
+    const matchesSearch =
       item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.product_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.center_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      item.center_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "all" ||
+      String(item.category_id) === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   // Use client-side pagination for filtered inventory items
   const inventoryPagination = useClientPagination(filteredItems, {
@@ -292,10 +308,6 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Reports
-          </Button>
           <Button
             type="button"
             variant="add"
@@ -384,6 +396,16 @@ export default function Inventory() {
                       className="pl-10 w-full sm:w-80"
                     />
                   </div>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
                   <select
                     value={selectedDC}
                     onChange={(e) => setSelectedDC(e.target.value)}

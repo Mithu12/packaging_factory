@@ -203,6 +203,7 @@ export interface Product {
   selling_price: number;
   wholesale_price?: number;
   current_stock: number;
+  current_rolls?: number;
   min_stock_level: number;
   max_stock_level?: number;
   reorder_point?: number;

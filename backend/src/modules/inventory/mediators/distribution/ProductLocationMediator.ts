@@ -61,6 +61,8 @@ export class ProductLocationMediator {
           pl.updated_at,
           p.name as product_name,
           p.sku as product_sku,
+          p.category_id,
+          c.name as category_name,
           p.cost_price,
           p.wholesale_price,
           p.selling_price,
@@ -68,6 +70,7 @@ export class ProductLocationMediator {
           dc.type as center_type
         FROM product_locations pl
         JOIN products p ON pl.product_id = p.id
+        LEFT JOIN categories c ON c.id = p.category_id
         JOIN distribution_centers dc ON pl.distribution_center_id = dc.id
         WHERE 1=1
       `;
