@@ -286,6 +286,11 @@ export default function PaymentDetailsPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Amount</label>
                   <p className="text-2xl font-bold">{formatCurrency(payment.amount)}</p>
+                  {(payment.discount_amount || 0) > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Discount {formatCurrency(payment.discount_amount || 0)} · settled {formatCurrency(Number(payment.amount) + Number(payment.discount_amount || 0))}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Payment Date</label>
@@ -397,7 +402,14 @@ export default function PaymentDetailsPage() {
                       <span className="font-medium">
                         {alloc.invoice_number || `Invoice #${alloc.invoice_id}`}
                       </span>
-                      <span className="font-semibold">{formatCurrency(alloc.allocated_amount)}</span>
+                      <span className="text-right">
+                        <span className="font-semibold block">{formatCurrency(alloc.allocated_amount)}</span>
+                        {(alloc.discount_amount || 0) > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            incl. discount {formatCurrency(alloc.discount_amount || 0)}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   ))
                 ) : (

@@ -17,7 +17,7 @@ export const updateCategorySchema = categoryBaseSchema
 
 export const getCategoriesQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(1000).default(10),
   search: Joi.string().optional().allow(""),
   sortBy: Joi.string()
     .valid("id", "name", "sort_order", "created_at", "updated_at")

@@ -759,6 +759,7 @@ export interface Invoice {
 export interface PaymentAllocation {
   invoice_id: number;
   allocated_amount: number;
+  discount_amount?: number;
   invoice_number?: string;
 }
 
@@ -768,6 +769,7 @@ export interface Payment {
   invoice_id?: number;
   supplier_id: number;
   amount: number;
+  discount_amount?: number;
   payment_date: string;
   payment_method: string;
   bank_name?: string;
@@ -827,8 +829,10 @@ export interface CreatePaymentRequest {
   reference?: string;
   notes?: string;
   created_by?: string;
-  // When present, this payment settles several invoices; amounts must sum to `amount`.
-  allocations?: { invoice_id: number; amount: number }[];
+  // When present, this payment settles several invoices. `amount` is the settled
+  // amount per invoice; `discount_amount` is the supplier discount on that line, so
+  // net cash = Σ(amount - discount_amount) and must equal the payment `amount`.
+  allocations?: { invoice_id: number; amount: number; discount_amount?: number }[];
 }
 
 export interface UpdatePaymentRequest extends Partial<CreatePaymentRequest> {

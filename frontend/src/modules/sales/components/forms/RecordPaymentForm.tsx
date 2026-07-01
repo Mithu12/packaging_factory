@@ -49,8 +49,10 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
   // Manual amount only used for supplier "advance" payments (no invoice selected).
   const [advanceAmount, setAdvanceAmount] = useState("")
 
-  // invoice_id -> amount string for the invoices being settled by this payment.
+  // invoice_id -> settled amount string for the invoices being settled by this payment.
   const [allocations, setAllocations] = useState<Record<number, string>>({})
+  // invoice_id -> supplier discount string on that line. Cash = settled - discount.
+  const [discounts, setDiscounts] = useState<Record<number, string>>({})
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -63,12 +65,18 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
   const allocationTotal = round2(
     Object.values(allocations).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
   )
+  const discountTotal = round2(
+    selectedIds.reduce((sum, id) => sum + (parseFloat(discounts[id]) || 0), 0)
+  )
   const outstandingTotal = round2(
     supplierInvoices
       .filter((inv) => allocations[inv.id] !== undefined)
       .reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0)
   )
-  const paymentAmount = hasAllocations ? allocationTotal : (parseFloat(advanceAmount) || 0)
+  // Cash disbursed = settled amount minus supplier discount.
+  const paymentAmount = hasAllocations
+    ? round2(allocationTotal - discountTotal)
+    : (parseFloat(advanceAmount) || 0)
 
   useEffect(() => {
     if (open) {
@@ -88,6 +96,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
     setNotes("")
     setAdvanceAmount("")
     setAllocations({})
+    setDiscounts({})
     setSupplierInvoices([])
   }
 
@@ -132,14 +141,19 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
         await loadSupplierInvoices(payment.supplier_id)
 
         const existing = payment.allocations && payment.allocations.length > 0
-          ? payment.allocations.map((a) => ({ invoice_id: a.invoice_id, amount: a.allocated_amount }))
+          ? payment.allocations.map((a) => ({ invoice_id: a.invoice_id, amount: a.allocated_amount, discount: a.discount_amount || 0 }))
           : payment.invoice_id
-          ? [{ invoice_id: payment.invoice_id, amount: payment.amount }]
+          ? [{ invoice_id: payment.invoice_id, amount: payment.amount, discount: 0 }]
           : []
         if (existing.length > 0) {
           const next: Record<number, string> = {}
-          existing.forEach((a) => { next[a.invoice_id] = a.amount.toString() })
+          const nextDisc: Record<number, string> = {}
+          existing.forEach((a) => {
+            next[a.invoice_id] = a.amount.toString()
+            if (a.discount) nextDisc[a.invoice_id] = a.discount.toString()
+          })
           setAllocations(next)
+          setDiscounts(nextDisc)
         } else {
           setAdvanceAmount(payment.amount.toString())
         }
@@ -170,6 +184,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
   async function handleSupplierChange(value: string) {
     setSupplier(value)
     setAllocations({})
+    setDiscounts({})
     setAdvanceAmount("")
     if (value) {
       await loadSupplierInvoices(Number(value))
@@ -188,10 +203,21 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
       }
       return next
     })
+    if (!checked) {
+      setDiscounts((prev) => {
+        const next = { ...prev }
+        delete next[invoice.id]
+        return next
+      })
+    }
   }
 
   function setAllocationAmount(invoiceId: number, value: string) {
     setAllocations((prev) => ({ ...prev, [invoiceId]: value }))
+  }
+
+  function setDiscountAmount(invoiceId: number, value: string) {
+    setDiscounts((prev) => ({ ...prev, [invoiceId]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -217,18 +243,32 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
 
     const allocationList = supplierInvoices
       .filter((inv) => allocations[inv.id] !== undefined)
-      .map((inv) => ({ invoice_id: inv.id, amount: round2(parseFloat(allocations[inv.id]) || 0) }))
+      .map((inv) => ({
+        invoice_id: inv.id,
+        amount: round2(parseFloat(allocations[inv.id]) || 0),
+        discount_amount: round2(parseFloat(discounts[inv.id]) || 0),
+      }))
 
-    // Each allocation must be positive and within the invoice's outstanding balance.
+    // Each allocation must be positive, within the invoice's outstanding balance,
+    // and its discount must not exceed the settled amount.
     for (const inv of supplierInvoices) {
       if (allocations[inv.id] === undefined) continue
       const amt = parseFloat(allocations[inv.id]) || 0
+      const disc = parseFloat(discounts[inv.id]) || 0
       if (amt <= 0) {
         toast.error(`Enter a valid amount for invoice ${inv.invoice_number}`)
         return
       }
       if (amt > Number(inv.outstanding_amount || 0) + 0.005) {
         toast.error(`Amount for invoice ${inv.invoice_number} exceeds its outstanding balance`)
+        return
+      }
+      if (disc < 0) {
+        toast.error(`Discount for invoice ${inv.invoice_number} cannot be negative`)
+        return
+      }
+      if (disc > amt + 0.005) {
+        toast.error(`Discount for invoice ${inv.invoice_number} exceeds its settled amount`)
         return
       }
     }
@@ -330,14 +370,31 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
                           </span>
                         </label>
                         {selected && (
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            className="w-28"
-                            value={allocations[inv.id]}
-                            onChange={(e) => setAllocationAmount(inv.id, e.target.value)}
-                          />
+                          <div className="flex items-center gap-1">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground leading-none mb-0.5">Settle</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="w-24"
+                                value={allocations[inv.id]}
+                                onChange={(e) => setAllocationAmount(inv.id, e.target.value)}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground leading-none mb-0.5">Discount</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="w-24"
+                                placeholder="0"
+                                value={discounts[inv.id] ?? ""}
+                                onChange={(e) => setDiscountAmount(inv.id, e.target.value)}
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
                     )
@@ -360,20 +417,23 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Payment Amount *</Label>
+              <Label htmlFor="amount">Payment Amount (cash) *</Label>
               <Input
                 id="amount"
                 type="number"
                 min="0"
                 step="0.01"
-                value={hasAllocations ? allocationTotal : advanceAmount}
+                value={hasAllocations ? paymentAmount : advanceAmount}
                 onChange={(e) => setAdvanceAmount(e.target.value)}
                 placeholder="0.00"
                 disabled={hasAllocations}
                 required
               />
               {hasAllocations && (
-                <p className="text-xs text-muted-foreground">Sum of selected invoice allocations.</p>
+                <p className="text-xs text-muted-foreground">
+                  Settles {allocationTotal.toLocaleString()}
+                  {discountTotal > 0 && <> · discount {discountTotal.toLocaleString()}</>} · cash {paymentAmount.toLocaleString()}
+                </p>
               )}
             </div>
 

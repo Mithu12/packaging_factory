@@ -66,6 +66,8 @@ export interface SupplierPaymentAccountingData {
   supplierId: number;
   supplierName: string;
   amount: number;
+  // Supplier discount received; the settled amount is amount + discountAmount.
+  discountAmount?: number;
   paymentDate: string;
   paymentMethod: string;
   bankName?: string;
@@ -545,6 +547,28 @@ class InventoryAccountsIntegrationService {
         return { voucherId: 0, voucherNo: '', success: false, error: errMsg };
       }
 
+      // A supplier discount fully settles the invoice while less cash is paid:
+      // Debit AP (settled) / Credit Cash (net) / Credit Discount Received (discount).
+      const discountAmount = Number(paymentData.discountAmount || 0);
+      const settledAmount = paymentData.amount + discountAmount;
+      let discountAccount: any = null;
+      if (discountAmount > 0) {
+        discountAccount = await this.getDefaultAccount('purchase_discount');
+        if (!discountAccount) {
+          const errMsg = 'Discount Received account not configured (Income)';
+          logVoucherFailureFromError({
+            sourceModule: 'inventory',
+            operationType: 'addSupplierPaymentVoucher',
+            sourceEntityType: 'payment',
+            sourceEntityId: paymentData.paymentId,
+            errorMessage: errMsg,
+            payload: { paymentNumber: paymentData.paymentNumber, supplierName: paymentData.supplierName },
+            userId,
+          });
+          return { voucherId: 0, voucherNo: '', success: false, error: errMsg };
+        }
+      }
+
       const costCenterId = await this.getCostCenterForPayment(
         paymentData.paymentId,
         paymentData.invoiceId
@@ -569,13 +593,13 @@ class InventoryAccountsIntegrationService {
         date: new Date(paymentData.paymentDate),
         reference: paymentData.reference || paymentData.paymentNumber,
         payee: paymentData.supplierName,
-        amount: paymentData.amount,
+        amount: settledAmount,
         narration: `Payment to ${paymentData.supplierName}${invoiceText}${bankText}`,
         costCenterId,
         lines: [
           {
             accountId: apAccount.id,
-            debit: paymentData.amount,
+            debit: settledAmount,
             credit: 0,
             description: `Settle ${invoiceList.length > 0 ? invoiceList.join(', ') : 'Account'}`,
             costCenterId
@@ -586,7 +610,18 @@ class InventoryAccountsIntegrationService {
             credit: paymentData.amount,
             description: `Paid via ${paymentData.paymentMethod}`,
             costCenterId
-          }
+          },
+          ...(discountAmount > 0
+            ? [
+                {
+                  accountId: discountAccount.id,
+                  debit: 0,
+                  credit: discountAmount,
+                  description: `Discount received${invoiceList.length > 0 ? ` on ${invoiceList.join(', ')}` : ''}`,
+                  costCenterId
+                }
+              ]
+            : [])
         ]
       };
 
@@ -863,6 +898,10 @@ class InventoryAccountsIntegrationService {
         case 'cash':
           searchTerm = 'Cash';
           category = 'Assets';
+          break;
+        case 'purchase_discount':
+          searchTerm = 'Discount Received';
+          category = 'Income';
           break;
         default:
           return null;

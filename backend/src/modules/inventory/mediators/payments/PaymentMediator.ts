@@ -99,11 +99,18 @@ export class PaymentMediator {
       const singleInvoiceId =
         allocations.length === 1 ? allocations[0].invoice_id : null;
 
+      // Total supplier discount across the settled lines. Cash disbursed
+      // (payments.amount) settles the invoices by amount + discount.
+      const totalDiscount = allocations.reduce(
+        (acc, a) => acc + Number(a.discount_amount || 0),
+        0
+      );
+
       const query = `
         INSERT INTO payments (
-          payment_number, invoice_id, supplier_id, amount, payment_date,
+          payment_number, invoice_id, supplier_id, amount, discount_amount, payment_date,
           payment_method, bank_name, reference, notes, created_by, approval_status, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `;
 
@@ -112,6 +119,7 @@ export class PaymentMediator {
         singleInvoiceId,
         data.supplier_id,
         data.amount,
+        totalDiscount,
         data.payment_date,
         data.payment_method,
         data.bank_name || null,
@@ -125,12 +133,12 @@ export class PaymentMediator {
       const result = await client.query(query, values);
       const payment = result.rows[0];
 
-      // Persist the per-invoice allocation breakdown.
+      // Persist the per-invoice allocation breakdown (settled amount + discount).
       for (const alloc of allocations) {
         await client.query(
-          `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount)
-           VALUES ($1, $2, $3)`,
-          [payment.id, alloc.invoice_id, alloc.amount]
+          `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount, discount_amount)
+           VALUES ($1, $2, $3, $4)`,
+          [payment.id, alloc.invoice_id, alloc.amount, alloc.discount_amount || 0]
         );
       }
 
@@ -417,7 +425,7 @@ export class PaymentMediator {
 
       // Pull the per-invoice allocation breakdown for this payment.
       const allocationsResult = await client.query(
-        `SELECT pia.invoice_id, pia.allocated_amount, i.invoice_number
+        `SELECT pia.invoice_id, pia.allocated_amount, pia.discount_amount, i.invoice_number
          FROM payment_invoice_allocations pia
          LEFT JOIN invoices i ON pia.invoice_id = i.id
          WHERE pia.payment_id = $1
@@ -428,6 +436,7 @@ export class PaymentMediator {
       const allocations = allocationsResult.rows.map((row) => ({
         invoice_id: row.invoice_id,
         allocated_amount: parseFloat(row.allocated_amount),
+        discount_amount: parseFloat(row.discount_amount),
         invoice_number: row.invoice_number,
       }));
 
@@ -534,18 +543,22 @@ export class PaymentMediator {
         );
         for (const alloc of allocations) {
           await client.query(
-            `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount)
-             VALUES ($1, $2, $3)`,
-            [id, alloc.invoice_id, alloc.amount]
+            `INSERT INTO payment_invoice_allocations (payment_id, invoice_id, allocated_amount, discount_amount)
+             VALUES ($1, $2, $3, $4)`,
+            [id, alloc.invoice_id, alloc.amount, alloc.discount_amount || 0]
           );
         }
-        // Keep payments.invoice_id consistent with the single-invoice case.
+        // Keep payments.invoice_id + total discount consistent with the allocations.
         const singleInvoiceId =
           allocations.length === 1 ? allocations[0].invoice_id : null;
+        const totalDiscount = allocations.reduce(
+          (acc, a) => acc + Number(a.discount_amount || 0),
+          0
+        );
         const synced = await client.query(
-          `UPDATE payments SET invoice_id = $1, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2 RETURNING *`,
-          [singleInvoiceId, id]
+          `UPDATE payments SET invoice_id = $1, discount_amount = $2, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3 RETURNING *`,
+          [singleInvoiceId, totalDiscount, id]
         );
         payment = synced.rows[0];
       }
@@ -803,6 +816,7 @@ export class PaymentMediator {
         supplierId: payment.supplier_id,
         supplierName: payment.supplier_name,
         amount: parseFloat(payment.amount.toString()),
+        discountAmount: payment.discount_amount != null ? parseFloat(payment.discount_amount.toString()) : 0,
         paymentDate: payment.payment_date,
         paymentMethod: payment.payment_method,
         bankName: payment.bank_name,

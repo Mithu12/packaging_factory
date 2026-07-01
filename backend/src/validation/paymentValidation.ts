@@ -25,17 +25,21 @@ const allocationsSchema = Joi.array()
   .items(
     Joi.object({
       invoice_id: Joi.number().integer().positive().required(),
-      amount: Joi.number().positive().precision(2).required()
+      amount: Joi.number().positive().precision(2).required(),
+      // Supplier discount on this line; cannot exceed the settled amount.
+      discount_amount: Joi.number().min(0).max(Joi.ref('amount')).precision(2).optional()
     })
   )
   .min(1)
   .optional();
 
-// When allocations are supplied, their amounts must add up to the payment amount.
+// When allocations are supplied, the net cash (settled amount minus per-line
+// discount) must add up to the payment amount.
 const allocationsSumMatchesAmount = (value: any, helpers: any) => {
   if (!value.allocations || value.allocations.length === 0) return value;
   const sum = value.allocations.reduce(
-    (acc: number, a: { amount: number }) => acc + Number(a.amount),
+    (acc: number, a: { amount: number; discount_amount?: number }) =>
+      acc + (Number(a.amount) - Number(a.discount_amount || 0)),
     0
   );
   if (value.amount != null && Math.abs(sum - Number(value.amount)) > 0.005) {
@@ -45,7 +49,7 @@ const allocationsSumMatchesAmount = (value: any, helpers: any) => {
 };
 
 const allocationMessages = {
-  'allocations.sumMismatch': 'Allocation amounts must sum to the payment amount'
+  'allocations.sumMismatch': 'Net cash (allocations minus discounts) must equal the payment amount'
 };
 
 export const createPaymentSchema = Joi.object({

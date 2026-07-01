@@ -22,6 +22,7 @@ export interface Invoice {
 export interface PaymentAllocation {
   invoice_id: number;
   allocated_amount: number;
+  discount_amount?: number;
   invoice_number?: string;
 }
 
@@ -31,6 +32,7 @@ export interface Payment {
   invoice_id?: number;
   supplier_id: number;
   amount: number;
+  discount_amount?: number;
   payment_date: string;
   payment_method: string;
   bank_name?: string;
@@ -91,9 +93,12 @@ export interface CreatePaymentRequest {
   reference?: string;
   notes?: string;
   created_by?: string;
-  // When present, this payment settles several invoices at once. The sum of
-  // amounts must equal `amount`. A single allocation is equivalent to invoice_id.
-  allocations?: { invoice_id: number; amount: number }[];
+  // When present, this payment settles several invoices at once. Each `amount`
+  // is the amount that settles that invoice (gross); the optional `discount_amount`
+  // is the supplier discount on the line, so cash = amount - discount_amount.
+  // `amount` (payment cash) must equal Σ(alloc.amount - alloc.discount_amount).
+  // A single allocation is equivalent to invoice_id.
+  allocations?: { invoice_id: number; amount: number; discount_amount?: number }[];
 }
 
 export interface UpdatePaymentRequest extends Partial<CreatePaymentRequest> {
