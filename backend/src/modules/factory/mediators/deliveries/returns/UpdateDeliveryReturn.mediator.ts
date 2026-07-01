@@ -5,6 +5,7 @@ import { DeliveryReturn, FactoryCustomerOrderStatus } from '@/types/factory';
 import { GetDeliveryReturnsMediator } from './GetDeliveryReturns.mediator';
 import { interModuleConnector } from '@/utils/InterModuleConnector';
 import { creditLocationStock, resolvePrimaryDcId } from '@/utils/stockLocations';
+import { recalcFactoryCustomerFinancials } from '@/modules/factory/utils/customerFinancials';
 
 interface ReturnItemForApproval {
   delivery_item_id: number;
@@ -145,15 +146,23 @@ export class UpdateDeliveryReturnMediator {
         );
       }
 
-      // 3. Recompute status for every touched order (same logic as CancelDelivery).
-      const orderIdsRes = await client.query<{ order_id: string }>(
-        `SELECT DISTINCT li.order_id
+      // 3. Recompute status AND reduce the receivable for every touched order.
+      //    Returned goods lower what the customer owes, so we cut the order's
+      //    total_value by the returned value (per order) and keep the invariant
+      //    outstanding_amount = total_value - paid_amount (V48). This mirrors the
+      //    credit-note that reduces A/R in accounting below. If the customer had
+      //    already paid more than the reduced value (return-after-payment), we
+      //    clamp total_value to paid_amount (outstanding -> 0) to satisfy the
+      //    CHECK constraint; the residual credit is out of scope here.
+      const returnValueByOrderRes = await client.query<{ order_id: string; return_value: string }>(
+        `SELECT li.order_id, COALESCE(SUM(ri.line_total), 0) AS return_value
            FROM factory_delivery_return_items ri
            JOIN factory_customer_order_line_items li ON li.id = ri.order_line_item_id
-          WHERE ri.return_id = $1`,
+          WHERE ri.return_id = $1
+          GROUP BY li.order_id`,
         [returnId]
       );
-      for (const { order_id } of orderIdsRes.rows) {
+      for (const { order_id, return_value } of returnValueByOrderRes.rows) {
         const statRes = await client.query<{ pending: string; shipped_total: string }>(
           `SELECT COALESCE(SUM(quantity - delivered_qty), 0) AS pending,
                   COALESCE(SUM(delivered_qty), 0) AS shipped_total
@@ -169,11 +178,30 @@ export class UpdateDeliveryReturnMediator {
             : shippedTotal > 1e-9
               ? FactoryCustomerOrderStatus.PARTIALLY_SHIPPED
               : FactoryCustomerOrderStatus.COMPLETED;
-        await client.query(
-          'UPDATE factory_customer_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [newStatus, order_id]
+
+        // Both `total_value` references below read the OLD row value, so the new
+        // total and outstanding stay consistent with the V48 CHECK constraint.
+        const updRes = await client.query<{ total_value: string; paid_amount: string }>(
+          `UPDATE factory_customer_orders
+              SET status = $1,
+                  total_value = GREATEST(total_value - $2, paid_amount),
+                  outstanding_amount = GREATEST(total_value - $2, paid_amount) - paid_amount,
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+          RETURNING total_value, paid_amount`,
+          [newStatus, return_value, order_id]
         );
+        if (updRes.rows[0] && parseFloat(updRes.rows[0].paid_amount) > parseFloat(updRes.rows[0].total_value) + 1e-9) {
+          MyLogger.warn(action, {
+            message: 'Return exceeds unpaid balance; total_value clamped to paid_amount (credit balance not tracked)',
+            orderId: order_id,
+            returnValue: return_value,
+          });
+        }
       }
+
+      // Keep the customer-level financial summary in step with the order rows.
+      await recalcFactoryCustomerFinancials(client, ret.factory_customer_id);
 
       // 4. Approve the return.
       await client.query(
