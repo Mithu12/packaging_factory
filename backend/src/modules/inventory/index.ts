@@ -14,6 +14,7 @@ import { registerInventoryAccountingListeners, inventoryAccountsIntegrationServi
 import express from "express";
 import { interModuleConnector } from "@/utils/InterModuleConnector";
 import purchaseReportsRoutes from "@/modules/inventory/routes/purchase-reports.routes";
+import stockReportsRoutes from "@/modules/inventory/routes/stock-reports.routes";
 import { StockAdjustmentMediator } from "@/modules/inventory/mediators/stockAdjustments/StockAdjustmentMediator";
 
 // Register inventory accounting listeners
@@ -32,6 +33,7 @@ const router = express.Router();
 // Mount inventory-module-routes
 router.use("/inventory", inventoryRouter);
 router.use("/inventory/reports", purchaseReportsRoutes);
+router.use("/inventory/reports", stockReportsRoutes);
 router.use("/suppliers", suppliersRoutes);
 router.use("/categories", categoriesRoutes);
 router.use("/products", productsRoutes);

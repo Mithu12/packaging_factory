@@ -17,6 +17,8 @@ import platesRoutes from "./routes/plates.routes";
 import costAnalysisRoutes from "./routes/costAnalysis.routes";
 import salesInvoicesRoutes from "./routes/salesInvoices.routes";
 import reportsRoutes from "./routes/reports.routes";
+import productionReportRoutes from "./routes/production-report.routes";
+import costingReportRoutes from "./routes/costing-report.routes";
 import express from "express";
 
 const router = express.Router();
@@ -41,5 +43,7 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/cost-analysis", costAnalysisRoutes);
 router.use("/sales-invoices", salesInvoicesRoutes);
 router.use("/reports", reportsRoutes);
+router.use("/production-reports", productionReportRoutes);
+router.use("/costing-reports", costingReportRoutes);
 
 export default router;

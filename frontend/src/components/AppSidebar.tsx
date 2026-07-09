@@ -48,6 +48,7 @@ import {
   CreditCard,
   Bell,
   Database,
+  Factory,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -671,6 +672,42 @@ const menuSections: MenuSection[] = [
         url: "/reports/purchase-reports",
         icon: ShoppingCart,
         permission: PERMISSIONS.PURCHASE_ORDERS_READ,
+      },
+      {
+        title: "Production Report",
+        url: "/reports/production-report",
+        icon: Factory,
+        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+      },
+      {
+        title: "Stock Report",
+        url: "/reports/stock-report",
+        icon: Package,
+        permission: PERMISSIONS.INVENTORY_READ,
+      },
+      {
+        title: "Sales Reports",
+        url: "/reports/sales-reports",
+        icon: TrendingUp,
+        permission: PERMISSIONS.SALES_ORDERS_READ,
+      },
+      {
+        title: "Costing Report",
+        url: "/reports/costing-report",
+        icon: Calculator,
+        permission: PERMISSIONS.FACTORY_WORK_ORDERS_READ,
+      },
+      {
+        title: "Customer Due Report",
+        url: "/reports/customer-due-reports",
+        icon: Users,
+        permission: PERMISSIONS.CUSTOMERS_READ,
+      },
+      {
+        title: "Financial Report",
+        url: "/reports/financial-report",
+        icon: FileText,
+        permission: PERMISSIONS.VOUCHERS_READ,
       },
       {
         title: "Expense Reports",

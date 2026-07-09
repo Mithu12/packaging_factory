@@ -85,6 +85,31 @@ export interface ReturnsAnalysis {
   }>;
 }
 
+export interface CustomerDueItem {
+  id: number;
+  customer_code: string;
+  name: string;
+  phone: string;
+  email: string;
+  total_purchased: number;
+  total_paid: number;
+  total_due: number;
+  order_count: number;
+  due_order_count: number;
+  last_order_date: string;
+}
+
+export interface CustomerDueReport {
+  customers: CustomerDueItem[];
+  totals: {
+    total_purchased: number;
+    total_paid: number;
+    total_due: number;
+    customer_count: number;
+    customers_with_dues: number;
+  };
+}
+
 interface ReportParams {
   dateRange?: DateRange;
   distributionCenterId?: number;
@@ -132,6 +157,16 @@ export const SalesReportsApi = {
   async getReturnsAnalysis(params: ReportParams): Promise<ReturnsAnalysis> {
     const response = await apiClient.get("/sales/reports/returns-analysis", {
       params: buildParams(params),
+    });
+    return response.data.data;
+  },
+
+  async getCustomerDueReport(params: { customerId?: number; onlyWithDues?: boolean }): Promise<CustomerDueReport> {
+    const response = await apiClient.get("/sales/reports/customer-due", {
+      params: {
+        customer_id: params.customerId,
+        only_with_dues: params.onlyWithDues || false,
+      },
     });
     return response.data.data;
   },
