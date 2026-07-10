@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forkan Corrugated — Costing Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --kraft-50:#FAF6EE;
+    --kraft-100:#F2E9D8;
+    --kraft-200:#E4D3B0;
+    --board-700:#7A5230;
+    --board-800:#5C3D24;
+    --board-900:#3C2817;
+    --ink:#2A2018;
+    --ink-soft:#6B5C4C;
+    --line:#D8C7A8;
+    --press-blue:#1F5C6B;
+    --press-blue-dark:#163F49;
+    --stamp-red:#A8412A;
+    --ok-green:#3D6E4A;
+    --paper:#FFFDF8;
+    --shadow: 0 1px 0 rgba(60,40,23,0.08);
+    --radius: 3px;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background:
+      repeating-linear-gradient(0deg, rgba(122,82,48,0.03) 0px, rgba(122,82,48,0.03) 1px, transparent 1px, transparent 48px),
+      var(--kraft-50);
+    color:var(--ink);
+    font-family:'Hind Siliguri','Segoe UI',sans-serif;
+    min-height:100vh;
+    padding:0 0 64px 0;
+  }
+
+  /* ===== HEADER / MASTHEAD ===== */
+  .masthead{
+    background: linear-gradient(180deg, var(--board-900) 0%, var(--board-800) 100%);
+    color:var(--kraft-50);
+    padding:22px 20px 18px;
+    position:relative;
+    overflow:hidden;
+    border-bottom:4px solid var(--board-700);
+  }
+  .masthead::after{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .masthead-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    max-width:920px; margin:0 auto; position:relative;
+  }
+  .brand-mark{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand-mark .box-icon{
+    width:38px; height:38px; flex:none;
+    border:2px solid var(--kraft-100);
+    border-radius:2px;
+    position:relative;
+  }
+  .brand-mark .box-icon::before{
+    content:"";
+    position:absolute; left:50%; top:0; bottom:0; width:2px;
+    background:var(--kraft-100); transform:translateX(-50%);
+  }
+  .brand-mark .box-icon::after{
+    content:"";
+    position:absolute; top:50%; left:0; right:0; height:2px;
+    background:var(--kraft-100); transform:translateY(-50%);
+  }
+  .brand-text .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--kraft-200); opacity:0.85;
+  }
+  .brand-text h1{
+    font-size:19px; font-weight:700; letter-spacing:0.01em; margin-top:2px;
+  }
+  .masthead-meta{
+    text-align:right;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--kraft-200);
+    line-height:1.5;
+    opacity:0.85;
+  }
+
+  /* ===== LAYOUT ===== */
+  .sheet{
+    max-width:920px;
+    margin:0 auto;
+    padding:0 16px;
+  }
+
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    margin-top:18px;
+    overflow:hidden;
+  }
+
+  .panel-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(90deg, var(--kraft-100), transparent 60%),
+      var(--kraft-50);
+  }
+  .panel-head .tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--board-700); font-weight:700;
+  }
+  .panel-head h2{
+    font-size:16px; font-weight:700; color:var(--ink); margin-top:3px;
+  }
+  .panel-head .sub{
+    font-size:11.5px; color:var(--ink-soft); margin-top:2px;
+  }
+
+  .panel-body{ padding:18px; }
+
+  /* ===== INPUT GRID (Section 1) ===== */
+  .input-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:12px 14px;
+  }
+  @media (max-width:520px){
+    .input-grid{ grid-template-columns: 1fr; }
+  }
+  .field{
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .field label{
+    font-size:12px; font-weight:600; color:var(--ink-soft);
+    display:flex; align-items:baseline; gap:6px;
+  }
+  .field label .sym{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; color:var(--board-700);
+    background:var(--kraft-100);
+    padding:1px 6px; border-radius:2px;
+    font-weight:700;
+  }
+  .field input, .field select, .field textarea{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px; font-weight:500;
+    padding:10px 11px;
+    border:1.5px solid var(--line);
+    border-radius:2px;
+    background:#fff;
+    color:var(--ink);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none;
+    border-color:var(--press-blue);
+    box-shadow:0 0 0 3px rgba(31,92,107,0.12);
+  }
+  .field textarea{ resize:vertical; font-family:inherit; }
+  .field.full{ grid-column:1 / -1; }
+  .field .unit-hint{
+    font-size:10.5px; color:var(--ink-soft); opacity:0.8;
+  }
+
+  /* ===== MODE PILLS ===== */
+  .mode-pills{
+    display:grid; grid-template-columns: repeat(2,1fr); gap:8px;
+    margin-top:4px;
+  }
+  @media (max-width:520px){ .mode-pills{ grid-template-columns:1fr; } }
+  .mode-pill{
+    border:1.5px solid var(--line);
+    background:#fff;
+    border-radius:3px;
+    padding:10px 12px;
+    cursor:pointer;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    text-align:left;
+    transition: all 0.15s;
+    line-height:1.4;
+  }
+  .mode-pill .mode-bn{ display:block; font-size:11px; font-weight:500; margin-top:2px; opacity:0.85; }
+  .mode-pill:hover{ border-color:var(--press-blue); }
+  .mode-pill.active{
+    border-color:var(--press-blue);
+    background: linear-gradient(180deg, #EAF3F4, #fff);
+    color:var(--press-blue-dark);
+    box-shadow: inset 0 0 0 1px var(--press-blue);
+  }
+
+  /* ===== RESULT STRIP (quick numbers, derived from hidden modes calc) ===== */
+  .result-strip{
+    display:grid; grid-template-columns: repeat(3,1fr);
+    border:1px solid var(--line);
+    border-radius:3px;
+    overflow:hidden;
+    margin-top:16px;
+  }
+  @media (max-width:640px){ .result-strip{ grid-template-columns:repeat(2,1fr); } }
+  .result-cell{
+    padding:12px 10px;
+    border-right:1px solid var(--line);
+    background:var(--kraft-50);
+    text-align:center;
+  }
+  .result-cell:last-child{ border-right:none; }
+  .result-cell .rl{
+    font-size:10px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-weight:600;
+  }
+  .result-cell .rv{
+    font-family:'JetBrains Mono',monospace;
+    font-size:18px; font-weight:700; color:var(--board-800);
+    margin-top:4px;
+  }
+  .result-cell .ru{ font-size:10px; color:var(--ink-soft); }
+
+  /* ===== COSTING SECTION (Section 5) ===== */
+  .cost-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap:0;
+  }
+  @media (max-width:680px){ .cost-grid{ grid-template-columns:1fr; } }
+
+  .cost-inputs{ padding:18px; border-right:1px solid var(--line); }
+  .cost-output{ padding:18px; background:var(--kraft-50); }
+  @media (max-width:680px){ .cost-inputs{ border-right:none; border-bottom:1px solid var(--line); } }
+
+  .mini-h{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--board-700); font-weight:700;
+    margin-bottom:12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .mini-h::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .cost-field-row{
+    display:grid; grid-template-columns: 1fr 90px; gap:8px;
+    align-items:center;
+    padding:6px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .cost-field-row label{ font-size:12.5px; color:var(--ink); }
+  .cost-field-row input, .cost-field-row select{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    padding:6px 8px;
+    border:1.5px solid var(--line);
+    border-radius:2px;
+    text-align:right;
+    background:#fff;
+  }
+  .cost-field-row input:focus, .cost-field-row select:focus{
+    outline:none; border-color:var(--press-blue);
+  }
+
+  .line-table{ width:100%; border-collapse:collapse; }
+  .line-table tr{ border-bottom:1px dashed var(--line); }
+  .line-table tr:last-child{ border-bottom:none; }
+  .line-table td{
+    padding:6px 0;
+    font-size:12.5px;
+  }
+  .line-table td.lt-label{ color:var(--ink); }
+  .line-table td.lt-kg{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; color:var(--ink-soft); text-align:right;
+    width:64px;
+  }
+  .line-table td.lt-val{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; font-weight:600; color:var(--ink); text-align:right;
+    width:78px;
+  }
+
+  .subtotal-row td{
+    padding-top:10px; padding-bottom:10px;
+    font-weight:700; border-top:1.5px solid var(--board-700); border-bottom:none;
+  }
+  .profit-row{ }
+  .profit-row .lt-val input{
+    width:62px; text-align:right;
+    font-family:'JetBrains Mono',monospace; font-size:12px;
+    border:1.5px solid var(--line); border-radius:2px; padding:4px 6px;
+  }
+
+  .final-cost-band{
+    margin-top:14px;
+    background: linear-gradient(135deg, var(--board-800), var(--board-900));
+    color:var(--kraft-50);
+    border-radius:3px;
+    padding:16px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:relative; overflow:hidden;
+  }
+  .final-cost-band::before{
+    content:"";
+    position:absolute; top:-30%; right:-10%; width:140px; height:140px;
+    border:2px solid rgba(255,255,255,0.08);
+    border-radius:2px;
+    transform:rotate(18deg);
+  }
+  .final-cost-band .fc-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase;
+    opacity:0.8;
+  }
+  .final-cost-band .fc-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:30px; font-weight:700;
+    margin-top:2px;
+  }
+  .final-cost-band .fc-per{
+    font-size:11px; opacity:0.75; margin-top:4px;
+  }
+
+  /* toggle for advanced/hidden section */
+  .toggle-row{
+    display:flex; justify-content:center;
+    margin-top:18px;
+  }
+  .toggle-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; letter-spacing:0.06em;
+    color:var(--ink-soft);
+    background:none; border:1px dashed var(--line);
+    border-radius:20px;
+    padding:7px 16px;
+    cursor:pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover{ border-color:var(--press-blue); color:var(--press-blue-dark); }
+  .toggle-btn .chev{ display:inline-block; transition:transform 0.2s; margin-left:4px; }
+  .toggle-btn.open .chev{ transform:rotate(180deg); }
+
+  .hidden-detail{
+    max-height:0; overflow:hidden;
+    transition: max-height 0.35s ease;
+  }
+  .hidden-detail.open{ max-height:900px; }
+  .hidden-detail-inner{ padding:16px 18px 4px; }
+
+  .detail-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .detail-table th{
+    text-align:left; font-family:'JetBrains Mono',monospace;
+    font-size:10px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--ink-soft); padding:6px 8px; border-bottom:1.5px solid var(--board-700);
+  }
+  .detail-table td{
+    padding:7px 8px; border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono',monospace;
+  }
+  .detail-table td:first-child{ font-family:'Hind Siliguri',sans-serif; font-size:12.5px; }
+  .detail-table tr.is-selected{ background:#EAF3F4; }
+  .detail-table tr.is-selected td:first-child{ font-weight:700; color:var(--press-blue-dark); }
+
+  footer{
+    max-width:920px; margin:28px auto 0; padding:0 16px;
+    font-size:11px; color:var(--ink-soft); text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    opacity:0.7;
+  }
+
+  ::selection{ background:var(--press-blue); color:#fff; }
+</style>
+</head>
+<body>
+
+  <div class="masthead">
+    <div class="masthead-row">
+      <div class="brand-mark">
+        <div class="box-icon"></div>
+        <div class="brand-text">
+          <div class="eyebrow">Forkan Corrugated</div>
+          <h1>Carton Costing Sheet</h1>
+        </div>
+      </div>
+      <div class="masthead-meta">
+        REEL → CUTTING → COST<br>
+        AUTO-CALCULATED
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet">
+
+    <!-- ============ SECTION 0 : JOB / CUSTOMER INFO ============ -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="tag">00 / Job Info</div>
+          <h2>কাস্টমার ও আইটেম তথ্য</h2>
+          <div class="sub">কাস্টমারের নাম, আইটেম নেইম, ডিসক্রিপশন লিখুন — প্রয়োজনে রিল ও কাটিং সাইজ ম্যানুয়ালিও লিখতে পারবেন এবং Cost Calculation এর একটি হিস্টোরি নিচে জমা হবে।</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="input-grid">
+          <div class="field">
+            <label>Customer Name</label>
+            <input type="text" id="job_customer" placeholder="কাস্টমারের নাম">
+          </div>
+          <div class="field">
+            <label>Item Name</label>
+            <input type="text" id="job_item" placeholder="আইটেমের নাম">
+          </div>
+          <div class="field full">
+            <label>Description</label>
+            <textarea id="job_desc" rows="2" placeholder="বিবরণ লিখুন"></textarea>
+          </div>
+          <div class="field">
+            <label>Reel Size</label>
+            <input type="text" id="job_reel" placeholder="যেমনঃ 34 inch">
+            <span class="unit-hint">অটো ক্যালকুলেটেড মান বসাতে বাটনে চাপুন, অথবা নিজে লিখুন</span>
+            <button type="button" class="toggle-btn" id="fillReelBtn" style="margin-top:4px; width:fit-content;">অটো মান বসান</button>
+          </div>
+          <div class="field">
+            <label>Cutting Size</label>
+            <input type="text" id="job_cutsize" placeholder="যেমনঃ 650 mm">
+            <span class="unit-hint">অটো ক্যালকুলেটেড মান বসাতে বাটনে চাপুন, অথবা নিজে লিখুন</span>
+            <button type="button" class="toggle-btn" id="fillCutsizeBtn" style="margin-top:4px; width:fit-content;">অটো মান বসান</button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <button type="button" class="toggle-btn" id="saveHistoryBtn" style="border-style:solid; background:var(--press-blue); color:#fff; border-color:var(--press-blue);">＋ হিস্টোরিতে সেভ করুন</button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="toggle-btn" id="downloadHistoryBtn">⬇ হিস্টোরি ডাউনলোড (CSV)</button>
+            <button type="button" class="toggle-btn" id="clearHistoryBtn">হিস্টোরি মুছে ফেলুন</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; overflow-x:auto;">
+          <table class="detail-table" id="historyTable">
+            <thead>
+              <tr>
+                <th>তারিখ</th>
+                <th>কাস্টমার</th>
+                <th>আইটেম</th>
+                <th>মোড</th>
+                <th>রিল</th>
+                <th>কাটিং সাইজ</th>
+                <th>Liner</th>
+                <th>Media</th>
+                <th>Glue</th>
+                <th>Print</th>
+                <th>Stitch</th>
+                <th>Unload</th>
+                <th>Transport</th>
+                <th>Starch</th>
+                <th>Electricity</th>
+                <th>Hanicom</th>
+                <th>Top&Bottom</th>
+                <th>AIT</th>
+                <th>Other</th>
+                <th>Subtotal</th>
+                <th>Profit%</th>
+                <th>Profit৳</th>
+                <th>Final Cost</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr><td colspan="24" style="text-align:center; color:var(--ink-soft); padding:14px;">এখনো কোনো হিস্টোরি সেভ করা হয়নি</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SECTION 1 : CARTON INPUT SIZE ============ -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="tag">01 / Input</div>
+          <h2>কার্টন সাইজ ও মোড</h2>
+          <div class="sub">মাপ দিন (cm), মোড বাছাই করুন — রিল ও কাটিং সাইজ অটো ক্যালকুলেট হবে</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="input-grid">
+          <div class="field">
+            <label>Carton Length <span class="sym">L</span></label>
+            <input type="number" id="in_L" value="34.5" step="0.1">
+            <span class="unit-hint">সেন্টিমিটার (cm)</span>
+          </div>
+          <div class="field">
+            <label>Carton Width <span class="sym">W</span></label>
+            <input type="number" id="in_W" value="26.5" step="0.1">
+            <span class="unit-hint">সেন্টিমিটার (cm)</span>
+          </div>
+          <div class="field">
+            <label>Carton Height <span class="sym">H</span></label>
+            <input type="number" id="in_H" value="21.5" step="0.1">
+            <span class="unit-hint">সেন্টিমিটার (cm)</span>
+          </div>
+          <div class="field" style="display:none;">
+            <label>Cutting Allowance <span class="sym">Fo</span></label>
+            <input type="number" id="in_Fo" value="4.0" step="0.1">
+            <span class="unit-hint">মিলিমিটার (mm)</span>
+          </div>
+          <div class="field full" style="display:none;">
+            <label>Reel Allowance <span class="sym">T</span></label>
+            <input type="number" id="in_T" value="1.0" step="0.1" style="max-width:160px;">
+            <span class="unit-hint">মিলিমিটার (mm)</span>
+          </div>
+        </div>
+
+        <div class="field full" style="margin-top:16px;">
+          <label>Select Mode</label>
+        </div>
+        <div class="mode-pills" id="modePills">
+          <div class="mode-pill" data-mode="1b1c">1 Broad 1 Carton <span class="mode-bn">এক বোর্ডে এক কার্টন</span></div>
+          <div class="mode-pill active" data-mode="1b2c">1 Broad 2 Carton <span class="mode-bn">এক বোর্ডে দুই কার্টন</span></div>
+          <div class="mode-pill" data-mode="1b3c">1 Broad 3 Carton <span class="mode-bn">এক বোর্ডে তিন কার্টন</span></div>
+          <div class="mode-pill" data-mode="1b4c">1 Broad 4 Carton <span class="mode-bn">এক বোর্ডে চার কার্টন</span></div>
+          <div class="mode-pill" data-mode="2b1c">2 Broad 1 Carton <span class="mode-bn">দুই বোর্ড মিলে এক কার্টন</span></div>
+        </div>
+
+        <div class="result-strip">
+          <div class="result-cell">
+            <div class="rl">Cutting Size</div>
+            <div class="rv" id="out_cl">—</div>
+            <div class="ru">mm</div>
+          </div>
+          <div class="result-cell">
+            <div class="rl">Reel Size</div>
+            <div class="rv" id="out_reel">—</div>
+            <div class="ru">inch</div>
+          </div>
+          <div class="result-cell">
+            <div class="rl">Carton/Board</div>
+            <div class="rv" id="out_cpb">—</div>
+            <div class="ru">pcs</div>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <button class="toggle-btn" id="detailToggle">সব মোড কম্পেয়ার দেখুন <span class="chev">▾</span></button>
+        </div>
+        <div class="hidden-detail" id="detailPanel">
+          <div class="hidden-detail-inner">
+            <table class="detail-table" id="modeCompareTable">
+              <thead>
+                <tr>
+                  <th>Mode</th>
+                  <th>Cutting Size (mm)</th>
+                  <th>Reel (in)</th>
+                  <th>Cart/Board</th>
+                </tr>
+              </thead>
+              <tbody><!-- filled by JS --></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SECTION 5 : COSTING ============ -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="tag">02 / Costing</div>
+          <h2>💰 কস্টিং ক্যালকুলেশন</h2>
+          <div class="sub">উপরের রেজাল্ট থেকে রিল সাইজ ও কাটিং সাইজ অটো বসে গেছে</div>
+        </div>
+      </div>
+
+      <div class="cost-grid">
+        <!-- LEFT: input parameters -->
+        <div class="cost-inputs">
+          <div class="mini-h">Input Parameters</div>
+
+          <div class="cost-field-row">
+            <label>Reel Size (Inch)</label>
+            <input type="text" id="c_reel" readonly style="background:var(--kraft-50); color:var(--ink-soft);">
+          </div>
+          <div class="cost-field-row">
+            <label>Cutting Size (mm)</label>
+            <input type="text" id="c_cutsize" readonly style="background:var(--kraft-50); color:var(--ink-soft);">
+          </div>
+          <div class="cost-field-row">
+            <label>Liner GSM</label>
+            <input type="number" id="c_linerGsm" value="300">
+          </div>
+          <div class="cost-field-row">
+            <label>Media GSM</label>
+            <input type="number" id="c_mediaGsm" value="175">
+          </div>
+          <div class="cost-field-row">
+            <label>Liner Rate (৳/kg)</label>
+            <input type="number" id="c_linerRate" value="48">
+          </div>
+          <div class="cost-field-row">
+            <label>Media Rate (৳/kg)</label>
+            <input type="number" id="c_mediaRate" value="44">
+          </div>
+          <div class="cost-field-row">
+            <label>Glue Rate (৳/kg)</label>
+            <input type="number" id="c_glueRate" value="24">
+          </div>
+          <div class="cost-field-row">
+            <label>Ply</label>
+            <select id="c_ply">
+              <option value="3">3 Ply</option>
+              <option value="5">5 Ply</option>
+              <option value="7">7 Ply</option>
+            </select>
+          </div>
+          <div class="cost-field-row" style="border-bottom:none; display:none;">
+            <label>Board Qty</label>
+            <input type="number" id="c_boardQty" value="1" step="1">
+          </div>
+        </div>
+
+        <!-- RIGHT: cost calculation -->
+        <div class="cost-output">
+          <div class="mini-h">Cost Calculation</div>
+
+          <table class="line-table">
+            <tr>
+              <td class="lt-label">Liner Cost</td>
+              <td class="lt-kg" id="kg_liner">—</td>
+              <td class="lt-val" id="val_liner">—</td>
+            </tr>
+            <tr>
+              <td class="lt-label">Media Cost</td>
+              <td class="lt-kg" id="kg_media">—</td>
+              <td class="lt-val" id="val_media">—</td>
+            </tr>
+            <tr>
+              <td class="lt-label">Glue Cost</td>
+              <td class="lt-kg" id="kg_glue">—</td>
+              <td class="lt-val" id="val_glue">—</td>
+            </tr>
+            <tr>
+              <td class="lt-label">One Color Print</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_printCost" value="1.00" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Stitching Wire</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_stitchCost" value="0.15" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Unload Labour</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_unloadCost" value="0.20" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Transport Rent</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_transportCost" value="0.30" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Corrugation Starch</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_starchCost" value="0.35" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Electricity Cost</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_electricityCost" value="0.05" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Hanicom Cost</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_hanicomCost" value="0.05" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Top & Bottom Cost</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_topBottomCost" value="0.05" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">AIT Cost</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_aitCost" value="0.05" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr>
+              <td class="lt-label">Other Cost</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_otherCost" value="0.05" step="0.01" style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;border:1.5px solid var(--line);border-radius:2px;padding:3px 5px;"></td>
+            </tr>
+            <tr class="subtotal-row">
+              <td class="lt-label">Sub Total</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val" id="val_subtotal">—</td>
+            </tr>
+            <tr class="profit-row">
+              <td class="lt-label">Profit (%)</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val"><input type="number" id="c_profitPct" value="30" step="1">%</td>
+            </tr>
+            <tr>
+              <td class="lt-label">Profit (৳)</td>
+              <td class="lt-kg"></td>
+              <td class="lt-val" id="val_profit">—</td>
+            </tr>
+          </table>
+
+          <div class="final-cost-band">
+            <div>
+              <div class="fc-label">✅ Final Cost</div>
+              <div class="fc-per">প্রতি পিস কার্টন</div>
+            </div>
+            <div class="fc-value" id="val_final">৳ —</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>FORKAN CORRUGATED — INTERNAL COSTING TOOL — সব ভ্যালু পরিবর্তনযোগ্য</footer>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  function evenUp(n){
+    // mimic Excel EVEN(): round away from zero to nearest even integer
+    const sign = n < 0 ? -1 : 1;
+    n = Math.abs(n);
+    return sign * (Math.ceil(n/2) * 2);
+  }
+
+  function computeModes(){
+    const L = parseFloat($('in_L').value) || 0;
+    const W = parseFloat($('in_W').value) || 0;
+    const H = parseFloat($('in_H').value) || 0;
+    const Fo = parseFloat($('in_Fo').value) || 0;
+    const T = parseFloat($('in_T').value) || 0;
+
+    // Base cutting size (1-up reference), per original sheet:
+    // D17 = L + W   (labelled "2x(L+W)+Fo" in sheet but formula is simply D7+D8)
+    // D18 = H + W
+    const baseCL = L + W; // mm-ish base (sheet treats cm input directly as base number)
+    const baseCW = H + W;
+
+    const modes = {
+      '1b1c': {
+        label: '1 Broad 1 Carton',
+        cl: 2*baseCL + Fo,
+        cw: baseCW + T,
+        cpb: 1
+      },
+      '1b2c': {
+        label: '1 Broad 2 Carton',
+        cl: 2*baseCL + Fo,
+        cw: 2*baseCW + T,
+        cpb: 2
+      },
+      '1b3c': {
+        label: '1 Broad 3 Carton',
+        cl: 2*baseCL + Fo,
+        cw: 3*baseCW + T,
+        cpb: 3
+      },
+      '1b4c': {
+        label: '1 Broad 4 Carton',
+        cl: 2*baseCL + Fo,
+        cw: 4*baseCW + T,
+        cpb: 4
+      },
+      '2b1c': {
+        label: '2 Broad 1 Carton',
+        cl: (2*baseCL + Fo) / 2,
+        cw: (2*baseCW + T) / 2,
+        cpb: 0.5
+      }
+    };
+
+    Object.keys(modes).forEach(k=>{
+      const m = modes[k];
+      m.reel = (m.cw !== null) ? evenUp(m.cw/2.54) : null;
+      m.clRounded = (m.cl !== null) ? evenUp(m.cl) : null;
+    });
+
+    return modes;
+  }
+
+  let currentMode = '1b2c';
+
+  function render(){
+    const modes = computeModes();
+    const sel = modes[currentMode];
+
+    // Cutting Size shown in mm (native unit)
+    $('out_cl').textContent = sel.cl !== null ? sel.cl.toFixed(1) : '—';
+    $('out_reel').textContent = sel.reel !== null ? sel.reel.toFixed(0) : '—';
+    $('out_cpb').textContent = sel.cpb !== null ? sel.cpb : '—';
+
+    // feed costing section
+    $('c_reel').value = sel.reel !== null ? sel.reel.toFixed(0) + '"' : '—';
+    $('c_cutsize').value = sel.cl !== null ? sel.cl.toFixed(1) + ' mm' : '—';
+
+    // mode compare table
+    const order = ['1b1c','1b2c','1b3c','1b4c','2b1c'];
+    const names = {'1b1c':'1 Broad 1 Carton','1b2c':'1 Broad 2 Carton','1b3c':'1 Broad 3 Carton','1b4c':'1 Broad 4 Carton','2b1c':'2 Broad 1 Carton'};
+    let rows = '';
+    order.forEach(k=>{
+      const m = modes[k];
+      const isSel = (k === currentMode);
+      rows += `<tr class="${isSel?'is-selected':''}">
+        <td>${names[k]}</td>
+        <td>${m.cl!==null ? m.cl.toFixed(1) : '—'}</td>
+        <td>${m.reel!==null ? m.reel.toFixed(0) : '—'}</td>
+        <td>${m.cpb!==null ? m.cpb : '—'}</td>
+      </tr>`;
+    });
+    document.querySelector('#modeCompareTable tbody').innerHTML = rows;
+
+    // Board Qty for costing = the selected mode's Carton/Board (cpb) value.
+    // 1 Broad 1 Carton -> divide by 1 | 1 Broad 2/3/4 Carton -> divide by 2/3/4
+    // 2 Broad 1 Carton -> cpb = 0.5, dividing by 0.5 = multiplying by 2
+    $('c_boardQty').value = sel.cpb !== null ? sel.cpb : 1;
+
+    computeCosting(sel);
+  }
+
+  function computeCosting(sel){
+    const reelInch = sel.reel || 0;
+    const cutSize = sel.cl || 0;
+    const linerGsm = parseFloat($('c_linerGsm').value) || 0;
+    const mediaGsm = parseFloat($('c_mediaGsm').value) || 0;
+    const linerRate = parseFloat($('c_linerRate').value) || 0;
+    const mediaRate = parseFloat($('c_mediaRate').value) || 0;
+    const glueRate = parseFloat($('c_glueRate').value) || 0;
+    const boardQty = parseFloat($('c_boardQty').value) || 1;
+    const convFactor = 2.54;
+
+    // formulas from original sheet:
+    // J36 (liner kg) = (reel * convFactor * cutSize * linerGsm / boardQty) / 10,000,000
+    const kgLiner = (reelInch * convFactor * cutSize * linerGsm / boardQty) / 10000000;
+    const kgMedia = (reelInch * convFactor * cutSize * mediaGsm / boardQty) / 10000000;
+    const kgGlue = kgMedia * 0.27;
+
+    const valLiner = kgLiner * linerRate;
+    const valMedia = kgMedia * mediaRate;
+    const valGlue = kgGlue * glueRate;
+
+    $('kg_liner').textContent = kgLiner.toFixed(4);
+    $('kg_media').textContent = kgMedia.toFixed(4);
+    $('kg_glue').textContent = kgGlue.toFixed(4);
+    $('val_liner').textContent = valLiner.toFixed(2);
+    $('val_media').textContent = valMedia.toFixed(2);
+    $('val_glue').textContent = valGlue.toFixed(2);
+
+    const printCost = parseFloat($('c_printCost').value) || 0;
+    const stitchCost = parseFloat($('c_stitchCost').value) || 0;
+    const unloadCost = parseFloat($('c_unloadCost').value) || 0;
+    const transportCost = parseFloat($('c_transportCost').value) || 0;
+    const starchCost = parseFloat($('c_starchCost').value) || 0;
+    const electricityCost = parseFloat($('c_electricityCost').value) || 0;
+    const hanicomCost = parseFloat($('c_hanicomCost').value) || 0;
+    const topBottomCost = parseFloat($('c_topBottomCost').value) || 0;
+    const aitCost = parseFloat($('c_aitCost').value) || 0;
+    const otherCost = parseFloat($('c_otherCost').value) || 0;
+
+    const subtotal = valLiner + valMedia + valGlue + printCost + stitchCost +
+                      unloadCost + transportCost + starchCost + electricityCost +
+                      hanicomCost + topBottomCost + aitCost + otherCost;
+
+    const profitPct = (parseFloat($('c_profitPct').value) || 0) / 100;
+    const profit = subtotal * profitPct;
+    const finalCost = subtotal + profit;
+
+    $('val_subtotal').textContent = subtotal.toFixed(2);
+    $('val_profit').textContent = profit.toFixed(2);
+    $('val_final').textContent = '৳ ' + finalCost.toFixed(2);
+  }
+
+  // ===== Cost Calculation History (localStorage persisted) =====
+  const HISTORY_KEY = 'corrugated_costing_history_v1';
+
+  function loadHistory(){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+
+  function saveHistoryList(list){
+    try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }catch(e){}
+  }
+
+  function renderHistory(){
+    const list = loadHistory();
+    const tbody = $('historyTableBody');
+    if(!list.length){
+      tbody.innerHTML = '<tr><td colspan="24" style="text-align:center; color:var(--ink-soft); padding:14px;">এখনো কোনো হিস্টোরি সেভ করা হয়নি</td></tr>';
+      return;
+    }
+    let rows = '';
+    list.forEach(item=>{
+      rows += `<tr>
+        <td>${item.date}</td>
+        <td>${item.customer || '—'}</td>
+        <td>${item.itemName || '—'}</td>
+        <td>${item.mode || '—'}</td>
+        <td>${item.reel || '—'}</td>
+        <td>${item.cutsize || '—'}</td>
+        <td>${item.liner || '—'}</td>
+        <td>${item.media || '—'}</td>
+        <td>${item.glue || '—'}</td>
+        <td>${item.print || '—'}</td>
+        <td>${item.stitch || '—'}</td>
+        <td>${item.unload || '—'}</td>
+        <td>${item.transport || '—'}</td>
+        <td>${item.starch || '—'}</td>
+        <td>${item.electricity || '—'}</td>
+        <td>${item.hanicom || '—'}</td>
+        <td>${item.topBottom || '—'}</td>
+        <td>${item.ait || '—'}</td>
+        <td>${item.other || '—'}</td>
+        <td>${item.subtotal || '—'}</td>
+        <td>${item.profitPct || '—'}</td>
+        <td>${item.profitTaka || '—'}</td>
+        <td>${item.finalCost || '—'}</td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="toggle-btn dl-history-btn" data-id="${item.id}" style="padding:3px 10px; font-size:10px;">ডাউনলোড</button>
+          <button type="button" class="toggle-btn del-history-btn" data-id="${item.id}" style="padding:3px 10px; font-size:10px;">মুছুন</button>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = rows;
+
+    tbody.querySelectorAll('.dl-history-btn').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        const id = this.dataset.id;
+        const item = loadHistory().find(h => String(h.id) === String(id));
+        if(!item) return;
+        const lines = buildEntryLines(item);
+        const safeName = (item.customer || 'Costing').replace(/[^a-zA-Z0-9\u0980-\u09FF]+/g,'_');
+        downloadCsv('\uFEFF' + lines.join('\n'), `Costing_${safeName}_${item.id}.csv`);
+      });
+    });
+
+    tbody.querySelectorAll('.del-history-btn').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        const id = this.dataset.id;
+        const updated = loadHistory().filter(h => String(h.id) !== String(id));
+        saveHistoryList(updated);
+        renderHistory();
+      });
+    });
+  }
+
+  $('saveHistoryBtn').addEventListener('click', function(){
+    const list = loadHistory();
+    const modeLabel = document.querySelector('.mode-pill.active') ? document.querySelector('.mode-pill.active').childNodes[0].textContent.trim() : currentMode;
+    list.push({
+      id: Date.now(),
+      date: new Date().toLocaleString('bn-BD', {dateStyle:'medium', timeStyle:'short'}),
+      customer: $('job_customer').value.trim(),
+      itemName: $('job_item').value.trim(),
+      description: $('job_desc').value.trim(),
+      mode: modeLabel,
+      reel: $('job_reel').value.trim() || ($('out_reel').textContent + ' inch'),
+      cutsize: $('job_cutsize').value.trim() || ($('out_cl').textContent + ' mm'),
+      liner: $('val_liner').textContent.trim(),
+      linerKg: $('kg_liner').textContent.trim(),
+      linerGsm: $('c_linerGsm').value,
+      media: $('val_media').textContent.trim(),
+      mediaKg: $('kg_media').textContent.trim(),
+      mediaGsm: $('c_mediaGsm').value,
+      glue: $('val_glue').textContent.trim(),
+      glueKg: $('kg_glue').textContent.trim(),
+      glueRate: $('c_glueRate').value,
+      print: $('c_printCost').value,
+      stitch: $('c_stitchCost').value,
+      unload: $('c_unloadCost').value,
+      transport: $('c_transportCost').value,
+      starch: $('c_starchCost').value,
+      electricity: $('c_electricityCost').value,
+      hanicom: $('c_hanicomCost').value,
+      topBottom: $('c_topBottomCost').value,
+      ait: $('c_aitCost').value,
+      other: $('c_otherCost').value,
+      subtotal: $('val_subtotal').textContent.trim(),
+      profitPct: $('c_profitPct').value,
+      profitTaka: $('val_profit').textContent.trim(),
+      finalCost: $('val_final').textContent.trim()
+    });
+    saveHistoryList(list);
+    renderHistory();
+  });
+
+  $('clearHistoryBtn').addEventListener('click', function(){
+    if(confirm('সব হিস্টোরি মুছে ফেলতে চান? এটা আর ফিরিয়ে আনা যাবে না।')){
+      saveHistoryList([]);
+      renderHistory();
+    }
+  });
+
+  // ===== Download history as CSV (Excel-compatible), vertically laid out like the Cost Calculation panel =====
+  function csvEscape(val){
+    val = (val === undefined || val === null) ? '' : String(val);
+    if(/[",\n]/.test(val)){
+      val = '"' + val.replace(/"/g,'""') + '"';
+    }
+    return val;
+  }
+
+  function buildEntryLines(item){
+    const lines = [];
+    lines.push(['তারিখ', item.date].map(csvEscape).join(','));
+    lines.push(['কাস্টমার', item.customer].map(csvEscape).join(','));
+    lines.push(['আইটেম', item.itemName].map(csvEscape).join(','));
+    lines.push(['ডিসক্রিপশন', item.description].map(csvEscape).join(','));
+    lines.push(['মোড', item.mode].map(csvEscape).join(','));
+    lines.push(['রিল সাইজ', item.reel].map(csvEscape).join(','));
+    lines.push(['কাটিং সাইজ', item.cutsize].map(csvEscape).join(','));
+    lines.push('');
+    lines.push([`Liner Cost (GSM ${item.linerGsm||'—'}, ${item.linerKg||'—'} kg)`, item.liner].map(csvEscape).join(','));
+    lines.push([`Media Cost (GSM ${item.mediaGsm||'—'}, ${item.mediaKg||'—'} kg)`, item.media].map(csvEscape).join(','));
+    lines.push([`Glue Cost (Rate ৳${item.glueRate||'—'}/kg, ${item.glueKg||'—'} kg)`, item.glue].map(csvEscape).join(','));
+    lines.push(['One Color Print', item.print].map(csvEscape).join(','));
+    lines.push(['Stitching Wire', item.stitch].map(csvEscape).join(','));
+    lines.push(['Unload Labour', item.unload].map(csvEscape).join(','));
+    lines.push(['Transport Rent', item.transport].map(csvEscape).join(','));
+    lines.push(['Corrugation Starch', item.starch].map(csvEscape).join(','));
+    lines.push(['Electricity Cost', item.electricity].map(csvEscape).join(','));
+    lines.push(['Hanicom Cost', item.hanicom].map(csvEscape).join(','));
+    lines.push(['Top & Bottom Cost', item.topBottom].map(csvEscape).join(','));
+    lines.push(['AIT Cost', item.ait].map(csvEscape).join(','));
+    lines.push(['Other Cost', item.other].map(csvEscape).join(','));
+    lines.push(['Sub Total', item.subtotal].map(csvEscape).join(','));
+    lines.push(['Profit (%)', item.profitPct].map(csvEscape).join(','));
+    lines.push(['Profit (৳)', item.profitTaka].map(csvEscape).join(','));
+    lines.push(['Final Cost (প্রতি পিস)', item.finalCost].map(csvEscape).join(','));
+    return lines;
+  }
+
+  function downloadCsv(csvContent, filename){
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  $('downloadHistoryBtn').addEventListener('click', function(){
+    const list = loadHistory();
+    if(!list.length){
+      alert('ডাউনলোড করার মতো কোনো হিস্টোরি নেই।');
+      return;
+    }
+    let lines = [];
+    list.forEach((item, idx)=>{
+      lines = lines.concat(buildEntryLines(item));
+      if(idx !== list.length - 1){
+        lines.push('');
+        lines.push('========================================');
+        lines.push('');
+      }
+    });
+    const stamp = new Date().toISOString().slice(0,10);
+    downloadCsv('\uFEFF' + lines.join('\n'), `Costing_History_${stamp}.csv`);
+  });
+
+  renderHistory();
+
+  // mode pill clicks
+  document.querySelectorAll('.mode-pill').forEach(pill=>{
+    pill.addEventListener('click', ()=>{
+      document.querySelectorAll('.mode-pill').forEach(p=>p.classList.remove('active'));
+      pill.classList.add('active');
+      currentMode = pill.dataset.mode;
+      render();
+    });
+  });
+
+  // detail toggle
+  $('detailToggle').addEventListener('click', function(){
+    $('detailPanel').classList.toggle('open');
+    this.classList.toggle('open');
+    this.firstChild.textContent = this.classList.contains('open') ? 'কম্পেয়ার লুকান ' : 'সব মোড কম্পেয়ার দেখুন ';
+  });
+
+  // auto-fill Reel Size / Cutting Size from current calculation into Job Info fields
+  $('fillReelBtn').addEventListener('click', function(){
+    $('job_reel').value = $('out_reel').textContent !== '—' ? $('out_reel').textContent + ' inch' : '';
+  });
+  $('fillCutsizeBtn').addEventListener('click', function(){
+    $('job_cutsize').value = $('out_cl').textContent !== '—' ? $('out_cl').textContent + ' mm' : '';
+  });
+
+  // wire all inputs to re-render
+  const watchIds = ['in_L','in_W','in_H','in_Fo','in_T',
+    'c_linerGsm','c_mediaGsm','c_linerRate','c_mediaRate','c_glueRate','c_ply','c_boardQty',
+    'c_printCost','c_stitchCost','c_unloadCost','c_transportCost','c_starchCost',
+    'c_electricityCost','c_hanicomCost','c_topBottomCost','c_aitCost','c_otherCost','c_profitPct'];
+  watchIds.forEach(id=>{
+    const el = $(id);
+    if(el){ el.addEventListener('input', render); el.addEventListener('change', render); }
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

@@ -1,195 +1,240 @@
 /**
- * Packaging cost calculator — mirrors formulas in cost-analysis.xlsx (project root).
+ * Packaging costing calculator - matches formulas and modes from Corrugated_Costing-4.html.
  */
 
-export const CM_PER_INCH = 2.54;
+export type CostingMode = "1b1c" | "1b2c" | "1b3c" | "1b4c" | "2b1c";
 
-/** Excel row 11/16 column G (constant divisor). */
-export const SHEET_MASS_DIVISOR = 10_000_000;
-
-/** Excel: H → I uses division by 4 (broad factor). */
-export const SHEET_BROAD_DIVISOR = 4;
-
-export interface DimensionCmInput {
-  widthCm: number;
-  heightCm: number;
-  lengthCm: number;
-  plusCm: number;
+export interface CartonDimensionInput {
+  L: number; // Carton Length (cm)
+  W: number; // Carton Width (cm)
+  H: number; // Carton Height (cm)
+  Fo: number; // Cutting Allowance (mm)
+  T: number; // Reel Allowance (mm)
 }
 
-export interface DimensionDerived {
-  sumWidthHeight: number;
-  afterLengthMultiplier: number;
-  linearCm: number;
-  linearInch: number;
+export interface ModeDetails {
+  key: CostingMode;
+  label: string;
+  labelBn: string;
+  cl: number; // Cutting size (mm)
+  cw: number; // Cutting width (cm)
+  cpb: number; // Carton/Board (pcs)
+  reel: number; // Reel size (inch)
+  clRounded: number;
 }
 
-export function deriveDimension(input: DimensionCmInput): DimensionDerived {
-  const { widthCm, heightCm, lengthCm, plusCm } = input;
-  const sumWidthHeight = widthCm + heightCm;
-  const afterLengthMultiplier = sumWidthHeight * lengthCm;
-  const linearCm = afterLengthMultiplier + plusCm;
-  const linearInch = linearCm / CM_PER_INCH;
-  return {
-    sumWidthHeight,
-    afterLengthMultiplier,
-    linearCm,
-    linearInch,
-  };
+export interface CostingParametersInput {
+  linerGsm: number;
+  mediaGsm: number;
+  linerRate: number;
+  mediaRate: number;
+  glueRate: number;
+  ply: string;
+  boardQty: number; // equals selected mode's cpb
+
+  // individual cost rates per carton piece
+  printCost: number;
+  stitchCost: number;
+  unloadCost: number;
+  transportCost: number;
+  starchCost: number;
+  electricityCost: number;
+  hanicomCost: number;
+  topBottomCost: number;
+  aitCost: number;
+  otherCost: number;
+
+  profitPct: number;
 }
 
-export interface PaperLineInput {
-  width: number;
-  height: number;
-  gsm: number;
-  rate: number;
-  cmPerInch?: number;
-  massDivisor?: number;
-  broadDivisor?: number;
-}
-
-export interface PaperLineDerived {
-  /** Excel F: W × H × GSM × 2.54 */
-  productF: number;
-  /** Excel H: F / 10_000_000 */
-  afterDivisorH: number;
-  /** Excel I: H / 4 (media broad for silicate block). */
-  broadI: number;
-  /** Excel K: I × rate */
-  lineCost: number;
-}
-
-export function derivePaperLineCost(
-  input: PaperLineInput
-): PaperLineDerived {
-  const cmPerInch = input.cmPerInch ?? CM_PER_INCH;
-  const massDivisor = input.massDivisor ?? SHEET_MASS_DIVISOR;
-  const broadDivisor = input.broadDivisor ?? SHEET_BROAD_DIVISOR;
-  const productF = input.width * input.height * input.gsm * cmPerInch;
-  const afterDivisorH = productF / massDivisor;
-  const broadI = afterDivisorH / broadDivisor;
-  const lineCost = broadI * input.rate;
-  return { productF, afterDivisorH, broadI, lineCost };
-}
-
-export interface SilicateAndTotalsInput {
-  /** Excel B22 = I16 — media row broad (I). */
-  mediaBroad: number;
-  /** Excel uses 25% (0.25). */
-  silicateShareOfBroad: number;
-  /** Excel D22 — multiplied by silicate portion (C22). */
-  silicateRate: number;
-  printingRate: number;
-  mediaRateAdder: number;
-  transportAdder: number;
-  linerLineCost: number;
-  mediaLineCost: number;
-  /** Excel J22: 20% (0.2). */
-  markupPercent?: number;
-}
-
-export interface SilicateAndTotalsDerived {
-  silicatePortion: number;
-  silicateCost: number;
-  subtotalBeforeMarkup: number;
-  markup: number;
-  grandTotal: number;
-}
-
-export function deriveSilicateAndTotals(
-  input: SilicateAndTotalsInput
-): SilicateAndTotalsDerived {
-  const markupPct = input.markupPercent ?? 0.2;
-  const silicatePortion = input.mediaBroad * input.silicateShareOfBroad;
-  const silicateCost = silicatePortion * input.silicateRate;
-  const subtotalBeforeMarkup =
-    input.linerLineCost +
-    input.mediaLineCost +
-    silicateCost +
-    input.printingRate +
-    input.mediaRateAdder +
-    input.transportAdder;
-  const markup = subtotalBeforeMarkup * markupPct;
-  const grandTotal = subtotalBeforeMarkup + markup;
-  return {
-    silicatePortion,
-    silicateCost,
-    subtotalBeforeMarkup,
-    markup,
-    grandTotal,
-  };
+export interface CostingResult {
+  kgLiner: number;
+  kgMedia: number;
+  kgGlue: number;
+  valLiner: number;
+  valMedia: number;
+  valGlue: number;
+  subtotal: number;
+  profit: number;
+  finalCost: number;
 }
 
 export interface PackagingCostingInput {
   customerName: string;
   itemName: string;
   description: string;
-  rill: DimensionCmInput;
-  cutting: DimensionCmInput;
-  liner: PaperLineInput;
-  media: PaperLineInput;
-  silicateShareOfBroad: number;
-  silicateRate: number;
-  printingRate: number;
-  mediaRateAdder: number;
-  transportAdder: number;
-  markupPercent?: number;
+  jobReel: string;
+  jobCutsize: string;
+  cartonSize: CartonDimensionInput;
+  mode: CostingMode;
+  params: CostingParametersInput;
 }
 
-export interface PackagingCostingResult {
-  rill: DimensionDerived;
-  cutting: DimensionDerived;
-  liner: PaperLineDerived;
-  media: PaperLineDerived;
-  silicateTotals: SilicateAndTotalsDerived;
+/**
+ * Mimic Excel EVEN() function: round away from zero to the nearest even integer.
+ */
+export function evenUp(n: number): number {
+  const sign = n < 0 ? -1 : 1;
+  const absN = Math.abs(n);
+  return sign * (Math.ceil(absN / 2) * 2);
 }
 
-export function computePackagingCosting(
-  input: PackagingCostingInput
-): PackagingCostingResult {
-  const rill = deriveDimension(input.rill);
-  const cutting = deriveDimension(input.cutting);
-  const liner = derivePaperLineCost(input.liner);
-  const media = derivePaperLineCost(input.media);
-  const silicateTotals = deriveSilicateAndTotals({
-    mediaBroad: media.broadI,
-    silicateShareOfBroad: input.silicateShareOfBroad,
-    silicateRate: input.silicateRate,
-    printingRate: input.printingRate,
-    mediaRateAdder: input.mediaRateAdder,
-    transportAdder: input.transportAdder,
-    linerLineCost: liner.lineCost,
-    mediaLineCost: media.lineCost,
-    markupPercent: input.markupPercent,
+/**
+ * Compute derived values for all 5 layout/cutting modes.
+ */
+export function computeModes(dim: CartonDimensionInput): Record<CostingMode, ModeDetails> {
+  const L = dim.L || 0;
+  const W = dim.W || 0;
+  const H = dim.H || 0;
+  const Fo = dim.Fo || 0;
+  const T = dim.T || 0;
+
+  const baseCL = L + W;
+  const baseCW = H + W;
+
+  const rawModes: Record<CostingMode, { label: string; labelBn: string; cl: number; cw: number; cpb: number }> = {
+    "1b1c": {
+      label: "1 Broad 1 Carton",
+      labelBn: "এক বোর্ডে এক কার্টন",
+      cl: 2 * baseCL + Fo,
+      cw: baseCW + T,
+      cpb: 1,
+    },
+    "1b2c": {
+      label: "1 Broad 2 Carton",
+      labelBn: "এক বোর্ডে দুই কার্টন",
+      cl: 2 * baseCL + Fo,
+      cw: 2 * baseCW + T,
+      cpb: 2,
+    },
+    "1b3c": {
+      label: "1 Broad 3 Carton",
+      labelBn: "এক বোর্ডে তিন কার্টন",
+      cl: 2 * baseCL + Fo,
+      cw: 3 * baseCW + T,
+      cpb: 3,
+    },
+    "1b4c": {
+      label: "1 Broad 4 Carton",
+      labelBn: "এক বোর্ডে চার কার্টন",
+      cl: 2 * baseCL + Fo,
+      cw: 4 * baseCW + T,
+      cpb: 4,
+    },
+    "2b1c": {
+      label: "2 Broad 1 Carton",
+      labelBn: "দুই বোর্ড মিলে এক কার্টন",
+      cl: (2 * baseCL + Fo) / 2,
+      cw: (2 * baseCW + T) / 2,
+      cpb: 0.5,
+    },
+  };
+
+  const modes = {} as Record<CostingMode, ModeDetails>;
+  (Object.keys(rawModes) as CostingMode[]).forEach((key) => {
+    const m = rawModes[key];
+    const reel = evenUp(m.cw / 2.54);
+    const clRounded = evenUp(m.cl);
+    modes[key] = {
+      key,
+      ...m,
+      reel,
+      clRounded,
+    };
   });
-  return { rill, cutting, liner, media, silicateTotals };
+
+  return modes;
 }
 
-/** Default numeric inputs matching the sample workbook row values. */
+/**
+ * Compute the itemized costs for a selected mode.
+ */
+export function computeCosting(
+  reel: number,
+  cl: number,
+  params: CostingParametersInput
+): CostingResult {
+  const convFactor = 2.54;
+  const boardQty = params.boardQty || 1;
+
+  // J36 (liner kg) = (reel * convFactor * cutSize * linerGsm / boardQty) / 10,000,000
+  const kgLiner = (reel * convFactor * cl * params.linerGsm / boardQty) / 10000000;
+  const kgMedia = (reel * convFactor * cl * params.mediaGsm / boardQty) / 10000000;
+  const kgGlue = kgMedia * 0.27;
+
+  const valLiner = kgLiner * params.linerRate;
+  const valMedia = kgMedia * params.mediaRate;
+  const valGlue = kgGlue * params.glueRate;
+
+  const subtotal =
+    valLiner +
+    valMedia +
+    valGlue +
+    params.printCost +
+    params.stitchCost +
+    params.unloadCost +
+    params.transportCost +
+    params.starchCost +
+    params.electricityCost +
+    params.hanicomCost +
+    params.topBottomCost +
+    params.aitCost +
+    params.otherCost;
+
+  const profitPctDec = params.profitPct / 100;
+  const profit = subtotal * profitPctDec;
+  const finalCost = subtotal + profit;
+
+  return {
+    kgLiner,
+    kgMedia,
+    kgGlue,
+    valLiner,
+    valMedia,
+    valGlue,
+    subtotal,
+    profit,
+    finalCost,
+  };
+}
+
+/**
+ * Get default inputs corresponding to original spreadsheet defaults.
+ */
 export function getDefaultPackagingCostingInput(): PackagingCostingInput {
   return {
     customerName: "",
     itemName: "",
     description: "",
-    rill: { widthCm: 22, heightCm: 21.5, lengthCm: 2, plusCm: 1 },
-    cutting: { widthCm: 31.5, heightCm: 22, lengthCm: 2, plusCm: 5 },
-    liner: {
-      width: 46,
-      height: 76,
-      gsm: 150,
-      rate: 45,
+    jobReel: "",
+    jobCutsize: "",
+    cartonSize: {
+      L: 34.5,
+      W: 26.5,
+      H: 21.5,
+      Fo: 4.0,
+      T: 1.0,
     },
-    media: {
-      width: 46,
-      height: 76,
-      gsm: 470,
-      rate: 40,
+    mode: "1b2c",
+    params: {
+      linerGsm: 300,
+      mediaGsm: 175,
+      linerRate: 48,
+      mediaRate: 44,
+      glueRate: 24,
+      ply: "3",
+      boardQty: 2,
+      printCost: 1.00,
+      stitchCost: 0.15,
+      unloadCost: 0.20,
+      transportCost: 0.30,
+      starchCost: 0.35,
+      electricityCost: 0.05,
+      hanicomCost: 0.05,
+      topBottomCost: 0.05,
+      aitCost: 0.05,
+      otherCost: 0.05,
+      profitPct: 30,
     },
-    silicateShareOfBroad: 0.25,
-    silicateRate: 22,
-    printingRate: 1,
-    mediaRateAdder: 0.5,
-    transportAdder: 0.2,
-    markupPercent: 0.2,
   };
 }
