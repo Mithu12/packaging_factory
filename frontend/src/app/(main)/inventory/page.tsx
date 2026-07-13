@@ -18,6 +18,7 @@ import {
   Package,
   Loader2,
   Printer,
+  Download,
 } from "lucide-react";
 import {
   Table,
@@ -45,7 +46,7 @@ import {
 import { CategoryApi } from "@/modules/inventory/services/category-api";
 import { Category, InventoryStats, StockMovement } from "@/services/types";
 import { useFormatting } from "@/hooks/useFormatting";
-import { printHtml, escapeHtml } from "@/utils/export-print";
+import { printHtml, escapeHtml, downloadCsv } from "@/utils/export-print";
 
 export default function Inventory() {
   const router = useRouter();
@@ -149,6 +150,11 @@ export default function Inventory() {
     initialPageSize: 15,
   });
 
+  // Reset pagination to first page when any filters change
+  useEffect(() => {
+    inventoryPagination.setPage(1);
+  }, [searchTerm, selectedCategory, selectedDC, selectedStatus]);
+
   // Print the current (search/DC/status-filtered) stock levels via a clean
   // print window. Prints every matching row, not just the current page.
   const handlePrintInventory = () => {
@@ -198,6 +204,55 @@ export default function Inventory() {
         description: "Allow pop-ups for this site and try again.",
       });
     }
+  };
+
+  const handleDownloadExcel = () => {
+    const headers = [
+      "Product Name",
+      "SKU",
+      "Location",
+      "Stock Level",
+      "Available Stock",
+      "Reserved Stock",
+      "Rolls",
+      "Min Stock Level",
+      "Max Stock Level",
+      "Cost / Unit",
+      "Total Value",
+      "Retail Price",
+      "Wholesale Price",
+      "Last Movement"
+    ];
+
+    const rows = filteredItems.map((item) => {
+      const location = [item.center_name || "Main Warehouse", item.location_in_warehouse]
+        .filter(Boolean)
+        .join(" — ");
+      return [
+        item.product_name || "",
+        item.product_sku || "",
+        location,
+        item.current_stock || 0,
+        item.available_stock ?? item.current_stock ?? 0,
+        item.reserved_stock || 0,
+        item.current_rolls ?? 0,
+        item.min_stock_level || 0,
+        item.max_stock_level ?? "",
+        item.cost_price || 0,
+        (item.current_stock || 0) * (item.cost_price || 0),
+        item.selling_price || 0,
+        item.wholesale_price || 0,
+        item.last_movement_date
+          ? new Date(item.last_movement_date).toLocaleDateString()
+          : "No movements"
+      ];
+    });
+
+    downloadCsv(
+      `inventory-export-${new Date().toISOString().slice(0, 10)}`,
+      headers,
+      rows
+    );
   };
 
   const getStockStatus = (current: number, min: number, max?: number) => {
@@ -334,7 +389,10 @@ export default function Inventory() {
             <p className="text-xs text-success">+5.2% this month</p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-card to-accent/10">
+        <Card 
+          className="bg-gradient-to-br from-card to-accent/10 cursor-pointer hover:shadow-md hover:bg-accent/20 transition-all duration-200"
+          onClick={() => setSelectedStatus("low_stock")}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Low Stock Items
@@ -428,6 +486,14 @@ export default function Inventory() {
                   </select>
                   <Button
                     variant="outline"
+                    onClick={handleDownloadExcel}
+                    disabled={filteredItems.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Excel
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={handlePrintInventory}
                     disabled={filteredItems.length === 0}
                   >
@@ -444,6 +510,7 @@ export default function Inventory() {
                     <TableHead>Product</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Stock Levels</TableHead>
+                    <TableHead>Rolls</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Value</TableHead>
                     <TableHead>Price</TableHead>
@@ -514,18 +581,17 @@ export default function Inventory() {
                                   </>
                                 )}
                             </div>
-                            {item.current_rolls != null &&
-                              item.current_rolls > 0 && (
-                                <div className="text-xs font-medium text-primary">
-                                  {item.current_rolls} rolls left
-                                </div>
-                              )}
                             <div className="text-xs text-muted-foreground">
                               Min: {item.min_stock_level}{" "}
                               {item.max_stock_level &&
                                 `• Max: ${item.max_stock_level}`}
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-foreground">
+                            {item.current_rolls ?? 0}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <div
