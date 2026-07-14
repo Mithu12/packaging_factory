@@ -835,12 +835,12 @@ class UpdatePurchaseOrderInfoMediator {
         // Emit event for accounting integration
         eventBus.emit(EVENT_NAMES.PURCHASE_ORDER_RECEIVED, {
           purchaseOrderData,
-          userId: username
+          userId: userId || 1
         });
 
         // Central Bridge: Call accounts module directly via InterModuleConnector
         MyLogger.info("Purchase Order Bridge: Calling accModule.addPurchaseVoucher", { purchaseOrderId: id });
-        await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, username);
+        await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, userId || 1);
 
         MyLogger.success("Purchase Order Accounting Event Emitted", {
           purchaseOrderId: id,
