@@ -186,8 +186,14 @@ export default function OrderDetailsDialog({
         return null;
     })();
 
-    const paymentProgress = order.total_value > 0
-        ? (order.paid_amount / order.total_value) * 100
+    const _subtotal = Number(order.subtotal ?? order.total_value) || 0;
+    const _vatAmount =
+        Number(order.tax_amount ?? 0) ||
+        ((_subtotal * Number(order.tax_rate ?? 0)) / 100);
+    const _totalWithVat = _subtotal + _vatAmount;
+
+    const paymentProgress = _totalWithVat > 0
+        ? (Number(order.paid_amount) / _totalWithVat) * 100
         : 0;
 
     const getStatusColor = (status: string) => {
@@ -700,39 +706,61 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Total Value:</span>
-                                        <span className="font-semibold">{formatCurrency(order.total_value)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Paid Amount:</span>
-                                        <span className="font-semibold text-green-600">{formatCurrency(order.paid_amount)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm border-t pt-2">
-                                        <span className="text-muted-foreground font-semibold">Outstanding Amount:</span>
-                                        <span className={`font-bold ${order.outstanding_amount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formatCurrency(order.outstanding_amount)}
-                    </span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm border-t pt-2">
-                                        <span className="text-muted-foreground">Linked Expenses (across WOs):</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold">
-                                                {expensesSummary
-                                                    ? `${expensesSummary.count} · ${formatCurrency(expensesSummary.total_amount)}${expensesSummary.mixed_currency ? ' (mixed)' : ''}`
-                                                    : '—'}
-                                            </span>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 px-2 text-xs"
-                                                onClick={() => router.push(`/expenses?customer_order_id=${order.id}`)}
-                                                disabled={!expensesSummary || expensesSummary.count === 0}
-                                            >
-                                                View
-                                            </Button>
+                                {(() => {
+                                    const subtotal = Number(order.subtotal ?? order.total_value) || 0;
+                                    const vatAmount =
+                                        Number(order.tax_amount ?? 0) ||
+                                        ((subtotal * Number(order.tax_rate ?? 0)) / 100);
+                                    const totalWithVat = subtotal + vatAmount;
+                                    const outstandingWithVat = Math.max(0, totalWithVat - Number(order.paid_amount || 0));
+                                    return (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Subtotal:</span>
+                                                <span className="font-semibold">{formatCurrency(subtotal)}</span>
+                                            </div>
+                                            {vatAmount > 0 && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-muted-foreground">
+                                                        VAT{order.tax_rate ? ` (${order.tax_rate}%)` : ''}:
+                                                    </span>
+                                                    <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-sm border-t pt-2">
+                                                <span className="text-muted-foreground font-semibold">Total (incl. VAT):</span>
+                                                <span className="font-semibold">{formatCurrency(totalWithVat)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-muted-foreground">Paid Amount:</span>
+                                                <span className="font-semibold text-green-600">{formatCurrency(order.paid_amount)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm border-t pt-2">
+                                                <span className="text-muted-foreground font-semibold">Outstanding Amount:</span>
+                                                <span className={`font-bold ${outstandingWithVat > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                                                    {formatCurrency(outstandingWithVat)}
+                                                </span>
+                                            </div>
                                         </div>
+                                    );
+                                })()}
+                                <div className="flex justify-between items-center text-sm border-t pt-2">
+                                    <span className="text-muted-foreground">Linked Expenses (across WOs):</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold">
+                                            {expensesSummary
+                                                ? `${expensesSummary.count} · ${formatCurrency(expensesSummary.total_amount)}${expensesSummary.mixed_currency ? ' (mixed)' : ''}`
+                                                : '—'}
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs"
+                                            onClick={() => router.push(`/expenses?customer_order_id=${order.id}`)}
+                                            disabled={!expensesSummary || expensesSummary.count === 0}
+                                        >
+                                            View
+                                        </Button>
                                     </div>
                                 </div>
 
