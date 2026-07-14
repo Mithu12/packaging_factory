@@ -152,7 +152,7 @@ export default function Deliveries() {
     return (
       <Badge variant={cfg.variant} className={`gap-1 ${cfg.className ?? ""}`}>
         <Icon className="h-3 w-3" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status== 'shipped' ? 'Delivered' : status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
@@ -242,9 +242,9 @@ export default function Deliveries() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Delivery #</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Delivery Date</TableHead>
                     <TableHead>Customer</TableHead>
-                    <TableHead>Orders</TableHead>
+                    <TableHead>PO Number</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead className="text-right">Total Amount</TableHead>
                     <TableHead>Status</TableHead>
@@ -256,7 +256,7 @@ export default function Deliveries() {
                   {data.deliveries.map((d) => {
                     const orderNumbers =
                       d.touched_orders && d.touched_orders.length > 0
-                        ? d.touched_orders.map((t) => t.order_number).join(", ")
+                        ? d.touched_orders.map((t) => t.po_number).join(", ")
                         : d.customer_order_number ?? "—";
                     return (
                       <TableRow key={d.id}>
@@ -299,6 +299,9 @@ export default function Deliveries() {
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-2">
+
+                            {d.delivery_status !== "cancelled" &&
+                              d.delivery_status !== "returned" && <>  
                             {d.delivery_address_2 ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -343,7 +346,9 @@ export default function Deliveries() {
                                 Challan
                               </Button>
                             )}
-                            <Button
+                            </>}
+                            {d.delivery_status !== "cancelled" &&
+                              d.delivery_status !== "returned" && <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => download(d.id, "invoice", d.invoice_id)}
@@ -356,7 +361,7 @@ export default function Deliveries() {
                             >
                               <Download className="h-4 w-4 mr-1" />
                               Invoice
-                            </Button>
+                            </Button>}
                             {d.delivery_status !== "cancelled" &&
                               d.delivery_status !== "returned" && (
                                 <Button
