@@ -104,10 +104,6 @@ export default function Inventory() {
         params.distribution_center_id = parseInt(selectedDC);
       }
 
-      if (selectedStatus !== "all") {
-        params.stock_status = selectedStatus as any;
-      }
-
       const [locationsResponse, movementsResponse, statsResponse] =
         await Promise.all([
           DistributionApi.getProductLocations(params),
@@ -129,10 +125,10 @@ export default function Inventory() {
     }
   };
 
-  // Re-fetch data when filters change
+  // Re-fetch data when DC filter changes
   useEffect(() => {
     fetchData();
-  }, [selectedDC, selectedStatus]);
+  }, [selectedDC]);
 
   const filteredItems = locations.filter((item) => {
     const matchesSearch =
@@ -142,7 +138,21 @@ export default function Inventory() {
     const matchesCategory =
       selectedCategory === "all" ||
       String(item.category_id) === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesStatus = selectedStatus === "all" || (() => {
+      const stock = Number(item.available_stock) ?? Number(item.current_stock);
+      const min = Number(item.min_stock_level);
+      switch (selectedStatus) {
+        case "low_stock":
+          return stock > 0 && stock <= min;
+        case "out_of_stock":
+          return stock <= 0;
+        case "in_stock":
+          return stock > min;
+        default:
+          return true;
+      }
+    })();
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   // Use client-side pagination for filtered inventory items
