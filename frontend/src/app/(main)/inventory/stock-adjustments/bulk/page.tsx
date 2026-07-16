@@ -268,7 +268,7 @@ export default function BulkStockAdjustmentPage() {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Bulk Stock Adjustment</h1>
+          <h1 className="text-3xl font-bold text-foreground">Stock Adjustment</h1>
           <p className="text-muted-foreground">
             Adjust stock for multiple products in a single transaction
           </p>
