@@ -29,6 +29,7 @@ const lineItemCreateSchema = Joi.object({
     "number.positive": "Return quantity must be positive",
     "any.required": "Return quantity is required",
   }),
+  rolls_returned: Joi.number().min(0).optional(),
   condition: Joi.string()
     .valid(...CONDITION_VALUES)
     .default("damaged"),

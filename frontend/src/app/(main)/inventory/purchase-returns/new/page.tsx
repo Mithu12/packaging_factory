@@ -48,6 +48,7 @@ const CONDITIONS = ["damaged", "defective", "expired", "wrong_item", "other"];
 
 type EditableLine = EligiblePurchaseReturnLine & {
   return_quantity: number;
+  rolls_returned: number;
   condition: string;
   notes: string;
 };
@@ -137,6 +138,7 @@ export default function NewPurchaseReturnPage() {
           .map((l) => ({
             ...l,
             return_quantity: 0,
+            rolls_returned: 0,
             condition: "damaged",
             notes: "",
           }))
@@ -204,6 +206,7 @@ export default function NewPurchaseReturnPage() {
           po_line_item_id: line.po_line_item_id,
           grn_line_item_id: line.grn_line_item_id || undefined,
           return_quantity: line.return_quantity,
+          rolls_returned: line.rolls_returned || undefined,
           condition: line.condition,
           notes: line.notes || undefined,
         })),
@@ -370,6 +373,7 @@ export default function NewPurchaseReturnPage() {
                     <TableHead className="text-right">Already Returned</TableHead>
                     <TableHead className="text-right">Max Returnable</TableHead>
                     <TableHead className="text-right">Return Qty</TableHead>
+                    <TableHead className="text-right">Rolls</TableHead>
                     <TableHead>Condition</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
@@ -403,7 +407,22 @@ export default function NewPurchaseReturnPage() {
                               return_quantity: parseFloat(e.target.value) || 0,
                             })
                           }
-                          className="w-24 text-right"
+                          className="w-20 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.rolls_returned || ""}
+                          onChange={(e) =>
+                            updateLine(idx, {
+                              rolls_returned: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-20 text-right"
+                          placeholder="0"
                         />
                       </TableCell>
                       <TableCell>

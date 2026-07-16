@@ -86,6 +86,7 @@ class AddPurchaseReturnMediator {
         product_name: string;
         unit_of_measure: string | null;
         return_quantity: number;
+        rolls_returned: number | null;
         condition: string;
         notes: string | null;
       };
@@ -155,6 +156,7 @@ class AddPurchaseReturnMediator {
           product_name: poLine.product_name,
           unit_of_measure: poLine.unit_of_measure,
           return_quantity: Number(inputLine.return_quantity),
+          rolls_returned: inputLine.rolls_returned ?? null,
           condition: inputLine.condition || "damaged",
           notes: inputLine.notes || null,
         });
@@ -186,8 +188,8 @@ class AddPurchaseReturnMediator {
           `INSERT INTO purchase_return_line_items (
               purchase_return_id, po_line_item_id, grn_line_item_id,
               product_id, product_sku, product_name, unit_of_measure,
-              return_quantity, unit_cost, total_cost, condition, notes
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 0, $9, $10)`,
+              return_quantity, rolls_returned, unit_cost, total_cost, condition, notes
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 0, $10, $11)`,
           [
             purchaseReturn.id,
             line.po_line_item_id,
@@ -197,6 +199,7 @@ class AddPurchaseReturnMediator {
             line.product_name,
             line.unit_of_measure,
             line.return_quantity,
+            line.rolls_returned,
             line.condition,
             line.notes,
           ]

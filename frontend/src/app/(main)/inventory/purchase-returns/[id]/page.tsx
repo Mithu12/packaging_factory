@@ -293,6 +293,7 @@ export default function PurchaseReturnDetailPage() {
               <TableRow>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">Return Qty</TableHead>
+                <TableHead className="text-right">Rolls</TableHead>
                 <TableHead className="text-right">Unit Cost</TableHead>
                 <TableHead className="text-right">Total Cost</TableHead>
                 <TableHead>Condition</TableHead>
@@ -315,6 +316,9 @@ export default function PurchaseReturnDetailPage() {
                     <span className="text-xs text-muted-foreground">
                       {line.unit_of_measure}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {line.rolls_returned != null ? line.rolls_returned : line.rolls_received ? "—" : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {formatCurrency(line.unit_cost, "bdt")}

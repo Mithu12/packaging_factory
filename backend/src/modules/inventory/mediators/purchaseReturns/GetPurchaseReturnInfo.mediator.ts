@@ -152,7 +152,8 @@ class GetPurchaseReturnInfoMediator {
                 poli.received_quantity AS received_quantity,
                 poli.returned_quantity AS po_already_returned,
                 grnli.received_quantity AS grn_received_quantity,
-                grnli.returned_quantity AS grn_already_returned
+                grnli.returned_quantity AS grn_already_returned,
+                grnli.rolls_received AS grn_rolls_received
            FROM purchase_return_line_items prli
            LEFT JOIN purchase_order_line_items poli ON prli.po_line_item_id = poli.id
            LEFT JOIN purchase_order_receipt_line_items grnli ON prli.grn_line_item_id = grnli.id
@@ -179,6 +180,7 @@ class GetPurchaseReturnInfoMediator {
             product_name: r.product_name,
             unit_of_measure: r.unit_of_measure,
             return_quantity: Number(r.return_quantity),
+            rolls_returned: r.rolls_returned ? Number(r.rolls_returned) : null,
             unit_cost: Number(r.unit_cost),
             total_cost: Number(r.total_cost),
             condition: r.condition,
@@ -188,6 +190,9 @@ class GetPurchaseReturnInfoMediator {
             received_quantity: receivedQty,
             already_returned_quantity: alreadyReturned,
             max_returnable_quantity: Math.max(receivedQty - alreadyReturned, 0),
+            rolls_received: r.grn_line_item_id
+              ? Number(r.grn_rolls_received || 0)
+              : undefined,
           };
         }
       );
@@ -338,6 +343,7 @@ class GetPurchaseReturnInfoMediator {
                   poli.quantity AS ordered_quantity,
                   grnli.received_quantity AS received_quantity,
                   grnli.returned_quantity AS already_returned_quantity,
+                  grnli.rolls_received AS rolls_received,
                   poli.unit_price,
                   p.cost_price AS current_cost_price
              FROM purchase_order_receipt_line_items grnli
@@ -364,6 +370,7 @@ class GetPurchaseReturnInfoMediator {
             max_returnable_quantity: Math.max(received - alreadyReturned, 0),
             unit_price: Number(r.unit_price || 0),
             current_cost_price: Number(r.current_cost_price || 0),
+            rolls_received: r.rolls_received ? Number(r.rolls_received) : undefined,
           };
         });
       }

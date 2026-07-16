@@ -60,6 +60,7 @@ export interface PurchaseReturnLineItem {
   product_name: string;
   unit_of_measure: string | null;
   return_quantity: number;
+  rolls_returned?: number | null;
   unit_cost: number;
   total_cost: number;
   condition: string | null;
@@ -70,6 +71,7 @@ export interface PurchaseReturnLineItem {
   received_quantity?: number;
   already_returned_quantity?: number;
   max_returnable_quantity?: number;
+  rolls_received?: number;
 }
 
 export interface PurchaseReturnWithDetails extends PurchaseReturn {
@@ -101,6 +103,7 @@ export interface CreatePurchaseReturnLineItemRequest {
   po_line_item_id: number;
   grn_line_item_id?: number;
   return_quantity: number;
+  rolls_returned?: number;
   condition?: string;
   notes?: string;
 }
@@ -176,4 +179,5 @@ export interface EligiblePurchaseReturnLine {
   max_returnable_quantity: number;
   unit_price: number;
   current_cost_price: number;
+  rolls_received?: number;
 }

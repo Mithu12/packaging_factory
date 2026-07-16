@@ -137,8 +137,8 @@ class UpdatePurchaseReturnInfoMediator {
             `INSERT INTO purchase_return_line_items (
                 purchase_return_id, po_line_item_id, grn_line_item_id,
                 product_id, product_sku, product_name, unit_of_measure,
-                return_quantity, unit_cost, total_cost, condition, notes
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 0, $9, $10)`,
+                return_quantity, rolls_returned, unit_cost, total_cost, condition, notes
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 0, $10, $11)`,
             [
               id,
               poLine.id,
@@ -148,6 +148,7 @@ class UpdatePurchaseReturnInfoMediator {
               poLine.product_name,
               poLine.unit_of_measure,
               inputLine.return_quantity,
+              inputLine.rolls_returned ?? null,
               inputLine.condition || "damaged",
               inputLine.notes || null,
             ]
@@ -281,7 +282,8 @@ class UpdatePurchaseReturnInfoMediator {
 
       const linesResult = await client.query(
         `SELECT prli.id, prli.po_line_item_id, prli.grn_line_item_id,
-                prli.product_id, prli.product_name, prli.return_quantity
+                prli.product_id, prli.product_name, prli.return_quantity,
+                prli.rolls_returned
            FROM purchase_return_line_items prli
           WHERE prli.purchase_return_id = $1
           ORDER BY prli.id`,
@@ -386,26 +388,29 @@ class UpdatePurchaseReturnInfoMediator {
         const newStock = currentStock - qty;
 
         if (header.distribution_center_id) {
+          const rollsQty = line.rolls_returned ? Number(line.rolls_returned) : 0;
           await client.query(
-            `INSERT INTO product_locations (product_id, distribution_center_id, current_stock)
-             VALUES ($1, $2, 0)
+            `INSERT INTO product_locations (product_id, distribution_center_id, current_stock, current_rolls)
+             VALUES ($1, $2, 0, 0)
              ON CONFLICT (product_id, distribution_center_id)
              DO UPDATE SET
                 current_stock = product_locations.current_stock - $3,
+                current_rolls = GREATEST(product_locations.current_rolls - $4, 0),
                 updated_at = CURRENT_TIMESTAMP`,
-            [line.product_id, header.distribution_center_id, qty]
+            [line.product_id, header.distribution_center_id, qty, rollsQty]
           );
         }
 
         await client.query(
           `INSERT INTO stock_adjustments (
-              product_id, adjustment_type, quantity,
+              product_id, adjustment_type, quantity, rolls,
               previous_stock, new_stock,
               reason, reference, notes, adjusted_by, distribution_center_id
-           ) VALUES ($1, 'decrease', $2, $3, $4, $5, $6, $7, $8, $9)`,
+           ) VALUES ($1, 'decrease', $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             line.product_id,
             qty,
+            line.rolls_returned ?? null,
             currentStock,
             newStock,
             "Purchase Return",

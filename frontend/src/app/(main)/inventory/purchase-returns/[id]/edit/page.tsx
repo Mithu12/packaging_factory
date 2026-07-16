@@ -45,6 +45,7 @@ const CONDITIONS = ["damaged", "defective", "expired", "wrong_item", "other"];
 
 type EditableLine = EligiblePurchaseReturnLine & {
   return_quantity: number;
+  rolls_returned: number;
   condition: string;
   notes: string;
 };
@@ -92,11 +93,12 @@ export default function EditPurchaseReturnPage() {
       // Merge existing return quantities back into eligible lines
       // (max_returnable_quantity from server already excludes other approved returns,
       // not this draft. So we leave it as-is and the user just enters new quantities.)
-      const existingByKey = new Map<string, { qty: number; condition: string; notes: string }>();
+      const existingByKey = new Map<string, { qty: number; rolls: number; condition: string; notes: string }>();
       for (const line of data.line_items) {
         const key = `${line.po_line_item_id}:${line.grn_line_item_id ?? "po"}`;
         existingByKey.set(key, {
           qty: line.return_quantity,
+          rolls: line.rolls_returned ?? 0,
           condition: line.condition || "damaged",
           notes: line.notes || "",
         });
@@ -115,6 +117,7 @@ export default function EditPurchaseReturnPage() {
             return {
               ...l,
               return_quantity: existing?.qty ?? 0,
+              rolls_returned: existing?.rolls ?? 0,
               condition: existing?.condition ?? "damaged",
               notes: existing?.notes ?? "",
             };
@@ -152,6 +155,7 @@ export default function EditPurchaseReturnPage() {
           po_line_item_id: line.po_line_item_id,
           grn_line_item_id: line.grn_line_item_id || undefined,
           return_quantity: line.return_quantity,
+          rolls_returned: line.rolls_returned || undefined,
           condition: line.condition,
           notes: line.notes || undefined,
         })),
@@ -262,6 +266,7 @@ export default function EditPurchaseReturnPage() {
                   <TableHead className="text-right">Received</TableHead>
                   <TableHead className="text-right">Max Returnable</TableHead>
                   <TableHead className="text-right">Return Qty</TableHead>
+                  <TableHead className="text-right">Rolls</TableHead>
                   <TableHead>Condition</TableHead>
                   <TableHead>Notes</TableHead>
                 </TableRow>
@@ -296,7 +301,22 @@ export default function EditPurchaseReturnPage() {
                             return_quantity: parseFloat(e.target.value) || 0,
                           })
                         }
-                        className="w-24 text-right"
+                        className="w-20 text-right"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={line.rolls_returned || ""}
+                        onChange={(e) =>
+                          updateLine(idx, {
+                            rolls_returned: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-20 text-right"
+                        placeholder="0"
                       />
                     </TableCell>
                     <TableCell>
