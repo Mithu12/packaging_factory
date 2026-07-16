@@ -84,6 +84,11 @@ export const createPurchaseOrderSchema = Joi.object({
         unit_of_measure: Joi.string().max(20).optional().messages({
           "string.max": "Unit of measure cannot exceed 20 characters",
         }),
+
+        ordered_rolls: Joi.number().min(0).optional().messages({
+          "number.base": "Ordered rolls must be a number",
+          "number.min": "Ordered rolls cannot be negative",
+        }),
       })
     )
     .min(1)
@@ -176,6 +181,11 @@ export const updatePurchaseOrderSchema = Joi.object({
 
         unit_of_measure: Joi.string().max(20).optional().messages({
           "string.max": "Unit of measure cannot exceed 20 characters",
+        }),
+
+        ordered_rolls: Joi.number().min(0).optional().messages({
+          "number.base": "Ordered rolls must be a number",
+          "number.min": "Ordered rolls cannot be negative",
         }),
       })
     )

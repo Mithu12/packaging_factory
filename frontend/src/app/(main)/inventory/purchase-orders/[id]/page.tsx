@@ -352,6 +352,7 @@ export default function PurchaseOrderDetails() {
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead>Quantity</TableHead>
+                    <TableHead>Rolls</TableHead>
                     <TableHead>Unit Price</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
@@ -382,6 +383,9 @@ export default function PurchaseOrderDetails() {
                               <div className="text-xs text-warning">Pending: {pendingQty}</div>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {item.ordered_rolls != null ? item.ordered_rolls : '--'}
                         </TableCell>
                         <TableCell className="font-medium">
                           {item.unit_price.toLocaleString('en-US', {

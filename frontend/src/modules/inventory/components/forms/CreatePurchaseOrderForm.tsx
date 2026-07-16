@@ -44,6 +44,7 @@ interface PurchaseOrderItem {
   quantity: number
   unit_price: number
   total: number
+  ordered_rolls?: number
 }
 
 interface CreatePurchaseOrderFormProps {
@@ -84,7 +85,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         product_name: item.product_name,
         quantity: item.quantity,
         unit_price: 0,
-        total: 0
+        total: 0,
+        ordered_rolls: undefined
       }))
     : [{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }];
 
@@ -136,7 +138,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                 product_name: item.product_name || product?.name || "",
                 quantity: item.quantity,
                 unit_price: unit_price,
-                total: item.quantity * unit_price
+                total: item.quantity * unit_price,
+                ordered_rolls: undefined
               };
             });
             
@@ -152,7 +155,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
             }
           }
         } else {
-          setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
+          setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0, ordered_rolls: undefined }]);
         }
       };
 
@@ -176,7 +179,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         others_payment: "",
         others_in_total: false,
       });
-      setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }]);
+      setItems([{ id: "1", product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0, ordered_rolls: undefined }]);
     }
   }, [open, defaultValues])
 
@@ -249,7 +252,8 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
         line_items: validItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
-          unit_price: item.unit_price
+          unit_price: item.unit_price,
+          ordered_rolls: item.ordered_rolls || undefined
         }))
       }
 
@@ -298,7 +302,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
 
   const addItem = () => {
     const newId = (items.length + 1).toString()
-    setItems(prev => [...prev, { id: newId, product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0 }])
+    setItems(prev => [...prev, { id: newId, product_id: 0, product_name: "", quantity: 1, unit_price: 0, total: 0, ordered_rolls: undefined }])
   }
 
   const removeItem = (id: string) => {
@@ -461,6 +465,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead>Quantity</TableHead>
+                    <TableHead>Rolls</TableHead>
                     <TableHead>Unit Price</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
@@ -501,8 +506,22 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
                             return unit ? (
                               <span className="text-xs text-muted-foreground whitespace-nowrap">{unit}</span>
                             ) : null
-                          })()}
+                          }                          )()}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.ordered_rolls ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? 0 : parseInt(e.target.value) || 0
+                            updateItem(item.id, "ordered_rolls", val)
+                          }}
+                          className="w-20"
+                          placeholder="--"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input

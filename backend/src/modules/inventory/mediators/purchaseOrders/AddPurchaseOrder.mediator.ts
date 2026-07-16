@@ -115,9 +115,10 @@ class AddPurchaseOrderMediator {
                     INSERT INTO purchase_order_line_items (
                         purchase_order_id, product_id, product_sku, product_name,
                         description, quantity, unit_price, total_price,
-                        received_quantity, pending_quantity, unit_of_measure
+                        received_quantity, pending_quantity, unit_of_measure,
+                        ordered_rolls
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                     RETURNING *
                 `;
 
@@ -132,7 +133,8 @@ class AddPurchaseOrderMediator {
                     totalPrice,
                     0, // received_quantity
                     lineItem.quantity, // pending_quantity
-                    product.unit_of_measure
+                    product.unit_of_measure,
+                    lineItem.ordered_rolls || null
                 ];
 
                 await client.query(lineItemQuery, lineItemValues);

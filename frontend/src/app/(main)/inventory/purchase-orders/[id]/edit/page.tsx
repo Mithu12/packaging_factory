@@ -44,6 +44,7 @@ interface LineItem {
   description?: string
   quantity: number
   unit_price: number
+  ordered_rolls?: number
   unit_of_measure?: string
 }
 
@@ -120,6 +121,7 @@ export default function EditPurchaseOrder() {
         description: item.description || "",
         quantity: item.quantity,
         unit_price: item.unit_price,
+        ordered_rolls: item.ordered_rolls || undefined,
         unit_of_measure: item.unit_of_measure || "pcs"
       })) || [])
 
@@ -153,6 +155,7 @@ export default function EditPurchaseOrder() {
       description: "",
       quantity: 1,
       unit_price: 0,
+      ordered_rolls: undefined,
       unit_of_measure: "pcs"
     }
     setLineItems(prev => [...prev, newItem])
@@ -227,7 +230,8 @@ export default function EditPurchaseOrder() {
           quantity: item.quantity,
           unit_price: item.unit_price,
           description: item.description || undefined,
-          unit_of_measure: item.unit_of_measure || undefined
+          unit_of_measure: item.unit_of_measure || undefined,
+          ordered_rolls: item.ordered_rolls || undefined
         }))
       }
 
@@ -471,7 +475,7 @@ export default function EditPurchaseOrder() {
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div>
                           <Label>Product SKU</Label>
                           <Select 
@@ -514,6 +518,20 @@ export default function EditPurchaseOrder() {
                             value={item.quantity}
                             onChange={(e) => handleLineItemChange(index, "quantity", parseInt(e.target.value) || 0)}
                             placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label>Rolls</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={item.ordered_rolls ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? 0 : parseInt(e.target.value) || 0
+                              handleLineItemChange(index, "ordered_rolls", val)
+                            }}
+                            placeholder="--"
                           />
                         </div>
                         <div>

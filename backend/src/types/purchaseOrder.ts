@@ -52,6 +52,7 @@ export interface PurchaseOrderLineItem {
   total_price: number;
   received_quantity: number;
   pending_quantity: number;
+  ordered_rolls?: number;
   unit_of_measure: string;
   created_at: string;
   updated_at: string;
@@ -104,6 +105,7 @@ export interface CreatePurchaseOrderLineItemRequest {
   quantity: number;
   unit_price: number;
   description?: string;
+  ordered_rolls?: number;
 }
 
 export interface UpdatePurchaseOrderRequest {
@@ -127,6 +129,7 @@ export interface UpdatePurchaseOrderLineItemRequest {
   quantity: number;
   unit_price: number;
   description?: string;
+  ordered_rolls?: number;
 }
 
 export interface UpdatePurchaseOrderStatusRequest {
