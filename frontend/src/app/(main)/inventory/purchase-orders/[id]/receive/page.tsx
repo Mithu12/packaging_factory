@@ -77,6 +77,7 @@ export default function ReceiveGoods() {
     receivedQty: number
     alreadyReceivedQty: number
     additionalQty: number
+    orderedRolls?: number
     rollsReceived: number
     unitPrice: number
     unit: string
@@ -108,6 +109,7 @@ export default function ReceiveGoods() {
           receivedQty: parseFloat(item.received_quantity.toString()),
           alreadyReceivedQty: parseFloat(item.received_quantity.toString()),
           additionalQty: 0, // Start with 0 additional quantity to receive
+          orderedRolls: item.ordered_rolls ? parseFloat(item.ordered_rolls.toString()) : undefined,
           rollsReceived: 0,
           unitPrice: parseFloat(item.unit_price.toString()),
           unit: item.unit_of_measure,
@@ -248,7 +250,11 @@ export default function ReceiveGoods() {
   const totalAdditionalToReceive = lineItems.reduce((sum, item) => sum + item.additionalQty, 0)
   const totalAfterReceipt = totalAlreadyReceived + totalAdditionalToReceive
   const additionalValue = lineItems.reduce((sum, item) => sum + (item.additionalQty * item.unitPrice), 0)
+  const totalOrderedRolls = lineItems.reduce((sum, item) => sum + (item.orderedRolls || 0), 0)
+  const totalReceivingRolls = lineItems.reduce((sum, item) => sum + (item.rollsReceived || 0), 0)
   const fulfillmentPercentage = totalOrdered > 0 ? (totalAfterReceipt / totalOrdered) * 100 : 0
+  const units = [...new Set(lineItems.map(i => i.unit).filter(Boolean))]
+  const summaryUnit = units.length === 1 ? units[0] : 'units'
 
   const hasDiscrepancies = lineItems.some(item => (item.alreadyReceivedQty + item.additionalQty) !== item.orderedQty)
 
@@ -535,25 +541,37 @@ export default function ReceiveGoods() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Ordered:</span>
-                    <span className="font-medium">{totalOrdered} items</span>
+                    <span className="font-medium">{totalOrdered} {summaryUnit}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Already Received:</span>
-                    <span className="font-medium">{totalAlreadyReceived} items</span>
+                    <span className="font-medium">{totalAlreadyReceived} {summaryUnit}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Additional to Receive:</span>
-                    <span className="font-medium">{totalAdditionalToReceive} items</span>
+                    <span className="font-medium">{totalAdditionalToReceive} {summaryUnit}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total After Receipt:</span>
-                    <span className="font-medium">{totalAfterReceipt} items</span>
+                    <span className="font-medium">{totalAfterReceipt} {summaryUnit}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Remaining:</span>
-                    <span className="font-medium">{totalOrdered - totalAfterReceipt} items</span>
+                    <span className="font-medium">{totalOrdered - totalAfterReceipt} {summaryUnit}</span>
                   </div>
                   <Separator />
+                  {totalOrderedRolls > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Ordered Rolls:</span>
+                      <span className="font-medium">{totalOrderedRolls}</span>
+                    </div>
+                  )}
+                  {totalReceivingRolls > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Receiving Rolls:</span>
+                      <span className="font-medium">{totalReceivingRolls}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-lg font-bold">
                     <span>Additional Value:</span>
                     <span>{formatCurrency(additionalValue)}</span>
@@ -570,18 +588,23 @@ export default function ReceiveGoods() {
               <CardContent>
                 <div className="space-y-3">
                   {lineItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2 bg-accent/20 rounded">
-                      <div className="text-sm">
-                        <div className="font-medium">{item.productSku}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.alreadyReceivedQty + item.additionalQty}/{item.orderedQty} {item.unit}
-                        </div>
+                    <div key={item.id} className="space-y-1 p-2 bg-accent/20 rounded">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">{item.productSku}</div>
+                        <Badge className={getConditionColor(item.condition)}>
+                          {item.condition === "good" ? "Good" :
+                           item.condition === "damaged" ? "Damaged" :
+                           item.condition === "partial" ? "Partial" : "Not Received"}
+                        </Badge>
                       </div>
-                      <Badge className={getConditionColor(item.condition)}>
-                        {item.condition === "good" ? "Good" :
-                         item.condition === "damaged" ? "Damaged" :
-                         item.condition === "partial" ? "Partial" : "Not Received"}
-                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {item.alreadyReceivedQty + item.additionalQty}/{item.orderedQty} {item.unit}
+                      </div>
+                      {item.orderedRolls != null && (
+                        <div className="text-xs text-muted-foreground">
+                          Rolls: {item.rollsReceived || 0}/{item.orderedRolls}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
