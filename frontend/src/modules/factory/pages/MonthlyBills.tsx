@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Loader2 } from "lucide-react";
+import { Database, Download, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
@@ -36,6 +36,8 @@ import {
   type MonthlyBillRow,
   type MonthlyBillVatFilter,
 } from "../services/customer-orders-api";
+import { MonthlyBillsApiService } from "../services/monthly-bills-api";
+import { useRouter } from "next/navigation";
 
 // First day of the current month, formatted as YYYY-MM-DD for <input type="date">.
 const firstOfMonth = (): string => {
@@ -48,10 +50,12 @@ const today = (): string => new Date().toISOString().slice(0, 10);
 const isVatRow = (r: MonthlyBillRow): boolean => r.tax_amount > 0.005;
 
 export default function MonthlyBills() {
+  const router = useRouter();
   const [customerId, setCustomerId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>(firstOfMonth());
   const [toDate, setToDate] = useState<string>(today());
   const [downloading, setDownloading] = useState<MonthlyBillVatFilter | null>(null);
+  const [saving, setSaving] = useState<MonthlyBillVatFilter | null>(null);
   const { formatCurrency, formatDate } = useFormatting();
 
   const { data: customers, isLoading: loadingCustomers } = useQuery({
@@ -111,6 +115,24 @@ export default function MonthlyBills() {
     }
   };
 
+  const handleSave = async (vat: MonthlyBillVatFilter) => {
+    if (!canPreview || saving) return;
+    try {
+      setSaving(vat);
+      const bill = await MonthlyBillsApiService.saveMonthlyBill({
+        customer_id: parseInt(customerId),
+        from_date: fromDate,
+        to_date: toDate,
+        vat_filter: vat,
+      });
+      toast.success(`Bill ${bill.bill_number} saved`);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to save bill");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const renderSection = (
     title: string,
     vat: MonthlyBillVatFilter,
@@ -135,18 +157,33 @@ export default function MonthlyBills() {
               ({rows.length} challan{rows.length === 1 ? "" : "s"})
             </span>
           </CardTitle>
-          <Button
-            size="sm"
-            onClick={() => handleDownload(vat)}
-            disabled={rows.length === 0 || !!downloading}
-          >
-            {downloading === vat ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            Download PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSave(vat)}
+              disabled={rows.length === 0 || !!saving}
+            >
+              {saving === vat ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              Save Bill
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleDownload(vat)}
+              disabled={rows.length === 0 || !!downloading}
+            >
+              {downloading === vat ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
@@ -215,12 +252,17 @@ export default function MonthlyBills() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Monthly Bills</h1>
-        <p className="text-muted-foreground">
-          Pick a company and date range to list its challans, then download
-          separate VAT and without-VAT bills.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Monthly Bills</h1>
+          <p className="text-muted-foreground">
+            Pick a company and date range to list its challans, then download
+            separate VAT and without-VAT bills.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => router.push("/factory/monthly-bills/saved")}>
+          <Eye className="w-4 h-4 mr-2" /> View Saved
+        </Button>
       </div>
 
       <Card>

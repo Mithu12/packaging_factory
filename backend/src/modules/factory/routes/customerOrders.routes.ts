@@ -313,6 +313,16 @@ router.get(
     expressAsyncHandler(monthlyBillsController.exportMonthlyBillPdf.bind(monthlyBillsController))
 );
 
+// POST /api/factory/customer-orders/customers/:customerId/monthly-bill/save
+// Generate and persist a monthly bill for this customer + period.
+router.post(
+  "/customers/:customerId/monthly-bill/save",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  validateParams(customerIdSchema),
+  auditMiddleware,
+  expressAsyncHandler(monthlyBillsController.saveMonthlyBill.bind(monthlyBillsController))
+);
+
 // GET /api/factory/customer-orders - Get all customer orders with filtering and pagination
 router.get(
     "/",

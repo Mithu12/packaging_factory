@@ -304,6 +304,12 @@ const menuSections: MenuSection[] = [
             permission: PERMISSIONS.FACTORY_ORDERS_READ,
           },
           {
+            title: "Saved Bills",
+            url: "/factory/monthly-bills/saved",
+            icon: Receipt,
+            permission: PERMISSIONS.FACTORY_ORDERS_READ,
+          },
+          {
             title: "Customer Payments",
             url: "/factory/payments",
             icon: Wallet,

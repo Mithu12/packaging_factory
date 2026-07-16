@@ -1,6 +1,13 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
 import { createError } from '@/utils/responseHelper';
+import {
+  MonthlyBill,
+  MonthlyBillWithLines,
+  MonthlyBillLineItem,
+  CreateMonthlyBillRequest,
+  MonthlyBillQueryParams,
+} from '@/types/monthlyBill';
 
 export interface MonthlyBillCustomer {
   id: number;
@@ -213,4 +220,185 @@ export class MonthlyBillMediator {
       throw error;
     }
   }
+
+  /**
+   * Generate and persist a monthly bill. Aggregates the same challan data as
+   * getMonthlyBillData, then saves header + line items to the database.
+   * Returns the saved bill with its generated bill_number.
+   */
+  static async createMonthlyBill(
+    data: CreateMonthlyBillRequest,
+    createdBy: string,
+  ): Promise<MonthlyBillWithLines> {
+    const action = 'MonthlyBillMediator.createMonthlyBill';
+    const client = await pool.connect();
+    try {
+      MyLogger.info(action, { customerId: data.customer_id, fromDate: data.from_date, toDate: data.to_date, vatFilter: data.vat_filter });
+
+      const billData = await MonthlyBillMediator.getMonthlyBillData(
+        data.customer_id, data.from_date, data.to_date,
+        data.vat_filter ?? undefined,
+      );
+
+      if (billData.rows.length === 0) {
+        throw createError('No challans found in the selected period' + (data.vat_filter ? ` (vat_filter=${data.vat_filter})` : ''), 400);
+      }
+
+      await client.query('BEGIN');
+
+      const headerResult = await client.query(
+        `INSERT INTO monthly_bills (
+          customer_id, customer_name, customer_vat_number, customer_address,
+          from_date, to_date, vat_filter,
+          subtotal, tax_amount, total_amount, total_qty,
+          paid_amount, outstanding_amount, line_count, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *`,
+        [
+          billData.customer.id,
+          billData.customer.name,
+          billData.customer.vat_number,
+          billData.customer.address_line || null,
+          data.from_date,
+          data.to_date,
+          data.vat_filter ?? null,
+          billData.totals.subtotal,
+          billData.totals.tax_amount,
+          billData.totals.total_amount,
+          billData.totals.total_qty,
+          billData.payments.paid_in_period,
+          billData.outstanding_now,
+          billData.rows.length,
+          createdBy,
+        ],
+      );
+      const header = headerResult.rows[0];
+
+      const savedLines: MonthlyBillLineItem[] = [];
+      for (const row of billData.rows) {
+        const lineResult = await client.query(
+          `INSERT INTO monthly_bill_line_items (
+            monthly_bill_id, delivery_id, delivery_number, delivery_date,
+            invoice_id, invoice_number,
+            subtotal, tax_amount, total_amount, total_qty
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING *`,
+          [
+            header.id,
+            row.delivery_id,
+            row.delivery_number,
+            row.delivery_date,
+            row.invoice_id,
+            row.invoice_number,
+            row.subtotal,
+            row.tax_amount,
+            row.total_amount,
+            row.total_qty,
+          ],
+        );
+        savedLines.push(lineResult.rows[0]);
+      }
+
+      await client.query('COMMIT');
+
+      MyLogger.success(action, { billId: header.id, billNumber: header.bill_number, lineCount: savedLines.length });
+
+      return { ...header, line_items: savedLines };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { customerId: data.customer_id });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * List saved monthly bills with optional filtering.
+   */
+  static async getMonthlyBills(params: MonthlyBillQueryParams): Promise<MonthlyBill[]> {
+    const action = 'MonthlyBillMediator.getMonthlyBills';
+    try {
+      let query = 'SELECT * FROM monthly_bills WHERE 1=1';
+      const queryParams: any[] = [];
+      let idx = 1;
+
+      if (params.customer_id) {
+        query += ` AND customer_id = $${idx++}`;
+        queryParams.push(params.customer_id);
+      }
+      if (params.start_date) {
+        query += ` AND created_at >= $${idx++}`;
+        queryParams.push(params.start_date);
+      }
+      if (params.end_date) {
+        query += ` AND created_at <= $${idx++}`;
+        queryParams.push(params.end_date);
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      if (params.limit) {
+        query += ` LIMIT $${idx++}`;
+        queryParams.push(params.limit);
+      }
+      if (params.offset) {
+        query += ` OFFSET $${idx++}`;
+        queryParams.push(params.offset);
+      }
+
+      const result = await pool.query(query, queryParams);
+      return result.rows;
+    } catch (error) {
+      MyLogger.error(action, error, { params });
+      throw error;
+    }
+  }
+
+  /**
+   * Get a saved monthly bill by ID with its line items.
+   */
+  static async getMonthlyBillById(id: number): Promise<MonthlyBillWithLines> {
+    const action = 'MonthlyBillMediator.getMonthlyBillById';
+    try {
+      const headerResult = await pool.query(
+        'SELECT * FROM monthly_bills WHERE id = $1',
+        [id],
+      );
+      if (headerResult.rows.length === 0) {
+        throw createError('Monthly bill not found', 404);
+      }
+
+      const linesResult = await pool.query(
+        'SELECT * FROM monthly_bill_line_items WHERE monthly_bill_id = $1 ORDER BY id',
+        [id],
+      );
+
+      return { ...headerResult.rows[0], line_items: linesResult.rows };
+    } catch (error) {
+      MyLogger.error(action, error, { billId: id });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a saved monthly bill (cascades to line items).
+   */
+  static async deleteMonthlyBill(id: number): Promise<void> {
+    const action = 'MonthlyBillMediator.deleteMonthlyBill';
+    try {
+      const result = await pool.query(
+        'DELETE FROM monthly_bills WHERE id = $1 RETURNING id',
+        [id],
+      );
+      if (result.rows.length === 0) {
+        throw createError('Monthly bill not found', 404);
+      }
+      MyLogger.success(action, { billId: id });
+    } catch (error) {
+      MyLogger.error(action, error, { billId: id });
+      throw error;
+    }
+  }
+
 }
