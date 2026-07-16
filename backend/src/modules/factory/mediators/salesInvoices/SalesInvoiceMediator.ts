@@ -700,11 +700,12 @@ export class SalesInvoiceMediator {
     portion: number,
   ): Promise<void> {
     const ordRes = await client.query<{
+      total_value: string;
       paid_amount: string;
       outstanding_amount: string;
       status: string;
     }>(
-      `SELECT paid_amount, outstanding_amount, status
+      `SELECT total_value, paid_amount, outstanding_amount, status
          FROM factory_customer_orders
         WHERE id = $1
         FOR UPDATE`,
@@ -714,8 +715,26 @@ export class SalesInvoiceMediator {
       throw createError(`Order ${orderId} not found for payment allocation`, 404);
     }
     const ord = ordRes.rows[0];
-    const newPaid = parseFloat(ord.paid_amount) + portion;
-    const rawOutstanding = parseFloat(ord.outstanding_amount) - portion;
+    // The DB constraint chk_factory_customer_orders_paid_outstanding_total requires
+    // BOTH paid_amount <= total_value AND outstanding_amount = total_value - paid_amount.
+    // The applied portion is settled amount (cash + AIT) guarded only against the
+    // INVOICE outstanding, so with VAT-inclusive invoices / multi-invoice orders it can
+    // exceed the order's remaining outstanding. Clamp paid to total_value and always
+    // derive outstanding from it so the invariant holds instead of tripping the check.
+    const totalValue = parseFloat(ord.total_value);
+    const rawPaid = parseFloat(ord.paid_amount) + portion;
+    const newPaid =
+      rawPaid > totalValue - CURRENCY_EPSILON ? totalValue : rawPaid;
+    if (rawPaid - totalValue > CURRENCY_EPSILON) {
+      MyLogger.warn('Order payment allocation exceeded total_value; clamped', {
+        orderId,
+        totalValue,
+        priorPaid: ord.paid_amount,
+        portion,
+        rawPaid,
+      });
+    }
+    const rawOutstanding = totalValue - newPaid;
     const newOutstanding =
       Math.abs(rawOutstanding) < CURRENCY_EPSILON ? 0 : Math.max(0, rawOutstanding);
 
