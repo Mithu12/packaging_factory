@@ -3,6 +3,7 @@ export interface StockAdjustment {
   product_id: number
   adjustment_type: 'increase' | 'decrease' | 'set'
   quantity: number
+  rolls?: number | null
   previous_stock: number
   new_stock: number
   reason: string
@@ -47,6 +48,7 @@ export interface StockAdjustmentBatchLineInput {
   product_id: number
   adjustment_type: 'increase' | 'decrease' | 'set'
   quantity: number
+  rolls?: number
   notes?: string
 }
 

@@ -24,6 +24,7 @@ const batchLineSchema = Joi.object({
   product_id: Joi.number().integer().positive().required(),
   adjustment_type: Joi.string().valid("increase", "decrease", "set").required(),
   quantity: Joi.number().positive().required(),
+  rolls: Joi.number().min(0).optional(),
   notes: Joi.string().allow("", null).optional(),
 });
 

@@ -144,6 +144,7 @@ export class StockAdjustmentMediator {
       product_id: number;
       adjustment_type: "increase" | "decrease" | "set";
       quantity: number;
+      rolls?: number;
       reason: string;
       reference?: string;
       notes?: string | null;
@@ -155,15 +156,16 @@ export class StockAdjustmentMediator {
     }
   ): Promise<UnitsLineResult> {
     const locationResult = await client.query(
-      "SELECT current_stock FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2",
+      "SELECT current_stock, current_rolls FROM product_locations WHERE product_id = $1 AND distribution_center_id = $2",
       [params.product_id, params.distributionCenterId]
     );
 
     let currentLocationStock = 0;
+    let currentLocationRolls = 0;
     if (locationResult.rows.length === 0) {
       if (params.adjustment_type === "increase" || params.adjustment_type === "set") {
         await client.query(
-          "INSERT INTO product_locations (product_id, distribution_center_id, current_stock) VALUES ($1, $2, 0)",
+          "INSERT INTO product_locations (product_id, distribution_center_id, current_stock, current_rolls) VALUES ($1, $2, 0, 0)",
           [params.product_id, params.distributionCenterId]
         );
       } else {
@@ -171,6 +173,7 @@ export class StockAdjustmentMediator {
       }
     } else {
       currentLocationStock = parseFloat(locationResult.rows[0].current_stock);
+      currentLocationRolls = parseFloat(locationResult.rows[0].current_rolls ?? 0);
     }
 
     let newLocationStock: number;
@@ -191,10 +194,35 @@ export class StockAdjustmentMediator {
         throw new Error("Invalid adjustment type");
     }
 
-    await client.query(
-      "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
-      [newLocationStock, params.product_id, params.distributionCenterId]
-    );
+    let newLocationRolls: number | null = null;
+    if (params.rolls !== undefined) {
+      switch (params.adjustment_type) {
+        case "increase":
+          newLocationRolls = currentLocationRolls + params.rolls;
+          break;
+        case "decrease":
+          newLocationRolls = currentLocationRolls - params.rolls;
+          if (newLocationRolls < 0) {
+            throw new Error("Cannot decrease rolls below zero at this location");
+          }
+          break;
+        case "set":
+          newLocationRolls = params.rolls;
+          break;
+      }
+    }
+
+    if (newLocationRolls !== null) {
+      await client.query(
+        "UPDATE product_locations SET current_stock = $1, current_rolls = $2, updated_at = CURRENT_TIMESTAMP WHERE product_id = $3 AND distribution_center_id = $4",
+        [newLocationStock, newLocationRolls, params.product_id, params.distributionCenterId]
+      );
+    } else {
+      await client.query(
+        "UPDATE product_locations SET current_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE product_id = $2 AND distribution_center_id = $3",
+        [newLocationStock, params.product_id, params.distributionCenterId]
+      );
+    }
 
     const productResult = await client.query(
       "SELECT name, sku, current_stock FROM products WHERE id = $1",
@@ -218,14 +246,15 @@ export class StockAdjustmentMediator {
 
     const adjustmentResult = await client.query(
       `INSERT INTO stock_adjustments (
-        product_id, adjustment_type, quantity, previous_stock, new_stock,
+        product_id, adjustment_type, quantity, rolls, previous_stock, new_stock,
         reason, reference, notes, adjusted_by, distribution_center_id, batch_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
         params.product_id,
         params.adjustment_type,
         params.quantity,
+        params.rolls ?? null,
         currentGlobalStock,
         newGlobalStock,
         params.reason,
@@ -310,6 +339,7 @@ export class StockAdjustmentMediator {
           product_id: line.product_id,
           adjustment_type: line.adjustment_type,
           quantity: line.quantity,
+          rolls: line.rolls,
           reason: data.reason,
           reference: data.reference || batch.batch_number,
           notes: line.notes ?? data.notes ?? null,

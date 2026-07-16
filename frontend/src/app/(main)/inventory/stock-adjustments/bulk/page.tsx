@@ -52,6 +52,7 @@ interface BulkLine {
   product?: Product;
   adjustment_type: AdjustmentType;
   quantity: string;
+  rolls: string;
   notes: string;
 }
 
@@ -71,6 +72,7 @@ const newLine = (): BulkLine => ({
   product_id: null,
   adjustment_type: "increase",
   quantity: "",
+  rolls: "",
   notes: "",
 });
 
@@ -241,6 +243,7 @@ export default function BulkStockAdjustmentPage() {
           product_id: l.product_id!,
           adjustment_type: l.adjustment_type,
           quantity: parseFloat(l.quantity),
+          rolls: l.rolls ? parseFloat(l.rolls) : undefined,
           notes: l.notes || undefined,
         })),
       });
@@ -357,7 +360,8 @@ export default function BulkStockAdjustmentPage() {
                     <TableHead className="min-w-[260px]">Product</TableHead>
                     <TableHead className="text-right">Current</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Rolls</TableHead>
                     <TableHead className="text-right">New Stock</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -427,7 +431,18 @@ export default function BulkStockAdjustmentPage() {
                             step="0.001"
                             value={line.quantity}
                             onChange={(e) => updateLine(idx, { quantity: e.target.value })}
-                            className="w-24 text-right"
+                            className="w-20 text-right"
+                            placeholder="0"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={line.rolls}
+                            onChange={(e) => updateLine(idx, { rolls: e.target.value })}
+                            className="w-20 text-right"
                             placeholder="0"
                           />
                         </TableCell>
@@ -554,16 +569,17 @@ export default function BulkStockAdjustmentPage() {
                               <div className="text-sm text-muted-foreground">No lines.</div>
                             ) : (
                               <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead className="text-right">Quantity</TableHead>
-                                    <TableHead className="text-right">Previous</TableHead>
-                                    <TableHead className="text-right">New</TableHead>
-                                    <TableHead>Notes</TableHead>
-                                  </TableRow>
-                                </TableHeader>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Product</TableHead>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead className="text-right">Qty</TableHead>
+                                      <TableHead className="text-right">Rolls</TableHead>
+                                      <TableHead className="text-right">Previous</TableHead>
+                                      <TableHead className="text-right">New</TableHead>
+                                      <TableHead>Notes</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
                                 <TableBody>
                                   {linesForBatch.map((line) => (
                                     <TableRow key={line.id}>
@@ -588,6 +604,9 @@ export default function BulkStockAdjustmentPage() {
                                         </div>
                                       </TableCell>
                                       <TableCell className="text-right">{line.quantity}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">
+                                        {line.rolls != null ? line.rolls : "—"}
+                                      </TableCell>
                                       <TableCell className="text-right text-muted-foreground">
                                         {line.previous_stock}
                                       </TableCell>
