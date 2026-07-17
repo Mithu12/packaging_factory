@@ -314,6 +314,7 @@ const Payments: React.FC = () => {
                 toast.success('Payment recorded against monthly bill');
                 setShowRecordDialog(false);
                 refreshPaymentHistory();
+                refreshSelectedCustomer();
             } catch (error) {
                 console.error('Failed to record payment:', error);
                 toast.error(error instanceof Error ? error.message : 'Failed to record payment');
@@ -347,6 +348,7 @@ const Payments: React.FC = () => {
                 toast.success('Payment recorded');
                 setShowRecordDialog(false);
                 refreshPaymentHistory();
+                refreshSelectedCustomer();
             } catch (error) {
                 console.error('Failed to record payment:', error);
                 toast.error(error instanceof Error ? error.message : 'Failed to record payment');
@@ -366,6 +368,17 @@ const Payments: React.FC = () => {
                     limit: 50,
                 });
                 setPaymentHistory(historyResponse.payments);
+            } catch {
+                // silently fail
+            }
+        }
+    };
+
+    const refreshSelectedCustomer = async () => {
+        if (selectedCustomerId && selectedCustomerId !== 'all') {
+            try {
+                const customer = await CustomerOrdersApiService.getCustomerById(selectedCustomerId);
+                setSelectedCustomer(customer);
             } catch {
                 // silently fail
             }
