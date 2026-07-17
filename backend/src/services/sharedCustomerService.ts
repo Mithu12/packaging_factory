@@ -17,6 +17,7 @@ export interface SharedCustomer {
   payment_terms?: string;
   opening_balance?: number;
   vat_number?: string | null;
+  billing_type?: string;
   is_active?: boolean;
   sales_rep_id?: number | null;
   // Factory-specific financial summary
@@ -30,6 +31,7 @@ export interface SharedCustomer {
 
 export interface CreateSharedCustomerRequest {
   name: string;
+  billing_type?: string;
   email?: string;
   phone?: string;
   company?: string;
@@ -46,6 +48,7 @@ export interface CreateSharedCustomerRequest {
 
 export interface UpdateSharedCustomerRequest {
   name?: string;
+  billing_type?: string;
   email?: string;
   phone?: string;
   company?: string;
@@ -113,6 +116,7 @@ class SharedCustomerService {
              fc.payment_terms,
              fc.opening_balance,
              fc.vat_number,
+             fc.billing_type,
              fc.is_active,
              fc.total_order_value,
              fc.total_paid_amount,
@@ -142,6 +146,7 @@ class SharedCustomerService {
              COALESCE(src.payment_terms, 'net_30') as payment_terms,
              0::DECIMAL(15,2) as opening_balance,
              NULL::VARCHAR as vat_number,
+             NULL::VARCHAR as billing_type,
              COALESCE(src.is_active, true) as is_active,
              COALESCE(src.total_order_value, 0) as total_order_value,
              COALESCE(src.total_paid_amount, 0) as total_paid_amount,
@@ -181,6 +186,7 @@ class SharedCustomerService {
             payment_terms,
             opening_balance,
             vat_number,
+            billing_type,
             is_active,
             total_order_value,
             total_paid_amount,
@@ -248,6 +254,7 @@ class SharedCustomerService {
             fc.payment_terms,
             fc.opening_balance,
             fc.vat_number,
+            fc.billing_type,
             fc.is_active,
             fc.total_order_value,
             fc.total_paid_amount,
@@ -281,6 +288,7 @@ class SharedCustomerService {
              src.address,
              src.credit_limit,
              COALESCE(src.payment_terms, 'net_30') as payment_terms,
+             NULL::VARCHAR as billing_type,
              COALESCE(src.is_active, true) as is_active,
              COALESCE(src.total_order_value, 0) as total_order_value,
              COALESCE(src.total_paid_amount, 0) as total_paid_amount,
@@ -305,7 +313,7 @@ class SharedCustomerService {
         const query = `
           SELECT
             id, name, email, phone, company, address, credit_limit, payment_terms,
-            opening_balance, vat_number, is_active,
+            opening_balance, vat_number, billing_type, is_active,
             total_order_value, total_paid_amount, total_outstanding_amount, order_count,
             created_at, updated_at
           FROM factory_customers
@@ -356,9 +364,9 @@ class SharedCustomerService {
       if (this.isFactoryAvailable() && this.isSalesRepAvailable()) {
         // Create in factory_customers (primary) and optionally in sales_rep_customers
         const factoryQuery = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const factoryResult = await client.query(factoryQuery, [
@@ -373,6 +381,7 @@ class SharedCustomerService {
           data.payment_terms || "net_30",
           data.opening_balance ?? 0,
           data.vat_number || null,
+          data.billing_type || 'per_delivery',
         ]);
 
         const customer = factoryResult.rows[0];
@@ -413,9 +422,9 @@ class SharedCustomerService {
         return this.mapToSharedCustomer(customer);
       } else if (this.isFactoryAvailable()) {
         const query = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const result = await client.query(query, [
@@ -430,6 +439,7 @@ class SharedCustomerService {
           data.payment_terms || "net_30",
           data.opening_balance ?? 0,
           data.vat_number || null,
+          data.billing_type || 'per_delivery',
         ]);
 
         await client.query("COMMIT");
@@ -504,9 +514,10 @@ class SharedCustomerService {
               is_active = COALESCE($9, is_active),
               opening_balance = COALESCE($10, opening_balance),
               vat_number = COALESCE($11, vat_number),
+              billing_type = COALESCE($12, billing_type),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const factoryResult = await client.query(factoryQuery, [
@@ -523,6 +534,7 @@ class SharedCustomerService {
           data.is_active,
           data.opening_balance,
           data.vat_number,
+          data.billing_type,
         ]);
 
         if (factoryResult.rows.length === 0) {
@@ -580,9 +592,10 @@ class SharedCustomerService {
               is_active = COALESCE($9, is_active),
               opening_balance = COALESCE($10, opening_balance),
               vat_number = COALESCE($11, vat_number),
+              billing_type = COALESCE($12, billing_type),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const result = await client.query(query, [
@@ -601,6 +614,7 @@ class SharedCustomerService {
           data.is_active,
           data.opening_balance,
           data.vat_number,
+          data.billing_type,
         ]);
 
         await client.query("COMMIT");
@@ -753,6 +767,7 @@ class SharedCustomerService {
              fc.payment_terms,
              fc.opening_balance,
              fc.vat_number,
+             fc.billing_type,
              fc.is_active,
              fc.total_order_value,
              fc.total_paid_amount,
@@ -783,6 +798,7 @@ class SharedCustomerService {
              COALESCE(src.payment_terms, 'net_30') as payment_terms,
              0::DECIMAL(15,2) as opening_balance,
              NULL::VARCHAR as vat_number,
+             NULL::VARCHAR as billing_type,
              COALESCE(src.is_active, true) as is_active,
              COALESCE(src.total_order_value, 0) as total_order_value,
              COALESCE(src.total_paid_amount, 0) as total_paid_amount,
@@ -808,7 +824,7 @@ class SharedCustomerService {
         const query = `
           SELECT
             id, name, email, phone, company, address, credit_limit, payment_terms,
-            opening_balance, vat_number, is_active,
+            opening_balance, vat_number, billing_type, is_active,
             total_order_value, total_paid_amount, total_outstanding_amount, order_count,
             created_at, updated_at
           FROM factory_customers
@@ -870,6 +886,7 @@ class SharedCustomerService {
           ? Number(row.opening_balance)
           : undefined,
       vat_number: row.vat_number ?? undefined,
+      billing_type: row.billing_type || 'per_delivery',
       is_active: row.is_active,
       sales_rep_id: row.sales_rep_id,
       total_order_value: row.total_order_value,
