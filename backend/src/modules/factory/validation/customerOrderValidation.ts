@@ -154,6 +154,9 @@ export const recordPaymentSchema = Joi.object({
     notes: Joi.string().max(2000).optional().allow(''),
     factory_sales_invoice_id: Joi.number().integer().positive().optional(),
     additional_metadata: Joi.object().unknown(true).optional(),
+    bank_name: Joi.string().max(255).optional().allow(''),
+    cheque_date: Joi.date().iso().optional().allow(''),
+    ait_amount: Joi.number().min(0).precision(2).optional(),
 });
 
 // Order ID parameter validation

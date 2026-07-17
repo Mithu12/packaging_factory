@@ -1226,6 +1226,9 @@ export interface FactoryCustomerPayment {
     additional_metadata?: Record<string, unknown>;
     voucher_id?: number;
     voucher_no?: string;
+    bank_name?: string;
+    cheque_date?: string;
+    ait_amount?: number;
 }
 
 export interface RecordFactoryOrderPaymentRequest {
@@ -1236,6 +1239,9 @@ export interface RecordFactoryOrderPaymentRequest {
     notes?: string;
     factory_sales_invoice_id?: number;
     additional_metadata?: Record<string, unknown>;
+    bank_name?: string;
+    cheque_date?: string;
+    ait_amount?: number;
 }
 
 export interface FactoryOrderPaymentHistoryResponse {

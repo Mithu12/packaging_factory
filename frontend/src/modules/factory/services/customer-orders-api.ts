@@ -609,6 +609,8 @@ export interface FactoryCustomerPayment {
     additional_metadata?: Record<string, unknown>;
     voucher_id?: number;
     voucher_no?: string;
+    cheque_date?: string;
+    ait_amount?: number;
 }
 
 export interface PaymentSummary {

@@ -86,8 +86,11 @@ export class FactoryCustomerPaymentsMediator {
           notes,
           recorded_by,
           factory_sales_invoice_id,
-          additional_metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          additional_metadata,
+          bank_name,
+          cheque_date,
+          ait_amount
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
       
@@ -102,7 +105,10 @@ export class FactoryCustomerPaymentsMediator {
         data.notes || null,
         userId,
         data.factory_sales_invoice_id || null,
-        data.additional_metadata ? JSON.stringify(data.additional_metadata) : null
+        data.additional_metadata ? JSON.stringify(data.additional_metadata) : null,
+        data.bank_name || null,
+        data.cheque_date || null,
+        data.ait_amount || null,
       ];
       
       const paymentResult = await client.query(paymentQuery, paymentValues);
@@ -283,7 +289,10 @@ export class FactoryCustomerPaymentsMediator {
         additional_metadata: row.additional_metadata,
         updated_at: row.updated_at,
         voucher_id: row.voucher_id,
-        voucher_no: row.voucher_no
+        voucher_no: row.voucher_no,
+        bank_name: row.bank_name,
+        cheque_date: row.cheque_date,
+        ait_amount: row.ait_amount ? parseFloat(row.ait_amount) : undefined,
       } as FactoryCustomerPayment));
       
     } catch (error) {
@@ -433,7 +442,9 @@ export class FactoryCustomerPaymentsMediator {
           additional_metadata: row.additional_metadata,
           updated_at: row.updated_at,
           voucher_id: row.voucher_id,
-          voucher_no: row.voucher_no
+          voucher_no: row.voucher_no,
+          cheque_date: row.cheque_date,
+          ait_amount: row.ait_amount ? parseFloat(row.ait_amount) : undefined,
         })),
         total,
         page,
