@@ -183,6 +183,56 @@ class MonthlyBillsController {
   }
 
   /**
+   * POST /api/factory/monthly-bills/:id/payments
+   *
+   * Record a consolidated payment against a saved monthly bill.
+   * The payment is distributed proportionally across the bill's underlying
+   * delivery invoices.
+   */
+  async recordPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = 'POST /api/factory/monthly-bills/:id/payments';
+      const { id } = req.params;
+      const {
+        payment_amount,
+        payment_date,
+        payment_method,
+        reference_number,
+        notes,
+        bank_name,
+        cheque_date,
+        ait_amount,
+      } = req.body;
+      MyLogger.info(action, { billId: id, amount: payment_amount });
+
+      if (!payment_amount || payment_amount <= 0) {
+        res.status(400).json({ success: false, message: 'Payment amount must be greater than 0' });
+        return;
+      }
+
+      const result = await MonthlyBillMediator.recordPayment(
+        Number(id),
+        {
+          payment_amount: Number(payment_amount),
+          payment_date,
+          payment_method: payment_method || 'cash',
+          reference_number,
+          notes,
+          bank_name,
+          cheque_date,
+          ait_amount: ait_amount ? Number(ait_amount) : undefined,
+        },
+        req.user?.user_id || 0,
+      );
+
+      res.status(201).json({ success: true, data: result });
+      MyLogger.success(action, { billId: id, paymentAmount: payment_amount, paymentIds: result.paymentIds });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /api/factory/monthly-bills/:id/pdf
    *
    * Download PDF for a saved monthly bill.

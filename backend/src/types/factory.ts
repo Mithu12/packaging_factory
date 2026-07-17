@@ -422,6 +422,7 @@ export interface FactoryCustomer {
     is_active: boolean;
     created_at: string;
     updated_at?: string;
+    billing_type?: 'per_delivery' | 'monthly';
 }
 
 export interface FactoryProduct {
@@ -1215,6 +1216,7 @@ export interface FactoryCustomerPayment {
     factory_customer_id: string;
     factory_id?: number;
     factory_sales_invoice_id?: number;
+    monthly_bill_id?: number;
     payment_amount: number;
     payment_date: string;
     payment_method: string;

@@ -41,6 +41,7 @@ class CustomersController {
             opening_balance,
             vat_number,
             is_active,
+            billing_type,
             created_at,
             updated_at,
             total_order_value,
@@ -103,6 +104,7 @@ class CustomersController {
             opening_balance,
             vat_number,
             is_active,
+            billing_type,
             created_at,
             updated_at,
             total_order_value,
@@ -153,6 +155,7 @@ class CustomersController {
           opening_balance,
           vat_number,
           is_active,
+          billing_type,
           created_at,
           updated_at,
           total_order_value,
@@ -211,6 +214,7 @@ class CustomersController {
           payment_terms,
           opening_balance,
           vat_number,
+          billing_type,
         } = req.body;
 
         const normalizedEmail =
@@ -219,9 +223,9 @@ class CustomersController {
             : null;
 
         const query = `
-          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          INSERT INTO factory_customers (name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const result = await pool.query(query, [
@@ -234,6 +238,7 @@ class CustomersController {
           payment_terms || "net_30",
           opening_balance ?? 0,
           vat_number || null,
+          billing_type || 'per_delivery',
         ]);
 
         MyLogger.success(action, { customerId: result.rows[0].id, name, shared: false });
@@ -288,6 +293,7 @@ class CustomersController {
           is_active,
           opening_balance,
           vat_number,
+          billing_type,
         } = req.body;
 
         const normalizedEmail =
@@ -300,9 +306,10 @@ class CustomersController {
           SET name = $1, email = $2, phone = $3, company = $4, address = $5,
               credit_limit = $6, payment_terms = $7, is_active = $8,
               opening_balance = $9, vat_number = $10,
+              billing_type = $11,
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = $11
-          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, is_active, created_at, updated_at
+          WHERE id = $12
+          RETURNING id, name, email, phone, company, address, credit_limit, payment_terms, opening_balance, vat_number, billing_type, is_active, created_at, updated_at
         `;
 
         const result = await pool.query(query, [
@@ -316,6 +323,7 @@ class CustomersController {
           is_active !== undefined ? is_active : true,
           opening_balance ?? 0,
           vat_number || null,
+          billing_type || 'per_delivery',
           id,
         ]);
 

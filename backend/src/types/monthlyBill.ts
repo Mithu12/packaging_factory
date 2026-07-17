@@ -55,3 +55,14 @@ export interface MonthlyBillQueryParams {
   start_date?: string;
   end_date?: string;
 }
+
+export interface RecordMonthlyBillPaymentRequest {
+  payment_amount: number;
+  payment_date?: string;
+  payment_method: string;
+  reference_number?: string;
+  notes?: string;
+  bank_name?: string;
+  cheque_date?: string;
+  ait_amount?: number;
+}

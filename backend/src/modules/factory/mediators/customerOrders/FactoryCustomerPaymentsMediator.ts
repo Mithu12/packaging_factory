@@ -293,6 +293,7 @@ export class FactoryCustomerPaymentsMediator {
         bank_name: row.bank_name,
         cheque_date: row.cheque_date,
         ait_amount: row.ait_amount ? parseFloat(row.ait_amount) : undefined,
+        monthly_bill_id: row.monthly_bill_id ? Number(row.monthly_bill_id) : undefined,
       } as FactoryCustomerPayment));
       
     } catch (error) {
@@ -445,6 +446,7 @@ export class FactoryCustomerPaymentsMediator {
           voucher_no: row.voucher_no,
           cheque_date: row.cheque_date,
           ait_amount: row.ait_amount ? parseFloat(row.ait_amount) : undefined,
+          monthly_bill_id: row.monthly_bill_id ? Number(row.monthly_bill_id) : undefined,
         })),
         total,
         page,

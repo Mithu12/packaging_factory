@@ -49,6 +49,22 @@ export interface MonthlyBillQueryParams {
   end_date?: string;
 }
 
+export interface RecordMonthlyBillPaymentRequest {
+  payment_amount: number;
+  payment_date?: string;
+  payment_method: string;
+  reference_number?: string;
+  notes?: string;
+  bank_name?: string;
+  cheque_date?: string;
+  ait_amount?: number;
+}
+
+export interface MonthlyBillPaymentResult {
+  bill: MonthlyBill;
+  paymentIds: number[];
+}
+
 export interface CreateMonthlyBillRequest {
   customer_id: number;
   from_date: string;
@@ -123,5 +139,23 @@ export class MonthlyBillsApiService {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  /**
+   * Record a consolidated payment against a monthly bill.
+   * The payment is distributed proportionally across the bill's underlying
+   * delivery invoices.
+   */
+  static async recordPayment(
+    billId: number,
+    data: RecordMonthlyBillPaymentRequest,
+  ): Promise<MonthlyBillPaymentResult> {
+    return makeRequest<MonthlyBillPaymentResult>(
+      `/factory/monthly-bills/${billId}/payments`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
   }
 }

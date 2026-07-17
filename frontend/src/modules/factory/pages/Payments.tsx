@@ -60,6 +60,7 @@ import CustomerOrdersApiService, {
     FactoryCustomerPayment,
 } from '../services/customer-orders-api';
 import { SalesInvoicesApi, SalesInvoice } from '../services/salesInvoices-api';
+import { MonthlyBillsApiService, MonthlyBill } from '../services/monthly-bills-api';
 import { useFormatting } from '@/hooks/useFormatting';
 
 interface InvoiceSummary {
@@ -87,11 +88,16 @@ const Payments: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Record-payment dialog state
-    const [showRecordDialog, setShowRecordDialog] = useState(false);
-    const [dialogCustomerId, setDialogCustomerId] = useState<string>('');
+    // Outstanding invoices (per_delivery customers)
     const [outstandingInvoices, setOutstandingInvoices] = useState<SalesInvoice[]>([]);
+    // Outstanding monthly bills (monthly customers)
+    const [outstandingMonthlyBills, setOutstandingMonthlyBills] = useState<MonthlyBill[]>([]);
+
+    const customerBillingType = selectedCustomer?.billing_type || 'per_delivery';
+    const [dialogCustomerId, setDialogCustomerId] = useState<string>('');
+    const [showRecordDialog, setShowRecordDialog] = useState(false);
     const [dialogInvoiceId, setDialogInvoiceId] = useState<string>('');
+    const [dialogMonthlyBillId, setDialogMonthlyBillId] = useState<string>('');
     const [dialogAmount, setDialogAmount] = useState<string>('');
     const [dialogMethod, setDialogMethod] = useState<string>('cash');
     const [dialogDate, setDialogDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -108,6 +114,11 @@ const Payments: React.FC = () => {
     const dialogSelectedInvoice = useMemo(
         () => outstandingInvoices.find(i => i.id.toString() === dialogInvoiceId) || null,
         [outstandingInvoices, dialogInvoiceId]
+    );
+
+    const dialogSelectedMonthlyBill = useMemo(
+        () => outstandingMonthlyBills.find(b => b.id.toString() === dialogMonthlyBillId) || null,
+        [outstandingMonthlyBills, dialogMonthlyBillId]
     );
 
     // Fetch initial data
@@ -176,7 +187,9 @@ const Payments: React.FC = () => {
         const initialCustomerId = selectedCustomerId !== 'all' ? selectedCustomerId : '';
         setDialogCustomerId(initialCustomerId);
         setDialogInvoiceId('');
+        setDialogMonthlyBillId('');
         setOutstandingInvoices([]);
+        setOutstandingMonthlyBills([]);
         setDialogAmount('');
         setDialogMethod('cash');
         setDialogDate(new Date().toISOString().split('T')[0]);
@@ -187,38 +200,57 @@ const Payments: React.FC = () => {
         setDialogNotes('');
         setShowRecordDialog(true);
         if (initialCustomerId) {
-            await loadOutstandingInvoices(initialCustomerId);
+            await loadOutstandingForCustomer(initialCustomerId);
         }
     };
 
-    const loadOutstandingInvoices = async (customerId: string) => {
+    const loadOutstandingForCustomer = async (customerId: string) => {
         if (!customerId) {
             setOutstandingInvoices([]);
+            setOutstandingMonthlyBills([]);
             return;
         }
         try {
-            const response = await SalesInvoicesApi.getSalesInvoices({
-                factory_customer_id: Number(customerId),
-                limit: 100,
-            });
-            // Eligible = money still owed AND not fully covered by approved returns.
-            // (A returned challan's invoice nets to zero and must not be payable.)
-            const eligible = response.invoices.filter(
-                i => Number(i.outstanding_amount || 0) - Number(i.returned_amount || 0) > 0.005
-            );
-            setOutstandingInvoices(eligible);
+            const customer = await CustomerOrdersApiService.getCustomerById(customerId);
+            const billingType = customer.billing_type || 'per_delivery';
+
+            if (billingType === 'monthly') {
+                // Load outstanding monthly bills
+                const bills = await MonthlyBillsApiService.getMonthlyBills({
+                    customer_id: Number(customerId),
+                    limit: 50,
+                });
+                const outstanding = bills.filter(
+                    b => Number(b.outstanding_amount || 0) > 0.005
+                );
+                setOutstandingMonthlyBills(outstanding);
+                setOutstandingInvoices([]);
+            } else {
+                // Load outstanding per-delivery invoices
+                const response = await SalesInvoicesApi.getSalesInvoices({
+                    factory_customer_id: Number(customerId),
+                    limit: 100,
+                });
+                const eligible = response.invoices.filter(
+                    i => Number(i.outstanding_amount || 0) - Number(i.returned_amount || 0) > 0.005
+                );
+                setOutstandingInvoices(eligible);
+                setOutstandingMonthlyBills([]);
+            }
         } catch (error) {
-            console.error('Error loading customer invoices:', error);
-            toast.error('Failed to load invoices for this customer');
+            console.error('Error loading customer outstanding:', error);
+            toast.error('Failed to load outstanding items for this customer');
             setOutstandingInvoices([]);
+            setOutstandingMonthlyBills([]);
         }
     };
 
     const handleDialogCustomerChange = async (customerId: string) => {
         setDialogCustomerId(customerId);
         setDialogInvoiceId('');
+        setDialogMonthlyBillId('');
         setDialogAmount('');
-        await loadOutstandingInvoices(customerId);
+        await loadOutstandingForCustomer(customerId);
     };
 
     // Net outstanding after approved returns — the most that can be settled.
@@ -227,17 +259,23 @@ const Payments: React.FC = () => {
 
     const handleDialogInvoiceChange = (invoiceId: string) => {
         setDialogInvoiceId(invoiceId);
+        setDialogMonthlyBillId('');
         const invoice = outstandingInvoices.find(i => i.id.toString() === invoiceId);
         if (invoice) {
             setDialogAmount(String(Math.max(0, netOutstanding(invoice)).toFixed(2)));
         }
     };
 
-    const submitRecordPayment = async () => {
-        if (!dialogInvoiceId) {
-            toast.error('Select an invoice to record payment against');
-            return;
+    const handleDialogMonthlyBillChange = (billId: string) => {
+        setDialogMonthlyBillId(billId);
+        setDialogInvoiceId('');
+        const bill = outstandingMonthlyBills.find(b => b.id.toString() === billId);
+        if (bill) {
+            setDialogAmount(String(Math.max(0, bill.outstanding_amount || 0).toFixed(2)));
         }
+    };
+
+    const submitRecordPayment = async () => {
         const amount = Number(dialogAmount);
         if (!amount || amount <= 0) {
             toast.error('Enter a valid payment amount');
@@ -248,41 +286,89 @@ const Payments: React.FC = () => {
             toast.error('AIT cannot be negative');
             return;
         }
-        const invoice = dialogSelectedInvoice;
-        const outstanding = netOutstanding(invoice);
-        if (invoice && amount + ait > outstanding + 0.005) {
-            toast.error(`Payment + AIT exceeds outstanding (${outstanding.toFixed(2)})`);
-            return;
+
+        if (dialogMonthlyBillId) {
+            // Record payment against a monthly bill
+            const bill = dialogSelectedMonthlyBill;
+            if (!bill) {
+                toast.error('Select a monthly bill to record payment against');
+                return;
+            }
+            const outstanding = bill.outstanding_amount || 0;
+            if (amount + ait > outstanding + 0.005) {
+                toast.error(`Payment + AIT exceeds outstanding (${outstanding.toFixed(2)})`);
+                return;
+            }
+            try {
+                setDialogSubmitting(true);
+                await MonthlyBillsApiService.recordPayment(Number(dialogMonthlyBillId), {
+                    payment_amount: amount,
+                    payment_method: dialogMethod,
+                    payment_date: dialogDate,
+                    reference_number: dialogReference.trim() || undefined,
+                    notes: dialogNotes.trim() || undefined,
+                    bank_name: methodNeedsBank ? (dialogBankName.trim() || undefined) : undefined,
+                    cheque_date: methodIsCheque ? (dialogChequeDate || undefined) : undefined,
+                    ait_amount: ait > 0 ? ait : undefined,
+                });
+                toast.success('Payment recorded against monthly bill');
+                setShowRecordDialog(false);
+                refreshPaymentHistory();
+            } catch (error) {
+                console.error('Failed to record payment:', error);
+                toast.error(error instanceof Error ? error.message : 'Failed to record payment');
+            } finally {
+                setDialogSubmitting(false);
+            }
+        } else {
+            // Record payment against a per-delivery invoice
+            if (!dialogInvoiceId) {
+                toast.error('Select an invoice to record payment against');
+                return;
+            }
+            const invoice = dialogSelectedInvoice;
+            const outstanding = netOutstanding(invoice);
+            if (invoice && amount + ait > outstanding + 0.005) {
+                toast.error(`Payment + AIT exceeds outstanding (${outstanding.toFixed(2)})`);
+                return;
+            }
+            try {
+                setDialogSubmitting(true);
+                await SalesInvoicesApi.recordPayment(Number(dialogInvoiceId), {
+                    payment_amount: amount,
+                    payment_method: dialogMethod,
+                    payment_date: dialogDate,
+                    reference_number: dialogReference.trim() || undefined,
+                    notes: dialogNotes.trim() || undefined,
+                    bank_name: methodNeedsBank ? (dialogBankName.trim() || undefined) : undefined,
+                    ait_amount: ait > 0 ? ait : undefined,
+                    cheque_date: methodIsCheque ? (dialogChequeDate || undefined) : undefined,
+                });
+                toast.success('Payment recorded');
+                setShowRecordDialog(false);
+                refreshPaymentHistory();
+            } catch (error) {
+                console.error('Failed to record payment:', error);
+                toast.error(error instanceof Error ? error.message : 'Failed to record payment');
+            } finally {
+                setDialogSubmitting(false);
+            }
         }
-        try {
-            setDialogSubmitting(true);
-            await SalesInvoicesApi.recordPayment(Number(dialogInvoiceId), {
-                payment_amount: amount,
-                payment_method: dialogMethod,
-                payment_date: dialogDate,
-                reference_number: dialogReference.trim() || undefined,
-                notes: dialogNotes.trim() || undefined,
-                bank_name: methodNeedsBank ? (dialogBankName.trim() || undefined) : undefined,
-                ait_amount: ait > 0 ? ait : undefined,
-                cheque_date: methodIsCheque ? (dialogChequeDate || undefined) : undefined,
-            });
-            toast.success('Payment recorded');
-            setShowRecordDialog(false);
-            // Refresh visible history
-            if (selectedCustomerId === 'all') {
-                fetchGlobalHistory();
-            } else {
+    };
+
+    const refreshPaymentHistory = async () => {
+        if (selectedCustomerId === 'all') {
+            fetchGlobalHistory();
+        } else {
+            try {
                 const historyResponse = await CustomerOrdersApiService.getAllPayments({
                     customer_id: selectedCustomerId,
                     limit: 50,
                 });
                 setPaymentHistory(historyResponse.payments);
+            } catch {
+                // silently fail
             }
-        } catch (error) {
-            console.error('Failed to record payment:', error);
-            toast.error(error instanceof Error ? error.message : 'Failed to record payment');
-        } finally {
-            setDialogSubmitting(false);
         }
     };
 
@@ -467,8 +553,52 @@ const Payments: React.FC = () => {
 
                 {/* Right Content Area: Outstanding Invoices & Payment History */}
                 <div className="md:col-span-3 space-y-6">
-                    {/* Outstanding Invoices Card */}
-                    {selectedCustomer && outstandingInvoices.length > 0 && (
+                    {/* Outstanding Items Card */}
+                    {selectedCustomer && customerBillingType === 'monthly' && outstandingMonthlyBills.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="h-5 w-5" />
+                                    Outstanding Monthly Bills
+                                </CardTitle>
+                                <CardDescription>
+                                    Consolidated monthly bills with remaining balance. Payments are distributed across underlying delivery invoices.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Bill #</TableHead>
+                                                <TableHead>Period</TableHead>
+                                                <TableHead className="text-right">Total</TableHead>
+                                                <TableHead className="text-right">Paid</TableHead>
+                                                <TableHead className="text-right">Outstanding</TableHead>
+                                                <TableHead>Lines</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {outstandingMonthlyBills.map(bill => (
+                                                <TableRow key={bill.id}>
+                                                    <TableCell className="font-mono font-medium">{bill.bill_number}</TableCell>
+                                                    <TableCell>
+                                                        {formatDate(bill.from_date)} — {formatDate(bill.to_date)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-medium">{formatCurrency(bill.total_amount)}</TableCell>
+                                                    <TableCell className="text-right text-green-600">{formatCurrency(bill.paid_amount)}</TableCell>
+                                                    <TableCell className="text-right font-semibold text-orange-600">{formatCurrency(bill.outstanding_amount)}</TableCell>
+                                                    <TableCell>{bill.line_count}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {selectedCustomer && customerBillingType === 'per_delivery' && outstandingInvoices.length > 0 && (
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -679,29 +809,74 @@ const Payments: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Invoice</Label>
-                            <Select
-                                value={dialogInvoiceId}
-                                onValueChange={handleDialogInvoiceChange}
-                                disabled={!dialogCustomerId || outstandingInvoices.length === 0}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder={
-                                        !dialogCustomerId
-                                            ? 'Select a customer first'
-                                            : outstandingInvoices.length === 0
-                                                ? 'No outstanding invoices'
-                                                : 'Select invoice'
-                                    } />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {outstandingInvoices.map(i => (
-                                        <SelectItem key={i.id} value={i.id.toString()}>
-                                            {i.invoice_number} — {formatCurrency(netOutstanding(i))} outstanding
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label>Invoice / Bill</Label>
+                            {customerBillingType === 'monthly' ? (
+                                <Select
+                                    value={dialogMonthlyBillId}
+                                    onValueChange={handleDialogMonthlyBillChange}
+                                    disabled={!dialogCustomerId || outstandingMonthlyBills.length === 0}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={
+                                            !dialogCustomerId
+                                                ? 'Select a customer first'
+                                                : outstandingMonthlyBills.length === 0
+                                                    ? 'No outstanding monthly bills'
+                                                    : 'Select monthly bill'
+                                        } />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {outstandingMonthlyBills.map(b => (
+                                            <SelectItem key={b.id} value={b.id.toString()}>
+                                                {b.bill_number} — {formatCurrency(b.outstanding_amount)} outstanding
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <Select
+                                    value={dialogInvoiceId}
+                                    onValueChange={handleDialogInvoiceChange}
+                                    disabled={!dialogCustomerId || outstandingInvoices.length === 0}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={
+                                            !dialogCustomerId
+                                                ? 'Select a customer first'
+                                                : outstandingInvoices.length === 0
+                                                    ? 'No outstanding invoices'
+                                                    : 'Select invoice'
+                                        } />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {outstandingInvoices.map(i => (
+                                            <SelectItem key={i.id} value={i.id.toString()}>
+                                                {i.invoice_number} — {formatCurrency(netOutstanding(i))} outstanding
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {dialogSelectedMonthlyBill && (
+                                <div className="p-3 bg-muted/50 rounded-md space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Bill Total:</span>
+                                        <span className="font-medium">{formatCurrency(dialogSelectedMonthlyBill.total_amount)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>Period: {formatDate(dialogSelectedMonthlyBill.from_date)} — {formatDate(dialogSelectedMonthlyBill.to_date)}</span>
+                                        <span>{dialogSelectedMonthlyBill.line_count} challans</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Already Paid:</span>
+                                        <span className="text-green-600">{formatCurrency(dialogSelectedMonthlyBill.paid_amount)}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-1 border-t font-semibold">
+                                        <span>Net Outstanding:</span>
+                                        <span className="text-orange-600">{formatCurrency(dialogSelectedMonthlyBill.outstanding_amount)}</span>
+                                    </div>
+                                </div>
+                            )}
                             {dialogSelectedInvoice && (
                                 <div className="p-3 bg-muted/50 rounded-md space-y-1 text-sm">
                                     <div className="flex justify-between">
@@ -771,11 +946,16 @@ const Payments: React.FC = () => {
                                 </p>
                             </div>
                             <div className="space-y-2">
-                                <Label>Invoice Total (incl. VAT)</Label>
+                                <Label>{customerBillingType === 'monthly' ? 'Bill Total (incl. VAT)' : 'Invoice Total (incl. VAT)'}</Label>
                                 <div className="h-10 flex items-center rounded-md border bg-muted/40 px-3 text-sm font-medium">
-                                    {dialogSelectedInvoice
-                                        ? formatCurrency(dialogSelectedInvoice.total_amount || 0)
-                                        : '—'}
+                                    {customerBillingType === 'monthly'
+                                        ? (dialogSelectedMonthlyBill
+                                            ? formatCurrency(dialogSelectedMonthlyBill.total_amount)
+                                            : '—')
+                                        : (dialogSelectedInvoice
+                                            ? formatCurrency(dialogSelectedInvoice.total_amount || 0)
+                                            : '—')
+                                    }
                                 </div>
                             </div>
                         </div>

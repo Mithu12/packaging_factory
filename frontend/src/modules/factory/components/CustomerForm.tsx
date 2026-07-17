@@ -44,6 +44,7 @@ const DEFAULT_PAYMENT_TERMS = "cash_on_delivery";
 const createCustomerFormSchema = z
   .object({
     customer_type: z.enum(["individual", "business"]),
+    billing_type: z.enum(["per_delivery", "monthly"]).optional(),
     full_name: z.string().optional(),
     contact_person: z.string().optional(),
     company_name: z.string().optional(),
@@ -137,6 +138,7 @@ function CustomerCreateForm({
     resolver: zodResolver(createCustomerFormSchema),
     defaultValues: {
       customer_type: "individual",
+      billing_type: "per_delivery",
       full_name: "",
       contact_person: "",
       company_name: "",
@@ -156,6 +158,7 @@ function CustomerCreateForm({
     if (open) {
       form.reset({
         customer_type: "individual",
+        billing_type: "per_delivery",
         full_name: "",
         contact_person: "",
         company_name: "",
@@ -188,6 +191,7 @@ function CustomerCreateForm({
       const vatTrim = data.vat_number?.trim() ?? "";
       const customerData: CreateCustomerRequest = {
         name,
+        billing_type: data.billing_type || 'per_delivery',
         ...(company ? { company } : {}),
         ...(emailTrim ? { email: emailTrim } : {}),
         ...(phoneTrim ? { phone: phoneTrim } : {}),
@@ -255,6 +259,28 @@ function CustomerCreateForm({
                     <SelectContent>
                       <SelectItem value="individual">Individual</SelectItem>
                       <SelectItem value="business">Business</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="billing_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Billing Type</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="billing-type-select">
+                        <SelectValue placeholder="Select billing type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="per_delivery">Per Delivery</SelectItem>
+                      <SelectItem value="monthly">Monthly Bill</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -481,6 +507,7 @@ function CustomerCreateForm({
 const customerEditFormSchema = z
   .object({
     customer_type: z.enum(["individual", "business"]),
+    billing_type: z.enum(["per_delivery", "monthly"]).optional(),
     full_name: z.string().optional(),
     contact_person: z.string().optional(),
     company_name: z.string().optional(),
@@ -560,6 +587,7 @@ function CustomerEditForm({
     resolver: zodResolver(customerEditFormSchema),
     defaultValues: {
       customer_type: "individual",
+      billing_type: "per_delivery",
       full_name: "",
       contact_person: "",
       company_name: "",
@@ -584,6 +612,7 @@ function CustomerEditForm({
       : "individual";
     form.reset({
       customer_type: inferredType,
+      billing_type: customer.billing_type || "per_delivery",
       full_name: inferredType === "individual" ? customer.name : "",
       contact_person: inferredType === "business" ? customer.name : "",
       company_name: customer.company || "",
@@ -630,6 +659,7 @@ function CustomerEditForm({
 
       const customerData: UpdateCustomerRequest = {
         name,
+        billing_type: data.billing_type || 'per_delivery',
         company: company ?? undefined,
         email: emailTrim || undefined,
         phone: phoneTrim || undefined,
@@ -696,6 +726,28 @@ function CustomerEditForm({
                         <SelectContent>
                           <SelectItem value="individual">Individual</SelectItem>
                           <SelectItem value="business">Business</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="billing_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Billing Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="billing-type-select">
+                            <SelectValue placeholder="Select billing type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="per_delivery">Per Delivery</SelectItem>
+                          <SelectItem value="monthly">Monthly Bill</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

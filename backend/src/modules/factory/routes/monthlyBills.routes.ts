@@ -40,4 +40,12 @@ router.delete(
   expressAsyncHandler(monthlyBillsController.deleteMonthlyBill.bind(monthlyBillsController)),
 );
 
+// POST /api/factory/monthly-bills/:id/payments — record payment against a monthly bill
+router.post(
+  "/:id/payments",
+  requirePermission(PERMISSIONS.FACTORY_ORDERS_UPDATE),
+  auditMiddleware,
+  expressAsyncHandler(monthlyBillsController.recordPayment.bind(monthlyBillsController)),
+);
+
 export default router;

@@ -341,6 +341,7 @@ export interface FactoryCustomer {
     opening_balance?: number;
     vat_number?: string | null;
     is_active?: boolean;
+    billing_type?: 'per_delivery' | 'monthly';
     created_at: string;
     updated_at: string;
     total_order_value?: number;
@@ -351,6 +352,7 @@ export interface FactoryCustomer {
 
 export interface CreateCustomerRequest {
     name: string;
+    billing_type?: string;
     email?: string;
     phone?: string;
     company?: string;
@@ -363,6 +365,7 @@ export interface CreateCustomerRequest {
 
 export interface UpdateCustomerRequest {
     name?: string;
+    billing_type?: string;
     email?: string;
     phone?: string;
     company?: string;
@@ -597,6 +600,7 @@ export interface FactoryCustomerPayment {
     factory_customer_id: string;
     factory_id?: number;
     factory_sales_invoice_id?: number;
+    monthly_bill_id?: number;
     payment_amount: number;
     payment_date: string;
     payment_method: string;

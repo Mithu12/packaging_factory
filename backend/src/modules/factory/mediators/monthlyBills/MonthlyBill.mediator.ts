@@ -7,7 +7,13 @@ import {
   MonthlyBillLineItem,
   CreateMonthlyBillRequest,
   MonthlyBillQueryParams,
+  RecordMonthlyBillPaymentRequest,
 } from '@/types/monthlyBill';
+import { recalcFactoryCustomerFinancials } from '../../utils/customerFinancials';
+import { interModuleConnector } from '@/utils/InterModuleConnector';
+import { eventBus, EVENT_NAMES } from '@/utils/eventBus';
+import { SalesInvoiceStatus } from '@/types/salesInvoice';
+import type { PoolClient } from 'pg';
 
 export interface MonthlyBillCustomer {
   id: number;
@@ -401,4 +407,274 @@ export class MonthlyBillMediator {
     }
   }
 
+  /**
+   * Record a consolidated payment against a monthly bill. Distributes the
+   * payment across the underlying per-delivery invoices proportionally by
+   * each invoice's share of the bill total, then inserts one payment record
+   * per invoice (all sharing the same monthly_bill_id) so accounting stays
+   * consistent at every level.
+   */
+  static async recordPayment(
+    billId: number,
+    data: RecordMonthlyBillPaymentRequest,
+    userId: number,
+  ): Promise<{ bill: MonthlyBill; paymentIds: number[] }> {
+    const action = 'MonthlyBillMediator.recordPayment';
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      MyLogger.info(action, { billId, amount: data.payment_amount, userId });
+
+      // 1. Lock the monthly bill
+      const billRes = await client.query(
+        `SELECT * FROM monthly_bills WHERE id = $1 FOR UPDATE`,
+        [billId],
+      );
+      if (billRes.rows.length === 0) {
+        throw createError('Monthly bill not found', 404);
+      }
+      const bill = billRes.rows[0];
+
+      const paymentAmount = Number(data.payment_amount);
+      if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+        throw createError('Payment amount must be greater than 0', 400);
+      }
+
+      const aitAmount = Number(data.ait_amount) || 0;
+      if (!Number.isFinite(aitAmount) || aitAmount < 0) {
+        throw createError('AIT amount cannot be negative', 400);
+      }
+      const settledAmount = +(paymentAmount + aitAmount).toFixed(2);
+
+      const billOutstanding = parseFloat(bill.outstanding_amount);
+      if (settledAmount - billOutstanding > 0.005) {
+        throw createError('Payment amount plus AIT exceeds monthly bill outstanding', 400);
+      }
+
+      // 2. Load line items with invoice details
+      const linesRes = await client.query(
+        `SELECT li.*, inv.total_amount, inv.paid_amount, inv.outstanding_amount, inv.status,
+                inv.factory_customer_id, inv.factory_id, inv.customer_order_id
+           FROM monthly_bill_line_items li
+           JOIN factory_sales_invoices inv ON inv.id = li.invoice_id
+          WHERE li.monthly_bill_id = $1 AND li.invoice_id IS NOT NULL`,
+        [billId],
+      );
+
+      if (linesRes.rows.length === 0) {
+        throw createError('Monthly bill has no invoice line items to allocate payment to', 400);
+      }
+
+      const billTotal = parseFloat(bill.total_amount);
+
+      // 3. Distribute payment proportionally across invoices
+      let remaining = settledAmount;
+      const paymentIds: number[] = [];
+
+      for (let i = 0; i < linesRes.rows.length; i++) {
+        const li = linesRes.rows[i];
+        const invoiceTotal = parseFloat(li.total_amount);
+
+        const isLast = i === linesRes.rows.length - 1;
+        const portion = isLast
+          ? remaining
+          : +((settledAmount * invoiceTotal) / billTotal).toFixed(2);
+        remaining = +(remaining - portion).toFixed(2);
+
+        if (portion <= 0 && !isLast) continue;
+
+        // Lock and update the invoice
+        const invRes = await client.query(
+          `SELECT total_amount, paid_amount, outstanding_amount, status
+             FROM factory_sales_invoices WHERE id = $1 FOR UPDATE`,
+          [li.invoice_id],
+        );
+        if (invRes.rows.length === 0) continue;
+        const inv = invRes.rows[0];
+        const invTotal = parseFloat(inv.total_amount);
+        const rawPaid = parseFloat(inv.paid_amount) + portion;
+        const invNewPaid = Math.min(rawPaid, invTotal);
+        const rawOutstanding = invTotal - invNewPaid;
+        const invNewOutstanding = Math.abs(rawOutstanding) < 0.005 ? 0 : Math.max(0, rawOutstanding);
+        const invNewStatus =
+          invNewOutstanding <= 0 ? SalesInvoiceStatus.PAID : SalesInvoiceStatus.PARTIAL;
+
+        await client.query(
+          `UPDATE factory_sales_invoices
+              SET paid_amount = $1, outstanding_amount = $2, status = $3,
+                  updated_by = $4, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5`,
+          [invNewPaid, invNewOutstanding, invNewStatus, userId, li.invoice_id],
+        );
+
+        // Update parent order(s) — same allocation logic as SalesInvoiceMediator
+        if (li.customer_order_id) {
+          await this.applyPaymentToOrder(client, Number(li.customer_order_id), portion);
+        } else {
+          const allocRes = await client.query(
+            `SELECT li.order_id::text AS order_id,
+                    SUM(di.line_total)::text AS share
+               FROM factory_customer_order_deliveries d
+               JOIN factory_customer_order_delivery_items di ON di.delivery_id = d.id
+               JOIN factory_customer_order_line_items li ON li.id = di.order_line_item_id
+              WHERE d.invoice_id = $1
+              GROUP BY li.order_id`,
+            [li.invoice_id],
+          );
+          if (allocRes.rows.length > 0) {
+            const allocations = allocRes.rows.map((r: any) => ({
+              orderId: Number(r.order_id),
+              share: parseFloat(r.share),
+            }));
+            const shareTotal = allocations.reduce((s: number, a: any) => s + a.share, 0);
+            if (shareTotal > 0) {
+              let allocRemaining = portion;
+              for (let j = 0; j < allocations.length; j++) {
+                const isLastAlloc = j === allocations.length - 1;
+                const allocPortion = isLastAlloc
+                  ? allocRemaining
+                  : +((portion * allocations[j].share) / shareTotal).toFixed(2);
+                allocRemaining = +(allocRemaining - allocPortion).toFixed(2);
+                if (allocPortion > 0) {
+                  await this.applyPaymentToOrder(client, allocations[j].orderId, allocPortion);
+                }
+              }
+            }
+          }
+        }
+
+        // Insert payment record for this invoice
+        const payRes = await client.query(
+          `INSERT INTO factory_customer_payments (
+             factory_customer_order_id, factory_customer_id, factory_id,
+             factory_sales_invoice_id, monthly_bill_id,
+             payment_amount, payment_date, payment_method,
+             payment_reference, notes, bank_name, ait_amount, cheque_date, recorded_by
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+           RETURNING id`,
+          [
+            li.customer_order_id ?? null,
+            li.factory_customer_id,
+            li.factory_id ?? null,
+            li.invoice_id,
+            billId,
+            portion,
+            data.payment_date ?? new Date(),
+            data.payment_method ?? 'cash',
+            data.reference_number ?? null,
+            data.notes ?? null,
+            data.bank_name ?? null,
+            0,
+            data.cheque_date ?? null,
+            userId,
+          ],
+        );
+        paymentIds.push(Number(payRes.rows[0].id));
+      }
+
+      // 4. Update the monthly bill header
+      const newPaid = +(parseFloat(bill.paid_amount) + settledAmount).toFixed(2);
+      const newOutstanding = Math.max(0, +(billOutstanding - settledAmount).toFixed(2));
+
+      await client.query(
+        `UPDATE monthly_bills
+            SET paid_amount = $1, outstanding_amount = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3`,
+        [newPaid, newOutstanding, billId],
+      );
+
+      // 5. Refresh customer-level aggregates
+      await recalcFactoryCustomerFinancials(client, bill.customer_id);
+
+      await client.query('COMMIT');
+
+      // 6. Post voucher (best-effort, outside txn)
+      const paymentData = {
+        orderId: null,
+        orderNumber: bill.bill_number,
+        paymentId: paymentIds[0],
+        amount: paymentAmount,
+        paymentMethod: data.payment_method ?? 'cash',
+        paymentReference: data.reference_number ?? null,
+        paymentDate: data.payment_date ?? new Date(),
+        factoryId: null,
+        factoryName: null,
+        factoryCostCenterId: null,
+        factoryCostCenterName: null,
+        customerId: Number(bill.customer_id),
+        invoiceId: null,
+        invoiceNumber: bill.bill_number,
+        userId,
+        timestamp: new Date(),
+      };
+
+      eventBus.emit(EVENT_NAMES.FACTORY_PAYMENT_RECEIVED, paymentData);
+
+      try {
+        await interModuleConnector.accModule.addFactoryPaymentVoucher(paymentData, userId);
+      } catch (voucherErr: any) {
+        MyLogger.error('addFactoryPaymentVoucher failed (monthly bill payment recorded)', voucherErr, {
+          billId,
+          paymentIds,
+        });
+      }
+
+      MyLogger.success(action, { billId, paymentAmount, paymentIds, newOutstanding });
+
+      return {
+        bill: billRes.rows[0] as MonthlyBill,
+        paymentIds,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      MyLogger.error(action, error, { billId });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Apply a payment portion to an order (same allocation logic as
+   * SalesInvoiceMediator.applyPaymentToOrder).
+   */
+  private static async applyPaymentToOrder(
+    client: PoolClient,
+    orderId: number,
+    portion: number,
+  ): Promise<void> {
+    const ordRes = await client.query<{
+      total_value: string;
+      paid_amount: string;
+      outstanding_amount: string;
+      status: string;
+    }>(
+      `SELECT total_value, paid_amount, outstanding_amount, status
+         FROM factory_customer_orders WHERE id = $1 FOR UPDATE`,
+      [orderId],
+    );
+    if (ordRes.rows.length === 0) {
+      throw createError(`Order ${orderId} not found for payment allocation`, 404);
+    }
+    const ord = ordRes.rows[0];
+    const totalValue = parseFloat(ord.total_value);
+    const rawPaid = parseFloat(ord.paid_amount) + portion;
+    const newPaid = rawPaid > totalValue - 0.005 ? totalValue : rawPaid;
+    const rawOutstanding = totalValue - newPaid;
+    const newOutstanding =
+      Math.abs(rawOutstanding) < 0.005 ? 0 : Math.max(0, rawOutstanding);
+
+    let newStatus = ord.status;
+    if (newOutstanding === 0 && ord.status === 'shipped') {
+      newStatus = 'completed';
+    }
+
+    await client.query(
+      `UPDATE factory_customer_orders
+          SET paid_amount = $1, outstanding_amount = $2, status = $3,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4`,
+      [newPaid, newOutstanding, newStatus, orderId],
+    );
+  }
 }

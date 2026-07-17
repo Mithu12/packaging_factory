@@ -27,6 +27,7 @@ export const createCustomerSchema = Joi.object({
   opening_balance: Joi.number().min(0).optional(),
   vat_number: Joi.string().max(50).optional().allow('', null),
   is_active: Joi.boolean().optional(),
+  billing_type: Joi.string().valid('per_delivery', 'monthly').default('per_delivery'),
 })
   .custom((value, helpers) => {
     const emailTrim =
@@ -60,6 +61,7 @@ export const updateCustomerSchema = Joi.object({
   opening_balance: Joi.number().min(0).optional(),
   vat_number: Joi.string().max(50).optional().allow('', null),
   is_active: Joi.boolean().optional(),
+  billing_type: Joi.string().valid('per_delivery', 'monthly').optional(),
 });
 
 // Customer ID validation schema
