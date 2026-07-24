@@ -794,53 +794,55 @@ class UpdatePurchaseOrderInfoMediator {
         }
       }
 
-      // Emit accounting integration event for received goods
+      // Build accounting integration data inside the transaction for consistent reads
+      const supplierQuery = `SELECT name FROM suppliers WHERE id = $1`;
+      const supplierResult = await client.query(supplierQuery, [updatedPO.supplier_id]);
+      const supplierName = supplierResult.rows[0]?.name || 'Unknown Supplier';
+
+      const lineItemsQuery = `
+        SELECT
+          poli.id as line_item_id,
+          poli.product_id,
+          p.name as product_name,
+          poli.quantity,
+          poli.unit_price,
+          poli.total_price
+        FROM purchase_order_line_items poli
+        JOIN products p ON poli.product_id = p.id
+        WHERE poli.purchase_order_id = $1
+      `;
+      const lineItemsResult = await client.query(lineItemsQuery, [id]);
+
+      const purchaseOrderData = {
+        purchaseOrderId: id,
+        poNumber: updatedPO.po_number,
+        supplierId: updatedPO.supplier_id,
+        supplierName: supplierName,
+        totalAmount: parseFloat(updatedPO.total_amount),
+        receivedDate: data.received_date || new Date().toISOString().split("T")[0],
+        currency: 'USD',
+        lineItems: lineItemsResult.rows.map((item: any) => ({
+          productId: item.product_id,
+          productName: item.product_name,
+          quantity: parseFloat(item.quantity),
+          unitPrice: parseFloat(item.unit_price),
+          totalPrice: parseFloat(item.total_price)
+        })),
+        distributionCenterId: distributionCenterId || undefined
+      };
+
+      await client.query("COMMIT");
+
+      // Accounting integration runs AFTER commit so that pool.query() —
+      // which gets a *separate* connection — does not block on row-level
+      // locks still held by this transaction (specifically the UPDATE on
+      // purchase_orders at line 710 above).
       try {
-        // Get supplier information for the event
-        const supplierQuery = `SELECT name FROM suppliers WHERE id = $1`;
-        const supplierResult = await client.query(supplierQuery, [updatedPO.supplier_id]);
-        const supplierName = supplierResult.rows[0]?.name || 'Unknown Supplier';
-
-        // Get line items with product information
-        const lineItemsQuery = `
-          SELECT
-            poli.id as line_item_id,
-            poli.product_id,
-            p.name as product_name,
-            poli.quantity,
-            poli.unit_price,
-            poli.total_price
-          FROM purchase_order_line_items poli
-          JOIN products p ON poli.product_id = p.id
-          WHERE poli.purchase_order_id = $1
-        `;
-        const lineItemsResult = await client.query(lineItemsQuery, [id]);
-
-        const purchaseOrderData = {
-          purchaseOrderId: id,
-          poNumber: updatedPO.po_number,
-          supplierId: updatedPO.supplier_id,
-          supplierName: supplierName,
-          totalAmount: parseFloat(updatedPO.total_amount),
-          receivedDate: data.received_date || new Date().toISOString().split("T")[0],
-          currency: 'USD', // Default currency, should be configurable
-          lineItems: lineItemsResult.rows.map((item: any) => ({
-            productId: item.product_id,
-            productName: item.product_name,
-            quantity: parseFloat(item.quantity),
-            unitPrice: parseFloat(item.unit_price),
-            totalPrice: parseFloat(item.total_price)
-          })),
-          distributionCenterId: distributionCenterId || undefined
-        };
-
-        // Emit event for accounting integration
         eventBus.emit(EVENT_NAMES.PURCHASE_ORDER_RECEIVED, {
           purchaseOrderData,
           userId: userId || 1
         });
 
-        // Central Bridge: Call accounts module directly via InterModuleConnector
         MyLogger.info("Purchase Order Bridge: Calling accModule.addPurchaseVoucher", { purchaseOrderId: id });
         await interModuleConnector.accModule.addPurchaseVoucher(purchaseOrderData, userId || 1);
 
@@ -853,10 +855,7 @@ class UpdatePurchaseOrderInfoMediator {
         MyLogger.error("Failed to emit purchase order accounting event", eventError, {
           purchaseOrderId: id,
         });
-        // Don't fail the entire transaction if event emission fails
       }
-
-      await client.query("COMMIT");
 
       MyLogger.success(action, {
         purchaseOrderId: id,
