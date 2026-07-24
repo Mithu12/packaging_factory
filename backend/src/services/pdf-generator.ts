@@ -304,6 +304,27 @@ export class PDFGenerator {
                     <td></td>
                     <td class="col-amount">${formatCurrency(subTotal)}</td>
                 </tr>
+                ${Number(purchaseOrder.tax_rate) > 0 ? `
+                <tr class="totals-row">
+                    <td colspan="2" class="label">VAT (${formatQty(Number(purchaseOrder.tax_rate))}%)</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(Number(purchaseOrder.tax_amount))}</td>
+                </tr>` : ''}
+                ${Number(purchaseOrder.transport_payment) > 0 ? `
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Transport${purchaseOrder.transport_in_total ? '' : ' (excluded)'}</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(Number(purchaseOrder.transport_payment))}</td>
+                </tr>` : ''}
+                ${Number(purchaseOrder.others_payment) > 0 ? `
+                <tr class="totals-row">
+                    <td colspan="2" class="label">Others${purchaseOrder.others_in_total ? '' : ' (excluded)'}</td>
+                    <td></td>
+                    <td></td>
+                    <td class="col-amount">${formatCurrency(Number(purchaseOrder.others_payment))}</td>
+                </tr>` : ''}
                 <tr class="totals-row">
                     <td colspan="2" class="label">Total Amount</td>
                     <td></td>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/components/ui/sonner"
 import {
@@ -71,7 +72,12 @@ export default function EditPurchaseOrder() {
     department: "",
     project: "",
     notes: "",
-    currency: "USD"
+    currency: "USD",
+    tax_rate: "",
+    transport_payment: "",
+    transport_in_total: false,
+    others_payment: "",
+    others_in_total: false,
   })
 
   const [lineItems, setLineItems] = useState<LineItem[]>([])
@@ -109,7 +115,12 @@ export default function EditPurchaseOrder() {
         department: poResponse.department || "",
         project: poResponse.project || "",
         notes: poResponse.notes || "",
-        currency: poResponse.currency || "USD"
+        currency: poResponse.currency || "USD",
+        tax_rate: poResponse.tax_rate?.toString() || "",
+        transport_payment: poResponse.transport_payment?.toString() || "",
+        transport_in_total: poResponse.transport_in_total || false,
+        others_payment: poResponse.others_payment?.toString() || "",
+        others_in_total: poResponse.others_in_total || false,
       })
 
       // Populate line items
@@ -169,6 +180,17 @@ export default function EditPurchaseOrder() {
     return lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }
 
+  const subtotal = calculateTotal()
+  const taxRate = parseFloat(formData.tax_rate) || 0
+  const taxAmount = subtotal * (taxRate / 100)
+  const transport = parseFloat(formData.transport_payment) || 0
+  const others = parseFloat(formData.others_payment) || 0
+  const grandTotal =
+    subtotal +
+    taxAmount +
+    (formData.transport_in_total ? transport : 0) +
+    (formData.others_in_total ? others : 0)
+
   // Returns variance info if the entered unit_price diverges from the catalog cost_price by >10%
   const PRICE_VARIANCE_THRESHOLD = 0.1
   const getPriceVariance = (item: LineItem) => {
@@ -225,6 +247,11 @@ export default function EditPurchaseOrder() {
         department: formData.department || undefined,
         project: formData.project || undefined,
         notes: formData.notes || undefined,
+        tax_rate: taxRate,
+        transport_payment: transport,
+        transport_in_total: formData.transport_in_total,
+        others_payment: others,
+        others_in_total: formData.others_in_total,
         line_items: lineItems.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -614,9 +641,72 @@ export default function EditPurchaseOrder() {
                   </span>
                 </div>
                 <Separator />
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground whitespace-nowrap">VAT %</span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={formData.tax_rate}
+                      onChange={(e) => handleInputChange("tax_rate", e.target.value)}
+                      className="w-20 h-8"
+                      placeholder="0"
+                    />
+                    <span className="w-24 text-right font-medium">{formatCurrency(taxAmount)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.transport_in_total}
+                      onCheckedChange={(v) => setFormData(prev => ({ ...prev, transport_in_total: v }))}
+                      title="Add transport to total"
+                    />
+                    <span className="text-muted-foreground whitespace-nowrap">Transport</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.transport_payment}
+                    onChange={(e) => handleInputChange("transport_payment", e.target.value)}
+                    className="w-24 h-8 text-right"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.others_in_total}
+                      onCheckedChange={(v) => setFormData(prev => ({ ...prev, others_in_total: v }))}
+                      title="Add others to total"
+                    />
+                    <span className="text-muted-foreground whitespace-nowrap">Others</span>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.others_payment}
+                    onChange={(e) => handleInputChange("others_payment", e.target.value)}
+                    className="w-24 h-8 text-right"
+                    placeholder="0"
+                  />
+                </div>
+
+                <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span>{formatCurrency(calculateTotal())}</span>
+                  <span>{formatCurrency(grandTotal)}</span>
                 </div>
               </CardContent>
             </Card>

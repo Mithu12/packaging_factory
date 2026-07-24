@@ -140,6 +140,36 @@ class UpdatePurchaseOrderInfoMediator {
         paramIndex++;
       }
 
+      if (data.tax_rate !== undefined) {
+        updateFields.push(`tax_rate = $${paramIndex}`);
+        updateValues.push(data.tax_rate);
+        paramIndex++;
+      }
+
+      if (data.transport_payment !== undefined) {
+        updateFields.push(`transport_payment = $${paramIndex}`);
+        updateValues.push(data.transport_payment);
+        paramIndex++;
+      }
+
+      if (data.transport_in_total !== undefined) {
+        updateFields.push(`transport_in_total = $${paramIndex}`);
+        updateValues.push(data.transport_in_total);
+        paramIndex++;
+      }
+
+      if (data.others_payment !== undefined) {
+        updateFields.push(`others_payment = $${paramIndex}`);
+        updateValues.push(data.others_payment);
+        paramIndex++;
+      }
+
+      if (data.others_in_total !== undefined) {
+        updateFields.push(`others_in_total = $${paramIndex}`);
+        updateValues.push(data.others_in_total);
+        paramIndex++;
+      }
+
       if (updateFields.length === 0) {
         throw createError("No fields to update", 400);
       }
@@ -165,7 +195,7 @@ class UpdatePurchaseOrderInfoMediator {
         );
 
         // Insert new line items
-        let totalAmount = 0;
+        let lineItemsTotal = 0;
         for (const lineItem of data.line_items) {
           // Get product details
           const productQuery = `
@@ -186,7 +216,7 @@ class UpdatePurchaseOrderInfoMediator {
 
           const product = productResult.rows[0];
           const totalPrice = lineItem.quantity * lineItem.unit_price;
-          totalAmount += totalPrice;
+          lineItemsTotal += totalPrice;
 
           const lineItemQuery = `
                         INSERT INTO purchase_order_line_items (
@@ -214,10 +244,71 @@ class UpdatePurchaseOrderInfoMediator {
           ]);
         }
 
-        // Update total amount
+        // Read current VAT / extra cost values (from the just-updated row, or
+        // the original PO if they weren't touched in this update).
+        const poAfterUpdate = await client.query(
+          `SELECT subtotal, tax_rate, tax_amount,
+                  transport_payment, transport_in_total,
+                  others_payment, others_in_total
+             FROM purchase_orders WHERE id = $1`,
+          [id]
+        );
+        const po = poAfterUpdate.rows[0];
+
+        const subtotal = lineItemsTotal;
+        const taxRate = Number(data.tax_rate ?? po.tax_rate ?? 0);
+        const transportPayment = Number(data.transport_payment ?? po.transport_payment ?? 0);
+        const transportInTotal = data.transport_in_total !== undefined ? data.transport_in_total : po.transport_in_total;
+        const othersPayment = Number(data.others_payment ?? po.others_payment ?? 0);
+        const othersInTotal = data.others_in_total !== undefined ? data.others_in_total : po.others_in_total;
+
+        const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
+        const totalAmount = +(
+          subtotal + taxAmount
+          + (transportInTotal ? transportPayment : 0)
+          + (othersInTotal ? othersPayment : 0)
+        ).toFixed(2);
+
         await client.query(
-          "UPDATE purchase_orders SET total_amount = $1 WHERE id = $2",
-          [totalAmount, id]
+          `UPDATE purchase_orders
+              SET subtotal = $1, tax_amount = $2, total_amount = $3
+            WHERE id = $4`,
+          [subtotal, taxAmount, totalAmount, id]
+        );
+      }
+
+      // Recalculate totals when cost fields change without line items
+      const costFieldsChanged =
+        data.tax_rate !== undefined ||
+        data.transport_payment !== undefined ||
+        data.transport_in_total !== undefined ||
+        data.others_payment !== undefined ||
+        data.others_in_total !== undefined;
+      if (!(data.line_items && data.line_items.length > 0) && costFieldsChanged) {
+        const poCost = await client.query(
+          `SELECT subtotal, tax_rate FROM purchase_orders WHERE id = $1`,
+          [id]
+        );
+        const pc = poCost.rows[0];
+        const subtotal = Number(pc.subtotal || 0);
+        const taxRate = Number(data.tax_rate ?? pc.tax_rate ?? 0);
+        const transportPayment = Number(data.transport_payment ?? updatedPO.transport_payment ?? 0);
+        const transportInTotal = data.transport_in_total !== undefined ? data.transport_in_total : updatedPO.transport_in_total;
+        const othersPayment = Number(data.others_payment ?? updatedPO.others_payment ?? 0);
+        const othersInTotal = data.others_in_total !== undefined ? data.others_in_total : updatedPO.others_in_total;
+
+        const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
+        const totalAmount = +(
+          subtotal + taxAmount
+          + (transportInTotal ? transportPayment : 0)
+          + (othersInTotal ? othersPayment : 0)
+        ).toFixed(2);
+
+        await client.query(
+          `UPDATE purchase_orders
+              SET tax_amount = $1, total_amount = $2
+            WHERE id = $3`,
+          [taxAmount, totalAmount, id]
         );
       }
 
@@ -238,12 +329,18 @@ class UpdatePurchaseOrderInfoMediator {
 
       await client.query("COMMIT");
 
+      // Re-fetch to get the final state after all updates
+      const finalResult = await client.query(
+        `SELECT * FROM purchase_orders WHERE id = $1`, [id]
+      );
+      const finalPO = finalResult.rows[0];
+
       MyLogger.success(action, {
         purchaseOrderId: id,
         updatedFields: updateFields.length,
       });
 
-      return updatedPO;
+      return finalPO;
     } catch (error) {
       await client.query("ROLLBACK");
       MyLogger.error(action, error, { purchaseOrderId: id });

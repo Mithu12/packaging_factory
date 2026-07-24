@@ -147,6 +147,16 @@ export const updatePurchaseOrderSchema = Joi.object({
   work_order_id: Joi.number().integer().positive().optional().allow(null),
   customer_order_id: Joi.number().integer().positive().optional().allow(null),
 
+  tax_rate: Joi.number().min(0).max(100).optional().messages({
+    "number.base": "VAT rate must be a number",
+    "number.min": "VAT rate cannot be negative",
+    "number.max": "VAT rate cannot exceed 100",
+  }),
+  transport_payment: Joi.number().min(0).optional(),
+  transport_in_total: Joi.boolean().optional(),
+  others_payment: Joi.number().min(0).optional(),
+  others_in_total: Joi.boolean().optional(),
+
   line_items: Joi.array()
     .items(
       Joi.object({

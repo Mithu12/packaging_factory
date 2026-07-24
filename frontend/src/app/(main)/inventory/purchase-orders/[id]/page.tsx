@@ -417,8 +417,62 @@ export default function PurchaseOrderDetails() {
               <Separator className="my-4" />
 
               <div className="flex justify-end">
-                <div className="space-y-2 text-right">
-                  <div className="flex justify-between gap-8 text-lg font-bold">
+                <div className="w-full sm:w-80 space-y-1 text-right">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>
+                      {purchaseOrder.subtotal.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: purchaseOrder.currency || 'USD'
+                      })}
+                    </span>
+                  </div>
+
+                  {purchaseOrder.tax_rate > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">VAT ({purchaseOrder.tax_rate}%)</span>
+                      <span>
+                        {purchaseOrder.tax_amount.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: purchaseOrder.currency || 'USD'
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {purchaseOrder.transport_payment > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Transport
+                        {purchaseOrder.transport_in_total ? '' : ' (excluded)'}
+                      </span>
+                      <span>
+                        {purchaseOrder.transport_payment.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: purchaseOrder.currency || 'USD'
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  {purchaseOrder.others_payment > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Others
+                        {purchaseOrder.others_in_total ? '' : ' (excluded)'}
+                      </span>
+                      <span>
+                        {purchaseOrder.others_payment.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: purchaseOrder.currency || 'USD'
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span>
                       {purchaseOrder.total_amount.toLocaleString('en-US', {

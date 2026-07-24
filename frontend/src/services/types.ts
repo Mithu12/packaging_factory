@@ -570,6 +570,11 @@ export interface UpdatePurchaseOrderRequest {
   notes?: string;
   work_order_id?: number;
   customer_order_id?: number;
+  tax_rate?: number;
+  transport_payment?: number;
+  transport_in_total?: boolean;
+  others_payment?: number;
+  others_in_total?: boolean;
   line_items?: UpdatePurchaseOrderLineItemRequest[];
 }
 
