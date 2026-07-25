@@ -306,6 +306,7 @@ export class PaymentMediator {
           s.name as supplier_name,
           s.supplier_code,
           i.invoice_number,
+          i.total_amount as invoice_amount,
           (SELECT COUNT(*) FROM payment_invoice_allocations pia WHERE pia.payment_id = p.id) AS invoice_count
         FROM payments p
         LEFT JOIN suppliers s ON p.supplier_id = s.id

@@ -717,9 +717,14 @@ export default function PaymentsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Payment Date</TableHead>
                       <TableHead>Supplier</TableHead>
-                      <TableHead>Amount</TableHead>
+                      <TableHead>Invoice No</TableHead>
+                      <TableHead className="text-right">Invoice Amount</TableHead>
+                      <TableHead className="text-right">Payment Amount</TableHead>
+                      <TableHead className="text-right">Discount</TableHead>
+                      <TableHead>Cheque Number</TableHead>
+                      <TableHead>Cheque Date</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Approval</TableHead>
@@ -729,7 +734,7 @@ export default function PaymentsPage() {
                   <TableBody>
                     {payments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                        <TableCell colSpan={13} className="text-center py-10 text-muted-foreground">
                           No payments found.
                         </TableCell>
                       </TableRow>
@@ -739,7 +744,12 @@ export default function PaymentsPage() {
                           <TableCell className="font-medium">#{p.id}</TableCell>
                           <TableCell>{new Date(p.payment_date).toLocaleDateString()}</TableCell>
                           <TableCell>{p.supplier_name}</TableCell>
-                          <TableCell className="font-bold">{formatCurrency(p.amount)}</TableCell>
+                          <TableCell className="font-mono text-muted-foreground">{p.invoice_number || '—'}</TableCell>
+                          <TableCell className="text-right">{p.invoice_amount ? formatCurrency(p.invoice_amount) : '—'}</TableCell>
+                          <TableCell className="text-right font-bold">{formatCurrency(p.amount)}</TableCell>
+                          <TableCell className="text-right">{p.discount_amount ? formatCurrency(p.discount_amount) : '—'}</TableCell>
+                          <TableCell className="font-mono text-sm">{p.reference || '—'}</TableCell>
+                          <TableCell>{p.check_date ? new Date(p.check_date).toLocaleDateString() : '—'}</TableCell>
                           <TableCell className="capitalize">{p.payment_method?.replace('_', ' ')}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={getStatusColor(p.status)}>

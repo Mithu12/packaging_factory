@@ -54,6 +54,7 @@ export interface Payment {
   supplier_name?: string;
   supplier_code?: string;
   invoice_number?: string;
+  invoice_amount?: number;
   invoice_count?: number;
 }
 
