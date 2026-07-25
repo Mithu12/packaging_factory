@@ -375,7 +375,12 @@ export default function CustomerOrderManagement() {
 
     // Since we're using API filtering, we don't need client-side filtering
     // The orders are already filtered by the API based on search and status
-    const filteredOrders = orders;
+    // Except when mainTab is 'orders' — the API may still return quoted records
+    // because the backend treats "quoted" as a valid order status; strip them
+    // here so the Orders tab only shows actual orders.
+    const filteredOrders = mainTab === 'orders'
+        ? orders.filter(o => o.status !== 'quoted')
+        : orders;
 
     // Export the currently visible rows to CSV. We export only what the user
     // sees so the file matches the on-screen result of search + status filter.
