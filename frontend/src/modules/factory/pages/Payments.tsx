@@ -788,7 +788,7 @@ const Payments: React.FC = () => {
 
             {/* Record Payment Dialog */}
             <Dialog open={showRecordDialog} onOpenChange={setShowRecordDialog}>
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Record Payment</DialogTitle>
                         <DialogDescription>
