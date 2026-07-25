@@ -917,7 +917,7 @@ export default function CustomerOrderManagement() {
                                                                         {order.status === 'partially_shipped'
                                                                             ? 'New Delivery'
                                                                             : order.status === 'approved'
-                                                                                ? 'Ship Available Stock'
+                                                                                ? 'Deliver Available Stock'
                                                                                 : order.status === 'in_production'
                                                                                     ? 'Ship Ready Items'
                                                                                     : 'Ship Order'}
