@@ -21,6 +21,7 @@ interface ChequeRow {
   currency: string | null;
   status: ChequeStatus;
   cleared_date: string | Date | null;
+  cancellation_count: string | null;
   voucher_id: string | null;
   voucher_no: string | null;
   memo: string | null;
@@ -33,6 +34,7 @@ const SELECT_CHEQUE = `
   SELECT c.id, c.cheque_no, c.cheque_date, c.instrument_type,
          c.bank_account_id, ba.name AS bank_account_name,
          c.drawee_bank_name, c.payee, c.amount, c.currency, c.status, c.cleared_date,
+         c.cancellation_count,
          c.voucher_id, v.voucher_no, c.memo, c.created_by, c.created_at, c.updated_at
     FROM cheques c
     LEFT JOIN chart_of_accounts ba ON ba.id = c.bank_account_id
@@ -53,6 +55,7 @@ function mapRow(r: ChequeRow): Cheque {
     currency: r.currency ?? undefined,
     status: r.status,
     cleared_date: r.cleared_date ? String(r.cleared_date) : undefined,
+    cancellation_count: r.cancellation_count != null ? Number(r.cancellation_count) : undefined,
     voucher_id: r.voucher_id != null ? Number(r.voucher_id) : undefined,
     voucher_no: r.voucher_no ?? undefined,
     memo: r.memo ?? undefined,
@@ -145,11 +148,13 @@ export class ChequeMediator {
     }
 
     // 'cleared' stamps cleared_date (defaults to today); other statuses clear it.
+    // Increment cancellation_count each time status is set to 'cancelled'.
     const setClearedDate = status === 'cleared';
     const res = await pool.query<ChequeRow>(
       `UPDATE cheques
           SET status = $1,
               cleared_date = CASE WHEN $2 THEN COALESCE($3::date, CURRENT_DATE) ELSE NULL END,
+              cancellation_count = CASE WHEN $1 = 'cancelled' THEN cancellation_count + 1 ELSE cancellation_count END,
               updated_at = CURRENT_TIMESTAMP
         WHERE id = $4
         RETURNING id`,

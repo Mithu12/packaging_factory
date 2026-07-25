@@ -940,6 +940,7 @@ export interface Cheque {
   currency?: string;
   status: ChequeStatus;
   cleared_date?: string;
+  cancellation_count?: number;
   voucher_id?: number;
   voucher_no?: string;
   memo?: string;

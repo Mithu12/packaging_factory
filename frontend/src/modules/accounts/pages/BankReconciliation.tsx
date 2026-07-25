@@ -29,28 +29,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Save, CheckCircle, Scale, Landmark } from "lucide-react";
+import { Loader2, Save, CheckCircle, Scale, Landmark, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useFormatting } from "@/hooks/useFormatting";
 import {
   BankReconciliationApiService,
   ChartOfAccountsApiService,
+  ChequesApiService,
 } from "@/services/accounts-api";
+import { CustomerOrdersApiService } from "@/modules/factory/services/customer-orders-api";
 
 export default function BankReconciliation() {
-  const { formatCurrency } = useFormatting();
+  const { formatCurrency, formatDate } = useFormatting();
 
   const today = new Date().toISOString().split("T")[0];
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [statementDate, setStatementDate] = useState<string>(today);
   const [statementBalance, setStatementBalance] = useState<string>("");
   const [cleared, setCleared] = useState<Record<number, boolean>>({});
+  const [customerId, setCustomerId] = useState<string>("");
 
   const { data: accounts } = useQuery({
     queryKey: ["coa-posting-accounts"],
     queryFn: () => ChartOfAccountsApiService.getChartOfAccounts({ limit: 500 }),
   });
   const postingAccounts = (accounts?.data ?? []).filter((a) => a.type === "Posting");
+
+  const { data: customers } = useQuery({
+    queryKey: ["factory-customers"],
+    queryFn: () => CustomerOrdersApiService.getAllCustomers(),
+  });
 
   const { data: entriesData, isFetching, refetch } = useQuery({
     queryKey: ["recon-entries", bankAccountId, statementDate],
@@ -64,7 +72,6 @@ export default function BankReconciliation() {
       return;
     }
     const res = await refetch();
-    // Pre-tick entries already cleared in a prior reconciliation.
     if (res.data) {
       const preset: Record<number, boolean> = {};
       res.data.entries.forEach((e) => { if (e.already_cleared) preset[e.ledger_entry_id] = true; });
@@ -97,6 +104,20 @@ export default function BankReconciliation() {
       toast.success(complete ? "Reconciliation completed" : "Reconciliation saved");
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to save reconciliation"),
+  });
+
+  const selectedCustomer = customers?.find((c) => String(c.id) === customerId);
+  const customerPayee = selectedCustomer?.company || selectedCustomer?.name || "";
+
+  const { data: chequesData, isFetching: chequesLoading } = useQuery({
+    queryKey: ["customer-cheques", bankAccountId, customerPayee],
+    queryFn: () =>
+      ChequesApiService.getCheques({
+        bank_account_id: bankAccountId ? Number(bankAccountId) : undefined,
+        search: customerPayee || undefined,
+        limit: 200,
+      }),
+    enabled: !!bankAccountId && !!customerPayee,
   });
 
   return (
@@ -211,6 +232,91 @@ export default function BankReconciliation() {
           </Card>
         </>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Customer Cheques</CardTitle>
+          <CardDescription>Select a customer to view cheques issued against this bank account.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <Label className="mb-1 block">Customer</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
+                <SelectTrigger className="w-64"><SelectValue placeholder="Select customer" /></SelectTrigger>
+                <SelectContent>
+                  {(customers ?? []).map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.company || c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {chequesLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : chequesData && chequesData.cheques.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cheque #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Payee</TableHead>
+                  <TableHead>Bank</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Cancelled</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {chequesData.cheques.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.cheque_no}</TableCell>
+                    <TableCell>{formatDate(c.cheque_date)}</TableCell>
+                    <TableCell>{c.payee}</TableCell>
+                    <TableCell>
+                      <div>{c.bank_account_name ?? "—"}</div>
+                      {c.drawee_bank_name && (
+                        <div className="text-xs text-muted-foreground">{c.drawee_bank_name}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(c.amount)}</TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        c.status === "cleared" ? "default" :
+                        c.status === "bounced" ? "destructive" :
+                        c.status === "cancelled" ? "outline" : "secondary"
+                      } className="gap-1 capitalize">
+                        {c.status === "cancelled" && <Ban className="h-3 w-3" />}
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {(c.cancellation_count ?? 0) > 0 ? (
+                        <Badge variant="outline" className="text-red-500 border-red-300">
+                          Cancelled {c.cancellation_count} time{(c.cancellation_count ?? 0) > 1 ? "s" : ""}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : customerPayee ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Landmark className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No cheques found for this customer</p>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Landmark className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Select a customer to view cheques</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
