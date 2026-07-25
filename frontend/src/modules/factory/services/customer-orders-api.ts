@@ -610,6 +610,7 @@ export interface FactoryCustomerPayment {
     recorded_at: string;
     recorded_by_username?: string;
     updated_at?: string;
+    invoice_amount?: number;
     additional_metadata?: Record<string, unknown>;
     voucher_id?: number;
     voucher_no?: string;

@@ -701,9 +701,6 @@ const Payments: React.FC = () => {
                                                     p.payment_reference?.toLowerCase().includes(searchQuery.toLowerCase())
                                                 )
                                                 .map(payment => {
-                                                    // Extract invoice amount from additional_metadata if available
-                                                    const meta = payment.additional_metadata || {};
-                                                    const invoiceAmount = meta.invoice_amount || meta.invoice_total || 0;
                                                     return (
                                                         <TableRow key={payment.id}>
                                                             <TableCell>{formatDate(payment.payment_date)}</TableCell>
@@ -715,7 +712,7 @@ const Payments: React.FC = () => {
                                                             <TableCell className="text-muted-foreground font-mono">
                                                                 {payment.invoice_number || (payment.order_number ? `#${payment.order_number}` : '—')}
                                                             </TableCell>
-                                                            <TableCell className="text-right">{formatCurrency(invoiceAmount)}</TableCell>
+                                                            <TableCell className="text-right">{formatCurrency(payment.invoice_amount || 0)}</TableCell>
                                                             <TableCell className="text-right font-bold text-green-600">
                                                                 {formatCurrency(payment.payment_amount)}
                                                             </TableCell>
@@ -751,11 +748,7 @@ const Payments: React.FC = () => {
                                                                 !searchQuery ||
                                                                 p.payment_reference?.toLowerCase().includes(searchQuery.toLowerCase())
                                                             )
-                                                            .reduce((sum, p) => {
-                                                                const meta = p.additional_metadata || {};
-                                                                const invAmt = (meta.invoice_amount ?? meta.invoice_total) as number | undefined;
-                                                                return sum + (invAmt ?? 0);
-                                                            }, 0)
+                                                            .reduce((sum, p) => sum + (p.invoice_amount || 0), 0)
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="text-right text-green-600">

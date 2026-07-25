@@ -262,10 +262,12 @@ export class FactoryCustomerPaymentsMediator {
         SELECT 
           fcp.*,
           u.username as recorded_by_username,
-          v.voucher_no as voucher_no
+          v.voucher_no as voucher_no,
+          fsi.total_amount as invoice_amount
         FROM factory_customer_payments fcp
         LEFT JOIN users u ON fcp.recorded_by = u.id
         LEFT JOIN vouchers v ON fcp.voucher_id = v.id
+        LEFT JOIN factory_sales_invoices fsi ON fcp.factory_sales_invoice_id = fsi.id
         WHERE fcp.factory_customer_order_id = $1
         ORDER BY fcp.payment_date DESC, fcp.recorded_at DESC
       `;
@@ -286,6 +288,7 @@ export class FactoryCustomerPaymentsMediator {
         recorded_at: row.recorded_at,
         recorded_by_username: row.recorded_by_username,
         factory_sales_invoice_id: row.factory_sales_invoice_id,
+        invoice_amount: row.invoice_amount ? parseFloat(row.invoice_amount) : undefined,
         additional_metadata: row.additional_metadata,
         updated_at: row.updated_at,
         voucher_id: row.voucher_id,
@@ -360,6 +363,7 @@ export class FactoryCustomerPaymentsMediator {
           fc.name as customer_name,
           fc.company as company_name,
           fsi.invoice_number,
+          fsi.total_amount as invoice_amount,
           f.name as factory_name,
           u.username as recorded_by_username,
           v.voucher_no as voucher_no
@@ -440,6 +444,7 @@ export class FactoryCustomerPaymentsMediator {
           recorded_at: row.recorded_at,
           recorded_by_username: row.recorded_by_username,
           factory_sales_invoice_id: row.factory_sales_invoice_id,
+          invoice_amount: row.invoice_amount ? parseFloat(row.invoice_amount) : undefined,
           additional_metadata: row.additional_metadata,
           updated_at: row.updated_at,
           voucher_id: row.voucher_id,
