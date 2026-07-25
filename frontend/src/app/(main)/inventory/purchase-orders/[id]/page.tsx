@@ -36,8 +36,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useFormatting } from "@/hooks/useFormatting"
 
 export default function PurchaseOrderDetails() {
+  const { formatCurrency } = useFormatting()
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : params.id?.[0]
   const router = useRouter()
@@ -310,10 +312,7 @@ export default function PurchaseOrderDetails() {
                   <span className="text-sm text-muted-foreground">Total Amount</span>
                 </div>
                 <div className="text-xl font-bold">
-                  {purchaseOrder.total_amount.toLocaleString('en-US', {
-                    style: 'currency',
-                    currency: purchaseOrder.currency || 'USD'
-                  })}
+                  {formatCurrency(purchaseOrder.total_amount)}
                 </div>
               </CardContent>
             </Card>
@@ -388,16 +387,10 @@ export default function PurchaseOrderDetails() {
                           {item.ordered_rolls != null ? item.ordered_rolls : '--'}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {item.unit_price.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: purchaseOrder.currency || 'USD'
-                          })}
+                          {formatCurrency(item.unit_price)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {totalPrice.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: purchaseOrder.currency || 'USD'
-                          })}
+                          {formatCurrency(totalPrice)}
                         </TableCell>
                         <TableCell>
                           {receivedQty === item.quantity ? (
@@ -421,10 +414,7 @@ export default function PurchaseOrderDetails() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>
-                      {purchaseOrder.subtotal.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: purchaseOrder.currency || 'USD'
-                      })}
+                      {formatCurrency(purchaseOrder.subtotal)}
                     </span>
                   </div>
 
@@ -432,10 +422,7 @@ export default function PurchaseOrderDetails() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">VAT ({purchaseOrder.tax_rate}%)</span>
                       <span>
-                        {purchaseOrder.tax_amount.toLocaleString('en-US', {
-                          style: 'currency',
-                          currency: purchaseOrder.currency || 'USD'
-                        })}
+                        {formatCurrency(purchaseOrder.tax_amount)}
                       </span>
                     </div>
                   )}
@@ -447,10 +434,7 @@ export default function PurchaseOrderDetails() {
                         {purchaseOrder.transport_in_total ? '' : ' (excluded)'}
                       </span>
                       <span>
-                        {purchaseOrder.transport_payment.toLocaleString('en-US', {
-                          style: 'currency',
-                          currency: purchaseOrder.currency || 'USD'
-                        })}
+                        {formatCurrency(purchaseOrder.transport_payment)}
                       </span>
                     </div>
                   )}
@@ -462,10 +446,7 @@ export default function PurchaseOrderDetails() {
                         {purchaseOrder.others_in_total ? '' : ' (excluded)'}
                       </span>
                       <span>
-                        {purchaseOrder.others_payment.toLocaleString('en-US', {
-                          style: 'currency',
-                          currency: purchaseOrder.currency || 'USD'
-                        })}
+                        {formatCurrency(purchaseOrder.others_payment)}
                       </span>
                     </div>
                   )}
@@ -475,10 +456,7 @@ export default function PurchaseOrderDetails() {
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span>
-                      {purchaseOrder.total_amount.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: purchaseOrder.currency || 'USD'
-                      })}
+                      {formatCurrency(purchaseOrder.total_amount)}
                     </span>
                   </div>
                 </div>
@@ -581,10 +559,10 @@ export default function PurchaseOrderDetails() {
                         </div>
                         <div className="text-right">
                           <div className="font-medium">
-                            ${Number(invoice.total_amount).toLocaleString()}
+                            {formatCurrency(Number(invoice.total_amount))}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Outstanding: ${Number(invoice.outstanding_amount).toLocaleString()}
+                            Outstanding: {formatCurrency(Number(invoice.outstanding_amount))}
                           </div>
                         </div>
                       </div>
