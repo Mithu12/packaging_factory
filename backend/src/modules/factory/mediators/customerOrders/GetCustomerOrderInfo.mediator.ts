@@ -454,10 +454,10 @@ export class GetCustomerOrderInfoMediator {
                     COUNT(*) FILTER (WHERE status = 'approved') as approved_orders,
                     COUNT(*) FILTER (WHERE status = 'in_production') as in_production_orders,
                     COUNT(*) FILTER (WHERE status = 'completed') as completed_orders,
-                    COALESCE(SUM(total_value), 0) as total_value,
-                    COALESCE(SUM(total_value) FILTER (WHERE status = 'quoted'), 0) as total_quoted_value,
-                    COALESCE(SUM(total_value) FILTER (WHERE status = 'approved'), 0) as approved_quoted_value,
-                    COALESCE(AVG(total_value), 0) as average_order_value,
+                    COALESCE(SUM(total_value + COALESCE(tax_amount, 0)), 0) as total_value,
+                    COALESCE(SUM(total_value + COALESCE(tax_amount, 0)) FILTER (WHERE status = 'quoted'), 0) as total_quoted_value,
+                    COALESCE(SUM(total_value + COALESCE(tax_amount, 0)) FILTER (WHERE status = 'approved'), 0) as approved_quoted_value,
+                    COALESCE(AVG(total_value + COALESCE(tax_amount, 0)), 0) as average_order_value,
                     COALESCE(
                                     COUNT(*) FILTER (WHERE status = 'completed' AND required_date >= order_date) * 100.0 /
                                     NULLIF(COUNT(*) FILTER (WHERE status = 'completed'), 0),
@@ -473,7 +473,7 @@ export class GetCustomerOrderInfoMediator {
             // Total outstanding (due) balance across ALL non-cancelled orders
             // (not date-scoped) — drives the "Due Order Balance" stat card.
             const dueResult = await client.query(
-                `SELECT COALESCE(SUM(outstanding_amount), 0) AS due_order_balance
+                `SELECT COALESCE(SUM(outstanding_amount + COALESCE(tax_amount, 0)), 0) AS due_order_balance
                    FROM factory_customer_orders
                   WHERE status <> 'cancelled'${factoryFilter}`,
                 queryParams,
