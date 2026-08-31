@@ -405,8 +405,11 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                         <CardContent className="space-y-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">Name</div>
-                                    <div className="text-lg font-semibold">{order.factory_customer_name}</div>
+                                    <div className="text-sm font-medium text-muted-foreground">Company</div>
+                                    <div className="text-lg font-semibold">{order.customer_company || order.factory_customer_name}</div>
+                                    {order.customer_company && (
+                                        <div className="text-sm text-muted-foreground">{order.factory_customer_name}</div>
+                                    )}
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-muted-foreground">Customer ID</div>
@@ -439,8 +442,9 @@ ${order.notes ? `Notes: ${order.notes}` : ""}
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">Order Number</div>
-                                    <div className="text-lg font-semibold">{order.order_number}</div>
+                                    <div className="text-sm font-medium text-muted-foreground">Company PO No</div>
+                                    <div className="text-lg font-semibold">{order.po_number || '—'}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">{order.order_number}</div>
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-muted-foreground">Sales Person</div>
