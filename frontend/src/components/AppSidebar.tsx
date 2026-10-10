@@ -734,6 +734,12 @@ const menuSections: MenuSection[] = [
         permission: PERMISSIONS.SUPPLIERS_READ,
       },
       {
+        title: "Supplier Ledger",
+        url: "/reports/supplier-ledger",
+        icon: Notebook,
+        permission: PERMISSIONS.SUPPLIERS_READ,
+      },
+      {
         title: "Stock vs Order Demand",
         url: "/reports/stock-vs-order-demand",
         icon: Package,

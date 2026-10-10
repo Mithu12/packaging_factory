@@ -48,13 +48,14 @@ const styles = StyleSheet.create({
 });
 
 const col = StyleSheet.create({
-  code: { width: '12%' },
-  name: { width: '24%' },
-  opening: { width: '14%', textAlign: 'right' },
-  invoiced: { width: '14%', textAlign: 'right' },
-  paid: { width: '14%', textAlign: 'right' },
-  due: { width: '14%', textAlign: 'right' },
-  overdue: { width: '8%', textAlign: 'center' },
+  code: { width: '11%' },
+  name: { width: '20%' },
+  opening: { width: '12%', textAlign: 'right' },
+  invoiced: { width: '12%', textAlign: 'right' },
+  paid: { width: '12%', textAlign: 'right' },
+  returned: { width: '11%', textAlign: 'right' },
+  due: { width: '15%', textAlign: 'right' },
+  overdue: { width: '7%', textAlign: 'center' },
 });
 
 export const SupplierDueReportPDF = ({
@@ -96,6 +97,7 @@ export const SupplierDueReportPDF = ({
             <Text style={[styles.tableHeaderCell, col.opening]}>Opening</Text>
             <Text style={[styles.tableHeaderCell, col.invoiced]}>Invoiced</Text>
             <Text style={[styles.tableHeaderCell, col.paid]}>Paid</Text>
+            <Text style={[styles.tableHeaderCell, col.returned]}>Returns</Text>
             <Text style={[styles.tableHeaderCell, col.due]}>Due</Text>
             <Text style={[styles.tableHeaderCell, col.overdue]}>Ovd</Text>
           </View>
@@ -106,6 +108,7 @@ export const SupplierDueReportPDF = ({
               <Text style={[styles.tableCell, col.opening]}>{formatCurrency(s.opening_balance)}</Text>
               <Text style={[styles.tableCell, col.invoiced]}>{formatCurrency(s.total_invoiced)}</Text>
               <Text style={[styles.tableCell, col.paid, { color: '#16a34a' }]}>{formatCurrency(s.total_paid)}</Text>
+              <Text style={[styles.tableCell, col.returned, { color: '#d97706' }]}>{formatCurrency(s.total_returned)}</Text>
               <Text style={[styles.tableCellBold, col.due, { color: s.total_due > 0 ? '#dc2626' : '#16a34a' }]}>{formatCurrency(s.total_due)}</Text>
               <Text style={[styles.tableCell, col.overdue, { color: s.overdue_count > 0 ? '#dc2626' : '#666' }]}>{s.overdue_count}</Text>
             </View>
@@ -117,6 +120,7 @@ export const SupplierDueReportPDF = ({
               <Text style={[styles.tableCellBold, col.opening]}>{formatCurrency(totals.opening_balance)}</Text>
               <Text style={[styles.tableCellBold, col.invoiced]}>{formatCurrency(totals.total_invoiced)}</Text>
               <Text style={[styles.tableCellBold, col.paid]}>{formatCurrency(totals.total_paid)}</Text>
+              <Text style={[styles.tableCellBold, col.returned]}>{formatCurrency(totals.total_returned)}</Text>
               <Text style={[styles.tableCellBold, col.due, { color: '#dc2626' }]}>{formatCurrency(totals.total_due)}</Text>
               <Text style={[styles.tableCellBold, col.overdue]}>{' '}</Text>
             </View>

@@ -164,7 +164,7 @@ export default function Payments() {
       try {
         const suppliersData = await ApiService.getSuppliers({
           status: "active",
-          limit: 100,
+          limit: 1000,
         });
         setSuppliers(
           suppliersData.suppliers.map((supplier: any) => ({

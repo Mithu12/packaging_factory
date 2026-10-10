@@ -241,7 +241,7 @@ export default function SupplierDueReportsPage() {
 
           <Card className="border-none shadow-md">
             <CardHeader className="flex flex-row items-center justify-between">
-              <div><CardTitle>Supplier Dues</CardTitle><CardDescription>Opening balance plus outstanding invoices.</CardDescription></div>
+              <div><CardTitle>Supplier Dues</CardTitle><CardDescription>Opening balance plus invoices, less payments, discounts and purchase returns.</CardDescription></div>
               <Badge variant="outline">{suppliers.length} shown</Badge>
             </CardHeader>
             <CardContent>
@@ -253,6 +253,7 @@ export default function SupplierDueReportsPage() {
                     <TableHead className="text-right">Opening</TableHead>
                     <TableHead className="text-right">Invoiced</TableHead>
                     <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-right">Returns</TableHead>
                     <TableHead className="text-right">Due</TableHead>
                     <TableHead className="text-center">Overdue</TableHead>
                   </TableRow>
@@ -265,12 +266,13 @@ export default function SupplierDueReportsPage() {
                       <TableCell className="text-right">{formatCurrency(s.opening_balance)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(s.total_invoiced)}</TableCell>
                       <TableCell className="text-right text-green-600">{formatCurrency(s.total_paid)}</TableCell>
+                      <TableCell className="text-right text-amber-600">{formatCurrency(s.total_returned)}</TableCell>
                       <TableCell className="text-right font-bold text-red-600">{formatCurrency(s.total_due)}</TableCell>
                       <TableCell className="text-center">
                         {s.overdue_count > 0 ? <Badge variant="destructive">{s.overdue_count}</Badge> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
-                  )) : <TableRow><TableCell colSpan={7} className="h-24 text-center">No supplier dues found.</TableCell></TableRow>}
+                  )) : <TableRow><TableCell colSpan={8} className="h-24 text-center">No supplier dues found.</TableCell></TableRow>}
                 </TableBody>
                 {totals && suppliers.length > 0 && (
                   <TableFooter>
@@ -279,6 +281,7 @@ export default function SupplierDueReportsPage() {
                       <TableCell className="text-right font-bold">{formatCurrency(totals.opening_balance)}</TableCell>
                       <TableCell className="text-right font-bold">{formatCurrency(totals.total_invoiced)}</TableCell>
                       <TableCell className="text-right font-bold text-green-600">{formatCurrency(totals.total_paid)}</TableCell>
+                      <TableCell className="text-right font-bold text-amber-600">{formatCurrency(totals.total_returned)}</TableCell>
                       <TableCell className="text-right font-bold text-red-600">{formatCurrency(totals.total_due)}</TableCell>
                       <TableCell />
                     </TableRow>

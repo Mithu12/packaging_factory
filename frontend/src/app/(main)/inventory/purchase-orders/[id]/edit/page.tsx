@@ -97,7 +97,7 @@ export default function EditPurchaseOrder() {
       // Fetch purchase order, suppliers, and products in parallel
       const [poResponse, suppliersResponse, productsResponse] = await Promise.all([
         PurchaseOrderApi.getPurchaseOrder(parseInt(id!)),
-        SupplierApi.getSuppliers({ limit: 100 }),
+        SupplierApi.getSuppliers({ limit: 1000 }),
         ProductApi.getProducts({ limit: 100 })
       ])
 

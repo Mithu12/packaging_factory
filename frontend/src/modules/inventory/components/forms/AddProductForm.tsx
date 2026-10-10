@@ -293,7 +293,7 @@ export function AddProductForm({
             limit: 100,
             primary_product_types_only: true,
           }),
-          ApiService.getSuppliers({ limit: 100 }),
+          ApiService.getSuppliers({ limit: 1000 }),
         ]);
 
         if (settled[0].status === "fulfilled") {

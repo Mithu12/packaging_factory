@@ -127,7 +127,7 @@ export function RecordPaymentForm({ open, onOpenChange, onPaymentRecorded, payme
       setLoading(true)
       resetForm()
 
-      const suppliersResponse = await SupplierApi.getSuppliers({ limit: 100 })
+      const suppliersResponse = await SupplierApi.getSuppliers({ limit: 1000 })
       setSuppliers(suppliersResponse.suppliers)
 
       // Edit mode: hydrate from the existing payment + its allocations.

@@ -194,7 +194,7 @@ export function CreatePurchaseOrderForm({ open, onOpenChange, onOrderCreated, de
       )
 
       const [suppliersResponse, productsResponse] = await Promise.all([
-        SupplierApi.getSuppliers({ limit: 100 }),
+        SupplierApi.getSuppliers({ limit: 1000 }),
         ProductApi.getProducts({ limit: 100, category_id: rawCategory?.id })
       ])
 

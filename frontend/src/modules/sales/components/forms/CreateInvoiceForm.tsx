@@ -91,7 +91,7 @@ export function CreateInvoiceForm({
   const fetchSuppliers = async () => {
     try {
       setLoading(true)
-      const response = await SupplierApi.getSuppliers({ limit: 100 })
+      const response = await SupplierApi.getSuppliers({ limit: 1000 })
       setSuppliers(response.suppliers)
     } catch (error) {
       console.error('Error fetching suppliers:', error)

@@ -9,7 +9,10 @@ export interface SupplierDueRow {
   phone: string | null;
   opening_balance: number;
   total_invoiced: number;
+  /** Approved payments including discount taken. */
   total_paid: number;
+  /** Approved purchase returns (debit notes). */
+  total_returned: number;
   invoice_outstanding: number;
   total_due: number;
   invoice_count: number;
@@ -20,6 +23,7 @@ export interface SupplierDueTotals {
   opening_balance: number;
   total_invoiced: number;
   total_paid: number;
+  total_returned: number;
   invoice_outstanding: number;
   total_due: number;
   supplier_count: number;

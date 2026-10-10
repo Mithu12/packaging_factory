@@ -37,4 +37,11 @@ router.get(
   expressAsyncHandler(PurchaseReportsController.getSupplierDueReport)
 );
 
+router.get(
+  "/supplier-ledger",
+  authenticate,
+  requirePermission(PERMISSIONS.SUPPLIERS_READ),
+  expressAsyncHandler(PurchaseReportsController.getSupplierLedger)
+);
+
 export default router;

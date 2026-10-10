@@ -1,5 +1,6 @@
 import pool from '@/database/connection';
 import { MyLogger } from '@/utils/new-logger';
+import { SUPPLIER_DUE_SQL, supplierPayablesLateralSql } from '@/utils/supplierPayablesSql';
 
 export interface FactoryDashboardStats {
   // Overview
@@ -264,12 +265,13 @@ export class FactoryDashboardMediator {
       `;
       const workersResult = await pool.query(workersQuery);
 
-      // Total supplier dues (opening balances + outstanding invoice amounts)
+      // Total supplier dues — same formula as the Supplier Due report / Ledger.
+      // Advances (negative dues) are not netted off, matching the report's
+      // default "only suppliers with dues" total.
       const supplierDuesQuery = `
-        SELECT COALESCE(SUM(s.opening_balance), 0)::float
-             + COALESCE(SUM(i.outstanding_amount), 0)::float as total_supplier_dues
+        SELECT COALESCE(SUM(GREATEST(${SUPPLIER_DUE_SQL}, 0)), 0)::float as total_supplier_dues
         FROM suppliers s
-        LEFT JOIN invoices i ON s.id = i.supplier_id AND i.status <> 'cancelled'
+        ${supplierPayablesLateralSql()}
         WHERE s.status = 'active'
       `;
       const supplierDuesResult = await pool.query(supplierDuesQuery);

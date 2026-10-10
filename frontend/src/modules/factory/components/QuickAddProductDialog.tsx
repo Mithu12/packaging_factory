@@ -139,7 +139,7 @@ export function QuickAddProductDialog({
           limit: 100,
           primary_product_types_only: true,
         }),
-        SupplierApi.getSuppliers({ limit: 100 }),
+        SupplierApi.getSuppliers({ limit: 1000 }),
       ]);
       if (settled[0].status === "fulfilled") {
         setCategories(extractCategoriesFromResponse(settled[0].value));
