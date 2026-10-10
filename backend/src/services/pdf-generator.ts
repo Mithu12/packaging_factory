@@ -29,7 +29,7 @@ export class PDFGenerator {
     return path.join(__dirname, '..', 'utils', QUOTATION_LOGO_FILE);
   }
 
-  /** Letterhead background applied to invoice + challan PDFs. */
+  /** Letterhead background applied to purchase order + monthly bill PDFs. */
   private static getBillBackgroundPath(): string {
     return path.join(__dirname, '..', 'utils', BILL_BACKGROUND_FILE);
   }
@@ -1330,41 +1330,24 @@ export class PDFGenerator {
     // billing_line freeform input doesn't force a visual wrap.
     const customerAddressOneLine = customerAddress.replace(/\s*\r?\n\s*/g, ', ').trim();
 
-    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
-    const hasBillBg = Boolean(billBgBase64);
-
     return `
 <!DOCTYPE html>
-<html${hasBillBg ? ' class="bill-with-bg"' : ''}>
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Bill ${escapeHtml(order.order_number || '')}</title>
     <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        ${hasBillBg ? `
-        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
-        .bill-bg-layer {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; height: 100%;
-            z-index: 0; pointer-events: none;
-            background-image: url("${billBgBase64}");
-            background-repeat: no-repeat;
-            background-position: center top;
-            background-size: 100% 100%;
-            -webkit-print-color-adjust: exact; print-color-adjust: exact;
-        }
-        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
-        ` : ''}
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
-            background: ${hasBillBg ? 'transparent' : 'white'};
+            background: white;
             line-height: 1.35;
         }
-        /* Top padding leaves space for the pre-printed company letterhead;
-           bottom padding clears the footer band on the background image. */
+        /* Printed on pre-printed letterhead pads: top/bottom padding keeps
+           content clear of the pad's header and footer bands. */
         .page { padding: 50mm 18mm 25mm 18mm; }
         .title {
             text-align: center;
@@ -1462,7 +1445,6 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
-    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="page">
         <div class="title">INVOICE</div>
 
@@ -1578,8 +1560,6 @@ export class PDFGenerator {
         }
       }
 
-      const billBg = this.loadBillBackgroundBase64(action);
-      if (billBg) settingsData.bill_background_base64 = billBg;
 
       // Load persisted invoice totals so the printed numbers match the
       // ledger exactly (multi-rate VAT, paisa precision).
@@ -1609,7 +1589,7 @@ export class PDFGenerator {
       // Generate PDF
       const pdfBuffer = await page.pdf({
         format: 'A4',
-        printBackground: true, // Need this for the background gradient
+        printBackground: true,
         margin: {
           top: '0px',
           right: '0px',
@@ -1747,14 +1727,6 @@ export class PDFGenerator {
     const totalQty = challanRows.reduce((sum, r) => sum + r.quantity, 0);
     const totalInWords = numberToWords(Math.round(totalQty));
 
-    // Header letterhead — settings-driven, with fallbacks.
-    const companyName = settings?.company_name || 'Company Name';
-    const companyNameBn = settings?.company_name_bn || '';
-    const companyAddress = settings?.company_address || '';
-    const phone = settings?.phone || '';
-    const email = settings?.company_email || '';
-    const tagline = settings?.company_tagline || '';
-
     // Detail fields
     const challanNo = delivery?.delivery_number || order.order_number || '';
     const deliveryDate = formatDate(delivery?.delivery_date);
@@ -1792,68 +1764,25 @@ export class PDFGenerator {
     const customerPoDate = formatDate(touchedChallanPoDates[0] ?? order.po_date);
     const vatNo = delivery?.vat_number || order.customer_vat_number || '';
 
-    const billBgBase64 = settings?.bill_background_base64 as string | undefined;
-    const hasBillBg = Boolean(billBgBase64);
-
     return `
 <!DOCTYPE html>
-<html${hasBillBg ? ' class="bill-with-bg"' : ''}>
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Challan ${escapeHtml(delivery?.delivery_number || order.order_number || '')}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&display=swap" rel="stylesheet">
     <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        ${hasBillBg ? `
-        html.bill-with-bg, html.bill-with-bg body { background: #ffffff; }
-        .bill-bg-layer {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; height: 100%;
-            z-index: 0; pointer-events: none;
-            background-image: url("${billBgBase64}");
-            background-repeat: no-repeat;
-            background-position: center top;
-            background-size: 100% 100%;
-            -webkit-print-color-adjust: exact; print-color-adjust: exact;
-        }
-        html.bill-with-bg body > *:not(.bill-bg-layer) { position: relative; z-index: 1; }
-        ` : ''}
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
-            background: ${hasBillBg ? 'transparent' : 'white'};
+            background: white;
             line-height: 1.35;
         }
-        .bn { font-family: 'Noto Sans Bengali', 'SolaimanLipi', 'Kalpurush', sans-serif; }
-        /* When the background letterhead is applied, reserve the header / footer bands. */
-        .page { padding: ${hasBillBg ? '50mm 18mm 25mm 18mm' : '18mm 18mm 20mm 18mm'}; }
-
-        .letterhead { text-align: center; margin-bottom: 8px; }
-        .letterhead .company-name {
-            font-weight: bold;
-            font-size: 18pt;
-            letter-spacing: 0.5px;
-        }
-        .letterhead .company-name-bn {
-            font-weight: bold;
-            font-size: 15pt;
-            margin-top: 2px;
-        }
-        .letterhead .address,
-        .letterhead .phone,
-        .letterhead .email {
-            font-size: 10.5pt;
-            margin-top: 4px;
-        }
-        .letterhead .tagline {
-            font-weight: bold;
-            font-size: 10.5pt;
-            margin-top: 4px;
-        }
+        /* Printed on pre-printed letterhead pads: top/bottom padding keeps
+           content clear of the pad's header and footer bands. */
+        .page { padding: 50mm 18mm 25mm 18mm; }
 
         .challan-tag-wrap { text-align: center; margin: 10px 0 12px 0; }
         .challan-tag {
@@ -1947,17 +1876,7 @@ export class PDFGenerator {
     </style>
 </head>
 <body>
-    ${hasBillBg ? '<div class="bill-bg-layer" aria-hidden="true"></div>' : ''}
     <div class="page">
-        ${hasBillBg ? '' : `<div class="letterhead">
-            <div class="company-name">${escapeHtml(companyName)}</div>
-            ${companyNameBn ? `<div class="company-name-bn bn">${escapeHtml(companyNameBn)}</div>` : ''}
-            ${companyAddress ? `<div class="address">${escapeHtml(companyAddress)}</div>` : ''}
-            ${phone ? `<div class="phone">Mobile : ${escapeHtml(phone)}</div>` : ''}
-            ${email ? `<div class="email">E-mail : ${escapeHtml(email)}</div>` : ''}
-            ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
-        </div>`}
-
         <div class="challan-tag-wrap">
             <div class="challan-tag">CHALLAN</div>
         </div>
@@ -2058,8 +1977,6 @@ export class PDFGenerator {
         }
       }
 
-      const billBg = this.loadBillBackgroundBase64(action);
-      if (billBg) settingsData.bill_background_base64 = billBg;
 
       const browser = await this.getBrowser();
       const page = await browser.newPage();
