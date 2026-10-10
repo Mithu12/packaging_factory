@@ -16,6 +16,13 @@ const QUOTATION_PDF_BACKGROUND_FILE = 'quotation-pdf-background.png';
 const QUOTATION_LOGO_FILE = 'quotation-logo.png';
 const BILL_BACKGROUND_FILE = 'bill_background.jpg';
 
+// Invoice + challan print on pre-printed letterhead pads. These are applied as
+// PDF page margins (not body padding) so every sheet — not just the first —
+// keeps content clear of the pad's printed header and footer bands.
+const PAD_MARGIN_TOP_MM = 50;
+const PAD_MARGIN_BOTTOM_MM = 25;
+const MM_TO_PX = 96 / 25.4; // Chromium lays out print at 96 CSS px per inch
+
 export class PDFGenerator {
   private static browser: Browser | null = null;
 
@@ -1337,7 +1344,7 @@ export class PDFGenerator {
     <meta charset="UTF-8">
     <title>Bill ${escapeHtml(order.order_number || '')}</title>
     <style>
-        @page { size: A4; margin: 0; }
+        @page { size: A4; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
@@ -1346,9 +1353,8 @@ export class PDFGenerator {
             background: white;
             line-height: 1.35;
         }
-        /* Printed on pre-printed letterhead pads: top/bottom padding keeps
-           content clear of the pad's header and footer bands. */
-        .page { padding: 50mm 18mm 25mm 18mm; }
+        /* Top/bottom pad bands come from the PDF page margins (PAD_MARGIN_*). */
+        .page { padding: 0 18mm; }
         .title {
             text-align: center;
             font-weight: bold;
@@ -1422,11 +1428,13 @@ export class PDFGenerator {
         }
 
         .in-words {
+            break-after: avoid; /* never strand the signatures on their own page */
             margin-top: 24px;
             font-weight: bold;
         }
 
         .signatures {
+            break-inside: avoid;
             margin-top: 70px;
             display: flex;
             justify-content: space-between;
@@ -1530,6 +1538,49 @@ export class PDFGenerator {
   }
 
   // Generate PDF for invoice (Bill)
+  /**
+   * Invoice + challan reserve a fixed-height blank "filler" row under the items
+   * so the table looks tall on the pad. With a few extra description lines that
+   * fixed height pushes the signatures onto a second page even though the
+   * filler alone has the room. Shrink the filler by exactly the overflow so the
+   * document stays on one A4 page. If that isn't enough, drop the filler and
+   * tighten the gap above the signatures; if it still can't fit, the filler stays
+   * dropped so the spill-over page isn't padded with blank rows.
+   */
+  private static async fitFillerToSinglePage(page: Page): Promise<void> {
+    // A4 width at Chromium's 96dpi; height = printable area between pad bands.
+    const printableHeightPx = Math.floor((297 - PAD_MARGIN_TOP_MM - PAD_MARGIN_BOTTOM_MM) * MM_TO_PX);
+    await page.setViewport({ width: 794, height: printableHeightPx });
+    await page.emulateMediaType('print');
+    // Runs in the browser; passed as a string because the backend tsconfig has
+    // no DOM lib.
+    await page.evaluate(`(() => {
+      const PRINTABLE_HEIGHT_PX = ${printableHeightPx};
+      const MIN_FILLER_PX = 24;
+      const MIN_SIGNATURE_GAP_PX = 32; // still room to sign above the line
+      const overflow = () => document.documentElement.scrollHeight - PRINTABLE_HEIGHT_PX;
+      if (overflow() <= 0) return;
+
+      const cells = Array.from(document.querySelectorAll('.filler-row td'));
+      if (cells.length > 0) {
+        const target = cells[0].getBoundingClientRect().height - overflow();
+        if (target >= MIN_FILLER_PX) {
+          cells.forEach(td => { td.style.height = Math.floor(target) + 'px'; });
+          return;
+        }
+        cells[0].parentElement.style.display = 'none';
+      }
+
+      const signatures = document.querySelector('.signatures');
+      const remaining = overflow();
+      if (!signatures || remaining <= 0) return;
+      const gap = parseFloat(getComputedStyle(signatures).marginTop) || 0;
+      if (gap - remaining >= MIN_SIGNATURE_GAP_PX) {
+        signatures.style.marginTop = Math.floor(gap - remaining) + 'px';
+      }
+    })()`);
+  }
+
   public static async generateInvoicePDF(
     order: FactoryCustomerOrder,
     delivery?: import('@/types/factory').Delivery
@@ -1585,15 +1636,16 @@ export class PDFGenerator {
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
+      await this.fitFillerToSinglePage(page);
 
       // Generate PDF
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
         margin: {
-          top: '0px',
+          top: `${PAD_MARGIN_TOP_MM}mm`,
           right: '0px',
-          bottom: '0px',
+          bottom: `${PAD_MARGIN_BOTTOM_MM}mm`,
           left: '0px'
         }
       });
@@ -1771,7 +1823,7 @@ export class PDFGenerator {
     <meta charset="UTF-8">
     <title>Challan ${escapeHtml(delivery?.delivery_number || order.order_number || '')}</title>
     <style>
-        @page { size: A4; margin: 0; }
+        @page { size: A4; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: Calibri, Arial, Helvetica, sans-serif;
@@ -1780,9 +1832,8 @@ export class PDFGenerator {
             background: white;
             line-height: 1.35;
         }
-        /* Printed on pre-printed letterhead pads: top/bottom padding keeps
-           content clear of the pad's header and footer bands. */
-        .page { padding: 50mm 18mm 25mm 18mm; }
+        /* Top/bottom pad bands come from the PDF page margins (PAD_MARGIN_*). */
+        .page { padding: 0 18mm; }
 
         .challan-tag-wrap { text-align: center; margin: 10px 0 12px 0; }
         .challan-tag {
@@ -1853,11 +1904,13 @@ export class PDFGenerator {
         .totals-row td.label { text-align: right; }
 
         .in-words {
+            break-after: avoid; /* never strand the signatures on their own page */
             margin-top: 20px;
             font-size: 10.5pt;
         }
 
         .signatures {
+            break-inside: avoid;
             margin-top: 70px;
             display: flex;
             justify-content: space-between;
@@ -1986,15 +2039,16 @@ export class PDFGenerator {
 
       // Set content and wait for it to load
       await page.setContent(html, { waitUntil: 'networkidle0' });
+      await this.fitFillerToSinglePage(page);
 
       // Generate PDF
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true, 
         margin: {
-          top: '0px',
+          top: `${PAD_MARGIN_TOP_MM}mm`,
           right: '0px',
-          bottom: '0px',
+          bottom: `${PAD_MARGIN_BOTTOM_MM}mm`,
           left: '0px'
         }
       });
