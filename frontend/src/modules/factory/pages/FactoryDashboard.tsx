@@ -129,6 +129,11 @@ export default function FactoryDashboard() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
+  // Backend resolves these from the user's role (super admin only) and the
+  // Settings → Dashboard toggles, and zeroes finance figures for everyone else.
+  const showFinance = stats?.visibility?.finance ?? false;
+  const showCustomerPayments = stats?.visibility?.customer_payments ?? false;
+
   // Render one of the four admin-mapped stock cards. Unmapped slots become a
   // dashed, clickable card that deep-links to Settings → Dashboard.
   const renderStockCard = (
@@ -262,6 +267,7 @@ export default function FactoryDashboard() {
       </div>
 
       {/* Finance */}
+      {showFinance && (
       <div className="space-y-3">
         <SectionHeading>Finance</SectionHeading>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -307,9 +313,10 @@ export default function FactoryDashboard() {
           />
         </div>
       </div>
+      )}
 
       {/* Inventory Overview & Customer Payments */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={cn("grid grid-cols-1 gap-6", showCustomerPayments && "lg:grid-cols-2")}>
         <Card className="bg-orange-50/50 border-orange-100 dark:bg-orange-950/20 dark:border-orange-900 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -363,6 +370,7 @@ export default function FactoryDashboard() {
           </CardContent>
         </Card>
 
+        {showCustomerPayments && (
         <Card className="bg-violet-50/50 border-violet-100 dark:bg-violet-950/20 dark:border-violet-900 shadow-md hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -409,6 +417,7 @@ export default function FactoryDashboard() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Performance Metrics */}

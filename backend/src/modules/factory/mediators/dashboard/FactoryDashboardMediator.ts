@@ -64,10 +64,27 @@ export interface FactoryDashboardStats {
     silicate_gum: number | null;
     stitching_wire: number | null;
   };
+
+  // Which super-admin-only sections the requesting user should see
+  // (role is admin AND the section is enabled in Settings → Dashboard).
+  visibility: {
+    finance: boolean;
+    customer_payments: boolean;
+  };
 }
 
+// Finance figures are only exposed to super admins; zeroed for everyone else.
+const FINANCE_FIELDS = [
+  'daily_revenue',
+  'daily_expenses',
+  'electricity_bill_month',
+  'total_outstanding_dues',
+  'customers_with_dues',
+  'total_supplier_dues',
+] as const;
+
 export class FactoryDashboardMediator {
-  static async getDashboardStats(userId: number): Promise<FactoryDashboardStats> {
+  static async getDashboardStats(userId: number, isSuperAdmin: boolean): Promise<FactoryDashboardStats> {
     const action = 'Get Factory Dashboard Stats';
 
     try {
@@ -259,7 +276,11 @@ export class FactoryDashboardMediator {
 
       // Admin-mapped product stock levels (Media/Liner Paper, Silicate Gum,
       // Stitching Wire). Mapping lives in settings(category='factory_dashboard').
-      const namedStock = await this.getNamedStock();
+      const settingsRes = await pool.query<{ key: string; value: string }>(
+        `SELECT key, value FROM settings WHERE category = 'factory_dashboard'`
+      );
+      const namedStock = await this.getNamedStock(settingsRes.rows);
+      const visibility = this.getVisibility(settingsRes.rows, isSuperAdmin);
 
       const stats: FactoryDashboardStats = {
         // Overview
@@ -319,7 +340,13 @@ export class FactoryDashboardMediator {
 
         // Mapped product stock
         named_stock: namedStock,
+
+        visibility,
       };
+
+      if (!isSuperAdmin) {
+        for (const field of FINANCE_FIELDS) stats[field] = 0;
+      }
 
       MyLogger.success(action, stats);
 
@@ -331,12 +358,31 @@ export class FactoryDashboardMediator {
   }
 
   /**
+   * Super-admin-only sections. Toggles live in settings(category='factory_dashboard',
+   * key in {show_finance_section,show_customer_payments_card}); a missing key
+   * means "shown" so existing installs keep their current dashboard.
+   */
+  private static getVisibility(
+    settingsRows: { key: string; value: string }[],
+    isSuperAdmin: boolean
+  ): FactoryDashboardStats['visibility'] {
+    const enabled = (key: string) =>
+      settingsRows.find(r => r.key === key)?.value !== 'false';
+    return {
+      finance: isSuperAdmin && enabled('show_finance_section'),
+      customer_payments: isSuperAdmin && enabled('show_customer_payments_card'),
+    };
+  }
+
+  /**
    * Resolve the four admin-mapped dashboard products to their current stock.
    * The mapping (product ids) is stored in settings(category='factory_dashboard',
    * key in {media_paper,liner_paper,silicate_gum,stitching_wire}_product_id).
    * Returns null for any slot that is unmapped or whose product no longer exists.
    */
-  private static async getNamedStock(): Promise<FactoryDashboardStats['named_stock']> {
+  private static async getNamedStock(
+    settingsRows: { key: string; value: string }[]
+  ): Promise<FactoryDashboardStats['named_stock']> {
     const slots = [
       'media_paper',
       'liner_paper',
@@ -351,12 +397,8 @@ export class FactoryDashboardMediator {
       stitching_wire: null,
     };
 
-    // Read the configured product ids.
-    const settingsRes = await pool.query<{ key: string; value: string }>(
-      `SELECT key, value FROM settings WHERE category = 'factory_dashboard'`
-    );
     const idByKey = new Map<string, number>();
-    for (const row of settingsRes.rows) {
+    for (const row of settingsRows) {
       const id = parseInt(row.value, 10);
       if (Number.isFinite(id) && id > 0) idByKey.set(row.key, id);
     }

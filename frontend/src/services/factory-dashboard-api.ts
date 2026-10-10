@@ -71,6 +71,11 @@ export interface FactoryDashboardStats {
     silicate_gum: number | null;
     stitching_wire: number | null;
   };
+  // Super-admin-only sections, already filtered by role + dashboard settings
+  visibility?: {
+    finance: boolean;
+    customer_payments: boolean;
+  };
 }
 
 // =====================================================

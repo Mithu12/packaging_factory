@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +26,8 @@ import {
   Facebook,
   CreditCard,
   Building2,
-  LayoutDashboard
+  LayoutDashboard,
+  Eye
 } from "lucide-react"
 import {
   Tabs,
@@ -43,6 +45,7 @@ import {
 import { toast } from "@/components/ui/sonner"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SettingsApi } from "@/services/settings-api"
+import { factoryDashboardQueryKeys } from "@/services/factory-dashboard-api"
 import { ProductsApiService, Product } from "@/services/products-api"
 import {
   CompanySettings,
@@ -57,6 +60,7 @@ import {
 
 export default function Settings() {
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const VALID_TABS = ["general", "dashboard", "payroll", "notifications", "security", "integrations"]
   const requestedTab = searchParams?.get("tab")
   const [loading, setLoading] = useState(true)
@@ -127,7 +131,9 @@ export default function Settings() {
     media_paper_product_id: '',
     liner_paper_product_id: '',
     silicate_gum_product_id: '',
-    stitching_wire_product_id: ''
+    stitching_wire_product_id: '',
+    show_finance_section: true,
+    show_customer_payments_card: true
   })
   const [products, setProducts] = useState<Product[]>([])
   
@@ -175,6 +181,8 @@ export default function Settings() {
             liner_paper_product_id: '',
             silicate_gum_product_id: '',
             stitching_wire_product_id: '',
+            show_finance_section: true,
+            show_customer_payments_card: true,
           })),
         ])
         setProducts(
@@ -187,6 +195,8 @@ export default function Settings() {
           liner_paper_product_id: dashboard?.liner_paper_product_id || prev.liner_paper_product_id,
           silicate_gum_product_id: dashboard?.silicate_gum_product_id || prev.silicate_gum_product_id,
           stitching_wire_product_id: dashboard?.stitching_wire_product_id || prev.stitching_wire_product_id,
+          show_finance_section: dashboard?.show_finance_section ?? prev.show_finance_section,
+          show_customer_payments_card: dashboard?.show_customer_payments_card ?? prev.show_customer_payments_card,
         }))
       } catch (error) {
         console.error('Error loading dashboard mapping:', error)
@@ -300,6 +310,9 @@ export default function Settings() {
           break
         case 'dashboard':
           await SettingsApi.updateDashboardSettings(dashboardSettings)
+          // Dashboard stats embed the stock mapping + section visibility; drop the
+          // cached copy so the change shows immediately instead of after staleTime.
+          await queryClient.invalidateQueries({ queryKey: factoryDashboardQueryKeys.all })
           break
         case 'integrations':
           await SettingsApi.updateIntegrationSettings(integrationSettings)
@@ -1030,6 +1043,37 @@ export default function Settings() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5" />
+                  <CardTitle>Factory Dashboard Sections</CardTitle>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  These sections are only ever visible to super admins. Turn them off to hide them for super admins too.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {([
+                  { key: 'show_finance_section', label: 'Finance', description: 'Daily revenue, expenses, electricity bill, outstanding and supplier dues' },
+                  { key: 'show_customer_payments_card', label: 'Customer Payments', description: 'Total outstanding and customers with dues' },
+                ] as const).map(({ key, label, description }) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">{label}</Label>
+                      <p className="text-sm text-muted-foreground">{description}</p>
+                    </div>
+                    <Switch
+                      checked={dashboardSettings[key]}
+                      onCheckedChange={(checked) =>
+                        setDashboardSettings(prev => ({ ...prev, [key]: checked }))
+                      }
+                    />
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>

@@ -109,8 +109,13 @@ class SettingsApiService {
 
   async getDashboardSettings(): Promise<DashboardSettings> {
     const settings = await this.getSettingsByCategory('factory_dashboard');
-    const result: any = {};
+    // Visibility toggles default to shown when never saved.
+    const result: any = { show_finance_section: true, show_customer_payments_card: true };
     Object.values(settings).forEach(setting => {
+      if (setting.key.startsWith('show_')) {
+        result[setting.key] = String(setting.value) !== 'false';
+        return;
+      }
       // ids are stored as numbers; surface them as strings for the picker
       result[setting.key] = setting.value != null ? String(setting.value) : '';
     });

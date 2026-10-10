@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { FactoryDashboardMediator } from '../mediators/dashboard/FactoryDashboardMediator';
 import { serializeSuccessResponse } from '@/utils/responseHelper';
+import { RoleMediator } from '@/mediators/rbac/RoleMediator';
 
 /**
  * @desc    Get factory dashboard statistics
@@ -11,7 +12,8 @@ import { serializeSuccessResponse } from '@/utils/responseHelper';
 export const getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.user_id;
 
-  const stats = await FactoryDashboardMediator.getDashboardStats(userId);
+  const isSuperAdmin = await RoleMediator.isSystemAdmin(userId);
+  const stats = await FactoryDashboardMediator.getDashboardStats(userId, isSuperAdmin);
 
   serializeSuccessResponse(res, stats, 'Dashboard statistics retrieved successfully');
 });

@@ -93,6 +93,9 @@ export interface DashboardSettings {
   liner_paper_product_id: string;
   silicate_gum_product_id: string;
   stitching_wire_product_id: string;
+  /** Super-admin-only sections; still hidden from everyone else when enabled. */
+  show_finance_section: boolean;
+  show_customer_payments_card: boolean;
 }
 
 export interface IntegrationSettings {
